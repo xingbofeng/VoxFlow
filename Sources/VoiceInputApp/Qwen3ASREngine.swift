@@ -7,6 +7,11 @@ private final class ManagerBox: @unchecked Sendable {
     init(_ value: Any) { self.value = value }
 }
 
+private final class Qwen3CallbackBox: @unchecked Sendable {
+    var onTranscription: ((String, Bool) -> Void)?
+    var onError: ((Error) -> Void)?
+}
+
 struct Qwen3StreamingUpdate: Sendable, Equatable {
     let transcript: String
     let isFinal: Bool
@@ -65,12 +70,19 @@ private struct FluidAudioQwen3StreamingSession: Qwen3StreamingSession {
 final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
     // MARK: - ASREngine
 
-    var onTranscription: ((String, Bool) -> Void)?
-    var onError: ((Error) -> Void)?
+    var onTranscription: ((String, Bool) -> Void)? {
+        get { callbacks.onTranscription }
+        set { callbacks.onTranscription = newValue }
+    }
+    var onError: ((Error) -> Void)? {
+        get { callbacks.onError }
+        set { callbacks.onError = newValue }
+    }
     private(set) var isAvailable: Bool
 
     // MARK: - Properties
 
+    private let callbacks = Qwen3CallbackBox()
     /// Path to the FluidAudio-compatible Qwen3-ASR model directory.
     private let modelPath: String?
     private let sessionFactory: any Qwen3StreamingSessionMaking
@@ -151,20 +163,21 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
         if let resampled = AudioPreprocessor.resampleTo16kHz(buffer) {
             audioBuffer.append(contentsOf: resampled)
             let sessionTask = sessionTask
-            let task = Task { [weak self, resampled] in
+            let callbacks = callbacks
+            let task = Task { [resampled] in
                 do {
                     guard let sessionTask else { return }
                     let session = try await sessionTask.value.value as! any Qwen3StreamingSession
                     if let update = try await session.addAudio(resampled),
                        !update.transcript.isEmpty {
                         await MainActor.run {
-                            self?.onTranscription?(update.transcript, update.isFinal)
+                            callbacks.onTranscription?(update.transcript, update.isFinal)
                         }
                     }
                 } catch is CancellationError {
                 } catch {
                     await MainActor.run {
-                        self?.onError?(error)
+                        callbacks.onError?(error)
                     }
                 }
             }
@@ -180,9 +193,11 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
 
         let samples = audioBuffer
         let languageHint = languageHint
+        let sessionFactory = sessionFactory
+        let callbacks = callbacks
 
         guard !samples.isEmpty else {
-            onTranscription?("", true)
+            callbacks.onTranscription?("", true)
             return
         }
 
@@ -206,7 +221,7 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
                 } else {
                     // Fallback: load now (shouldn't normally happen).
                     let url = URL(fileURLWithPath: modelPath, isDirectory: true)
-                    session = try await self.sessionFactory.makeSession(
+                    session = try await sessionFactory.makeSession(
                         modelURL: url,
                         languageHint: languageHint
                     )
@@ -214,14 +229,12 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
                 }
 
                 let update = try await session.finish()
-                let capturedOnTranscription = onTranscription
                 await MainActor.run {
-                    capturedOnTranscription?(update.transcript, true)
+                    callbacks.onTranscription?(update.transcript, true)
                 }
             } catch {
-                let capturedOnError = onError
                 await MainActor.run {
-                    capturedOnError?(error)
+                    callbacks.onError?(error)
                 }
             }
         }
