@@ -27,6 +27,7 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
 
     private let engine = AVAudioEngine()
     private(set) var isRecording = false
+    var voiceEnhancementEnabled = true
     weak var delegate: Delegate?
 
     // MARK: - Permission
@@ -67,6 +68,9 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
             let rms = Self.calculateRMS(from: buffer)
+            if self.voiceEnhancementEnabled {
+                Self.applyVoiceEnhancement(to: buffer, normalizedRMS: rms)
+            }
             let capturedDelegate = self.delegate
             DispatchQueue.main.async {
                 capturedDelegate?.audioRecorder(self, didReceiveBuffer: buffer)
@@ -129,5 +133,27 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         let db = 20.0 * log10(max(rms, 1e-6))
         let normalized = max(0.0, min(1.0, (db + 50.0) / 50.0))
         return normalized
+    }
+
+    static func voiceEnhancementGain(normalizedRMS: Float) -> Float {
+        guard normalizedRMS > 0, normalizedRMS < 0.45 else { return 1 }
+        return min(2.2, max(1, 0.35 / max(normalizedRMS, 0.05)))
+    }
+
+    private static func applyVoiceEnhancement(
+        to buffer: AVAudioPCMBuffer,
+        normalizedRMS: Float
+    ) {
+        let gain = voiceEnhancementGain(normalizedRMS: normalizedRMS)
+        guard gain > 1, let channels = buffer.floatChannelData else { return }
+
+        let frameCount = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        for channelIndex in 0..<channelCount {
+            let channel = channels[channelIndex]
+            for sampleIndex in 0..<frameCount {
+                channel[sampleIndex] = tanh(channel[sampleIndex] * gain)
+            }
+        }
     }
 }

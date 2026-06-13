@@ -47,11 +47,12 @@ struct SidebarView: View {
                     : Color.clear
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
                     .stroke(
                         isSelected
                             ? AppTheme.ColorToken.selectionBorder
-                            : Color.clear
+                            : Color.clear,
+                        lineWidth: AppTheme.Border.selectedLineWidth
                     )
             )
             .overlay(alignment: .leading) {
@@ -62,7 +63,7 @@ struct SidebarView: View {
                         .padding(.leading, 3)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

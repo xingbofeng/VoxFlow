@@ -33,6 +33,7 @@ struct GlossaryView: View {
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .fileImporter(
             isPresented: $isImporterPresented,
             allowedContentTypes: [.plainText],
@@ -102,7 +103,7 @@ struct GlossaryView: View {
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .frame(minHeight: 64, maxHeight: 100)
-                        .background(AppTheme.ColorToken.pageBackground)
+                        .background(AppTheme.ColorToken.panelBackground)
                         .overlay(controlBorder)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control))
                 }
@@ -142,16 +143,15 @@ struct GlossaryView: View {
                                 viewModel.deleteTerm(id: item.id)
                             } label: {
                                 Image(systemName: "trash")
-                                    .frame(width: 26, height: 26)
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.borderless)
                             .foregroundStyle(.red)
                             .help("删除")
                         }
                         .padding(12)
-                        .background(AppTheme.ColorToken.panelBackground)
-                        .overlay(cardBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                        .appPanel()
                     }
                 }
             }
@@ -198,16 +198,15 @@ struct GlossaryView: View {
                                 viewModel.deleteReplacementRule(id: rule.id)
                             } label: {
                                 Image(systemName: "trash")
-                                    .frame(width: 26, height: 26)
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.borderless)
                             .foregroundStyle(.red)
                             .help("删除")
                         }
                         .padding(12)
-                        .background(AppTheme.ColorToken.panelBackground)
-                        .overlay(cardBorder)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                        .appPanel()
                     }
                 }
             }
@@ -216,13 +215,8 @@ struct GlossaryView: View {
     }
 
     private var controlBorder: some View {
-        RoundedRectangle(cornerRadius: AppTheme.Radius.control)
-            .stroke(AppTheme.ColorToken.panelStroke)
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: AppTheme.Radius.card)
-            .stroke(AppTheme.ColorToken.panelStroke)
+        RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
     }
 
     private func emptyState(_ text: String) -> some View {
@@ -274,8 +268,8 @@ private struct GlossarySectionButton: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.accent)
                     .frame(width: 42, height: 42)
-                    .background(AppTheme.ColorToken.accent.opacity(isSelected ? 0.16 : 0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(isSelected ? AppTheme.ColorToken.accentSoft : AppTheme.ColorToken.controlBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 15, weight: .semibold))
@@ -293,14 +287,16 @@ private struct GlossarySectionButton: View {
                     : AppTheme.ColorToken.panelBackground
             )
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.card)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
                     .stroke(
                         isSelected
-                            ? AppTheme.ColorToken.accent.opacity(0.45)
-                            : AppTheme.ColorToken.panelStroke
+                            ? AppTheme.ColorToken.selectionBorder
+                            : AppTheme.ColorToken.panelStroke,
+                        lineWidth: AppTheme.Border.panelLineWidth
                     )
             )
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            .shadow(color: AppTheme.ColorToken.accent.opacity(isSelected ? 0.05 : 0.025), radius: 6, y: 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -311,11 +307,6 @@ private extension View {
     func panelStyle() -> some View {
         self
             .padding(AppTheme.Spacing.card)
-            .background(AppTheme.ColorToken.panelBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.card)
-                    .stroke(AppTheme.ColorToken.panelStroke)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+            .appPanel()
     }
 }

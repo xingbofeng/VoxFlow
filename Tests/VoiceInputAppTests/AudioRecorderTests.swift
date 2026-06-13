@@ -15,6 +15,13 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(AudioRecorder.calculateRMS(from: buffer), 1, accuracy: 0.0001)
     }
 
+    func testVoiceEnhancementBoostsQuietSpeechButLeavesSilenceAndLoudAudioStable() {
+        XCTAssertEqual(AudioRecorder.voiceEnhancementGain(normalizedRMS: 0), 1)
+        XCTAssertGreaterThan(AudioRecorder.voiceEnhancementGain(normalizedRMS: 0.15), 1)
+        XCTAssertEqual(AudioRecorder.voiceEnhancementGain(normalizedRMS: 0.6), 1)
+        XCTAssertLessThanOrEqual(AudioRecorder.voiceEnhancementGain(normalizedRMS: 0.01), 2.2)
+    }
+
     private func makeBuffer(samples: [Float]) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(
             AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)

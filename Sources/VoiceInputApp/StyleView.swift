@@ -8,12 +8,13 @@ struct StyleView: View {
         HStack(spacing: 0) {
             styleList
                 .frame(width: 300)
-                .background(AppTheme.ColorToken.panelBackground)
+                .background(AppTheme.ColorToken.sidebarBackground)
             Divider()
             editor
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .onAppear {
             viewModel.load()
             prompt = viewModel.selectedProfile?.prompt ?? ""
@@ -52,20 +53,17 @@ struct StyleView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 11)
                             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-                            .background(
-                                viewModel.selectedProfile?.id == profile.id
-                                    ? AppTheme.ColorToken.accent.opacity(0.14)
-                                    : Color.clear
-                            )
+                            .background(viewModel.selectedProfile?.id == profile.id ? AppTheme.ColorToken.selectionBackground : Color.clear)
                             .overlay(
-                                RoundedRectangle(cornerRadius: AppTheme.Radius.card)
+                                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
                                     .stroke(
                                         viewModel.selectedProfile?.id == profile.id
-                                            ? AppTheme.ColorToken.accent.opacity(0.5)
-                                            : Color.clear
+                                            ? AppTheme.ColorToken.selectionBorder
+                                            : Color.clear,
+                                        lineWidth: AppTheme.Border.selectedLineWidth
                                     )
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -113,6 +111,7 @@ struct StyleView: View {
                         .background(AppTheme.ColorToken.panelBackground)
                         .overlay(editorBorder)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                        .shadow(color: AppTheme.ColorToken.accent.opacity(0.03), radius: 6, y: 2)
                 }
                 .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
 
@@ -128,6 +127,7 @@ struct StyleView: View {
                     .background(AppTheme.ColorToken.panelBackground)
                     .overlay(editorBorder)
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                    .shadow(color: AppTheme.ColorToken.accent.opacity(0.03), radius: 6, y: 2)
                 }
                 .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -143,8 +143,8 @@ struct StyleView: View {
     }
 
     private var editorBorder: some View {
-        RoundedRectangle(cornerRadius: AppTheme.Radius.card)
-            .stroke(AppTheme.ColorToken.panelStroke)
+        RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+            .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
     }
 
     private func select(_ profile: StyleProfileRecord) {

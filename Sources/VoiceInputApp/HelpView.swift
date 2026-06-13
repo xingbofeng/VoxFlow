@@ -44,22 +44,22 @@ struct HelpView: View {
                     spacing: 12
                 ) {
                     HelpFeatureCard(
-                        title: "右 Command",
-                        subtitle: "按住说话，松手输入",
-                        systemImage: "command",
-                        tint: .blue
+                        title: shortcutDisplayName,
+                        subtitle: shortcutSubtitle,
+                        systemImage: shortcutIconName,
+                        tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
                         title: "安全回退",
                         subtitle: "识别或修正失败时保留原始文本",
                         systemImage: "arrow.uturn.backward.circle",
-                        tint: .green
+                        tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
                         title: "本地隐私",
                         subtitle: "API Key 仅保存在系统 Keychain",
                         systemImage: "lock.shield",
-                        tint: .purple
+                        tint: AppTheme.ColorToken.accent
                     )
                 }
 
@@ -67,7 +67,7 @@ struct HelpView: View {
                     title: "常用入口",
                     subtitle: "获取更新、提交反馈和查看隐私说明",
                     systemImage: "link",
-                    tint: .blue
+                    tint: AppTheme.ColorToken.accent
                 ) {
                     HelpLinkRow(
                         title: "项目主页",
@@ -99,7 +99,7 @@ struct HelpView: View {
                     title: "权限检查",
                     subtitle: "确认听写和文本输入所需的系统权限",
                     systemImage: "checkmark.shield",
-                    tint: .green
+                    tint: AppTheme.ColorToken.accent
                 ) {
                     HelpPermissionRow(
                         title: "麦克风",
@@ -138,9 +138,27 @@ struct HelpView: View {
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .onAppear {
             settingsViewModel.load()
             asrProviderViewModel.load()
+        }
+    }
+
+    private var shortcutDisplayName: String {
+        KeyCodeMapping.displayName(for: settingsViewModel.shortcutKeyCode)
+    }
+
+    private var shortcutIconName: String {
+        KeyCodeMapping.iconName(for: settingsViewModel.shortcutKeyCode)
+    }
+
+    private var shortcutSubtitle: String {
+        switch settingsViewModel.shortPressBehavior {
+        case .toggleListening:
+            return "短按切换，长按按住说话"
+        case .none:
+            return "按住说话，松手输入"
         }
     }
 
@@ -172,7 +190,7 @@ private struct HelpFeatureCard: View {
                 .foregroundStyle(tint)
                 .frame(width: 42, height: 42)
                 .background(tint.opacity(0.09))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon))
             Text(title)
                 .font(.system(size: 16, weight: .semibold))
             Text(subtitle)
@@ -181,12 +199,7 @@ private struct HelpFeatureCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .appPanel(cornerRadius: 14)
     }
 }
 
@@ -219,7 +232,7 @@ private struct HelpSectionCard<Content: View>: View {
                     .foregroundStyle(tint)
                     .frame(width: 42, height: 42)
                     .background(tint.opacity(0.09))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 18, weight: .semibold))
@@ -233,12 +246,7 @@ private struct HelpSectionCard<Content: View>: View {
             }
         }
         .padding(20)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .appPanel(cornerRadius: 14)
     }
 }
 
@@ -273,14 +281,14 @@ private struct HelpLinkRow: View {
                 .background(
                     isHovered
                         ? AppTheme.ColorToken.panelBackground
-                        : AppTheme.ColorToken.pageBackground.opacity(0.62)
+                        : AppTheme.ColorToken.controlBackground.opacity(0.72)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(isHovered ? AppTheme.ColorToken.panelStroke : Color.clear)
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                        .stroke(isHovered ? AppTheme.ColorToken.subtleStroke : Color.clear)
                 )
                 .contentShape(Rectangle())
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
             }
             .buttonStyle(.plain)
             .onHover { isHovered = $0 }
@@ -318,7 +326,7 @@ private struct HelpPermissionRow: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 58)
-        .background(AppTheme.ColorToken.pageBackground.opacity(0.62))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
     }
 }

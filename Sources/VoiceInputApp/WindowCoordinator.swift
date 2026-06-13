@@ -17,6 +17,11 @@ final class WindowCoordinator {
         NSApp.activate(ignoringOtherApps: true)
         WindowPlacementPolicy.placeOnVisibleScreenIfNeeded(window)
         window.makeKeyAndOrderFront(nil)
+        Task { @MainActor [weak window] in
+            await Task.yield()
+            guard let window else { return }
+            WindowPlacementPolicy.placeOnVisibleScreenIfNeeded(window)
+        }
     }
 
     func showSettings(tab: SettingsTab = .asr) {

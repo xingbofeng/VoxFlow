@@ -23,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let textInjector = TextInjector()
     private var llmRefiner: RepositoryBackedLLMRefiner!
     private let overlayController = OverlayWindowController()
+    private let systemOutputMuter = SystemOutputMuter()
+    private var recordingFeedbackController: RecordingAudioFeedbackController!
+    private var permissionGuideController: PermissionGuideWindowController?
     private var appEnvironment: AppEnvironment!
     private var windowCoordinator: WindowCoordinator!
     private var dictationOrchestrator: DictationOrchestrator!
@@ -56,6 +59,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             credentialStore: appEnvironment.credentialStore
         )
         setupDictationOrchestrator()
+        recordingFeedbackController = RecordingAudioFeedbackController(
+            soundFeedbackEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true) ?? true },
+            muteWhileRecordingEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioMuteWhileRecordingEnabled, defaultValue: false) ?? false },
+            playSound: { [weak self] event in self?.playFeedbackSound(event) },
+            setMuted: { [weak self] muted in self?.systemOutputMuter.setMuted(muted) }
+        )
 
         setupStatusItem()
         setupMainMenu()
@@ -132,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func handleDictationStateChange(_ state: DictationState) {
+        recordingFeedbackController?.handle(state)
         switch state {
         case .idle:
             stopEscMonitor()
@@ -319,6 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updateASREngineMenuState()
+        refreshStatusItemAppearance()
     }
 
     private func updateLanguageMenuState() {
@@ -417,6 +428,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keyMonitor.onHotKeyRelease = { [weak self] in
             self?.delayedPressTask?.cancel()
             self?.delayedPressTask = nil
+
+            // Route release to notes recording if active.
+            let notesCoordinator = NotesCaptureCoordinator.shared
+            if notesCoordinator.isActive && notesCoordinator.isRecording {
+                notesCoordinator.finishRecording?()
+                return
+            }
+
             self?.handleHotKeyRelease()
         }
         keyMonitor.onShortPress = { [weak self] in
@@ -425,6 +444,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Cancel any pending long-press start — this is a short press.
             self.delayedPressTask?.cancel()
             self.delayedPressTask = nil
+
+            // Route to notes recording if the notes view is active.
+            let notesCoordinator = NotesCaptureCoordinator.shared
+            if notesCoordinator.shouldCaptureHotKey() {
+                if notesCoordinator.isRecording {
+                    notesCoordinator.finishRecording?()
+                } else {
+                    Task { @MainActor in
+                        await notesCoordinator.startRecording?()
+                    }
+                }
+                return
+            }
 
             // Toggle recording on short press.
             switch self.dictationOrchestrator.state {
@@ -447,27 +479,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func showAccessibilityAlert() {
-        let alert = NSAlert()
-        alert.messageText = "需要辅助功能权限"
-        alert.informativeText = """
-            VoiceInput 需要"辅助功能"权限来监听右 Command 键的全局输入。
-
-            请在 系统设置 → 隐私与安全性 → 辅助功能 中，
-            添加并启用 VoiceInput。
-            """
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "稍后")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(
-                URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        let shortcutName = Self.keyDisplayName(for: ShortcutManager.shared.shortcutKeyCode)
+        presentPermissionGuide(
+            title: "需要辅助功能权限",
+            subtitle: "VoiceInput 需要辅助功能权限来监听 \(shortcutName) 并向当前应用输入转写文本。",
+            items: [
+                PermissionStatusItem(
+                    title: "辅助功能",
+                    subtitle: "监听全局快捷键并输入文字",
+                    systemImage: "accessibility",
+                    status: "未授权",
+                    granted: false
+                )
+            ],
+            settingsURL: URL(
+                string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
             )
-        }
+        )
+    }
+
+    private static func keyDisplayName(for keyCode: Int64) -> String {
+        KeyCodeMapping.displayName(for: keyCode)
     }
 
     // MARK: - Hot Key Handling
 
     private func handleHotKeyPress() {
+        // Route to notes recording if the notes view is active.
+        let notesCoordinator = NotesCaptureCoordinator.shared
+        if notesCoordinator.shouldCaptureHotKey() {
+            Task { @MainActor in
+                await notesCoordinator.startRecording?()
+            }
+            return
+        }
+
         guard dictationOrchestrator.state.isIdle else { return }
         refreshRecordingPermissionState()
         guard permissionsResolved, hasRecordingPermissions else {
@@ -478,6 +524,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         do {
+            audioRecorder.voiceEnhancementEnabled = isSettingEnabled(
+                SettingsKey.audioVoiceEnhancementEnabled,
+                defaultValue: true
+            )
             try dictationOrchestrator.start(configuration: currentDictationConfiguration())
         } catch {
             if error is AudioRecorder.AudioRecorderError {
@@ -489,6 +539,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func handleHotKeyRelease() {
+        // Route release to notes recording if notes is currently recording.
+        let notesCoordinator = NotesCaptureCoordinator.shared
+        if notesCoordinator.isActive && notesCoordinator.isRecording {
+            notesCoordinator.finishRecording?()
+            return
+        }
+
         dictationOrchestrator.release()
     }
 
@@ -568,13 +625,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         let speechGranted = engineType == .qwen3 || speech == .granted
 
-        let alert = NSAlert()
-        alert.messageText = "权限检查"
-        alert.informativeText = "确认 VoiceInput 录音、转写和文本输入所需权限。"
-        alert.alertStyle = .informational
-        alert.accessoryView = NSHostingView(
-            rootView: PermissionStatusPanel(
-                items: [
+        presentPermissionGuide(
+            title: "权限检查",
+            subtitle: "确认 VoiceInput 录音、转写和文本输入所需权限。",
+            items: [
                     PermissionStatusItem(
                         title: "辅助功能",
                         subtitle: "监听快捷键并向当前应用输入转写文本",
@@ -596,16 +650,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         status: speechStatus,
                         granted: speechGranted
                     ),
-                ]
+                ],
+            settingsURL: URL(
+                string: "x-apple.systempreferences:com.apple.preference.security?Privacy"
             )
         )
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "完成")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(
-                URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy")!
-            )
-        }
     }
 
     @objc private func checkPermissions(_ sender: NSMenuItem) {
@@ -616,26 +665,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let message = PermissionSummary.recordingPermissionAlertText(
             engineType: asrManager.effectiveSelectedEngineType
         )
-        let alert = NSAlert()
-        alert.messageText = message.title
-        alert.informativeText = message.body
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "稍后")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(
-                URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity")!
+        presentPermissionGuide(
+            title: message.title,
+            subtitle: message.body,
+            items: recordingPermissionItems(),
+            settingsURL: URL(
+                string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity"
             )
-        }
+        )
+    }
+
+    private func recordingPermissionItems() -> [PermissionStatusItem] {
+        let engineType = asrManager.effectiveSelectedEngineType
+        let microphoneGranted = AudioRecorder.checkPermission() == .granted
+        let speechGranted = engineType == .qwen3 || SpeechRecognizer.checkPermission() == .granted
+        return [
+            PermissionStatusItem(
+                title: "麦克风",
+                subtitle: "录制你的声音用于听写",
+                systemImage: "mic",
+                status: PermissionSummary.statusText(microphoneGranted),
+                granted: microphoneGranted
+            ),
+            PermissionStatusItem(
+                title: "语音识别",
+                subtitle: engineType == .qwen3 ? "当前本地模型不需要此权限" : "系统自带模型需要此权限",
+                systemImage: "waveform",
+                status: PermissionSummary.statusText(speechGranted),
+                granted: speechGranted
+            ),
+        ]
+    }
+
+    private func presentPermissionGuide(
+        title: String,
+        subtitle: String,
+        items: [PermissionStatusItem],
+        settingsURL: URL?
+    ) {
+        permissionGuideController = PermissionGuideWindowController(
+            title: title,
+            subtitle: subtitle,
+            items: items,
+            settingsURL: settingsURL
+        )
+        permissionGuideController?.present()
     }
 
     private func showRecognitionError(_ error: Error) {
-        let alert = NSAlert()
-        alert.messageText = "语音识别错误"
-        alert.informativeText = error.localizedDescription
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "确定")
-        alert.runModal()
+        AppLogger.dictation.error("语音识别错误: \(error.localizedDescription)")
+        // Use non-blocking overlay feedback instead of a modal alert.
+        // The dictation orchestrator already preserves any partial text
+        // before calling this handler, so the user won't lose work.
+        let message = error.localizedDescription
+        overlayController.showTemporaryMessage("识别失败: \(message)", duration: 3.0)
     }
 
     /// Cancel the current recording without injecting any text.
@@ -660,6 +743,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             escEventMonitor = nil
         }
     }
+
+    // MARK: - Audio Feedback
+
+    private enum FeedbackSound {
+        static let start = NSSound(named: "Morse")
+        static let complete = NSSound(named: "Glass")
+        static let error = NSSound(named: "Basso")
+    }
+
+    private func playFeedbackSound(_ event: RecordingAudioFeedbackController.SoundEvent) {
+        let sound: NSSound?
+        switch event {
+        case .start:
+            sound = FeedbackSound.start
+        case .complete:
+            sound = FeedbackSound.complete
+        case .error:
+            sound = FeedbackSound.error
+        }
+        sound?.play()
+    }
+
+    private func refreshStatusItemAppearance() {
+        let usesGrayIcon = isSettingEnabled(
+            SettingsSystemOption.grayMenuBarIcon.rawValue,
+            defaultValue: false
+        )
+        statusItem.button?.contentTintColor = usesGrayIcon ? .secondaryLabelColor : .white
+    }
+
+    private func isSettingEnabled(_ key: String, defaultValue: Bool) -> Bool {
+        guard let repo = appEnvironment?.settingsRepository else { return defaultValue }
+        guard let jsonString = try? repo.value(forKey: key),
+              let data = jsonString.data(using: .utf8) else {
+            return defaultValue
+        }
+        return (try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data).value) ?? defaultValue
+    }
 }
 
 // MARK: - AudioRecorder Delegate
@@ -671,67 +792,5 @@ extension AppDelegate: AudioRecorder.Delegate {
 
     func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float) {
         overlayController.updateRMS(rms)
-    }
-}
-
-private struct PermissionStatusItem: Identifiable {
-    let id = UUID()
-    let title: String
-    let subtitle: String
-    let systemImage: String
-    let status: String
-    let granted: Bool
-}
-
-private struct PermissionStatusPanel: View {
-    let items: [PermissionStatusItem]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(items) { item in
-                HStack(spacing: 12) {
-                    Image(systemName: item.systemImage)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(item.granted ? Color.green : Color.orange)
-                        .frame(width: 38, height: 38)
-                        .background((item.granted ? Color.green : Color.orange).opacity(0.11))
-                        .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(item.title)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Text(item.subtitle)
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            .lineLimit(2)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Text(item.status)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(item.granted ? Color.green : Color.orange)
-                        .padding(.horizontal, 9)
-                        .frame(height: 26)
-                        .background((item.granted ? Color.green : Color.orange).opacity(0.1))
-                        .clipShape(Capsule())
-                }
-                .padding(12)
-                .background(AppTheme.ColorToken.panelBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppTheme.ColorToken.panelStroke)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            Text("如果权限刚刚修改，请回到 VoiceInput 后重新检查。")
-                .font(.system(size: 11))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                .padding(.top, 2)
-        }
-        .padding(.top, 4)
-        .frame(width: 420)
     }
 }

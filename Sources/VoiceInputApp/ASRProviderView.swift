@@ -44,7 +44,7 @@ struct ASRProviderView: View {
                             : AppTheme.ColorToken.secondaryText
                     )
                     .padding(.horizontal, 12)
-                    .frame(height: 30)
+                    .frame(height: 32)
                     .background(
                         viewModel.selectedTags.contains(tag)
                             ? AppTheme.ColorToken.selectionBackground

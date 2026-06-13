@@ -40,6 +40,7 @@ struct MainShellView: View {
             }
         }
         .frame(minWidth: 1_100, minHeight: 720)
+        .tint(AppTheme.ColorToken.accent)
         .preferredColorScheme(settingsViewModel.systemOption(.darkMode) ? .dark : .light)
         .onAppear {
             viewModel.load()
@@ -72,10 +73,9 @@ struct MainShellView: View {
             } label: {
                 Image(systemName: "sidebar.leading")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.ColorToken.accent)
                     .frame(width: 34, height: 34)
-                    .background(AppTheme.ColorToken.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .appControlSurface(cornerRadius: AppTheme.Radius.control)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

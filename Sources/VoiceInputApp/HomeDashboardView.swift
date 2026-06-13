@@ -9,6 +9,7 @@ struct HomeDashboardView: View {
                 HStack {
                     Label("首页", systemImage: "house.fill")
                         .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
                     Spacer()
                 }
 
@@ -23,6 +24,7 @@ struct HomeDashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .overlay(alignment: .topTrailing) {
             ActionFeedbackView(
                 message: viewModel.lastActionMessage,
@@ -74,12 +76,7 @@ private struct HomeStatCard: View {
         }
         .padding(AppTheme.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -108,12 +105,7 @@ private struct GoalProgressCard: View {
             .frame(height: 8)
         }
         .padding(AppTheme.Spacing.card)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -141,8 +133,7 @@ private struct HomeHistorySection: View {
                 Text("暂无记录")
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(AppTheme.ColorToken.panelBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+                    .appPanel()
             } else {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.grid) {
                     ForEach(viewModel.historyGroups) { group in
@@ -198,26 +189,34 @@ private struct HomeHistoryRow: View {
             .buttonStyle(.plain)
             Button(action: copyAction) {
                 Image(systemName: "doc.on.doc")
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .help("复制")
             Button(action: deleteAction) {
                 Image(systemName: "trash")
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .help("删除")
         }
         .padding(12)
-        .background(isSelected ? AppTheme.ColorToken.accent.opacity(0.12) : AppTheme.ColorToken.panelBackground)
+        .background(isSelected ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(isSelected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.panelStroke)
+                .stroke(
+                    isSelected ? AppTheme.ColorToken.selectionBorder : AppTheme.ColorToken.panelStroke,
+                    lineWidth: AppTheme.Border.panelLineWidth
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .shadow(
+            color: AppTheme.ColorToken.accent.opacity(isSelected ? 0.05 : 0.025),
+            radius: isSelected ? 8 : 4,
+            y: 2
+        )
     }
 }
 
@@ -237,6 +236,8 @@ private struct HomeHistoryDetailPanel: View {
                     }
                 } label: {
                     Image(systemName: viewModel.isReprocessing ? "hourglass" : "arrow.triangle.2.circlepath")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .disabled(viewModel.isReprocessing)
@@ -245,6 +246,8 @@ private struct HomeHistoryDetailPanel: View {
                     viewModel.clearSelectedDetail()
                 } label: {
                     Image(systemName: "xmark")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .help("关闭")
@@ -281,12 +284,7 @@ private struct HomeHistoryDetailPanel: View {
             }
         }
         .padding(AppTheme.Spacing.card)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .appPanel()
     }
 
     private static func format(_ date: Date) -> String {
@@ -311,8 +309,7 @@ private struct DetailTextBlock: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
+        .appControlSurface()
     }
 }
 

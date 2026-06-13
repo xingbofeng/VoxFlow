@@ -31,6 +31,7 @@ struct SettingsRootView: View {
             }
         }
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .onAppear {
             viewModel.load()
         }
@@ -164,13 +165,13 @@ struct SettingsRootView: View {
             ) {
                 VStack(spacing: 12) {
                     HStack(spacing: 14) {
-                        SettingsRowIcon(systemImage: "command", tint: .purple)
+                        SettingsRowIcon(systemImage: shortcutKeyIcon, tint: AppTheme.ColorToken.accent)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("录制快捷键")
                                 .font(.system(size: 15, weight: .semibold))
                             Text(isRecordingShortcut ? "按下想用于听写的按键" : "当前：\(shortcutDisplayName)")
                                 .font(.system(size: 12))
-                                .foregroundStyle(isRecordingShortcut ? Color.purple : AppTheme.ColorToken.secondaryText)
+                                .foregroundStyle(isRecordingShortcut ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
                         }
                         Spacer()
                         Button(isRecordingShortcut ? "正在录制..." : "录制") {
@@ -444,7 +445,11 @@ struct SettingsRootView: View {
     }
 
     private var shortcutDisplayName: String {
-        keyDisplayName(for: viewModel.shortcutKeyCode)
+        KeyCodeMapping.displayName(for: viewModel.shortcutKeyCode)
+    }
+
+    private var shortcutKeyIcon: String {
+        KeyCodeMapping.iconName(for: viewModel.shortcutKeyCode)
     }
 
     private var shortPressBehaviorDescription: String {
@@ -649,34 +654,6 @@ struct SettingsRootView: View {
         stopShortcutRecording()
     }
 
-    private func keyDisplayName(for keyCode: Int64) -> String {
-        switch keyCode {
-        case 54:
-            return "右 Command"
-        case 55:
-            return "左 Command"
-        case 56:
-            return "左 Shift"
-        case 60:
-            return "右 Shift"
-        case 58:
-            return "左 Option"
-        case 61:
-            return "右 Option"
-        case 59:
-            return "左 Control"
-        case 62:
-            return "右 Control"
-        case 36:
-            return "Return"
-        case 49:
-            return "Space"
-        case 53:
-            return "Escape"
-        default:
-            return "按键 \(keyCode)"
-        }
-    }
 }
 
 private struct SettingsGroupCard<Content: View>: View {
@@ -724,13 +701,7 @@ private struct SettingsGroupCard<Content: View>: View {
             }
         }
         .padding(20)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.035), radius: 7, y: 3)
+        .appPanel(cornerRadius: 14)
     }
 }
 
@@ -765,8 +736,8 @@ private struct SettingsRowIcon: View {
     let tint: Color
 
     var body: some View {
-        Circle()
-            .fill(tint.opacity(0.08))
+        RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous)
+            .fill(tint.opacity(0.09))
             .frame(width: 42, height: 42)
             .overlay {
                 Image(systemName: systemImage)
@@ -780,10 +751,10 @@ private extension View {
     func settingsRow() -> some View {
         padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.ColorToken.pageBackground.opacity(0.62))
+            .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(AppTheme.ColorToken.panelStroke)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
             )
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
     }

@@ -3,8 +3,7 @@ import SwiftUI
 struct LLMProviderView: View {
     @ObservedObject var viewModel: LLMProviderViewModel
     var embedded = false
-    @State private var editingProvider: LLMProviderRecord?
-    @State private var showingEditor = false
+    @State private var editorRequest: LLMProviderEditorRequest?
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
@@ -15,11 +14,19 @@ struct LLMProviderView: View {
                 }
                 Spacer()
                 Button {
-                    editingProvider = nil
-                    showingEditor = true
+                    editorRequest = LLMProviderEditorRequest(provider: nil)
                 } label: {
-                    Image(systemName: "plus")
-                        .frame(width: 32, height: 32)
+                    Label("添加", systemImage: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                        .padding(.horizontal, 14)
+                        .frame(height: 34)
+                        .background(AppTheme.ColorToken.accentSoft)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                                .stroke(AppTheme.ColorToken.accent.opacity(0.28))
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -54,9 +61,9 @@ struct LLMProviderView: View {
         .onAppear {
             viewModel.load()
         }
-        .sheet(isPresented: $showingEditor) {
+        .sheet(item: $editorRequest) { request in
             LLMProviderEditorSheet(
-                provider: editingProvider,
+                provider: request.provider,
                 viewModel: viewModel
             )
             .frame(width: 560, height: 540)
@@ -86,11 +93,11 @@ struct LLMProviderView: View {
             }
             Spacer()
             Button {
-                editingProvider = provider
-                showingEditor = true
+                editorRequest = LLMProviderEditorRequest(provider: provider)
             } label: {
                 Image(systemName: "pencil")
                     .frame(width: 32, height: 32)
+                    .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -102,6 +109,7 @@ struct LLMProviderView: View {
             } label: {
                 Image(systemName: "bolt.horizontal.circle")
                     .frame(width: 32, height: 32)
+                    .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -111,6 +119,7 @@ struct LLMProviderView: View {
             } label: {
                 Image(systemName: "trash")
                     .frame(width: 32, height: 32)
+                    .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -123,6 +132,11 @@ struct LLMProviderView: View {
     }
 }
 
+private struct LLMProviderEditorRequest: Identifiable {
+    let id = UUID()
+    let provider: LLMProviderRecord?
+}
+
 private struct LLMProviderEditorSheet: View {
     let provider: LLMProviderRecord?
     @ObservedObject var viewModel: LLMProviderViewModel
@@ -131,6 +145,7 @@ private struct LLMProviderEditorSheet: View {
     @State private var baseURL: String
     @State private var model: String
     @State private var apiKey = ""
+    @State private var isEnabled: Bool
     @State private var showAPIKey = false
     @State private var validationErrors: [String: String] = [:]
 
@@ -141,6 +156,7 @@ private struct LLMProviderEditorSheet: View {
         _baseURL = State(initialValue: provider?.baseURL ?? "")
         _model = State(initialValue: provider?.defaultModel ?? "")
         _apiKey = State(initialValue: viewModel.APIKeyForEditing(providerID: provider?.id))
+        _isEnabled = State(initialValue: provider?.enabled ?? true)
     }
 
     var body: some View {
@@ -206,6 +222,9 @@ private struct LLMProviderEditorSheet: View {
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
                 }
+
+                Toggle("启用此模型配置", isOn: $isEnabled)
+                    .toggleStyle(.switch)
 
                 ActionFeedbackView(
                     message: viewModel.lastActionMessage,
@@ -308,7 +327,7 @@ private struct LLMProviderEditorSheet: View {
                 apiKey: apiKey,
                 temperature: provider?.temperature ?? 0.2,
                 timeoutSeconds: provider?.timeoutSeconds ?? 8,
-                enabled: true,
+                enabled: isEnabled,
                 isDefault: provider?.isDefault ?? viewModel.providers.isEmpty
             )
             dismiss()

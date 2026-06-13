@@ -426,10 +426,10 @@ enum SettingsViewModelError: LocalizedError {
     }
 }
 
-private struct DecodedSettingValue<T: Decodable>: Decodable {
+struct DecodedSettingValue<T: Decodable>: Decodable {
     let value: T
 }
 
-private struct EncodedSettingValue<T: Encodable>: Encodable {
+struct EncodedSettingValue<T: Encodable>: Encodable {
     let value: T
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct NotesView: View {
     @ObservedObject var viewModel: NotesViewModel
     @State private var isSearchPresented = false
+    @FocusState private var isEditorFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -16,7 +17,20 @@ struct NotesView: View {
             .frame(maxWidth: .infinity)
         }
         .background(AppTheme.ColorToken.pageBackground)
-        .onAppear { viewModel.load() }
+        .tint(AppTheme.ColorToken.accent)
+        .onAppear {
+            viewModel.load()
+            registerNotesCapture()
+        }
+        .onDisappear {
+            NotesCaptureCoordinator.shared.reset()
+        }
+        .onChange(of: isEditorFocused) { _, focused in
+            NotesCaptureCoordinator.shared.setEditorFocused(focused)
+        }
+        .onChange(of: viewModel.recordingState) { _, state in
+            NotesCaptureCoordinator.shared.isRecording = state == .recording
+        }
     }
 
     private var quickCapture: some View {
@@ -30,6 +44,7 @@ struct NotesView: View {
                     TextEditor(text: $viewModel.draftBodyMarkdown)
                         .font(.system(size: 16))
                         .scrollContentBackground(.hidden)
+                        .focused($isEditorFocused)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .frame(minHeight: 128)
@@ -67,11 +82,11 @@ struct NotesView: View {
             }
             .background(AppTheme.ColorToken.panelBackground)
             .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(AppTheme.ColorToken.panelStroke)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(0.08), radius: 14, y: 8)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: AppTheme.ColorToken.accent.opacity(0.07), radius: 18, y: 8)
             .frame(maxWidth: 760)
 
             ActionFeedbackView(
@@ -98,9 +113,9 @@ struct NotesView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 46, height: 46)
-                .background(AppTheme.ColorToken.primaryText)
+                .background(recordButtonBackground)
                 .clipShape(Circle())
-                .shadow(color: Color.black.opacity(0.14), radius: 5, y: 3)
+                .shadow(color: AppTheme.ColorToken.accent.opacity(0.20), radius: 7, y: 3)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -142,7 +157,7 @@ struct NotesView: View {
                         .font(.system(size: 28, weight: .light))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.55))
                         .frame(width: 64, height: 64)
-                        .background(AppTheme.ColorToken.selectionBackground)
+                        .background(AppTheme.ColorToken.accentSoft)
                         .clipShape(Circle())
                     Text("暂无记录")
                         .font(.system(size: 16, weight: .medium))
@@ -205,6 +220,7 @@ struct NotesView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .shadow(color: AppTheme.ColorToken.accent.opacity(0.03), radius: 5, y: 2)
         .contentShape(Rectangle())
         .onTapGesture {
             viewModel.selectNote(id: note.id)
@@ -233,7 +249,7 @@ struct NotesView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -262,6 +278,17 @@ struct NotesView: View {
         }
     }
 
+    private var recordButtonBackground: Color {
+        switch viewModel.recordingState {
+        case .idle:
+            return AppTheme.ColorToken.primaryText
+        case .recording:
+            return AppTheme.ColorToken.accent
+        case .finishing:
+            return AppTheme.ColorToken.accentDark
+        }
+    }
+
     private func completeQuickCapture() {
         if viewModel.recordingState == .recording {
             viewModel.finishRecording()
@@ -276,6 +303,21 @@ struct NotesView: View {
             try action()
         } catch {
             viewModel.report(error: error)
+        }
+    }
+
+    private func registerNotesCapture() {
+        let coordinator = NotesCaptureCoordinator.shared
+        coordinator.setEditorFocused(isEditorFocused)
+        coordinator.startRecording = { [weak viewModel] in
+            guard let viewModel, viewModel.recordingState == .idle else { return }
+            await viewModel.startRecording()
+            coordinator.isRecording = viewModel.recordingState == .recording
+        }
+        coordinator.finishRecording = { [weak viewModel] in
+            guard let viewModel, viewModel.recordingState == .recording else { return }
+            viewModel.finishRecording()
+            coordinator.isRecording = false
         }
     }
 }

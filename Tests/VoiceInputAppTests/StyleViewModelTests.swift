@@ -77,6 +77,28 @@ final class StyleViewModelTests: XCTestCase {
         XCTAssertEqual(saved.temperature, BuiltInStyleCatalog.profile(id: "builtin.email")?.temperature)
     }
 
+    func testKnownLegacyPromptIsEligibleForBuiltInUpgrade() {
+        let oldPrompt = """
+        你正在处理语音识别得到的原文。保持用户原有措辞、语气、句序和信息密度，只修正能够从上下文明确判断的同音字、技术名词、断句与标点错误。不要润色，不要改写，不要补充用户没有表达的事实，不要删除犹豫词或重复内容。无法确定时保留原样。输出只能包含修正后的正文，不要解释修改过程，不要添加标题、引号或前后说明。
+        """
+
+        XCTAssertTrue(
+            BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
+                oldPrompt,
+                profileID: "builtin.original"
+            )
+        )
+    }
+
+    func testCustomizedBuiltInPromptIsNotEligibleForUpgrade() {
+        XCTAssertFalse(
+            BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
+                "这是用户自定义的提示词",
+                profileID: "builtin.original"
+            )
+        )
+    }
+
     func testAppStyleRulesPersistThroughSettingsRepository() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = StyleViewModel(environment: environment)

@@ -14,4 +14,25 @@ final class WindowPlacementPolicyTests: XCTestCase {
         XCTAssertEqual(frame.size.width, 600)
         XCTAssertEqual(frame.size.height, 400)
     }
+
+    func testWindowSpanningTwoDisplaysIsNotConsideredFullyVisible() {
+        let window = NSRect(x: 800, y: 100, width: 600, height: 400)
+        let screens = [
+            NSRect(x: 0, y: 0, width: 1_000, height: 800),
+            NSRect(x: 1_000, y: 0, width: 1_000, height: 800),
+        ]
+
+        XCTAssertFalse(WindowPlacementPolicy.isFullyVisible(window, in: screens))
+        XCTAssertEqual(
+            WindowPlacementPolicy.preferredVisibleFrame(for: window, screens: screens),
+            screens[1]
+        )
+    }
+
+    func testWindowContainedByOneDisplayRemainsVisible() {
+        let window = NSRect(x: 100, y: 100, width: 600, height: 400)
+        let screens = [NSRect(x: 0, y: 0, width: 1_000, height: 800)]
+
+        XCTAssertTrue(WindowPlacementPolicy.isFullyVisible(window, in: screens))
+    }
 }

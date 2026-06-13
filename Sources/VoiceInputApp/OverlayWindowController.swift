@@ -10,6 +10,10 @@ final class OverlayWindowController: NSWindowController {
     private let refiningSpinner = NSProgressIndicator()
     private let visualEffectView = NSVisualEffectView()
 
+    // MARK: - Temporary Message
+
+    private var temporaryMessageTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     init() {
@@ -63,17 +67,19 @@ final class OverlayWindowController: NSWindowController {
         waveformView.translatesAutoresizingMaskIntoConstraints = false
         visualEffectView.addSubview(waveformView)
 
-        // Text label
+        // Text label — multi-line with word wrapping for long transcription
         textLabel.translatesAutoresizingMaskIntoConstraints = false
         textLabel.isBezeled = false
         textLabel.isEditable = false
         textLabel.drawsBackground = false
         textLabel.textColor = NSColor.white.withAlphaComponent(0.92)
         textLabel.font = NSFont.systemFont(ofSize: 16, weight: .medium)
-        textLabel.lineBreakMode = .byTruncatingTail
-        textLabel.maximumNumberOfLines = 1
+        textLabel.lineBreakMode = .byWordWrapping
+        textLabel.maximumNumberOfLines = OverlayLayout.maxVisibleLines
         textLabel.alignment = .left
-        textLabel.cell?.truncatesLastVisibleLine = true
+        textLabel.cell?.wraps = true
+        textLabel.cell?.isScrollable = false
+        textLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         visualEffectView.addSubview(textLabel)
 
         // Refining spinner (hidden by default)
@@ -83,28 +89,37 @@ final class OverlayWindowController: NSWindowController {
         refiningSpinner.isHidden = true
         visualEffectView.addSubview(refiningSpinner)
 
-        // Layout
+        // Layout — vertical padding and variable-height text
         NSLayoutConstraint.activate([
-            // Waveform: left-aligned, vertically centered
+            // Waveform: top of content area, left-aligned
             waveformView.leadingAnchor.constraint(
                 equalTo: visualEffectView.leadingAnchor,
                 constant: OverlayLayout.horizontalPadding
             ),
-            waveformView.centerYAnchor.constraint(equalTo: visualEffectView.centerYAnchor),
+            waveformView.topAnchor.constraint(
+                equalTo: visualEffectView.topAnchor,
+                constant: OverlayLayout.verticalPadding
+            ),
             waveformView.widthAnchor.constraint(equalToConstant: OverlayLayout.waveformWidth),
             waveformView.heightAnchor.constraint(equalToConstant: OverlayLayout.waveformHeight),
 
-            // Text label: right of waveform, vertically centered
+            // Text label: right of waveform, vertically fills available space
             textLabel.leadingAnchor.constraint(
                 equalTo: waveformView.trailingAnchor,
                 constant: OverlayLayout.interSpacing
             ),
-            textLabel.centerYAnchor.constraint(equalTo: visualEffectView.centerYAnchor),
+            textLabel.topAnchor.constraint(
+                equalTo: visualEffectView.topAnchor,
+                constant: OverlayLayout.verticalPadding
+            ),
             textLabel.trailingAnchor.constraint(
                 equalTo: visualEffectView.trailingAnchor,
                 constant: -OverlayLayout.horizontalPadding
             ),
-            textLabel.heightAnchor.constraint(equalToConstant: 24),
+            textLabel.bottomAnchor.constraint(
+                lessThanOrEqualTo: visualEffectView.bottomAnchor,
+                constant: -OverlayLayout.verticalPadding
+            ),
 
             // Refining spinner occupies the waveform slot.
             refiningSpinner.centerXAnchor.constraint(equalTo: waveformView.centerXAnchor),
@@ -114,16 +129,17 @@ final class OverlayWindowController: NSWindowController {
 
     // MARK: - Sizing
 
-    private func updateWindowSize(textWidth: CGFloat) {
+    private func updateWindowSize(textWidth: CGFloat, textHeight: CGFloat = 0) {
         guard let window = window else { return }
 
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
 
         let windowWidth = ceil(OverlayLayout.windowWidth(textWidth: textWidth))
-        let windowHeight = OverlayLayout.capsuleHeight
+        let windowHeight = OverlayLayout.windowHeight(textHeight: textHeight)
         let x = screenFrame.midX - windowWidth / 2
-        let y = screenFrame.minY + 40  // 40px above bottom edge
+        // Position from bottom; move up slightly if window is taller
+        let y = screenFrame.minY + max(24, 40 - (windowHeight - OverlayLayout.minimumCapsuleHeight) / 2)
 
         let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
         window.setFrame(frame, display: true, animate: false)
@@ -133,6 +149,8 @@ final class OverlayWindowController: NSWindowController {
 
     func show() {
         guard let window = window else { return }
+        temporaryMessageTask?.cancel()
+        temporaryMessageTask = nil
 
         // Calculate initial size for empty text
         updateWindowSize(textWidth: OverlayLayout.minimumTextWidth)
@@ -143,6 +161,10 @@ final class OverlayWindowController: NSWindowController {
         refiningSpinner.isHidden = true
         refiningSpinner.stopAnimation(nil)
 
+        present(window)
+    }
+
+    private func present(_ window: NSWindow) {
         window.orderFront(nil)
 
         if let layer = visualEffectView.layer {
@@ -183,22 +205,29 @@ final class OverlayWindowController: NSWindowController {
         }
         textLabel.stringValue = displayText
 
-        let textSize = (displayText as NSString).size(withAttributes: [
-            .font: textLabel.font as Any
-        ])
+        let textSize = (displayText as NSString).boundingRect(
+            with: NSSize(
+                width: OverlayLayout.maximumTextWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: textLabel.font as Any]
+        )
         let newTextWidth = textSize.width + 8
+        let newTextHeight = textSize.height + 8
 
         guard let window = window else { return }
         let totalWidth = OverlayLayout.windowWidth(textWidth: newTextWidth)
+        let totalHeight = OverlayLayout.windowHeight(textHeight: newTextHeight)
 
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
 
         let newFrame = NSRect(
             x: screenFrame.midX - totalWidth / 2,
-            y: screenFrame.minY + 40,
+            y: screenFrame.minY + max(24, 40 - (totalHeight - OverlayLayout.minimumCapsuleHeight) / 2),
             width: totalWidth,
-            height: OverlayLayout.capsuleHeight
+            height: totalHeight
         )
 
         // Smooth width transition (0.25s)
@@ -211,6 +240,38 @@ final class OverlayWindowController: NSWindowController {
 
     func updateRMS(_ rms: Float) {
         waveformView.updateRMS(rms)
+    }
+
+    /// Displays a temporary error/info message in the overlay that auto-dismisses
+    /// after `duration` seconds. Used for non-blocking error feedback.
+    func showTemporaryMessage(_ text: String, duration: TimeInterval = 3.0) {
+        temporaryMessageTask?.cancel()
+
+        waveformView.stopAnimation()
+        waveformView.isHidden = true
+        refiningSpinner.isHidden = true
+        refiningSpinner.stopAnimation(nil)
+
+        textLabel.stringValue = text
+        textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)  // warm amber
+
+        let textSize = (text as NSString).boundingRect(
+            with: NSSize(
+                width: OverlayLayout.maximumTextWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: textLabel.font as Any]
+        )
+        updateWindowSize(textWidth: textSize.width + 8, textHeight: textSize.height + 8)
+        guard let window else { return }
+        present(window)
+
+        temporaryMessageTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.dismiss()
+        }
     }
 
     func dismiss() {

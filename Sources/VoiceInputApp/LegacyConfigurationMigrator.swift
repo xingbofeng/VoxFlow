@@ -58,10 +58,13 @@ enum LegacyConfigurationMigrator {
         repository: any StyleRepository,
         clock: any AppClock
     ) throws {
-        for (id, legacyPrompt) in BuiltInStyleCatalog.legacyPrompts {
+        for id in BuiltInStyleCatalog.legacyPrompts.keys {
             guard let existing = try repository.profile(id: id),
                   existing.builtIn,
-                  existing.prompt == legacyPrompt,
+                  BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
+                      existing.prompt,
+                      profileID: id
+                  ),
                   let current = BuiltInStyleCatalog.profile(id: id, now: existing.createdAt) else {
                 continue
             }

@@ -24,6 +24,7 @@ struct FileTranscriptionView: View {
         }
         .padding(AppTheme.Spacing.page)
         .background(AppTheme.ColorToken.pageBackground)
+        .tint(AppTheme.ColorToken.accent)
         .overlay(alignment: .topTrailing) {
             ActionFeedbackView(
                 message: viewModel.lastActionMessage,
@@ -70,18 +71,26 @@ struct FileTranscriptionView: View {
 
     private var dropArea: some View {
         RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-            .stroke(AppTheme.ColorToken.panelStroke, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-            .background(AppTheme.ColorToken.panelBackground)
-            .overlay(
+            .fill(AppTheme.ColorToken.panelBackground)
+            .overlay {
+                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                    .stroke(
+                        AppTheme.ColorToken.accent.opacity(0.22),
+                        style: StrokeStyle(lineWidth: 1, dash: [6, 4])
+                    )
+            }
+            .overlay {
                 VStack(spacing: 8) {
                     Image(systemName: "tray.and.arrow.down")
-                        .font(.system(size: 26))
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.accent.opacity(0.72))
                     Text("拖入音频或视频文件")
                         .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            )
+            }
             .frame(height: 130)
+            .shadow(color: AppTheme.ColorToken.accent.opacity(0.035), radius: 8, y: 3)
             .onDrop(of: [UTType.fileURL.identifier], isTargeted: nil) { providers in
                 for provider in providers {
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -125,8 +134,7 @@ struct FileTranscriptionView: View {
                     .lineLimit(4)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppTheme.ColorToken.pageBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control))
+                    .appControlSurface()
             }
 
             if let error = job.errorMessage {
@@ -136,12 +144,7 @@ struct FileTranscriptionView: View {
             }
         }
         .padding(AppTheme.Spacing.card)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card)
-                .stroke(AppTheme.ColorToken.panelStroke)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+        .appPanel()
     }
 
     private func actionButtons(_ job: TranscriptionJobRecord) -> some View {
@@ -216,7 +219,7 @@ struct FileTranscriptionView: View {
         case .failed:
             return .red
         case .running:
-            return .blue
+            return AppTheme.ColorToken.accentDark
         default:
             return AppTheme.ColorToken.secondaryText
         }
