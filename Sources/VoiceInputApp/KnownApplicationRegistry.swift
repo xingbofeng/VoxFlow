@@ -42,7 +42,7 @@ struct KnownApplicationRegistry: Sendable {
         .init(bundleID: "com.anthropic.claudefordesktop", displayName: "Claude",  suggestedStyleID: "builtin.original"),
         .init(bundleID: "com.tencent.imamac",            displayName: "ima.copilot", suggestedStyleID: "builtin.original"),
         .init(bundleID: "com.nousresearch.hermes.setup", displayName: "Hermes",   suggestedStyleID: "builtin.original"),
-        .init(bundleID: "com.voiceinput.app",             displayName: "随声写", suggestedStyleID: "builtin.original"),
+        .init(bundleID: "com.xingbofeng.VoxFlow", displayName: "随声写", suggestedStyleID: "builtin.original"),
         .init(bundleID: "cn.shandianshuo.desktop",       displayName: "闪电说",     suggestedStyleID: "builtin.original"),
 
         // Coding

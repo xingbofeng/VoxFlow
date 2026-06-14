@@ -177,7 +177,7 @@ struct SettingsRootView: View {
                     actionShortcutRow(
                         action: .agentCompose,
                         title: "帮我说",
-                        subtitle: "结合当前窗口和口述生成文本，完成后复制到剪贴板",
+                        subtitle: "结合当前窗口和口述生成文本，完成后写入当前输入框",
                         buttonTitle: "设置快捷键",
                         badge: "不自动发送",
                         prominentWhenUnbound: true

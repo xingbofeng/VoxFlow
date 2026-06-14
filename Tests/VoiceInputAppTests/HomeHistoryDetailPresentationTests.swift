@@ -103,6 +103,12 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         )
     }
 
+    func testDurationPreviewUsesSecondsInsteadOfMilliseconds() {
+        XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: 15_994), "16.0 秒")
+        XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: 123), "0.1 秒")
+        XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: nil), "未记录")
+    }
+
     func testWarningCodesArePresentedAsReadableChinese() {
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(

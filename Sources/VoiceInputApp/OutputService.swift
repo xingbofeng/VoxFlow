@@ -50,20 +50,17 @@ final class DefaultOutputService: OutputService {
         target: DictationTarget?,
         originalTarget: DictationTarget?
     ) async -> OutputResult {
-        // Agent compose always copies to clipboard
-        if mode == .agentCompose {
+        if mode == .agentCompose, originalTarget == nil {
             clipboardService.setString(text)
             return .copied
         }
 
-        // Dictation mode: check if target changed
         if targetChanged(original: originalTarget, current: target) {
             clipboardService.setString(text)
             let reason = buildChangeReason(original: originalTarget, current: target)
             return .targetChanged(reason: reason)
         }
 
-        // Target unchanged — attempt injection
         let result = await textInjector.inject(text)
         switch result {
         case .success:

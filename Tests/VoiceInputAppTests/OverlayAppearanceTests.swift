@@ -50,4 +50,16 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertFalse(controller.window?.isVisible ?? true)
         XCTAssertEqual(controller.currentText, "")
     }
+
+    func testTemporaryMessageCanInvokeClickAction() {
+        let controller = OverlayWindowController()
+        var didClick = false
+
+        controller.showTemporaryMessage("请求超时", duration: 1.0) {
+            didClick = true
+        }
+        controller.performTemporaryMessageClickForTesting()
+
+        XCTAssertTrue(didClick)
+    }
 }

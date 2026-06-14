@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct HomeDashboardView: View {
@@ -328,13 +329,13 @@ private struct HomeHistoryRow: View {
                         .foregroundStyle(AppTheme.ColorToken.primaryText)
                         .lineLimit(2)
                         .truncationMode(.head)
-                    HStack(spacing: 8) {
+                    HStack(alignment: .center, spacing: 8) {
+                        if let appName = item.appName {
+                            SourceApplicationIcon(appName: appName, bundleID: item.appBundleID, size: 28)
+                        }
                         if item.taskMode == .agentCompose {
                             Label("帮我说", systemImage: "sparkles")
                                 .foregroundStyle(AppTheme.ColorToken.accent)
-                        }
-                        if let appName = item.appName {
-                            Text(appName)
                         }
                         Text("\(item.charCount) 字")
                         Text("\(Int(item.cpm.rounded())) 字/分钟")
@@ -512,7 +513,7 @@ private struct HomeHistoryDetailModal: View {
                 DetailTextBlock(
                     title: "处理后",
                     subtitle: detail.taskMode == .agentCompose
-                        ? "生成并复制到剪贴板的文本"
+                        ? "生成并写入当前输入框的文本"
                         : "最终注入到当前应用的文本",
                     text: detail.finalText,
                     highlighted: true
@@ -553,7 +554,10 @@ private struct HomeHistoryDetailModal: View {
                         value: llmTrace.providerName
                     )
                     DetailMetaItem(title: "使用模型", value: llmTrace.model)
-                    DetailMetaItem(title: "处理用时", value: llmTrace.durationMS.map { "\($0) 毫秒" } ?? "未记录")
+                    DetailMetaItem(
+                        title: "处理用时",
+                        value: HomeHistoryDetailPresentation.durationText(milliseconds: llmTrace.durationMS)
+                    )
                     DetailMetaItem(
                         title: "调用结果",
                         value: llmTrace.succeeded
@@ -616,12 +620,22 @@ private struct HomeHistoryDetailModal: View {
     }
 
     private var metadataSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: AppTheme.Spacing.grid)], spacing: 10) {
+        LazyVGrid(
+            columns: [
+                GridItem(
+                    .adaptive(minimum: 170),
+                    spacing: AppTheme.Spacing.grid,
+                    alignment: .top
+                )
+            ],
+            alignment: .leading,
+            spacing: 10
+        ) {
             DetailMetaItem(
                 title: "识别语言",
                 value: HomeHistoryDetailPresentation.languageName(for: detail.language)
             )
-            DetailMetaItem(title: "使用应用", value: detail.appName ?? "未记录")
+            DetailApplicationMetaItem(title: "使用应用", appName: detail.appName, appBundleID: detail.appBundleID)
             DetailMetaItem(
                 title: "语音识别",
                 value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID)
@@ -802,4 +816,105 @@ private struct DetailMetaItem: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+}
+
+private struct DetailApplicationMetaItem: View {
+    let title: String
+    let appName: String?
+    let appBundleID: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            if let appName {
+                HStack(alignment: .center, spacing: 6) {
+                    SourceApplicationIcon(appName: appName, bundleID: appBundleID, size: 32)
+                    Text(appName)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                }
+            } else {
+                Text("未记录")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SourceApplicationIcon: View {
+    let appName: String
+    var bundleID: String?
+    var size: CGFloat
+
+    var body: some View {
+        Group {
+            if let image = SourceApplicationIconResolver.image(for: appName, bundleID: bundleID) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.16)
+            } else {
+                Image(systemName: "app")
+                    .font(.system(size: size * 0.46, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+            }
+        }
+        .frame(width: size, height: size)
+        .background(AppTheme.ColorToken.controlBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+        .help(appName)
+        .accessibilityLabel("使用应用：\(appName)")
+    }
+}
+
+private enum SourceApplicationIconResolver {
+    static func image(for appName: String, bundleID: String? = nil) -> NSImage? {
+        let trimmedName = appName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            return nil
+        }
+
+        // Prefer bundleID-based lookup (most reliable)
+        if let bundleID, !bundleID.isEmpty {
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                return NSWorkspace.shared.icon(forFile: appURL.path)
+            }
+        }
+
+        // Fall back to appName-based lookup
+        guard let resolvedBundleID = bundleIDFromAppName(for: trimmedName),
+              let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: resolvedBundleID) else {
+            return nil
+        }
+        return NSWorkspace.shared.icon(forFile: appURL.path)
+    }
+
+    private static func bundleIDFromAppName(for appName: String) -> String? {
+        let normalizedName = appName.lowercased()
+        if let bundleID = appNameAliases[normalizedName] {
+            return bundleID
+        }
+
+        return KnownApplicationRegistry.builtIn().entries.first { entry in
+            entry.displayName.localizedCaseInsensitiveCompare(appName) == .orderedSame
+        }?.bundleID
+    }
+
+    private static let appNameAliases: [String: String] = [
+        "微信": "com.tencent.xinWeChat",
+        "wechat": "com.tencent.xinWeChat",
+        "飞书": "com.tencent.Lark",
+        "邮件": "com.apple.mail",
+        "终端": "com.apple.Terminal",
+    ]
 }

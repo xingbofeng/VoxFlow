@@ -5,9 +5,8 @@ BUNDLE_DIR := $(BUILD_DIR)/$(APP_NAME).app
 INSTALL_DIR := /Applications/$(APP_NAME).app
 PLIST := Sources/VoiceInputApp/Resources/Info.plist
 ICON := Resources/AppIcon.icns
-CURRENT_BUNDLE_ID := com.voiceinput.app
+CURRENT_BUNDLE_ID := com.xingbofeng.VoxFlow
 LEGACY_BUNDLE_ID := com.voiceinput.app
-TEMP_RENAMED_BUNDLE_ID := com.xingbofeng.VoxFlow
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 DETECTED_CODE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F\" '/Developer ID Application|Apple Development/ { print $$2; exit }')
 CODE_SIGN_IDENTITY ?= $(if $(DETECTED_CODE_SIGN_IDENTITY),$(DETECTED_CODE_SIGN_IDENTITY),-)
@@ -53,26 +52,20 @@ run: prelaunch-cleanup build
 	open "$(BUNDLE_DIR)"
 
 prelaunch-cleanup:
-	@echo "🧽 Cleaning stale local app registration..."
+	@echo "🧽 Cleaning stale local app registration and legacy status bar cache..."
 	@pkill -x "$(APP_NAME)" 2>/dev/null || true
 	@pkill -x "$(SWIFT_EXECUTABLE)" 2>/dev/null || true
 	@for app in \
 		"$(BUNDLE_DIR)" \
 		".build/$(SWIFT_EXECUTABLE).app" \
 		"dist/staging/$(APP_NAME).app" \
-		"/Applications/$(SWIFT_EXECUTABLE).app" \
-		"/Volumes/VoiceInput-1.0.0-macOS/$(SWIFT_EXECUTABLE).app" \
-		"/Volumes/VoiceInput-1.1.1-macOS/$(SWIFT_EXECUTABLE).app"; do \
+		"/Applications/$(SWIFT_EXECUTABLE).app"; do \
 		"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
 	done
-	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItem" >/dev/null 2>&1 || true
-	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItem" >/dev/null 2>&1 || true
-	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
-	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
-	@defaults delete "$(CURRENT_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
-	@defaults delete "$(CURRENT_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
-	@defaults delete "$(TEMP_RENAMED_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
-	@defaults delete "$(TEMP_RENAMED_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItem" 2>/dev/null || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" 2>/dev/null || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItem" 2>/dev/null || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" 2>/dev/null || true
 
 install: build
 	@echo "📥 Installing to $(INSTALL_DIR)..."

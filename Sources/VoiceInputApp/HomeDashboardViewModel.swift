@@ -28,6 +28,7 @@ struct HomeHistoryItem: Equatable, Identifiable {
     let finalText: String
     let rawText: String
     let appName: String?
+    let appBundleID: String?
     let charCount: Int
     let cpm: Double
     let createdAt: Date
@@ -56,6 +57,7 @@ struct HomeHistoryDetail: Equatable, Identifiable {
     let llmProviderID: String?
     let styleID: String?
     let appName: String?
+    let appBundleID: String?
     let durationMS: Int
     let charCount: Int
     let cpm: Double
@@ -115,6 +117,10 @@ final class HomeDashboardViewModel: ObservableObject {
     private var recentEntries: [DictationHistoryEntry] = []
     private var recentAgentTasks: [VoiceTask] = []
     private var cancellables: Set<AnyCancellable> = []
+
+    var openHistoryDetailRequests: AnyPublisher<String, Never> {
+        environment.openHistoryDetail.eraseToAnyPublisher()
+    }
 
     init(
         environment: AppEnvironment,
@@ -616,6 +622,7 @@ private extension HomeHistoryItem {
             finalText: entry.finalText,
             rawText: entry.rawText,
             appName: entry.targetAppName,
+            appBundleID: entry.targetAppBundleID,
             charCount: entry.charCount,
             cpm: entry.cpm,
             createdAt: entry.createdAt,
@@ -630,6 +637,7 @@ private extension HomeHistoryItem {
             finalText: task.finalText ?? "",
             rawText: task.rawTranscript ?? "",
             appName: task.targetAppName,
+            appBundleID: task.targetAppBundleID,
             charCount: task.finalText?.count ?? task.rawTranscript?.count ?? 0,
             cpm: 0,
             createdAt: task.createdAt,
@@ -665,6 +673,7 @@ private extension HomeHistoryDetail {
             llmProviderID: entry.llmProviderID,
             styleID: entry.styleID,
             appName: entry.targetAppName,
+            appBundleID: entry.targetAppBundleID,
             durationMS: entry.durationMS,
             charCount: entry.charCount,
             cpm: entry.cpm,
@@ -691,6 +700,7 @@ private extension HomeHistoryDetail {
             llmProviderID: nil,
             styleID: nil,
             appName: task.targetAppName,
+            appBundleID: task.targetAppBundleID,
             durationMS: 0,
             charCount: task.finalText?.count ?? 0,
             cpm: 0,

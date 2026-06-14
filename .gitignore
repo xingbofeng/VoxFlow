@@ -8,17 +8,7 @@ xcuserdata/
 .env
 .env.*
 !.env.example
-implementation-notes.md
-
 .playwright-mcp/
 .codegraph/
-voiceinput-landing-page.png
-voiceinput-landing-en.png
-
-# Video production artifacts
-.thumbnails/
-.waveform-cache/
-audio/
-img-*.png
-index.html
-voiceinput-demo.mp4
+openspec/
+.workbuddy/

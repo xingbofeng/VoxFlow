@@ -8,11 +8,39 @@ struct PermissionStatusItem: Identifiable {
     let systemImage: String
     let status: String
     let granted: Bool
+    let settingsURL: URL?
+
+    init(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        status: String,
+        granted: Bool,
+        settingsURL: URL? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.status = status
+        self.granted = granted
+        self.settingsURL = settingsURL
+    }
 }
 
 enum PermissionGuideLayout {
     static func windowHeight(itemCount: Int) -> CGFloat {
         min(560, max(470, CGFloat(itemCount) * 78 + 280))
+    }
+}
+
+enum PermissionGuideDestination {
+    static func primarySettingsURL(
+        items: [PermissionStatusItem],
+        fallback: URL?
+    ) -> URL? {
+        items.first { !$0.granted && $0.settingsURL != nil }?.settingsURL
+            ?? items.first { $0.settingsURL != nil }?.settingsURL
+            ?? fallback
     }
 }
 
@@ -46,11 +74,19 @@ final class PermissionGuideWindowController: NSWindowController {
             items: items,
             windowHeight: windowHeight,
             onDone: { [weak panel] in panel?.close() },
-            onOpenSettings: settingsURL.map { url in
+            onOpenSettings: PermissionGuideDestination.primarySettingsURL(
+                items: items,
+                fallback: settingsURL
+            ).map { url in
                 { [weak panel] in
                     NSWorkspace.shared.open(url)
                     panel?.close()
                 }
+            },
+            onOpenItemSettings: { [weak panel] item in
+                guard let url = item.settingsURL else { return }
+                NSWorkspace.shared.open(url)
+                panel?.close()
             }
         )
         panel.contentView = NSHostingView(rootView: rootView)
@@ -78,6 +114,7 @@ private struct PermissionGuideView: View {
     let windowHeight: CGFloat
     let onDone: () -> Void
     let onOpenSettings: (() -> Void)?
+    let onOpenItemSettings: (PermissionStatusItem) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -158,5 +195,10 @@ private struct PermissionGuideView: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
         .appControlSurface(cornerRadius: AppTheme.Radius.row)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onOpenItemSettings(item)
+        }
+        .help(item.settingsURL == nil ? "" : "打开\(item.title)权限设置")
     }
 }

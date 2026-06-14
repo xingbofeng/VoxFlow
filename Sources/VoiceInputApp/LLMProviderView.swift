@@ -377,7 +377,7 @@ private struct LLMProviderEditorSheet: View {
                 model: model,
                 apiKey: apiKey,
                 temperature: provider?.temperature ?? 0.2,
-                timeoutSeconds: provider?.timeoutSeconds ?? 8,
+                timeoutSeconds: provider?.timeoutSeconds ?? 30,
                 enabled: isEnabled,
                 isDefault: provider?.isDefault ?? viewModel.providers.isEmpty
             )

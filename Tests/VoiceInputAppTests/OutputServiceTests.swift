@@ -135,7 +135,7 @@ final class OutputServiceTests: XCTestCase {
 
     // MARK: - Agent compose mode
 
-    func testAgentComposeAlwaysCopies() async {
+    func testAgentComposeInjectsWhenTargetUnchanged() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -151,11 +151,32 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: target
         )
 
-        XCTAssertEqual(result, .copied)
+        XCTAssertEqual(result, .injected)
+        XCTAssertEqual(injector.injectedTexts, ["agent text"])
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+    }
+
+    func testAgentComposeFallsBackToClipboardWhenInjectionFails() async {
+        let injector = StubTextInjector(result: .permissionDenied)
+        let clipboard = StubClipboardService()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard
+        )
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+
+        let result = await service.deliver(
+            text: "agent text",
+            mode: .agentCompose,
+            target: target,
+            originalTarget: target
+        )
+
+        XCTAssertEqual(result, .injectionFailed(reason: "Accessibility permission denied"))
         XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
     }
 
-    func testAgentComposeNeverInjects() async {
+    func testAgentComposeDoesNotInjectWhenTargetChanged() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -164,34 +185,32 @@ final class OutputServiceTests: XCTestCase {
         )
         let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
 
-        _ = await service.deliver(
+        let result = await service.deliver(
             text: "agent text",
             mode: .agentCompose,
-            target: target,
+            target: DictationTarget(bundleID: "com.apple.Safari", appName: "Safari"),
             originalTarget: target
         )
 
-        XCTAssertTrue(injector.injectedTexts.isEmpty, "Agent compose should never call inject")
+        XCTAssertEqual(result, .targetChanged(reason: "Target application changed from Editor to Safari"))
+        XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
     }
 
-    func testAgentComposeCopiesEvenWhenTargetChanged() async {
+    func testAgentComposeCopiesWhenNoOriginalTargetWasCaptured() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
             textInjector: injector,
             clipboardService: clipboard
         )
-        let original = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
-        let current = DictationTarget(bundleID: "com.apple.Safari", appName: "Safari")
-
         let result = await service.deliver(
             text: "agent text",
             mode: .agentCompose,
-            target: current,
-            originalTarget: original
+            target: nil,
+            originalTarget: nil
         )
 
-        // Agent compose copies regardless of target change
         XCTAssertEqual(result, .copied)
         XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
         XCTAssertTrue(injector.injectedTexts.isEmpty)

@@ -169,7 +169,7 @@ final class LLMProviderViewModel: ObservableObject {
                 baseURL: normalizedURL,
                 apiKey: resolvedKey,
                 model: trimmedModel,
-                timeoutSeconds: 8
+                timeoutSeconds: 30
             )
             lastConnectionResult = result
             lastError = nil

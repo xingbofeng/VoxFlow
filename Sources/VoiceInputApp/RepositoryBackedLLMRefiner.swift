@@ -141,6 +141,89 @@ final class RepositoryBackedLLMRefiner: TextRefining, PromptAwareTextRefining, A
         lastTrace = nil
     }
 
+    /// Streaming variant of refine() for agent compose.
+    /// Returns accumulated text snapshots via AsyncThrowingStream so the HUD can show real-time generation.
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let provider = try configuredProvider()
+                    guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
+                          !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        continuation.finish(throwing: LLMRefiner.Error.notConfigured)
+                        return
+                    }
+
+                    let url = try OpenAICompatibleClient.chatCompletionsURL(baseURL: provider.baseURL)
+                    var urlRequest = URLRequest(url: url)
+                    urlRequest.httpMethod = "POST"
+                    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    urlRequest.timeoutInterval = provider.timeoutSeconds
+                    let selectedModel = request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                        ? request.model!
+                        : provider.defaultModel
+                    let selectedTemperature = request.temperature ?? provider.temperature
+                    let body: [String: Any] = [
+                        "model": selectedModel,
+                        "messages": [
+                            ["role": "system", "content": request.systemPrompt],
+                            ["role": "user", "content": request.text],
+                        ],
+                        "temperature": selectedTemperature,
+                        "stream": true,
+                    ]
+                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    lastTrace = LLMRefinementTrace(
+                        providerID: provider.id,
+                        providerName: provider.displayName,
+                        endpoint: url.absoluteString,
+                        model: selectedModel,
+                        temperature: selectedTemperature,
+                        timeoutSeconds: provider.timeoutSeconds,
+                        requestBodyJSON: Self.prettyJSONString(from: body),
+                        responseText: nil,
+                        statusCode: nil,
+                        durationMS: nil,
+                        errorMessage: nil,
+                        completedAt: nil
+                    )
+
+                    let startedAt = Date()
+                    let (asyncBytes, _) = try await URLSession.shared.bytes(for: urlRequest)
+                    let parsedStream = SSEParser.parse(byteStream: asyncBytes)
+
+                    var finalText = ""
+                    for try await accumulatedText in parsedStream {
+                        finalText = accumulatedText
+                        continuation.yield(accumulatedText)
+                    }
+
+                    activeProviderID = provider.id
+                    let resultText = finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? request.text : finalText
+                    finishTrace(
+                        responseText: resultText,
+                        statusCode: 200,
+                        durationMS: Self.durationMS(since: startedAt),
+                        errorMessage: nil
+                    )
+                    continuation.finish()
+                } catch {
+                    finishTrace(
+                        durationMS: Self.durationMS(since: Date()),
+                        errorMessage: error.localizedDescription
+                    )
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+
     private func configuredProvider() throws -> LLMProviderRecord {
         guard let provider = try providerRepository.list().first(where: { $0.enabled && $0.isDefault }),
               !provider.baseURL.isEmpty,

@@ -74,6 +74,12 @@ enum HomeHistoryDetailPresentation {
         }
     }
 
+    static func durationText(milliseconds: Int?) -> String {
+        guard let milliseconds else { return "未记录" }
+        let seconds = Double(max(milliseconds, 0)) / 1_000
+        return String(format: "%.1f 秒", seconds)
+    }
+
     static func warningMessage(for code: String, taskMode: VoiceTaskMode?) -> String {
         switch code {
         case "vision_not_supported":

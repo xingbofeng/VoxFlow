@@ -6,7 +6,9 @@ struct TranscriptionSession {
 
     mutating func update(text: String, isFinal: Bool) -> String? {
         guard !completed else { return nil }
-        latestText = text
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            latestText = text
+        }
         receivedFinalResult = receivedFinalResult || isFinal
         return released && receivedFinalResult ? complete() : nil
     }

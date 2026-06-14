@@ -12,6 +12,29 @@ private final class Qwen3CallbackBox: @unchecked Sendable {
     var onError: ((Error) -> Void)?
 }
 
+private final class Qwen3StreamingState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finalUpdate: Qwen3StreamingUpdate?
+
+    func reset() {
+        lock.withLock {
+            finalUpdate = nil
+        }
+    }
+
+    func markFinal(_ update: Qwen3StreamingUpdate) {
+        lock.withLock {
+            finalUpdate = update
+        }
+    }
+
+    var hasFinalUpdate: Bool {
+        lock.withLock {
+            finalUpdate != nil
+        }
+    }
+}
+
 struct Qwen3StreamingUpdate: Sendable, Equatable {
     let transcript: String
     let isFinal: Bool
@@ -83,6 +106,7 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
     // MARK: - Properties
 
     private let callbacks = Qwen3CallbackBox()
+    private let streamingState = Qwen3StreamingState()
     /// Path to the FluidAudio-compatible Qwen3-ASR model directory.
     private let modelPath: String?
     private let sessionFactory: any Qwen3StreamingSessionMaking
@@ -134,6 +158,7 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
         audioBuffer = []
         streamingTask?.cancel()
         streamingTask = nil
+        streamingState.reset()
 
         guard isAvailable else {
             throw Qwen3ASREngineError.modelNotAvailable
@@ -176,6 +201,9 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
                     let session = try await sessionTask.value.value as! any Qwen3StreamingSession
                     if let update = try await session.addAudio(resampled),
                        !update.transcript.isEmpty {
+                        if update.isFinal {
+                            streamingState.markFinal(update)
+                        }
                         await MainActor.run {
                             callbacks.onTranscription?(update.transcript, update.isFinal)
                         }
@@ -219,6 +247,9 @@ final class Qwen3ASREngine: NSObject, @unchecked Sendable, ASREngine {
                 }
 
                 await pendingStreamingTask?.value
+                if streamingState.hasFinalUpdate {
+                    return
+                }
 
                 let session: any Qwen3StreamingSession
                 if let task {

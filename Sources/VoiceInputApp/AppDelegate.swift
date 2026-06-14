@@ -147,7 +147,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         agentComposeHandler.onStageChange = { [weak self] stage in
             self?.overlayController.updateAgentComposeStatus(stage)
-            self?.overlayController.show()
+            self?.overlayController.showWithoutReset()
+        }
+        agentComposeHandler.onStreamingDelta = { [weak self] partialText in
+            self?.overlayController.updateStreamingText(partialText)
         }
         dictationOrchestrator = DictationOrchestrator(
             asrEngineFactory: asrManager,
@@ -182,6 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func handleDictationStateChange(_ state: DictationState) {
         recordingFeedbackController?.handle(state)
+        let isAgentCompose = activeVoiceAction == .agentCompose
         switch state {
         case .idle:
             activeVoiceAction = nil
@@ -190,11 +194,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             refiningMenuItem?.isHidden = true
         case .recording:
             startEscMonitor()
-            overlayController.show()
-            overlayController.updateTranscription("", isRefining: false)
+            if isAgentCompose {
+                // Agent compose handler already set up the HUD via onStageChange(.readingWindow);
+                // do not call show() which would reset UI to "听写中" and hide the spinner.
+                overlayController.showWithoutReset()
+            } else {
+                overlayController.show()
+                overlayController.updateTranscription("", isRefining: false)
+            }
             refiningMenuItem?.isHidden = true
         case .waitingForFinal:
-            if asrManager.effectiveSelectedEngineType == .qwen3 {
+            if !isAgentCompose, asrManager.effectiveSelectedEngineType == .qwen3 {
                 overlayController.updateTranscription("正在识别...", isRefining: true)
             }
         case .processing:
@@ -685,28 +695,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         subtitle: "监听快捷键并向当前应用输入转写文本",
                         systemImage: "accessibility",
                         status: PermissionSummary.statusText(accessibility),
-                        granted: accessibility
+                        granted: accessibility,
+                        settingsURL: Self.systemSettingsURL(for: .accessibility)
                     ),
                     PermissionStatusItem(
                         title: "麦克风",
                         subtitle: "录制你的声音用于听写",
                         systemImage: "mic",
                         status: PermissionSummary.statusText(mic == .granted),
-                        granted: mic == .granted
+                        granted: mic == .granted,
+                        settingsURL: Self.systemSettingsURL(for: .microphone)
                     ),
                     PermissionStatusItem(
                         title: "语音识别",
                         subtitle: "Apple 语音识别的真实系统授权状态",
                         systemImage: "waveform",
                         status: speechStatus,
-                        granted: speech == .granted
+                        granted: speech == .granted,
+                        settingsURL: Self.systemSettingsURL(for: .speech)
                     ),
                     PermissionStatusItem(
                         title: "屏幕录制",
                         subtitle: "用于“帮我说”的当前窗口 OCR，不保存截图",
                         systemImage: "rectangle.inset.filled.and.person.filled",
                         status: PermissionSummary.statusText(screenRecording),
-                        granted: screenRecording
+                        granted: screenRecording,
+                        settingsURL: Self.systemSettingsURL(for: .screenRecording)
                     ),
                 ],
             settingsURL: URL(
@@ -742,14 +756,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 subtitle: "录制你的声音用于听写",
                 systemImage: "mic",
                 status: PermissionSummary.statusText(microphoneGranted),
-                granted: microphoneGranted
+                granted: microphoneGranted,
+                settingsURL: Self.systemSettingsURL(for: .microphone)
             ),
             PermissionStatusItem(
                 title: "语音识别",
                 subtitle: "Apple 语音识别的真实系统授权状态",
                 systemImage: "waveform",
                 status: PermissionSummary.statusText(speechGranted),
-                granted: speechGranted
+                granted: speechGranted,
+                settingsURL: Self.systemSettingsURL(for: .speech)
             ),
         ]
     }
@@ -769,13 +785,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionGuideController?.present()
     }
 
+    private static func systemSettingsURL(for pane: SystemSettingsPane) -> URL? {
+        switch pane {
+        case .microphone:
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+        case .speech:
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition")
+        case .accessibility:
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        case .screenRecording:
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        }
+    }
+
     private func showRecognitionError(_ error: Error) {
         AppLogger.dictation.error("语音识别错误: \(error.localizedDescription)")
-        // Use non-blocking overlay feedback instead of a modal alert.
-        // The dictation orchestrator already preserves any partial text
-        // before calling this handler, so the user won't lose work.
         let message = error.localizedDescription
-        overlayController.showTemporaryMessage("识别失败: \(message)", duration: 3.0)
+        if let taskID = agentComposeHandler?.lastFailedTaskID {
+            overlayController.showTemporaryMessage(
+                "处理失败：\(message)",
+                duration: 8.0
+            ) { [weak self] in
+                self?.openHistoryDetail(taskID)
+            }
+            return
+        }
+        // For dictation errors, try to open the last voice task detail; otherwise open home page.
+        overlayController.showTemporaryMessage(
+            "\(message)",
+            duration: 8.0
+        ) { [weak self] in
+            self?.windowCoordinator.showMainWindow()
+        }
+    }
+
+    private func openHistoryDetail(_ id: String) {
+        windowCoordinator.showMainWindow()
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.appEnvironment.openHistoryDetail.send(id)
+        }
     }
 
     private func showAgentComposeResult(_ result: OutputResult) {
@@ -784,10 +833,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             overlayController.showTemporaryMessage("已生成并复制到剪贴板", duration: 2.5)
         case .targetChanged:
             overlayController.showTemporaryMessage("目标窗口已变化，内容已复制", duration: 3.0)
-        case .injectionFailed, .copyFailed:
+        case .injectionFailed:
+            overlayController.showTemporaryMessage("写入失败，内容已复制", duration: 3.0)
+        case .copyFailed:
             overlayController.showTemporaryMessage("生成完成，但复制失败", duration: 3.0)
         case .injected:
-            overlayController.showTemporaryMessage("已生成回复", duration: 2.5)
+            overlayController.showTemporaryMessage("已生成并写入当前输入框", duration: 2.5)
         case .cancelled:
             break
         }

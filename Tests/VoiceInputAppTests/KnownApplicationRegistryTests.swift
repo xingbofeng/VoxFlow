@@ -79,7 +79,7 @@ final class KnownApplicationRegistryTests: XCTestCase {
             "com.mitchellh.ghostty": "builtin.coding",
             "com.raycast.macos": "builtin.casual",
             "com.tencent.meeting": "builtin.chat",
-            "com.voiceinput.app": "builtin.original",
+            "com.xingbofeng.VoxFlow": "builtin.original",
         ]
 
         for (bundleID, styleID) in expected {
@@ -90,6 +90,6 @@ final class KnownApplicationRegistryTests: XCTestCase {
             )
         }
 
-        XCTAssertNil(registry.lookup(bundleID: "com.xingbofeng.VoxFlow"))
+        XCTAssertNil(registry.lookup(bundleID: "com.voiceinput.app"))
     }
 }

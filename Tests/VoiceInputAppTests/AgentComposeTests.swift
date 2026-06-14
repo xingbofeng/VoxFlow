@@ -4,8 +4,8 @@ import XCTest
 
 @MainActor
 final class AgentComposeTests: XCTestCase {
-    private var databaseQueue: DatabaseQueue!
-    private var repository: VoiceTaskRepository!
+    nonisolated(unsafe) private var databaseQueue: DatabaseQueue!
+    nonisolated(unsafe) private var repository: VoiceTaskRepository!
     private let clock = AgentComposeTestClock(
         now: Date(timeIntervalSince1970: 1_800_000_000)
     )
@@ -23,9 +23,9 @@ final class AgentComposeTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - testAgentComposeCopiesToClipboard
+    // MARK: - testAgentComposeDeliversGeneratedTextViaOutputService
 
-    func testAgentComposeCopiesToClipboard() async throws {
+    func testAgentComposeDeliversGeneratedTextViaOutputService() async throws {
         let refiner = AgentComposeStubRefiner(result: "Generated text")
         let outputService = AgentComposeStubOutputService(result: .copied)
         let coordinator = makeCoordinator(
@@ -48,11 +48,10 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(fetched?.status, .completed)
     }
 
-    // MARK: - testAgentComposeNeverInjects
+    // MARK: - testAgentComposeUsesAgentComposeOutputMode
 
-    func testAgentComposeNeverInjects() async throws {
+    func testAgentComposeUsesAgentComposeOutputMode() async throws {
         let refiner = AgentComposeStubRefiner(result: "Generated text")
-        // Even though the output service could inject, agent compose should request copy
         let outputService = AgentComposeStubOutputService(result: .copied)
         let coordinator = makeCoordinator(
             outputService: outputService,
@@ -66,10 +65,8 @@ final class AgentComposeTests: XCTestCase {
             stylePrompt: nil
         )
 
-        // Verify mode was agentCompose (output service copies, never injects)
         XCTAssertEqual(outputService.lastMode, .agentCompose)
         XCTAssertEqual(result, .copied)
-        XCTAssertNotEqual(result, .injected)
     }
 
     // MARK: - testAgentComposeNeverSimulatesEnter
@@ -89,8 +86,7 @@ final class AgentComposeTests: XCTestCase {
             stylePrompt: nil
         )
 
-        // The output service receives mode=.agentCompose, so it only copies
-        // No Enter key simulation, no app-specific send
+        // No Enter key simulation or app-specific send is performed by the coordinator.
         XCTAssertEqual(outputService.lastMode, .agentCompose)
         XCTAssertFalse(outputService.didInject)
     }
@@ -138,7 +134,7 @@ final class AgentComposeTests: XCTestCase {
         } catch let error as CoordinatorError {
             if case .llmCallFailed = error {
                 // Expected
-                XCTAssertTrue(error.errorDescription?.contains("retry") ?? false)
+                XCTAssertTrue(error.errorDescription?.contains("LLM") ?? false)
             } else {
                 XCTFail("Unexpected error type: \(error)")
             }
@@ -162,7 +158,7 @@ final class AgentComposeTests: XCTestCase {
             XCTFail("Should have thrown")
         } catch let error as CoordinatorError {
             if case .llmNotConfigured = error {
-                XCTAssertTrue(error.errorDescription?.contains("Settings") ?? false)
+                XCTAssertTrue(error.errorDescription?.contains("设置") ?? false)
             } else {
                 XCTFail("Unexpected error type: \(error)")
             }

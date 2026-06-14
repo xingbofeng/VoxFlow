@@ -163,6 +163,32 @@ final class Qwen3ASREngineTests: XCTestCase {
         XCTAssertEqual(chunkCount, 1)
     }
 
+    func testEndAudioDoesNotFinishAgainAfterStreamingFinal() async throws {
+        let session = FakeQwen3StreamingSession(
+            partial: Qwen3StreamingUpdate(transcript: "流式最终文本", isFinal: true),
+            final: Qwen3StreamingUpdate(transcript: "不应再次完成", isFinal: true)
+        )
+        let engine = makeEngineWithExistingModelPath(
+            sessionFactory: FakeQwen3StreamingSessionFactory(session: session)
+        )
+        let streamingFinal = expectation(description: "Qwen3 emits streaming final")
+        engine.onTranscription = { text, isFinal in
+            if text == "流式最终文本" && isFinal {
+                streamingFinal.fulfill()
+            }
+        }
+
+        try engine.start()
+        engine.appendAudioBuffer(makeAudioBuffer(sampleCount: 16_000))
+        await fulfillment(of: [streamingFinal], timeout: 1.0)
+
+        engine.endAudio()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        let finishCount = await session.finishCount
+        XCTAssertEqual(finishCount, 0)
+    }
+
     func testOnErrorCallbackIsSet() {
         // onError is nil by default on a new engine
         let engine = makeEngineWithExistingModelPath()
@@ -241,6 +267,7 @@ private actor FakeQwen3StreamingSession: Qwen3StreamingSession {
     let partial: Qwen3StreamingUpdate?
     let final: Qwen3StreamingUpdate
     private(set) var receivedChunkCount = 0
+    private(set) var finishCount = 0
 
     init(partial: Qwen3StreamingUpdate?, final: Qwen3StreamingUpdate) {
         self.partial = partial
@@ -253,7 +280,8 @@ private actor FakeQwen3StreamingSession: Qwen3StreamingSession {
     }
 
     func finish() async throws -> Qwen3StreamingUpdate {
-        final
+        finishCount += 1
+        return final
     }
 
     func cancel() async {}

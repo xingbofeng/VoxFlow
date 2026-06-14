@@ -168,7 +168,7 @@ final class DictationOrchestratorTests: XCTestCase {
         )
 
         try orchestrator.start(configuration: .appleChinese)
-        targetProvider.target = DictationTarget(bundleID: "com.voiceinput.app", appName: "VoiceInput")
+        targetProvider.target = DictationTarget(bundleID: "com.xingbofeng.VoxFlow", appName: "VoxFlow")
         orchestrator.release()
         engine.emit(text: "raw", isFinal: true)
         await drainMainActorTasks()
@@ -442,6 +442,8 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
     private(set) var startedTarget: DictationTarget?
     private(set) var finishedTranscript: String?
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
+    var onStreamingDelta: ((String) -> Void)?
+    var lastFailedTaskID: String?
 
     init(result: OutputResult) {
         self.result = result

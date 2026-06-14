@@ -364,7 +364,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let migrationCount = try queue.read { connection in
             try countRows(in: "schema_migrations", on: connection)
         }
-        XCTAssertEqual(migrationCount, 3, "AppDatabase has 3 migrations; running twice must not create duplicates")
+        XCTAssertEqual(migrationCount, 4, "AppDatabase has 4 migrations; running twice must not create duplicates")
     }
 
     func testAppDatabaseMigratorCreatesAllExpectedTables() throws {

@@ -16,6 +16,11 @@ enum AppDatabase {
                 },
                 DatabaseMigration(id: 3, name: "voice_tasks") { connection in
                     try connection.execute(voiceTasksSQL)
+                },
+                DatabaseMigration(id: 4, name: "llm_provider_timeout_30s") { connection in
+                    try connection.execute(
+                        "UPDATE llm_providers SET timeout_seconds = 30 WHERE timeout_seconds = 8"
+                    )
                 }
             ],
             clock: clock
@@ -147,7 +152,7 @@ enum AppDatabase {
         default_model TEXT NOT NULL,
         api_key_ref TEXT NOT NULL,
         temperature REAL NOT NULL DEFAULT 0.2,
-        timeout_seconds REAL NOT NULL DEFAULT 8,
+        timeout_seconds REAL NOT NULL DEFAULT 30,
         enabled INTEGER NOT NULL DEFAULT 0,
         is_default INTEGER NOT NULL DEFAULT 0,
         last_health_status TEXT,

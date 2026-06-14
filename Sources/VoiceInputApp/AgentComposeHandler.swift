@@ -3,6 +3,8 @@ import Foundation
 @MainActor
 protocol AgentComposeHandling: AnyObject {
     var onStageChange: ((AgentComposeHUDStage) -> Void)? { get set }
+    var onStreamingDelta: ((String) -> Void)? { get set }
+    var lastFailedTaskID: String? { get }
     func start(target: DictationTarget?) throws
     func finish(rawTranscript: String) async throws -> OutputResult
     func cancel()
@@ -16,6 +18,8 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     private var target: DictationTarget?
 
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
+    var onStreamingDelta: ((String) -> Void)?
+    private(set) var lastFailedTaskID: String?
 
     init(
         coordinator: VoiceTaskCoordinator,
@@ -27,6 +31,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
     func start(target: DictationTarget?) throws {
         self.target = target
+        lastFailedTaskID = nil
         try coordinator.startTask(mode: .agentCompose, target: target)
         coordinator.startContextCollection(target: target, visionSupported: true)
         onStageChange?(.readingWindow)
@@ -39,6 +44,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
         let context = await coordinator.awaitContextCollection()
 
         onStageChange?(.generating)
+        coordinator.onStreamingDelta = onStreamingDelta
         let stylePrompt = try await styleSelector.style(for: target)?.prompt
 
         let result = try await coordinator.processAgentComposeAndDeliver(
@@ -57,7 +63,14 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
             }
         }
 
-        onStageChange?(.copied)
+        switch result {
+        case .injected:
+            onStageChange?(.inserted)
+        case .copied, .targetChanged, .injectionFailed, .copyFailed:
+            onStageChange?(.copied)
+        case .cancelled:
+            break
+        }
         return result
     }
 
@@ -69,6 +82,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
     func fail(_ error: Error) {
         coordinator.cancelContextCollection()
+        lastFailedTaskID = coordinator.currentTaskID
         try? coordinator.recordFailure(
             stage: "agentCompose",
             code: "agent_compose_failed",

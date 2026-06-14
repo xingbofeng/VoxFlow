@@ -3,6 +3,7 @@ import Foundation
 
 final class AppEnvironment: ObservableObject {
     let historyDidChange = PassthroughSubject<Void, Never>()
+    let openHistoryDetail = PassthroughSubject<String, Never>()
     let container: DependencyContainer
 
     var clock: any AppClock { container.clock }

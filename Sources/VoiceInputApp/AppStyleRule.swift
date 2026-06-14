@@ -29,12 +29,24 @@ final class AppStyleRuleStore {
     }
 
     func save(_ rule: AppStyleRule) throws {
-        var rules = try list()
-        if let index = rules.firstIndex(where: { $0.id == rule.id }) {
-            rules[index] = rule
-        } else {
-            rules.append(rule)
+        let ruleBundleID = Self.normalized(rule.bundleID)
+        let ruleAppName = Self.normalized(rule.appName)
+        var rules = try list().filter { existing in
+            if existing.id == rule.id {
+                return false
+            }
+            if let ruleBundleID,
+               Self.normalized(existing.bundleID) == ruleBundleID {
+                return false
+            }
+            if ruleBundleID == nil,
+               let ruleAppName,
+               Self.normalized(existing.appName) == ruleAppName {
+                return false
+            }
+            return true
         }
+        rules.append(rule)
         try write(rules)
     }
 
@@ -49,6 +61,12 @@ final class AppStyleRuleStore {
     private func write(_ rules: [AppStyleRule]) throws {
         let data = try JSONEncoder().encode(Payload(rules: rules))
         try settingsRepository.set(Self.settingsKey, jsonValue: String(data: data, encoding: .utf8) ?? #"{"rules":[]}"#)
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
     }
 }
 
@@ -103,6 +121,7 @@ final class SettingsBackedStyleSelector: StyleSelecting {
 
     private func normalized(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed?.isEmpty == false ? trimmed : nil
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
     }
 }

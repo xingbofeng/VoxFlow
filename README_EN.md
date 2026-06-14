@@ -22,7 +22,6 @@
   </p>
 </div>
 
-> Brand migration: **VoxFlow was formerly VoiceInput**. The visible brand and installer have been renamed, while the bundle ID remains `com.voiceinput.app` to preserve existing macOS permissions.
 
 ## What Is VoxFlow?
 

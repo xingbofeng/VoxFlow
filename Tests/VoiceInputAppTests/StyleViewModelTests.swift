@@ -9,7 +9,7 @@ final class StyleViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             Set(viewModel.profiles.map(\.name)),
-            Set(["原文", "正式", "日常", "元气", "编程", "邮件"])
+            Set(["原文", "正式", "日常", "元气", "聊天", "编程", "邮件"])
         )
         XCTAssertEqual(viewModel.defaultProfile?.id, "builtin.original")
     }
@@ -148,6 +148,36 @@ final class StyleViewModelTests: XCTestCase {
 
         reloadedViewModel.deleteAppStyleRule(id: reloadedViewModel.appStyleRules[0].id)
         XCTAssertEqual(reloadedViewModel.appStyleRules, [])
+    }
+
+    func testSavingDuplicateApplicationRuleReplacesExistingStyle() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = StyleViewModel(environment: environment)
+
+        try viewModel.saveAppStyleRule(
+            id: nil,
+            bundleID: "com.tencent.xinWeChat",
+            appName: "微信",
+            styleID: "builtin.casual"
+        )
+        try viewModel.saveAppStyleRule(
+            id: nil,
+            bundleID: "com.tencent.xinWeChat",
+            appName: "微信",
+            styleID: "builtin.energetic"
+        )
+
+        XCTAssertEqual(viewModel.appStyleRules.count, 1)
+        XCTAssertEqual(viewModel.appStyleRules.first?.styleID, "builtin.energetic")
+
+        let selector = SettingsBackedStyleSelector(
+            styleRepository: environment.styleRepository,
+            settingsRepository: environment.settingsRepository
+        )
+        let style = try await selector.style(
+            for: DictationTarget(bundleID: "com.tencent.xinWeChat", appName: "微信")
+        )
+        XCTAssertEqual(style?.id, "builtin.energetic")
     }
 
     func testSmartConfigurationCreatedFromStyleViewModelCallsAIClassifier() async throws {

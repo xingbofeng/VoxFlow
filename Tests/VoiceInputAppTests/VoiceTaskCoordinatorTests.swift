@@ -4,8 +4,8 @@ import XCTest
 
 @MainActor
 final class VoiceTaskCoordinatorTests: XCTestCase {
-    private var databaseQueue: DatabaseQueue!
-    private var repository: VoiceTaskRepository!
+    nonisolated(unsafe) private var databaseQueue: DatabaseQueue!
+    nonisolated(unsafe) private var repository: VoiceTaskRepository!
     private let clock = CoordinatorTestClock(
         now: Date(timeIntervalSince1970: 1_800_000_000)
     )

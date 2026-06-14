@@ -22,7 +22,6 @@
   </p>
 </div>
 
-> 品牌迁移：**VoxFlow 原 VoiceInput**。应用中文显示名为“随声写”，可见品牌和安装包已更名，bundle ID 继续保持 `com.voiceinput.app`，以保留已有系统权限。
 
 ## 随声写是什么
 

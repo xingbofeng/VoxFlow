@@ -51,6 +51,11 @@ struct MainShellView: View {
         .onDisappear {
             removeApplicationPointerMonitor()
         }
+        .onReceive(homeViewModel.openHistoryDetailRequests) { id in
+            selectedRoute = .home
+            homeViewModel.load()
+            homeViewModel.selectHistoryItem(id: id)
+        }
     }
 
     private func installApplicationPointerMonitor() {

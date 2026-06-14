@@ -13,6 +13,14 @@ final class VoiceTaskCoordinator {
     private var currentTask: VoiceTask?
     private var contextTask: Task<ContextSnapshot, Never>?
 
+    /// Emits accumulated text during streaming LLM generation.
+    /// The handler (AgentComposeHandler → AppDelegate → Overlay) uses this to show real-time progress.
+    var onStreamingDelta: ((String) -> Void)?
+
+    var currentTaskID: String? {
+        currentTask?.id
+    }
+
     init(
         taskRepository: VoiceTaskRepository,
         outputService: any OutputService,
@@ -195,17 +203,31 @@ final class VoiceTaskCoordinator {
             userDictation: rawText
         )
 
-        // Call LLM
+        // Call LLM (streaming for real-time HUD updates)
         let finalText: String
         do {
             (agentRefiner as? RefinementTraceProviding)?.clearLastTrace()
-            let refinedText = try await agentRefiner.refine(request)
-            try persistAgentTraceIfAvailable(taskID: task.id)
-            let trimmed = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
-            finalText = trimmed.isEmpty ? rawText : trimmed
+
+            if let streamingRefiner = agentRefiner as? RepositoryBackedLLMRefiner {
+                // Streaming path: emit deltas via onStreamingDelta callback
+                let stream = streamingRefiner.refineStream(request)
+                var accumulatedText = ""
+                for try await delta in stream {
+                    accumulatedText = delta
+                    onStreamingDelta?(delta)
+                }
+                try persistAgentTraceIfAvailable(taskID: task.id)
+                let trimmed = accumulatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                finalText = trimmed.isEmpty ? rawText : trimmed
+            } else {
+                // Fallback: blocking call (non-RepositoryBackedLLMRefiner)
+                let refinedText = try await agentRefiner.refine(request)
+                try persistAgentTraceIfAvailable(taskID: task.id)
+                let trimmed = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                finalText = trimmed.isEmpty ? rawText : trimmed
+            }
         } catch {
             try? persistAgentTraceIfAvailable(taskID: task.id)
-            // Record LLM failure as trace
             AppLogger.general.error("Agent compose LLM failed: \(error.localizedDescription)")
             task.warnings.append("agent_llm_failed")
             try? taskRepository.updateWarnings(id: task.id, warnings: task.warnings)
@@ -226,7 +248,7 @@ final class VoiceTaskCoordinator {
         task.updatedAt = clock.now
         try taskRepository.updateStage(task)
 
-        // Copy-only output: write to clipboard, do NOT inject or simulate keys
+        // Safe output: inject only while the original target is still active; never simulate Enter.
         let currentTarget = targetProvider.currentTarget()
         let outputResult = await outputService.deliver(
             text: finalText,
@@ -358,13 +380,13 @@ enum CoordinatorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noActiveTask:
-            return "No active voice task."
+            return "没有活跃的语音任务。"
         case .invalidMode:
-            return "Task mode does not support this operation."
+            return "任务模式不支持此操作。"
         case .llmNotConfigured:
-            return "LLM not configured. Please add an LLM provider in Settings to use agent compose."
+            return "未配置 LLM。请在设置中添加 LLM 提供方以使用帮我说功能。"
         case .llmCallFailed(let reason):
-            return "LLM call failed: \(reason). You can retry from the home page."
+            return "LLM 调用失败：\(reason)"
         }
     }
 }

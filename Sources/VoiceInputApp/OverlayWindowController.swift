@@ -45,6 +45,7 @@ final class OverlayWindowController: NSWindowController {
     // MARK: - Temporary Message
 
     private var temporaryMessageTask: Task<Void, Never>?
+    private var temporaryMessageAction: (() -> Void)?
     private var isShowingTemporaryMessage = false
     private var presentationGeneration: UInt = 0
 
@@ -100,6 +101,12 @@ final class OverlayWindowController: NSWindowController {
         visualEffectView.translatesAutoresizingMaskIntoConstraints = false
 
         window.contentView = visualEffectView
+        visualEffectView.addGestureRecognizer(
+            NSClickGestureRecognizer(
+                target: self,
+                action: #selector(handleOverlayClick(_:))
+            )
+        )
 
         indicatorBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         indicatorBackgroundView.wantsLayer = true
@@ -153,7 +160,7 @@ final class OverlayWindowController: NSWindowController {
 
         // Refining spinner (hidden by default)
         refiningSpinner.style = .spinning
-        refiningSpinner.controlSize = .mini
+        refiningSpinner.controlSize = .small
         refiningSpinner.translatesAutoresizingMaskIntoConstraints = false
         refiningSpinner.isHidden = true
         indicatorBackgroundView.addSubview(refiningSpinner)
@@ -222,12 +229,15 @@ final class OverlayWindowController: NSWindowController {
 
     // MARK: - Public API
 
+    /// Shows the overlay in the default dictation state (waveform + "听写中").
     func show() {
         guard let window = window else { return }
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
+        temporaryMessageAction = nil
         isShowingTemporaryMessage = false
         presentationGeneration &+= 1
+        window.ignoresMouseEvents = true
 
         // Calculate initial size for empty text
         updateWindowSize(textWidth: OverlayLayout.minimumTextWidth)
@@ -240,6 +250,20 @@ final class OverlayWindowController: NSWindowController {
         refiningSpinner.isHidden = true
         refiningSpinner.stopAnimation(nil)
 
+        present(window)
+    }
+
+    /// Presents the overlay without resetting UI state.
+    /// Used by agent-compose stage changes so the spinner and status labels
+    /// set by `updateAgentComposeStatus` are not overwritten.
+    func showWithoutReset() {
+        guard let window = window else { return }
+        temporaryMessageTask?.cancel()
+        temporaryMessageTask = nil
+        temporaryMessageAction = nil
+        isShowingTemporaryMessage = false
+        presentationGeneration &+= 1
+        window.ignoresMouseEvents = true
         present(window)
     }
 
@@ -326,15 +350,21 @@ final class OverlayWindowController: NSWindowController {
 
     /// Displays a temporary error/info message in the overlay that auto-dismisses
     /// after `duration` seconds. Used for non-blocking error feedback.
-    func showTemporaryMessage(_ text: String, duration: TimeInterval = 3.0) {
+    func showTemporaryMessage(
+        _ text: String,
+        duration: TimeInterval = 3.0,
+        action: (() -> Void)? = nil
+    ) {
         temporaryMessageTask?.cancel()
         guard OverlayLayout.shouldShowTemporaryMessage(text) else {
+            temporaryMessageAction = nil
             isShowingTemporaryMessage = false
             presentationGeneration &+= 1
             dismiss()
             return
         }
 
+        temporaryMessageAction = action
         isShowingTemporaryMessage = true
         presentationGeneration &+= 1
         let generation = presentationGeneration
@@ -359,6 +389,7 @@ final class OverlayWindowController: NSWindowController {
         )
         updateWindowSize(textWidth: textSize.width + 8, textHeight: textSize.height + 8)
         guard let window else { return }
+        window.ignoresMouseEvents = action == nil
         present(window)
 
         temporaryMessageTask = Task { @MainActor [weak self] in
@@ -369,6 +400,7 @@ final class OverlayWindowController: NSWindowController {
                 return
             }
             self.isShowingTemporaryMessage = false
+            self.temporaryMessageAction = nil
             self.dismiss(generation: generation)
         }
     }
@@ -400,10 +432,21 @@ final class OverlayWindowController: NSWindowController {
                 guard self.presentationGeneration == generation else { return }
                 self.textLabel.stringValue = ""
                 self.statusLabel.stringValue = ""
+                self.temporaryMessageAction = nil
+                window.ignoresMouseEvents = true
                 window.orderOut(nil)
                 self.visualEffectView.layer?.removeAnimation(forKey: "voiceinput.exit")
             }
         }
+    }
+
+    func performTemporaryMessageClickForTesting() {
+        temporaryMessageAction?()
+    }
+
+    @objc private func handleOverlayClick(_ recognizer: NSClickGestureRecognizer) {
+        guard recognizer.state == .ended else { return }
+        temporaryMessageAction?()
     }
 
     /// Returns the current transcription text shown in the overlay.
@@ -439,12 +482,21 @@ final class OverlayWindowController: NSWindowController {
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = "正在生成文本..."
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .copied:
             statusLabel.stringValue = "已复制"
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = "已复制到剪贴板"
+            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            refiningSpinner.isHidden = true
+            refiningSpinner.stopAnimation(nil)
+        case .inserted:
+            statusLabel.stringValue = "已写入"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = "已写入当前输入框"
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
@@ -457,6 +509,24 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.stopAnimation(nil)
         }
     }
+
+    /// Updates the overlay text in real-time as LLM streaming content arrives.
+    /// Called during the .generating stage to show partial text to the user.
+    func updateStreamingText(_ partialText: String) {
+        let displayText = OverlayLayout.visibleTranscriptionText(partialText)
+        textLabel.stringValue = displayText
+        let textSize = (displayText as NSString).boundingRect(
+            with: NSSize(
+                width: OverlayLayout.maximumTextWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: textLabel.font as Any]
+        )
+        updateWindowSize(textWidth: textSize.width + 8, textHeight: textSize.height + 8)
+        guard let window else { return }
+        present(window)
+    }
 }
 
 // MARK: - AgentComposeHUDStage
@@ -466,6 +536,7 @@ enum AgentComposeHUDStage {
     case transcribing
     case generating
     case copied
+    case inserted
     case contextUnavailable
 }
 
