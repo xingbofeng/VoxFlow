@@ -15,6 +15,10 @@ enum DictationState: Equatable {
     var isRecordingActive: Bool {
         self == .recording || self == .waitingForFinal
     }
+
+    var isCancellable: Bool {
+        isRecordingActive || self == .processing
+    }
 }
 
 struct DictationStateMachine {

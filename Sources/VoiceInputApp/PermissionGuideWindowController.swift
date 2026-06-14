@@ -10,6 +10,12 @@ struct PermissionStatusItem: Identifiable {
     let granted: Bool
 }
 
+enum PermissionGuideLayout {
+    static func windowHeight(itemCount: Int) -> CGFloat {
+        min(560, max(470, CGFloat(itemCount) * 78 + 280))
+    }
+}
+
 @MainActor
 final class PermissionGuideWindowController: NSWindowController {
     init(
@@ -18,7 +24,7 @@ final class PermissionGuideWindowController: NSWindowController {
         items: [PermissionStatusItem],
         settingsURL: URL?
     ) {
-        let windowHeight = min(500, max(360, CGFloat(items.count) * 78 + 250))
+        let windowHeight = PermissionGuideLayout.windowHeight(itemCount: items.count)
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: windowHeight),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -58,6 +64,9 @@ final class PermissionGuideWindowController: NSWindowController {
         NSApplication.shared.activate(ignoringOtherApps: true)
         window?.center()
         showWindow(nil)
+        if let window {
+            WindowPlacementPolicy.placeOnVisibleScreenIfNeeded(window)
+        }
         window?.makeKeyAndOrderFront(nil)
     }
 }
@@ -93,7 +102,7 @@ private struct PermissionGuideView: View {
                 }
             }
 
-            Text("权限刚刚修改后，请回到 VoiceInput 重新检查。")
+            Text("权限刚刚修改后，请回到随声写重新检查。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
@@ -110,6 +119,7 @@ private struct PermissionGuideView: View {
                         .controlSize(.large)
                 }
             }
+            .layoutPriority(1)
         }
         .padding(28)
         .frame(width: 520, height: windowHeight, alignment: .topLeading)

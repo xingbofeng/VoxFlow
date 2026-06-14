@@ -13,11 +13,41 @@ enum AppDatabase {
                         column: "processing_trace_json",
                         definition: "TEXT"
                     )
+                },
+                DatabaseMigration(id: 3, name: "voice_tasks") { connection in
+                    try connection.execute(voiceTasksSQL)
                 }
             ],
             clock: clock
         )
     }
+
+    static let voiceTasksSQL = """
+    CREATE TABLE IF NOT EXISTS voice_tasks (
+        id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        stage TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'inProgress',
+        target_app_bundle_id TEXT,
+        target_app_name TEXT,
+        target_app_pid INTEGER,
+        target_window_id TEXT,
+        target_window_title TEXT,
+        audio_relative_path TEXT,
+        raw_transcript TEXT,
+        context_json TEXT,
+        final_text TEXT,
+        output_result TEXT,
+        failure_json TEXT,
+        warnings_json TEXT NOT NULL DEFAULT '[]',
+        trace_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_voice_tasks_status ON voice_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_voice_tasks_created_at ON voice_tasks(created_at);
+    """
 
     static let initialSchemaSQL = """
     CREATE TABLE IF NOT EXISTS dictation_history (

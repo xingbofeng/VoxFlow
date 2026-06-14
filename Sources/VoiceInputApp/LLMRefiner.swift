@@ -194,7 +194,6 @@ final class LLMRefiner: @unchecked Sendable {
                 ["role": "user", "content": request.text]
             ],
             "temperature": request.temperature ?? 0.0,
-            "max_tokens": max(100, request.text.count + 50),
             "stream": false
         ]
 

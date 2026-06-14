@@ -88,8 +88,8 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertNil(result.llmProviderID)
         XCTAssertEqual(result.styleID, "builtin.coding")
         XCTAssertEqual(refiner.requests.map(\.text), ["配森"])
-        XCTAssertNil(refiner.requests.first?.model)
-        XCTAssertNil(refiner.requests.first?.temperature)
+        XCTAssertEqual(refiner.requests.first?.model, "model-a")
+        XCTAssertEqual(refiner.requests.first?.temperature, 0.2)
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Python") == true)
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("配森") == true)
     }
@@ -120,6 +120,29 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         XCTAssertEqual(result.styleID, "builtin.email")
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("邮件") == true)
+    }
+
+    func testPipelineRetriesWhenStyledModelEchoesInput() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let refiner = SequencedPromptAwareRefiner(
+            results: [
+                "小兔子乖乖把门开开快点开开我要进来",
+                "小兔子乖乖，把门开开，快点开开，我要进来！",
+            ]
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository
+        )
+
+        let result = await pipeline.process("小兔子乖乖把门开开快点开开我要进来")
+
+        XCTAssertEqual(result.finalText, "小兔子乖乖，把门开开，快点开开，我要进来！")
+        XCTAssertEqual(refiner.requests.count, 2)
+        XCTAssertTrue(refiner.requests.last?.systemPrompt.contains("上一次输出与输入完全相同") == true)
+        XCTAssertFalse(refiner.requests.last?.systemPrompt.contains("必须真正执行文本整理") == true)
+        XCTAssertTrue(refiner.requests.last?.text.contains("待处理原文") == true)
+        XCTAssertTrue(result.warnings.contains("llm_echo_retry"))
     }
 
     private enum TestError: Error {
@@ -170,6 +193,33 @@ final class TextProcessingPipelineTests: XCTestCase {
         func refine(_ request: TextRefinementRequest) async throws -> String {
             requests.append(request)
             return try result.get()
+        }
+    }
+
+    private final class SequencedPromptAwareRefiner: TextRefining, PromptAwareTextRefining, @unchecked Sendable {
+        var isEnabled = true
+        var isConfigured = true
+        private var results: [String]
+        private(set) var requests: [TextRefinementRequest] = []
+
+        init(results: [String]) {
+            self.results = results
+        }
+
+        func refine(_ text: String) async throws -> String {
+            try await refine(
+                TextRefinementRequest(
+                    text: text,
+                    systemPrompt: PromptBuilder.conservativeSystemPrompt,
+                    model: nil,
+                    temperature: nil
+                )
+            )
+        }
+
+        func refine(_ request: TextRefinementRequest) async throws -> String {
+            requests.append(request)
+            return results.removeFirst()
         }
     }
 }

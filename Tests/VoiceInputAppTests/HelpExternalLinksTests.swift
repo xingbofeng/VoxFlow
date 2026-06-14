@@ -3,10 +3,10 @@ import XCTest
 
 final class HelpExternalLinksTests: XCTestCase {
     func testProjectHomepageUsesLandingPage() {
-        XCTAssertEqual(HelpExternalLinks.projectHomepage, "https://xingbofeng.github.io/VoiceInput/")
+        XCTAssertEqual(HelpExternalLinks.projectHomepage, "https://xingbofeng.github.io/VoxFlow/")
     }
 
     func testGitHubRepositoryRemainsSeparateEntry() {
-        XCTAssertEqual(HelpExternalLinks.githubRepository, "https://github.com/xingbofeng/VoiceInput")
+        XCTAssertEqual(HelpExternalLinks.githubRepository, "https://github.com/xingbofeng/VoxFlow")
     }
 }

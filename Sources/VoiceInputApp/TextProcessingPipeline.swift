@@ -120,7 +120,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         do {
             let prompt = await buildPrompt(target: target)
             warnings.append(contentsOf: prompt.warnings)
-            let refinedText: String
+            var refinedText: String
             let promptMetadata: PromptBuildResult?
             if let promptAwareRefiner = refiner as? any PromptAwareTextRefining {
                 (refiner as? RefinementTraceProviding)?.clearLastTrace()
@@ -133,6 +133,22 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     )
                 )
                 promptMetadata = prompt.result
+                if prompt.result.styleID != nil,
+                   refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == text.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    warnings.append("llm_echo_retry")
+                    (refiner as? RefinementTraceProviding)?.clearLastTrace()
+                    refinedText = try await promptAwareRefiner.refine(
+                        TextRefinementRequest(
+                            text: PromptBuilder.retryUserMessage(text),
+                            systemPrompt: PromptBuilder.retrySystemPrompt(
+                                prompt.result.systemPrompt
+                            ),
+                            model: prompt.result.model,
+                            temperature: prompt.result.temperature
+                        )
+                    )
+                }
             } else {
                 refinedText = try await refiner.refine(text)
                 promptMetadata = nil

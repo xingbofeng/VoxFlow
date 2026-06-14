@@ -149,7 +149,10 @@ final class ASRProviderRegistry {
         let qwenAvailable = asrManager.isQwen3ModelAvailable
         let qwenMessage = qwenAvailable
             ? "本地模型已就绪"
-            : "需要下载或选择本地模型"
+            : "尚未安装本地模型"
+        let qwenPrivacySummary = qwenAvailable
+            ? "语音仅在本机处理，不会上传。"
+            : "请先下载模型，或选择已有的模型文件夹。语音仅在本机处理，不会上传。"
 
         let apple = ASRProviderDescriptor(
             id: ASRProviderID.appleSpeech,
@@ -173,7 +176,7 @@ final class ASRProviderRegistry {
             isAvailable: qwenAvailable,
             isDefault: selectedID == ASRProviderID.qwen3,
             statusMessage: qwenMessage,
-            privacySummary: "本地 CoreML 模型转写，音频不因该 Provider 上传。",
+            privacySummary: qwenPrivacySummary,
             modelSize: asrManager.qwen3ModelSize,
             engineType: .qwen3
         )

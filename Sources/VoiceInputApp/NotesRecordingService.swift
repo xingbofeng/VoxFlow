@@ -116,9 +116,9 @@ enum NotesRecordingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:
-            return "未获得麦克风权限，请在系统设置中允许 VoiceInput 使用麦克风。"
+            return "未获得麦克风权限，请在系统设置中允许随声写使用麦克风。"
         case .speechRecognitionPermissionDenied:
-            return "未获得语音识别权限，请在系统设置中允许 VoiceInput 使用语音识别。"
+            return "未获得语音识别权限，请在系统设置中允许随声写使用语音识别。"
         }
     }
 }

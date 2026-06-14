@@ -15,9 +15,11 @@ enum OverlayLayout {
     static let verticalPadding: CGFloat = 8
     static let cornerRadius: CGFloat = 12
     static let bottomOffset: CGFloat = 40
-    static let maximumVisibleCharacters = 140
+    static let maximumVisibleCharacters = 48
     /// Maximum number of visible text lines; text beyond this scrolls or fades
     static let maxVisibleLines = 2
+    static let textLineBreakMode: NSLineBreakMode = .byCharWrapping
+    static let truncatesLastVisibleLine = false
 
     static func clampedTextWidth(_ width: CGFloat) -> CGFloat {
         max(minimumTextWidth, min(maximumTextWidth, width))
@@ -44,5 +46,9 @@ enum OverlayLayout {
             return text
         }
         return "…" + String(text.suffix(maximumVisibleCharacters))
+    }
+
+    static func shouldShowTemporaryMessage(_ text: String) -> Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

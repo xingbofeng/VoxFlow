@@ -69,14 +69,17 @@ final class RepositoryBackedLLMRefiner: TextRefining, PromptAwareTextRefining, A
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.timeoutInterval = provider.timeoutSeconds
+        let selectedModel = request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? request.model!
+            : provider.defaultModel
+        let selectedTemperature = request.temperature ?? provider.temperature
         let body: [String: Any] = [
-            "model": provider.defaultModel,
+            "model": selectedModel,
             "messages": [
                 ["role": "system", "content": request.systemPrompt],
                 ["role": "user", "content": request.text],
             ],
-            "temperature": provider.temperature,
-            "max_tokens": max(100, request.text.count + 50),
+            "temperature": selectedTemperature,
             "stream": false,
         ]
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -84,8 +87,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, PromptAwareTextRefining, A
             providerID: provider.id,
             providerName: provider.displayName,
             endpoint: url.absoluteString,
-            model: provider.defaultModel,
-            temperature: provider.temperature,
+            model: selectedModel,
+            temperature: selectedTemperature,
             timeoutSeconds: provider.timeoutSeconds,
             requestBodyJSON: Self.prettyJSONString(from: body),
             responseText: nil,

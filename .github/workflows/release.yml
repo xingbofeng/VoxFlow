@@ -32,16 +32,16 @@ jobs:
 
       - name: Verify release assets
         run: |
-          codesign --verify --deep --strict .build/VoiceInputApp.app
-          lipo .build/VoiceInputApp.app/Contents/MacOS/VoiceInputApp -verify_arch arm64 x86_64
-          shasum -a 256 -c dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+          codesign --verify --deep --strict .build/VoxFlow.app
+          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64 x86_64
+          shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: VoiceInput ${{ steps.version.outputs.value }}
+          name: VoxFlow ${{ steps.version.outputs.value }}
           body_path: .github/release-notes/v${{ steps.version.outputs.value }}.md
           files: |
-            dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg
-            dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
           fail_on_unmatched_files: true

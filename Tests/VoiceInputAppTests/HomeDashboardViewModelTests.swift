@@ -3,12 +3,11 @@ import XCTest
 
 @MainActor
 final class HomeDashboardViewModelTests: XCTestCase {
-    func testLoadComputesStatisticsGoalAndGroupedHistory() throws {
+    func testLoadComputesStatisticsAndGroupedHistory() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.settingsRepository.set("home.dailyCharacterGoal", jsonValue: "100")
         try environment.historyRepository.save(
             historyEntry(
                 id: "today",
@@ -35,8 +34,6 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.stats.todayCharacters, 50)
         XCTAssertEqual(viewModel.stats.averageCPM, 80)
         XCTAssertEqual(viewModel.stats.streakDays, 2)
-        XCTAssertEqual(viewModel.stats.dailyGoal, 100)
-        XCTAssertEqual(viewModel.stats.dailyGoalProgress, 0.5)
         XCTAssertEqual(viewModel.historyGroups.map(\.title), ["今天", "昨天"])
         XCTAssertEqual(viewModel.historyGroups.first?.items.map(\.id), ["today"])
     }
@@ -102,7 +99,6 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.settingsRepository.set("home.dailyCharacterGoal", jsonValue: "100")
         try environment.historyRepository.save(
             historyEntry(
                 id: "today",
@@ -139,9 +135,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.stats.totalCharacters, 40)
         XCTAssertEqual(viewModel.stats.todayCharacters, 40)
         XCTAssertEqual(viewModel.stats.averageCPM, 40)
-        XCTAssertEqual(viewModel.stats.dailyGoalProgress, 0.4)
         XCTAssertEqual(viewModel.focusedCharactersTitle, "6月8日字符")
-        XCTAssertEqual(viewModel.goalTitle, "6月8日目标")
         XCTAssertEqual(viewModel.historyGroups.map(\.title), ["6月8日"])
         XCTAssertEqual(viewModel.historyGroups.first?.items.map(\.id), ["yesterday-afternoon", "yesterday-morning"])
 
@@ -149,10 +143,55 @@ final class HomeDashboardViewModelTests: XCTestCase {
 
         XCTAssertNil(viewModel.selectedActivityDate)
         XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
-        XCTAssertEqual(viewModel.goalTitle, "今日目标")
         XCTAssertEqual(viewModel.stats.totalCharacters, 90)
         XCTAssertEqual(viewModel.stats.todayCharacters, 50)
         XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["today", "yesterday-afternoon", "yesterday-morning"])
+    }
+
+    func testActivityBlankTapRestoresDefaultDashboardState() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "today",
+                finalText: "今天输入文本",
+                charCount: 50,
+                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+            )
+        )
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "yesterday",
+                finalText: "昨天输入",
+                charCount: 30,
+                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+            )
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+        viewModel.selectActivityDay(makeDate(year: 2026, month: 6, day: 8, hour: 18))
+
+        viewModel.restoreDefaultDashboardFocusFromActivityBlankTap()
+
+        XCTAssertNil(viewModel.selectedActivityDate)
+        XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
+        XCTAssertEqual(viewModel.stats.totalCharacters, 80)
+        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["today", "yesterday"])
+    }
+
+    func testApplicationPointerDownRestoresDefaultDashboardState() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+        viewModel.selectActivityDay(makeDate(year: 2026, month: 6, day: 8, hour: 18))
+
+        viewModel.handleApplicationPointerDown()
+
+        XCTAssertNil(viewModel.selectedActivityDate)
+        XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
     }
 
     func testHistoryItemExposesFinalAndRawTextForConversionToggle() throws {
@@ -218,6 +257,111 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["new"])
     }
 
+    func testLoadIncludesAgentComposeTasksAndOpensTheirDetail() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                targetAppName: "微信",
+                rawTranscript: "帮我回复今晚可以",
+                finalText: "可以，今晚发给你。",
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+
+        viewModel.load()
+        viewModel.selectHistoryItem(id: "agent-task")
+
+        let item = try XCTUnwrap(viewModel.historyGroups.flatMap(\.items).first)
+        XCTAssertEqual(item.id, "agent-task")
+        XCTAssertEqual(item.taskMode, .agentCompose)
+        XCTAssertEqual(item.finalText, "可以，今晚发给你。")
+        XCTAssertEqual(viewModel.selectedDetail?.taskMode, .agentCompose)
+        XCTAssertEqual(viewModel.selectedDetail?.appName, "微信")
+    }
+
+    func testAgentComposeDetailDecodesSavedLLMTrace() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                targetAppName: "微信",
+                rawTranscript: "帮我回复微信",
+                finalText: "可以，我六点前发给你。",
+                trace: #"{"llm":{"providerID":"provider","providerName":"OpenAI","endpoint":"https:\/\/api.example.com\/v1\/chat\/completions","model":"gpt-agent","temperature":0.2,"timeoutSeconds":8,"requestBodyJSON":"{\"messages\":[{\"role\":\"user\",\"content\":\"帮我回复微信\"}]}","responseText":"可以，我六点前发给你。","statusCode":200,"durationMS":123,"errorMessage":null}}"#,
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+
+        viewModel.selectHistoryItem(id: "agent-task")
+
+        XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.model, "gpt-agent")
+        XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.statusCode, 200)
+    }
+
+    func testAgentComposeHistoryCopyAndDeleteUseVoiceTaskRepository() throws {
+        let clock = MutableHomeClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                rawTranscript: "帮我说",
+                finalText: "生成结果",
+                createdAt: clock.now,
+                updatedAt: clock.now,
+                completedAt: clock.now
+            )
+        )
+        let clipboard = CapturingClipboardWriter()
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            clipboardWriter: clipboard,
+            calendar: testCalendar
+        )
+        viewModel.load()
+
+        viewModel.copyHistoryItem(id: "agent-task")
+        viewModel.deleteHistoryItem(id: "agent-task")
+
+        XCTAssertEqual(clipboard.copiedTexts, ["生成结果"])
+        XCTAssertNil(try taskRepository.fetch(id: "agent-task"))
+        XCTAssertTrue(viewModel.historyGroups.flatMap(\.items).isEmpty)
+    }
+
     func testDeleteSoftDeletesAndReloadsHistory() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -256,6 +400,18 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.model, "gpt")
         XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.statusCode, 200)
         XCTAssertNil(viewModel.lastError)
+    }
+
+    func testBackdropDismissClearsSelectedDetail() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(historyEntry(id: "entry"))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.selectHistoryItem(id: "entry")
+
+        viewModel.dismissSelectedDetailFromBackdrop()
+
+        XCTAssertNil(viewModel.selectedDetail)
     }
 
     func testReprocessSelectedHistoryItemUsesRawTextAndUpdatesHistory() async throws {

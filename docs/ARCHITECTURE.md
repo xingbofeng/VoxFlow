@@ -1,4 +1,4 @@
-# VoiceInput Architecture
+# VoxFlow Architecture
 
 ## Module Boundaries
 

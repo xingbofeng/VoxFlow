@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 
 struct MainShellView: View {
     @State private var selectedRoute: NavigationRoute = .home
     @State private var isSidebarVisible = true
+    @State private var applicationPointerMonitor: Any?
     @ObservedObject var viewModel: WorkbenchViewModel
     @ObservedObject var homeViewModel: HomeDashboardViewModel
     @ObservedObject var glossaryViewModel: GlossaryViewModel
@@ -39,12 +41,34 @@ struct MainShellView: View {
                 }
             }
         }
-        .frame(minWidth: 1_100, minHeight: 720)
+        .frame(minWidth: 1_260, minHeight: 720)
         .tint(AppTheme.ColorToken.accent)
         .preferredColorScheme(settingsViewModel.systemOption(.darkMode) ? .dark : .light)
         .onAppear {
             viewModel.load()
+            installApplicationPointerMonitor()
         }
+        .onDisappear {
+            removeApplicationPointerMonitor()
+        }
+    }
+
+    private func installApplicationPointerMonitor() {
+        guard applicationPointerMonitor == nil else {
+            return
+        }
+        applicationPointerMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+            homeViewModel.handleApplicationPointerDown()
+            return event
+        }
+    }
+
+    private func removeApplicationPointerMonitor() {
+        guard let applicationPointerMonitor else {
+            return
+        }
+        NSEvent.removeMonitor(applicationPointerMonitor)
+        self.applicationPointerMonitor = nil
     }
 
     private var detailView: some View {

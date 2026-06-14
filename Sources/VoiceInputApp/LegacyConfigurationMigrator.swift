@@ -1,11 +1,41 @@
 import Foundation
 
 enum LegacyConfigurationMigrator {
+    private static let bundleDefaultsMigrationKey = "VoxFlow_BundleDefaultsMigrated_V1"
+
+    static func migrateBundleDefaults(
+        fromDomain legacyDomain: String = ProductBrand.legacyBundleIdentifier,
+        toDomain currentDomain: String = ProductBrand.bundleIdentifier
+    ) {
+        guard legacyDomain != currentDomain else {
+            return
+        }
+        let currentDefaults = UserDefaults(suiteName: currentDomain) ?? .standard
+        guard currentDefaults.bool(forKey: bundleDefaultsMigrationKey) == false,
+              let legacyValues = UserDefaults.standard.persistentDomain(forName: legacyDomain),
+              legacyValues.isEmpty == false else {
+            currentDefaults.set(true, forKey: bundleDefaultsMigrationKey)
+            return
+        }
+
+        var currentValues = UserDefaults.standard.persistentDomain(forName: currentDomain) ?? [:]
+        for (key, value) in legacyValues where shouldMigrateBundleDefaultKey(key) {
+            guard currentValues[key] == nil else {
+                continue
+            }
+            currentValues[key] = value
+        }
+        currentValues[bundleDefaultsMigrationKey] = true
+        UserDefaults.standard.setPersistentDomain(currentValues, forName: currentDomain)
+        currentDefaults.synchronize()
+    }
+
     static func migrate(
         defaults: UserDefaults,
         credentialStore: CredentialStore,
         llmProviderRepository: any LLMProviderRepository,
         styleRepository: any StyleRepository,
+        settingsRepository: any SettingsRepository,
         clock: any AppClock
     ) throws {
         try migrateLLM(
@@ -15,6 +45,10 @@ enum LegacyConfigurationMigrator {
             clock: clock
         )
         try migrateBuiltInPrompts(repository: styleRepository, clock: clock)
+        try migrateAppStyleRules(
+            settingsRepository: settingsRepository,
+            clock: clock
+        )
     }
 
     private static func migrateLLM(
@@ -54,7 +88,7 @@ enum LegacyConfigurationMigrator {
         )
     }
 
-    private static func migrateBuiltInPrompts(
+    static func migrateBuiltInPrompts(
         repository: any StyleRepository,
         clock: any AppClock
     ) throws {
@@ -80,7 +114,7 @@ enum LegacyConfigurationMigrator {
                     sampleOutput: current.sampleOutput,
                     llmProviderID: existing.llmProviderID,
                     model: existing.model,
-                    temperature: existing.temperature,
+                    temperature: current.temperature,
                     enabled: existing.enabled,
                     builtIn: true,
                     isDefault: existing.isDefault,
@@ -89,5 +123,64 @@ enum LegacyConfigurationMigrator {
                 )
             )
         }
+    }
+
+    static func migrateAppStyleRules(
+        settingsRepository: any SettingsRepository,
+        clock: any AppClock
+    ) throws {
+        let store = AppStyleRuleStore(settingsRepository: settingsRepository)
+        let rules = try store.list()
+        let energeticCount = rules.filter { $0.styleID == "builtin.energetic" }.count
+        guard energeticCount >= 10, energeticCount * 2 >= rules.count else {
+            return
+        }
+
+        let registry = KnownApplicationRegistry.builtIn()
+        let migrated = rules.compactMap { rule -> AppStyleRule? in
+            if rule.bundleID.caseInsensitiveCompare("com.google.Chrome") == .orderedSame,
+               rule.styleID == "builtin.email" {
+                return corrected(rule, styleID: "builtin.casual")
+            }
+            guard rule.styleID == "builtin.energetic" else {
+                return rule
+            }
+            guard let entry = registry.lookup(bundleID: rule.bundleID),
+                  entry.suggestedStyleID != "builtin.energetic" else {
+                return nil
+            }
+            return corrected(rule, styleID: entry.suggestedStyleID)
+        }
+
+        try store.replaceAll(migrated)
+        _ = clock
+    }
+
+    private static func corrected(
+        _ rule: AppStyleRule,
+        styleID: String
+    ) -> AppStyleRule {
+        AppStyleRule(
+            id: rule.id,
+            bundleID: rule.bundleID,
+            appName: rule.appName,
+            styleID: styleID
+        )
+    }
+
+    private static func shouldMigrateBundleDefaultKey(_ key: String) -> Bool {
+        guard key.hasPrefix("NSStatusItem ") == false else {
+            return false
+        }
+        guard key.hasPrefix("NSWindow Frame ") == false else {
+            return false
+        }
+        guard key.hasPrefix("NSNavPanel") == false else {
+            return false
+        }
+        guard key.hasPrefix("NSOSPLast") == false else {
+            return false
+        }
+        return true
     }
 }

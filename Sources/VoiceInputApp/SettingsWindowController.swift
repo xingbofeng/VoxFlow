@@ -88,7 +88,7 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupWindow() {
         guard let window = window else { return }
-        window.title = "VoiceInput 设置"
+        window.title = "\(ProductBrand.chineseDisplayName)设置"
         window.titlebarAppearsTransparent = false
         window.isReleasedWhenClosed = false
         window.center()

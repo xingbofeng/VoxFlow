@@ -39,17 +39,17 @@ jobs:
 
       - name: Verify bundle and DMG
         run: |
-          codesign --verify --deep --strict .build/VoiceInputApp.app
-          lipo .build/VoiceInputApp.app/Contents/MacOS/VoiceInputApp -verify_arch arm64 x86_64
-          test -f .build/VoiceInputApp.app/Contents/Resources/AppIcon.icns
-          test -f dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg
-          shasum -a 256 -c dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+          codesign --verify --deep --strict .build/VoxFlow.app
+          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64 x86_64
+          test -f .build/VoxFlow.app/Contents/Resources/AppIcon.icns
+          test -f dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
+          shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceInput-macOS
+          name: VoxFlow-macOS
           path: |
-            dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg
-            dist/VoiceInput-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
           if-no-files-found: error

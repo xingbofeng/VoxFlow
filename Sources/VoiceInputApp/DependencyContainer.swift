@@ -72,6 +72,7 @@ struct DependencyContainer {
             credentialStore: credentialStore,
             llmProviderRepository: llmProviderRepository,
             styleRepository: styleRepository,
+            settingsRepository: settingsRepository,
             clock: clock
         )
 

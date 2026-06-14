@@ -17,25 +17,47 @@ struct PromptBuildResult: Equatable {
 
 struct PromptBuilder {
     static let conservativeSystemPrompt = """
-        You are a conservative speech recognition error corrector. Your ONLY job is to fix \
-        OBVIOUS speech recognition errors. Follow these rules strictly:
+        你是语音识别文本整理助手。请把用户口述得到的中文、英文或中英混合原文，整理成可直接使用的自然书面文本。
 
-        1. ONLY correct clear speech-to-text mistakes, especially:
-           - Chinese homophone errors (e.g., 「配森」→「Python」, 「杰森」→「JSON」, 「扣顶」→「coding」)
-           - English technical terms incorrectly transcribed as Chinese characters
-           - Chinese characters that are obviously the wrong character due to homophones
-        2. Do NOT rewrite, polish, rephrase, or improve the text in any way unless a selected style explicitly asks for light formatting.
-        3. Do NOT add facts, answer questions, summarize, or invent content.
-        4. Do NOT add, remove, or alter punctuation unless it's clearly wrong.
-        5. If the input text appears correct or you're unsure, return it EXACTLY as-is.
-        6. Preserve ALL original formatting, spacing, and line breaks unless the selected style requires minimal formatting.
-        7. Output ONLY the corrected text — no explanations, no notes, no quotation marks.
+        处理原则：
+        1. 在有上下文依据时，修正语音识别错误，包括中文同音字、错字，以及被错误识别成中文的英文技术词。例如：「配森」可改为「Python」、「杰森」可改为「JSON」。
+        2. 删除没有实际含义的语气填充词、卡顿和口吃造成的重复片段；如果重复用于刻意强调，则保留。
+        3. 对缺少标点或过长的连续口述，补充逗号、句号、问号、感叹号等必要标点，并按语义断句。
+        4. 修正明显由识别造成的漏字、重复字、词序错误和不通顺表达。
+        5. 保留用户表达的事实、意图、立场、数字、专有名词和约束；不要回答用户的问题，不要总结，不要添加用户没有说过的信息。
+        6. 没有所选风格时，只做纠错和自然整理；有所选风格时，在完成纠错后按风格要求调整语气、措辞、标点和结构。基础规则与风格冲突时，所选风格优先，但不要改变事实、意图和约束。
+        7. 只输出处理后的正文，不要解释，不要添加标题、引号、修改说明或其他额外内容。
 
-        The user spoke in Chinese and/or English. The speech recognizer may have made mistakes \
-        converting between the two languages. Your task is to fix only those conversion errors.
+        检查原则：
+        - 如果输入中存在没有标点的长句、明显错字、重复或不通顺表达，应修正这些问题，避免问题继续保留。
+        - 对连续口述的儿歌、引用或对白，可以补充断句和标点；如果原文已经自然、准确、可直接使用，可以保持原文。
+
+        示例：
+        输入：小兔子乖乖把门开开快点开开我要进来不开不开我不开妈妈没回来谁来也不开
+        输出：小兔子乖乖，把门开开，快点开开，我要进来！不开不开，我不开，妈妈没回来，谁来也不开。
         """
 
     private let glossaryLimit: Int
+
+    static func retrySystemPrompt(_ originalPrompt: String) -> String {
+        """
+        上一次输出与输入完全相同。请重新检查口述原文中是否存在可确认的识别错误、重复、断句或标点问题。
+        只在有明确依据时修正；不要为了制造差异而改写、扩写或改变用户事实与意图。
+        如果原文已经自然、准确、可直接使用，或者没有可确认问题时，可以保持原文。
+
+        以下规则仍然有效：
+        \(originalPrompt)
+        """
+    }
+
+    static func retryUserMessage(_ text: String) -> String {
+        """
+        请重新检查下面的口述原文：有明确识别错误、重复、缺少必要标点或断句不自然时再修正；没有可确认问题时，可以保持原文。
+
+        待处理原文：
+        \(text)
+        """
+    }
 
     init(glossaryLimit: Int = 40) {
         self.glossaryLimit = glossaryLimit
@@ -51,7 +73,7 @@ struct PromptBuilder {
         if let enabledStyle {
             sections.append(
                 """
-                Selected style:
+                所选风格：
                 \(enabledStyle.prompt)
                 """
             )
@@ -76,8 +98,8 @@ struct PromptBuilder {
             }
             sections.append(
                 """
-                User glossary:
-                Prefer these spellings when the spoken text clearly matches an alias or common ASR mistake. Do not force a glossary term when context is uncertain.
+                用户词库：
+                当口述内容明确匹配别名或常见识别错误时，优先使用以下标准写法；上下文不确定时不要强行替换。
                 \(lines.joined(separator: "\n"))
                 """
             )
@@ -85,10 +107,12 @@ struct PromptBuilder {
 
         return PromptBuildResult(
             systemPrompt: sections.joined(separator: "\n\n"),
-            llmProviderID: nil,
+            llmProviderID: enabledStyle?.llmProviderID,
             styleID: enabledStyle?.id,
-            model: nil,
-            temperature: nil
+            model: enabledStyle?.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? enabledStyle?.model
+                : nil,
+            temperature: enabledStyle?.temperature
         )
     }
 }

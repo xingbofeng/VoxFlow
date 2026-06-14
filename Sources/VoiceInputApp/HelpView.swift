@@ -1,11 +1,11 @@
 import SwiftUI
 
 enum HelpExternalLinks {
-    static let projectHomepage = "https://xingbofeng.github.io/VoiceInput/"
-    static let githubRepository = "https://github.com/xingbofeng/VoiceInput"
-    static let latestRelease = "https://github.com/xingbofeng/VoiceInput/releases/latest"
-    static let issues = "https://github.com/xingbofeng/VoiceInput/issues"
-    static let privacy = "https://github.com/xingbofeng/VoiceInput/blob/main/docs/PRIVACY.md"
+    static let projectHomepage = "https://xingbofeng.github.io/VoxFlow/"
+    static let githubRepository = "https://github.com/xingbofeng/VoxFlow"
+    static let latestRelease = "https://github.com/xingbofeng/VoxFlow/releases/latest"
+    static let issues = "https://github.com/xingbofeng/VoxFlow/issues"
+    static let privacy = "https://github.com/xingbofeng/VoxFlow/blob/main/docs/PRIVACY.md"
 }
 
 struct HelpView: View {
@@ -140,10 +140,17 @@ struct HelpView: View {
                     )
                     HelpPermissionRow(
                         title: "语音识别",
-                        subtitle: "系统自带模型需要",
+                        subtitle: "Apple 语音识别的系统状态",
                         systemImage: "waveform",
-                        status: speechPermissionTitle,
-                        satisfied: speechPermissionSatisfied
+                        status: settingsViewModel.speechPermission.title,
+                        satisfied: settingsViewModel.speechPermission == .granted
+                    )
+                    HelpPermissionRow(
+                        title: "屏幕录制",
+                        subtitle: "用于当前窗口 OCR，不保存截图",
+                        systemImage: "rectangle.inset.filled.and.person.filled",
+                        status: PermissionSummary.statusText(settingsViewModel.screenRecordingGranted),
+                        satisfied: settingsViewModel.screenRecordingGranted
                     )
                     Button {
                         settingsViewModel.load()
@@ -193,19 +200,6 @@ struct HelpView: View {
         }
     }
 
-    private var localModelIsDefault: Bool {
-        asrProviderViewModel.providers.contains {
-            $0.id == ASRProviderID.qwen3 && $0.isDefault
-        }
-    }
-
-    private var speechPermissionSatisfied: Bool {
-        localModelIsDefault || settingsViewModel.speechPermission == .granted
-    }
-
-    private var speechPermissionTitle: String {
-        localModelIsDefault ? "当前模型不需要" : settingsViewModel.speechPermission.title
-    }
 }
 
 private struct WeChatQRCodeOverlay: View {
@@ -421,9 +415,10 @@ private struct HelpRowIcon: View {
                 if let image = GitHubMarkImage.load() {
                     Image(nsImage: image)
                         .resizable()
+                        .renderingMode(.template)
                         .scaledToFit()
                         .frame(width: 22, height: 22)
-                        .colorMultiply(AppTheme.ColorToken.accent)
+                        .foregroundStyle(AppTheme.ColorToken.accent)
                 } else {
                     Image(systemName: systemImage)
                         .foregroundStyle(AppTheme.ColorToken.accent)
@@ -434,12 +429,16 @@ private struct HelpRowIcon: View {
     }
 }
 
-private enum GitHubMarkImage {
+enum GitHubMarkImage {
     static func load() -> NSImage? {
         guard let url = Bundle.module.url(forResource: "GitHubMark", withExtension: "png") else {
             return nil
         }
-        return NSImage(contentsOf: url)
+        guard let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.isTemplate = true
+        return image
     }
 }
 

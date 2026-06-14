@@ -1,19 +1,24 @@
-APP_NAME := VoiceInputApp
+APP_NAME := VoxFlow
+SWIFT_EXECUTABLE := VoiceInputApp
 BUILD_DIR := .build
 BUNDLE_DIR := $(BUILD_DIR)/$(APP_NAME).app
 INSTALL_DIR := /Applications/$(APP_NAME).app
 PLIST := Sources/VoiceInputApp/Resources/Info.plist
 ICON := Resources/AppIcon.icns
+CURRENT_BUNDLE_ID := com.voiceinput.app
+LEGACY_BUNDLE_ID := com.voiceinput.app
+TEMP_RENAMED_BUNDLE_ID := com.xingbofeng.VoxFlow
+LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 DETECTED_CODE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F\" '/Developer ID Application|Apple Development/ { print $$2; exit }')
 CODE_SIGN_IDENTITY ?= $(if $(DETECTED_CODE_SIGN_IDENTITY),$(DETECTED_CODE_SIGN_IDENTITY),-)
 VERSION := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$(PLIST)")
-DMG_NAME := VoiceInput-$(VERSION)-macOS
+DMG_NAME := VoxFlow-$(VERSION)-macOS
 DMG_FILE := dist/$(DMG_NAME).dmg
 
 ARCH_FLAGS := --arch arm64 --arch x86_64
 SWIFT_BUILD_FLAGS := -c release $(ARCH_FLAGS) -Xswiftc -Osize
 
-.PHONY: all build run install dmg release clean debug
+.PHONY: all build run install dmg release clean debug prelaunch-cleanup
 
 all: build
 
@@ -25,26 +30,49 @@ build:
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Resources"
 	@BIN_DIR="$$(swift build -c release $(ARCH_FLAGS) --show-bin-path)"; \
-		cp "$$BIN_DIR/$(APP_NAME)" "$(BUNDLE_DIR)/Contents/MacOS/"; \
-		if [ -d "$$BIN_DIR/$(APP_NAME)_$(APP_NAME).bundle" ]; then \
-			cp -R "$$BIN_DIR/$(APP_NAME)_$(APP_NAME).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
+		cp "$$BIN_DIR/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"; \
+		if [ -d "$$BIN_DIR/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
+			cp -R "$$BIN_DIR/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
 		fi
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64 x86_64
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
+	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(APP_NAME)_$(APP_NAME).bundle/Contents/Resources/AuthorWeChatQRCode.jpg"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(APP_NAME)_$(APP_NAME).bundle/Contents/Resources/GitHubMark.png"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/Contents/Resources/AuthorWeChatQRCode.jpg"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/Contents/Resources/GitHubMark.png"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)"
 	@codesign --verify --deep --strict "$(BUNDLE_DIR)"
 	@echo "✅ Build complete: $(BUNDLE_DIR)"
 
-run: build
+run: prelaunch-cleanup build
 	@echo "🚀 Launching $(APP_NAME)..."
 	@pkill -x "$(APP_NAME)" 2>/dev/null || true
 	@sleep 0.3
 	open "$(BUNDLE_DIR)"
+
+prelaunch-cleanup:
+	@echo "🧽 Cleaning stale local app registration..."
+	@pkill -x "$(APP_NAME)" 2>/dev/null || true
+	@pkill -x "$(SWIFT_EXECUTABLE)" 2>/dev/null || true
+	@for app in \
+		"$(BUNDLE_DIR)" \
+		".build/$(SWIFT_EXECUTABLE).app" \
+		"dist/staging/$(APP_NAME).app" \
+		"/Applications/$(SWIFT_EXECUTABLE).app" \
+		"/Volumes/VoiceInput-1.0.0-macOS/$(SWIFT_EXECUTABLE).app" \
+		"/Volumes/VoiceInput-1.1.1-macOS/$(SWIFT_EXECUTABLE).app"; do \
+		"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
+	done
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItem" >/dev/null 2>&1 || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItem" >/dev/null 2>&1 || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(LEGACY_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(CURRENT_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(CURRENT_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(TEMP_RENAMED_BUNDLE_ID)" "NSStatusItem Preferred Position VoxFlowStatusItemV2" >/dev/null 2>&1 || true
+	@defaults delete "$(TEMP_RENAMED_BUNDLE_ID)" "NSStatusItem VisibleCC VoxFlowStatusItemV2" >/dev/null 2>&1 || true
 
 install: build
 	@echo "📥 Installing to $(INSTALL_DIR)..."

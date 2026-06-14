@@ -42,6 +42,10 @@ final class AppStyleRuleStore {
         try write(try list().filter { $0.id != id })
     }
 
+    func replaceAll(_ rules: [AppStyleRule]) throws {
+        try write(rules)
+    }
+
     private func write(_ rules: [AppStyleRule]) throws {
         let data = try JSONEncoder().encode(Payload(rules: rules))
         try settingsRepository.set(Self.settingsKey, jsonValue: String(data: data, encoding: .utf8) ?? #"{"rules":[]}"#)

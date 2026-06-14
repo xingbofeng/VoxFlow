@@ -1,5 +1,28 @@
 import AppKit
 
+enum OverlayAppearance {
+    static let backgroundColor = NSColor(
+        red: 1,
+        green: 1,
+        blue: 1,
+        alpha: 0.98
+    )
+}
+
+final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        var drawingRect = super.drawingRect(forBounds: rect)
+        let textHeight = cellSize(forBounds: rect).height
+        let availableHeight = rect.height
+
+        if textHeight < availableHeight {
+            drawingRect.origin.y = rect.midY - textHeight / 2
+            drawingRect.size.height = textHeight
+        }
+        return drawingRect
+    }
+}
+
 /// Manages the compact floating overlay window that displays real-time transcription
 /// with an animated waveform during voice recording.
 final class OverlayWindowController: NSWindowController {
@@ -17,11 +40,13 @@ final class OverlayWindowController: NSWindowController {
     private let textLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let refiningSpinner = NSProgressIndicator()
-    private let visualEffectView = NSVisualEffectView()
+    private let visualEffectView = NSView()
 
     // MARK: - Temporary Message
 
     private var temporaryMessageTask: Task<Void, Never>?
+    private var isShowingTemporaryMessage = false
+    private var presentationGeneration: UInt = 0
 
     // MARK: - Initialization
 
@@ -61,18 +86,10 @@ final class OverlayWindowController: NSWindowController {
     private func setupContentView() {
         guard let window = window else { return }
 
-        visualEffectView.material = .popover
-        visualEffectView.blendingMode = .behindWindow
-        visualEffectView.state = .active
         visualEffectView.wantsLayer = true
         visualEffectView.layer?.cornerRadius = OverlayLayout.cornerRadius
         visualEffectView.layer?.masksToBounds = true
-        visualEffectView.layer?.backgroundColor = NSColor(
-            red: 0.973,
-            green: 0.988,
-            blue: 0.979,
-            alpha: 0.94
-        ).cgColor
+        visualEffectView.layer?.backgroundColor = OverlayAppearance.backgroundColor.cgColor
         visualEffectView.layer?.borderWidth = 1
         visualEffectView.layer?.borderColor = NSColor(
             red: 0.790,
@@ -106,16 +123,17 @@ final class OverlayWindowController: NSWindowController {
         textLabel.drawsBackground = false
         textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
         textLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
-        textLabel.lineBreakMode = .byTruncatingHead
+        textLabel.lineBreakMode = OverlayLayout.textLineBreakMode
         textLabel.maximumNumberOfLines = OverlayLayout.maxVisibleLines
         textLabel.alignment = .left
         textLabel.cell?.wraps = true
         textLabel.cell?.isScrollable = false
-        textLabel.cell?.truncatesLastVisibleLine = true
+        textLabel.cell?.truncatesLastVisibleLine = OverlayLayout.truncatesLastVisibleLine
         textLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         visualEffectView.addSubview(textLabel)
 
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.cell = VerticallyCenteredTextFieldCell(textCell: "")
         statusLabel.isBezeled = false
         statusLabel.isEditable = false
         statusLabel.drawsBackground = false
@@ -208,6 +226,8 @@ final class OverlayWindowController: NSWindowController {
         guard let window = window else { return }
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
+        isShowingTemporaryMessage = false
+        presentationGeneration &+= 1
 
         // Calculate initial size for empty text
         updateWindowSize(textWidth: OverlayLayout.minimumTextWidth)
@@ -308,6 +328,16 @@ final class OverlayWindowController: NSWindowController {
     /// after `duration` seconds. Used for non-blocking error feedback.
     func showTemporaryMessage(_ text: String, duration: TimeInterval = 3.0) {
         temporaryMessageTask?.cancel()
+        guard OverlayLayout.shouldShowTemporaryMessage(text) else {
+            isShowingTemporaryMessage = false
+            presentationGeneration &+= 1
+            dismiss()
+            return
+        }
+
+        isShowingTemporaryMessage = true
+        presentationGeneration &+= 1
+        let generation = presentationGeneration
 
         waveformView.stopAnimation()
         waveformView.isHidden = true
@@ -333,12 +363,22 @@ final class OverlayWindowController: NSWindowController {
 
         temporaryMessageTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
-            guard !Task.isCancelled, let self else { return }
-            self.dismiss()
+            guard !Task.isCancelled,
+                  let self,
+                  self.presentationGeneration == generation else {
+                return
+            }
+            self.isShowingTemporaryMessage = false
+            self.dismiss(generation: generation)
         }
     }
 
     func dismiss() {
+        guard !isShowingTemporaryMessage else { return }
+        dismiss(generation: presentationGeneration)
+    }
+
+    private func dismiss(generation: UInt) {
         guard let window = window else { return }
 
         waveformView.stopAnimation()
@@ -357,6 +397,9 @@ final class OverlayWindowController: NSWindowController {
             window.animator().alphaValue = 0.0
         } completionHandler: {
             MainActor.assumeIsolated {
+                guard self.presentationGeneration == generation else { return }
+                self.textLabel.stringValue = ""
+                self.statusLabel.stringValue = ""
                 window.orderOut(nil)
                 self.visualEffectView.layer?.removeAnimation(forKey: "voiceinput.exit")
             }
@@ -367,6 +410,63 @@ final class OverlayWindowController: NSWindowController {
     var currentText: String {
         textLabel.stringValue
     }
+
+    // MARK: - Agent Compose Status
+
+    /// Updates the overlay for agent compose mode stages.
+    func updateAgentComposeStatus(_ stage: AgentComposeHUDStage) {
+        switch stage {
+        case .readingWindow:
+            statusLabel.stringValue = "读取窗口"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = "正在读取窗口上下文..."
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case .transcribing:
+            statusLabel.stringValue = "转写中"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = "正在识别语音..."
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case .generating:
+            statusLabel.stringValue = "生成中"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = "正在生成文本..."
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case .copied:
+            statusLabel.stringValue = "已复制"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = "已复制到剪贴板"
+            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            refiningSpinner.isHidden = true
+            refiningSpinner.stopAnimation(nil)
+        case .contextUnavailable:
+            statusLabel.stringValue = "提示"
+            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+            textLabel.stringValue = "上下文不可用，仅使用口述"
+            textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
+            refiningSpinner.isHidden = true
+            refiningSpinner.stopAnimation(nil)
+        }
+    }
+}
+
+// MARK: - AgentComposeHUDStage
+
+enum AgentComposeHUDStage {
+    case readingWindow
+    case transcribing
+    case generating
+    case copied
+    case contextUnavailable
 }
 
 // MARK: - Overlay NSPanel

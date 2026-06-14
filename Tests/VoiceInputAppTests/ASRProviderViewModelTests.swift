@@ -14,7 +14,7 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.providers.map(\.id), [ASRProviderID.appleSpeech, ASRProviderID.qwen3])
         XCTAssertEqual(viewModel.providers.first?.isDefault, true)
-        XCTAssertTrue(viewModel.providers[1].statusMessage?.contains("下载") == true)
+        XCTAssertEqual(viewModel.providers[1].statusMessage, "尚未安装本地模型")
         XCTAssertEqual(try environment.asrProviderRepository.list().count, 2)
     }
 

@@ -120,6 +120,36 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(orchestrator.state, .idle)
     }
 
+    func testEscapeCancellationDuringProcessingPreventsLateInjection() async throws {
+        let engine = FakeASREngine()
+        let pipeline = SuspendedTextPipeline()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(orchestrator.state, .processing)
+        XCTAssertTrue(pipeline.hasStarted)
+
+        orchestrator.cancel()
+        pipeline.complete(finalText: "late result")
+        await drainMainActorTasks()
+
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+    }
+
     func testTargetApplicationIsCapturedWhenDictationStarts() async throws {
         let engine = FakeASREngine()
         let pipeline = FakeTextPipeline(
@@ -148,10 +178,84 @@ final class DictationOrchestratorTests: XCTestCase {
         ])
     }
 
+    func testTargetApplicationChangeCopiesFinalTextWithoutInjection() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "final")
+        )
+        let injector = FakeTextInjector()
+        let clipboard = FakeClipboardService()
+        let history = CapturingHistoryRepository()
+        let targetProvider = MutableTargetProvider(
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            textPipeline: pipeline,
+            textInjector: injector,
+            historyRepository: history,
+            targetProvider: targetProvider,
+            clipboardService: clipboard
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        targetProvider.target = DictationTarget(bundleID: "com.apple.Safari", appName: "Safari")
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(clipboard.copiedTexts, ["final"])
+        XCTAssertEqual(history.savedEntries.first?.finalText, "final")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testAgentComposeUsesRecordingStateAndDelegatesFinalTranscript() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let target = DictationTarget(bundleID: "com.tencent.xinWeChat", appName: "微信")
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: injector,
+            historyRepository: history,
+            targetProvider: StaticDictationTargetProvider(target: target),
+            agentComposeHandler: agentHandler
+        )
+        var states: [DictationState] = []
+        orchestrator.onStateChange = { states.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentCompose)
+
+        XCTAssertEqual(orchestrator.state, .recording)
+        XCTAssertEqual(agentHandler.startedTarget, target)
+
+        orchestrator.release()
+        engine.emit(text: "帮我回复今晚可以", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(agentHandler.finishedTranscript, "帮我回复今晚可以")
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+        XCTAssertTrue(states.contains(.recording))
+        XCTAssertTrue(states.contains(.processing))
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     private func makeOrchestrator(
         engine: FakeASREngine = FakeASREngine(),
         audioRecorder: FakeAudioRecorder = FakeAudioRecorder(),
-        pipeline: FakeTextPipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "", finalText: "")),
+        pipeline: any TextProcessing = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        ),
         injector: FakeTextInjector = FakeTextInjector(),
         history: CapturingHistoryRepository = CapturingHistoryRepository(),
         clock: MutableClock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000)),
@@ -257,6 +361,26 @@ private final class FakeAudioRecorder: AudioRecording {
 }
 
 @MainActor
+private final class SuspendedTextPipeline: TextProcessing {
+    private var continuation: CheckedContinuation<TextProcessingResult, Never>?
+    private(set) var hasStarted = false
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        hasStarted = true
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func complete(finalText: String) {
+        continuation?.resume(
+            returning: TextProcessingResult(rawText: "raw", finalText: finalText)
+        )
+        continuation = nil
+    }
+}
+
+@MainActor
 private final class FakeTextPipeline: TextProcessing {
     let result: TextProcessingResult
     private(set) var targets: [DictationTarget?] = []
@@ -298,9 +422,43 @@ private final class MutableTargetProvider: DictationTargetProviding {
 private final class FakeTextInjector: TextInjecting {
     private(set) var injectedTexts: [String] = []
 
-    func inject(_ text: String) async {
+    func inject(_ text: String) async -> InjectionResult {
         injectedTexts.append(text)
+        return .success
     }
+}
+
+private final class FakeClipboardService: ClipboardSetting {
+    private(set) var copiedTexts: [String] = []
+
+    func setString(_ text: String) {
+        copiedTexts.append(text)
+    }
+}
+
+@MainActor
+private final class FakeAgentComposeHandler: AgentComposeHandling {
+    let result: OutputResult
+    private(set) var startedTarget: DictationTarget?
+    private(set) var finishedTranscript: String?
+    var onStageChange: ((AgentComposeHUDStage) -> Void)?
+
+    init(result: OutputResult) {
+        self.result = result
+    }
+
+    func start(target: DictationTarget?) throws {
+        startedTarget = target
+    }
+
+    func finish(rawTranscript: String) async throws -> OutputResult {
+        finishedTranscript = rawTranscript
+        return result
+    }
+
+    func cancel() {}
+
+    func fail(_ error: Error) {}
 }
 
 private final class CapturingHistoryRepository: HistoryRepository {

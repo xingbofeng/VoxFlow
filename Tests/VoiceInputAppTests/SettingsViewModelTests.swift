@@ -20,9 +20,14 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.shortPressBehavior, .toggleListening)
         XCTAssertEqual(viewModel.microphonePermission, .granted)
         XCTAssertEqual(viewModel.speechPermission, .denied)
+        XCTAssertFalse(viewModel.screenRecordingGranted)
         XCTAssertEqual(
             viewModel.systemSettingsURL(for: .microphone)?.absoluteString,
             "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+        )
+        XCTAssertEqual(
+            viewModel.systemSettingsURL(for: .screenRecording)?.absoluteString,
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
         )
     }
 
@@ -212,4 +217,5 @@ private struct StubAudioDeviceProvider: AudioInputDeviceProviding {
 private struct StubPermissionProvider: SettingsPermissionProviding {
     func microphonePermission() -> AudioRecorder.PermissionStatus { .granted }
     func speechPermission() -> AudioRecorder.PermissionStatus { .denied }
+    func screenRecordingPermission() -> Bool { false }
 }

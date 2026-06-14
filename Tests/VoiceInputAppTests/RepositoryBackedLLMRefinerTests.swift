@@ -27,7 +27,7 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
             TextRefinementRequest(
                 text: "原文",
                 systemPrompt: "系统提示",
-                model: "style-model-must-be-ignored",
+                model: "style-model",
                 temperature: 0.9
             )
         )
@@ -40,13 +40,14 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         let body = try XCTUnwrap(
             try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
         )
-        XCTAssertEqual(body["model"] as? String, "global-model")
-        XCTAssertEqual(body["temperature"] as? Double, 0.25)
+        XCTAssertEqual(body["model"] as? String, "style-model")
+        XCTAssertEqual(body["temperature"] as? Double, 0.9)
+        XCTAssertNil(body["max_tokens"])
         XCTAssertEqual(refiner.lastTrace?.providerID, "global")
         XCTAssertEqual(refiner.lastTrace?.providerName, "OpenAI")
         XCTAssertEqual(refiner.lastTrace?.endpoint, "https://api.example.com/v1/chat/completions")
-        XCTAssertEqual(refiner.lastTrace?.model, "global-model")
-        XCTAssertEqual(refiner.lastTrace?.temperature, 0.25)
+        XCTAssertEqual(refiner.lastTrace?.model, "style-model")
+        XCTAssertEqual(refiner.lastTrace?.temperature, 0.9)
         XCTAssertEqual(refiner.lastTrace?.statusCode, 200)
         XCTAssertEqual(refiner.lastTrace?.responseText, "修正后")
         XCTAssertEqual(refiner.lastTrace?.errorMessage, nil)

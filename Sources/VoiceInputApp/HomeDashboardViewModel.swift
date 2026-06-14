@@ -7,8 +7,6 @@ struct HomeDashboardStats: Equatable {
     var todayCharacters = 0
     var averageCPM = 0
     var streakDays = 0
-    var dailyGoal = 180000
-    var dailyGoalProgress = 0.0
 }
 
 struct HomeActivityDay: Equatable, Identifiable {
@@ -33,6 +31,8 @@ struct HomeHistoryItem: Equatable, Identifiable {
     let charCount: Int
     let cpm: Double
     let createdAt: Date
+    let taskMode: VoiceTaskMode?
+    let taskStatus: VoiceTaskStatus?
 }
 
 enum HomeHistoryTextVariant: Equatable {
@@ -63,10 +63,26 @@ struct HomeHistoryDetail: Equatable, Identifiable {
     let trace: TextProcessingTrace?
     let createdAt: Date
     let updatedAt: Date
+    // Agent compose fields
+    let taskMode: VoiceTaskMode?
+    let taskStatus: VoiceTaskStatus?
+    let windowTitle: String?
+    let contextPreview: String?
+    let outputResultRaw: String?
 }
 
 protocol ClipboardWriting: AnyObject {
     func copy(_ text: String)
+}
+
+// MARK: - HistoryRecoveryAction
+
+enum HistoryRecoveryAction: String, Equatable {
+    case copy
+    case reinject
+    case regenerate
+    case retranscribe
+    case delete
 }
 
 final class GeneralPasteboardWriter: ClipboardWriting {
@@ -90,16 +106,14 @@ final class HomeDashboardViewModel: ObservableObject {
     @Published private(set) var lastActionTone = ActionFeedbackTone.success
     @Published var searchText = ""
 
-    private enum SettingsKey {
-        static let dailyCharacterGoal = "home.dailyCharacterGoal"
-    }
-
     private let environment: AppEnvironment
     private let clipboardWriter: ClipboardWriting
     private let textPipeline: (any TextProcessing)?
     private let calendar: Calendar
     private let historyLimit: Int
+    private let voiceTaskRepository: VoiceTaskRepository
     private var recentEntries: [DictationHistoryEntry] = []
+    private var recentAgentTasks: [VoiceTask] = []
     private var cancellables: Set<AnyCancellable> = []
 
     init(
@@ -114,6 +128,10 @@ final class HomeDashboardViewModel: ObservableObject {
         self.textPipeline = textPipeline ?? Self.makeDefaultTextPipeline(environment: environment)
         self.calendar = calendar
         self.historyLimit = historyLimit
+        self.voiceTaskRepository = VoiceTaskRepository(
+            databaseQueue: environment.container.databaseQueue,
+            clock: environment.clock
+        )
         environment.historyDidChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
@@ -125,6 +143,10 @@ final class HomeDashboardViewModel: ObservableObject {
     func load() {
         do {
             let entries = try environment.historyRepository.listRecent(limit: historyLimit)
+            recentAgentTasks = try voiceTaskRepository.listRecent(
+                mode: .agentCompose,
+                limit: historyLimit
+            )
             recentEntries = entries
             activity = makeActivity(from: entries)
             stats = makeStats(from: scopedEntries(entries), focusDay: selectedActivityDate)
@@ -155,6 +177,17 @@ final class HomeDashboardViewModel: ObservableObject {
         refreshScopedDashboardState()
     }
 
+    func restoreDefaultDashboardFocusFromActivityBlankTap() {
+        handleApplicationPointerDown()
+    }
+
+    func handleApplicationPointerDown() {
+        guard selectedActivityDate != nil else {
+            return
+        }
+        clearActivityDaySelection()
+    }
+
     func copyHistoryItem(id: String) {
         guard let item = historyGroups.flatMap(\.items).first(where: { $0.id == id }) else {
             return
@@ -167,7 +200,11 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func deleteHistoryItem(id: String) {
         do {
-            try environment.historyRepository.softDelete(id: id, deletedAt: environment.clock.now)
+            if historyGroups.flatMap(\.items).first(where: { $0.id == id })?.taskMode == .agentCompose {
+                try voiceTaskRepository.delete(id: id)
+            } else {
+                try environment.historyRepository.softDelete(id: id, deletedAt: environment.clock.now)
+            }
             load()
             lastError = nil
             lastActionMessage = "已删除历史记录"
@@ -179,13 +216,18 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func selectHistoryItem(id: String) {
         do {
-            guard let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil else {
-                selectedDetail = nil
-                lastError = "未找到历史记录。"
+            if let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil {
+                selectedDetail = HomeHistoryDetail(entry: entry)
+                lastError = nil
                 return
             }
-            selectedDetail = HomeHistoryDetail(entry: entry)
-            lastError = nil
+            if let task = try voiceTaskRepository.fetch(id: id) {
+                selectedDetail = HomeHistoryDetail(task: task)
+                lastError = nil
+                return
+            }
+            selectedDetail = nil
+            lastError = "未找到历史记录。"
         } catch {
             lastError = error.localizedDescription
         }
@@ -195,9 +237,75 @@ final class HomeDashboardViewModel: ObservableObject {
         selectedDetail = nil
     }
 
+    func dismissSelectedDetailFromBackdrop() {
+        clearSelectedDetail()
+    }
+
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
+    }
+
+    // MARK: - Recovery actions
+
+    /// Returns the available recovery actions for the selected history detail.
+    func availableRecoveryActions(for detail: HomeHistoryDetail) -> [HistoryRecoveryAction] {
+        var actions: [HistoryRecoveryAction] = []
+
+        // Copy: always available if text exists
+        if !detail.finalText.isEmpty {
+            actions.append(.copy)
+        }
+
+        // Re-inject: available for completed dictation tasks with final text
+        if detail.taskMode == .dictation,
+           detail.taskStatus == .completed || detail.taskStatus == .partiallyCompleted,
+           !detail.finalText.isEmpty {
+            actions.append(.reinject)
+        }
+
+        // Regenerate: available for agent compose tasks (completed or failed)
+        if detail.taskMode == .agentCompose,
+           !detail.rawText.isEmpty {
+            actions.append(.regenerate)
+        }
+
+        // Re-transcribe: available for tasks where transcription failed
+        if let status = detail.taskStatus,
+           status == .failed {
+            actions.append(.retranscribe)
+        }
+
+        // Delete: always available
+        actions.append(.delete)
+
+        return actions
+    }
+
+    /// Copies the final text from the selected detail.
+    func copyDetailText() {
+        guard let detail = selectedDetail, !detail.finalText.isEmpty else {
+            lastError = "没有可复制的文本。"
+            return
+        }
+        clipboardWriter.copy(detail.finalText)
+        lastError = nil
+        lastActionMessage = "已复制"
+        lastActionTone = .success
+    }
+
+    /// Re-injects the final text (dictation tasks only).
+    func reinjectDetailText() {
+        guard let detail = selectedDetail,
+              detail.taskMode == .dictation,
+              !detail.finalText.isEmpty else {
+            lastError = "无法重新注入。"
+            return
+        }
+        clipboardWriter.copy(detail.finalText)
+        lastError = nil
+        lastActionMessage = "已复制到剪贴板，请手动粘贴"
+        lastActionTone = .success
     }
 
     var focusedCharactersTitle: String {
@@ -205,13 +313,6 @@ final class HomeDashboardViewModel: ObservableObject {
             return "今日字符"
         }
         return "\(dateTitle(for: selectedActivityDate))字符"
-    }
-
-    var goalTitle: String {
-        guard let selectedActivityDate else {
-            return "今日目标"
-        }
-        return "\(dateTitle(for: selectedActivityDate))目标"
     }
 
     func reprocessSelectedHistoryItem() async {
@@ -293,15 +394,11 @@ final class HomeDashboardViewModel: ObservableObject {
         let totalDurationMS = validEntries.reduce(0) { $0 + max(0, $1.durationMS) }
         let totalMinutes = max(Double(totalDurationMS) / 60_000.0, 1.0 / 60_000.0)
         let averageCPM = validEntries.isEmpty ? 0 : Int((Double(totalCharacters) / totalMinutes).rounded())
-        let dailyGoal = readDailyGoal()
-
         return HomeDashboardStats(
             totalCharacters: totalCharacters,
             todayCharacters: todayCharacters,
             averageCPM: averageCPM,
-            streakDays: streakDays(from: entries, referenceDay: today),
-            dailyGoal: dailyGoal,
-            dailyGoalProgress: min(1.0, Double(todayCharacters) / Double(max(1, dailyGoal)))
+            streakDays: streakDays(from: entries, referenceDay: today)
         )
     }
 
@@ -371,16 +468,6 @@ final class HomeDashboardViewModel: ObservableObject {
         return calendar.date(byAdding: .day, value: -daysFromMonday, to: day) ?? day
     }
 
-    private func readDailyGoal() -> Int {
-        guard let text = try? environment.settingsRepository.value(forKey: SettingsKey.dailyCharacterGoal),
-              let data = text.data(using: .utf8),
-              let value = try? JSONDecoder().decode(Int.self, from: data),
-              value > 0 else {
-            return 1000
-        }
-        return value
-    }
-
     private func streakDays(from entries: [DictationHistoryEntry], referenceDay: Date? = nil) -> Int {
         let activeDays = Set(entries.map { calendar.startOfDay(for: $0.createdAt) })
         var cursor = referenceDay ?? calendar.startOfDay(for: environment.clock.now)
@@ -406,15 +493,36 @@ final class HomeDashboardViewModel: ObservableObject {
             entries = try environment.historyRepository.search(trimmedQuery, limit: historyLimit)
         }
 
-        let scopedEntries = self.scopedEntries(entries)
-        let grouped = Dictionary(grouping: scopedEntries) { entry in
-            calendar.startOfDay(for: entry.createdAt)
+        let taskItems = recentAgentTasks
+            .filter { task in
+                guard !trimmedQuery.isEmpty else { return true }
+                return [
+                    task.rawTranscript,
+                    task.finalText,
+                    task.targetAppName,
+                    task.targetWindowTitle,
+                ]
+                .compactMap { $0 }
+                .contains { $0.localizedCaseInsensitiveContains(trimmedQuery) }
+            }
+            .filter { task in
+                guard let selectedActivityDate else { return true }
+                return calendar.isDate(task.createdAt, inSameDayAs: selectedActivityDate)
+            }
+            .map(HomeHistoryItem.init(task:))
+        let historyItems = scopedEntries(entries).map(HomeHistoryItem.init(entry:))
+        let allItems = Array(
+            (historyItems + taskItems)
+                .sorted { $0.createdAt > $1.createdAt }
+                .prefix(historyLimit)
+        )
+        let grouped = Dictionary(grouping: allItems) { item in
+            calendar.startOfDay(for: item.createdAt)
         }
 
         return grouped.keys.sorted(by: >).map { day in
             let items = (grouped[day] ?? [])
                 .sorted { $0.createdAt > $1.createdAt }
-                .map(HomeHistoryItem.init(entry:))
             return HomeHistoryGroup(
                 id: ISO8601DateFormatter().string(from: day),
                 title: title(for: day, preferExplicitDate: selectedActivityDate != nil),
@@ -510,7 +618,23 @@ private extension HomeHistoryItem {
             appName: entry.targetAppName,
             charCount: entry.charCount,
             cpm: entry.cpm,
-            createdAt: entry.createdAt
+            createdAt: entry.createdAt,
+            taskMode: nil,
+            taskStatus: nil
+        )
+    }
+
+    init(task: VoiceTask) {
+        self.init(
+            id: task.id,
+            finalText: task.finalText ?? "",
+            rawText: task.rawTranscript ?? "",
+            appName: task.targetAppName,
+            charCount: task.finalText?.count ?? task.rawTranscript?.count ?? 0,
+            cpm: 0,
+            createdAt: task.createdAt,
+            taskMode: task.mode,
+            taskStatus: task.status
         )
     }
 }
@@ -547,8 +671,58 @@ private extension HomeHistoryDetail {
             warnings: Self.decodeWarnings(entry.processingWarningsJSON),
             trace: Self.decodeTrace(entry.processingTraceJSON),
             createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt
+            updatedAt: entry.updatedAt,
+            taskMode: nil,
+            taskStatus: nil,
+            windowTitle: nil,
+            contextPreview: nil,
+            outputResultRaw: nil
         )
+    }
+
+    init(task: VoiceTask) {
+        let contextPreview = Self.decodeContextPreview(task.contextJson)
+        self.init(
+            id: task.id,
+            rawText: task.rawTranscript ?? "",
+            finalText: task.finalText ?? "",
+            language: "",
+            asrProviderID: nil,
+            llmProviderID: nil,
+            styleID: nil,
+            appName: task.targetAppName,
+            durationMS: 0,
+            charCount: task.finalText?.count ?? 0,
+            cpm: 0,
+            warnings: task.warnings,
+            trace: Self.decodeTrace(task.trace),
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt,
+            taskMode: task.mode,
+            taskStatus: task.status,
+            windowTitle: task.targetWindowTitle,
+            contextPreview: contextPreview,
+            outputResultRaw: task.outputResult
+        )
+    }
+
+    private static func decodeContextPreview(_ json: String?) -> String? {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let snapshot = try? JSONDecoder().decode(ContextSnapshot.self, from: data) else {
+            return nil
+        }
+        var parts: [String] = []
+        if let visible = snapshot.visibleText {
+            parts.append(String(visible.prefix(200)))
+        }
+        if let selected = snapshot.selectedText {
+            parts.append(String(selected.prefix(200)))
+        }
+        if let input = snapshot.inputAreaText {
+            parts.append(String(input.prefix(200)))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n---\n")
     }
 
     private static func decodeWarnings(_ json: String?) -> [String] {

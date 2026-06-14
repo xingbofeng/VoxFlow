@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum LLMProviderActionIcon {
+    static let edit = "square.and.pencil"
+    static let testConnection = "checkmark.circle"
+    static let delete = "trash"
+}
+
 struct LLMProviderView: View {
     @ObservedObject var viewModel: LLMProviderViewModel
     var embedded = false
@@ -100,7 +106,7 @@ struct LLMProviderView: View {
             Button {
                 editorRequest = LLMProviderEditorRequest(provider: provider)
             } label: {
-                Image(systemName: "pencil")
+                Image(systemName: LLMProviderActionIcon.edit)
                     .frame(width: 32, height: 32)
                     .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
@@ -112,7 +118,7 @@ struct LLMProviderView: View {
                     await viewModel.testConnection(id: provider.id)
                 }
             } label: {
-                Image(systemName: "bolt.horizontal.circle")
+                Image(systemName: LLMProviderActionIcon.testConnection)
                     .frame(width: 32, height: 32)
                     .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
@@ -122,7 +128,7 @@ struct LLMProviderView: View {
             Button {
                 viewModel.deleteProvider(id: provider.id)
             } label: {
-                Image(systemName: "trash")
+                Image(systemName: LLMProviderActionIcon.delete)
                     .frame(width: 32, height: 32)
                     .appControlSurface(cornerRadius: 6)
                     .contentShape(Rectangle())
@@ -276,12 +282,6 @@ private struct LLMProviderEditorSheet: View {
 
                 Toggle("启用此模型配置", isOn: $isEnabled)
                     .toggleStyle(.switch)
-
-                ActionFeedbackView(
-                    message: viewModel.lastActionMessage,
-                    error: viewModel.lastError,
-                    onDismiss: viewModel.clearFeedback
-                )
 
                 Spacer()
                 HStack(spacing: 10) {

@@ -29,6 +29,11 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertTrue(qwen.capabilities.contains(.local))
         XCTAssertTrue(qwen.capabilities.contains(.multilingual))
         XCTAssertTrue(qwen.tags.contains("本地"))
+        XCTAssertEqual(qwen.statusMessage, "尚未安装本地模型")
+        XCTAssertEqual(
+            qwen.privacySummary,
+            "请先下载模型，或选择已有的模型文件夹。语音仅在本机处理，不会上传。"
+        )
     }
 
     func testFilteringByCapabilityAndTag() {
@@ -60,8 +65,11 @@ final class ASRProviderRegistryTests: XCTestCase {
 
         try registry.selectDefaultProvider(id: ASRProviderID.qwen3)
 
+        let qwenDescriptor = try XCTUnwrap(registry.descriptor(id: ASRProviderID.qwen3))
         XCTAssertEqual(try registry.defaultProvider().id, ASRProviderID.qwen3)
         XCTAssertEqual(manager.selectedEngineType, .qwen3)
+        XCTAssertEqual(qwenDescriptor.statusMessage, "本地模型已就绪")
+        XCTAssertEqual(qwenDescriptor.privacySummary, "语音仅在本机处理，不会上传。")
     }
 
     private func createLoadableQwen3ModelDirectory(at modelURL: URL) throws {

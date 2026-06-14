@@ -34,8 +34,16 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("Models", isDirectory: true)
     }
 
+    var voiceTaskAudioDirectory: URL {
+        rootDirectory.appendingPathComponent("voice-task-audio", isDirectory: true)
+    }
+
+    func voiceTaskAudioURL(forTaskID taskID: String) -> URL {
+        voiceTaskAudioDirectory.appendingPathComponent("\(taskID).m4a", isDirectory: false)
+    }
+
     func ensureDirectories(fileManager: FileManager = .default) throws {
-        for directory in [rootDirectory, exportsDirectory, modelsDirectory] {
+        for directory in [rootDirectory, exportsDirectory, modelsDirectory, voiceTaskAudioDirectory] {
             try fileManager.createDirectory(
                 at: directory,
                 withIntermediateDirectories: true

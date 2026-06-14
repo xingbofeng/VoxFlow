@@ -34,17 +34,36 @@ struct RightCommandKeyState {
 }
 
 enum ShortcutEventRouting {
-    /// Only pass the shortcut through when VoiceInput has a visible key
-    /// window that needs keyboard input (e.g., the Settings window).
-    /// When no window is key — even if the app is technically active —
-    /// the shortcut must be intercepted so recording can start.
-    static func shouldPassThrough(appIsActive: Bool) -> Bool {
-        guard appIsActive else { return false }
-        // NSApp is nil in unit-test contexts; treat that as "no key window".
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated { NSApp?.keyWindow != nil }
+    static func shouldPassThrough(
+        appIsActive: Bool,
+        appIsFrontmost: Bool,
+        isCapturingShortcut: Bool
+    ) -> Bool {
+        appIsActive || appIsFrontmost
+    }
+}
+
+@MainActor
+final class ShortcutCaptureState {
+    static let shared = ShortcutCaptureState()
+    var isCapturing = false
+
+    private init() {}
+}
+
+enum ShortcutActionRouting {
+    static func action(
+        for keyCode: Int64,
+        dictationKeyCode: Int64?,
+        agentComposeKeyCode: Int64?
+    ) -> VoiceAction? {
+        if keyCode == dictationKeyCode {
+            return .dictation
         }
-        return false
+        if keyCode == agentComposeKeyCode {
+            return .agentCompose
+        }
+        return nil
     }
 }
 
@@ -56,9 +75,9 @@ final class KeyMonitor: @unchecked Sendable {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    var onHotKeyPress: (() -> Void)?
-    var onHotKeyRelease: (() -> Void)?
-    var onShortPress: (() -> Void)?
+    var onHotKeyPress: ((VoiceAction) -> Void)?
+    var onHotKeyRelease: ((VoiceAction) -> Void)?
+    var onShortPress: ((VoiceAction) -> Void)?
 
     // MARK: - Lifecycle
 
@@ -132,12 +151,22 @@ final class KeyMonitor: @unchecked Sendable {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let shortcutManager = ShortcutManager.shared
 
-        guard keyCode == shortcutManager.shortcutKeyCode else {
+        guard let action = ShortcutActionRouting.action(
+            for: keyCode,
+            dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
+            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose)
+        ) else {
             return Unmanaged.passUnretained(event)
         }
 
         let passThrough = MainActor.assumeIsolated {
-            ShortcutEventRouting.shouldPassThrough(appIsActive: NSApp.isActive)
+            let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
+            let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            return ShortcutEventRouting.shouldPassThrough(
+                appIsActive: NSApp.isActive,
+                appIsFrontmost: frontmostBundleID == appBundleID,
+                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+            )
         }
         if passThrough {
             rightCommandState.reset()
@@ -148,17 +177,17 @@ final class KeyMonitor: @unchecked Sendable {
         case .pressed:
             let handler = onHotKeyPress
             DispatchQueue.main.async {
-                handler?()
+                handler?(action)
             }
         case .released:
             let handler = onHotKeyRelease
             DispatchQueue.main.async {
-                handler?()
+                handler?(action)
             }
         case .shortPress:
             let handler = onShortPress
             DispatchQueue.main.async {
-                handler?()
+                handler?(action)
             }
         }
 

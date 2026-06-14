@@ -12,10 +12,18 @@ final class StyleViewModel: ObservableObject {
 
     private let environment: AppEnvironment
     private let appStyleRuleStore: AppStyleRuleStore
+    private let smartConfigurationAppProvider: any InstalledApplicationProviding
+    private let smartConfigurationClassifierFactory: @MainActor (AppEnvironment) -> (any BatchApplicationClassifying)?
 
-    init(environment: AppEnvironment) {
+    init(
+        environment: AppEnvironment,
+        smartConfigurationAppProvider: any InstalledApplicationProviding = FileSystemInstalledApplicationProvider(),
+        smartConfigurationClassifierFactory: @escaping @MainActor (AppEnvironment) -> (any BatchApplicationClassifying)? = StyleViewModel.makeDefaultSmartConfigurationClassifier
+    ) {
         self.environment = environment
         self.appStyleRuleStore = AppStyleRuleStore(settingsRepository: environment.settingsRepository)
+        self.smartConfigurationAppProvider = smartConfigurationAppProvider
+        self.smartConfigurationClassifierFactory = smartConfigurationClassifierFactory
         load()
     }
 
@@ -176,6 +184,24 @@ final class StyleViewModel: ObservableObject {
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
+    }
+
+    func makeSmartConfigurationViewModel() -> SmartConfigurationViewModel {
+        SmartConfigurationViewModel(
+            environment: environment,
+            appProvider: smartConfigurationAppProvider,
+            batchClassifier: smartConfigurationClassifierFactory(environment)
+        )
+    }
+
+    private static func makeDefaultSmartConfigurationClassifier(
+        environment: AppEnvironment
+    ) -> (any BatchApplicationClassifying)? {
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore
+        )
+        return LLMBatchApplicationClassifier(refiner: refiner)
     }
 
     private func requireProfile(id: String) throws -> StyleProfileRecord {

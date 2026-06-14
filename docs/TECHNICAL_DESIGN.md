@@ -1,8 +1,8 @@
-# VoiceInput Technical Design
+# VoxFlow Technical Design
 
 ## Architecture
 
-VoiceInput is split into AppKit runtime, SwiftUI workbench, domain services, data repositories, and infrastructure utilities.
+VoxFlow is split into AppKit runtime, SwiftUI workbench, domain services, data repositories, and infrastructure utilities.
 
 - AppKit owns the menu bar app lifecycle, global hotkey event tap, HUD, paste injection, and window coordination.
 - SwiftUI owns the main workbench shell and future settings/detail forms.
@@ -30,6 +30,8 @@ Local data lives in:
 ~/Library/Application Support/VoiceInput/Models/
 ```
 
+The legacy directory name remains a compatibility boundary for existing installations.
+
 The initial migration creates:
 
 - `schema_migrations`
@@ -50,4 +52,3 @@ The initial migration creates:
 - LLM refinement failure falls back to the raw recognized text.
 - Qwen3-ASR unavailable state falls back to Apple Speech selection rules.
 - Database initialization failure currently falls back to an in-memory container so the menu bar app can continue launching; future work should surface a recoverable error in the workbench.
-

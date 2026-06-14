@@ -12,7 +12,7 @@ struct AppLogger {
     private let logger: Logger
 
     init(
-        subsystem: String = Bundle.main.bundleIdentifier ?? "com.xingbofeng.VoiceInput",
+        subsystem: String = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier,
         category: String
     ) {
         logger = Logger(subsystem: subsystem, category: category)
@@ -56,5 +56,10 @@ struct AppLogger {
         (#"(?i)((?:api[_ -]?key|apikey)\s*[:=]\s*)[^\s,;&]+"#, "$1[REDACTED]"),
         (#"(?i)((?:token|access_token)=)[^&\s]+"#, "$1[REDACTED]"),
         (#"/Users/counter[^"\s]+"#, "~"),
+        // Context text redaction
+        (#"(?i)(visibleText|selectedText|inputAreaText|contextText)\s*[:=]\s*"[^"]*""#, #"$1: [REDACTED]"#),
+        // Screenshot reference redaction
+        (#"(?i)(screenshot|screenCapture|screenImage|visualContent)\s*[:=]\s*"[^"]*""#, #"$1: [REDACTED]"#),
+        (#"(?i)(screenshot|screenCapture|screenImage)\s*[:=]\s*<[^>]*>"#, #"$1: [REDACTED]"#),
     ]
 }

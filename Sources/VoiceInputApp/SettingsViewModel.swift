@@ -130,6 +130,7 @@ struct SystemAudioInputDeviceProvider: AudioInputDeviceProviding {
 protocol SettingsPermissionProviding: Sendable {
     func microphonePermission() -> AudioRecorder.PermissionStatus
     func speechPermission() -> AudioRecorder.PermissionStatus
+    func screenRecordingPermission() -> Bool
 }
 
 struct SystemSettingsPermissionProvider: SettingsPermissionProviding {
@@ -140,12 +141,17 @@ struct SystemSettingsPermissionProvider: SettingsPermissionProviding {
     func speechPermission() -> AudioRecorder.PermissionStatus {
         SpeechRecognizer.checkPermission()
     }
+
+    func screenRecordingPermission() -> Bool {
+        CGPreflightScreenCaptureAccess()
+    }
 }
 
 enum SystemSettingsPane {
     case microphone
     case speech
     case accessibility
+    case screenRecording
 }
 
 @MainActor
@@ -156,6 +162,9 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var shortcutKeyCode: Int64 = ShortcutManager.defaultShortcutKeyCode
     @Published private(set) var longPressThreshold: TimeInterval = ShortcutManager.defaultLongPressThreshold
     @Published private(set) var shortPressBehavior: ShortPressBehavior = .toggleListening
+    @Published private(set) var dictationShortcutKeyCode: Int64? = nil
+    @Published private(set) var agentComposeShortcutKeyCode: Int64? = nil
+    @Published private(set) var shortcutConflict: Bool = false
     @Published private(set) var soundFeedbackEnabled = true
     @Published private(set) var voiceEnhancementEnabled = true
     @Published private(set) var muteWhileRecordingEnabled = false
@@ -165,6 +174,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var microphonePermission: AudioRecorder.PermissionStatus = .notDetermined
     @Published private(set) var speechPermission: AudioRecorder.PermissionStatus = .notDetermined
     @Published private(set) var accessibilityGranted = false
+    @Published private(set) var screenRecordingGranted = false
     @Published private(set) var exportedDataJSON: String?
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
@@ -207,6 +217,9 @@ final class SettingsViewModel: ObservableObject {
             shortcutKeyCode = shortcutManager.shortcutKeyCode
             longPressThreshold = shortcutManager.longPressThreshold
             shortPressBehavior = shortcutManager.shortPressBehavior
+            dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
+            agentComposeShortcutKeyCode = shortcutManager.agentComposeShortcutKeyCode
+            shortcutConflict = shortcutManager.hasConflict()
             soundFeedbackEnabled = try readBool(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true)
             voiceEnhancementEnabled = try readBool(SettingsKey.audioVoiceEnhancementEnabled, defaultValue: true)
             muteWhileRecordingEnabled = try readBool(SettingsKey.audioMuteWhileRecordingEnabled, defaultValue: false)
@@ -223,6 +236,7 @@ final class SettingsViewModel: ObservableObject {
             microphonePermission = permissionProvider.microphonePermission()
             speechPermission = permissionProvider.speechPermission()
             accessibilityGranted = AXIsProcessTrusted()
+            screenRecordingGranted = permissionProvider.screenRecordingPermission()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -247,8 +261,26 @@ final class SettingsViewModel: ObservableObject {
         self.shortcutKeyCode = keyCode
         self.longPressThreshold = longPressThreshold
         self.shortPressBehavior = shortPressBehavior
+        self.dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
+        self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新快捷键设置"
+    }
+
+    func updateActionShortcut(
+        action: VoiceAction,
+        keyCode: Int64?
+    ) throws {
+        shortcutManager.setShortcutKeyCode(keyCode, for: action)
+        if shortcutManager.hasConflict() {
+            throw SettingsViewModelError.conflictingBindings
+        }
+        shortcutKeyCode = shortcutManager.shortcutKeyCode
+        dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
+        agentComposeShortcutKeyCode = shortcutManager.agentComposeShortcutKeyCode
+        shortcutConflict = false
+        lastError = nil
+        lastActionMessage = "已更新\(action.displayName)快捷键"
     }
 
     func applyShortcutKeyCode(_ text: String) {
@@ -316,6 +348,8 @@ final class SettingsViewModel: ObservableObject {
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition")
         case .accessibility:
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        case .screenRecording:
+            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
         }
     }
 
@@ -459,6 +493,7 @@ final class SettingsViewModel: ObservableObject {
 enum SettingsViewModelError: LocalizedError {
     case invalidImport
     case invalidShortcutKeyCode
+    case conflictingBindings
 
     var errorDescription: String? {
         switch self {
@@ -466,6 +501,8 @@ enum SettingsViewModelError: LocalizedError {
             return "导入数据格式不正确。"
         case .invalidShortcutKeyCode:
             return "快捷键录制失败，请按下一个有效按键。"
+        case .conflictingBindings:
+            return "两个操作不能使用相同的快捷键，请修改其中一个。"
         }
     }
 }

@@ -1,4 +1,4 @@
-# VoiceInput Test Plan
+# VoxFlow Test Plan
 
 ## Automated Tests
 

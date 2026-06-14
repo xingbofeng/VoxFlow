@@ -2,13 +2,20 @@ import XCTest
 @testable import VoiceInputApp
 
 final class PermissionSummaryTests: XCTestCase {
-    func testQwen3DoesNotRequireAppleSpeechRecognitionPermission() {
+    func testQwen3StillShowsActualAppleSpeechRecognitionPermissionState() {
         XCTAssertEqual(
             PermissionSummary.speechRecognitionStatus(
                 engineType: .qwen3,
                 speechPermission: .denied
             ),
-            "不需要（当前使用 Qwen3-ASR）"
+            "未授权"
+        )
+        XCTAssertEqual(
+            PermissionSummary.speechRecognitionStatus(
+                engineType: .qwen3,
+                speechPermission: .granted
+            ),
+            "已授权"
         )
     }
 

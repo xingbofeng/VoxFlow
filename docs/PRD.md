@@ -1,8 +1,8 @@
-# VoiceInput PRD
+# VoxFlow PRD
 
 ## Product Positioning
 
-VoiceInput is a macOS voice input workbench for Chinese users, developers, and knowledge workers. It keeps the core interaction simple: hold the right Command key, speak, release, and insert text at the current cursor position.
+VoxFlow is a macOS voice input workbench for Chinese users, developers, and knowledge workers. It keeps the core interaction simple: hold the right Command key, speak, release, and insert text at the current cursor position.
 
 ## Goals
 
@@ -22,10 +22,66 @@ VoiceInput is a macOS voice input workbench for Chinese users, developers, and k
 
 ## Acceptance Criteria
 
-- The app builds and launches as VoiceInput.
+- The app builds and launches as VoxFlow.
 - The menu bar dictation loop still works without requiring the workbench window.
 - Main workbench navigation contains every required page.
 - SQLite migrations create the required local tables.
 - API keys are stored only in Keychain and never in SQLite or UserDefaults.
 - `swift test` and `make build` pass.
+
+## Context-Aware Voice Workflows
+
+### Change Scope
+
+This change introduces three new capabilities on top of the existing dictation loop:
+
+1. **Application style routing** — automatically select a style profile based on the active application.
+2. **Reliable voice tasks** — persist every dictation session as a `VoiceTask` with independently recoverable stages.
+3. **Agent compose ("帮我说")** — read the current window context together with user dictation, let the LLM generate text, and place the result on the clipboard (no automatic sending).
+
+### Key Features
+
+#### Smart Application Configuration
+
+A one-time LLM-powered scan enumerates installed applications, groups them by style, and presents the result for user confirmation before anything is persisted. No background classification runs without explicit user approval.
+
+#### Built-in Application Registry
+
+High-frequency applications ship with pre-defined style mappings so they skip the LLM classification step entirely:
+
+- WeChat → chat
+- VS Code → coding
+- (additional entries as determined during implementation)
+
+#### VoiceTask Persistence
+
+A `VoiceTask` row is created at the moment recording starts. Each processing stage (recording, ASR, LLM refinement, injection) is persisted independently so that a crash at any point can be recovered without losing prior work.
+
+#### Agent Compose ("帮我说")
+
+When triggered, the system reads the current window context (application, window title, selected text if available) and combines it with the user's dictation. The LLM generates output text which is placed **only on the clipboard** — no automatic sending, typing simulation, or injection occurs.
+
+#### Dual Hotkey Actions
+
+Separate key bindings are provided for standard dictation and "帮我说". The shortcut manager validates bindings at configuration time and rejects conflicting assignments.
+
+#### Output Protection
+
+Before pasting dictation results, the injector re-validates that the target window still matches the window that was active when recording started. If the target has changed, the result falls back to the clipboard instead of injecting into an unexpected context.
+
+### Acceptance Goals
+
+- Existing right-Command dictation behavior is fully preserved — no changes to the current hold-to-record, release-to-transcribe loop.
+- Recording start latency remains under 100 ms.
+- Context collection (window info, selected text) completes within a 500 ms target.
+- SQLite migration from the current schema (migration ID 2 → 3) is lossless; no data is dropped or rewritten.
+- All 253+ existing tests continue to pass without modification.
+- `swift test` and `make build` pass.
+- Agent compose mode never automatically sends, types, or injects generated text — clipboard only.
+
+### Out of Scope
+
+- Per-app send adapters (e.g., pressing Enter in WeChat after paste).
+- Visual context persistence (screenshots or OCR of surrounding content).
+- Automatic retry or reconnection of voice tasks on application startup.
 

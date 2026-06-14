@@ -1,6 +1,13 @@
 import AppKit
 import Carbon
 
+enum InjectionResult: Equatable {
+    case success
+    case permissionDenied
+    case eventCreationFailed
+    case cancelled
+}
+
 struct PasteboardSnapshot {
     struct Item {
         let representations: [NSPasteboard.PasteboardType: Data]
@@ -71,39 +78,59 @@ final class TextInjector {
 
     // MARK: - Public
 
-    func inject(_ text: String) async {
-        guard !text.isEmpty else { return }
+    func inject(_ text: String) async -> InjectionResult {
+        guard !text.isEmpty else { return .success }
 
-        // 1. Save current state
+        // 1. Check accessibility permission
+        guard AXIsProcessTrusted() else {
+            return .permissionDenied
+        }
+
+        // 2. Save current state
         let savedClipboard = saveClipboard()
         let savedInputSource = getCurrentInputSource()
         let wasCJK = isCJKInputSource(savedInputSource)
 
-        // 2. Switch to ASCII if needed
+        // 3. Switch to ASCII if needed
         let switchedInputSource = wasCJK && switchToASCIIInputSource()
         if switchedInputSource {
             try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms for input source switch
         }
 
-        // 3. Copy text to clipboard
+        // 4. Copy text to clipboard
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        // 4. Simulate Cmd+V
-        simulatePaste()
+        // 5. Simulate Cmd+V
+        let source = CGEventSource(stateID: .combinedSessionState)
+        guard let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
+              let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false) else {
+            // Event creation failed — leave text on clipboard as fallback
+            if switchedInputSource, let savedSource = savedInputSource {
+                restoreInputSource(savedSource)
+            }
+            return .eventCreationFailed
+        }
+        vDown.flags = .maskCommand
+        vUp.flags = .maskCommand
 
-        // 5. Wait briefly for paste to complete
+        vDown.post(tap: .cghidEventTap)
+        vUp.post(tap: .cghidEventTap)
+
+        // 6. Wait briefly for paste to complete
         try? await Task.sleep(nanoseconds: pasteDelay)
 
-        // 6. Restore input source
-        if switchedInputSource, let source = savedInputSource {
-            restoreInputSource(source)
+        // 7. Restore input source
+        if switchedInputSource, let savedSource = savedInputSource {
+            restoreInputSource(savedSource)
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
 
-        // 7. Restore clipboard
+        // 8. Restore clipboard
         restoreClipboard(savedClipboard)
+
+        return .success
     }
 
     // MARK: - Clipboard
@@ -195,18 +222,4 @@ final class TextInjector {
         TISSelectInputSource(source)
     }
 
-    // MARK: - Paste Simulation
-
-    private func simulatePaste() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-
-        let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)  // kVK_ANSI_V
-        vDown?.flags = .maskCommand
-
-        let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        vUp?.flags = .maskCommand
-
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
-    }
 }

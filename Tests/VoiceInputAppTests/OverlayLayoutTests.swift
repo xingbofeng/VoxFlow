@@ -32,6 +32,18 @@ final class OverlayLayoutTests: XCTestCase {
 
         XCTAssertTrue(visible.hasPrefix("…"))
         XCTAssertTrue(visible.hasSuffix("当前内容"))
+        XCTAssertLessThanOrEqual(visible.count, 49)
         XCTAssertLessThan(visible.count, text.count)
+    }
+
+    func testOverlayTextNeverAddsTrailingEllipsis() {
+        XCTAssertEqual(OverlayLayout.textLineBreakMode, .byCharWrapping)
+        XCTAssertFalse(OverlayLayout.truncatesLastVisibleLine)
+    }
+
+    func testTemporaryMessageRequiresVisibleText() {
+        XCTAssertFalse(OverlayLayout.shouldShowTemporaryMessage(""))
+        XCTAssertFalse(OverlayLayout.shouldShowTemporaryMessage("   \n\t"))
+        XCTAssertTrue(OverlayLayout.shouldShowTemporaryMessage("识别失败"))
     }
 }

@@ -54,16 +54,88 @@ final class KeyMonitorTests: XCTestCase {
     }
 
     func testShortcutEventsPassThroughWhileAppIsActive() {
-        // Without any key window, the shortcut should be intercepted even
-        // when the app is technically active (e.g., after closing settings).
-        XCTAssertFalse(ShortcutEventRouting.shouldPassThrough(appIsActive: true))
-        XCTAssertFalse(ShortcutEventRouting.shouldPassThrough(appIsActive: false))
+        XCTAssertTrue(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: true,
+                appIsFrontmost: false,
+                isCapturingShortcut: false
+            )
+        )
+        XCTAssertFalse(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: false,
+                appIsFrontmost: false,
+                isCapturingShortcut: false
+            )
+        )
     }
 
-    func testShortcutEventsPassThroughOnlyWhenKeyWindowIsPresent() {
-        // Simulate: no key window → always intercept the shortcut.
-        XCTAssertFalse(ShortcutEventRouting.shouldPassThrough(appIsActive: true))
+    func testShortcutEventsPassThroughOnlyWhileCapturingShortcut() {
+        XCTAssertTrue(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: true,
+                appIsFrontmost: false,
+                isCapturingShortcut: true
+            )
+        )
+        XCTAssertFalse(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: false,
+                appIsFrontmost: false,
+                isCapturingShortcut: true
+            )
+        )
+    }
 
-        // Post-test cleanup: AppKit test environment may have lingering windows.
+    func testShortcutEventsPassThroughWhileVoiceInputIsFrontmost() {
+        XCTAssertTrue(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: false,
+                appIsFrontmost: true,
+                isCapturingShortcut: false
+            )
+        )
+    }
+
+    func testShortcutEventsAreCapturedWhileAppIsInBackground() {
+        XCTAssertFalse(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: false,
+                appIsFrontmost: false,
+                isCapturingShortcut: false
+            )
+        )
+    }
+
+    func testAgentComposeShortcutRoutesToAgentComposeAction() {
+        XCTAssertEqual(
+            ShortcutActionRouting.action(
+                for: 61,
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61
+            ),
+            .agentCompose
+        )
+    }
+
+    func testConflictingShortcutRoutesToDictationForLegacySafety() {
+        XCTAssertEqual(
+            ShortcutActionRouting.action(
+                for: 54,
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 54
+            ),
+            .dictation
+        )
+    }
+
+    func testUnboundShortcutDoesNotRouteToAnAction() {
+        XCTAssertNil(
+            ShortcutActionRouting.action(
+                for: 61,
+                dictationKeyCode: 54,
+                agentComposeKeyCode: nil
+            )
+        )
     }
 }

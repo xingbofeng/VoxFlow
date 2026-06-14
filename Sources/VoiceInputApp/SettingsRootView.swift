@@ -5,7 +5,7 @@ struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
-    @State private var isRecordingShortcut = false
+    @State private var recordingShortcutAction: VoiceAction?
     @State private var shortcutMonitor: Any?
     @State private var importedJSON = ""
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
@@ -164,38 +164,46 @@ struct SettingsRootView: View {
                 tint: .purple
             ) {
                 VStack(spacing: 12) {
-                    HStack(spacing: 14) {
-                        SettingsRowIcon(systemImage: shortcutKeyIcon, tint: AppTheme.ColorToken.accent)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("录制快捷键")
-                                .font(.system(size: 15, weight: .semibold))
-                            Text(isRecordingShortcut ? "按下想用于听写的按键" : "当前：\(shortcutDisplayName)")
-                                .font(.system(size: 12))
-                                .foregroundStyle(isRecordingShortcut ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
-                        }
-                        Spacer()
-                        Button(isRecordingShortcut ? "正在录制..." : "录制") {
-                            toggleShortcutRecording()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .settingsRow()
+                    actionShortcutRow(
+                        action: .dictation,
+                        title: "语音转录",
+                        subtitle: "按住快捷键说话，松开后转写并输入",
+                        buttonTitle: "修改"
+                    )
 
-                    HStack(spacing: 14) {
-                        SettingsRowIcon(systemImage: "switch.2", tint: .green)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("短按行为")
-                                .font(.system(size: 15, weight: .semibold))
-                            Text(shortPressBehaviorDescription)
-                                .font(.system(size: 12))
-                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                        }
-                        Spacer()
-                        Toggle("", isOn: shortPressToggleBinding)
+                    Divider()
+                        .padding(.leading, 70)
+
+                    actionShortcutRow(
+                        action: .agentCompose,
+                        title: "帮我说",
+                        subtitle: "结合当前窗口和口述生成文本，完成后复制到剪贴板",
+                        buttonTitle: "设置快捷键",
+                        badge: "不自动发送",
+                        prominentWhenUnbound: true
+                    )
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 14) {
+                            Text("触发方式")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                            Picker("触发方式", selection: shortPressTriggerBinding) {
+                                Text("按住").tag(false)
+                                Text("切换").tag(true)
+                            }
                             .labelsHidden()
-                            .toggleStyle(.switch)
+                            .pickerStyle(.segmented)
+                            .frame(width: 220)
+                            Spacer(minLength: 0)
+                        }
+                        Text(viewModel.shortcutConflict ? "当前快捷键冲突，请为两个动作设置不同按键。" : "两个动作不能使用相同触发方式")
+                            .font(.system(size: 12))
+                            .foregroundStyle(viewModel.shortcutConflict ? Color.red : AppTheme.ColorToken.secondaryText)
                     }
-                    .settingsRow()
+                    .padding(12)
+                    .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
                 }
             }
         }
@@ -268,7 +276,7 @@ struct SettingsRootView: View {
                 tint: .pink
             ) {
                 systemToggle(.darkMode, "深色模式", "使用深色配色方案显示应用界面", "moon", tint: .pink)
-                systemToggle(.launchAtLogin, "开机自动启动", "登录系统时自动启动 VoiceInput", "power", tint: .pink)
+                systemToggle(.launchAtLogin, "开机自动启动", "登录系统时自动启动随声写", "power", tint: .pink)
                 systemToggle(.grayMenuBarIcon, "灰色菜单栏图标", "让菜单栏图标使用低对比灰色", "paintpalette", tint: .pink)
                 systemToggle(.capsLockIndicator, "CapsLock 指示灯", "使用 CapsLock LED 指示录音状态", "lightbulb", tint: .pink)
             }
@@ -301,17 +309,25 @@ struct SettingsRootView: View {
                 )
                 permissionRow(
                     title: "语音识别",
-                    subtitle: "系统自带模型需要此权限",
+                    subtitle: "显示 Apple 语音识别的真实系统授权状态",
                     systemImage: "waveform",
-                    status: speechPermissionTitle,
-                    granted: speechPermissionSatisfied,
+                    status: viewModel.speechPermission.title,
+                    granted: viewModel.speechPermission == .granted,
                     pane: .speech
+                )
+                permissionRow(
+                    title: "屏幕录制",
+                    subtitle: "用于“帮我说”的当前窗口 OCR，上下文截图不会保存",
+                    systemImage: "rectangle.inset.filled.and.person.filled",
+                    status: PermissionSummary.statusText(viewModel.screenRecordingGranted),
+                    granted: viewModel.screenRecordingGranted,
+                    pane: .screenRecording
                 )
 
                 VStack(alignment: .leading, spacing: 6) {
                     Label("权限信息", systemImage: "info.circle")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("如果文本输入失败，请检查辅助功能权限。切换到本地听写模型时，不需要 Apple 语音识别权限。")
+                    Text("如果文本输入失败，请检查辅助功能权限。本地模型不依赖 Apple 语音识别，但这里仍展示其真实系统状态。")
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -388,7 +404,7 @@ struct SettingsRootView: View {
                 }
                 .buttonStyle(.bordered)
 
-                Text("诊断信息仅保存在本机 Application Support/VoiceInput。VoiceInput 不会自动上传音频、转录文本或崩溃日志。")
+                Text("诊断信息仅保存在本机兼容数据目录 Application Support/VoiceInput。随声写不会自动上传音频、转录文本或崩溃日志。")
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -444,12 +460,27 @@ struct SettingsRootView: View {
             ?? "系统默认麦克风"
     }
 
-    private var shortcutDisplayName: String {
-        KeyCodeMapping.displayName(for: viewModel.shortcutKeyCode)
+    private func shortcutDisplayName(for action: VoiceAction) -> String {
+        guard let keyCode = shortcutKeyCode(for: action) else {
+            return "未设置"
+        }
+        return KeyCodeMapping.displayName(for: keyCode)
     }
 
-    private var shortcutKeyIcon: String {
-        KeyCodeMapping.iconName(for: viewModel.shortcutKeyCode)
+    private func shortcutKeyIcon(for action: VoiceAction) -> String {
+        guard let keyCode = shortcutKeyCode(for: action) else {
+            return action.systemImage
+        }
+        return KeyCodeMapping.iconName(for: keyCode)
+    }
+
+    private func shortcutKeyCode(for action: VoiceAction) -> Int64? {
+        switch action {
+        case .dictation:
+            return viewModel.dictationShortcutKeyCode ?? viewModel.shortcutKeyCode
+        case .agentCompose:
+            return viewModel.agentComposeShortcutKeyCode
+        }
     }
 
     private var shortPressBehaviorDescription: String {
@@ -459,20 +490,6 @@ struct SettingsRootView: View {
         case .none:
             return "短按不触发：仅长按录音，松开完成"
         }
-    }
-
-    private var isLocalASRDefault: Bool {
-        asrProviderViewModel.providers.contains {
-            $0.id == ASRProviderID.qwen3 && $0.isDefault
-        }
-    }
-
-    private var speechPermissionSatisfied: Bool {
-        isLocalASRDefault || viewModel.speechPermission == .granted
-    }
-
-    private var speechPermissionTitle: String {
-        isLocalASRDefault ? "当前模型不需要" : viewModel.speechPermission.title
     }
 
     private func permissionRow(
@@ -560,6 +577,10 @@ struct SettingsRootView: View {
         )
     }
 
+    private var shortPressTriggerBinding: Binding<Bool> {
+        shortPressToggleBinding
+    }
+
     private var soundBinding: Binding<Bool> {
         Binding(
             get: { viewModel.soundFeedbackEnabled },
@@ -617,12 +638,72 @@ struct SettingsRootView: View {
         }
     }
 
-    private func toggleShortcutRecording() {
-        if isRecordingShortcut {
+    private func actionShortcutRow(
+        action: VoiceAction,
+        title: String,
+        subtitle: String,
+        buttonTitle: String,
+        badge: String? = nil,
+        prominentWhenUnbound: Bool = false
+    ) -> some View {
+        let isRecording = recordingShortcutAction == action
+        let displayName = shortcutDisplayName(for: action)
+        let isUnbound = shortcutKeyCode(for: action) == nil
+        return HStack(spacing: 14) {
+            SettingsRowIcon(systemImage: shortcutKeyIcon(for: action), tint: action == .agentCompose ? .green : AppTheme.ColorToken.accent)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                    if let badge {
+                        Text(badge)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.ColorToken.accent)
+                            .padding(.horizontal, 8)
+                            .frame(height: 22)
+                            .background(AppTheme.ColorToken.selectionBackground)
+                            .clipShape(Capsule())
+                    }
+                }
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Text(isRecording ? "按下想用于\(title)的按键" : displayName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isRecording ? AppTheme.ColorToken.accent : (isUnbound ? AppTheme.ColorToken.secondaryText : AppTheme.ColorToken.primaryText))
+            }
+            Spacer()
+            shortcutActionButton(
+                title: isRecording ? "正在录制..." : buttonTitle,
+                prominent: prominentWhenUnbound && isUnbound,
+                action: action
+            )
+        }
+        .settingsRow()
+    }
+
+    @ViewBuilder
+    private func shortcutActionButton(title: String, prominent: Bool, action: VoiceAction) -> some View {
+        if prominent {
+            Button(title) {
+                toggleShortcutRecording(for: action)
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
+            Button(title) {
+                toggleShortcutRecording(for: action)
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func toggleShortcutRecording(for action: VoiceAction = .dictation) {
+        if recordingShortcutAction == action {
             stopShortcutRecording()
             return
         }
-        isRecordingShortcut = true
+        recordingShortcutAction = action
+        ShortcutCaptureState.shared.isCapturing = true
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             recordShortcut(from: event)
             return nil
@@ -634,22 +715,20 @@ struct SettingsRootView: View {
             NSEvent.removeMonitor(shortcutMonitor)
             self.shortcutMonitor = nil
         }
-        isRecordingShortcut = false
+        recordingShortcutAction = nil
+        ShortcutCaptureState.shared.isCapturing = false
     }
 
     private func recordShortcut(from event: NSEvent) {
         let keyCode = Int64(event.keyCode)
+        let action = recordingShortcutAction ?? .dictation
         guard keyCode > 0 else {
             viewModel.report(error: SettingsViewModelError.invalidShortcutKeyCode)
             stopShortcutRecording()
             return
         }
         perform {
-            try viewModel.updateShortcut(
-                keyCode: keyCode,
-                longPressThreshold: viewModel.longPressThreshold,
-                shortPressBehavior: viewModel.shortPressBehavior
-            )
+            try viewModel.updateActionShortcut(action: action, keyCode: keyCode)
         }
         stopShortcutRecording()
     }

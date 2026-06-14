@@ -1,32 +1,34 @@
 <div align="center">
-  <img src="docs/assets/voiceinput-logo.png" alt="VoiceInput logo" width="128">
+  <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
-  <img src="docs/assets/voiceinput-hero.svg" alt="VoiceInput - Hold. Speak. Done." width="100%">
+  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - Hold. Speak. Done." width="100%">
 
-  <h1>VoiceInput</h1>
+  <h1>VoxFlow</h1>
   <p><strong>Hold a shortcut, speak, release — your words appear right where the cursor is.</strong></p>
   <p>A lightweight macOS voice input tool for thoughts, notes, code explanations, and AI conversations.</p>
   <p><sub><a href="README.md">中文</a></sub></p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
-    <a href="https://github.com/xingbofeng/VoiceInput/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoiceInput?style=flat-square&label=release" alt="Latest release"></a>
+    <a href="https://github.com/xingbofeng/VoxFlow/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoxFlow?style=flat-square&label=release" alt="Latest release"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-open%20source-10B981?style=flat-square" alt="License"></a>
   </p>
   <p>
-    🌐 <a href="https://xingbofeng.github.io/VoiceInput/">Website</a>
+    🌐 <a href="https://xingbofeng.github.io/VoxFlow/">Website</a>
     &nbsp;·&nbsp;
-    ⬇️ <a href="https://github.com/xingbofeng/VoiceInput/releases/latest">Download</a>
+    ⬇️ <a href="https://github.com/xingbofeng/VoxFlow/releases/latest">Download</a>
     &nbsp;·&nbsp;
     🎬 <a href="docs/voiceinput-demo-land.mp4">Intro Video</a>
   </p>
 </div>
 
-## What Is VoiceInput?
+> Brand migration: **VoxFlow was formerly VoiceInput**. The visible brand and installer have been renamed, while the bundle ID remains `com.voiceinput.app` to preserve existing macOS permissions.
 
-VoiceInput is a voice keyboard, not a voice assistant.
+## What Is VoxFlow?
 
-It does not take over your window or force you to move text into a separate editor. Put the cursor where you want text to appear, hold the shortcut, speak, and release. VoiceInput writes the result back into the app you were already using.
+VoxFlow is a voice keyboard, not a voice assistant.
+
+It does not take over your window or force you to move text into a separate editor. Put the cursor where you want text to appear, hold the shortcut, speak, and release. VoxFlow writes the result back into the app you were already using.
 
 It is designed for people who want speech to become text without breaking flow:
 
@@ -36,7 +38,7 @@ It is designed for people who want speech to become text without breaking flow:
 
 ## Who It Is For
 
-VoiceInput is especially useful if you:
+VoxFlow is especially useful if you:
 
 - Talk to ChatGPT, Claude, Codex, Cursor, or other AI tools and often need to describe intent, context, or revision requests.
 - Write code and frequently explain bugs, add notes, draft commit messages, or document investigation steps.
@@ -48,25 +50,25 @@ VoiceInput is especially useful if you:
 
 ### Hold To Speak, Release To Insert
 
-VoiceInput works like a keyboard layer. Hold your dictation shortcut, speak, and release. A small transcription overlay appears while you are speaking, then the final text is inserted into the current cursor position.
+VoxFlow works like a keyboard layer. Hold your dictation shortcut, speak, and release. A small transcription overlay appears while you are speaking, then the final text is inserted into the current cursor position.
 
 There is no need to switch apps or manually copy text back.
 
 ### Live Transcription
 
-While you speak, VoiceInput shows recognized text in real time so you can stay oriented. It works for short commands, long explanations, Chinese, English, and mixed Chinese-English speech.
+While you speak, VoxFlow shows recognized text in real time so you can stay oriented. It works for short commands, long explanations, Chinese, English, and mixed Chinese-English speech.
 
-VoiceInput includes the system speech recognizer and also supports local Qwen3-ASR models. The system model works out of the box; local models are useful when you prefer an offline path.
+VoxFlow includes the system speech recognizer and also supports local Qwen3-ASR models. The system model works out of the box; local models are useful when you prefer an offline path.
 
 ### Optional LLM Correction
 
-Speech recognition can struggle with technical terms such as Python, JSON, TypeScript, framework names, or product names. VoiceInput can run a conservative correction pass through your own OpenAI-compatible provider after dictation finishes.
+Speech recognition can struggle with technical terms such as Python, JSON, TypeScript, framework names, or product names. VoxFlow can run a conservative correction pass through your own OpenAI-compatible provider after dictation finishes.
 
 The correction pass is intentionally restrained. It is meant to fix obvious recognition mistakes, not rewrite your tone or polish your content.
 
 ### Workbench
 
-VoiceInput also includes a workbench for the parts of voice input that deserve a proper home:
+VoxFlow also includes a workbench for the parts of voice input that deserve a proper home:
 
 | Page | What You Can Do |
 | --- | --- |
@@ -80,13 +82,13 @@ VoiceInput also includes a workbench for the parts of voice input that deserve a
 
 ## Highlights
 
-- **Global dictation**: Works in any editable text field, not only inside VoiceInput.
+- **Global dictation**: Works in any editable text field, not only inside VoxFlow.
 - **Non-intrusive overlay**: Shows live text and voice activity without taking focus.
 - **System and local models**: Use the built-in system recognizer or a local Qwen3-ASR model.
 - **Input device selection**: Choose your microphone; long device names are handled gracefully.
 - **Shortcut recording**: Record the key you want to use and configure short-press behavior.
 - **OpenAI-compatible providers**: Add, test, edit, and delete providers; API keys are stored in macOS Keychain.
-- **Glossary and replacements**: Teach VoiceInput your own terms, aliases, and fixed transformations.
+- **Glossary and replacements**: Teach VoxFlow your own terms, aliases, and fixed transformations.
 - **History and notes**: Search, copy, edit, and reuse previous dictation results.
 - **File transcription**: Turn recordings, videos, or meeting audio into text.
 - **Local-first data**: History, glossary, settings, notes, and jobs live locally; LLM correction is opt-in.
@@ -95,10 +97,10 @@ VoiceInput also includes a workbench for the parts of voice input that deserve a
 
 ### Download & Install
 
-Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoiceInput/releases/latest):
+Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoiceInput-1.1.2-macOS.dmg`
-2. Drag `VoiceInputApp` into the `Applications` folder
+1. Open `VoxFlow-1.1.2-macOS.dmg`
+2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
 ### Requirements
@@ -108,17 +110,18 @@ Download the latest version from [GitHub Releases](https://github.com/xingbofeng
 
 ### First Permissions
 
-VoiceInput needs a few macOS permissions:
+VoxFlow needs a few macOS permissions:
 
 | Permission | Why It Is Needed | Where |
 | --- | --- | --- |
 | Accessibility | Listen for the global shortcut and insert text into the current app | System Settings -> Privacy & Security -> Accessibility |
 | Microphone | Record your voice | System Settings -> Privacy & Security -> Microphone |
 | Speech Recognition | Use the system speech recognizer | System Settings -> Privacy & Security -> Speech Recognition |
+| Screen Recording | OCR the current window for Agent Compose; screenshots are not persisted | System Settings -> Privacy & Security -> Screen Recording |
 
 If you use a local Qwen3-ASR model, Speech Recognition permission is not required. Microphone permission is still required.
 
-If the shortcut does not respond after granting permissions, quit and reopen VoiceInput.
+If the shortcut does not respond after granting permissions, quit and reopen VoxFlow.
 
 ## How To Use
 
@@ -131,11 +134,11 @@ If the shortcut does not respond after granting permissions, quit and reopen Voi
 
 ### Voice Notes
 
-Open the workbench and go to **Notes**. Click the record button to start a quick note. VoiceInput transcribes as you speak, then lets you edit and review the note afterward.
+Open the workbench and go to **Notes**. Click the record button to start a quick note. VoxFlow transcribes as you speak, then lets you edit and review the note afterward.
 
 ### File Transcription
 
-Open **File Transcription**, select an audio or video file, and let VoiceInput process it. Completed jobs can be copied, exported, or saved as notes.
+Open **File Transcription**, select an audio or video file, and let VoxFlow process it. Completed jobs can be copied, exported, or saved as notes.
 
 ### Improve Names And Terms
 
@@ -149,14 +152,14 @@ API keys are stored in macOS Keychain.
 
 ## Privacy
 
-VoiceInput is local-first by default.
+VoxFlow is local-first by default.
 
 - History, glossary, notes, transcription jobs, and non-secret settings are stored locally.
 - API keys are stored in macOS Keychain.
 - Apple Speech may process audio according to macOS system behavior.
 - Local Qwen3-ASR runs on-device after the model is downloaded.
 - LLM correction is disabled by default. When enabled, only recognized text is sent to your configured API provider.
-- VoiceInput does not automatically upload your audio, notes, history, or clipboard content.
+- VoxFlow does not automatically upload your audio, notes, history, or clipboard content.
 
 See [Privacy](docs/PRIVACY.md) for more details.
 
@@ -164,7 +167,7 @@ See [Privacy](docs/PRIVACY.md) for more details.
 
 | Question | Answer |
 | --- | --- |
-| The shortcut does nothing | Check Accessibility permission, then quit and reopen VoiceInput |
+| The shortcut does nothing | Check Accessibility permission, then quit and reopen VoxFlow |
 | The overlay appears but no text shows up | Check Microphone, Speech Recognition, or the selected model state |
 | LLM correction does not run | Make sure it is enabled in Settings and the default provider passes the connection test |
 | Why is my API key hidden? | That is expected. Use the reveal button while editing if you need to inspect it |
@@ -176,8 +179,8 @@ See [Privacy](docs/PRIVACY.md) for more details.
 If you want to build the app yourself:
 
 ```bash
-git clone https://github.com/xingbofeng/VoiceInput.git
-cd VoiceInput
+git clone https://github.com/xingbofeng/VoxFlow.git
+cd VoxFlow
 make run
 ```
 
