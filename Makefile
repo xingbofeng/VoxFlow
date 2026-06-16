@@ -2,6 +2,8 @@ APP_NAME := VoxFlow
 SWIFT_EXECUTABLE := VoiceInputApp
 BUILD_DIR := .build
 BUNDLE_DIR := $(BUILD_DIR)/$(APP_NAME).app
+ARM_RELEASE_BIN_DIR := $(BUILD_DIR)/arm64-apple-macosx/release
+X86_RELEASE_BIN_DIR := $(BUILD_DIR)/x86_64-apple-macosx/release
 INSTALL_DIR := /Applications/$(APP_NAME).app
 PLIST := Sources/VoiceInputApp/Resources/Info.plist
 ICON := Resources/AppIcon.icns
@@ -14,31 +16,39 @@ VERSION := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString
 DMG_NAME := VoxFlow-$(VERSION)-macOS
 DMG_FILE := dist/$(DMG_NAME).dmg
 
-ARCH_FLAGS := --arch arm64 --arch x86_64
-SWIFT_BUILD_FLAGS := -c release $(ARCH_FLAGS) -Xswiftc -Osize
+SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 
-.PHONY: all build run install dmg release clean debug prelaunch-cleanup
+.PHONY: all prepare-runtime test build run install dmg release clean debug prelaunch-cleanup
 
 all: build
 
-build:
+prepare-runtime:
+	@./scripts/bootstrap-sherpa-onnx.sh
+
+test: prepare-runtime
+	swift test
+
+build: prepare-runtime
 	@echo "🔨 Building $(APP_NAME)..."
-	swift build $(SWIFT_BUILD_FLAGS)
+	swift build $(SWIFT_RELEASE_FLAGS) --arch arm64
+	swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64
 	@echo "📦 Creating app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Resources"
-	@BIN_DIR="$$(swift build -c release $(ARCH_FLAGS) --show-bin-path)"; \
-		cp "$$BIN_DIR/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"; \
-		if [ -d "$$BIN_DIR/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
-			cp -R "$$BIN_DIR/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
-		fi
+	@lipo -create \
+		"$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" \
+		"$(X86_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" \
+		-output "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
+	@if [ -d "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
+		cp -R "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
+	fi
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64 x86_64
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/Contents/Resources/AuthorWeChatQRCode.jpg"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/Contents/Resources/GitHubMark.png"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)"
@@ -103,5 +113,5 @@ clean:
 	swift package clean
 	@echo "✅ Clean complete"
 
-debug:
+debug: prepare-runtime
 	swift build -c debug -Xswiftc -warnings-as-errors

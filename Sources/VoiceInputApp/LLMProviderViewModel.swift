@@ -8,9 +8,15 @@ final class LLMProviderViewModel: ObservableObject {
     @Published private(set) var lastConnectionResult: LLMProviderConnectionResult?
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
+    @Published private(set) var testingProviderID: String?
+    @Published private(set) var isTestingDraftConnection = false
 
     private let environment: AppEnvironment
     private let client: any LLMProviderConnecting
+
+    var defaultProvider: LLMProviderRecord? {
+        providers.first(where: \.isDefault)
+    }
 
     init(
         environment: AppEnvironment,
@@ -153,6 +159,11 @@ final class LLMProviderViewModel: ObservableObject {
         model: String,
         apiKey: String
     ) async {
+        isTestingDraftConnection = true
+        lastError = nil
+        lastActionMessage = nil
+        defer { isTestingDraftConnection = false }
+
         do {
             let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             let normalizedURL = try OpenAICompatibleClient.normalizedBaseURL(baseURL)
@@ -180,6 +191,15 @@ final class LLMProviderViewModel: ObservableObject {
     }
 
     func testConnection(id: String) async {
+        testingProviderID = id
+        lastError = nil
+        lastActionMessage = nil
+        defer {
+            if testingProviderID == id {
+                testingProviderID = nil
+            }
+        }
+
         do {
             let provider = try requireProvider(id: id)
             let apiKey = try environment.credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
@@ -261,6 +281,39 @@ final class LLMProviderViewModel: ObservableObject {
         load()
         lastError = nil
         lastActionMessage = "已选择全局模型 \(selectedModel)"
+    }
+
+    func setDefaultProvider(id: String) throws {
+        let selectedProvider = try requireProvider(id: id)
+        guard selectedProvider.enabled else {
+            throw LLMProviderViewModelError.providerDisabled
+        }
+        let now = environment.clock.now
+        let updatedProviders = providers.map { provider in
+            LLMProviderRecord(
+                id: provider.id,
+                displayName: provider.displayName,
+                providerType: provider.providerType,
+                baseURL: provider.baseURL,
+                defaultModel: provider.defaultModel,
+                apiKeyRef: provider.apiKeyRef,
+                temperature: provider.temperature,
+                timeoutSeconds: provider.timeoutSeconds,
+                enabled: provider.enabled,
+                isDefault: provider.id == id,
+                lastHealthStatus: provider.lastHealthStatus,
+                lastHealthMessage: provider.lastHealthMessage,
+                lastLatencyMS: provider.lastLatencyMS,
+                createdAt: provider.createdAt,
+                updatedAt: now
+            )
+        }
+        for provider in updatedProviders {
+            try environment.llmProviderRepository.save(provider)
+        }
+        load()
+        lastError = nil
+        lastActionMessage = "已设为全局默认模型"
     }
 
     func deleteProvider(id: String) {
@@ -359,6 +412,7 @@ final class LLMProviderViewModel: ObservableObject {
 enum LLMProviderViewModelError: LocalizedError, Equatable {
     case providerNotFound
     case modelRequired
+    case providerDisabled
     case requiredFields([String])
 
     var errorDescription: String? {
@@ -367,6 +421,8 @@ enum LLMProviderViewModelError: LocalizedError, Equatable {
             return "LLM Provider 不存在。"
         case .modelRequired:
             return "模型名称不能为空。"
+        case .providerDisabled:
+            return "请先启用该 Provider。"
         case let .requiredFields(fields):
             return "请填写必填字段：\(fields.joined(separator: "、"))。"
         }

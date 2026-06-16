@@ -35,9 +35,23 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertEqual(manager.qwen3ModelSize, .size0_6B)
     }
 
-    func testSetAndGetModelSize() {
-        manager.qwen3ModelSize = .size1_7B
-        XCTAssertEqual(manager.qwen3ModelSize, .size1_7B)
+    func testQwen3ModelSizesExposeBothReleasedVariants() {
+        XCTAssertEqual(ASRManager.ModelSize.allCases, [.size0_6B, .size1_7B])
+    }
+
+    func testLocalProviderConfigurationDefaultsAndPersistence() {
+        XCTAssertEqual(manager.funASRPrecision, .int8)
+        XCTAssertEqual(manager.whisperVariant, .turbo)
+        XCTAssertEqual(manager.paraformerLanguage, .chinese)
+
+        manager.funASRPrecision = .fp32
+        manager.whisperVariant = .largeV3
+        manager.paraformerLanguage = .english
+
+        let reloaded = ASRManager(defaults: defaults)
+        XCTAssertEqual(reloaded.funASRPrecision, .fp32)
+        XCTAssertEqual(reloaded.whisperVariant, .largeV3)
+        XCTAssertEqual(reloaded.paraformerLanguage, .english)
     }
 
     func testDefaultModelPathIsNil() {
@@ -102,27 +116,16 @@ final class ASRManagerTests: XCTestCase {
         )
     }
 
-    func testQwen3SupportedModelExistsRejectsOnePointSevenLayoutWithoutVocabulary() throws {
+    func testQwen3SupportedModelExistsRejectsEmbeddingWithWrongShape() throws {
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
-        let onePointSevenPathsWithoutVocabulary = [
-            "qwen3_asr_audio_encoder_v2.mlpackage/Manifest.json",
-            "qwen3_asr_decoder_stateful.mlpackage/Manifest.json",
-            "qwen3_asr_embeddings.bin",
-        ]
-        for relativePath in onePointSevenPathsWithoutVocabulary {
-            let fileURL = modelURL.appendingPathComponent(relativePath)
-            try FileManager.default.createDirectory(
-                at: fileURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
-        }
+        try createLoadableQwen3ModelDirectory(at: modelURL)
         defer { try? FileManager.default.removeItem(at: modelURL) }
 
-        XCTAssertFalse(Qwen3ModelManifest.supportedModelExists(at: modelURL))
+        let embeddingURL = modelURL.appendingPathComponent("qwen3_asr_embeddings.bin")
+        try makeEmbeddingFile(at: embeddingURL, hiddenSize: 2048)
 
-        manager.qwen3ModelSize = .size1_7B
+        XCTAssertFalse(Qwen3ModelManifest.supportedModelExists(at: modelURL))
         manager.qwen3ModelPath = modelURL.path
         XCTAssertFalse(manager.isQwen3ModelAvailable)
     }
@@ -144,6 +147,22 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertTrue(engine.isAvailable)
     }
 
+    func testMakeParaformerEngineReturnsRealLocalEngine() {
+        XCTAssertTrue(manager.makeEngine(type: .paraformer) is SherpaBatchASREngine)
+    }
+
+    func testMakeSenseVoiceEngineReturnsRealLocalEngine() {
+        XCTAssertTrue(manager.makeEngine(type: .senseVoice) is FluidAudioBatchASREngine)
+    }
+
+    func testMakeFunASREngineReturnsSherpaEngine() {
+        XCTAssertTrue(manager.makeEngine(type: .funASR) is SherpaBatchASREngine)
+    }
+
+    func testMakeWhisperEngineReturnsWhisperKitEngine() {
+        XCTAssertTrue(manager.makeEngine(type: .whisper) is WhisperKitBatchASREngine)
+    }
+
     private func createLoadableQwen3ModelDirectory(at modelURL: URL) throws {
         for relativePath in Qwen3ModelManifest.requiredLoadablePaths {
             let fileURL = modelURL.appendingPathComponent(relativePath)
@@ -153,5 +172,21 @@ final class ASRManagerTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
+        try makeEmbeddingFile(
+            at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"),
+            hiddenSize: 1024
+        )
+    }
+
+    private func makeEmbeddingFile(at url: URL, hiddenSize: UInt32) throws {
+        var header = Data()
+        var vocabSize = UInt32(151_936).littleEndian
+        var hiddenSize = hiddenSize.littleEndian
+        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
+        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
+        try header.write(to: url)
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: 8 + UInt64(151_936) * UInt64(hiddenSize) * 2)
+        try handle.close()
     }
 }

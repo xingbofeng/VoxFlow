@@ -41,7 +41,9 @@ final class ASRProviderRegistryTests: XCTestCase {
             matching: ASRProviderFilter(requiredCapabilities: [.local], tags: ["本地"])
         )
 
-        XCTAssertEqual(localProviders.map(\.id), [ASRProviderID.qwen3])
+        XCTAssertEqual(Set(localProviders.map(\.id)),
+                       [ASRProviderID.funASR, ASRProviderID.whisper, ASRProviderID.qwen3,
+                        ASRProviderID.paraformer, ASRProviderID.senseVoice])
     }
 
     func testDefaultProviderFallsBackToAppleWhenQwenModelIsMissing() throws {
@@ -81,5 +83,18 @@ final class ASRProviderRegistryTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
+        try createValidEmbeddingFile(at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"))
+    }
+
+    private func createValidEmbeddingFile(at url: URL) throws {
+        var header = Data()
+        var vocabSize = UInt32(151_936).littleEndian
+        var hiddenSize = UInt32(1_024).littleEndian
+        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
+        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
+        try header.write(to: url)
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: 8 + UInt64(151_936) * 1_024 * 2)
+        try handle.close()
     }
 }

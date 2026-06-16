@@ -23,4 +23,19 @@ final class AppThemeTests: XCTestCase {
         XCTAssertEqual(ActionFeedbackLayout.verticalPadding, 8)
         XCTAssertEqual(ActionFeedbackLayout.cornerRadius, 10)
     }
+
+    func testActionFeedbackContentIsImmediatelyRenderable() {
+        XCTAssertEqual(
+            ActionFeedbackContent.resolve(message: "连接测试成功", error: nil),
+            .message("连接测试成功")
+        )
+        XCTAssertEqual(
+            ActionFeedbackContent.resolve(message: "ignored", error: "连接失败"),
+            .error("连接失败")
+        )
+        XCTAssertEqual(
+            ActionFeedbackContent.resolve(message: nil, error: nil),
+            .none
+        )
+    }
 }

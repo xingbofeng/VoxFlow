@@ -32,7 +32,6 @@ final class SettingsWindowController: NSWindowController {
     private let downloadButton = NSButton()
     private let browseButton = NSButton()
     private let size06Radio = NSButton(radioButtonWithTitle: "0.6B", target: nil, action: nil)
-    private let size17Radio = NSButton(radioButtonWithTitle: "1.7B", target: nil, action: nil)
     private let modelDownloadProgress = NSProgressIndicator()
     private let asrStatusLabel = NSTextField(labelWithString: "")
 
@@ -158,9 +157,6 @@ final class SettingsWindowController: NSWindowController {
         size06Radio.target = self
         size06Radio.action = #selector(qwen3SizeChanged(_:))
 
-        size17Radio.translatesAutoresizingMaskIntoConstraints = false
-        size17Radio.target = self
-        size17Radio.action = #selector(qwen3SizeChanged(_:))
 
         modelDownloadProgress.translatesAutoresizingMaskIntoConstraints = false
         modelDownloadProgress.isIndeterminate = false
@@ -179,7 +175,7 @@ final class SettingsWindowController: NSWindowController {
         for sub in [
             engineLabel, appleRadio, qwen3Radio,
             pathLabel, modelPathField, downloadButton, browseButton,
-            sizeLabel, size06Radio, size17Radio, modelDownloadProgress,
+            sizeLabel, size06Radio, modelDownloadProgress,
             asrStatusLabel,
         ] {
             view.addSubview(sub)
@@ -226,10 +222,7 @@ final class SettingsWindowController: NSWindowController {
             size06Radio.topAnchor.constraint(equalTo: sizeLabel.bottomAnchor, constant: 6),
             size06Radio.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin + 48),
 
-            size17Radio.topAnchor.constraint(equalTo: size06Radio.bottomAnchor, constant: 2),
-            size17Radio.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin + 48),
-
-            modelDownloadProgress.topAnchor.constraint(equalTo: size17Radio.bottomAnchor, constant: 10),
+            modelDownloadProgress.topAnchor.constraint(equalTo: size06Radio.bottomAnchor, constant: 10),
             modelDownloadProgress.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin),
             modelDownloadProgress.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -margin),
 
@@ -521,7 +514,6 @@ final class SettingsWindowController: NSWindowController {
         qwen3Radio.state = (selected == .qwen3) ? .on : .off
         modelPathField.stringValue = asrManager.qwen3ModelPath ?? ""
         size06Radio.state = (asrManager.qwen3ModelSize == .size0_6B) ? .on : .off
-        size17Radio.state = (asrManager.qwen3ModelSize == .size1_7B) ? .on : .off
         updateASRStatus()
         updateQwen3ControlsEnabled()
     }
@@ -601,7 +593,7 @@ final class SettingsWindowController: NSWindowController {
     }
 
     @objc private func qwen3SizeChanged(_ sender: NSButton) {
-        asrManager.qwen3ModelSize = (sender == size06Radio) ? .size0_6B : .size1_7B
+        asrManager.qwen3ModelSize = .size0_6B
         loadASRSettings()
     }
 
@@ -640,7 +632,6 @@ final class SettingsWindowController: NSWindowController {
         downloadButton.isEnabled = !isDownloading
         browseButton.isEnabled = !isDownloading
         size06Radio.isEnabled = !isDownloading
-        size17Radio.isEnabled = !isDownloading
     }
 
     private func updateQwen3ControlsEnabled() {
@@ -653,7 +644,6 @@ final class SettingsWindowController: NSWindowController {
         downloadButton.isEnabled = true
         browseButton.isEnabled = true
         size06Radio.isEnabled = true
-        size17Radio.isEnabled = true
     }
 
     // MARK: - LLM Actions

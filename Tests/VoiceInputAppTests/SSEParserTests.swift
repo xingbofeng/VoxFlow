@@ -33,6 +33,23 @@ final class SSEParserTests: XCTestCase {
         XCTAssertEqual(results, ["He", "Hello", "Hello world"])
     }
 
+    func testParsesUTF8ChineseDeltaWithoutMojibake() async throws {
+        let sseText = """
+        data: {"id":"1","choices":[{"delta":{"content":"帮我搜一下"}}]}
+
+        data: {"id":"1","choices":[{"delta":{"content":"最近的 AI 新闻"}}]}
+
+        data: [DONE]
+
+        """
+        let stream = SSEParser.parse(byteStream: byteStream(from: sseText))
+        var results: [String] = []
+        for try await text in stream {
+            results.append(text)
+        }
+        XCTAssertEqual(results, ["帮我搜一下", "帮我搜一下最近的 AI 新闻"])
+    }
+
     func testSkipsEmptyDelta() async throws {
         let sseText = """
         data: {"id":"1","choices":[{"delta":{"role":"assistant"}}]}

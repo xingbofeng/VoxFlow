@@ -28,9 +28,9 @@ struct SettingsRootView: View {
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
         .actionFeedbackOverlay(
-            message: viewModel.lastActionMessage,
-            error: viewModel.lastError,
-            onDismiss: viewModel.clearFeedback
+            message: actionFeedbackMessage,
+            error: actionFeedbackError,
+            onDismiss: clearActionFeedback
         )
         .onAppear {
             viewModel.load()
@@ -38,6 +38,24 @@ struct SettingsRootView: View {
         .onDisappear {
             stopShortcutRecording()
         }
+    }
+
+    private var actionFeedbackMessage: String? {
+        viewModel.lastActionMessage
+            ?? llmProviderViewModel.lastActionMessage
+            ?? asrProviderViewModel.lastActionMessage
+    }
+
+    private var actionFeedbackError: String? {
+        viewModel.lastError
+            ?? llmProviderViewModel.lastError
+            ?? asrProviderViewModel.lastError
+    }
+
+    private func clearActionFeedback() {
+        viewModel.clearFeedback()
+        llmProviderViewModel.clearFeedback()
+        asrProviderViewModel.clearFeedback()
     }
 
     private var settingsSidebar: some View {

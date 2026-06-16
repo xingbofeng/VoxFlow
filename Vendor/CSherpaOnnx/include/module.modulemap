@@ -1,0 +1,5 @@
+module CSherpaOnnx {
+    header "sherpa-onnx/c-api/c-api.h"
+    header "vox-sherpa.h"
+    export *
+}

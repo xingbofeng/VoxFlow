@@ -25,11 +25,11 @@ enum PermissionSummary {
                 请在 系统设置 → 隐私与安全性 中启用"麦克风"和"语音识别"权限。
                 """
             )
-        case .qwen3:
+        case .funASR, .whisper, .qwen3, .paraformer, .senseVoice:
             return (
                 "需要麦克风权限",
                 """
-                随声写使用 Qwen3-ASR 时只需要麦克风权限，不需要 Apple 语音识别权限。
+                随声写使用本地离线模型时只需要麦克风权限，不需要 Apple 语音识别权限。
 
                 请在 系统设置 → 隐私与安全性 → 麦克风 中启用随声写。
                 """

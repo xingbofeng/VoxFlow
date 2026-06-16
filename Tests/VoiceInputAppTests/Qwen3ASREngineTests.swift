@@ -248,6 +248,16 @@ final class Qwen3ASREngineTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
+        let embeddingURL = modelURL.appendingPathComponent("qwen3_asr_embeddings.bin")
+        var header = Data()
+        var vocabSize = UInt32(151_936).littleEndian
+        var hiddenSize = UInt32(1_024).littleEndian
+        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
+        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
+        try header.write(to: embeddingURL)
+        let handle = try FileHandle(forWritingTo: embeddingURL)
+        try handle.truncate(atOffset: 8 + UInt64(151_936) * 1_024 * 2)
+        try handle.close()
     }
 }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 enum LLMProviderActionIcon {
     static let edit = "square.and.pencil"
-    static let testConnection = "checkmark.circle"
+    static let testConnection = "antenna.radiowaves.left.and.right"
     static let delete = "trash"
 }
 
@@ -61,6 +61,7 @@ struct LLMProviderView: View {
         .actionFeedbackOverlay(
             message: viewModel.lastActionMessage,
             error: viewModel.lastError,
+            enabled: !embedded,
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
@@ -76,74 +77,122 @@ struct LLMProviderView: View {
     }
 
     private func providerRow(_ provider: LLMProviderRecord) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            LLMProviderIcon(systemImage: "sparkles", tint: AppTheme.ColorToken.accent)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    Text(provider.displayName)
-                        .font(.system(size: 15, weight: .semibold))
-                    if provider.isDefault {
-                        providerBadge("默认", color: AppTheme.ColorToken.accent)
-                    }
-                    providerBadge(provider.enabled ? "已启用" : "已停用", color: provider.enabled ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+        HStack(alignment: .top, spacing: 14) {
+            Button {
+                guard !provider.isDefault, provider.enabled else { return }
+                do {
+                    try viewModel.setDefaultProvider(id: provider.id)
+                } catch {
+                    viewModel.report(error: error)
                 }
-                HStack(spacing: 6) {
-                    providerInfoChip(title: "模型", value: provider.defaultModel)
-                    providerInfoChip(title: "地址", value: provider.baseURL)
+            } label: {
+                HStack(alignment: .top, spacing: 14) {
+                    LLMProviderIcon(
+                        systemImage: "sparkles",
+                        tint: AppTheme.ColorToken.accent,
+                        isDefault: provider.isDefault
+                    )
+                    providerSummary(provider)
+                    Spacer(minLength: 0)
                 }
-                if let message = provider.lastHealthMessage {
-                    Text(message)
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-                if let latency = provider.lastLatencyMS {
-                    Text("\(latency) ms")
-                        .font(.system(size: 12, weight: .medium))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!provider.enabled)
+
+            VStack(alignment: .trailing, spacing: 8) {
+                if provider.isDefault {
+                    Text("当前使用")
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.accent)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .background(AppTheme.ColorToken.selectionBackground)
+                        .clipShape(Capsule())
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        editorRequest = LLMProviderEditorRequest(provider: provider)
+                    } label: {
+                        Image(systemName: LLMProviderActionIcon.edit)
+                            .frame(width: 32, height: 32)
+                            .appControlSurface(cornerRadius: 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("编辑")
+                    Button {
+                        Task {
+                            await viewModel.testConnection(id: provider.id)
+                        }
+                    } label: {
+                        Group {
+                            if viewModel.testingProviderID == provider.id {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: LLMProviderActionIcon.testConnection)
+                            }
+                        }
+                        .frame(width: 32, height: 32)
+                        .appControlSurface(cornerRadius: 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.testingProviderID != nil)
+                    .help("测试连接")
+                    Button {
+                        viewModel.deleteProvider(id: provider.id)
+                    } label: {
+                        Image(systemName: LLMProviderActionIcon.delete)
+                            .frame(width: 32, height: 32)
+                            .appControlSurface(cornerRadius: 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                    .help("删除")
                 }
             }
-            Spacer()
-            Button {
-                editorRequest = LLMProviderEditorRequest(provider: provider)
-            } label: {
-                Image(systemName: LLMProviderActionIcon.edit)
-                    .frame(width: 32, height: 32)
-                    .appControlSurface(cornerRadius: 6)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("编辑")
-            Button {
-                Task {
-                    await viewModel.testConnection(id: provider.id)
-                }
-            } label: {
-                Image(systemName: LLMProviderActionIcon.testConnection)
-                    .frame(width: 32, height: 32)
-                    .appControlSurface(cornerRadius: 6)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("测试连接")
-            Button {
-                viewModel.deleteProvider(id: provider.id)
-            } label: {
-                Image(systemName: LLMProviderActionIcon.delete)
-                    .frame(width: 32, height: 32)
-                    .appControlSurface(cornerRadius: 6)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.red)
-            .help("删除")
         }
-        .padding(AppTheme.Spacing.card)
-        .background(AppTheme.ColorToken.panelBackground)
+        .padding(18)
+        .background(provider.isDefault ? AppTheme.ColorToken.selectionBackground.opacity(0.72) : AppTheme.ColorToken.panelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    provider.isDefault ? AppTheme.ColorToken.accent.opacity(0.5) : AppTheme.ColorToken.panelStroke,
+                    lineWidth: provider.isDefault ? 1.5 : AppTheme.Border.panelLineWidth
+                )
         )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .opacity(provider.enabled ? 1 : 0.82)
+    }
+
+    private func providerSummary(_ provider: LLMProviderRecord) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(provider.displayName)
+                    .font(.system(size: 17, weight: .semibold))
+                providerBadge(
+                    provider.enabled ? "已启用" : "已停用",
+                    color: provider.enabled ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText
+                )
+            }
+            HStack(spacing: 6) {
+                providerInfoChip(title: "模型", value: provider.defaultModel)
+                providerInfoChip(title: "地址", value: provider.baseURL)
+            }
+            if let message = provider.lastHealthMessage {
+                Text(message)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(provider.enabled ? AppTheme.ColorToken.accent : .orange)
+            }
+            if let latency = provider.lastLatencyMS {
+                Text("\(latency) ms")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+            }
+        }
     }
 
     private func providerBadge(_ text: String, color: Color) -> some View {
@@ -178,14 +227,17 @@ struct LLMProviderView: View {
 private struct LLMProviderIcon: View {
     let systemImage: String
     let tint: Color
+    let isDefault: Bool
 
     var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(tint)
-            .frame(width: 34, height: 34)
-            .background(tint.opacity(0.09))
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
+            .frame(width: 46, height: 46)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(tint)
+            }
     }
 }
 
@@ -219,7 +271,7 @@ private struct LLMProviderEditorSheet: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 16) {
-                Text(provider == nil ? "添加 Provider" : "编辑 Provider")
+                Text(provider == nil ? "添加模型服务" : "编辑模型服务")
                     .font(.system(size: 24, weight: .semibold))
 
                 providerField(
@@ -286,7 +338,7 @@ private struct LLMProviderEditorSheet: View {
                 Spacer()
                 HStack(spacing: 10) {
                     Spacer()
-                    Button("测试") {
+                    Button {
                         validate()
                         guard validationErrors.isEmpty else { return }
                         Task {
@@ -298,8 +350,16 @@ private struct LLMProviderEditorSheet: View {
                                 apiKey: apiKey
                             )
                         }
+                    } label: {
+                        if viewModel.isTestingDraftConnection {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("测试")
+                        }
                     }
                     .buttonStyle(.bordered)
+                    .disabled(viewModel.isTestingDraftConnection)
                     Button("保存") {
                         save()
                     }
@@ -324,6 +384,11 @@ private struct LLMProviderEditorSheet: View {
         .onChange(of: baseURL) { validationErrors["baseURL"] = nil }
         .onChange(of: model) { validationErrors["model"] = nil }
         .onChange(of: apiKey) { validationErrors["apiKey"] = nil }
+        .actionFeedbackOverlay(
+            message: viewModel.lastActionMessage,
+            error: viewModel.lastError,
+            onDismiss: viewModel.clearFeedback
+        )
     }
 
     private func providerField(

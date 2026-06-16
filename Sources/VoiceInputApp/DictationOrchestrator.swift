@@ -472,9 +472,17 @@ extension ASREngineType {
     var providerID: String {
         switch self {
         case .apple:
-            return "apple_speech"
+            return ASRProviderID.appleSpeech
+        case .funASR:
+            return ASRProviderID.funASR
+        case .whisper:
+            return ASRProviderID.whisper
         case .qwen3:
-            return "qwen3_asr"
+            return ASRProviderID.qwen3
+        case .paraformer:
+            return ASRProviderID.paraformer
+        case .senseVoice:
+            return ASRProviderID.senseVoice
         }
     }
 }

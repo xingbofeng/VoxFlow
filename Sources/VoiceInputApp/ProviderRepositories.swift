@@ -108,7 +108,7 @@ final class SQLiteASRProviderRepository: ASRProviderRepository {
                        config_json, enabled, is_default, last_health_status,
                        last_health_message, last_checked_at, created_at, updated_at
                 FROM asr_providers
-                ORDER BY is_default DESC, display_name ASC
+                ORDER BY created_at ASC, display_name ASC
                 """
             )
             var records: [ASRProviderRecord] = []
@@ -237,7 +237,7 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
 
     func list() throws -> [LLMProviderRecord] {
         try databaseQueue.read { connection in
-            let statement = try connection.prepare(selectSQL + " ORDER BY is_default DESC, display_name ASC")
+            let statement = try connection.prepare(selectSQL + " ORDER BY created_at ASC, display_name ASC")
             var records: [LLMProviderRecord] = []
             while try statement.step() {
                 records.append(try row(from: statement))

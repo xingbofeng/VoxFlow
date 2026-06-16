@@ -2,8 +2,15 @@ import Foundation
 
 struct Qwen3ModelManifest: Equatable {
     struct File: Equatable {
+        let repository: String?
         let remotePath: String
         let localPath: String
+
+        init(repository: String? = nil, remotePath: String, localPath: String) {
+            self.repository = repository
+            self.remotePath = remotePath
+            self.localPath = localPath
+        }
     }
 
     let repository: String
@@ -38,22 +45,11 @@ struct Qwen3ModelManifest: Equatable {
             )
         case .size1_7B:
             return Qwen3ModelManifest(
-                repository: "aoiandroid/Qwen3-ASR-1.7B-CoreML",
-                localDirectoryName: "qwen3-asr-1.7b-coreml",
-                files: [
-                    File(remotePath: "qwen3_asr_embeddings.bin", localPath: "qwen3_asr_embeddings.bin"),
-                    File(remotePath: "qwen3_asr_encoder_int8.mlpackage/Manifest.json", localPath: "qwen3_asr_audio_encoder_v2.mlpackage/Manifest.json"),
-                    File(remotePath: "qwen3_asr_encoder_int8.mlpackage/Data/com.apple.CoreML/model.mlmodel", localPath: "qwen3_asr_audio_encoder_v2.mlpackage/Data/com.apple.CoreML/model.mlmodel"),
-                    File(remotePath: "qwen3_asr_encoder_int8.mlpackage/Data/com.apple.CoreML/weights/weight.bin", localPath: "qwen3_asr_audio_encoder_v2.mlpackage/Data/com.apple.CoreML/weights/weight.bin"),
-                    File(remotePath: "qwen3_asr_decoder_f32_anemll_int8-mixed.mlpackage/Manifest.json", localPath: "qwen3_asr_decoder_stateful.mlpackage/Manifest.json"),
-                    File(remotePath: "qwen3_asr_decoder_f32_anemll_int8-mixed.mlpackage/Data/com.apple.CoreML/model.mlmodel", localPath: "qwen3_asr_decoder_stateful.mlpackage/Data/com.apple.CoreML/model.mlmodel"),
-                    File(remotePath: "qwen3_asr_decoder_f32_anemll_int8-mixed.mlpackage/Data/com.apple.CoreML/weights/weight.bin", localPath: "qwen3_asr_decoder_stateful.mlpackage/Data/com.apple.CoreML/weights/weight.bin"),
-                ],
+                repository: "Qwen/Qwen3-ASR-1.7B",
+                localDirectoryName: "qwen3-asr-1.7b",
+                files: [],
                 requiredLocalPaths: [
-                    "qwen3_asr_audio_encoder_v2.mlpackage/Manifest.json",
-                    "qwen3_asr_decoder_stateful.mlpackage/Manifest.json",
-                    "qwen3_asr_embeddings.bin",
-                    "vocab.json",
+                    "qwen3_asr_1_7b_runtime_not_supported"
                 ]
             )
         }
@@ -80,14 +76,32 @@ struct Qwen3ModelManifest: Equatable {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "huggingface.co"
-        components.path = "/\(repository)/resolve/main/\(file.remotePath)"
+        components.path = "/\(file.repository ?? repository)/resolve/main/\(file.remotePath)"
         return components.url!
     }
 
     func modelsExist(at directory: URL, fileManager: FileManager = .default) -> Bool {
-        requiredLocalPaths.allSatisfy { path in
-            fileManager.fileExists(atPath: directory.appendingPathComponent(path).path)
+        missingRequiredLocalPaths(at: directory, fileManager: fileManager).isEmpty
+            && Self.hasValidEmbeddingFile(at: directory, fileManager: fileManager)
+    }
+
+    func missingRequiredLocalPaths(at directory: URL, fileManager: FileManager = .default) -> [String] {
+        requiredLocalPaths.filter { path in
+            !fileManager.fileExists(atPath: directory.appendingPathComponent(path).path)
         }
+    }
+
+    static func missingRequiredLocalPaths(
+        at directory: URL,
+        fileManager: FileManager = .default
+    ) -> [String] {
+        supportedLoadablePathSets
+            .map { paths in
+                paths.filter { path in
+                    !fileManager.fileExists(atPath: directory.appendingPathComponent(path).path)
+                }
+            }
+            .min { lhs, rhs in lhs.count < rhs.count } ?? []
     }
 
     static func supportedModelExists(at directory: URL, fileManager: FileManager = .default) -> Bool {
@@ -95,8 +109,33 @@ struct Qwen3ModelManifest: Equatable {
             paths.allSatisfy { path in
                 fileManager.fileExists(atPath: directory.appendingPathComponent(path).path)
             }
-        }
+        } && hasValidEmbeddingFile(at: directory, fileManager: fileManager)
     }
+
+    private static func hasValidEmbeddingFile(
+        at directory: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        let url = directory.appendingPathComponent("qwen3_asr_embeddings.bin")
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let fileSize = (attributes[.size] as? NSNumber)?.uint64Value,
+              fileSize == 8 + UInt64(151_936) * 1_024 * 2,
+              let handle = try? FileHandle(forReadingFrom: url) else {
+            return false
+        }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 8), header.count == 8 else {
+            return false
+        }
+        let vocab = header.withUnsafeBytes {
+            UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 0, as: UInt32.self))
+        }
+        let hidden = header.withUnsafeBytes {
+            UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 4, as: UInt32.self))
+        }
+        return vocab == 151_936 && hidden == 1_024
+    }
+
 }
 
 struct Qwen3ModelDownloadProgress: Equatable {

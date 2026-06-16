@@ -429,15 +429,24 @@ final class OverlayWindowController: NSWindowController {
             window.animator().alphaValue = 0.0
         } completionHandler: {
             MainActor.assumeIsolated {
-                guard self.presentationGeneration == generation else { return }
-                self.textLabel.stringValue = ""
-                self.statusLabel.stringValue = ""
-                self.temporaryMessageAction = nil
-                window.ignoresMouseEvents = true
-                window.orderOut(nil)
-                self.visualEffectView.layer?.removeAnimation(forKey: "voiceinput.exit")
+                self.completeDismiss(window: window, generation: generation)
             }
         }
+        Task { @MainActor [weak self, weak window] in
+            try? await Task.sleep(nanoseconds: 230_000_000)
+            guard let self, let window else { return }
+            self.completeDismiss(window: window, generation: generation)
+        }
+    }
+
+    private func completeDismiss(window: NSWindow, generation: UInt) {
+        guard presentationGeneration == generation else { return }
+        textLabel.stringValue = ""
+        statusLabel.stringValue = ""
+        temporaryMessageAction = nil
+        window.ignoresMouseEvents = true
+        window.orderOut(nil)
+        visualEffectView.layer?.removeAnimation(forKey: "voiceinput.exit")
     }
 
     func performTemporaryMessageClickForTesting() {

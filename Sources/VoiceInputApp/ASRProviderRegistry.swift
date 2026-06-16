@@ -2,7 +2,11 @@ import Foundation
 
 enum ASRProviderID {
     static let appleSpeech = "apple_speech"
+    static let funASR = "funasr"
+    static let whisper = "whisper"
     static let qwen3 = "qwen3_asr"
+    static let paraformer = "paraformer"
+    static let senseVoice = "sense_voice"
 }
 
 struct ASRProviderCapabilities: OptionSet, Hashable {
@@ -180,9 +184,65 @@ final class ASRProviderRegistry {
             modelSize: asrManager.qwen3ModelSize,
             engineType: .qwen3
         )
+        let funASR = ASRProviderDescriptor(
+            id: ASRProviderID.funASR,
+            displayName: "FunASR Nano",
+            providerType: "funasr",
+            capabilities: [.fileTranscription, .local, .accurate, .multilingual, .punctuation],
+            tags: ["本地", "离线", "中文", "English", "日本语", asrManager.funASRPrecision.rawValue],
+            isAvailable: asrManager.isFunASRModelAvailable,
+            isDefault: selectedID == ASRProviderID.funASR,
+            statusMessage: asrManager.isFunASRModelAvailable ? "本地模型已就绪" : "尚未安装本地模型",
+            privacySummary: "FunASR Nano \(asrManager.funASRPrecision.rawValue) 离线识别。",
+            modelSize: nil,
+            engineType: .funASR
+        )
+        let whisper = ASRProviderDescriptor(
+            id: ASRProviderID.whisper,
+            displayName: "Whisper",
+            providerType: "whisper",
+            capabilities: [.fileTranscription, .local, .accurate, .multilingual],
+            tags: ["本地", "离线", "多语言", asrManager.whisperVariant.rawValue],
+            isAvailable: asrManager.isWhisperModelAvailable,
+            isDefault: selectedID == ASRProviderID.whisper,
+            statusMessage: asrManager.isWhisperModelAvailable ? "本地模型已就绪" : "尚未安装本地模型",
+            privacySummary: "Whisper \(asrManager.whisperVariant.rawValue) 多语言离线识别。",
+            modelSize: nil,
+            engineType: .whisper
+        )
+        let paraformer = ASRProviderDescriptor(
+            id: ASRProviderID.paraformer,
+            displayName: "Paraformer",
+            providerType: "paraformer",
+            capabilities: [.fileTranscription, .local, .fast, .accurate, .punctuation],
+            tags: ["本地", "离线", asrManager.paraformerLanguage.rawValue, "INT8"],
+            isAvailable: asrManager.isParaformerModelAvailable,
+            isDefault: selectedID == ASRProviderID.paraformer,
+            statusMessage: asrManager.isParaformerModelAvailable ? "本地模型已就绪" : "尚未安装本地模型",
+            privacySummary: "\(asrManager.paraformerLanguage.rawValue)非自回归离线识别，录音结束后在本机完成推理。",
+            modelSize: nil,
+            engineType: .paraformer
+        )
+        let senseVoice = ASRProviderDescriptor(
+            id: ASRProviderID.senseVoice,
+            displayName: "SenseVoice Small",
+            providerType: "sensevoice",
+            capabilities: [.fileTranscription, .local, .fast, .accurate, .multilingual],
+            tags: ["本地", "离线", "中文", "日本语", "粤语", "English", "한국어", "FP16"],
+            isAvailable: asrManager.isSenseVoiceModelAvailable,
+            isDefault: selectedID == ASRProviderID.senseVoice,
+            statusMessage: asrManager.isSenseVoiceModelAvailable ? "本地模型已就绪" : "尚未安装本地模型",
+            privacySummary: "中日粤英韩离线识别，录音结束后在本机完成推理。",
+            modelSize: nil,
+            engineType: .senseVoice
+        )
         return [
             apple.id: apple,
+            funASR.id: funASR,
             qwen.id: qwen,
+            paraformer.id: paraformer,
+            senseVoice.id: senseVoice,
+            whisper.id: whisper,
         ]
     }
 }

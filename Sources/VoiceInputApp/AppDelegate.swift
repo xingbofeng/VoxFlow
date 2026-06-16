@@ -412,20 +412,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - ASR Engine Menu
 
+    /// Represents one row in the flattened ASR engine menu.
+    @objc final class ASRMenuModel: NSObject {
+        let engineType: ASREngineType
+        let modelSize: ASRManager.ModelSize?
+        let funASRPrecision: ASRManager.FunASRPrecision?
+        let whisperVariant: ASRManager.WhisperVariant?
+        let paraformerLanguage: ASRManager.ParaformerLanguage?
+        let title: String
+
+        init(
+            engineType: ASREngineType,
+            modelSize: ASRManager.ModelSize? = nil,
+            funASRPrecision: ASRManager.FunASRPrecision? = nil,
+            whisperVariant: ASRManager.WhisperVariant? = nil,
+            paraformerLanguage: ASRManager.ParaformerLanguage? = nil,
+            title: String
+        ) {
+            self.engineType = engineType
+            self.modelSize = modelSize
+            self.funASRPrecision = funASRPrecision
+            self.whisperVariant = whisperVariant
+            self.paraformerLanguage = paraformerLanguage
+            self.title = title
+        }
+    }
+
+    static func makeASRMenuOptions() -> [ASRMenuModel] {
+        [
+            ASRMenuModel(engineType: .apple, title: "系统自带"),
+            ASRMenuModel(engineType: .funASR, funASRPrecision: .int8, title: "FunASR Nano INT8"),
+            ASRMenuModel(engineType: .funASR, funASRPrecision: .fp32, title: "FunASR Nano FP32"),
+            ASRMenuModel(engineType: .whisper, whisperVariant: .turbo, title: "Whisper Turbo"),
+            ASRMenuModel(engineType: .whisper, whisperVariant: .largeV3, title: "Whisper Large V3"),
+            ASRMenuModel(engineType: .qwen3, modelSize: .size0_6B, title: "Qwen3-ASR 0.6B"),
+            ASRMenuModel(engineType: .qwen3, modelSize: .size1_7B, title: "Qwen3-ASR 1.7B"),
+            ASRMenuModel(engineType: .paraformer, paraformerLanguage: .chinese, title: "Paraformer 中文"),
+            ASRMenuModel(engineType: .paraformer, paraformerLanguage: .english, title: "Paraformer English"),
+            ASRMenuModel(engineType: .senseVoice, title: "SenseVoice Small"),
+        ]
+    }
+
     private func setupASREngineMenu() {
         let asrMenu = NSMenu()
         asrMenu.autoenablesItems = false
 
-        for engineType in ASREngineType.allCases {
+        for option in Self.makeASRMenuOptions() {
             let item = NSMenuItem(
-                title: engineType.displayName,
+                title: option.title,
                 action: #selector(selectASREngine(_:)),
                 keyEquivalent: ""
             )
-            item.representedObject = engineType
+            item.representedObject = option
             item.target = self
-            item.isEnabled = asrManager.canSelectEngine(engineType)
-            item.state = (engineType == asrManager.effectiveSelectedEngineType) ? .on : .off
+            item.isEnabled = isASREngineEnabled(option)
+            item.state = isASREngineSelected(option) ? .on : .off
             asrMenu.addItem(item)
             asrEngineMenuItems.append(item)
         }
@@ -436,18 +477,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(asrParentItem)
     }
 
+    private func isASREngineEnabled(_ option: ASRMenuModel) -> Bool {
+        if option.engineType == .qwen3, let size = option.modelSize {
+            // Qwen size items: enabled if either UserDefaults path or default installation exists
+            return asrManager.isQwen3ModelAvailableOnDisk(for: size)
+        }
+        if option.engineType == .funASR, let precision = option.funASRPrecision {
+            return (precision == .int8 ? SherpaASRModelVariant.funASRInt8 : .funASRFP32).modelsExist()
+        }
+        if option.engineType == .whisper, let variant = option.whisperVariant {
+            return (variant == .turbo ? WhisperKitModelVariant.turbo : .largeV3).modelsExist()
+        }
+        if option.engineType == .paraformer, let language = option.paraformerLanguage {
+            return (language == .chinese ? SherpaASRModelVariant.paraformerChinese : .paraformerEnglish).modelsExist()
+        }
+        return asrManager.canSelectEngine(option.engineType)
+    }
+
+    private func isASREngineSelected(_ option: ASRMenuModel) -> Bool {
+        if option.engineType == .qwen3, let size = option.modelSize {
+            return asrManager.selectedEngineType == .qwen3 && asrManager.qwen3ModelSize == size
+        }
+        if option.engineType == .funASR, let precision = option.funASRPrecision {
+            return asrManager.selectedEngineType == .funASR && asrManager.funASRPrecision == precision
+        }
+        if option.engineType == .whisper, let variant = option.whisperVariant {
+            return asrManager.selectedEngineType == .whisper && asrManager.whisperVariant == variant
+        }
+        if option.engineType == .paraformer, let language = option.paraformerLanguage {
+            return asrManager.selectedEngineType == .paraformer && asrManager.paraformerLanguage == language
+        }
+        return asrManager.effectiveSelectedEngineType == option.engineType
+    }
+
     @objc private func selectASREngine(_ sender: NSMenuItem) {
-        guard let engineType = sender.representedObject as? ASREngineType else { return }
-        asrManager.selectEngine(engineType)
+        guard let option = sender.representedObject as? ASRMenuModel else { return }
+        if option.engineType == .qwen3, let size = option.modelSize {
+            // Set model size first, then engine
+            asrManager.qwen3ModelSize = size
+        }
+        if option.engineType == .funASR, let precision = option.funASRPrecision {
+            asrManager.funASRPrecision = precision
+        }
+        if option.engineType == .whisper, let variant = option.whisperVariant {
+            asrManager.whisperVariant = variant
+        }
+        if option.engineType == .paraformer, let language = option.paraformerLanguage {
+            asrManager.paraformerLanguage = language
+        }
+        asrManager.selectEngine(option.engineType)
         updateASREngineMenuState()
     }
 
     private func updateASREngineMenuState() {
-        let effective = asrManager.effectiveSelectedEngineType
         for item in asrEngineMenuItems {
-            guard let engineType = item.representedObject as? ASREngineType else { continue }
-            item.isEnabled = asrManager.canSelectEngine(engineType)
-            item.state = engineType == effective ? .on : .off
+            guard let option = item.representedObject as? ASRMenuModel else { continue }
+            item.isEnabled = isASREngineEnabled(option)
+            item.state = isASREngineSelected(option) ? .on : .off
         }
     }
 

@@ -16,6 +16,22 @@ enum ActionFeedbackLayout {
     static let shadowYOffset: CGFloat = 4
 }
 
+enum ActionFeedbackContent: Equatable {
+    case error(String)
+    case message(String)
+    case none
+
+    static func resolve(message: String?, error: String?) -> ActionFeedbackContent {
+        if let error {
+            return .error(error)
+        }
+        if let message {
+            return .message(message)
+        }
+        return .none
+    }
+}
+
 struct ActionFeedbackView: View {
     let message: String?
     let error: String?
@@ -23,31 +39,31 @@ struct ActionFeedbackView: View {
     var autoDismissAfter: TimeInterval? = 2.6
     var onDismiss: (() -> Void)?
 
-    @State private var isVisible = false
-
     var body: some View {
         Group {
-            if isVisible, let error {
+            switch content {
+            case .error(let error):
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .feedbackStyle(color: .red)
-            } else if isVisible, let message {
+            case .message(let message):
                 Label(message, systemImage: iconName)
                     .feedbackStyle(color: color)
+            case .none:
+                EmptyView()
             }
         }
         .task(id: feedbackKey) {
-            guard let activeKey = feedbackKey else {
-                isVisible = false
-                return
-            }
-            isVisible = true
+            guard let activeKey = feedbackKey else { return }
             guard let autoDismissAfter else { return }
             try? await Task.sleep(nanoseconds: UInt64(autoDismissAfter * 1_000_000_000))
             if feedbackKey == activeKey {
-                isVisible = false
                 onDismiss?()
             }
         }
+    }
+
+    private var content: ActionFeedbackContent {
+        ActionFeedbackContent.resolve(message: message, error: error)
     }
 
     private var feedbackKey: String? {
@@ -106,18 +122,21 @@ extension View {
         message: String?,
         error: String?,
         tone: ActionFeedbackTone = .success,
+        enabled: Bool = true,
         onDismiss: (() -> Void)? = nil
     ) -> some View {
-        overlay(alignment: .top) {
-            ActionFeedbackView(
-                message: message,
-                error: error,
-                tone: tone,
-                onDismiss: onDismiss
-            )
-            .padding(.top, ActionFeedbackLayout.topPadding)
-            .frame(maxWidth: .infinity, alignment: .top)
-            .allowsHitTesting(false)
+        self.overlay(alignment: .top) {
+            if enabled {
+                ActionFeedbackView(
+                    message: message,
+                    error: error,
+                    tone: tone,
+                    onDismiss: onDismiss
+                )
+                .padding(.top, ActionFeedbackLayout.topPadding)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .allowsHitTesting(false)
+            }
         }
     }
 }
