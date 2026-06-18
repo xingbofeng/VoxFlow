@@ -17,16 +17,16 @@
 - **HUD**: The bottom-centered non-activating capsule shown during recording and refinement.
 - **Workbench window**: The regular macOS application window shown in Dock, `Command+Tab`, and Force Quit while the menu-bar dictation controls remain available.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
-- **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle — recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
-- **VoiceTask mode**: Either `dictation` (existing right-Command transcription with optional style correction) or `agentCompose` ("帮我说" — context-aware LLM generation from user dictation plus window context).
+- **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
+- **VoiceTask mode**: Either `dictation` (existing right-Command transcription with optional style correction) or `agentCompose` ("帮我说" - context-aware LLM generation from user dictation plus window context).
 - **VoiceTask stage**: A step in the task lifecycle: `recording`, `transcribing`, `collectingContext`, `processing`, `outputting`. Stages advance monotonically; backwards transitions are rejected.
-- **Agent Compose ("帮我说")**: A voice mode that reads the current window's context (Accessibility text, window title, optionally a screenshot fallback) and uses an LLM to generate text guided by the user's dictation intent. Output is copy-only — no keyboard injection or auto-send.
+- **Agent Compose ("帮我说")**: A voice mode that reads the current window's context (Accessibility text, window title, optionally a screenshot fallback) and uses an LLM to generate text guided by the user's dictation intent. Output is copy-only: no keyboard injection or auto-send.
 - **ContextSnapshot**: A structured object holding collected context for a single agent-compose request: trimmed text, source markers, window metadata. Screenshots are transient and never persisted.
 - **Installed application**: A discovered macOS application with name, Bundle ID, icon reference, path, and system category, produced by scanning `/Applications`, `~/Applications`, and system directories.
 - **Known application registry**: A built-in, versioned, static mapping from Bundle IDs to suggested style IDs. Registry hits skip LLM classification and are labeled "system preset."
 - **Application style recommendation**: A temporary suggestion (from registry or LLM classification) with source and confidence. Remains preview-only until the user explicitly confirms, at which point it becomes an app style rule.
 - **VoiceAction**: An enum (`dictation`, `agentCompose`) representing a bindable hotkey action. Each action has an independent trigger; conflicts between actions are blocked.
-- **OutputResult**: A structured result from the output stage — `injected` (dictation success), `copied` (agent compose success), or various failure modes with recovery paths.
+- **OutputResult**: A structured result from the output stage: `injected` (dictation success), `copied` (agent compose success), or various failure modes with recovery paths.
 - **OutputService**: The service that selects between injection (dictation mode) and clipboard copy (agent compose mode), returning a structured OutputResult. Replaces ad-hoc injection logic.
 - **HistoryRecoveryAction**: An enum (`copy`, `reinject`, `regenerate`, `retranscribe`, `delete`) representing a recovery operation available on a history/task detail. Available actions are computed from task mode, status, and data availability. Retries never silently overwrite the original transcription or result.
 
@@ -116,4 +116,4 @@ The existing PromptBuilder produces conservative correction prompts for dictatio
 
 ### ADR-011: Copy-Only Agent Compose Output
 
-Agent compose output is copy-only (clipboard write). No Command-V injection, no Enter simulation, no app-specific send actions. This is a firm v1 boundary — automatic sending introduces reliability and safety risks that require per-app adapters and extensive testing.
+Agent compose output is copy-only (clipboard write). No Command-V injection, no Enter simulation, no app-specific send actions. This is a firm v1 boundary: automatic sending introduces reliability and safety risks that require per-app adapters and extensive testing.

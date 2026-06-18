@@ -1,0 +1,883 @@
+import AVFoundation
+import VoxFlowAudio
+import VoxFlowTextInsertion
+import XCTest
+@testable import VoxFlowApp
+
+@MainActor
+final class DictationOrchestratorTests: XCTestCase {
+    func testFinalTranscriptIsProcessedInjectedAndSavedToHistory() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let pipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "raw", finalText: "final"))
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let clock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            audioRecorder: audioRecorder,
+            pipeline: pipeline,
+            injector: injector,
+            history: history,
+            clock: clock
+        )
+        var historySavedCount = 0
+        orchestrator.onHistorySaved = {
+            historySavedCount += 1
+        }
+
+        try orchestrator.start(configuration: .appleChinese)
+        clock.now = Date(timeIntervalSince1970: 1_800_000_003)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, ["final"])
+        XCTAssertEqual(history.savedEntries.count, 1)
+        XCTAssertEqual(history.savedEntries.first?.rawText, "raw")
+        XCTAssertEqual(history.savedEntries.first?.finalText, "final")
+        XCTAssertEqual(history.savedEntries.first?.language, "zh-CN")
+        XCTAssertEqual(history.savedEntries.first?.asrProviderID, "apple_speech")
+        XCTAssertEqual(history.savedEntries.first?.durationMS, 3000)
+        XCTAssertEqual(historySavedCount, 1)
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertFalse(audioRecorder.isRecording)
+        XCTAssertTrue(engine.didStop)
+    }
+
+    func testStartAcceptsJapaneseLanguageConfiguration() throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            audioRecorder: audioRecorder
+        )
+
+        try orchestrator.start(configuration: .appleJapanese)
+
+        XCTAssertEqual(orchestrator.state, .recording)
+        XCTAssertTrue(audioRecorder.isRecording)
+        XCTAssertTrue(engine.didStart)
+    }
+
+    func testFinalTimeoutUsesLatestPartialResult() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let pipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "partial", finalText: "partial"))
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let clock = MutableClock(
+            now: Date(timeIntervalSince1970: 1_800_000_000),
+            returnsFromSleepImmediately: true
+        )
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            audioRecorder: audioRecorder,
+            pipeline: pipeline,
+            injector: injector,
+            history: history,
+            clock: clock,
+            finalTimeoutNanoseconds: 1
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        engine.emit(text: "partial", isFinal: false)
+        orchestrator.release()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, ["partial"])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "partial")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testRecognitionErrorFallsBackToLatestPartialResultAfterRelease() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let pipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "partial", finalText: "partial"))
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            audioRecorder: audioRecorder,
+            pipeline: pipeline,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        engine.emit(text: "partial", isFinal: false)
+        orchestrator.release()
+        engine.fail(TestError.expected)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, ["partial"])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "partial")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testReleaseStopsDrainsAndFlushesAudioBeforeEndingASR() throws {
+        let order = CallOrderProbe()
+        let engine = FakeASREngine(order: order)
+        let audioRecorder = FakeAudioRecorder(order: order)
+        let audioFrameForwarder = FakeAudioFrameForwarder(order: order)
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            audioBufferForwarder: audioFrameForwarder,
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository()
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+
+        XCTAssertEqual(order.events, [
+            "recorder.stop",
+            "recorder.drain",
+            "forwarder.finish",
+            "engine.endAudio",
+        ])
+    }
+
+    func testQuickReleaseKeepsDrainedBufferAndConverterTailBeforeEndAudio() throws {
+        let converter = DictationAudioPCMConverter(
+            convertedSamples: [[0.8]],
+            tailSamples: [0.9]
+        )
+        let audioFrameForwarder = ASREngineAudioFrameForwarder(
+            makeConverter: { converter }
+        )
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let buffer = try makePCMBuffer(sampleCount: 1)
+        var orchestrator: DictationOrchestrator!
+        audioRecorder.onDrain = {
+            orchestrator.appendAudioBuffer(buffer)
+        }
+        orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            audioBufferForwarder: audioFrameForwarder,
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository()
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+
+        XCTAssertEqual(engine.appendedFrames.map(\.samples), [
+            ContiguousArray([0.8]),
+            ContiguousArray([0.9]),
+        ])
+        XCTAssertEqual(engine.endAudioFrameCount, 2)
+    }
+
+    func testCancelStopsAudioAndEngineWithoutInjection() throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            audioRecorder: audioRecorder,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.cancel()
+
+        XCTAssertFalse(audioRecorder.isRecording)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testEscapeCancellationDuringProcessingPreventsLateInjection() async throws {
+        let engine = FakeASREngine()
+        let pipeline = SuspendedTextPipeline()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(orchestrator.state, .processing)
+        XCTAssertTrue(pipeline.hasStarted)
+
+        orchestrator.cancel()
+        pipeline.complete(finalText: "late result")
+        await drainMainActorTasks()
+
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+    }
+
+    func testFinishWithoutTextCorrectionCancelsLLMAndImmediatelyInjectsRawText() async throws {
+        let engine = FakeASREngine()
+        let pipeline = SuspendedTextPipeline()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "ASR 原文", isFinal: true)
+        await drainMainActorTasks()
+        XCTAssertEqual(orchestrator.state, .processing)
+
+        orchestrator.finishWithoutTextCorrection()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, ["ASR 原文"])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "ASR 原文")
+        XCTAssertEqual(history.savedEntries.first?.finalText, "ASR 原文")
+        XCTAssertEqual(orchestrator.state, .idle)
+
+        pipeline.complete(finalText: "迟到的纠错结果")
+        await drainMainActorTasks()
+        XCTAssertEqual(injector.injectedTexts, ["ASR 原文"])
+    }
+
+    func testTargetApplicationIsCapturedWhenDictationStarts() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "final")
+        )
+        let targetProvider = MutableTargetProvider(
+            target: DictationTarget(bundleID: "com.apple.dt.Xcode", appName: "Xcode")
+        )
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: pipeline,
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository(),
+            targetProvider: targetProvider
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        targetProvider.target = DictationTarget(bundleID: "com.voxflow.app", appName: "VoxFlow")
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(pipeline.targets, [
+            DictationTarget(bundleID: "com.apple.dt.Xcode", appName: "Xcode")
+        ])
+    }
+
+    func testTargetApplicationChangeCopiesFinalTextWithoutInjection() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "final")
+        )
+        let injector = FakeTextInjector()
+        let clipboard = FakeClipboardService()
+        let history = CapturingHistoryRepository()
+        let targetProvider = MutableTargetProvider(
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            textPipeline: pipeline,
+            textInjector: injector,
+            historyRepository: history,
+            targetProvider: targetProvider,
+            clipboardService: clipboard
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        targetProvider.target = DictationTarget(bundleID: "com.apple.Safari", appName: "Safari")
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(clipboard.copiedTexts, ["final"])
+        XCTAssertEqual(history.savedEntries.first?.finalText, "final")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testDictationDeliversFinalTextThroughOutputService() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "final")
+        )
+        let injector = FakeTextInjector()
+        let clipboard = FakeClipboardService()
+        let outputService = CapturingOutputService(result: .injected)
+        let originalTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let currentTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let targetProvider = MutableTargetProvider(target: originalTarget)
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: pipeline,
+            textInjector: injector,
+            historyRepository: CapturingHistoryRepository(),
+            targetProvider: targetProvider,
+            clipboardService: clipboard,
+            outputService: outputService
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        targetProvider.target = currentTarget
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(outputService.deliveries, [
+            CapturingOutputService.Delivery(
+                text: "final",
+                mode: .dictation,
+                target: currentTarget,
+                originalTarget: originalTarget
+            )
+        ])
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testAgentComposeUsesRecordingStateAndDelegatesFinalTranscript() async throws {
+        let engine = FakeASREngine()
+        let audioRecorder = FakeAudioRecorder()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let target = DictationTarget(bundleID: "com.tencent.xinWeChat", appName: "微信")
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: injector,
+            historyRepository: history,
+            targetProvider: StaticDictationTargetProvider(target: target),
+            agentComposeHandler: agentHandler
+        )
+        var states: [DictationState] = []
+        orchestrator.onStateChange = { states.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentCompose)
+
+        XCTAssertEqual(orchestrator.state, .recording)
+        XCTAssertEqual(agentHandler.startedTarget, target)
+
+        orchestrator.release()
+        engine.emit(text: "帮我回复今晚可以", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(agentHandler.finishedTranscript, "帮我回复今晚可以")
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+        XCTAssertTrue(states.contains(.recording))
+        XCTAssertTrue(states.contains(.processing))
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testAgentComposeStartPassesASRMetadataToHandler() throws {
+        let engine = FakeASREngine()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository(),
+            agentComposeHandler: agentHandler
+        )
+
+        try orchestrator.start(configuration: .qwenEnglish, mode: .agentCompose)
+
+        XCTAssertEqual(agentHandler.startedASRMetadata?.providerID, "qwen3_asr")
+        XCTAssertEqual(agentHandler.startedASRMetadata?.modelID, "qwen3-asr-0.6b-coreml-int8")
+        XCTAssertEqual(agentHandler.startedASRMetadata?.modelVersion, "c081689ec58bcf29c2ef7c474ef78a164bda672b")
+        XCTAssertEqual(agentHandler.startedASRMetadata?.language, "en-US")
+        XCTAssertNil(agentHandler.startedASRMetadata?.sessionID)
+    }
+
+    func testAgentComposeUpdatesASRMetadataFromRuntimeSnapshotBeforeFinish() async throws {
+        let engine = FakeASREngine()
+        engine.asrRuntimeMetadataSnapshot = ASRRuntimeMetadataSnapshot(
+            sessionID: "runtime-session",
+            audioDurationMs: 1_250,
+            finalLatencyMs: 430,
+            droppedFrameCount: 2,
+            errorCode: nil
+        )
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository(),
+            agentComposeHandler: agentHandler
+        )
+
+        try orchestrator.start(configuration: .qwenEnglish, mode: .agentCompose)
+        orchestrator.release()
+        engine.emit(text: "帮我写一段回复", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.providerID, "qwen3_asr")
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.modelID, "qwen3-asr-0.6b-coreml-int8")
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.modelVersion, "c081689ec58bcf29c2ef7c474ef78a164bda672b")
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.language, "en-US")
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.sessionID, "runtime-session")
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.audioDurationMs, 1_250)
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.finalLatencyMs, 430)
+        XCTAssertEqual(agentHandler.updatedASRMetadata?.droppedFrameCount, 2)
+    }
+
+    private func makeOrchestrator(
+        engine: FakeASREngine = FakeASREngine(),
+        audioRecorder: FakeAudioRecorder = FakeAudioRecorder(),
+        pipeline: any TextProcessing = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        ),
+        injector: FakeTextInjector = FakeTextInjector(),
+        history: CapturingHistoryRepository = CapturingHistoryRepository(),
+        clock: MutableClock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000)),
+        finalTimeoutNanoseconds: UInt64 = 15_000_000_000
+    ) -> DictationOrchestrator {
+        DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: audioRecorder,
+            textPipeline: pipeline,
+            textInjector: injector,
+            historyRepository: history,
+            clock: clock,
+            targetProvider: StaticDictationTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            finalTimeoutNanoseconds: finalTimeoutNanoseconds
+        )
+    }
+
+    private func drainMainActorTasks() async {
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+    }
+
+    private enum TestError: Error {
+        case expected
+    }
+
+    private func makePCMBuffer(sampleCount: Int) throws -> AVAudioPCMBuffer {
+        let format = try XCTUnwrap(AVAudioFormat(
+            standardFormatWithSampleRate: 48_000,
+            channels: 1
+        ))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: AVAudioFrameCount(sampleCount)
+        ))
+        buffer.frameLength = AVAudioFrameCount(sampleCount)
+        return buffer
+    }
+}
+
+private extension DictationConfiguration {
+    static let appleChinese = DictationConfiguration(
+        engineType: .apple,
+        locale: Locale(identifier: "zh-CN"),
+        languageIdentifier: "zh-CN"
+    )
+
+    static let appleJapanese = DictationConfiguration(
+        engineType: .apple,
+        locale: Locale(identifier: "ja-JP"),
+        languageIdentifier: "ja-JP"
+    )
+
+    static let qwenEnglish = DictationConfiguration(
+        engineType: .qwen3,
+        locale: Locale(identifier: "en-US"),
+        languageIdentifier: "en-US",
+        modelID: "qwen3-asr-0.6b-coreml-int8",
+        modelVersion: "c081689ec58bcf29c2ef7c474ef78a164bda672b"
+    )
+}
+
+private final class FakeASREngineFactory: ASREngineFactory {
+    let engine: FakeASREngine
+
+    init(engine: FakeASREngine) {
+        self.engine = engine
+    }
+
+    func makeEngine(type: ASREngineType) -> ASREngine {
+        engine
+    }
+}
+
+private final class FakeASREngine: ASREngine, ASRRuntimeMetadataProviding {
+    var onTranscription: ((String, Bool) -> Void)?
+    var onError: ((Error) -> Void)?
+    var asrRuntimeMetadataSnapshot = ASRRuntimeMetadataSnapshot()
+    private(set) var isAvailable = true
+    private(set) var didStart = false
+    private(set) var didStop = false
+    private(set) var didCancel = false
+    private(set) var didEndAudio = false
+    private(set) var appendedFrames: [AudioFrame] = []
+    private(set) var endAudioFrameCount = 0
+    private let order: CallOrderProbe?
+
+    init(order: CallOrderProbe? = nil) {
+        self.order = order
+    }
+
+    func configure(locale: Locale) {}
+
+    func start() throws {
+        didStart = true
+    }
+
+    func appendAudioFrame(_ frame: AudioFrame) {
+        appendedFrames.append(frame)
+    }
+
+    func endAudio() {
+        didEndAudio = true
+        endAudioFrameCount = appendedFrames.count
+        order?.append("engine.endAudio")
+    }
+
+    func stop() {
+        didStop = true
+    }
+
+    func cancel() {
+        didCancel = true
+    }
+
+    func emit(text: String, isFinal: Bool) {
+        onTranscription?(text, isFinal)
+    }
+
+    func fail(_ error: Error) {
+        onError?(error)
+    }
+}
+
+private final class FakeAudioRecorder: AudioRecording {
+    private(set) var isRecording = false
+    var startError: Error?
+    var onDrain: (() -> Void)?
+    private let order: CallOrderProbe?
+
+    init(order: CallOrderProbe? = nil) {
+        self.order = order
+    }
+
+    func start() throws {
+        if let startError {
+            throw startError
+        }
+        isRecording = true
+    }
+
+    func stop() {
+        isRecording = false
+        order?.append("recorder.stop")
+    }
+
+    func drain() {
+        order?.append("recorder.drain")
+        onDrain?()
+    }
+}
+
+private final class FakeAudioFrameForwarder: ASREngineAudioFrameForwarding {
+    private let order: CallOrderProbe
+
+    init(order: CallOrderProbe) {
+        self.order = order
+    }
+
+    func attach(_ engine: ASREngine) {}
+
+    func detach() {}
+
+    func appendAudioFrame(_ frame: AudioFrame) {}
+
+    func appendAudioBuffer(_ buffer: AVAudioPCMBuffer) {}
+
+    func finish() {
+        order.append("forwarder.finish")
+    }
+}
+
+private final class CallOrderProbe: @unchecked Sendable {
+    private(set) var events: [String] = []
+
+    func append(_ event: String) {
+        events.append(event)
+    }
+}
+
+private final class DictationAudioPCMConverter: AudioPCMConverting, @unchecked Sendable {
+    let targetSampleRate: Double
+    private var convertedSamples: [ContiguousArray<Float>]
+    private let tailSamples: ContiguousArray<Float>
+
+    init(
+        convertedSamples: [[Float]],
+        tailSamples: [Float] = [],
+        targetSampleRate: Double = 16_000
+    ) {
+        self.convertedSamples = convertedSamples.map(ContiguousArray.init)
+        self.tailSamples = ContiguousArray(tailSamples)
+        self.targetSampleRate = targetSampleRate
+    }
+
+    func convert(_ buffer: AVAudioPCMBuffer) throws -> ContiguousArray<Float> {
+        if convertedSamples.isEmpty {
+            return []
+        }
+        return convertedSamples.removeFirst()
+    }
+
+    func finish() throws -> ContiguousArray<Float> {
+        tailSamples
+    }
+}
+
+@MainActor
+private final class SuspendedTextPipeline: TextProcessing {
+    private var continuation: CheckedContinuation<TextProcessingResult, Never>?
+    private(set) var hasStarted = false
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        hasStarted = true
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        await process(rawText)
+    }
+
+    func complete(finalText: String) {
+        continuation?.resume(
+            returning: TextProcessingResult(rawText: "raw", finalText: finalText)
+        )
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class FakeTextPipeline: TextProcessing {
+    let result: TextProcessingResult
+    private(set) var targets: [DictationTarget?] = []
+
+    init(result: TextProcessingResult) {
+        self.result = result
+    }
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        TextProcessingResult(
+            rawText: rawText,
+            finalText: result.finalText,
+            llmProviderID: result.llmProviderID,
+            styleID: result.styleID,
+            warnings: result.warnings
+        )
+    }
+
+    func process(_ rawText: String, target: DictationTarget?) async -> TextProcessingResult {
+        targets.append(target)
+        return await process(rawText)
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        targets.append(target)
+        onRefinedTextUpdate(result.finalText)
+        return await process(rawText)
+    }
+}
+
+@MainActor
+private final class MutableTargetProvider: DictationTargetProviding {
+    var target: DictationTarget?
+
+    init(target: DictationTarget?) {
+        self.target = target
+    }
+
+    func currentTarget() -> DictationTarget? {
+        target
+    }
+}
+
+@MainActor
+private final class FakeTextInjector: TextInserting {
+    private(set) var injectedTexts: [String] = []
+
+    func insert(_ text: String) async -> TextInsertionResult {
+        injectedTexts.append(text)
+        return .success
+    }
+}
+
+private final class FakeClipboardService: ClipboardSetting {
+    private(set) var copiedTexts: [String] = []
+
+    func setString(_ text: String) {
+        copiedTexts.append(text)
+    }
+}
+
+@MainActor
+private final class CapturingOutputService: OutputService {
+    struct Delivery: Equatable {
+        let text: String
+        let mode: VoiceTaskMode
+        let target: DictationTarget?
+        let originalTarget: DictationTarget?
+    }
+
+    let result: OutputResult
+    private(set) var deliveries: [Delivery] = []
+
+    init(result: OutputResult) {
+        self.result = result
+    }
+
+    func deliver(
+        text: String,
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?
+    ) async -> OutputResult {
+        deliveries.append(
+            Delivery(
+                text: text,
+                mode: mode,
+                target: target,
+                originalTarget: originalTarget
+            )
+        )
+        return result
+    }
+}
+
+@MainActor
+private final class FakeAgentComposeHandler: AgentComposeHandling {
+    let result: OutputResult
+    private(set) var startedTarget: DictationTarget?
+    private(set) var startedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var finishedTranscript: String?
+    var onStageChange: ((AgentComposeHUDStage) -> Void)?
+    var onStreamingDelta: ((String) -> Void)?
+    var lastFailedTaskID: String?
+
+    init(result: OutputResult) {
+        self.result = result
+    }
+
+    func start(target: DictationTarget?) throws {
+        startedTarget = target
+    }
+
+    func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
+        startedTarget = target
+        startedASRMetadata = asrMetadata
+    }
+
+    func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
+        updatedASRMetadata = metadata
+    }
+
+    func finish(rawTranscript: String) async throws -> OutputResult {
+        finishedTranscript = rawTranscript
+        return result
+    }
+
+    func cancel() {}
+
+    func fail(_ error: Error) {}
+}
+
+private final class CapturingHistoryRepository: HistoryRepository {
+    private(set) var savedEntries: [DictationHistoryEntry] = []
+
+    func save(_ entry: DictationHistoryEntry) throws {
+        savedEntries.append(entry)
+    }
+
+    func entry(id: String) throws -> DictationHistoryEntry? {
+        savedEntries.first { $0.id == id }
+    }
+
+    func listRecent(limit: Int) throws -> [DictationHistoryEntry] {
+        Array(savedEntries.prefix(limit))
+    }
+
+    func search(_ query: String, limit: Int) throws -> [DictationHistoryEntry] {
+        Array(savedEntries.filter { $0.finalText.contains(query) }.prefix(limit))
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {}
+}
+
+private final class MutableClock: AppClock, @unchecked Sendable {
+    var now: Date
+    private let returnsFromSleepImmediately: Bool
+
+    init(now: Date, returnsFromSleepImmediately: Bool = false) {
+        self.now = now
+        self.returnsFromSleepImmediately = returnsFromSleepImmediately
+    }
+
+    func sleep(nanoseconds: UInt64) async throws {
+        guard !returnsFromSleepImmediately else {
+            return
+        }
+        try await Task.sleep(nanoseconds: nanoseconds)
+    }
+}

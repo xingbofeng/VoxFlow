@@ -4,8 +4,8 @@
   <img src="docs/assets/voiceinput-hero.svg" alt="随声写 - Hold. Speak. Done." width="100%">
 
   <h1>随声写 · VoxFlow</h1>
-  <p><strong>按住快捷键，说完松开，文字就出现在光标所在的位置。</strong></p>
-  <p>一款为 macOS 设计的轻量语音输入工具，让想法、笔记、代码说明和 AI 对话更快落成文字。</p>
+  <p><strong>按住快捷键，说完松开，文字回到你正在输入的地方。</strong></p>
+  <p>一款原生 macOS 菜单栏语音输入工具，把想法、会议、代码说明和 AI 对话快速变成可编辑文本。</p>
   <p><sub><a href="README_EN.md">English</a></sub></p>
 
   <p>
@@ -25,15 +25,16 @@
 
 ## 随声写是什么
 
-随声写是一个“语音键盘”，不是语音助手。
+随声写是一个“语音键盘”，不是语音助手，也不是另一个让你切过去工作的窗口。
 
-它不会接管你的窗口，也不会要求你把内容搬到另一个输入框里。你只需要把光标放在想输入的位置，按下快捷键开始说话，松开后文字会直接落到原来的地方。写代码、和 AI Agent 对话、记会议想法、回复消息、整理长段说明，都可以少敲很多字。
+它常驻菜单栏，只在你需要输入时出现。把光标放在想输入的位置，按下快捷键开始说话，松开后文字会直接回到原来的应用里。写代码、和 AI Agent 对话、记会议想法、回复消息、整理长段说明，都可以少敲很多字。
 
 它的目标很简单：
 
 - **输入更快**：把“脑子里已经想好的话”直接说出来。
 - **打扰更少**：不抢焦点，不弹大窗口，不破坏当前工作流。
-- **结果更稳**：识别、纠错、词汇表、风格和历史记录都围绕“把文字放到正确的位置”服务。
+- **结果更稳**：识别、纠错、词汇表、风格、历史记录和文本插入都围绕“把文字放到正确的位置”服务。
+- **数据可控**：默认本机保存；本地 ASR、系统识别和可选 LLM 纠错可以按场景选择。
 
 ## 适合谁
 
@@ -57,7 +58,7 @@
 
 说话过程中可以看到实时文本。短句、长段说明、中文、英文和中英混合内容都会即时显示，方便你边说边确认方向。
 
-随声写内置系统语音识别，也支持本地 Qwen3-ASR 模型。系统自带模型开箱可用；本地模型适合更重视离线能力和隐私的场景。
+随声写内置系统语音识别，也支持本地 ASR Provider。系统自带模型开箱可用；本地 Qwen3-ASR、Whisper、FunASR、SenseVoice 等路线正在逐步收敛到统一 Provider 架构，适合更重视离线能力、隐私和可控性的场景。模型页会明确标注流式能力；Whisper、SenseVoice、Groq Whisper 等暂不支持实时流式的 Provider 会显示“非流式”标签，录音完成后返回最终结果。
 
 ### 可选 LLM 纠错
 
@@ -83,7 +84,8 @@
 
 - **全局听写**：在任意可编辑输入框里使用，不局限于随声写自己的窗口。
 - **不抢焦点的浮层**：听写时只显示轻量浮层，不打断当前应用。
-- **系统自带与本地模型**：可在系统语音识别和 Qwen3-ASR 本地模型之间选择。
+- **多 Provider ASR**：系统语音识别开箱可用，本地 Qwen3-ASR、Whisper、FunASR、SenseVoice 等 Provider 逐步接入统一运行时；暂不支持实时流式的 Provider 会在模型页标注“非流式”。
+- **稳定文本插入**：粘贴前临时切换输入源，完成后恢复输入源和剪贴板，减少 CJK 输入法干扰。
 - **输入设备选择**：支持选择麦克风，长设备名会自动收纳，不挤爆界面。
 - **快捷键录制**：在设置里直接录制想用的触发键，并配置短按行为。
 - **OpenAI 兼容模型**：可添加、测试、编辑和删除 Provider，API Key 保存到 macOS Keychain。
@@ -98,7 +100,7 @@
 
 从 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) 下载最新版本：
 
-1. 打开 `VoxFlow-1.1.2-macOS.dmg`
+1. 打开 `VoxFlow-1.2.0-macOS.dmg`
 2. 将 `VoxFlow` 拖入 `Applications` 文件夹
 3. 首次启动时，如果 macOS 提示无法验证，请按住 Control 点击应用，选择“打开”
 
@@ -180,15 +182,17 @@ API Key 会保存在 macOS Keychain，不会写入普通配置文件。
 ```bash
 git clone https://github.com/xingbofeng/VoxFlow.git
 cd VoxFlow
-make run
+make run-dev
 ```
 
 常用命令：
 
 ```bash
-make build
-make install
-swift test
+make run-dev      # 日常开发：Debug + 本机架构，打包并启动 .app
+make run-native   # 本机架构 Release，用于接近发布表现的本地验证
+make build        # Universal Release：arm64 + x86_64，发布/DMG 使用
+make install      # 安装到 /Applications
+swift test        # 运行测试
 ```
 
 ## 灵感来源

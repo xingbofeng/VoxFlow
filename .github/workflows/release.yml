@@ -27,7 +27,7 @@ jobs:
       - name: Read version
         id: version
         run: |
-          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoiceInputApp/Resources/Info.plist)
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoxFlowApp/Resources/Info.plist)
           echo "value=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Verify release assets

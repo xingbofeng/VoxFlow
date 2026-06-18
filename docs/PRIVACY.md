@@ -1,80 +1,80 @@
-# VoxFlow Privacy
+# VoxFlow 隐私说明
 
-## Local Data
+## 本地数据
 
-VoxFlow stores local workbench data in SQLite under:
+VoxFlow 将工作台相关数据保存在 SQLite 中，默认路径为：
 
 ```text
 ~/Library/Application Support/VoiceInput/voiceinput.sqlite
 ```
 
-The legacy directory name is intentionally preserved so VoxFlow upgrades do not orphan existing user data.
+这里保留了旧目录名，目的是确保升级时不会把已有用户数据“丢”在旧路径里。
 
-This includes dictation history, glossary terms, replacement rules, style profiles, provider metadata, transcription jobs, notes, voice tasks, and non-sensitive settings.
+这些数据包括听写历史、词汇表、替换规则、风格配置、Provider 元数据、转写任务、笔记、语音任务，以及非敏感设置。
 
-## Secrets
+## 密钥
 
-API keys are stored in macOS Keychain through `KeychainCredentialStore`.
+API Key 通过 `KeychainCredentialStore` 存入 macOS Keychain。
 
-VoxFlow must not store API keys in:
+VoxFlow 不应把 API Key 存到以下位置：
 
-- UserDefaults
+- `UserDefaults`
 - SQLite
-- Logs
-- Test snapshots
-- Export archives
+- 日志
+- 测试快照
+- 导出归档
 
-Older plaintext LLM keys written to UserDefaults are migrated to Keychain and removed.
+早期写入 `UserDefaults` 的明文 LLM 密钥会迁移到 Keychain，并随后删除。
 
-## Network Use
+## 网络使用
 
-Network behavior is opt-in:
+网络行为默认是显式开启的：
 
-- LLM refinement is disabled by default.
-- LLM requests send recognized text only when the user enables refinement or a style that requires it.
-- Local/system ASR can be used without uploading audio to an LLM provider.
-- Cloud ASR providers must clearly disclose that audio may leave the machine before they are enabled.
-- Agent compose ("帮我说") sends user dictation and collected context to the configured LLM provider when invoked.
+- LLM 纠错默认关闭。
+- 只有当用户启用纠错，或者某种风格确实需要它时，才会把识别文本发送给 LLM。
+- 本地或系统 ASR 可以在不上传音频的情况下使用。
+- 云端 ASR Provider 在启用前必须清楚说明音频可能会离开本机。
+- “帮我说”会在触发时把用户口述内容和收集到的上下文发送给已配置的 LLM Provider。
 
-## Context Collection
+## 上下文采集
 
-Agent compose collects context from the current window to improve generation quality:
+“帮我说”会采集当前窗口上下文，以提升生成质量：
 
-- **Window metadata**: Application name, window title, and bundle identifier.
-- **Accessibility text**: Visible text, selected text, and input area content from the focused UI element.
-- **Visual fallback**: A transient screenshot of the current window, used only when accessibility text is insufficient (< 50 characters). This screenshot is never saved to disk or uploaded — it exists only for the duration of a single task.
+- **窗口元数据**：应用名称、窗口标题、Bundle ID。
+- **辅助功能文本**：当前聚焦 UI 元素中的可见文本、选中文本、输入区内容。
+- **视觉兜底**：当辅助功能文本不足时，会临时截取当前窗口截图，仅用于单次任务，不会落盘或上传。
 
-### Security safeguards:
+### 安全防护
 
-- Secure text fields (password fields) are detected and blocked — no context is collected from them.
-- The context pipeline never auto-scrolls windows or modifies the UI.
-- Screenshots are transient and never persisted in the database, logs, or uploads.
-- Context collection runs on a background queue with a 500ms timeout.
-- All collected context is tagged with its source for transparency.
+- 会检测并屏蔽安全文本字段（如密码框），不会从中采集内容。
+- 上下文管线不会自动滚动窗口，也不会修改 UI。
+- 截图是临时的，不会写入数据库、日志或上传链路。
+- 上下文采集在后台队列执行，超时时间为 500ms。
+- 所有采集到的上下文都会标记来源，便于透明追踪。
 
-## Permissions
+## 权限
 
-VoxFlow uses the following macOS permissions:
+VoxFlow 会使用以下 macOS 权限：
 
-- **Microphone**: Required for all voice recording.
-- **Speech Recognition**: Required for Apple Speech ASR engine.
-- **Accessibility**: Required for text injection (Command-V) and context collection.
-- **Screen Recording**: Required for visual context fallback screenshots. Only requested when agent compose first needs visual context.
+- **麦克风**：所有录音都需要。
+- **语音识别**：Apple Speech ASR 需要。
+- **辅助功能**：文本注入（Command-V）和上下文采集需要。
+- **屏幕录制**：视觉兜底截图需要，只在“帮我说”第一次需要视觉上下文时申请。
 
-## Logging
+## 日志
 
-`AppLogger` redacts the following before sending text to OSLog:
+`AppLogger` 在写入 OSLog 之前会脱敏以下内容：
 
-- Bearer tokens and API key-shaped values
-- Context text content (visible text, selected text, input area text)
-- Screenshot references and image data paths
-- User home directory paths
+- Bearer token 和类似 API Key 的值
+- 上下文文本内容（可见文本、选中文本、输入区文本）
+- 截图引用和图片路径
+- 用户主目录路径
 
-## Manual Controls
+## 手动控制
 
-Future settings must include:
+未来设置里应当提供：
 
-- Clear history.
-- Clear cache/model downloads.
-- Export local data without secrets.
-- Import local data without overwriting Keychain secrets unless explicitly configured.
+- 清空历史
+- 清空缓存 / 模型下载
+- 导出本地数据，但不包含密钥
+- 导入本地数据时不要覆盖 Keychain 密钥，除非用户显式配置允许

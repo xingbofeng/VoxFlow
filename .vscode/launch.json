@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:voice-input-method-mac}",
+            "name": "Debug VoxFlowApp",
+            "target": "VoxFlowApp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug VoxFlowApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:voice-input-method-mac}",
+            "name": "Release VoxFlowApp",
+            "target": "VoxFlowApp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release VoxFlowApp"
+        }
+    ]
+}

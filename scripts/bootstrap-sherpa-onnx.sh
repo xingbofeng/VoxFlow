@@ -35,9 +35,18 @@ echo "Preparing sherpa-onnx ${VERSION}..."
 download_and_verify "$XCFRAMEWORK_ARCHIVE" "$XCFRAMEWORK_SHA256"
 download_and_verify "$RUNTIME_ARCHIVE" "$RUNTIME_SHA256"
 
+mkdir -p "$VENDOR_DIR"
 rm -rf "$FRAMEWORK_DIR"
 tar -xjf "$tmp_dir/$XCFRAMEWORK_ARCHIVE" -C "$tmp_dir"
-cp -R "$tmp_dir/sherpa-onnx.xcframework" "$FRAMEWORK_DIR"
+xcframework_root="$tmp_dir/sherpa-onnx-v${VERSION}-macos-xcframework-static/sherpa-onnx.xcframework"
+if [[ ! -d "$xcframework_root" ]]; then
+  xcframework_root="$(find "$tmp_dir" -maxdepth 3 -type d -name sherpa-onnx.xcframework -print -quit)"
+fi
+if [[ -z "${xcframework_root:-}" || ! -d "$xcframework_root" ]]; then
+  echo "sherpa-onnx.xcframework was not found in $XCFRAMEWORK_ARCHIVE" >&2
+  exit 1
+fi
+cp -R "$xcframework_root" "$FRAMEWORK_DIR"
 
 tar -xjf "$tmp_dir/$RUNTIME_ARCHIVE" -C "$tmp_dir"
 runtime_root="$tmp_dir/sherpa-onnx-v${VERSION}-osx-universal2-static-no-tts-lib"

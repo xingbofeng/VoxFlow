@@ -4,8 +4,8 @@
   <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - Hold. Speak. Done." width="100%">
 
   <h1>VoxFlow</h1>
-  <p><strong>Hold a shortcut, speak, release — your words appear right where the cursor is.</strong></p>
-  <p>A lightweight macOS voice input tool for thoughts, notes, code explanations, and AI conversations.</p>
+  <p><strong>Hold a shortcut, speak, release — your words return to the place you were typing.</strong></p>
+  <p>A native macOS menu-bar voice input tool for ideas, meetings, code explanations, and AI conversations.</p>
   <p><sub><a href="README.md">中文</a></sub></p>
 
   <p>
@@ -27,13 +27,14 @@
 
 VoxFlow is a voice keyboard, not a voice assistant.
 
-It does not take over your window or force you to move text into a separate editor. Put the cursor where you want text to appear, hold the shortcut, speak, and release. VoxFlow writes the result back into the app you were already using.
+It lives in the menu bar and appears only when you want to type with your voice. Put the cursor where you want text to appear, hold the shortcut, speak, and release. VoxFlow writes the result back into the app you were already using.
 
 It is designed for people who want speech to become text without breaking flow:
 
 - **Faster input**: Say the thoughts you already have instead of typing every word.
 - **Less interruption**: No focus stealing, no large modal workflow, no extra copy-paste step.
-- **More reliable results**: Dictation, correction, glossary, styles, notes, and history all support the same goal: getting useful text into the right place.
+- **More reliable results**: Dictation, correction, glossary, styles, notes, history, and text insertion all support the same goal: getting useful text into the right place.
+- **Local-first control**: Keep data on your Mac by default, then choose between system ASR, local ASR, and optional LLM correction as needed.
 
 ## Who It Is For
 
@@ -57,7 +58,7 @@ There is no need to switch apps or manually copy text back.
 
 While you speak, VoxFlow shows recognized text in real time so you can stay oriented. It works for short commands, long explanations, Chinese, English, and mixed Chinese-English speech.
 
-VoxFlow includes the system speech recognizer and also supports local Qwen3-ASR models. The system model works out of the box; local models are useful when you prefer an offline path.
+VoxFlow includes the system speech recognizer and also supports local ASR providers. The system model works out of the box; local Qwen3-ASR, Whisper, FunASR, and SenseVoice routes are being consolidated under a unified provider architecture for offline and privacy-focused workflows. The Models page now labels streaming capability explicitly; providers that do not currently support real-time streaming, such as Whisper, SenseVoice, and Groq Whisper, are marked as **Non-streaming** and return their final result after recording finishes.
 
 ### Optional LLM Correction
 
@@ -83,7 +84,8 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 - **Global dictation**: Works in any editable text field, not only inside VoxFlow.
 - **Non-intrusive overlay**: Shows live text and voice activity without taking focus.
-- **System and local models**: Use the built-in system recognizer or a local Qwen3-ASR model.
+- **Multiple ASR providers**: Start with the built-in system recognizer; local Qwen3-ASR, Whisper, FunASR, and SenseVoice providers are being unified under the same runtime model; providers without real-time streaming are marked as **Non-streaming** in Models.
+- **Stable text insertion**: Temporarily switches input source before paste, then restores both input source and clipboard to reduce CJK input-method interference.
 - **Input device selection**: Choose your microphone; long device names are handled gracefully.
 - **Shortcut recording**: Record the key you want to use and configure short-press behavior.
 - **OpenAI-compatible providers**: Add, test, edit, and delete providers; API keys are stored in macOS Keychain.
@@ -98,7 +100,7 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.1.2-macOS.dmg`
+1. Open `VoxFlow-1.2.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
@@ -180,15 +182,17 @@ If you want to build the app yourself:
 ```bash
 git clone https://github.com/xingbofeng/VoxFlow.git
 cd VoxFlow
-make run
+make run-dev
 ```
 
 Common commands:
 
 ```bash
-make build
-make install
-swift test
+make run-dev      # Daily development: Debug + native arch, package and launch .app
+make run-native   # Native Release for local checks close to shipped behavior
+make build        # Universal Release: arm64 + x86_64, used for release/DMG
+make install      # Install into /Applications
+swift test        # Run tests
 ```
 
 ## Inspiration

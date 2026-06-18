@@ -28,6 +28,9 @@ jobs:
       - name: Run tests
         run: swift test
 
+      - name: Check architecture boundaries
+        run: make architecture-check
+
       - name: Build with warnings as errors
         run: swift build -c debug -Xswiftc -warnings-as-errors
 
@@ -37,7 +40,7 @@ jobs:
       - name: Read version
         id: version
         run: |
-          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoiceInputApp/Resources/Info.plist)
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoxFlowApp/Resources/Info.plist)
           echo "value=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Verify bundle and DMG

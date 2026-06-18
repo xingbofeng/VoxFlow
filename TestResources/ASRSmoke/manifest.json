@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "samples": [
+    {
+      "id": "zh_short",
+      "language": "zh-CN",
+      "audio_path": "TestResources/ASRSmoke/Audio/zh_short.wav",
+      "transcript_path": "TestResources/ASRSmoke/Transcripts/zh_short.txt",
+      "expects_speech": true,
+      "allows_empty_final": false,
+      "requires_partial_when_streaming": true,
+      "max_final_latency_milliseconds": 30000
+    },
+    {
+      "id": "en_short",
+      "language": "en-US",
+      "audio_path": "TestResources/ASRSmoke/Audio/en_short.wav",
+      "transcript_path": "TestResources/ASRSmoke/Transcripts/en_short.txt",
+      "expects_speech": true,
+      "allows_empty_final": false,
+      "requires_partial_when_streaming": false,
+      "max_final_latency_milliseconds": 30000
+    },
+    {
+      "id": "zh_long",
+      "language": "zh-CN",
+      "audio_path": "TestResources/ASRSmoke/Audio/zh_long.wav",
+      "transcript_path": "TestResources/ASRSmoke/Transcripts/zh_long.txt",
+      "expects_speech": true,
+      "allows_empty_final": false,
+      "requires_partial_when_streaming": true,
+      "max_final_latency_milliseconds": 30000
+    },
+    {
+      "id": "silence",
+      "language": "zh-CN",
+      "audio_path": "TestResources/ASRSmoke/Audio/silence.wav",
+      "transcript_path": null,
+      "expects_speech": false,
+      "allows_empty_final": true,
+      "requires_partial_when_streaming": false,
+      "max_final_latency_milliseconds": 30000
+    }
+  ]
+}

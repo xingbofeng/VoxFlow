@@ -1,0 +1,15 @@
+import VoxFlowDomain
+
+typealias VoiceTaskMode = VoxFlowDomain.VoiceTaskMode
+typealias VoiceTaskStage = VoxFlowDomain.VoiceTaskStage
+typealias VoiceTaskStatus = VoxFlowDomain.VoiceTaskStatus
+typealias VoiceTaskFailure = VoxFlowDomain.VoiceTaskFailure
+typealias VoiceTaskASRMetadata = VoxFlowDomain.VoiceTaskASRMetadata
+typealias VoiceTaskRecoveryAction = VoxFlowDomain.VoiceTaskRecoveryAction
+typealias VoiceTaskRecoveryPolicy = VoxFlowDomain.VoiceTaskRecoveryPolicy
+typealias VoiceTaskDiagnosticExporter = VoxFlowDomain.VoiceTaskDiagnosticExporter
+typealias OutputResult = VoxFlowDomain.OutputResult
+typealias OutputResultKind = VoxFlowDomain.OutputResultKind
+typealias TextInputMode = VoxFlowDomain.TextInputMode
+typealias VoiceTaskError = VoxFlowDomain.VoiceTaskError
+typealias VoiceTask = VoxFlowDomain.VoiceTask
