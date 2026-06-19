@@ -94,6 +94,24 @@ final class NotesViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已生成 Markdown 导出内容")
     }
 
+    func testPreviewNoteDoesNotOverwriteCurrentDraft() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = NotesViewModel(environment: environment)
+        let note = try viewModel.createNote(
+            title: "已保存笔记",
+            bodyMarkdown: "## 标题\n\n**正文**",
+            tags: []
+        )
+        viewModel.newDraft()
+        viewModel.draftBodyMarkdown = "正在编辑的草稿"
+
+        viewModel.previewNote(id: note.id)
+
+        XCTAssertEqual(viewModel.previewedNote?.id, note.id)
+        XCTAssertEqual(viewModel.previewedNote?.bodyMarkdown, "## 标题\n\n**正文**")
+        XCTAssertEqual(viewModel.draftBodyMarkdown, "正在编辑的草稿")
+    }
+
     func testRecordingStreamsTextAndSavesFinalNote() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let recorder = NotesTranscriberStub()

@@ -502,6 +502,32 @@ final class ArchitectureCheckTests: XCTestCase {
         )
     }
 
+    func testArchitectureCheckRejectsAppRuntimePrewarmHooks() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowApp"])
+        try fixture.writeSource(
+            target: "VoxFlowApp",
+            file: "AppDelegate.swift",
+            contents: """
+            final class AppDelegate {
+                private let modelPrewarmer = ASRModelPrewarmCenter.shared
+
+                private func prewarmCurrentASREngine() {
+                    modelPrewarmer.cancelPrewarming()
+                }
+            }
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("VoxFlowApp must not prewarm ASR runtime during app launch, model switch, or dictation start"),
+            result.output
+        )
+    }
+
     func testArchitectureCheckRejectsVoxFlowAppClipboardImplementation() throws {
         let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp"])
@@ -720,6 +746,32 @@ final class ArchitectureCheckTests: XCTestCase {
         XCTAssertNotEqual(result.status, 0, result.output)
         XCTAssertTrue(
             result.output.contains("VoxFlowApp Qwen downloader adapter must delegate download implementation to VoxFlowProviderQwen3 ModelStore"),
+            result.output
+        )
+    }
+
+    func testArchitectureCheckRejectsQwenStreamingDriverRuntimePrewarmAtStart() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowProviderQwen3"])
+        try fixture.writeSource(
+            target: "VoxFlowProviderQwen3",
+            file: "Qwen3StreamingRuntimeDriver.swift",
+            contents: """
+            actor Qwen3StreamingRuntimeDriver {
+                private var session: Qwen3StreamingSession?
+
+                func start() async throws {
+                    try await session?.prewarm()
+                }
+            }
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("Qwen3 streaming driver start must not prewarm runtime without audio"),
             result.output
         )
     }

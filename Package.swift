@@ -3,13 +3,14 @@ import PackageDescription
 
 let package = Package(
     name: "VoxFlowApp",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     products: [
         .executable(name: "VoxFlowApp", targets: ["VoxFlowApp"])
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
-        .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.0.0")
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.0.0"),
+        .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21")
     ],
     targets: [
         .target(
@@ -52,7 +53,7 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio"
             ],
-            path: "Sources/VoxFlowProviderApple"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderApple"
         ),
         .target(
             name: "VoxFlowProviderQwen3",
@@ -60,21 +61,38 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowModelStore",
-                .product(name: "FluidAudio", package: "FluidAudio")
+                .product(name: "Qwen3ASR", package: "speech-swift")
             ],
-            path: "Sources/VoxFlowProviderQwen3",
-            resources: [
-                .copy("Workers/voxflow-qwen3-mlx-worker")
-            ]
+            path: "Sources/VoxFlowProviders/VoxFlowProviderQwen3"
         ),
         .target(
             name: "VoxFlowProviderNVIDIA",
             dependencies: [
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
-                .product(name: "FluidAudio", package: "FluidAudio")
+                .product(name: "AudioCommon", package: "speech-swift"),
+                .product(name: "NemotronStreamingASR", package: "speech-swift")
             ],
-            path: "Sources/VoxFlowProviderNVIDIA"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderNVIDIA"
+        ),
+        .target(
+            name: "VoxFlowProviderParakeet",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                .product(name: "AudioCommon", package: "speech-swift"),
+                .product(name: "ParakeetStreamingASR", package: "speech-swift")
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderParakeet"
+        ),
+        .target(
+            name: "VoxFlowProviderOmnilingual",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                .product(name: "OmnilingualASR", package: "speech-swift")
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderOmnilingual"
         ),
         .target(
             name: "VoxFlowProviderParaformer",
@@ -83,7 +101,7 @@ let package = Package(
                 "VoxFlowAudio",
                 .product(name: "FluidAudio", package: "FluidAudio")
             ],
-            path: "Sources/VoxFlowProviderParaformer"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderParaformer"
         ),
         .target(
             name: "VoxFlowProviderFunASR",
@@ -92,7 +110,7 @@ let package = Package(
                 "VoxFlowAudio",
                 "CSherpaOnnx"
             ],
-            path: "Sources/VoxFlowProviderFunASR"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderFunASR"
         ),
         .target(
             name: "VoxFlowProviderSenseVoice",
@@ -101,16 +119,41 @@ let package = Package(
                 "VoxFlowAudio",
                 .product(name: "FluidAudio", package: "FluidAudio")
             ],
-            path: "Sources/VoxFlowProviderSenseVoice"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderSenseVoice"
         ),
         .target(
             name: "VoxFlowProviderWhisper",
             dependencies: [
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
-                .product(name: "WhisperKit", package: "argmax-oss-swift")
+                .product(name: "WhisperKit", package: "WhisperKit")
             ],
-            path: "Sources/VoxFlowProviderWhisper"
+            path: "Sources/VoxFlowProviders/VoxFlowProviderWhisper"
+        ),
+        .target(
+            name: "VoxFlowProviderCloudCore",
+            path: "Sources/VoxFlowProviders/VoxFlowProviderCloudCore"
+        ),
+        .target(
+            name: "VoxFlowProviderGroq",
+            dependencies: [
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderGroq"
+        ),
+        .target(
+            name: "VoxFlowProviderTencentCloud",
+            dependencies: [
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderTencentCloud"
+        ),
+        .target(
+            name: "VoxFlowProviderAliyunDashScope",
+            dependencies: [
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderAliyunDashScope"
         ),
         .target(
             name: "VoxFlowTextProcessing",
@@ -152,10 +195,16 @@ let package = Package(
                 "VoxFlowInfrastructure",
                 "VoxFlowModelStore",
                 "VoxFlowProviderNVIDIA",
+                "VoxFlowProviderParakeet",
+                "VoxFlowProviderOmnilingual",
                 "VoxFlowProviderFunASR",
+                "VoxFlowProviderAliyunDashScope",
+                "VoxFlowProviderCloudCore",
+                "VoxFlowProviderGroq",
                 "VoxFlowProviderParaformer",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
+                "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
                 "VoxFlowTextInsertion",
                 "CSherpaOnnx"
@@ -173,11 +222,14 @@ let package = Package(
                 .copy("Resources/ASRGroqWhisper.png"),
                 .copy("Resources/ASRMistralVoxtral.png"),
                 .copy("Resources/ASRNVIDIANemotron.png"),
+                .copy("Resources/ASROmnilingual.png"),
+                .copy("Resources/ASRParakeetStreaming.png"),
                 .copy("Resources/ASRProviderParaformer.png"),
                 .copy("Resources/ASRProviderIconAtlas.json"),
                 .copy("Resources/ASRQwen.png"),
                 .copy("Resources/ASRQwenCloud.png"),
                 .copy("Resources/ASRSenseVoice.png"),
+                .copy("Resources/ASRTencentCloud.png"),
                 .copy("Resources/ASRWhisper.png")
             ]
         ),
@@ -225,7 +277,8 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderNVIDIA"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderNVIDIATests"
         ),
         .testTarget(
             name: "VoxFlowProviderParaformerTests",
@@ -233,7 +286,8 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderParaformer"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderParaformerTests"
         ),
         .testTarget(
             name: "VoxFlowProviderAppleTests",
@@ -241,7 +295,8 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderApple"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderAppleTests"
         ),
         .testTarget(
             name: "VoxFlowProviderQwen3Tests",
@@ -250,7 +305,8 @@ let package = Package(
                 "VoxFlowAudio",
                 "VoxFlowModelStore",
                 "VoxFlowProviderQwen3"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderQwen3Tests"
         ),
         .testTarget(
             name: "VoxFlowProviderWhisperTests",
@@ -258,7 +314,8 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderWhisper"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderWhisperTests"
         ),
         .testTarget(
             name: "VoxFlowProviderFunASRTests",
@@ -266,7 +323,8 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderFunASR"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderFunASRTests"
         ),
         .testTarget(
             name: "VoxFlowProviderSenseVoiceTests",
@@ -274,7 +332,42 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowAudio",
                 "VoxFlowProviderSenseVoice"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderSenseVoiceTests"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderCloudCoreTests",
+            dependencies: [
+                "VoxFlowApp",
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderCloudCoreTests"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderGroqTests",
+            dependencies: [
+                "VoxFlowProviderCloudCore",
+                "VoxFlowProviderGroq"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderGroqTests"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderTencentCloudTests",
+            dependencies: [
+                "VoxFlowApp",
+                "VoxFlowProviderCloudCore",
+                "VoxFlowProviderTencentCloud"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderTencentCloudTests"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderAliyunDashScopeTests",
+            dependencies: [
+                "VoxFlowApp",
+                "VoxFlowProviderAliyunDashScope",
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderAliyunDashScopeTests"
         ),
         .testTarget(
             name: "VoxFlowProviderSmokeTests",
@@ -284,11 +377,18 @@ let package = Package(
                 "VoxFlowProviderApple",
                 "VoxFlowProviderFunASR",
                 "VoxFlowProviderNVIDIA",
+                "VoxFlowProviderParakeet",
+                "VoxFlowProviderOmnilingual",
+                "VoxFlowProviderAliyunDashScope",
+                "VoxFlowProviderCloudCore",
                 "VoxFlowProviderParaformer",
+                "VoxFlowProviderGroq",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
+                "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper"
-            ]
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderSmokeTests"
         ),
         .testTarget(
             name: "VoxFlowAppTests",
@@ -301,9 +401,15 @@ let package = Package(
                 "VoxFlowModelStore",
                 "VoxFlowProviderFunASR",
                 "VoxFlowProviderNVIDIA",
+                "VoxFlowProviderParakeet",
+                "VoxFlowProviderOmnilingual",
+                "VoxFlowProviderAliyunDashScope",
+                "VoxFlowProviderCloudCore",
                 "VoxFlowProviderParaformer",
+                "VoxFlowProviderGroq",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
+                "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
                 "VoxFlowTextInsertion"
             ]

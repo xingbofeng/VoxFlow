@@ -3,6 +3,9 @@ import VoxFlowASRCore
 import VoxFlowModelStore
 import VoxFlowProviderFunASR
 import VoxFlowProviderNVIDIA
+import VoxFlowProviderOmnilingual
+import VoxFlowProviderParakeet
+import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
 
@@ -14,7 +17,10 @@ enum ASRProviderID {
     static let paraformer = "paraformer"
     static let senseVoice = "sense_voice"
     static let nvidiaNemotron = "nvidia_nemotron_3_5_asr_streaming_0_6b"
+    static let parakeetStreaming = "parakeet_streaming"
+    static let omnilingualASR = "omnilingual_asr"
     static let groqWhisper = "groq_whisper"
+    static let tencentCloudASR = "tencent_cloud_asr"
     static let qwenCloudASR = "qwen_cloud_asr"
     static let mistralVoxtral = "mistral_voxtral"
     static let assemblyAI = "assemblyai"
@@ -50,6 +56,17 @@ struct ASRProviderCapabilities: OptionSet, Hashable {
         (.multilingual, "multilingual", "多语言"),
         (.punctuation, "punctuation", "标点"),
     ]
+
+    var simpleFilterTags: [String] {
+        var tags: [String] = []
+        if contains(.fast) {
+            tags.append("快速")
+        }
+        if contains(.accurate) {
+            tags.append("准确")
+        }
+        return tags
+    }
 }
 
 enum ASRProviderLocalModelAction: Equatable {
@@ -115,6 +132,8 @@ struct ASRProviderDescriptor: Equatable, Identifiable {
         [
             ASRProviderID.funASR,
             ASRProviderID.nvidiaNemotron,
+            ASRProviderID.parakeetStreaming,
+            ASRProviderID.omnilingualASR,
             ASRProviderID.paraformer,
             ASRProviderID.qwen3,
             ASRProviderID.senseVoice,
@@ -155,6 +174,27 @@ struct ASRProviderDescriptor: Equatable, Identifiable {
     }
 }
 
+private extension ASRProviderDescriptor {
+    func replacingStatusMessage(_ statusMessage: String) -> ASRProviderDescriptor {
+        ASRProviderDescriptor(
+            id: id,
+            displayName: displayName,
+            providerType: providerType,
+            capabilities: capabilities,
+            tags: tags,
+            isAvailable: isAvailable,
+            localModelAction: localModelAction,
+            healthStatus: healthStatus,
+            isDefault: isDefault,
+            statusMessage: statusMessage,
+            privacySummary: privacySummary,
+            modelSize: modelSize,
+            engineType: engineType,
+            externalLinks: externalLinks
+        )
+    }
+}
+
 struct ASRProviderFilter: Equatable {
     var requiredCapabilities: ASRProviderCapabilities = []
     var tags: Set<String> = []
@@ -167,7 +207,12 @@ struct ASRProviderFilter: Equatable {
         if !descriptor.capabilities.isSuperset(of: requiredCapabilities) {
             return false
         }
-        if !tags.isEmpty && !tags.isSubset(of: Set(descriptor.tags)) {
+        let searchableTags = Set(
+            descriptor.tags
+                + descriptor.capabilities.simpleFilterTags
+                + ASRProviderTagPresentation.cardTags(for: descriptor)
+        )
+        if !tags.isEmpty && !tags.isSubset(of: searchableTags) {
             return false
         }
         return true
@@ -185,13 +230,41 @@ final class ASRProviderRegistry {
         ASRProviderID.paraformer,
         ASRProviderID.senseVoice,
         ASRProviderID.nvidiaNemotron,
+        ASRProviderID.parakeetStreaming,
+        ASRProviderID.omnilingualASR,
         ASRProviderID.groqWhisper,
+        ASRProviderID.tencentCloudASR,
         ASRProviderID.qwenCloudASR,
         ASRProviderID.mistralVoxtral,
         ASRProviderID.assemblyAI,
         ASRProviderID.volcengineDoubao,
         ASRProviderID.elevenLabsScribe,
     ]
+    private static let localProviderDisplayOrder = [
+        ASRProviderID.appleSpeech,
+        ASRProviderID.qwen3,
+        ASRProviderID.funASR,
+        ASRProviderID.nvidiaNemotron,
+        ASRProviderID.parakeetStreaming,
+        ASRProviderID.omnilingualASR,
+        ASRProviderID.paraformer,
+        ASRProviderID.senseVoice,
+        ASRProviderID.whisper,
+    ]
+    private static let onlineProviderDisplayOrder = [
+        ASRProviderID.groqWhisper,
+        ASRProviderID.tencentCloudASR,
+        ASRProviderID.qwenCloudASR,
+        ASRProviderID.volcengineDoubao,
+        ASRProviderID.mistralVoxtral,
+        ASRProviderID.assemblyAI,
+        ASRProviderID.elevenLabsScribe,
+    ]
+    private static let providerDisplayRank: [String: Int] = {
+        let localRanks = localProviderDisplayOrder.enumerated().map { ($0.element, $0.offset) }
+        let onlineRanks = onlineProviderDisplayOrder.enumerated().map { ($0.element, 10_000 + $0.offset) }
+        return Dictionary(uniqueKeysWithValues: localRanks + onlineRanks)
+    }()
 
     init(asrManager: ASRManager = ASRManager()) {
         self.asrManager = asrManager
@@ -207,11 +280,20 @@ final class ASRProviderRegistry {
             .merging(customDescriptors) { _, custom in custom }
             .values
             .sorted { lhs, rhs in
-                if lhs.id == ASRProviderID.appleSpeech { return true }
-                if rhs.id == ASRProviderID.appleSpeech { return false }
+                let lhsRank = Self.providerDisplayRank[lhs.id] ?? Self.fallbackDisplayRank(for: lhs)
+                let rhsRank = Self.providerDisplayRank[rhs.id] ?? Self.fallbackDisplayRank(for: rhs)
+                if lhsRank != rhsRank {
+                    return lhsRank < rhsRank
+                }
                 return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
             }
             .filter(filter.matches)
+    }
+
+    func offlineDescriptors() -> [ASRProviderDescriptor] {
+        descriptors().filter { descriptor in
+            descriptor.id == ASRProviderID.appleSpeech || descriptor.capabilities.contains(.local)
+        }
     }
 
     func descriptor(id: String) -> ASRProviderDescriptor? {
@@ -269,6 +351,16 @@ final class ASRProviderRegistry {
         return chain
     }
 
+    private static func fallbackDisplayRank(for descriptor: ASRProviderDescriptor) -> Int {
+        if descriptor.tags.contains("在线") || descriptor.externalLinks != nil {
+            return 10_000
+        }
+        if descriptor.tags.contains("本地") || descriptor.tags.contains("离线") {
+            return 1_000
+        }
+        return 5_000
+    }
+
     private func builtInDescriptors() -> [String: ASRProviderDescriptor] {
         let selectedID = asrManager.selectedEngineType.providerID
         let qwenState = asrManager.qwen3StoredModelInstallationState(for: asrManager.qwen3ModelSize)
@@ -286,7 +378,7 @@ final class ASRProviderRegistry {
             id: ASRProviderID.appleSpeech,
             displayName: "系统自带",
             providerType: "appleSpeech",
-            capabilities: [.streaming, .cloud, .fast, .multilingual, .punctuation],
+            capabilities: [.streaming, .fast, .multilingual, .punctuation],
             tags: ["系统", "流式", "多语言"],
             isAvailable: true,
             isDefault: selectedID == ASRProviderID.appleSpeech,
@@ -334,9 +426,11 @@ final class ASRProviderRegistry {
             modelSize: nil,
             engineType: .funASR
         )
+        let whisperState = asrManager.whisperModelInstallationState(for: asrManager.whisperVariant)
         let whisperPresentation = whisperLocalModelPresentation(
             variant: asrManager.whisperVariant,
-            isAvailable: Self.isReady(asrManager.whisperModelInstallationState(for: asrManager.whisperVariant))
+            state: whisperState,
+            isAvailable: Self.isReady(whisperState)
         )
         let whisper = ASRProviderDescriptor(
             id: ASRProviderID.whisper,
@@ -365,8 +459,8 @@ final class ASRProviderRegistry {
             id: senseVoiceCoreDescriptor.id.rawValue,
             displayName: senseVoiceCoreDescriptor.displayName,
             providerType: "sensevoice",
-            capabilities: [.fileTranscription, .local, .fast, .accurate, .multilingual],
-            tags: ["本地", "离线", "非流式"] + languageTags(from: senseVoiceCoreDescriptor) + ["FP16"],
+            capabilities: [.streaming, .fileTranscription, .local, .fast, .accurate, .multilingual],
+            tags: ["本地", "离线"] + languageTags(from: senseVoiceCoreDescriptor) + ["FP16"],
             isAvailable: senseVoicePresentation.isAvailable,
             localModelAction: senseVoicePresentation.localModelAction,
             healthStatus: senseVoicePresentation.healthStatus,
@@ -377,14 +471,8 @@ final class ASRProviderRegistry {
             engineType: .senseVoice
         )
         let paraformerState = asrManager.paraformerModelInstallationState()
-        let paraformerCoreDescriptor = VoxFlowASRCore.ASRProviderDescriptor(
-            id: VoxFlowASRCore.ASRProviderID(rawValue: ASRProviderID.paraformer),
-            displayName: "Paraformer Large zh",
-            modelInstallationState: Self.asrCoreInstallationState(from: paraformerState),
-            supportedLanguages: [
-                VoxFlowASRCore.ASRLanguageCapability(bcp47Tag: "zh-CN"),
-            ],
-            streamingSemantics: .rollingWindowConfirmedSegments
+        let paraformerCoreDescriptor = ParaformerProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: paraformerState)
         )
         let paraformerPresentation = paraformerLocalModelPresentation(
             state: paraformerState,
@@ -428,26 +516,102 @@ final class ASRProviderRegistry {
             modelSize: nil,
             engineType: .nvidiaNemotron
         )
-        return [
-            apple.id: apple,
-            funASR.id: funASR,
-            nvidia.id: nvidia,
-            paraformer.id: paraformer,
-            qwen.id: qwen,
-            senseVoice.id: senseVoice,
-            whisper.id: whisper,
-        ].merging(onlineCatalogDescriptors()) { local, _ in local }
+        let parakeetState = asrManager.parakeetModelInstallationState()
+        let parakeetCoreDescriptor = ParakeetProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: parakeetState)
+        )
+        let parakeetPresentation = speechSwiftLocalModelPresentation(
+            state: parakeetState,
+            isAvailable: Self.isReady(parakeetState),
+            readySummary: "Parakeet EOU 120M CoreML 英文/欧洲语种流式离线识别。",
+            missingSummary: "Parakeet EOU 120M CoreML 英文/欧洲语种流式离线识别。语音仅在本机处理，不会上传。"
+        )
+        let parakeet = ASRProviderDescriptor(
+            id: parakeetCoreDescriptor.id.rawValue,
+            displayName: parakeetCoreDescriptor.displayName,
+            providerType: "parakeetStreaming",
+            capabilities: [.streaming, .local, .fast, .multilingual, .punctuation],
+            tags: ["本地", "离线"] + languageTags(from: parakeetCoreDescriptor) + ["120M", "CoreML"],
+            isAvailable: parakeetPresentation.isAvailable,
+            localModelAction: parakeetPresentation.localModelAction,
+            healthStatus: parakeetPresentation.healthStatus,
+            isDefault: selectedID == ASRProviderID.parakeetStreaming,
+            statusMessage: parakeetPresentation.statusMessage,
+            privacySummary: parakeetPresentation.privacySummary,
+            modelSize: nil,
+            engineType: .parakeetStreaming
+        )
+        let omnilingualState = asrManager.omnilingualModelInstallationState()
+        let omnilingualCoreDescriptor = OmnilingualProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: omnilingualState)
+        )
+        let omnilingualPresentation = speechSwiftLocalModelPresentation(
+            state: omnilingualState,
+            isAvailable: Self.isReady(omnilingualState),
+            readySummary: "Omnilingual ASR 300M CoreML 超多语言离线转写。",
+            missingSummary: "Omnilingual ASR 300M CoreML 超多语言离线转写，适合文件/实验场景。语音仅在本机处理，不会上传。"
+        )
+        let omnilingual = ASRProviderDescriptor(
+            id: omnilingualCoreDescriptor.id.rawValue,
+            displayName: omnilingualCoreDescriptor.displayName,
+            providerType: "omnilingualASR",
+            capabilities: [.fileTranscription, .local, .multilingual],
+            tags: ["本地", "离线", "非流式"] + languageTags(from: omnilingualCoreDescriptor) + ["300M", "CoreML"],
+            isAvailable: omnilingualPresentation.isAvailable,
+            localModelAction: omnilingualPresentation.localModelAction,
+            healthStatus: omnilingualPresentation.healthStatus,
+            isDefault: selectedID == ASRProviderID.omnilingualASR,
+            statusMessage: omnilingualPresentation.statusMessage,
+            privacySummary: omnilingualPresentation.privacySummary,
+            modelSize: nil,
+            engineType: .omnilingualASR
+        )
+        let localDescriptors = [
+            apple,
+            funASR,
+            nvidia,
+            parakeet,
+            omnilingual,
+            paraformer,
+            qwen,
+            senseVoice,
+            whisper,
+        ].map { applyingSelectedUnavailableRecovery(to: $0) }
+        return Dictionary(uniqueKeysWithValues: localDescriptors.map { ($0.id, $0) })
+            .merging(onlineCatalogDescriptors()) { local, _ in local }
+    }
+
+    private func applyingSelectedUnavailableRecovery(
+        to descriptor: ASRProviderDescriptor
+    ) -> ASRProviderDescriptor {
+        guard descriptor.isDefault,
+              !descriptor.isAvailable,
+              let selectedEngineType = descriptor.engineType,
+              let notice = asrManager.selectionFallbackNotice,
+              notice.selectedEngineType == selectedEngineType else {
+            return descriptor
+        }
+        let baseMessage = descriptor.statusMessage ?? "\(descriptor.displayName) 当前不可用"
+        let recoveryMessage = "\(baseMessage)。请下载、修复或重新选择模型。"
+        return descriptor.replacingStatusMessage(recoveryMessage)
     }
 
     private func onlineCatalogDescriptors() -> [String: ASRProviderDescriptor] {
+        let selectedID = asrManager.selectedEngineType.providerID
+        let groqAvailable = asrManager.canSelectEngine(.groqWhisper)
+        let tencentAvailable = asrManager.canSelectEngine(.tencentCloud)
+        let aliyunAvailable = asrManager.canSelectEngine(.aliyunDashScope)
         let providers = [
             onlineDescriptor(
                 id: ASRProviderID.groqWhisper,
-                displayName: "Groq (Whisper)",
+                displayName: "Groq（免费）",
                 providerType: "groq",
                 capabilities: [.fileTranscription, .cloud, .fast, .accurate],
                 tags: ["在线", "非流式", "快速", "准确", "Whisper"],
-                statusMessage: "需要配置 API 密钥",
+                isAvailable: groqAvailable,
+                isDefault: selectedID == ASRProviderID.groqWhisper,
+                engineType: .groqWhisper,
+                statusMessage: groqAvailable ? "已配置，可用于云端听写" : "需要配置 API 密钥",
                 privacySummary: "Groq Cloud 托管 Whisper 转写，适合低延迟文件识别。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://console.groq.com/keys")!,
@@ -455,18 +619,58 @@ final class ASRProviderRegistry {
                 )
             ),
             onlineDescriptor(
+                id: ASRProviderID.tencentCloudASR,
+                displayName: "腾讯云",
+                providerType: "tencentCloudASR",
+                capabilities: [.streaming, .cloud, .accurate, .punctuation],
+                tags: ["在线", "实时", "准确", "中文"],
+                isAvailable: tencentAvailable,
+                isDefault: selectedID == ASRProviderID.tencentCloudASR,
+                engineType: tencentAvailable ? .tencentCloud : nil,
+                statusMessage: tencentAvailable
+                    ? "已配置，可用于实时云端听写"
+                    : "需要配置 AppID、SecretId 和 SecretKey",
+                privacySummary: "腾讯云实时语音识别会把录音流式发送到腾讯云，适合中文普通话实时听写。",
+                links: ASRProviderExternalLinks(
+                    apiKeyURL: URL(string: "https://console.cloud.tencent.com/cam/capi")!,
+                    modelsTitle: nil,
+                    guideTitle: "官方文档",
+                    guideURL: URL(string: "https://cloud.tencent.com/document/product/1093/48982")!
+                )
+            ),
+            onlineDescriptor(
                 id: ASRProviderID.qwenCloudASR,
-                displayName: "通义千问 ASR",
+                displayName: "阿里云",
                 providerType: "qwenCloudASR",
-                capabilities: [.streaming, .fileTranscription, .cloud, .accurate, .multilingual, .punctuation],
+                capabilities: [.streaming, .cloud, .accurate, .multilingual, .punctuation],
                 tags: ["在线", "实时", "准确", "中文", "多语言"],
-                statusMessage: "需要配置 API 密钥",
-                privacySummary: "阿里云百炼语音识别服务，支持实时和文件识别。",
+                isAvailable: aliyunAvailable,
+                isDefault: selectedID == ASRProviderID.qwenCloudASR,
+                engineType: aliyunAvailable ? .aliyunDashScope : nil,
+                statusMessage: aliyunAvailable
+                    ? "已配置，可用于实时云端听写"
+                    : "需要配置百炼 API Key",
+                privacySummary: "阿里云百炼 DashScope 实时语音识别会把录音流式发送到阿里云，适合中文和多语言实时听写。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://bailian.console.aliyun.com/?tab=model#/api-key")!,
-                    modelsURL: URL(string: "https://help.aliyun.com/zh/model-studio/developer-reference/paraformer-real-time-speech-recognition")!,
+                    modelsURL: URL(string: "https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide")!,
                     guideTitle: "配置指南",
-                    guideURL: URL(string: "https://help.aliyun.com/zh/model-studio/developer-reference/paraformer-recorded-speech-recognition")!
+                    guideURL: URL(string: "https://help.aliyun.com/zh/model-studio/websocket-for-paraformer-real-time-service")!
+                )
+            ),
+            onlineDescriptor(
+                id: ASRProviderID.volcengineDoubao,
+                displayName: "火山云",
+                providerType: "volcengineDoubao",
+                capabilities: [.streaming, .cloud, .fast, .accurate, .punctuation],
+                tags: ["在线", "实时", "准确", "中文"],
+                statusMessage: "暂未支持",
+                privacySummary: "火山云语音识别接入尚未实现，暂不能选择。",
+                links: ASRProviderExternalLinks(
+                    apiKeyURL: URL(string: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey")!,
+                    modelsTitle: nil,
+                    guideTitle: "配置指南",
+                    guideURL: URL(string: "https://www.volcengine.com/docs/82379/1520757")!
                 )
             ),
             onlineDescriptor(
@@ -475,8 +679,8 @@ final class ASRProviderRegistry {
                 providerType: "mistral",
                 capabilities: [.streaming, .fileTranscription, .cloud, .accurate, .multilingual],
                 tags: ["在线", "实时", "准确", "Voxtral"],
-                statusMessage: "需要配置 API 密钥",
-                privacySummary: "Mistral Voxtral 音频转写服务，支持文件和实时转写。",
+                statusMessage: "暂未支持",
+                privacySummary: "Mistral Voxtral 接入尚未实现，暂不能选择。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://console.mistral.ai/api-keys")!,
                     modelsURL: URL(string: "https://docs.mistral.ai/studio-api/audio/speech_to_text")!
@@ -488,26 +692,11 @@ final class ASRProviderRegistry {
                 providerType: "assemblyAI",
                 capabilities: [.streaming, .fileTranscription, .cloud, .accurate, .multilingual],
                 tags: ["在线", "准确", "多语言"],
-                statusMessage: "需要配置 API 密钥",
-                privacySummary: "企业级语音识别服务，适合会议、媒体和长音频转写。",
+                statusMessage: "暂未支持",
+                privacySummary: "AssemblyAI 接入尚未实现，暂不能选择。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://www.assemblyai.com/dashboard/signup")!,
                     modelsURL: URL(string: "https://www.assemblyai.com/products/speech-to-text")!
-                )
-            ),
-            onlineDescriptor(
-                id: ASRProviderID.volcengineDoubao,
-                displayName: "火山引擎（豆包语音）",
-                providerType: "volcengineDoubao",
-                capabilities: [.streaming, .cloud, .fast, .accurate, .punctuation],
-                tags: ["在线", "实时", "准确", "中文"],
-                statusMessage: "需要配置 API 密钥",
-                privacySummary: "火山引擎豆包语音识别服务，适合中文实时转写场景。",
-                links: ASRProviderExternalLinks(
-                    apiKeyURL: URL(string: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey")!,
-                    modelsTitle: nil,
-                    guideTitle: "配置指南",
-                    guideURL: URL(string: "https://www.volcengine.com/docs/82379/1520757")!
                 )
             ),
             onlineDescriptor(
@@ -516,8 +705,8 @@ final class ASRProviderRegistry {
                 providerType: "elevenLabs",
                 capabilities: [.streaming, .fileTranscription, .cloud, .accurate, .multilingual],
                 tags: ["在线", "实时", "多语言"],
-                statusMessage: "需要配置 API 密钥",
-                privacySummary: "ElevenLabs Scribe 语音转文字，支持多语言和实时识别。",
+                statusMessage: "暂未支持",
+                privacySummary: "ElevenLabs Scribe 接入尚未实现，暂不能选择。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://elevenlabs.io/app/settings/api-keys")!,
                     modelsURL: URL(string: "https://elevenlabs.io/docs/overview/capabilities/speech-to-text")!
@@ -533,6 +722,9 @@ final class ASRProviderRegistry {
         providerType: String,
         capabilities: ASRProviderCapabilities,
         tags: [String],
+        isAvailable: Bool = false,
+        isDefault: Bool = false,
+        engineType: ASREngineType? = nil,
         statusMessage: String,
         privacySummary: String,
         links: ASRProviderExternalLinks
@@ -543,14 +735,14 @@ final class ASRProviderRegistry {
             providerType: providerType,
             capabilities: capabilities,
             tags: tags,
-            isAvailable: false,
+            isAvailable: isAvailable,
             localModelAction: .none,
-            healthStatus: .unavailable,
-            isDefault: false,
+            healthStatus: isAvailable ? .ok : .unavailable,
+            isDefault: isDefault,
             statusMessage: statusMessage,
             privacySummary: privacySummary,
             modelSize: nil,
-            engineType: nil,
+            engineType: engineType,
             externalLinks: links
         )
     }
@@ -560,7 +752,10 @@ final class ASRProviderRegistry {
         state: ModelInstallationState
     ) -> VoxFlowASRCore.ASRProviderDescriptor {
         let coreState = Self.asrCoreInstallationState(from: state)
-        return Qwen3ProviderDescriptor.descriptor(modelInstallationState: coreState)
+        return Qwen3ProviderDescriptor.descriptor(
+            modelInstallationState: coreState,
+            variant: Qwen3ModelVariant(size: size)
+        )
     }
 
     private static func isReady(_ state: ModelInstallationState) -> Bool {
@@ -591,7 +786,7 @@ final class ASRProviderRegistry {
             return .ready
         case .downloading(let progress), .paused(let progress):
             return .downloading(progress: progress.fractionCompleted ?? 0)
-        case .verifying:
+        case .verifying, .deleting(_):
             return .verifying
         case .extracting, .compiling:
             return .compiling
@@ -630,6 +825,22 @@ final class ASRProviderRegistry {
                 .ok,
                 "本地模型已就绪",
                 "语音仅在本机处理，不会上传。"
+            )
+        case .deleting(_):
+            return (
+                false,
+                .none,
+                .notInstalled,
+                "正在删除本地模型...",
+                "删除完成前无法使用该模型。语音仅在本机处理，不会上传。"
+            )
+        case .failed(let message):
+            return (
+                false,
+                .repair,
+                .repairRequired,
+                "模型准备失败：\(message)",
+                "模型需要修复后才能使用。语音仅在本机处理，不会上传。"
             )
         case .corrupt(let reason):
             return (
@@ -676,6 +887,7 @@ final class ASRProviderRegistry {
 
     private func whisperLocalModelPresentation(
         variant: ASRManager.WhisperVariant,
+        state: ModelInstallationState,
         isAvailable: Bool
     ) -> (
         isAvailable: Bool,
@@ -702,13 +914,64 @@ final class ASRProviderRegistry {
                 "Whisper \(variant.rawValue) 多语言离线识别。"
             )
         }
-        return (
-            false,
-            .download,
-            .notInstalled,
-            "尚未安装本地模型",
-            "Whisper \(variant.rawValue) 多语言离线识别。"
-        )
+        switch state {
+        case .deleting(_):
+            return (
+                false,
+                .none,
+                .notInstalled,
+                "正在删除本地模型...",
+                "删除完成前无法使用 Whisper \(variant.rawValue)。语音仅在本机处理，不会上传。"
+            )
+        case .failed(let message):
+            return (
+                false,
+                .repair,
+                .repairRequired,
+                "模型准备失败：\(message)",
+                "模型需要修复后才能使用。语音仅在本机处理，不会上传。"
+            )
+        case .corrupt(let reason):
+            return (
+                false,
+                .repair,
+                .repairRequired,
+                "模型损坏，需要修复：\(reason)",
+                "模型需要修复后才能使用。语音仅在本机处理，不会上传。"
+            )
+        case .runtimeUnsupported(let reason):
+            return (
+                false,
+                .none,
+                .runtimeUnsupported,
+                "运行时不支持：\(reason)",
+                "当前设备或运行时暂不可用。语音仅在本机处理，不会上传。"
+            )
+        case .hardwareUnsupported(let reason):
+            return (
+                false,
+                .none,
+                .hardwareUnsupported,
+                "硬件不支持：\(reason)",
+                "当前设备暂不可用。语音仅在本机处理，不会上传。"
+            )
+        case .insufficientDisk:
+            return (
+                false,
+                .none,
+                .insufficientDisk,
+                "磁盘空间不足",
+                "请释放磁盘空间后再下载模型。语音仅在本机处理，不会上传。"
+            )
+        default:
+            return (
+                false,
+                .download,
+                .notInstalled,
+                "尚未安装本地模型",
+                "Whisper \(variant.rawValue) 多语言离线识别。"
+            )
+        }
     }
 
     private func funASRLocalModelPresentation(
@@ -729,6 +992,22 @@ final class ASRProviderRegistry {
                 .ok,
                 "本地模型已就绪",
                 "FunASR Nano \(asrManager.funASRPrecision.rawValue) 中文/English 离线识别。"
+            )
+        case .deleting(_):
+            return (
+                false,
+                .none,
+                .notInstalled,
+                "正在删除本地模型...",
+                "删除完成前无法使用 FunASR。语音仅在本机处理，不会上传。"
+            )
+        case .failed(let message):
+            return (
+                false,
+                .repair,
+                .repairRequired,
+                "模型准备失败：\(message)",
+                "模型需要修复后才能使用。语音仅在本机处理，不会上传。"
             )
         case .corrupt(let reason):
             return (
@@ -786,6 +1065,8 @@ final class ASRProviderRegistry {
         switch state {
         case .ready where isAvailable:
             return (true, .delete, .ok, "本地模型已就绪", "Paraformer Large zh 中文离线识别。语音仅在本机处理，不会上传。")
+        case .deleting(_):
+            return (false, .none, .notInstalled, "正在删除本地模型...", "删除完成前无法使用 Paraformer。语音仅在本机处理，不会上传。")
         case .corrupt(let reason):
             return (false, .repair, .repairRequired, "模型损坏，需要修复：\(reason)", "模型需要修复后才能使用。语音仅在本机处理，不会上传。")
         case .failed(let message):
@@ -808,6 +1089,8 @@ final class ASRProviderRegistry {
         switch state {
         case .ready where isAvailable:
             return (true, .delete, .ok, "本地模型已就绪", "NVIDIA Nemotron 0.6B CoreML 多语言流式离线识别。")
+        case .deleting(_):
+            return (false, .none, .notInstalled, "正在删除本地模型...", "删除完成前无法使用 NVIDIA Nemotron。语音仅在本机处理，不会上传。")
         case .runtimeUnsupported(let reason):
             return (false, .none, .runtimeUnsupported, "运行时不支持：\(reason)", "当前设备暂不可用。语音仅在本机处理，不会上传。")
         case .hardwareUnsupported(let reason):
@@ -818,6 +1101,36 @@ final class ASRProviderRegistry {
             return (false, .repair, .repairRequired, "模型准备失败：\(message)", "模型需要修复后才能使用。语音仅在本机处理，不会上传。")
         default:
             return (false, .download, .notInstalled, "尚未安装本地模型", "NVIDIA Nemotron 0.6B CoreML 多语言流式离线识别。")
+        }
+    }
+
+    private func speechSwiftLocalModelPresentation(
+        state: ModelInstallationState,
+        isAvailable: Bool,
+        readySummary: String,
+        missingSummary: String
+    ) -> (
+        isAvailable: Bool,
+        localModelAction: ASRProviderLocalModelAction,
+        healthStatus: ASRProviderRecordHealthStatus,
+        statusMessage: String,
+        privacySummary: String
+    ) {
+        switch state {
+        case .ready where isAvailable:
+            return (true, .delete, .ok, "本地模型已就绪", readySummary)
+        case .deleting(_):
+            return (false, .none, .notInstalled, "正在删除本地模型...", "删除完成前无法使用该模型。语音仅在本机处理，不会上传。")
+        case .runtimeUnsupported(let reason):
+            return (false, .none, .runtimeUnsupported, "运行时不支持：\(reason)", "当前设备暂不可用。语音仅在本机处理，不会上传。")
+        case .hardwareUnsupported(let reason):
+            return (false, .none, .hardwareUnsupported, "硬件不支持：\(reason)", "当前设备暂不可用。语音仅在本机处理，不会上传。")
+        case .corrupt(let reason):
+            return (false, .repair, .repairRequired, "模型损坏，需要修复：\(reason)", "模型需要修复后才能使用。语音仅在本机处理，不会上传。")
+        case .failed(let message):
+            return (false, .repair, .repairRequired, "模型准备失败：\(message)", "模型需要修复后才能使用。语音仅在本机处理，不会上传。")
+        default:
+            return (false, .download, .notInstalled, "尚未安装本地模型", missingSummary)
         }
     }
 
@@ -839,6 +1152,22 @@ final class ASRProviderRegistry {
                 .ok,
                 "本地模型已就绪",
                 "中文/English 离线识别，录音结束后在本机完成推理。"
+            )
+        case .deleting(_):
+            return (
+                false,
+                .none,
+                .notInstalled,
+                "正在删除本地模型...",
+                "删除完成前无法使用 SenseVoice。语音仅在本机处理，不会上传。"
+            )
+        case .failed(let message):
+            return (
+                false,
+                .repair,
+                .repairRequired,
+                "模型准备失败：\(message)",
+                "模型需要修复后才能使用。语音仅在本机处理，不会上传。"
             )
         case .corrupt(let reason):
             return (

@@ -25,11 +25,39 @@ enum PermissionSummary {
                 请在 系统设置 → 隐私与安全性 中启用"麦克风"和"语音识别"权限。
                 """
             )
-        case .funASR, .whisper, .qwen3, .senseVoice, .paraformer, .nvidiaNemotron:
+        case .funASR, .whisper, .qwen3, .senseVoice, .paraformer, .nvidiaNemotron,
+             .parakeetStreaming, .omnilingualASR:
             return (
                 "需要麦克风权限",
                 """
                 随声写使用本地离线模型时只需要麦克风权限，不需要 Apple 语音识别权限。
+
+                请在 系统设置 → 隐私与安全性 → 麦克风 中启用随声写。
+                """
+            )
+        case .groqWhisper:
+            return (
+                "需要麦克风权限",
+                """
+                随声写使用 Groq 云端语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到 Groq 进行转写。
+
+                请在 系统设置 → 隐私与安全性 → 麦克风 中启用随声写。
+                """
+            )
+        case .tencentCloud:
+            return (
+                "需要麦克风权限",
+                """
+                随声写使用腾讯云实时语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到腾讯云进行流式转写。
+
+                请在 系统设置 → 隐私与安全性 → 麦克风 中启用随声写。
+                """
+            )
+        case .aliyunDashScope:
+            return (
+                "需要麦克风权限",
+                """
+                随声写使用阿里云百炼 DashScope 实时语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到阿里云进行流式转写。
 
                 请在 系统设置 → 隐私与安全性 → 麦克风 中启用随声写。
                 """

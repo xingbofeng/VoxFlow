@@ -47,12 +47,12 @@ final class ContextAwareWorkflowIntegrationTests: XCTestCase {
         XCTAssertEqual(task.mode, .dictation)
 
         // 2. Record transcript
-        try coordinator.recordRawTranscript("raw text from speech")
+        try coordinator.recordRawTranscript("raw text from speech", kind: .dictation)
         let afterTranscript = try repository.fetch(id: task.id)
         XCTAssertEqual(afterTranscript?.stage, .transcribing)
 
         // 3. Process and deliver
-        let result = try await coordinator.processAndDeliver()
+        let result = try await coordinator.processAndDeliver(kind: .dictation)
         XCTAssertEqual(result, .injected)
 
         // 4. Verify final state
@@ -93,12 +93,12 @@ final class ContextAwareWorkflowIntegrationTests: XCTestCase {
 
         // Start on app1
         let task = try coordinator.startTask(mode: .dictation, target: target1)
-        try coordinator.recordRawTranscript("raw")
+        try coordinator.recordRawTranscript("raw", kind: .dictation)
 
         // Switch to app2 before delivery
         targetProvider.target = target2
 
-        let result = try await coordinator.processAndDeliver()
+        let result = try await coordinator.processAndDeliver(kind: .dictation)
 
         // Should fall back to copy since target changed
         XCTAssertEqual(result, .targetChanged(reason: "Application changed"))
@@ -148,7 +148,7 @@ final class ContextAwareWorkflowIntegrationTests: XCTestCase {
         XCTAssertNotNil(completed?.contextJson)
     }
 
-    func testAgentComposePersistsLLMTraceForDetailInspection() async throws {
+    func testAgentComposePersistsRedactedLLMTraceForDetailInspection() async throws {
         let trace = LLMRefinementTrace(
             providerID: "provider-1",
             providerName: "OpenAI 兼容配置",
@@ -183,7 +183,10 @@ final class ContextAwareWorkflowIntegrationTests: XCTestCase {
         let traceJSON = try XCTUnwrap(completed.trace)
         let decoded = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
         XCTAssertEqual(decoded.llm?.model, "gpt-test")
-        XCTAssertEqual(decoded.llm?.requestBodyJSON, trace.requestBodyJSON)
+        XCTAssertTrue(decoded.llm?.requestBodyJSON.contains("[redacted: user content]") == true)
+        XCTAssertNil(decoded.llm?.responseText)
+        XCTAssertFalse(traceJSON.contains("帮我回复微信"))
+        XCTAssertFalse(traceJSON.contains("可以，我六点前发给你。"))
     }
 
     // MARK: - testContextFailureDegradation

@@ -9,6 +9,11 @@ enum ASREngineType: String, CaseIterable, Equatable {
     case senseVoice = "SenseVoice Small"
     case paraformer = "Paraformer"
     case nvidiaNemotron = "NVIDIA Nemotron ASR 0.6B"
+    case parakeetStreaming = "Parakeet Streaming"
+    case omnilingualASR = "Omnilingual ASR"
+    case groqWhisper = "Groq Whisper"
+    case tencentCloud = "Tencent Cloud ASR"
+    case aliyunDashScope = "Aliyun DashScope ASR"
 
     var displayName: String {
         switch self {
@@ -26,6 +31,16 @@ enum ASREngineType: String, CaseIterable, Equatable {
             return "Paraformer Large zh"
         case .nvidiaNemotron:
             return "NVIDIA Nemotron ASR 0.6B"
+        case .parakeetStreaming:
+            return "Parakeet Streaming"
+        case .omnilingualASR:
+            return "Omnilingual ASR"
+        case .groqWhisper:
+            return "Groq（免费）"
+        case .tencentCloud:
+            return "腾讯云"
+        case .aliyunDashScope:
+            return "阿里云"
         }
     }
 }

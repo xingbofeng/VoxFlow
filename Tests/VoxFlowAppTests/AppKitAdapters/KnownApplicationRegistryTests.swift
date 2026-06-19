@@ -90,6 +90,7 @@ final class KnownApplicationRegistryTests: XCTestCase {
             )
         }
 
+        XCTAssertNil(registry.lookup(bundleID: "com.example.unknown"))
         XCTAssertNil(registry.lookup(bundleID: "com.voiceinput.app"))
     }
 }

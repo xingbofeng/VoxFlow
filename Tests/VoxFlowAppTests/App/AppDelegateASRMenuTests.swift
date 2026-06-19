@@ -10,6 +10,9 @@ final class AppDelegateASRMenuTests: XCTestCase {
             options.map(\.title),
             [
                 "系统自带",
+                "Groq",
+                "腾讯云",
+                "阿里云",
                 "FunASR Nano INT8",
                 "FunASR Nano FP32",
                 "Whisper Turbo",
@@ -19,6 +22,8 @@ final class AppDelegateASRMenuTests: XCTestCase {
                 "SenseVoice Small",
                 "Paraformer Large zh",
                 "NVIDIA Nemotron ASR 0.6B",
+                "Parakeet Streaming",
+                "Omnilingual ASR",
             ]
         )
     }
@@ -41,7 +46,7 @@ final class AppDelegateASRMenuTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let manager = ASRManager(defaults: defaults)
+        let manager = ASRManager(defaults: defaults, qwen3RuntimePreflight: { _ in .supported })
         let resolver = ASRMenuStateResolver(
             asrManager: manager,
             qwenAvailableOnDisk: { $0 == .size0_6B },
@@ -74,7 +79,11 @@ final class AppDelegateASRMenuTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let manager = ASRManager(defaults: defaults)
+        let manager = ASRManager(defaults: defaults) { size in
+            size == .size1_7B
+                ? .runtimeUnsupported(reason: "Qwen3-ASR 1.7B runtime unavailable.")
+                : .supported
+        }
         let resolver = ASRMenuStateResolver(
             asrManager: manager,
             qwenAvailableOnDisk: { _ in true },
@@ -97,7 +106,62 @@ final class AppDelegateASRMenuTests: XCTestCase {
         XCTAssertEqual(manager.selectedEngineType, .whisper)
     }
 
+    func testGroqMenuOptionIsDisabledUntilCredentialExists() throws {
+        let suiteName = "test.ASRMenuStateResolver.groq.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentials = GroqMenuCredentialStore()
+        let manager = ASRManager(defaults: defaults, credentialStore: credentials)
+        let resolver = ASRMenuStateResolver(asrManager: manager)
+        let groq = ASRMenuModel(engineType: .groqWhisper, title: "Groq")
+
+        XCTAssertFalse(resolver.isEnabled(groq))
+        XCTAssertFalse(resolver.select(groq))
+
+        try manager.saveGroqAPIKey("secret")
+
+        XCTAssertTrue(resolver.isEnabled(groq))
+        XCTAssertTrue(resolver.select(groq))
+        XCTAssertTrue(resolver.isSelected(groq))
+        XCTAssertEqual(manager.selectedEngineType, .groqWhisper)
+    }
+
+    @MainActor
+    func testMenuOpeningRefreshesASRSelectionChangedOutsideMenu() {
+        let tencent = ASRMenuModel(engineType: .tencentCloud, title: "腾讯云")
+        let nvidia = ASRMenuModel(engineType: .nvidiaNemotron, title: "NVIDIA")
+        var selectedEngine = ASREngineType.tencentCloud
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [tencent, nvidia],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { option in option.engineType == selectedEngine },
+            actions: .noop
+        )
+        let submenu = coordinator.menu.items
+            .compactMap { $0.submenu }
+            .first { $0.items.contains { $0.title == "腾讯云" } }
+
+        XCTAssertEqual(submenu?.items.first { $0.title == "腾讯云" }?.state, .on)
+        XCTAssertEqual(submenu?.items.first { $0.title == "NVIDIA" }?.state, .off)
+
+        selectedEngine = .nvidiaNemotron
+        coordinator.menuWillOpen(coordinator.menu)
+
+        XCTAssertEqual(submenu?.items.first { $0.title == "腾讯云" }?.state, .off)
+        XCTAssertEqual(submenu?.items.first { $0.title == "NVIDIA" }?.state, .on)
+    }
+
     func testParaformerSelectionIsRepresentableAsMenuOption() {
         XCTAssertTrue(ASREngineType.allCases.map(\.rawValue).contains("Paraformer"))
     }
+}
+
+private final class GroqMenuCredentialStore: CredentialStore {
+    private var values: [String: String] = [:]
+
+    func readCredential(account: String) throws -> String? { values[account] }
+    func saveCredential(_ value: String, account: String) throws { values[account] = value }
+    func deleteCredential(account: String) throws { values.removeValue(forKey: account) }
 }

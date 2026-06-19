@@ -268,7 +268,9 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func present(_ window: NSWindow) {
+        window.alphaValue = 1.0
         window.orderFront(nil)
+        window.displayIfNeeded()
 
         if let layer = visualEffectView.layer {
             let spring = CASpringAnimation(keyPath: "transform.scale")
@@ -280,12 +282,6 @@ final class OverlayWindowController: NSWindowController {
             spring.initialVelocity = 0
             spring.duration = 0.35
             layer.add(spring, forKey: "voiceinput.entrance")
-        }
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().alphaValue = 1.0
         }
     }
 
@@ -353,6 +349,7 @@ final class OverlayWindowController: NSWindowController {
     func showTemporaryMessage(
         _ text: String,
         duration: TimeInterval = 3.0,
+        tone: HUDTemporaryMessageTone = .info,
         action: (() -> Void)? = nil
     ) {
         temporaryMessageTask?.cancel()
@@ -371,13 +368,11 @@ final class OverlayWindowController: NSWindowController {
 
         waveformView.stopAnimation()
         waveformView.isHidden = true
-        statusLabel.stringValue = "提示"
-        statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+        applyTemporaryMessageTone(tone)
         refiningSpinner.isHidden = true
         refiningSpinner.stopAnimation(nil)
 
         textLabel.stringValue = text
-        textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)  // warm amber
 
         let textSize = (text as NSString).boundingRect(
             with: NSSize(
@@ -402,6 +397,19 @@ final class OverlayWindowController: NSWindowController {
             self.isShowingTemporaryMessage = false
             self.temporaryMessageAction = nil
             self.dismiss(generation: generation)
+        }
+    }
+
+    private func applyTemporaryMessageTone(_ tone: HUDTemporaryMessageTone) {
+        switch tone {
+        case .info:
+            statusLabel.stringValue = "提示"
+            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+            textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
+        case .success:
+            statusLabel.stringValue = "成功"
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
         }
     }
 

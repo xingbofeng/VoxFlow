@@ -9,7 +9,13 @@ enum ShortPressBehavior: String, CaseIterable, Codable, Equatable {
 final class ShortcutManager: @unchecked Sendable {
     static let shared = ShortcutManager()
     static let defaultShortcutKeyCode: Int64 = 54
+    static let defaultAgentComposeShortcutKeyCode: Int64 = 61
     static let defaultLongPressThreshold: TimeInterval = 0.5
+    static let supportedModifierKeyCodes: Set<Int64> = [54, 55, 56, 60, 58, 61, 59, 62]
+
+    static func isSupportedVoiceShortcutKeyCode(_ keyCode: Int64) -> Bool {
+        supportedModifierKeyCodes.contains(keyCode)
+    }
 
     private let defaults: UserDefaults
 
@@ -27,6 +33,7 @@ final class ShortcutManager: @unchecked Sendable {
         static let shortPressBehavior = "ShortPressBehavior"
         static let dictationShortcutKeyCode = "DictationShortcutKeyCode"
         static let agentComposeShortcutKeyCode = "AgentComposeShortcutKeyCode"
+        static let agentComposeShortcutDisabled = "AgentComposeShortcutDisabled"
         static let migrationDone = "ShortcutManager_MigrationDone_V2"
     }
 
@@ -98,8 +105,10 @@ final class ShortcutManager: @unchecked Sendable {
         }
         set {
             if let value = newValue {
+                defaults.set(false, forKey: Keys.agentComposeShortcutDisabled)
                 defaults.set(value, forKey: Keys.agentComposeShortcutKeyCode)
             } else {
+                defaults.set(true, forKey: Keys.agentComposeShortcutDisabled)
                 defaults.removeObject(forKey: Keys.agentComposeShortcutKeyCode)
             }
         }
@@ -110,7 +119,16 @@ final class ShortcutManager: @unchecked Sendable {
         case .dictation:
             return dictationShortcutKeyCode ?? Self.defaultShortcutKeyCode
         case .agentCompose:
-            return agentComposeShortcutKeyCode
+            guard !defaults.bool(forKey: Keys.agentComposeShortcutDisabled) else {
+                return nil
+            }
+            if let agentComposeShortcutKeyCode {
+                return agentComposeShortcutKeyCode
+            }
+            let effectiveDictationKeyCode = dictationShortcutKeyCode ?? Self.defaultShortcutKeyCode
+            return effectiveDictationKeyCode == Self.defaultAgentComposeShortcutKeyCode
+                ? nil
+                : Self.defaultAgentComposeShortcutKeyCode
         }
     }
 
@@ -125,8 +143,8 @@ final class ShortcutManager: @unchecked Sendable {
 
     /// Checks if two actions have conflicting (identical) key bindings.
     func hasConflict() -> Bool {
-        let dictation = dictationShortcutKeyCode
-        let agentCompose = agentComposeShortcutKeyCode
+        let dictation = shortcutKeyCode(for: .dictation)
+        let agentCompose = shortcutKeyCode(for: .agentCompose)
         guard let d = dictation, let a = agentCompose else { return false }
         return d == a
     }

@@ -560,13 +560,9 @@ struct ScreenshotWindowCandidate: Equatable, Sendable {
 
 struct SystemScreenshotProvider: ScreenshotProviding {
     func canCaptureScreen() -> Bool {
-        // Check screen recording permission (macOS 10.15+)
-        // CGPreflightScreenCaptureAccess returns true if we have permission.
-        // If not, request once when visual context is actually needed.
-        if CGPreflightScreenCaptureAccess() {
-            return true
-        }
-        return CGRequestScreenCaptureAccess()
+        // Check screen recording permission without prompting. Permission requests
+        // belong in onboarding/settings, not in the hotkey-to-HUD workflow.
+        CGPreflightScreenCaptureAccess()
     }
 
     func visibleText(target: DictationTarget?) async -> String? {

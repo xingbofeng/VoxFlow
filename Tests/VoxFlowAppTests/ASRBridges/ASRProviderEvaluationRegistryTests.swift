@@ -10,8 +10,8 @@ final class ASRProviderEvaluationRegistryTests: XCTestCase {
         XCTAssertEqual(candidate.descriptor.displayName, "NVIDIA Nemotron ASR 0.6B")
         XCTAssertEqual(candidate.descriptor.supportedLanguages.map(\.bcp47Tag), ["zh-CN", "zh-TW", "en-US", "ja-JP", "ko-KR"])
         XCTAssertFalse(candidate.isUserSelectable)
-        XCTAssertFalse(candidate.allowsModelDownload)
-        XCTAssertFalse(candidate.canAdvertiseReady)
+        XCTAssertTrue(candidate.allowsModelDownload)
+        XCTAssertTrue(candidate.canAdvertiseReady)
         XCTAssertTrue(candidate.descriptor.modelInstallationState.isUnsupported)
 
         let formalRegistry = ASRProviderRegistry(asrManager: ASRManager(defaults: isolatedDefaults()))

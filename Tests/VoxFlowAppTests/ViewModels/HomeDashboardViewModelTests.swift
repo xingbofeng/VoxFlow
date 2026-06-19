@@ -323,6 +323,10 @@ final class HomeDashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.model, "gpt-agent")
         XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.statusCode, 200)
+        XCTAssertTrue(
+            viewModel.selectedDetail?.trace?.llm?.requestBodyJSON.contains("[redacted: user content]") == true
+        )
+        XCTAssertNil(viewModel.selectedDetail?.trace?.llm?.responseText)
     }
 
     func testAgentComposeHistoryCopyAndDeleteUseVoiceTaskRepository() throws {
@@ -484,7 +488,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 failureJson: #"{"stage":"output","code":"permissionDenied","message":"敏感失败详情","recoverable":true}"#,
                 asrMetadata: VoiceTaskASRMetadata(
                     providerID: "qwen3_asr",
-                    modelID: "qwen3-asr-0.6b-coreml-int8",
+                    modelID: "qwen3-asr-0.6b-mlx-4bit",
                     language: "zh-CN",
                     sessionID: "session-123",
                     audioDurationMs: 1_200,

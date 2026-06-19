@@ -21,6 +21,22 @@ final class DictationFeatureControllerTests: XCTestCase {
         XCTAssertTrue(recorder.recognitionErrors.isEmpty)
     }
 
+    func testPressTracksActiveActionBeforeStartDictationPublishesStateChange() {
+        let recorder = DictationFeatureRecorder()
+        var controller: DictationFeatureController!
+        recorder.onStart = {
+            controller.handleStateChange(.recording)
+        }
+        controller = recorder.makeController()
+
+        controller.handlePress(action: .agentCompose)
+
+        XCTAssertEqual(recorder.presentationCalls, [
+            .init(state: .recording, action: .agentCompose)
+        ])
+        XCTAssertEqual(controller.activeVoiceAction, .agentCompose)
+    }
+
     func testAgentComposePressRequiresConfiguredLLMBeforePermissionChecks() {
         let recorder = DictationFeatureRecorder()
         recorder.isAgentComposeConfigured = false
@@ -116,6 +132,7 @@ private final class DictationFeatureRecorder {
     var permissionSnapshot = RecordingPermissionSnapshot.grantedApple
     var voiceEnhancementEnabled = false
     var startError: Error?
+    var onStart: (() -> Void)?
     var presentationResult = DictationStatePresentationResult(shouldClearActiveVoiceAction: false)
 
     private(set) var agentComposeSetupPromptCount = 0
@@ -166,6 +183,7 @@ private final class DictationFeatureRecorder {
                 }
                 self?.startCalls.append(StartCall(configuration: configuration, mode: mode))
                 self?.state = .recording
+                self?.onStart?()
             },
             releaseDictation: { [weak self] in
                 self?.releaseCount += 1

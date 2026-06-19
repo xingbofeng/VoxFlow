@@ -52,19 +52,19 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.selectionPassthroughRegions.contains(.repairButton))
     }
 
-    func testProviderCardInteractionKeepsExternalLinksOutOfSelectionRegions() {
+    func testProviderCardInteractionAllowsAvailableCloudProviderSelectionWithExternalLinks() {
         let descriptor = ASRProviderDescriptor(
             id: ASRProviderID.qwenCloudASR,
-            displayName: "通义千问 ASR",
+            displayName: "阿里云",
             providerType: "qwenCloudASR",
             capabilities: [.streaming, .cloud],
             tags: ["在线"],
-            isAvailable: false,
+            isAvailable: true,
             isDefault: false,
-            statusMessage: "需要配置 API 密钥",
+            statusMessage: "已配置",
             privacySummary: "在线识别",
             modelSize: nil,
-            engineType: nil,
+            engineType: .aliyunDashScope,
             externalLinks: ASRProviderExternalLinks(
                 apiKeyURL: URL(string: "https://example.com/key")!,
                 modelsURL: URL(string: "https://example.com/models")!
@@ -72,10 +72,34 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         )
         let presentation = ASRProviderCardInteractionPresentation(provider: descriptor)
 
-        XCTAssertEqual(presentation.cardTapBehavior, .ignore)
-        XCTAssertFalse(presentation.handlesCardTap)
+        XCTAssertEqual(presentation.cardTapBehavior, .selectProvider)
+        XCTAssertTrue(presentation.handlesCardTap)
         XCTAssertTrue(presentation.controlOnlyRegions.contains(.externalLinks))
         XCTAssertFalse(presentation.selectionPassthroughRegions.contains(.externalLinks))
+    }
+
+    func testProviderViewKeepsScopeAndTagFiltersInOneToolbarWithoutFastAccurateRow() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("scopeAndTagFilterBar"))
+        XCTAssertFalse(source.contains("\n            tagBar\n"))
+        XCTAssertTrue(source.contains("ForEach(viewModel.availableTags"))
+        XCTAssertTrue(source.contains("viewModel.toggleTag(tag)"))
+    }
+
+    func testCloudConfigurationFieldsAreMinimalAndHideOnlySecrets() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertFalse(source.contains("TextField(\"Base URL\""))
+        XCTAssertFalse(source.contains("TextField(\"识别引擎"))
+        XCTAssertFalse(source.contains("TextField(\"识别模型"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"AppID\", text: $viewModel.tencentAppIDInput, isSecret: false)"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"SecretId\", text: $viewModel.tencentSecretIDInput, isSecret: false)"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"SecretKey\", text: $viewModel.tencentSecretKeyInput, isSecret: true)"))
     }
 
     func testProviderCardInteractionDisablesSelectionForUnavailableOrCurrentProvider() {
@@ -90,9 +114,23 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(current.isSelectionEnabled)
     }
 
-    func testProviderCardInteractionRoutesUnavailableTapToFeedback() {
-        let unavailable = ASRProviderCardInteractionPresentation(
+    func testProviderCardInteractionIgnoresUnavailableTapWhenLocalModelActionExists() {
+        let downloadable = ASRProviderCardInteractionPresentation(
             provider: makeProvider(isAvailable: false, isDefault: false, localModelAction: .download)
+        )
+        let repairable = ASRProviderCardInteractionPresentation(
+            provider: makeProvider(isAvailable: false, isDefault: false, localModelAction: .repair)
+        )
+
+        XCTAssertEqual(downloadable.cardTapBehavior, .ignore)
+        XCTAssertFalse(downloadable.handlesCardTap)
+        XCTAssertEqual(repairable.cardTapBehavior, .ignore)
+        XCTAssertFalse(repairable.handlesCardTap)
+    }
+
+    func testProviderCardInteractionRoutesUnactionableUnavailableTapToFeedback() {
+        let unavailable = ASRProviderCardInteractionPresentation(
+            provider: makeProvider(isAvailable: false, isDefault: false, localModelAction: .none)
         )
         let current = ASRProviderCardInteractionPresentation(
             provider: makeProvider(isAvailable: true, isDefault: true, localModelAction: .none)
@@ -133,6 +171,48 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("provider.id == ASRProviderID.qwen3\n                || provider.id == ASRProviderID.funASR"))
     }
 
+    func testProviderViewOnlyShowsHeavyControlsInsideExpandedCards() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("@State private var expandedProviderID"))
+        XCTAssertTrue(source.contains("let isExpanded = isProviderExpanded(provider)"))
+        XCTAssertTrue(source.contains("if isExpanded {"))
+        XCTAssertTrue(source.contains("private func isProviderExpanded"))
+        XCTAssertTrue(source.contains("toggleExpandedProvider"))
+    }
+
+    func testDefaultProviderCardsDoNotAutoExpand() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("expandedProviderID == provider.id"))
+        XCTAssertFalse(source.contains("provider.isDefault || expandedProviderID == provider.id"))
+    }
+
+    func testCollapsedProviderCardsHideTagsAndControlsUntilExpanded() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("if isExpanded {\n                providerTagsRow(provider"))
+        XCTAssertTrue(source.contains("providerExpandedControls(provider)"))
+        XCTAssertFalse(source.contains("expandedProviderID = provider.id\n                viewModel.selectDefaultProvider"))
+    }
+
+    func testCollapsedProviderCardsHideVerboseSummaryContent() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("providerSummary(provider, isExpanded: isExpanded)"))
+        XCTAssertTrue(source.contains("private func providerSummary(_ provider: ASRProviderDescriptor, isExpanded: Bool)"))
+        XCTAssertTrue(source.contains("if isExpanded {\n                Text(provider.privacySummary)"))
+        XCTAssertTrue(source.contains("if isExpanded, let links = provider.externalLinks"))
+    }
+
     func testProviderViewDoesNotRunQwenRuntimePreflightDuringRendering() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
@@ -153,11 +233,90 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        let scopeStart = try XCTUnwrap(source.range(of: "private var scopeFilterBar"))
-        let tagStart = try XCTUnwrap(source.range(of: "private var tagBar"))
-        let scopeSource = source[scopeStart.lowerBound..<tagStart.lowerBound]
+        let scopeStart = try XCTUnwrap(source.range(of: "private var scopeAndTagFilterBar"))
+        let cardStart = try XCTUnwrap(source.range(of: "private func providerCard"))
+        let scopeSource = source[scopeStart.lowerBound..<cardStart.lowerBound]
 
         XCTAssertTrue(scopeSource.contains(".contentShape(Rectangle())"))
+    }
+
+    func testProviderCardTagsUseStandardSingleLineVocabulary() {
+        let descriptor = ASRProviderDescriptor(
+            id: ASRProviderID.qwen3,
+            displayName: "Qwen3-ASR",
+            providerType: "qwen3",
+            capabilities: [.streaming, .local, .accurate, .multilingual, .punctuation],
+            tags: ["本地", "离线", "中文", "English", "ja-JP", "ko-KR", "1.7B", "CoreML", "非流式"],
+            isAvailable: true,
+            isDefault: false,
+            statusMessage: "本地模型已就绪",
+            privacySummary: "语音仅在本机处理，不会上传。",
+            modelSize: .size1_7B,
+            engineType: .qwen3
+        )
+
+        XCTAssertEqual(
+            ASRProviderTagPresentation.cardTags(for: descriptor),
+            ["离线", "流式", "准确", "中文", "英文", "多语言", "CoreML"]
+        )
+    }
+
+    func testAllProviderCardTagsStayInsideApprovedVocabulary() {
+        let approvedTags: Set<String> = ["离线", "在线", "流式", "非流式", "快速", "准确", "中文", "英文", "多语言", "CoreML"]
+
+        let descriptors = [
+            ASRProviderDescriptor(
+                id: ASRProviderID.appleSpeech,
+                displayName: "系统自带",
+                providerType: "appleSpeech",
+                capabilities: [.streaming, .fast, .multilingual, .punctuation],
+                tags: ["系统", "流式", "多语言"],
+                isAvailable: true,
+                isDefault: true,
+                statusMessage: "系统语音识别可用",
+                privacySummary: "使用系统语音识别能力，可能依赖 Apple 服务。",
+                modelSize: nil,
+                engineType: .apple
+            ),
+            ASRProviderDescriptor(
+                id: ASRProviderID.groqWhisper,
+                displayName: "Groq",
+                providerType: "groq",
+                capabilities: [.fileTranscription, .cloud, .fast, .accurate],
+                tags: ["在线", "非流式", "快速", "准确", "Whisper"],
+                isAvailable: true,
+                isDefault: false,
+                statusMessage: "已配置",
+                privacySummary: "在线识别",
+                modelSize: nil,
+                engineType: .groqWhisper
+            ),
+        ]
+
+        for descriptor in descriptors {
+            XCTAssertTrue(approvedTags.isSuperset(of: ASRProviderTagPresentation.cardTags(for: descriptor)))
+        }
+    }
+
+    func testProviderCardTagsExposeNonStreamingCapability() {
+        let descriptor = ASRProviderDescriptor(
+            id: ASRProviderID.whisper,
+            displayName: "Whisper",
+            providerType: "whisper",
+            capabilities: [.fileTranscription, .local, .accurate, .multilingual],
+            tags: ["本地", "离线", "非流式", "多语言"],
+            isAvailable: true,
+            isDefault: false,
+            statusMessage: "本地模型已就绪",
+            privacySummary: "语音仅在本机处理，不会上传。",
+            modelSize: nil,
+            engineType: .whisper
+        )
+
+        XCTAssertEqual(
+            ASRProviderTagPresentation.cardTags(for: descriptor),
+            ["离线", "非流式", "准确", "多语言"]
+        )
     }
 
     private func makeProvider(

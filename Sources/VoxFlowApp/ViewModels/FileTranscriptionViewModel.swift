@@ -394,6 +394,10 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
     }
 
+    func primaryActionTitle(for job: TranscriptionJobRecord) -> String {
+        job.status == TranscriptionJobStatus.queued.rawValue ? "开始" : "重试"
+    }
+
     func copyResult(jobID: String) throws {
         guard let text = job(id: jobID)?.finalText, !text.isEmpty else {
             throw FileTranscriptionError.resultUnavailable

@@ -13,7 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let audioRecorder = AudioRecorder()
     private nonisolated let dictationAudioBufferForwarder = ASREngineAudioFrameForwarder()
-    private let asrCoordinator = ASRCoordinator()
+    private lazy var asrCoordinator = ASRCoordinator(
+        manager: ASRManager(settingsRepository: appEnvironment.settingsRepository)
+    )
     private lazy var menuBarCoordinator = MenuBarCoordinator(
         asrOptions: Self.makeASRMenuOptions(),
         currentLanguage: { LanguageManager.shared.currentLanguage },
@@ -44,12 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         simulatedTypingInserter: simulatedTypingInserter
     )
     private let lastResultStore = InMemoryLastResultStore()
+    private let clipboardService = SystemClipboardService()
     private lazy var outputService = DefaultOutputService(
         textInsertionCoordinator: textInsertionCoordinator,
-        clipboardService: SystemClipboardService(),
+        clipboardService: clipboardService,
         lastResultStore: lastResultStore
     )
-    private let pasteLastResultHotKeyMonitor = PasteLastResultHotKeyMonitor()
     private lazy var pasteLastResultService = PasteLastResultService(
         lastResultStore: lastResultStore,
         clipboardImageProvider: SystemClipboardImageProvider(),
@@ -66,8 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var llmRefiner: RepositoryBackedLLMRefiner!
     private let overlayController = OverlayWindowController()
     private lazy var hudFeatureController = VoiceHUDFeatureController(overlay: overlayController)
+    private var pendingASRSelectionFallbackNotice: ASRManager.SelectionFallbackNotice?
     private let systemOutputMuter = SystemOutputMuter()
-    private let escapeKeyMonitorController = EscapeKeyMonitorController()
     private lazy var hotKeyDecisionPerformer = HotKeyDecisionPerformer(
         startNotesRecording: { [weak self] in
             self?.startNotesRecording()
@@ -97,12 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shouldShowWaitingIndicator: { [weak self] activeVoiceAction in
             self?.asrCoordinator.shouldShowWaitingIndicator(activeVoiceAction: activeVoiceAction) ?? false
         },
-        startCancelMonitor: { [weak self] in
-            self?.startEscMonitor()
-        },
-        stopCancelMonitor: { [weak self] in
-            self?.stopEscMonitor()
-        },
+        startCancelMonitor: {},
+        stopCancelMonitor: {},
         setRefiningStatusVisible: { [weak self] isVisible in
             self?.menuBarCoordinator.setRefiningStatusVisible(isVisible)
         }
@@ -149,10 +147,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         },
         startDictation: { [weak self] configuration, mode in
-            try self?.dictationOrchestrator.start(
-                configuration: configuration,
-                mode: mode
-            )
+            guard let self else { return }
+            do {
+                try self.dictationOrchestrator.start(
+                    configuration: configuration,
+                    mode: mode
+                )
+                self.pendingASRSelectionFallbackNotice = nil
+            } catch {
+                self.pendingASRSelectionFallbackNotice = nil
+                throw error
+            }
         },
         releaseDictation: { [weak self] in
             self?.dictationOrchestrator.release()
@@ -175,6 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appEnvironment: AppEnvironment!
     private var windowCoordinator: WindowCoordinator!
     private var dictationOrchestrator: DictationOrchestrator!
+    private var voiceTaskCoordinator: VoiceTaskCoordinator!
     private var agentComposeHandler: DefaultAgentComposeHandler!
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
@@ -204,6 +210,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             performDecision: { [weak self] decision in
                 self?.hotKeyDecisionPerformer.perform(decision)
             },
+            performWorkflowShortcut: { [weak self] shortcut in
+                self?.performWorkflowShortcut(shortcut) ?? false
+            },
             scheduleAccessibilityAlert: { alert in
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
@@ -229,7 +238,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 at: FileManager.default.temporaryDirectory,
                 withIntermediateDirectories: true
             )
-            appEnvironment = AppEnvironment(container: try! DependencyContainer.inMemory())
+            appEnvironment = AppEnvironment(
+                container: try! DependencyContainer.inMemory(
+                    storageHealth: .unavailable(
+                        reason: "Persistent storage failed to initialize: \(error.localizedDescription)"
+                    )
+                )
+            )
         }
         windowCoordinator = WindowCoordinator(environment: appEnvironment)
         llmRefiner = RepositoryBackedLLMRefiner(
@@ -253,7 +268,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         audioRecorder.delegate = self
 
         hotKeyFeatureController.start()
-        startPasteLastResultHotKeyMonitor()
 
         Task {
             await resolveRecordingPermissions()
@@ -281,10 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         hotKeyFeatureController.stop()
-        pasteLastResultHotKeyMonitor.stop()
         audioRecorder.stop()
         dictationOrchestrator.cancel()
-        stopEscMonitor()
     }
 
     private func setupDictationOrchestrator() {
@@ -300,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             glossaryRepository: appEnvironment.glossaryRepository,
             styleSelector: styleSelector
         )
-        let taskCoordinator = VoiceTaskCoordinator(
+        voiceTaskCoordinator = VoiceTaskCoordinator(
             taskRepository: VoiceTaskRepository(
                 databaseQueue: appEnvironment.container.databaseQueue,
                 clock: appEnvironment.clock
@@ -313,7 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             agentRefiner: llmRefiner
         )
         agentComposeHandler = DefaultAgentComposeHandler(
-            coordinator: taskCoordinator,
+            coordinator: voiceTaskCoordinator,
             styleSelector: styleSelector
         )
         agentComposeHandler.onStageChange = { [weak self] stage in
@@ -450,7 +462,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func currentDictationConfiguration() -> DictationConfiguration {
-        asrCoordinator.dictationConfiguration(for: LanguageManager.shared.currentLanguage)
+        if let notice = asrCoordinator.selectionFallbackNotice {
+            AppLogger.dictation.warning(
+                "ASR selection fallback selected=\(notice.selectedEngineType.rawValue) effective=\(notice.effectiveEngineType.rawValue)"
+            )
+            pendingASRSelectionFallbackNotice = notice
+        } else {
+            pendingASRSelectionFallbackNotice = nil
+        }
+        return asrCoordinator.dictationConfiguration(for: LanguageManager.shared.currentLanguage)
     }
 
     // MARK: - Error Handling
@@ -519,21 +539,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showRecognitionError(_ error: Error) {
         AppLogger.dictation.error("语音识别错误: \(error.localizedDescription)")
-        let message = error.localizedDescription
         if let taskID = agentComposeHandler?.lastFailedTaskID {
-            hudFeatureController.showTemporaryMessage(
-                "处理失败：\(message)",
-                duration: 8.0
-            ) { [weak self] in
+            let feedback = RecognitionErrorHUDPresentation.feedback(
+                for: error,
+                recovery: .openHistoryDetail
+            )
+            hudFeatureController.handleRecognitionErrorFeedback(feedback) { [weak self] in
                 self?.openHistoryDetail(taskID)
             }
             return
         }
         // For dictation errors, try to open the last voice task detail; otherwise open home page.
-        hudFeatureController.showTemporaryMessage(
-            "\(message)",
-            duration: 8.0
-        ) { [weak self] in
+        let feedback = RecognitionErrorHUDPresentation.feedback(
+            for: error,
+            recovery: .openMainWindow
+        )
+        hudFeatureController.handleRecognitionErrorFeedback(feedback) { [weak self] in
             self?.windowCoordinator.showMainWindow()
         }
     }
@@ -549,17 +570,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showAgentComposeResult(_ result: OutputResult) {
         switch result {
         case .copied:
-            hudFeatureController.showTemporaryMessage("已生成并复制到剪贴板", duration: 2.5)
+            hudFeatureController.handleWorkflowFeedback(.agentComposeCopied)
         case .targetChanged:
-            hudFeatureController.showTemporaryMessage("目标窗口已变化，内容已复制", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.agentComposeTargetChangedCopied)
         case .permissionDenied:
-            hudFeatureController.showTemporaryMessage("没有辅助功能权限，内容已复制", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.agentComposePermissionDeniedCopied)
         case .injectionFailed:
-            hudFeatureController.showTemporaryMessage("写入失败，内容已复制", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.agentComposeInjectionFailedCopied)
         case .copyFailed:
-            hudFeatureController.showTemporaryMessage("生成完成，但复制失败", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.agentComposeCopyFailed { [weak self] in
+                self?.copyLastResultToClipboardForRecovery()
+            })
         case .injected:
-            hudFeatureController.showTemporaryMessage("已生成并写入当前输入框", duration: 2.5)
+            hudFeatureController.handleWorkflowFeedback(.agentComposeInjected)
         case .cancelled:
             break
         }
@@ -573,38 +596,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func startEscMonitor() {
-        escapeKeyMonitorController.start { [weak self] in
-            self?.handleEscapeKey()
-        }
-    }
-
-    private func stopEscMonitor() {
-        escapeKeyMonitorController.stop()
-    }
-
-    private func startPasteLastResultHotKeyMonitor() {
-        pasteLastResultHotKeyMonitor.onPasteLastResult = { [weak self] in
+    private func performWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
+        switch shortcut {
+        case .clipboardImageOCR:
             Task { @MainActor [weak self] in
-                await self?.handlePasteLastResultShortcut()
+                await self?.handleClipboardImageOCRShortcut()
             }
+            return true
+        case .cancel:
+            if voiceTaskCoordinator.activeTaskID(for: .clipboardImageOCR) != nil {
+                voiceTaskCoordinator.cancelEphemeralWorkflow(kind: .clipboardImageOCR)
+                return true
+            }
+            if voiceTaskCoordinator.activeTaskID(for: .screenshotOCR) != nil {
+                voiceTaskCoordinator.cancelEphemeralWorkflow(kind: .screenshotOCR)
+                return true
+            }
+            guard !dictationOrchestrator.state.isIdle else {
+                return false
+            }
+            handleEscapeKey()
+            return true
         }
-        _ = pasteLastResultHotKeyMonitor.start()
     }
 
     private func handlePasteLastResultShortcut() async {
-        let outcome = await pasteLastResultService.paste()
+        let outcome = await pasteLastResultService.pasteLastResult()
         switch outcome {
         case .pastedLastResult:
-            hudFeatureController.showTemporaryMessage("已粘贴上次结果", duration: 1.8)
+            hudFeatureController.handleWorkflowFeedback(.pasteLastResultSucceeded)
         case .pastedOCRText:
-            hudFeatureController.showTemporaryMessage("已识别图片文字并粘贴", duration: 2.2)
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRSucceeded)
         case .noTextAvailable:
-            hudFeatureController.showTemporaryMessage("没有可粘贴的上次结果", duration: 2.2)
+            hudFeatureController.handleWorkflowFeedback(.noPasteLastResult)
         case .ocrFailed(let reason):
-            hudFeatureController.showTemporaryMessage("图片 OCR 失败：\(reason)", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRFailed(reason))
         case .outputFailed:
-            hudFeatureController.showTemporaryMessage("粘贴失败，结果已保留", duration: 3.0)
+            hudFeatureController.handleWorkflowFeedback(.pasteOutputFailed { [weak self] in
+                self?.copyLastResultToClipboardForRecovery()
+            })
+        }
+    }
+
+    private func handleClipboardImageOCRShortcut() async {
+        let lease: VoiceWorkflowLease
+        do {
+            lease = try voiceTaskCoordinator.beginEphemeralWorkflow(kind: .clipboardImageOCR)
+        } catch {
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRAlreadyRunning)
+            return
+        }
+        defer {
+            voiceTaskCoordinator.completeEphemeralWorkflow(lease)
+        }
+
+        let outcome = await pasteLastResultService.pasteClipboardImageOCR()
+        guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {
+            return
+        }
+        switch outcome {
+        case .pastedOCRText:
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRSucceeded)
+        case .ocrFailed(let reason):
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRFailed(reason))
+        case .outputFailed:
+            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCROutputFailed { [weak self] in
+                self?.copyLastResultToClipboardForRecovery()
+            })
+        case .pastedLastResult, .noTextAvailable:
+            hudFeatureController.handleWorkflowFeedback(.noClipboardImage)
+        }
+    }
+
+    private func copyLastResultToClipboardForRecovery() {
+        guard let text = lastResultStore.lastResultText else {
+            hudFeatureController.handleWorkflowFeedback(.noCopyableResult)
+            return
+        }
+        if clipboardService.setString(text) {
+            hudFeatureController.handleWorkflowFeedback(.manualCopySucceeded)
+        } else {
+            hudFeatureController.handleWorkflowFeedback(.manualCopyFailed)
         }
     }
 

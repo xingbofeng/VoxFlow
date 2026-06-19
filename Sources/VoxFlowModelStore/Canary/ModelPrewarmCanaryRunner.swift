@@ -85,7 +85,7 @@ public struct ModelPrewarmCanaryRunner: Sendable {
         let canaryElapsed = canaryStart.duration(to: clock.now)
 
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        guard canaryAudio.expectedTokens.isEmpty || !trimmed.isEmpty else {
             throw ModelPrewarmError.emptyCanaryOutput
         }
 

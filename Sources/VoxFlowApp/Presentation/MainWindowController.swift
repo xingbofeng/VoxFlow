@@ -3,7 +3,7 @@ import SwiftUI
 import VoxFlowTextInsertion
 
 @MainActor
-final class MainWindowController: NSWindowController, NSWindowDelegate {
+final class MainWindowController: NSWindowController {
     init(environment: AppEnvironment) {
         let viewModel = WorkbenchViewModel(environment: environment)
         let refiner = RepositoryBackedLLMRefiner(
@@ -55,7 +55,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1_180, height: 760),
+            contentRect: NSRect(x: 0, y: 0, width: 1_260, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -69,22 +69,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                     windowSize: window.frame.size,
                     visibleFrame: visibleFrame
                 ),
-                display: true,
+                display: false,
                 animate: false
             )
         } else {
             window.center()
         }
         super.init(window: window)
-        window.delegate = self
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    func windowDidBecomeKey(_ notification: Notification) {
-        guard let window else { return }
-        WindowPlacementPolicy.placeOnVisibleScreenIfNeeded(window)
     }
 }

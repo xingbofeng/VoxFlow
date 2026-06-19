@@ -22,13 +22,26 @@ final class ModelPrewarmCanaryRunnerTests: XCTestCase {
         XCTAssertTrue(report.isReady)
     }
 
-    func testRunnerRejectsEmptyCanaryOutput() async throws {
+    func testRunnerAllowsEmptyCanaryOutputWhenNoExpectedTokensAreConfigured() async throws {
+        let runtime = CapturingPrewarmRuntime(transcript: "   ")
+
+        let report = try await ModelPrewarmCanaryRunner().prepare(
+            installation: installation(),
+            canaryAudio: ModelCanaryAudio(samples: [0.1], sampleRate: 16_000, expectedTokens: []),
+            runtime: runtime
+        )
+
+        XCTAssertEqual(report.transcript, "   ")
+        XCTAssertFalse(report.isReady)
+    }
+
+    func testRunnerRejectsEmptyCanaryOutputWhenExpectedTokensRequireTranscript() async throws {
         let runtime = CapturingPrewarmRuntime(transcript: "   ")
 
         do {
             _ = try await ModelPrewarmCanaryRunner().prepare(
                 installation: installation(),
-                canaryAudio: ModelCanaryAudio(samples: [0.1], sampleRate: 16_000, expectedTokens: []),
+                canaryAudio: ModelCanaryAudio(samples: [0.1], sampleRate: 16_000, expectedTokens: ["ready"]),
                 runtime: runtime
             )
             XCTFail("Expected empty canary output to fail.")

@@ -223,7 +223,7 @@ enum ASRCoreBackedASREngineError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .failure(let error):
-            return error.message
+            return ASRErrorUserMessage.message(for: error)
         }
     }
 }

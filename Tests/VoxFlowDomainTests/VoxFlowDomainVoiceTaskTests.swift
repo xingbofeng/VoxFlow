@@ -96,6 +96,35 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
         XCTAssertEqual(OutputResult.cancelled.kind, .cancelled)
     }
 
+    func testOutputResultKindDecodesPersistedSnapshotAndLegacyFullResult() throws {
+        let snapshotData = try JSONEncoder().encode(
+            OutputResult.permissionDenied(reason: "sensitive reason").snapshot
+        )
+        let legacyData = try JSONEncoder().encode(
+            OutputResult.permissionDenied(reason: "legacy sensitive reason")
+        )
+
+        XCTAssertEqual(
+            OutputResultKind.decodePersisted(from: String(data: snapshotData, encoding: .utf8)),
+            .permissionDenied
+        )
+        XCTAssertEqual(
+            OutputResultKind.decodePersisted(from: String(data: legacyData, encoding: .utf8)),
+            .permissionDenied
+        )
+    }
+
+    func testOutputResultSnapshotCodableRoundTripStoresOnlyKind() throws {
+        let snapshot = OutputResultSnapshot(kind: .permissionDenied)
+        let data = try JSONEncoder().encode(snapshot)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        let decoded = try JSONDecoder().decode(OutputResultSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertTrue(json.contains(#""kind":"permissionDenied""#))
+        XCTAssertFalse(json.contains("reason"))
+    }
+
     func testRecoveryActionsKeepAgentComposeCopyOnlyUsingOutputResultKind() {
         let actions = VoiceTaskRecoveryPolicy.availableActions(
             mode: .agentCompose,
@@ -121,6 +150,18 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
         )
 
         XCTAssertEqual(actions, [.copy, .reoutput, .delete])
+    }
+
+    func testRecoveryActionsForCancelledTaskOnlyAllowDelete() {
+        let actions = VoiceTaskRecoveryPolicy.availableActions(
+            mode: .dictation,
+            status: .cancelled,
+            hasFinalText: true,
+            hasRawTranscript: true,
+            outputResultKind: .cancelled
+        )
+
+        XCTAssertEqual(actions, [.delete])
     }
 
     func testVoiceTaskStageBackwardsTransitionErrorIsAvailableFromDomainTarget() {
@@ -154,7 +195,7 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
             failureJson: #"{"stage":"output","code":"permissionDenied","message":"包含敏感失败详情","recoverable":true}"#,
             asrMetadata: VoiceTaskASRMetadata(
                 providerID: "qwen3_asr",
-                modelID: "qwen3-asr-0.6b-coreml-int8",
+                modelID: "qwen3-asr-0.6b-mlx-4bit",
                 language: "zh-CN",
                 sessionID: "session-123",
                 audioDurationMs: 1200,
@@ -163,7 +204,7 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
                 errorCode: "permissionDenied"
             ),
             warnings: ["warning"],
-            trace: #"{"request":"包含敏感 trace"}"#,
+            trace: #"{"llm":{"requestBodyJSON":"包含敏感 trace 请求","responseText":"包含敏感 trace 响应"}}"#,
             createdAt: Date(timeIntervalSince1970: 1_800_000_000),
             updatedAt: Date(timeIntervalSince1970: 1_800_000_001),
             completedAt: Date(timeIntervalSince1970: 1_800_000_002)
@@ -177,7 +218,10 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
         XCTAssertFalse(json.contains("audio/private-recording.wav"))
         XCTAssertFalse(json.contains("包含敏感原因"))
         XCTAssertFalse(json.contains("包含敏感失败详情"))
-        XCTAssertFalse(json.contains("包含敏感 trace"))
+        XCTAssertFalse(json.contains("包含敏感 trace 请求"))
+        XCTAssertFalse(json.contains("包含敏感 trace 响应"))
+        XCTAssertFalse(json.contains("requestBodyJSON"))
+        XCTAssertFalse(json.contains("responseText"))
         XCTAssertTrue(json.contains(#""rawTranscriptLength":"#))
         XCTAssertTrue(json.contains(#""finalTextLength":"#))
         XCTAssertTrue(json.contains(#""hasAudio":true"#))

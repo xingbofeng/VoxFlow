@@ -70,6 +70,37 @@ enum ShortcutActionRouting {
     }
 }
 
+enum ShortcutModifierRouting {
+    static func isPureModifierShortcut(keyCode: Int64, flags: CGEventFlags) -> Bool {
+        guard let expectedFlag = modifierFlag(for: keyCode) else {
+            return true
+        }
+        let modifierFlags = CGEventFlags([
+            .maskCommand,
+            .maskShift,
+            .maskAlternate,
+            .maskControl,
+        ])
+        let activeModifierFlags = flags.intersection(modifierFlags)
+        return activeModifierFlags.isEmpty || activeModifierFlags == expectedFlag
+    }
+
+    private static func modifierFlag(for keyCode: Int64) -> CGEventFlags? {
+        switch keyCode {
+        case 54, 55:
+            return .maskCommand
+        case 56, 60:
+            return .maskShift
+        case 58, 61:
+            return .maskAlternate
+        case 59, 62:
+            return .maskControl
+        default:
+            return nil
+        }
+    }
+}
+
 /// Globally monitors and suppresses the right Command key via a CGEvent tap.
 final class KeyMonitor: @unchecked Sendable {
     // MARK: - State
@@ -81,6 +112,7 @@ final class KeyMonitor: @unchecked Sendable {
     var onHotKeyPress: ((VoiceAction) -> Void)?
     var onHotKeyRelease: ((VoiceAction) -> Void)?
     var onShortPress: ((VoiceAction) -> Void)?
+    var onWorkflowShortcut: ((HotKeyWorkflowShortcut) -> Bool)?
 
     // MARK: - Lifecycle
 
@@ -95,7 +127,9 @@ final class KeyMonitor: @unchecked Sendable {
             return false
         }
 
-        let mask: CGEventMask = 1 << CGEventType.flagsChanged.rawValue
+        let mask: CGEventMask =
+            (1 << CGEventType.flagsChanged.rawValue) |
+            (1 << CGEventType.keyDown.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -144,21 +178,67 @@ final class KeyMonitor: @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
+        if type == .keyDown {
+            return handleKeyDown(event: event)
+        }
+
         guard type == .flagsChanged else {
             return Unmanaged.passUnretained(event)
         }
         return handleFlagsChanged(event: event)
     }
 
+    private func handleKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let shortcutManager = ShortcutManager.shared
+
+        let routedEvent = HotKeyRouter.route(
+            keyCode: keyCode,
+            flags: event.flags,
+            dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
+            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose)
+        )
+        guard case let .workflowShortcut(shortcut) = routedEvent else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        let shouldPassThrough = MainActor.assumeIsolated {
+            if ShortcutCaptureState.shared.isCapturing {
+                return true
+            }
+            guard shortcut != .cancel else {
+                return false
+            }
+            let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
+            let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            return ShortcutEventRouting.shouldPassThrough(
+                appIsActive: NSApp.isActive,
+                appIsFrontmost: frontmostBundleID == appBundleID,
+                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+            )
+        }
+        if shouldPassThrough {
+            return Unmanaged.passUnretained(event)
+        }
+
+        let shouldConsume = MainActor.assumeIsolated {
+            onWorkflowShortcut?(shortcut) ?? false
+        }
+        return shouldConsume ? nil : Unmanaged.passUnretained(event)
+    }
+
     private func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let shortcutManager = ShortcutManager.shared
 
-        guard let action = ShortcutActionRouting.action(
-            for: keyCode,
+        let routedEvent = HotKeyRouter.route(
+            keyCode: keyCode,
+            flags: event.flags,
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose)
-        ) else {
+        )
+        guard case let .voiceAction(action) = routedEvent else {
+            rightCommandState.reset()
             return Unmanaged.passUnretained(event)
         }
 

@@ -18,6 +18,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     private let coordinator: VoiceTaskCoordinator
     private let styleSelector: any StyleSelecting
     private var target: DictationTarget?
+    private var activeTaskID: String?
 
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
     var onStreamingDelta: ((String) -> Void)?
@@ -38,27 +39,45 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
         self.target = target
         lastFailedTaskID = nil
-        try coordinator.startTask(
+        let task = try coordinator.startTask(
             mode: .agentCompose,
             target: target,
             asrMetadata: asrMetadata
         )
+        activeTaskID = task.id
         coordinator.startContextCollection(target: target, visionSupported: true)
-        onStageChange?(.readingWindow)
+        emitStage(.readingWindow, taskID: task.id)
     }
 
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
-        try coordinator.updateASRMetadata(metadata)
+        try coordinator.updateASRMetadata(metadata, kind: .agentCompose)
     }
 
     func finish(rawTranscript: String) async throws -> OutputResult {
-        onStageChange?(.transcribing)
-        try coordinator.recordRawTranscript(rawTranscript)
+        guard let taskID = activeTaskID else {
+            throw CoordinatorError.noActiveTask
+        }
+        emitStage(.transcribing, taskID: taskID)
+        try coordinator.recordRawTranscript(rawTranscript, kind: .agentCompose)
 
         let context = await coordinator.awaitContextCollection()
 
-        onStageChange?(.generating)
-        coordinator.onStreamingDelta = onStreamingDelta
+        emitStage(.generating, taskID: taskID)
+        let taskCoordinator = coordinator
+        taskCoordinator.onStreamingDelta = { [weak self, weak taskCoordinator] taskID, delta in
+            guard let self,
+                  let taskCoordinator,
+                  self.activeTaskID == taskID,
+                  taskCoordinator.activeTaskID(for: .agentCompose) == taskID else {
+                return
+            }
+            self.onStreamingDelta?(delta)
+        }
+        defer {
+            if activeTaskID == taskID || taskCoordinator.activeTaskID(for: .agentCompose) == nil {
+                taskCoordinator.onStreamingDelta = nil
+            }
+        }
         let stylePrompt = try await styleSelector.style(for: target)?.prompt
 
         let result = try await coordinator.processAgentComposeAndDeliver(
@@ -79,30 +98,50 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
         switch result {
         case .injected:
-            onStageChange?(.inserted)
+            emitStage(.inserted, taskID: taskID, requireActiveWorkflow: false)
         case .copied, .targetChanged, .permissionDenied, .injectionFailed, .copyFailed:
-            onStageChange?(.copied)
+            emitStage(.copied, taskID: taskID, requireActiveWorkflow: false)
         case .cancelled:
             break
         }
+        activeTaskID = nil
+        target = nil
         return result
     }
 
     func cancel() {
         coordinator.cancelContextCollection()
-        try? coordinator.cancelCurrentTask()
+        try? coordinator.cancelTask(kind: .agentCompose)
+        activeTaskID = nil
         target = nil
     }
 
     func fail(_ error: Error) {
         coordinator.cancelContextCollection()
-        lastFailedTaskID = coordinator.currentTaskID
+        lastFailedTaskID = coordinator.activeTaskID(for: .agentCompose)
         try? coordinator.recordFailure(
             stage: "agentCompose",
             code: "agent_compose_failed",
             message: error.localizedDescription,
-            recoverable: true
+            recoverable: true,
+            kind: .agentCompose
         )
+        activeTaskID = nil
         target = nil
+    }
+
+    private func emitStage(
+        _ stage: AgentComposeHUDStage,
+        taskID: String,
+        requireActiveWorkflow: Bool = true
+    ) {
+        guard activeTaskID == taskID else {
+            return
+        }
+        if requireActiveWorkflow,
+           coordinator.activeTaskID(for: .agentCompose) != taskID {
+            return
+        }
+        onStageChange?(stage)
     }
 }

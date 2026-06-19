@@ -36,11 +36,14 @@ moved out of the app shell later.
 | `Sources/VoxFlowApp/Resources/ASRGroqWhisper.png` | `VoxFlowApp` SwiftPM resource bundle | Online ASR catalog | Provider card icon for Groq Whisper. |
 | `Sources/VoxFlowApp/Resources/ASRMistralVoxtral.png` | `VoxFlowApp` SwiftPM resource bundle | Online ASR catalog | Provider card icon for Mistral Voxtral. |
 | `Sources/VoxFlowApp/Resources/ASRNVIDIANemotron.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderNVIDIA` | Provider card icon for NVIDIA Nemotron ASR. |
+| `Sources/VoxFlowApp/Resources/ASROmnilingual.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderOmnilingual` | Provider card icon for Omnilingual ASR. |
+| `Sources/VoxFlowApp/Resources/ASRParakeetStreaming.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderParakeet` | Provider card icon for Parakeet Streaming. |
 | `Sources/VoxFlowApp/Resources/ASRProviderParaformer.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderParaformer` | Provider card icon for Paraformer. |
 | `Sources/VoxFlowApp/Resources/ASRProviderIconAtlas.json` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowDesignSystem` | Atlas mapping provider IDs to bundled icon assets. |
 | `Sources/VoxFlowApp/Resources/ASRQwen.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderQwen3` | Provider card icon for Qwen3-ASR. |
 | `Sources/VoxFlowApp/Resources/ASRQwenCloud.png` | `VoxFlowApp` SwiftPM resource bundle | Online ASR catalog | Provider card icon for Qwen Cloud ASR. |
 | `Sources/VoxFlowApp/Resources/ASRSenseVoice.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderSenseVoice` | Provider card icon for SenseVoice. |
+| `Sources/VoxFlowApp/Resources/ASRTencentCloud.png` | `VoxFlowApp` SwiftPM resource bundle | Online ASR catalog | Provider card icon for Tencent Cloud ASR. |
 | `Sources/VoxFlowApp/Resources/ASRWhisper.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderWhisper` | Provider card icon for Whisper. |
 
 ## Migration Rule

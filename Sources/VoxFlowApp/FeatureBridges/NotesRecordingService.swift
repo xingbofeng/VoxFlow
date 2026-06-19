@@ -25,6 +25,8 @@ extension AudioRecorder: NotesAudioRecording {}
 
 @MainActor
 final class NotesRecordingService: NSObject, NotesTranscribing {
+    private static let coldLocalModelFinalTimeoutNanoseconds: UInt64 = 120_000_000_000
+
     var onTranscription: ((String, Bool) -> Void)?
     var onError: ((Error) -> Void)?
 
@@ -35,7 +37,13 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     private let makeEngine: (ASREngineType) -> ASREngine
     private let microphonePermission: () async -> Bool
     private let speechRecognitionPermission: () async -> Bool
+    private let clock: any AppClock
+    private let finalTimeoutNanoseconds: UInt64
     private var engine: ASREngine?
+    private var latestPartialText: String?
+    private var awaitingFinalResult = false
+    private var timeoutTask: Task<Void, Never>?
+    private var currentEngineType: ASREngineType?
 
     init(
         asrManager: ASRManager = ASRManager(),
@@ -45,7 +53,9 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         selectedEngineType: (() -> ASREngineType)? = nil,
         makeEngine: ((ASREngineType) -> ASREngine)? = nil,
         microphonePermission: @escaping () async -> Bool = { await NotesRecordingService.liveMicrophonePermission() },
-        speechRecognitionPermission: @escaping () async -> Bool = { await NotesRecordingService.liveSpeechRecognitionPermission() }
+        speechRecognitionPermission: @escaping () async -> Bool = { await NotesRecordingService.liveSpeechRecognitionPermission() },
+        clock: any AppClock = SystemClock(),
+        finalTimeoutNanoseconds: UInt64 = 15_000_000_000
     ) {
         self.recorder = recorder
         self.audioBufferForwarder = audioBufferForwarder
@@ -54,6 +64,8 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         self.makeEngine = makeEngine ?? { asrManager.makeEngine(type: $0) }
         self.microphonePermission = microphonePermission
         self.speechRecognitionPermission = speechRecognitionPermission
+        self.clock = clock
+        self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
         super.init()
         self.recorder.delegate = self
     }
@@ -70,6 +82,11 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         }
 
         let engineType = selectedEngineType()
+        latestPartialText = nil
+        awaitingFinalResult = false
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        currentEngineType = engineType
         if engineType == .apple {
             guard await speechRecognitionPermission() else {
                 throw NotesRecordingError.speechRecognitionPermissionDenied
@@ -79,15 +96,14 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         let engine = makeEngine(engineType)
         engine.configure(locale: language.locale)
         engine.onTranscription = { [weak self] text, isFinal in
-            self?.onTranscription?(text, isFinal)
+            Task { @MainActor [weak self] in
+                self?.handleTranscription(text: text, isFinal: isFinal)
+            }
         }
         engine.onError = { [weak self] error in
-            guard let self else { return }
-            self.recorder.stop()
-            self.engine?.cancel()
-            self.audioBufferForwarder.detach()
-            self.engine = nil
-            self.onError?(error)
+            Task { @MainActor [weak self] in
+                self?.handleRecognitionError(error)
+            }
         }
 
         do {
@@ -108,13 +124,20 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         recorder.drain()
         audioBufferForwarder.finish()
         engine?.endAudio()
+        awaitingFinalResult = true
+        scheduleFinalTimeout()
     }
 
     func cancel() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        awaitingFinalResult = false
         recorder.stop()
         engine?.cancel()
         audioBufferForwarder.detach()
         engine = nil
+        currentEngineType = nil
+        latestPartialText = nil
     }
 
     private static func liveMicrophonePermission() async -> Bool {
@@ -138,6 +161,90 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
             return await SpeechRecognizer.requestPermission() == .authorized
         }
     }
+
+    private func handleTranscription(text: String, isFinal: Bool) {
+        if isFinal {
+            complete(with: text, isFinal: true)
+            return
+        }
+
+        latestPartialText = text
+        onTranscription?(text, false)
+    }
+
+    private func handleRecognitionError(_ error: Error) {
+        if awaitingFinalResult,
+           let latestPartialText,
+           !latestPartialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            complete(with: latestPartialText, isFinal: true)
+            return
+        }
+
+        fail(with: error)
+    }
+
+    private func scheduleFinalTimeout() {
+        timeoutTask?.cancel()
+        let timeoutNanoseconds = activeFinalTimeoutNanoseconds()
+        timeoutTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await clock.sleep(nanoseconds: timeoutNanoseconds)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self.handleFinalTimeout()
+        }
+    }
+
+    private func handleFinalTimeout() {
+        if let latestPartialText,
+           !latestPartialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            complete(with: latestPartialText, isFinal: true)
+            return
+        }
+
+        fail(with: NotesRecordingError.finalResultTimedOut)
+    }
+
+    private func complete(with text: String, isFinal: Bool) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        awaitingFinalResult = false
+        latestPartialText = isFinal ? nil : text
+        audioBufferForwarder.detach()
+        engine = nil
+        currentEngineType = nil
+        onTranscription?(text, isFinal)
+    }
+
+    private func fail(with error: Error) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        awaitingFinalResult = false
+        recorder.stop()
+        engine?.cancel()
+        audioBufferForwarder.detach()
+        engine = nil
+        currentEngineType = nil
+        latestPartialText = nil
+        onError?(error)
+    }
+
+    private func activeFinalTimeoutNanoseconds() -> UInt64 {
+        guard let currentEngineType else {
+            return finalTimeoutNanoseconds
+        }
+        switch currentEngineType {
+        case .funASR, .senseVoice, .paraformer, .groqWhisper,
+             .parakeetStreaming, .omnilingualASR:
+            return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
+        case .apple, .whisper, .qwen3, .nvidiaNemotron, .tencentCloud,
+             .aliyunDashScope:
+            return finalTimeoutNanoseconds
+        }
+    }
 }
 
 extension NotesRecordingService: AudioRecorder.Delegate {
@@ -152,6 +259,7 @@ enum NotesRecordingError: LocalizedError, Equatable {
     case microphonePermissionDenied
     case speechRecognitionPermissionDenied
     case unsupportedLanguage(String)
+    case finalResultTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -161,6 +269,8 @@ enum NotesRecordingError: LocalizedError, Equatable {
             return "未获得语音识别权限，请在系统设置中允许随声写使用语音识别。"
         case .unsupportedLanguage(let identifier):
             return "当前笔记录音语言不受支持：\(identifier)。"
+        case .finalResultTimedOut:
+            return "没有识别到可保存的内容，请重试。"
         }
     }
 }

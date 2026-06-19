@@ -1,6 +1,7 @@
 import Foundation
 
-final class ASRCoordinator: ASREngineFactory {
+@MainActor
+final class ASRCoordinator: @preconcurrency ASREngineFactory {
     private let manager: ASRManager
     private let menuStateResolver: ASRMenuStateResolver
 
@@ -25,6 +26,10 @@ final class ASRCoordinator: ASREngineFactory {
 
     var effectiveSelectedEngineType: ASREngineType {
         manager.effectiveSelectedEngineType
+    }
+
+    var selectionFallbackNotice: ASRManager.SelectionFallbackNotice? {
+        manager.selectionFallbackNotice
     }
 
     func isMenuOptionEnabled(_ option: ASRMenuModel) -> Bool {
@@ -59,9 +64,11 @@ final class ASRCoordinator: ASREngineFactory {
 
     static func requiresFinalRecognitionIndicator(for engineType: ASREngineType) -> Bool {
         switch engineType {
-        case .qwen3, .whisper, .senseVoice, .funASR, .paraformer:
+        case .qwen3, .whisper, .senseVoice, .funASR, .paraformer, .nvidiaNemotron,
+             .parakeetStreaming, .omnilingualASR, .groqWhisper, .tencentCloud,
+             .aliyunDashScope:
             return true
-        case .apple, .nvidiaNemotron:
+        case .apple:
             return false
         }
     }

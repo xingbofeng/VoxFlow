@@ -12,7 +12,7 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
-        XCTAssertEqual(SettingsSection.allCases.map(\.title), ["通用", "模型", "系统", "数据与隐私"])
+        XCTAssertEqual(SettingsSection.allCases.map(\.title), ["通用", "听写模型", "纠错模型", "系统", "数据与隐私"])
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
         XCTAssertEqual(viewModel.selectedInputDeviceID, "built-in")
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
@@ -21,6 +21,8 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.microphonePermission, .granted)
         XCTAssertEqual(viewModel.speechPermission, .denied)
         XCTAssertFalse(viewModel.screenRecordingGranted)
+        XCTAssertFalse(viewModel.storageStatus.isHealthy)
+        XCTAssertEqual(viewModel.storageStatus.title, "临时存储模式")
         XCTAssertEqual(viewModel.textInputMode, .automatic)
         XCTAssertEqual(
             viewModel.systemSettingsURL(for: .microphone)?.absoluteString,
@@ -49,6 +51,75 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.textInputMode, .simulatedTyping)
     }
 
+    func testStorageStatusExplainsVolatileLaunchFallback() throws {
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                storageHealth: .volatile(reason: "Persistent storage failed to initialize: database locked")
+            )
+        )
+
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertEqual(viewModel.storageStatus.title, "临时存储模式")
+        XCTAssertFalse(viewModel.storageStatus.isHealthy)
+        XCTAssertTrue(viewModel.storageStatus.message.contains("database locked"))
+        XCTAssertTrue(viewModel.storageStatus.message.contains("重启后可能丢失"))
+        XCTAssertEqual(viewModel.storageStatus.badgeText, "临时")
+    }
+
+    func testStorageStatusExplainsUnavailablePersistentStorage() throws {
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                storageHealth: .unavailable(reason: "database locked")
+            )
+        )
+
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertEqual(viewModel.storageStatus.title, "持久化存储不可用")
+        XCTAssertFalse(viewModel.storageStatus.isHealthy)
+        XCTAssertEqual(viewModel.storageStatus.badgeText, "不可用")
+        XCTAssertTrue(viewModel.storageStatus.message.contains("database locked"))
+        XCTAssertTrue(viewModel.storageStatus.message.contains("重启后可能丢失"))
+    }
+
+    func testStorageStatusDistinguishesDegradedPersistentStates() {
+        let databaseURL = URL(fileURLWithPath: "/tmp/VoxFlow/voxflow.sqlite")
+
+        let readOnly = SettingsStorageStatus(
+            storageHealth: .readOnly(databaseURL: databaseURL, reason: "Permission denied")
+        )
+        let migrationRequired = SettingsStorageStatus(
+            storageHealth: .migrationRequired(databaseURL: databaseURL, reason: "Schema too old")
+        )
+        let corrupt = SettingsStorageStatus(
+            storageHealth: .corrupt(databaseURL: databaseURL, reason: "SQLite not a database")
+        )
+
+        XCTAssertEqual(readOnly.title, "数据目录只读")
+        XCTAssertEqual(readOnly.badgeText, "只读")
+        XCTAssertTrue(readOnly.message.contains("无法可靠写入"))
+        XCTAssertTrue(StorageHealthState.readOnly(databaseURL: databaseURL, reason: "Permission denied").isPersistent)
+        XCTAssertEqual(migrationRequired.title, "数据库需要迁移")
+        XCTAssertEqual(migrationRequired.badgeText, "需迁移")
+        XCTAssertTrue(migrationRequired.message.contains("迁移完成前"))
+        XCTAssertTrue(StorageHealthState.migrationRequired(databaseURL: databaseURL, reason: "Schema too old").isPersistent)
+        XCTAssertEqual(corrupt.title, "数据库可能损坏")
+        XCTAssertEqual(corrupt.badgeText, "损坏")
+        XCTAssertTrue(corrupt.message.contains("先导出或备份"))
+        XCTAssertTrue(StorageHealthState.corrupt(databaseURL: databaseURL, reason: "SQLite not a database").isPersistent)
+    }
+
     func testTextInputModeCanBePersistedExplicitly() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = SettingsViewModel(
@@ -61,6 +132,7 @@ final class SettingsViewModelTests: XCTestCase {
         try viewModel.setTextInputMode(.fastPaste)
 
         XCTAssertEqual(viewModel.textInputMode, .fastPaste)
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新文本输入模式（仅当前会话生效，重启后可能丢失）")
         XCTAssertEqual(
             try environment.settingsRepository.value(forKey: SettingsKey.outputTextInputMode),
             #"{"value":"fastPaste"}"#
@@ -177,12 +249,12 @@ final class SettingsViewModelTests: XCTestCase {
         )
 
         try viewModel.selectInputDevice(id: "studio")
-        try viewModel.updateShortcut(keyCode: 63, longPressThreshold: 0.8, shortPressBehavior: .none)
+        try viewModel.updateShortcut(keyCode: 55, longPressThreshold: 0.8, shortPressBehavior: .none)
         try viewModel.updateAudioOptions(soundFeedback: false, voiceEnhancement: false)
         try viewModel.updatePerformanceOptions(muteWhileRecording: true, performanceOptimization: true)
         try viewModel.setAnalyticsEnabled(true)
 
-        XCTAssertEqual(shortcutManager.shortcutKeyCode, 63)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, 55)
         XCTAssertEqual(shortcutManager.longPressThreshold, 0.8)
         XCTAssertEqual(shortcutManager.shortPressBehavior, .none)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.audioInputDeviceID), #"{"value":"studio"}"#)
@@ -191,7 +263,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.audioMuteWhileRecordingEnabled), #"{"value":true}"#)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.performanceOptimizationEnabled), #"{"value":true}"#)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.analyticsEnabled), #"{"value":true}"#)
-        XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置")
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（仅当前会话生效，重启后可能丢失）")
     }
 
     func testClearHistoryClearCacheExportImportAndResetSettings() throws {
@@ -245,7 +317,28 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: cacheFile.path))
         XCTAssertNil(try environment.settingsRepository.value(forKey: "custom.setting"))
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
-        XCTAssertEqual(viewModel.lastActionMessage, "已重置设置")
+        XCTAssertEqual(viewModel.lastActionMessage, "已重置设置（仅当前会话生效，重启后可能丢失）")
+    }
+
+    func testPersistentWriteWarningMentionsDegradedStorageState() throws {
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                storageHealth: .corrupt(
+                    databaseURL: URL(fileURLWithPath: "/tmp/VoxFlow/voxflow.sqlite"),
+                    reason: "SQLite not a database"
+                )
+            )
+        )
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        try viewModel.setAnalyticsEnabled(true)
+
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（存储状态：损坏，不保证已持久保存）")
     }
 
     func testShortcutKeyCodeTextIsValidatedAndApplied() throws {
@@ -258,12 +351,51 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
-        viewModel.applyShortcutKeyCode("63")
-        XCTAssertEqual(shortcutManager.shortcutKeyCode, 63)
+        viewModel.applyShortcutKeyCode("55")
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, 55)
         XCTAssertEqual(viewModel.lastActionMessage, "已应用快捷键")
 
         viewModel.applyShortcutKeyCode("invalid")
         XCTAssertEqual(viewModel.lastError, "快捷键录制失败，请按下一个有效按键。")
+    }
+
+    func testVoiceShortcutRejectsNonModifierKeyCodes() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertThrowsError(
+            try viewModel.updateActionShortcut(action: .dictation, keyCode: 0x09)
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "语音快捷键仅支持 Command、Option、Control 或 Shift 这类单独修饰键。"
+            )
+        }
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, 54)
+    }
+
+    func testConflictingActionShortcutDoesNotPersistFailedBinding() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertThrowsError(
+            try viewModel.updateActionShortcut(action: .agentCompose, keyCode: 54)
+        ) { error in
+            XCTAssertEqual(error.localizedDescription, "两个操作不能使用相同的快捷键，请修改其中一个。")
+        }
+        XCTAssertNil(shortcutManager.agentComposeShortcutKeyCode)
     }
 
     func testExtendedSystemAndPrivacyOptionsPersist() throws {
@@ -285,6 +417,7 @@ final class SettingsViewModelTests: XCTestCase {
         try viewModel.setSystemOption(.grayMenuBarIcon, enabled: true)
         try viewModel.setSystemOption(.capsLockIndicator, enabled: true)
         try viewModel.setSystemOption(.crashLogs, enabled: true)
+        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: true)
 
         XCTAssertTrue(viewModel.systemOption(.keepMicrophoneActive))
         XCTAssertTrue(viewModel.systemOption(.localModelLivePreview))
@@ -296,6 +429,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.systemOption(.grayMenuBarIcon))
         XCTAssertTrue(viewModel.systemOption(.capsLockIndicator))
         XCTAssertTrue(viewModel.systemOption(.crashLogs))
+        XCTAssertTrue(viewModel.systemOption(.llmTraceDiagnostics))
     }
 
     private func makeShortcutManager() -> ShortcutManager {

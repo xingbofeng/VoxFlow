@@ -1,10 +1,5 @@
 import AppKit
-
-enum EscapeEventRouting {
-    static func isEscapeKey(_ keyCode: UInt16) -> Bool {
-        keyCode == 53
-    }
-}
+import CoreGraphics
 
 @MainActor
 final class EscapeKeyMonitorController {
@@ -56,14 +51,14 @@ final class EscapeKeyMonitorController {
     func start(onCancel: @escaping @MainActor () -> Void) {
         stop()
         localMonitor = addLocalMonitor { keyCode in
-            guard EscapeEventRouting.isEscapeKey(keyCode) else {
+            guard Self.routesToCancel(keyCode: keyCode) else {
                 return true
             }
             onCancel()
             return false
         }
         globalMonitor = addGlobalMonitor { [scheduleOnMain] keyCode in
-            guard EscapeEventRouting.isEscapeKey(keyCode) else { return }
+            guard Self.routesToCancel(keyCode: keyCode) else { return }
             scheduleOnMain {
                 onCancel()
             }
@@ -79,5 +74,14 @@ final class EscapeKeyMonitorController {
             removeMonitor(monitor)
             localMonitor = nil
         }
+    }
+
+    private static func routesToCancel(keyCode: UInt16) -> Bool {
+        HotKeyRouter.route(
+            keyCode: Int64(keyCode),
+            flags: [],
+            dictationKeyCode: ShortcutManager.shared.shortcutKeyCode(for: .dictation),
+            agentComposeKeyCode: ShortcutManager.shared.shortcutKeyCode(for: .agentCompose)
+        ) == .workflowShortcut(.cancel)
     }
 }

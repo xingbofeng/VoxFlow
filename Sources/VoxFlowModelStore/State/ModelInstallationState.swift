@@ -57,6 +57,7 @@ public enum ModelInstallationState: Codable, Equatable, Sendable {
     case compiling
     case warmingUp
     case canaryTesting
+    case deleting(ModelInstallation)
     case ready(ModelInstallation)
     case corrupt(reason: String)
     case runtimeUnsupported(reason: String)
@@ -76,6 +77,7 @@ public enum ModelInstallationState: Codable, Equatable, Sendable {
              .compiling,
              .warmingUp,
              .canaryTesting,
+             .deleting,
              .corrupt,
              .runtimeUnsupported,
              .hardwareUnsupported,
@@ -97,6 +99,7 @@ public enum ModelInstallationState: Codable, Equatable, Sendable {
              .compiling,
              .warmingUp,
              .canaryTesting,
+             .deleting,
              .ready,
              .corrupt,
              .failed:

@@ -3,14 +3,14 @@ import XCTest
 
 final class AppDelegateEventRoutingTests: XCTestCase {
     func testEscapeKeyRoutingMatchesMacEscapeKeyCode() {
-        XCTAssertTrue(EscapeEventRouting.isEscapeKey(53))
-        XCTAssertFalse(EscapeEventRouting.isEscapeKey(36))
+        XCTAssertEqual(HotKeyShortcutRouting.workflowShortcut(keyCode: 53, flags: []), .cancel)
+        XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 36, flags: []))
     }
 
     func testAppDelegateVoiceEnhancementDefaultStaysDisabled() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
-        let source = try String(contentsOf: sourceURL)
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         let disabledDefaultPattern = #"SettingsKey\.audioVoiceEnhancementEnabled,\s*defaultValue:\s*false"#
         XCTAssertNotNil(

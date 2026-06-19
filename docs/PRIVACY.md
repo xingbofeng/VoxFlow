@@ -5,21 +5,21 @@
 VoxFlow 将工作台相关数据保存在 SQLite 中，默认路径为：
 
 ```text
-~/Library/Application Support/VoiceInput/voiceinput.sqlite
+~/Library/Application Support/VoxFlow/voxflow.sqlite
 ```
-
-这里保留了旧目录名，目的是确保升级时不会把已有用户数据“丢”在旧路径里。
 
 这些数据包括听写历史、词汇表、替换规则、风格配置、Provider 元数据、转写任务、笔记、语音任务，以及非敏感设置。
 
 ## 密钥
 
-API Key 通过 `KeychainCredentialStore` 存入 macOS Keychain。
+LLM Provider 的 API Key 通过 `KeychainCredentialStore` 存入 macOS Keychain。
+
+Groq、腾讯云、阿里云等云端 ASR 凭据按当前产品设计保存在本地 SQLite 设置表中，便于在模型设置页直接查看、更新和删除。它们不会写入 UserDefaults、日志、测试快照或导出归档。
 
 VoxFlow 不应把 API Key 存到以下位置：
 
 - `UserDefaults`
-- SQLite
+- SQLite（云端 ASR 凭据除外）
 - 日志
 - 测试快照
 - 导出归档
@@ -32,8 +32,8 @@ VoxFlow 不应把 API Key 存到以下位置：
 
 - LLM 纠错默认关闭。
 - 只有当用户启用纠错，或者某种风格确实需要它时，才会把识别文本发送给 LLM。
-- 本地或系统 ASR 可以在不上传音频的情况下使用。
-- 云端 ASR Provider 在启用前必须清楚说明音频可能会离开本机。
+- 本地 ASR 在本机处理音频；Apple Speech 是否使用系统在线服务取决于 macOS 和当前语言。
+- 选择 Groq、腾讯云或阿里云等云端 ASR Provider 时，录音会发送给对应服务商完成识别。
 - “帮我说”会在触发时把用户口述内容和收集到的上下文发送给已配置的 LLM Provider。
 
 ## 上下文采集
@@ -72,9 +72,9 @@ VoxFlow 会使用以下 macOS 权限：
 
 ## 手动控制
 
-未来设置里应当提供：
+设置和工作台提供或计划提供以下手动控制：
 
 - 清空历史
 - 清空缓存 / 模型下载
 - 导出本地数据，但不包含密钥
-- 导入本地数据时不要覆盖 Keychain 密钥，除非用户显式配置允许
+- 导入本地数据时不覆盖 Keychain 密钥；云端 ASR 凭据也不进入普通导出归档

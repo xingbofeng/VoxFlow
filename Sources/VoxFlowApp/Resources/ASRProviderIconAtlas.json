@@ -88,6 +88,30 @@
     "height": 128
   },
   {
+    "file": "ASRTencentCloud.png",
+    "id": "tencent_cloud_asr",
+    "x": 0,
+    "y": 256,
+    "width": 128,
+    "height": 128
+  },
+  {
+    "file": "ASRParakeetStreaming.png",
+    "id": "parakeet_streaming",
+    "x": 128,
+    "y": 256,
+    "width": 128,
+    "height": 128
+  },
+  {
+    "file": "ASROmnilingual.png",
+    "id": "omnilingual_asr",
+    "x": 256,
+    "y": 256,
+    "width": 128,
+    "height": 128
+  },
+  {
     "file": "ASRDoubao.png",
     "id": "volcengine_doubao_asr",
     "x": 512,

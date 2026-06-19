@@ -6,9 +6,9 @@ extension Qwen3ModelVariant {
     init(size: ASRManager.ModelSize) {
         switch size {
         case .size0_6B:
-            self = .qwen06CoreMLInt8
+            self = .qwen06SpeechSwift4Bit
         case .size1_7B:
-            self = .qwen17MLX4Bit
+            self = .qwen17SpeechSwift8Bit
         }
     }
 }

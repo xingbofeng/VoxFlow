@@ -55,7 +55,7 @@ struct AppLogger {
         (#"(?i)((?:api[_-]?key|apikey)=)[^&\s]+"#, "$1[REDACTED]"),
         (#"(?i)((?:api[_ -]?key|apikey)\s*[:=]\s*)[^\s,;&]+"#, "$1[REDACTED]"),
         (#"(?i)((?:token|access_token)=)[^&\s]+"#, "$1[REDACTED]"),
-        (#"/Users/counter[^"\s]+"#, "~"),
+        (#"/Users/[^/\s"]+[^"\s]*"#, "~"),
         // Context text redaction
         (#"(?i)(visibleText|selectedText|inputAreaText|contextText)\s*[:=]\s*"[^"]*""#, #"$1: [REDACTED]"#),
         // Screenshot reference redaction

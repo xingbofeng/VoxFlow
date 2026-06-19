@@ -40,6 +40,65 @@ final class ASRSessionPresentationTests: XCTestCase {
         )
     }
 
+    func testReducerShowsFriendlyMessageForEmptyTranscriptFailure() {
+        let sessionID = ASRSessionID(rawValue: "empty-transcript-session")
+        var reducer = ASRSessionPresentationReducer(sessionID: sessionID)
+
+        XCTAssertEqual(
+            reducer.apply(
+                .failure(
+                    sessionID: sessionID,
+                    revision: 1,
+                    error: ASRError(
+                        category: .emptyTranscript,
+                        message: "Qwen3-ASR final result was empty."
+                    )
+                )
+            ),
+            .failed(message: "没有检测到有效语音，请靠近麦克风再试一次。")
+        )
+    }
+
+    func testASRCoreBackedEngineErrorShowsFriendlyMessageForEmptyTranscriptFailure() {
+        let error = ASRCoreBackedASREngineError.failure(
+            ASRError(
+                category: .emptyTranscript,
+                message: "Qwen3-ASR final result was empty."
+            )
+        )
+
+        XCTAssertEqual(error.localizedDescription, "没有检测到有效语音，请靠近麦克风再试一次。")
+    }
+
+    func testEmptyTranscriptErrorUsesShortNonActionableHUDFeedback() {
+        let feedback = RecognitionErrorHUDPresentation.feedback(
+            for: ASRCoreBackedASREngineError.failure(
+                ASRError(
+                    category: .emptyTranscript,
+                    message: "Qwen3-ASR final result was empty."
+                )
+            ),
+            recovery: .openMainWindow
+        )
+
+        XCTAssertEqual(feedback.message, "没有检测到有效语音，请靠近麦克风再试一次。")
+        XCTAssertEqual(feedback.duration, 2.4)
+        XCTAssertFalse(feedback.isActionable)
+    }
+
+    func testGeneralRecognitionErrorKeepsActionableRecoveryFeedback() {
+        let feedback = RecognitionErrorHUDPresentation.feedback(
+            for: ASRCoreBackedASREngineError.failure(
+                ASRError(category: .finalTimeout, message: "final timed out")
+            ),
+            recovery: .openMainWindow
+        )
+
+        XCTAssertEqual(feedback.message, "final timed out")
+        XCTAssertEqual(feedback.duration, 8.0)
+        XCTAssertTrue(feedback.isActionable)
+    }
+
     func testReducerIgnoresOtherSessionsAndOldRevisionsWithoutChangingPhase() {
         let sessionID = ASRSessionID(rawValue: "current-session")
         var reducer = ASRSessionPresentationReducer(sessionID: sessionID)
@@ -95,7 +154,7 @@ final class ASRSessionPresentationTests: XCTestCase {
             .show,
             .updateStreamingText("partial text"),
             .updateTranscription(text: "partial text", isRefining: true),
-            .showTemporaryMessage(message: "network down", duration: 3.0),
+            .showTemporaryMessage(message: "network down", duration: 6.0, tone: .info),
         ])
     }
 
@@ -126,7 +185,11 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
         case updateAgentComposeStatus(AgentComposeHUDStage)
         case updateStreamingText(String)
         case updateRMS(Float)
-        case showTemporaryMessage(message: String, duration: TimeInterval)
+        case showTemporaryMessage(
+            message: String,
+            duration: TimeInterval,
+            tone: HUDTemporaryMessageTone
+        )
     }
 
     private(set) var events: [Event] = []
@@ -162,8 +225,9 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
     func showTemporaryMessage(
         _ message: String,
         duration: TimeInterval,
+        tone: HUDTemporaryMessageTone,
         action: (() -> Void)?
     ) {
-        events.append(.showTemporaryMessage(message: message, duration: duration))
+        events.append(.showTemporaryMessage(message: message, duration: duration, tone: tone))
     }
 }

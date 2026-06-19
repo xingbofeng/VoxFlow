@@ -73,7 +73,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertTrue(quitRequested)
     }
 
-    func testCoordinatorRefreshesLanguageAndRefiningStateWhenMenuOpensWithoutASRChecks() throws {
+    func testCoordinatorRefreshesLanguageASRAndRefiningStateWhenMenuOpens() throws {
         let apple = ASRMenuModel(engineType: .apple, title: "系统自带")
         let qwen = ASRMenuModel(engineType: .qwen3, modelSize: .size0_6B, title: "Qwen3-ASR 0.6B")
         var currentLanguage = RecognitionLanguage.english
@@ -130,13 +130,13 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertNotNil(languageMenu.item(withTitle: "繁體中文"))
         XCTAssertNotNil(languageMenu.item(withTitle: "日本語"))
         XCTAssertNotNil(languageMenu.item(withTitle: "한국어"))
-        XCTAssertEqual(appleItem.state, .off)
+        XCTAssertEqual(appleItem.state, .on)
         XCTAssertTrue(appleItem.isEnabled)
-        XCTAssertEqual(qwenItem.state, .on)
+        XCTAssertEqual(qwenItem.state, .off)
         XCTAssertFalse(qwenItem.isEnabled)
         XCTAssertFalse(try XCTUnwrap(coordinator.menu.item(withTitle: "正在 LLM 纠错")).isHidden)
-        XCTAssertEqual(enabledChecks, 0)
-        XCTAssertEqual(selectedChecks, 0)
+        XCTAssertEqual(enabledChecks, 2)
+        XCTAssertEqual(selectedChecks, 2)
         XCTAssertEqual(menuWillOpenCount, 1)
     }
 

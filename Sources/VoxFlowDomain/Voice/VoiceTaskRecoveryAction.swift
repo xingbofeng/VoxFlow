@@ -16,6 +16,10 @@ public enum VoiceTaskRecoveryPolicy {
     ) -> [VoiceTaskRecoveryAction] {
         var actions: [VoiceTaskRecoveryAction] = []
 
+        if status == .cancelled {
+            return [.delete]
+        }
+
         if hasFinalText || hasRawTranscript {
             actions.append(.copy)
         }

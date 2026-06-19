@@ -3,6 +3,10 @@ import SwiftUI
 struct ASRProviderView: View {
     @ObservedObject var viewModel: ASRProviderViewModel
     var embedded = false
+    @State private var showGroqAPIKey = false
+    @State private var showAliyunDashScopeAPIKey = false
+    @State private var showTencentCloudCredentials = false
+    @State private var expandedProviderID: String?
 
     private var providerColumns: [GridItem] {
         [
@@ -17,8 +21,7 @@ struct ASRProviderView: View {
                     .font(.system(size: 24, weight: .semibold))
             }
 
-            scopeFilterBar
-            tagBar
+            scopeAndTagFilterBar
 
             LazyVGrid(columns: providerColumns, spacing: AppTheme.Spacing.grid) {
                 ForEach(viewModel.visibleProviders, id: \.id) { provider in
@@ -37,41 +40,22 @@ struct ASRProviderView: View {
         )
     }
 
-    private var scopeFilterBar: some View {
-        HStack(spacing: 8) {
-            ForEach(ASRProviderScope.allCases) { scope in
-                let isSelected = viewModel.providerScope == scope
-                Button {
-                    viewModel.selectProviderScope(scope)
-                } label: {
-                    Label(scope.title, systemImage: scope.systemImage)
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 12)
-                        .frame(height: 34)
-                        .contentShape(Rectangle())
+    private var scopeAndTagFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ASRProviderScope.allCases) { scope in
+                    scopeFilterButton(scope)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(
-                    isSelected
-                        ? AppTheme.ColorToken.accent
-                        : AppTheme.ColorToken.secondaryText
-                )
-                .background(
-                    isSelected
-                        ? AppTheme.ColorToken.selectionBackground
-                        : AppTheme.ColorToken.panelBackground
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
-                        .stroke(
-                            isSelected
-                                ? AppTheme.ColorToken.accent.opacity(0.35)
-                                : AppTheme.ColorToken.panelStroke
-                        )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
+                if !viewModel.availableTags.isEmpty {
+                    Rectangle()
+                        .fill(AppTheme.ColorToken.panelStroke)
+                        .frame(width: 1, height: 24)
+                        .padding(.horizontal, 4)
+                    ForEach(viewModel.availableTags, id: \.self) { tag in
+                        tagFilterButton(tag)
+                    }
+                }
             }
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
@@ -83,48 +67,81 @@ struct ASRProviderView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
     }
 
-    private var tagBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(viewModel.availableTags, id: \.self) { tag in
-                    Button(tag) {
-                        viewModel.toggleTag(tag)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(
-                        viewModel.selectedTags.contains(tag)
-                            ? AppTheme.ColorToken.accent
-                            : AppTheme.ColorToken.secondaryText
-                    )
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .background(
-                        viewModel.selectedTags.contains(tag)
-                            ? AppTheme.ColorToken.selectionBackground
-                            : AppTheme.ColorToken.panelBackground
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(
-                                viewModel.selectedTags.contains(tag)
-                                    ? AppTheme.ColorToken.accent.opacity(0.35)
-                                    : AppTheme.ColorToken.panelStroke
-                            )
-                    )
-                    .clipShape(Capsule())
-                }
-            }
+    private func scopeFilterButton(_ scope: ASRProviderScope) -> some View {
+        let isSelected = viewModel.providerScope == scope
+        return Button {
+            viewModel.selectProviderScope(scope)
+        } label: {
+            Label(scope.title, systemImage: scope.systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 12)
+                .frame(height: 34)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(
+            isSelected
+                ? AppTheme.ColorToken.accent
+                : AppTheme.ColorToken.secondaryText
+        )
+        .background(
+            isSelected
+                ? AppTheme.ColorToken.selectionBackground
+                : AppTheme.ColorToken.panelBackground
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                .stroke(
+                    isSelected
+                        ? AppTheme.ColorToken.accent.opacity(0.35)
+                        : AppTheme.ColorToken.panelStroke
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
+    }
+
+    private func tagFilterButton(_ tag: String) -> some View {
+        let isSelected = viewModel.selectedTags.contains(tag)
+        return Button {
+            viewModel.toggleTag(tag)
+        } label: {
+            Text(tag)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 11)
+                .frame(height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(
+            isSelected
+                ? AppTheme.ColorToken.accent
+                : AppTheme.ColorToken.secondaryText
+        )
+        .background(
+            isSelected
+                ? AppTheme.ColorToken.selectionBackground
+                : AppTheme.ColorToken.panelBackground
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                .stroke(
+                    isSelected
+                        ? AppTheme.ColorToken.accent.opacity(0.35)
+                        : AppTheme.ColorToken.panelStroke
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
     }
 
     private func providerCard(_ provider: ASRProviderDescriptor) -> some View {
         let interaction = ASRProviderCardInteractionPresentation(provider: provider)
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
-                HStack(alignment: .top, spacing: 14) {
-                    providerIcon(provider)
-                    providerSummary(provider)
+        let isExpanded = isProviderExpanded(provider)
+        return VStack(alignment: .leading, spacing: isExpanded ? 12 : 0) {
+            HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: 12) {
+                    providerIcon(provider, compact: !isExpanded)
+                    providerSummary(provider, isExpanded: isExpanded)
                     Spacer(minLength: 0)
                 }
 
@@ -137,26 +154,28 @@ struct ASRProviderView: View {
                         .background(AppTheme.ColorToken.selectionBackground)
                         .clipShape(Capsule())
                 }
-            }
-            .allowsHitTesting(!interaction.isSelectionPassthroughRegion(.blank))
-
-            HStack(spacing: 6) {
-                ForEach(provider.tags, id: \.self) { tag in
-                    Text(tag)
-                        .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 8)
-                        .frame(height: 26)
-                        .background(AppTheme.ColorToken.pageBackground)
-                        .clipShape(Capsule())
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        toggleExpandedProvider(provider)
+                    }
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help(isExpanded ? "收起配置" : "展开配置")
             }
-            .allowsHitTesting(!interaction.isSelectionPassthroughRegion(.tags))
 
-            if provider.supportsLocalModelControls {
-                localModelControls(provider)
+            if isExpanded {
+                providerTagsRow(provider, interaction: interaction)
+                providerExpandedControls(provider)
             }
         }
-        .padding(18)
+        .padding(.horizontal, isExpanded ? 18 : 14)
+        .padding(.vertical, isExpanded ? 18 : 10)
         .background {
             cardSelectionSurface(provider, interaction: interaction)
         }
@@ -175,7 +194,264 @@ struct ASRProviderView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .opacity(provider.isAvailable || provider.externalLinks != nil ? 1 : 0.82)
+        .opacity(provider.isAvailable ? 1 : 0.82)
+    }
+
+    private func isProviderExpanded(_ provider: ASRProviderDescriptor) -> Bool {
+        expandedProviderID == provider.id
+    }
+
+    private func toggleExpandedProvider(_ provider: ASRProviderDescriptor) {
+        if expandedProviderID == provider.id {
+            expandedProviderID = nil
+        } else {
+            expandedProviderID = provider.id
+        }
+    }
+
+    private func providerTagsRow(
+        _ provider: ASRProviderDescriptor,
+        interaction: ASRProviderCardInteractionPresentation
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(ASRProviderTagPresentation.cardTags(for: provider), id: \.self) { tag in
+                    Text(tag)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .frame(height: 26)
+                        .background(AppTheme.ColorToken.pageBackground)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .allowsHitTesting(!interaction.isSelectionPassthroughRegion(.tags))
+    }
+
+    @ViewBuilder
+    private func providerExpandedControls(_ provider: ASRProviderDescriptor) -> some View {
+        if provider.supportsLocalModelControls {
+            localModelControls(provider)
+        }
+        if provider.id == ASRProviderID.groqWhisper {
+            groqConfigurationControls
+        }
+        if provider.id == ASRProviderID.tencentCloudASR {
+            tencentCloudConfigurationControls
+        }
+        if provider.id == ASRProviderID.qwenCloudASR {
+            aliyunDashScopeConfigurationControls
+        }
+    }
+
+    private var groqConfigurationControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            HStack(spacing: 8) {
+                Text("Groq 配置")
+                    .font(.system(size: 13, weight: .semibold))
+                if viewModel.hasStoredGroqAPIKey {
+                    Text("API Key 已保存")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.green)
+                }
+            }
+            HStack(spacing: 8) {
+                Group {
+                    if showGroqAPIKey {
+                        TextField("Groq API Key", text: $viewModel.groqAPIKeyInput)
+                    } else {
+                        SecureField("Groq API Key", text: $viewModel.groqAPIKeyInput)
+                    }
+                }
+                .textFieldStyle(.roundedBorder)
+                Button {
+                    if showGroqAPIKey {
+                        viewModel.groqAPIKeyInput = viewModel.groqAPIKeyForEditing()
+                        showGroqAPIKey = false
+                    } else {
+                        if viewModel.isMaskedGroqAPIKey(text: viewModel.groqAPIKeyInput) {
+                            viewModel.groqAPIKeyInput = viewModel.storedGroqAPIKeyForEditing()
+                        }
+                        showGroqAPIKey = true
+                    }
+                } label: {
+                    Image(systemName: showGroqAPIKey ? "eye.slash" : "eye")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(showGroqAPIKey ? "隐藏 API Key" : "显示 API Key")
+            }
+            Picker("模型", selection: $viewModel.groqModelInput) {
+                ForEach(viewModel.supportedGroqModels) { model in
+                    Text(model.title).tag(model.id)
+                }
+            }
+            .pickerStyle(.menu)
+            HStack(spacing: 8) {
+                Button("保存配置") {
+                    viewModel.saveGroqConfiguration()
+                }
+                Button(viewModel.isTestingGroq ? "测试中…" : "测试连接") {
+                    Task { await viewModel.testGroqConnection() }
+                }
+                .disabled(viewModel.isTestingGroq)
+                if viewModel.hasStoredGroqAPIKey {
+                    Button("删除 API Key", role: .destructive) {
+                        viewModel.deleteGroqAPIKey()
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            Text("录音会发送到 Groq。API Key 保存在本地数据库，可用眼睛按钮查看或隐藏。")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .settingsRow()
+    }
+
+    private var tencentCloudConfigurationControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            HStack(spacing: 8) {
+                Text("腾讯云配置")
+                    .font(.system(size: 13, weight: .semibold))
+                if viewModel.hasStoredTencentCloudCredentials {
+                    Text("凭据已保存")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.green)
+                }
+            }
+            Text("使用腾讯云实时流式语音识别 WebSocket。需要在腾讯云控制台获取 AppID、SecretId 和 SecretKey。")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            VStack(alignment: .leading, spacing: 8) {
+                tencentCredentialField("AppID", text: $viewModel.tencentAppIDInput, isSecret: false)
+                tencentCredentialField("SecretId", text: $viewModel.tencentSecretIDInput, isSecret: false)
+                HStack(spacing: 8) {
+                    tencentCredentialField("SecretKey", text: $viewModel.tencentSecretKeyInput, isSecret: true)
+                    Button {
+                        if showTencentCloudCredentials {
+                            let stored = viewModel.storedTencentCloudCredentialsForEditing()
+                            viewModel.tencentAppIDInput = stored.appID
+                            viewModel.tencentSecretIDInput = stored.secretID
+                            viewModel.tencentSecretKeyInput = stored.secretKey.isEmpty
+                                ? ""
+                                : ASRProviderViewModel.storedTencentSecretMask
+                            showTencentCloudCredentials = false
+                        } else {
+                            let stored = viewModel.storedTencentCloudCredentialsForEditing()
+                            if viewModel.isMaskedTencentSecret(text: viewModel.tencentSecretKeyInput) {
+                                viewModel.tencentSecretKeyInput = stored.secretKey
+                            }
+                            showTencentCloudCredentials = true
+                        }
+                    } label: {
+                        Image(systemName: showTencentCloudCredentials ? "eye.slash" : "eye")
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(showTencentCloudCredentials ? "隐藏腾讯云凭据" : "显示腾讯云凭据")
+                }
+            }
+            HStack(spacing: 8) {
+                Button("保存配置") {
+                    viewModel.saveTencentCloudConfiguration()
+                }
+                Button(viewModel.isTestingTencentCloud ? "测试中…" : "测试连接") {
+                    Task { await viewModel.testTencentCloudConnection() }
+                }
+                .disabled(viewModel.isTestingTencentCloud)
+                if viewModel.hasStoredTencentCloudCredentials {
+                    Button("删除凭据", role: .destructive) {
+                        viewModel.deleteTencentCloudCredentials()
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            Text("录音会发送到腾讯云。AppID、SecretId 和 SecretKey 保存在本地数据库，可用眼睛按钮查看或隐藏。")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .settingsRow()
+    }
+
+    @ViewBuilder
+    private func tencentCredentialField(_ placeholder: String, text: Binding<String>, isSecret: Bool) -> some View {
+        if isSecret && !showTencentCloudCredentials {
+            SecureField(placeholder, text: text)
+                .textFieldStyle(.roundedBorder)
+        } else {
+            TextField(placeholder, text: text)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private var aliyunDashScopeConfigurationControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            HStack(spacing: 8) {
+                Text("阿里云百炼配置")
+                    .font(.system(size: 13, weight: .semibold))
+                if viewModel.hasStoredAliyunDashScopeAPIKey {
+                    Text("API Key 已保存")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.green)
+                }
+            }
+            Text("使用 DashScope 实时语音识别 WebSocket。Endpoint 固定为 wss://dashscope.aliyuncs.com/api-ws/v1/inference，鉴权使用 Authorization: Bearer API Key。")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            HStack(spacing: 8) {
+                Group {
+                    if showAliyunDashScopeAPIKey {
+                        TextField("百炼 API Key", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                    } else {
+                        SecureField("百炼 API Key", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                    }
+                }
+                .textFieldStyle(.roundedBorder)
+                Button {
+                    if showAliyunDashScopeAPIKey {
+                        viewModel.aliyunDashScopeAPIKeyInput = viewModel.aliyunDashScopeAPIKeyForEditing()
+                        showAliyunDashScopeAPIKey = false
+                    } else {
+                        if viewModel.isMaskedAliyunDashScopeAPIKey(text: viewModel.aliyunDashScopeAPIKeyInput) {
+                            viewModel.aliyunDashScopeAPIKeyInput = viewModel.storedAliyunDashScopeAPIKeyForEditing()
+                        }
+                        showAliyunDashScopeAPIKey = true
+                    }
+                } label: {
+                    Image(systemName: showAliyunDashScopeAPIKey ? "eye.slash" : "eye")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(showAliyunDashScopeAPIKey ? "隐藏 API Key" : "显示 API Key")
+            }
+            HStack(spacing: 8) {
+                Button("保存配置") {
+                    viewModel.saveAliyunDashScopeConfiguration()
+                }
+                Button(viewModel.isTestingAliyunDashScope ? "测试中…" : "测试连接") {
+                    Task { await viewModel.testAliyunDashScopeConnection() }
+                }
+                .disabled(viewModel.isTestingAliyunDashScope)
+                if viewModel.hasStoredAliyunDashScopeAPIKey {
+                    Button("删除 API Key", role: .destructive) {
+                        viewModel.deleteAliyunDashScopeAPIKey()
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            Text("录音会发送到阿里云百炼。API Key 保存在本地数据库，可用眼睛按钮查看或隐藏。默认模型为 fun-asr-realtime。")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .settingsRow()
     }
 
     private func cardSelectionSurface(
@@ -198,20 +474,23 @@ struct ASRProviderView: View {
         .accessibilityLabel("选择 \(provider.displayName)")
     }
 
-    private func providerSummary(_ provider: ASRProviderDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func providerSummary(_ provider: ASRProviderDescriptor, isExpanded: Bool) -> some View {
+        VStack(alignment: .leading, spacing: isExpanded ? 6 : 3) {
             Text(provider.displayName)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: isExpanded ? 17 : 15, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
             if let status = provider.statusMessage {
                 Text(status)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: isExpanded ? 13 : 12, weight: .medium))
                     .foregroundStyle(provider.isAvailable ? AppTheme.ColorToken.accent : .orange)
+                    .lineLimit(isExpanded ? nil : 1)
             }
-            Text(provider.privacySummary)
-                .font(.system(size: 13))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            if let links = provider.externalLinks {
+            if isExpanded {
+                Text(provider.privacySummary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            if isExpanded, let links = provider.externalLinks {
                 externalLinksRow(links)
             }
         }
@@ -254,22 +533,23 @@ struct ASRProviderView: View {
     }
 
     @ViewBuilder
-    private func providerIcon(_ provider: ASRProviderDescriptor) -> some View {
+    private func providerIcon(_ provider: ASRProviderDescriptor, compact: Bool = false) -> some View {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(provider.isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
-            .frame(width: 46, height: 46)
+            .frame(width: compact ? 34 : 46, height: compact ? 34 : 46)
             .overlay {
                 if let symbolName = ASRProviderIcon.systemSymbolName(providerID: provider.id) {
                     Image(systemName: symbolName)
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.system(size: compact ? 16 : 20, weight: .medium))
                 } else if let image = ASRProviderIcon.load(providerID: provider.id) {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 27, height: 27)
+                        .frame(width: compact ? 21 : 27, height: compact ? 21 : 27)
+                        .opacity(provider.isAvailable ? 1 : 0.55)
                 } else if let badge = ASRProviderIcon.textBadge(providerID: provider.id) {
                     Text(badge)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: compact ? 11 : 14, weight: .bold, design: .rounded))
                 }
             }
             .foregroundStyle(
@@ -296,7 +576,6 @@ struct ASRProviderView: View {
                 switch provider.localModelAction {
                 case .download, .repair:
                     Button {
-                        viewModel.selectProviderForConfiguration(id: provider.id)
                         Task { await viewModel.downloadModel(id: provider.id) }
                     } label: {
                         Label(
@@ -308,7 +587,6 @@ struct ASRProviderView: View {
                     .disabled(viewModel.isDownloading)
                 case .delete:
                     Button(role: .destructive) {
-                        viewModel.selectProviderForConfiguration(id: provider.id)
                         viewModel.deleteLocalModel(id: provider.id)
                     } label: {
                         Label("删除模型", systemImage: "trash")

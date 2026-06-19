@@ -28,26 +28,6 @@ struct PromptBuilder {
 
     private let glossaryLimit: Int
 
-    static func retrySystemPrompt(_ originalPrompt: String) -> String {
-        """
-        上一次输出与输入完全相同。请重新检查口述原文中是否存在可确认的识别错误、重复、断句或标点问题。
-        只在有明确依据时修正；不要为了制造差异而改写、扩写或改变用户事实与意图。
-        如果原文已经自然、准确、可直接使用，或者没有可确认问题时，可以保持原文。
-
-        以下规则仍然有效：
-        \(originalPrompt)
-        """
-    }
-
-    static func retryUserMessage(_ text: String) -> String {
-        """
-        请重新检查下面的口述原文：有明确识别错误、重复、缺少必要标点或断句不自然时再修正；没有可确认问题时，可以保持原文。
-
-        待处理原文：
-        \(text)
-        """
-    }
-
     init(glossaryLimit: Int = 40) {
         self.glossaryLimit = glossaryLimit
     }

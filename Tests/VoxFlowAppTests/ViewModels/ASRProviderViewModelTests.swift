@@ -1,6 +1,7 @@
 import XCTest
 import VoxFlowModelStore
 import VoxFlowProviderFunASR
+import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderWhisper
@@ -26,15 +27,18 @@ final class ASRProviderViewModelTests: XCTestCase {
             ASRProviderID.appleSpeech,
             ASRProviderID.funASR,
             ASRProviderID.nvidiaNemotron,
+            ASRProviderID.parakeetStreaming,
+            ASRProviderID.omnilingualASR,
             ASRProviderID.paraformer,
             ASRProviderID.qwen3,
             ASRProviderID.senseVoice,
             ASRProviderID.whisper,
             ASRProviderID.groqWhisper,
+            ASRProviderID.tencentCloudASR,
             ASRProviderID.qwenCloudASR,
+            ASRProviderID.volcengineDoubao,
             ASRProviderID.mistralVoxtral,
             ASRProviderID.assemblyAI,
-            ASRProviderID.volcengineDoubao,
             ASRProviderID.elevenLabsScribe,
         ]))
         XCTAssertEqual(viewModel.providers.first?.isDefault, true)
@@ -42,7 +46,7 @@ final class ASRProviderViewModelTests: XCTestCase {
             viewModel.providers.first { $0.id == ASRProviderID.funASR }?.statusMessage,
             "尚未安装本地模型"
         )
-        XCTAssertEqual(try environment.asrProviderRepository.list().count, 13)
+        XCTAssertEqual(try environment.asrProviderRepository.list().count, 16)
     }
 
     func testInitializationReadsProviderCatalogWithoutPersistingRecords() throws {
@@ -56,6 +60,29 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         XCTAssertFalse(viewModel.providers.isEmpty)
         XCTAssertTrue(try environment.asrProviderRepository.list().isEmpty)
+    }
+
+    func testUnavailablePersistedLocalProviderKeepsUserSelectionWhileRuntimeFallsBackToApple() throws {
+        let manager = makeManager()
+        manager.selectedEngineType = .funASR
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        let appleProvider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.appleSpeech })
+        let funASRProvider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.funASR })
+
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+        XCTAssertFalse(appleProvider.isDefault)
+        XCTAssertTrue(funASRProvider.isDefault)
+        XCTAssertFalse(funASRProvider.isAvailable)
+        XCTAssertEqual(
+            funASRProvider.statusMessage,
+            "尚未安装本地模型。请下载、修复或重新选择模型。"
+        )
     }
 
     func testCorruptQwenProviderPersistsRepairRequiredHealth() throws {
@@ -140,7 +167,7 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(record.lastHealthMessage, "运行时不支持：缺少本地 runtime")
     }
 
-    func testTagFilterNarrowsVisibleProviders() throws {
+    func testTagFilterUsesDisplayedProviderTagsInSingleRow() throws {
         let manager = makeManager()
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = ASRProviderViewModel(
@@ -149,12 +176,18 @@ final class ASRProviderViewModelTests: XCTestCase {
             registry: ASRProviderRegistry(asrManager: manager)
         )
 
-        viewModel.toggleTag("本地")
+        viewModel.toggleTag("CoreML")
 
-        XCTAssertEqual(Set(viewModel.visibleProviders.map(\.id)),
-                       [ASRProviderID.funASR, ASRProviderID.whisper, ASRProviderID.qwen3,
-                        ASRProviderID.senseVoice, ASRProviderID.paraformer,
-                        ASRProviderID.nvidiaNemotron])
+        XCTAssertTrue(viewModel.availableTags.contains("CoreML"))
+        XCTAssertEqual(viewModel.selectedTags, ["CoreML"])
+        XCTAssertEqual(
+            Set(viewModel.visibleProviders.map(\.id)),
+            [
+                ASRProviderID.nvidiaNemotron,
+                ASRProviderID.parakeetStreaming,
+                ASRProviderID.omnilingualASR,
+            ]
+        )
     }
 
     func testProviderScopeDefaultsToAllAndFiltersOnlineAndOfflineCatalogs() throws {
@@ -176,10 +209,11 @@ final class ASRProviderViewModelTests: XCTestCase {
             viewModel.visibleProviders.map(\.id),
             [
                 ASRProviderID.groqWhisper,
+                ASRProviderID.tencentCloudASR,
                 ASRProviderID.qwenCloudASR,
+                ASRProviderID.volcengineDoubao,
                 ASRProviderID.mistralVoxtral,
                 ASRProviderID.assemblyAI,
-                ASRProviderID.volcengineDoubao,
                 ASRProviderID.elevenLabsScribe,
             ]
         )
@@ -187,21 +221,80 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         viewModel.selectProviderScope(.offline)
 
+        XCTAssertEqual(viewModel.visibleProviders.first?.id, ASRProviderID.appleSpeech)
+        XCTAssertFalse(viewModel.visibleProviders.contains { $0.id == ASRProviderID.groqWhisper })
+        XCTAssertTrue(viewModel.availableTags.contains("流式"))
+        XCTAssertTrue(viewModel.availableTags.contains("CoreML"))
         XCTAssertEqual(
             Set(viewModel.visibleProviders.map(\.id)),
             [
+                ASRProviderID.appleSpeech,
                 ASRProviderID.funASR,
                 ASRProviderID.whisper,
                 ASRProviderID.qwen3,
                 ASRProviderID.senseVoice,
                 ASRProviderID.paraformer,
                 ASRProviderID.nvidiaNemotron,
+                ASRProviderID.parakeetStreaming,
+                ASRProviderID.omnilingualASR,
             ]
         )
     }
 
     func testProviderScopeControlOrderIsAllOfflineOnline() {
         XCTAssertEqual(ASRProviderScope.allCases, [.all, .offline, .online])
+    }
+
+    func testOfflineProviderScopeMatchesSystemAndLocalProvidersButNotCloudProviders() throws {
+        let manager = makeManager()
+        let registry = ASRProviderRegistry(asrManager: manager)
+        let apple = try XCTUnwrap(registry.descriptor(id: ASRProviderID.appleSpeech))
+        let qwen = try XCTUnwrap(registry.descriptor(id: ASRProviderID.qwen3))
+        let groq = try XCTUnwrap(registry.descriptor(id: ASRProviderID.groqWhisper))
+
+        XCTAssertTrue(ASRProviderScope.offline.matches(apple))
+        XCTAssertTrue(ASRProviderScope.offline.matches(qwen))
+        XCTAssertFalse(ASRProviderScope.offline.matches(groq))
+    }
+
+    func testProviderScopeMatchesNormalizedDisplayedTags() throws {
+        let onlineDescriptor = ASRProviderDescriptor(
+            id: "custom-online",
+            displayName: "自定义在线",
+            providerType: "custom",
+            capabilities: [.streaming, .cloud],
+            tags: [],
+            isAvailable: true,
+            isDefault: false,
+            statusMessage: nil,
+            privacySummary: "在线识别",
+            modelSize: nil,
+            engineType: nil,
+            externalLinks: ASRProviderExternalLinks(
+                apiKeyURL: URL(string: "https://example.com/key")!
+            )
+        )
+
+        XCTAssertTrue(ASRProviderScope.online.matches(onlineDescriptor))
+        XCTAssertFalse(ASRProviderScope.offline.matches(onlineDescriptor))
+    }
+
+    func testCurrentProviderIsPinnedToTopWhenVisible() throws {
+        let manager = makeManager()
+        manager.selectedEngineType = .funASR
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        XCTAssertEqual(viewModel.visibleProviders.first?.id, ASRProviderID.funASR)
+
+        viewModel.selectProviderScope(.online)
+
+        XCTAssertNotEqual(viewModel.visibleProviders.first?.id, ASRProviderID.funASR)
+        XCTAssertFalse(viewModel.visibleProviders.contains { $0.id == ASRProviderID.funASR })
     }
 
     func testOnlineProvidersExposeExternalAPIKeyAndModelLinks() throws {
@@ -223,6 +316,48 @@ final class ASRProviderViewModelTests: XCTestCase {
         }
     }
 
+    func testUnsupportedOnlineProvidersAreDisabledAndLabeledUnsupported() throws {
+        let manager = makeManager()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        let expectedNames = [
+            ASRProviderID.groqWhisper: "Groq（免费）",
+            ASRProviderID.tencentCloudASR: "腾讯云",
+            ASRProviderID.qwenCloudASR: "阿里云",
+            ASRProviderID.volcengineDoubao: "火山云",
+        ]
+        for (id, name) in expectedNames {
+            XCTAssertEqual(viewModel.providers.first { $0.id == id }?.displayName, name)
+        }
+
+        for id in [
+            ASRProviderID.volcengineDoubao,
+            ASRProviderID.mistralVoxtral,
+            ASRProviderID.assemblyAI,
+            ASRProviderID.elevenLabsScribe,
+        ] {
+            let provider = try XCTUnwrap(viewModel.providers.first { $0.id == id })
+            XCTAssertFalse(provider.isAvailable)
+            XCTAssertNil(provider.engineType)
+            XCTAssertEqual(provider.statusMessage, "暂未支持")
+        }
+
+        let aliyun = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.qwenCloudASR })
+        XCTAssertFalse(aliyun.isAvailable)
+        XCTAssertNil(aliyun.engineType)
+        XCTAssertEqual(aliyun.statusMessage, "需要配置百炼 API Key")
+
+        let tencent = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.tencentCloudASR })
+        XCTAssertFalse(tencent.isAvailable)
+        XCTAssertNil(tencent.engineType)
+        XCTAssertEqual(tencent.statusMessage, "需要配置 AppID、SecretId 和 SecretKey")
+    }
+
     func testQwenCloudLinksUseReachableOfficialAliyunDocumentation() throws {
         let manager = makeManager()
         let registry = ASRProviderRegistry(asrManager: manager)
@@ -233,7 +368,7 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(links.guideURL?.host, "help.aliyun.com")
     }
 
-    func testAvailableTagsFollowSelectedProviderScope() throws {
+    func testAvailableTagsReflectCurrentScope() throws {
         let manager = makeManager()
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = ASRProviderViewModel(
@@ -244,14 +379,13 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         viewModel.selectProviderScope(.online)
 
-        XCTAssertTrue(viewModel.availableTags.contains("在线"))
-        XCTAssertTrue(viewModel.availableTags.contains("实时"))
-        XCTAssertFalse(viewModel.availableTags.contains("离线"))
-        XCTAssertFalse(viewModel.availableTags.contains("CoreML"))
-        XCTAssertFalse(viewModel.availableTags.contains("0.22B"))
+        XCTAssertEqual(
+            viewModel.availableTags,
+            ["流式", "非流式", "快速", "准确", "中文", "多语言"]
+        )
     }
 
-    func testChangingProviderScopeClearsIncompatibleTagSelection() throws {
+    func testChangingProviderScopeKeepsOnlyAvailableTagSelection() throws {
         let manager = makeManager()
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = ASRProviderViewModel(
@@ -429,6 +563,36 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
         XCTAssertNil(manager.qwen3ModelPath)
+        XCTAssertEqual(manager.qwen3ModelInstallationState, .notInstalled)
+        XCTAssertEqual(manager.selectedEngineType, .apple)
+        XCTAssertEqual(viewModel.providers.first?.id, ASRProviderID.appleSpeech)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+    }
+
+    func testDeleteLocalFunASRModelClearsModelStoreStateAndRefreshesProvider() throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FunASRDeleteTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        manager.markFunASRModelReady(at: modelURL.path, precision: .int8)
+        manager.selectedEngineType = .funASR
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        viewModel.deleteLocalModel(id: ASRProviderID.funASR)
+
+        let provider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.funASR })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
+        XCTAssertFalse(manager.isFunASRModelAvailable)
+        XCTAssertEqual(manager.funASRModelInstallationState(for: .int8), .notInstalled)
+        XCTAssertFalse(provider.isAvailable)
+        XCTAssertEqual(provider.localModelAction, .download)
+        XCTAssertEqual(provider.statusMessage, "尚未安装本地模型")
         XCTAssertEqual(manager.selectedEngineType, .apple)
         XCTAssertEqual(viewModel.providers.first?.id, ASRProviderID.appleSpeech)
         XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
@@ -455,14 +619,17 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertNil(manager.qwen3ModelPath)
         XCTAssertFalse(manager.isQwen3ModelAvailable)
         XCTAssertNil(viewModel.lastActionMessage)
-        XCTAssertEqual(viewModel.lastError, "模型下载完成但缺少必要文件：vocab.json")
+        XCTAssertEqual(
+            viewModel.lastError,
+            "模型下载完成但缺少必要文件：model.safetensors、model.safetensors.index.json"
+        )
     }
 
     func testDownloadSavesModelStoreValidatedQwenRootWithoutLegacyPathShape() async throws {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
         addTeardownBlock {
             try? FileManager.default.removeItem(at: modelURL)
         }
@@ -514,30 +681,6 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertFalse(manager.isQwen3ModelAvailable)
         XCTAssertNil(viewModel.lastActionMessage)
         XCTAssertEqual(viewModel.lastError, "Canary failed")
-    }
-
-    func testDownloadQwen17AttemptsRuntimeProvisioningBeforeModelDownload() async throws {
-        let manager = makeManager()
-        manager.qwen3ModelSize = .size1_7B
-        let runtimeProvisioner = CapturingQwen3ViewModelRuntimeProvisioner(
-            result: .failure(Qwen3ViewModelReadinessTestError.runtimeProvisionFailed)
-        )
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let viewModel = ASRProviderViewModel(
-            environment: environment,
-            asrManager: manager,
-            registry: ASRProviderRegistry(asrManager: manager),
-            downloader: FailingQwen3ModelDownloader(),
-            qwenRuntimeProvisioner: runtimeProvisioner
-        )
-
-        await viewModel.downloadQwenModel()
-
-        XCTAssertNil(manager.qwen3ModelPath)
-        XCTAssertNil(viewModel.lastActionMessage)
-        XCTAssertEqual(viewModel.lastError, "Runtime provision failed")
-        let prepareCallCount = await runtimeProvisioner.prepareCallCount
-        XCTAssertEqual(prepareCallCount, 1)
     }
 
     func testDownloadWhisperTurboDoesNotReportSuccessWhenDownloadedDirectoryIsIncomplete() async throws {
@@ -648,6 +791,33 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
     }
 
+    func testDownloadParaformerMarksModelStoreReadyState() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ParaformerTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableParaformerModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = StubParaformerModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            paraformerModelDownloader: downloader
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.paraformer)
+
+        let requestCount = await downloader.requestCount
+        XCTAssertEqual(requestCount, 1)
+        XCTAssertTrue(manager.isParaformerModelAvailable)
+        XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.paraformer })?.isAvailable ?? false)
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
+    }
+
     private func makeManager() -> ASRManager {
         makeManagerAndRepository().manager
     }
@@ -673,7 +843,9 @@ final class ASRProviderViewModelTests: XCTestCase {
         return (
             ASRManager(
                 defaults: defaults,
-                modelInstallationRepository: repository
+                modelInstallationRepository: repository,
+                credentialStore: ASRProviderViewModelTestCredentialStore(),
+                qwen3RuntimePreflight: { _ in .supported }
             ),
             repository
         )
@@ -697,26 +869,14 @@ final class ASRProviderViewModelTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
-        try createValidEmbeddingFile(at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"))
-    }
-
-    private func createValidEmbeddingFile(at url: URL) throws {
-        var header = Data()
-        var vocabSize = UInt32(151_936).littleEndian
-        var hiddenSize = UInt32(1_024).littleEndian
-        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
-        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
-        try header.write(to: url)
-        let handle = try FileHandle(forWritingTo: url)
-        try handle.truncate(atOffset: 8 + UInt64(151_936) * 1_024 * 2)
-        try handle.close()
     }
 
     private func createIncompleteQwenDirectory(at modelURL: URL) throws {
         let paths = [
-            "qwen3_asr_audio_encoder_v2.mlmodelc/coremldata.bin",
-            "qwen3_asr_decoder_stateful.mlmodelc/coremldata.bin",
-            "qwen3_asr_embeddings.bin",
+            "config.json",
+            "merges.txt",
+            "tokenizer_config.json",
+            "vocab.json",
         ]
         for relativePath in paths {
             let fileURL = modelURL.appendingPathComponent(relativePath)
@@ -770,6 +930,24 @@ final class ASRProviderViewModelTests: XCTestCase {
         }
     }
 
+    private func createLoadableParaformerModelDirectory(at modelURL: URL) throws {
+        let paths = [
+            "ParaformerPreprocessor.mlmodelc/coremldata.bin",
+            "ParaformerEncoder_int8.mlmodelc/coremldata.bin",
+            "ParaformerCifAlphas.mlmodelc/coremldata.bin",
+            "ParaformerDecoder_int8.mlmodelc/coremldata.bin",
+            "vocab.json",
+        ]
+        for relativePath in paths {
+            let fileURL = modelURL.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try Data([1]).write(to: fileURL)
+        }
+    }
+
 }
 
 private struct StubQwen3ModelDownloader: Qwen3ModelDownloading {
@@ -793,16 +971,6 @@ private struct StubQwen3ModelDownloader: Qwen3ModelDownloading {
         }
         return Qwen3ModelManifest.manifest(for: size)
             .missingRequiredLocalPaths(at: directory, fileManager: fileManager)
-    }
-}
-
-private struct FailingQwen3ModelDownloader: Qwen3ModelDownloading {
-    func download(
-        manifest: Qwen3ModelManifest,
-        progress: @escaping Qwen3ModelDownloader.ProgressHandler
-    ) async throws -> URL {
-        XCTFail("1.7B should fail before invoking the downloader.")
-        return URL(fileURLWithPath: "/tmp/unreachable")
     }
 }
 
@@ -868,31 +1036,37 @@ private actor StubSenseVoiceModelDownloader: SenseVoiceModelDownloading {
     }
 }
 
+private final class ASRProviderViewModelTestCredentialStore: CredentialStore {
+    func readCredential(account: String) throws -> String? { nil }
+    func saveCredential(_ value: String, account: String) throws {}
+    func deleteCredential(account: String) throws {}
+}
+
+private actor StubParaformerModelDownloader: ParaformerModelDownloading {
+    private let downloadedURL: URL
+    private(set) var requestCount = 0
+
+    init(downloadedURL: URL) {
+        self.downloadedURL = downloadedURL
+    }
+
+    func download(
+        progress: @escaping @MainActor @Sendable (ParaformerModelDownloadProgress) -> Void
+    ) async throws -> URL {
+        requestCount += 1
+        await progress(.init(fractionCompleted: 1, status: "模型已就绪"))
+        return downloadedURL
+    }
+}
+
 private enum Qwen3ViewModelReadinessTestError: Error, LocalizedError, Equatable {
     case canaryFailed
-    case runtimeProvisionFailed
 
     var errorDescription: String? {
         switch self {
         case .canaryFailed:
             return "Canary failed"
-        case .runtimeProvisionFailed:
-            return "Runtime provision failed"
         }
-    }
-}
-
-private actor CapturingQwen3ViewModelRuntimeProvisioner: Qwen3MLXRuntimeProvisioning {
-    private let result: Result<URL, Error>
-    private(set) var prepareCallCount = 0
-
-    init(result: Result<URL, Error>) {
-        self.result = result
-    }
-
-    func prepare() async throws -> URL {
-        prepareCallCount += 1
-        return try result.get()
     }
 }
 

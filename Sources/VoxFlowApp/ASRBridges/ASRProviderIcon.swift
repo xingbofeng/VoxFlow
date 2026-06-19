@@ -6,7 +6,10 @@ enum ASRProviderIcon {
     }
 
     static func textBadge(providerID: String) -> String? {
-        nil
+        switch providerID {
+        default:
+            return nil
+        }
     }
 
     static func load(providerID: String) -> NSImage? {
@@ -26,10 +29,16 @@ enum ASRProviderIcon {
             resourceName = "ASRProviderParaformer"
         case ASRProviderID.nvidiaNemotron:
             resourceName = "ASRNVIDIANemotron"
+        case ASRProviderID.parakeetStreaming:
+            resourceName = "ASRParakeetStreaming"
+        case ASRProviderID.omnilingualASR:
+            resourceName = "ASROmnilingual"
         case ASRProviderID.groqWhisper:
             resourceName = "ASRGroqWhisper"
         case ASRProviderID.qwenCloudASR:
             resourceName = "ASRQwenCloud"
+        case ASRProviderID.tencentCloudASR:
+            resourceName = "ASRTencentCloud"
         case ASRProviderID.mistralVoxtral:
             resourceName = "ASRMistralVoxtral"
         case ASRProviderID.assemblyAI:

@@ -122,12 +122,11 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("邮件") == true)
     }
 
-    func testPipelineRetriesWhenStyledModelEchoesInput() async throws {
+    func testPipelineAcceptsUnchangedStyledOutputWithoutRetry() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let refiner = SequencedPromptAwareRefiner(
             results: [
                 "小兔子乖乖把门开开快点开开我要进来",
-                "小兔子乖乖，把门开开，快点开开，我要进来！",
             ]
         )
         let pipeline = DefaultTextProcessingPipeline(
@@ -137,12 +136,9 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         let result = await pipeline.process("小兔子乖乖把门开开快点开开我要进来")
 
-        XCTAssertEqual(result.finalText, "小兔子乖乖，把门开开，快点开开，我要进来！")
-        XCTAssertEqual(refiner.requests.count, 2)
-        XCTAssertTrue(refiner.requests.last?.systemPrompt.contains("上一次输出与输入完全相同") == true)
-        XCTAssertFalse(refiner.requests.last?.systemPrompt.contains("必须真正执行文本整理") == true)
-        XCTAssertTrue(refiner.requests.last?.text.contains("待处理原文") == true)
-        XCTAssertTrue(result.warnings.contains("llm_echo_retry"))
+        XCTAssertEqual(result.finalText, "小兔子乖乖把门开开快点开开我要进来")
+        XCTAssertEqual(refiner.requests.count, 1)
+        XCTAssertFalse(result.warnings.contains("llm_echo_retry"))
     }
 
     private enum TestError: Error {

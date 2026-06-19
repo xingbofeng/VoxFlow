@@ -10,6 +10,7 @@ typealias VoiceTaskRecoveryPolicy = VoxFlowDomain.VoiceTaskRecoveryPolicy
 typealias VoiceTaskDiagnosticExporter = VoxFlowDomain.VoiceTaskDiagnosticExporter
 typealias OutputResult = VoxFlowDomain.OutputResult
 typealias OutputResultKind = VoxFlowDomain.OutputResultKind
+typealias OutputResultSnapshot = VoxFlowDomain.OutputResultSnapshot
 typealias TextInputMode = VoxFlowDomain.TextInputMode
 typealias VoiceTaskError = VoxFlowDomain.VoiceTaskError
 typealias VoiceTask = VoxFlowDomain.VoiceTask

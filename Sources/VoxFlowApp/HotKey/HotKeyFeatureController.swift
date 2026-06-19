@@ -3,10 +3,12 @@ import Foundation
 @MainActor
 struct HotKeyMonitorClient {
     typealias Handler = @MainActor (VoiceAction) -> Void
+    typealias WorkflowShortcutHandler = @MainActor (HotKeyWorkflowShortcut) -> Bool
 
     let setPressHandler: (@escaping Handler) -> Void
     let setReleaseHandler: (@escaping Handler) -> Void
     let setShortPressHandler: (@escaping Handler) -> Void
+    let setWorkflowShortcutHandler: (@escaping WorkflowShortcutHandler) -> Void
     let start: () -> Bool
     let stop: () -> Void
 
@@ -30,6 +32,13 @@ struct HotKeyMonitorClient {
                 keyMonitor.onShortPress = { action in
                     MainActor.assumeIsolated {
                         handler(action)
+                    }
+                }
+            },
+            setWorkflowShortcutHandler: { handler in
+                keyMonitor.onWorkflowShortcut = { shortcut in
+                    MainActor.assumeIsolated {
+                        handler(shortcut)
                     }
                 }
             },
@@ -76,8 +85,10 @@ final class HotKeyFeatureController {
     private let activeVoiceAction: () -> VoiceAction?
     private let currentNotesState: () -> HotKeyNotesState
     private let performDecision: (HotKeyRoutingDecision) -> Void
+    private let performWorkflowShortcut: (HotKeyWorkflowShortcut) -> Bool
     private let scheduleAccessibilityAlert: (@escaping @MainActor @Sendable () -> Void) -> Void
     private let showAccessibilityAlert: () -> Void
+    private var actionStartedOnCurrentPress: VoiceAction?
 
     init(
         monitor: HotKeyMonitorClient,
@@ -88,6 +99,7 @@ final class HotKeyFeatureController {
         activeVoiceAction: @escaping () -> VoiceAction?,
         currentNotesState: @escaping () -> HotKeyNotesState,
         performDecision: @escaping (HotKeyRoutingDecision) -> Void,
+        performWorkflowShortcut: @escaping (HotKeyWorkflowShortcut) -> Bool = { _ in false },
         scheduleAccessibilityAlert: @escaping (@escaping @MainActor @Sendable () -> Void) -> Void,
         showAccessibilityAlert: @escaping () -> Void
     ) {
@@ -99,6 +111,7 @@ final class HotKeyFeatureController {
         self.activeVoiceAction = activeVoiceAction
         self.currentNotesState = currentNotesState
         self.performDecision = performDecision
+        self.performWorkflowShortcut = performWorkflowShortcut
         self.scheduleAccessibilityAlert = scheduleAccessibilityAlert
         self.showAccessibilityAlert = showAccessibilityAlert
     }
@@ -112,6 +125,9 @@ final class HotKeyFeatureController {
         }
         monitor.setShortPressHandler { [weak self] action in
             self?.handleShortPress(action)
+        }
+        monitor.setWorkflowShortcutHandler { [weak self] shortcut in
+            self?.handleWorkflowShortcut(shortcut) ?? false
         }
 
         guard monitor.start() else {
@@ -129,32 +145,62 @@ final class HotKeyFeatureController {
 
     private func handlePress(_ action: VoiceAction) {
         guard currentDictationState().isIdle else { return }
-        if action == .dictation, currentShortPressBehavior() == .toggleListening {
-            delayedPress.schedule(action, longPressThreshold()) { [weak self] action in
-                self?.performPressDecision(action)
-            }
+        if currentShortPressBehavior() == .toggleListening {
+            actionStartedOnCurrentPress = action
+            performPressDecision(action)
             return
         }
+        actionStartedOnCurrentPress = nil
         performPressDecision(action)
     }
 
     private func performPressDecision(_ action: VoiceAction) {
-        performDecision(decision(for: .press, action: action))
+        performLoggedDecision(for: .press, action: action)
     }
 
     private func handleRelease(_ action: VoiceAction) {
         delayedPress.cancel()
-        performDecision(decision(for: .release, action: action))
+        actionStartedOnCurrentPress = nil
+        performLoggedDecision(for: .release, action: action)
     }
 
     private func handleShortPress(_ action: VoiceAction) {
         delayedPress.cancel()
+        if actionStartedOnCurrentPress == action {
+            actionStartedOnCurrentPress = nil
+            return
+        }
         if action == .dictation, currentNotesState().shouldCaptureHotKey {
-            performDecision(decision(for: .shortPress, action: action))
+            performLoggedDecision(for: .shortPress, action: action)
             return
         }
         guard currentShortPressBehavior() == .toggleListening else { return }
-        performDecision(decision(for: .shortPress, action: action))
+        performLoggedDecision(for: .shortPress, action: action)
+    }
+
+    private func handleWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
+        let shouldConsume: Bool
+        switch shortcut {
+        case .cancel:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .clipboardImageOCR:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        }
+        AppLogger.general.info(
+            "hotkey_workflow_decision shortcut=\(shortcut.logName) decision=\(shouldConsume ? "consume" : "passThrough")"
+        )
+        return shouldConsume
+    }
+
+    private func performLoggedDecision(
+        for event: HotKeyRoutingEvent,
+        action: VoiceAction
+    ) {
+        let decision = decision(for: event, action: action)
+        AppLogger.general.info(
+            "hotkey_decision event=\(event.logName) action=\(action.logName) decision=\(decision.logName)"
+        )
+        performDecision(decision)
     }
 
     private func decision(
@@ -168,5 +214,57 @@ final class HotKeyFeatureController {
             activeVoiceAction: activeVoiceAction(),
             notesState: currentNotesState()
         )
+    }
+}
+
+private extension HotKeyRoutingEvent {
+    var logName: String {
+        switch self {
+        case .press:
+            return "press"
+        case .release:
+            return "release"
+        case .shortPress:
+            return "shortPress"
+        }
+    }
+}
+
+private extension HotKeyRoutingDecision {
+    var logName: String {
+        switch self {
+        case .ignore:
+            return "ignore"
+        case .startNotesRecording:
+            return "startNotesRecording"
+        case .finishNotesRecording:
+            return "finishNotesRecording"
+        case .startDictation(let action):
+            return "startDictation.\(action.logName)"
+        case .releaseDictation(let action):
+            return "releaseDictation.\(action.logName)"
+        }
+    }
+}
+
+private extension HotKeyWorkflowShortcut {
+    var logName: String {
+        switch self {
+        case .clipboardImageOCR:
+            return "clipboardImageOCR"
+        case .cancel:
+            return "cancel"
+        }
+    }
+}
+
+private extension VoiceAction {
+    var logName: String {
+        switch self {
+        case .dictation:
+            return "dictation"
+        case .agentCompose:
+            return "agentCompose"
+        }
     }
 }

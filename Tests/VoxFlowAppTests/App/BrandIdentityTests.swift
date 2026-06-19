@@ -32,13 +32,23 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("DMG_NAME := VoxFlow-$(VERSION)-macOS"))
         XCTAssertTrue(makefile.contains("run: prelaunch-cleanup build"))
         XCTAssertTrue(makefile.contains("CURRENT_BUNDLE_ID := com.voxflow.app"))
+        XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
+        XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
+        XCTAssertFalse(makefile.contains("RENAMED_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains("TEMP_RENAMED_BUNDLE_ID"))
         XCTAssertTrue(makefile.contains("Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)"))
         XCTAssertTrue(makefile.contains("lsregister"))
         XCTAssertTrue(makefile.contains("$(LSREGISTER)\" -f \"$(BUNDLE_DIR)\""))
     }
 
-    func testMakefileSupportsNativeDevelopmentBuildWithoutChangingUniversalReleaseBuild() throws {
+    func testKeychainServiceUsesCurrentBundleIDNamespace() throws {
+        let service = try XCTUnwrap(
+            Mirror(reflecting: KeychainCredentialStore()).children.first { $0.label == "service" }?.value as? String
+        )
+        XCTAssertEqual(service, "com.voxflow.app.credentials")
+    }
+
+    func testMakefileSupportsNativeDevelopmentAndArm64ReleaseBuilds() throws {
         let makefile = try String(
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
             encoding: .utf8
@@ -55,8 +65,8 @@ final class BrandIdentityTests: XCTestCase {
 
         XCTAssertTrue(makefile.contains("build: prepare-runtime"))
         XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch arm64"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
-        XCTAssertTrue(makefile.contains("lipo \"$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)\" -verify_arch arm64 x86_64"))
+        XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
+        XCTAssertTrue(makefile.contains("lipo \"$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)\" -verify_arch arm64"))
         XCTAssertTrue(makefile.contains("run: prelaunch-cleanup build"))
     }
 
@@ -78,7 +88,25 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
         XCTAssertTrue(makefile.contains("build: prepare-runtime"))
         XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch arm64"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
+        XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
+    }
+
+    func testMakefileBundlesMLXMetallibForSpeechSwiftRuntime() throws {
+        let root = Self.repositoryRoot()
+        let makefile = try String(
+            contentsOf: root.appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+        let scriptURL = root.appendingPathComponent("scripts/build-mlx-metallib.sh")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: scriptURL.path))
+        XCTAssertTrue(makefile.contains("MLX_METALLIB_SCRIPT := scripts/build-mlx-metallib.sh"))
+        XCTAssertTrue(makefile.contains("MLX_METALLIB := mlx.metallib"))
+        XCTAssertTrue(makefile.contains("bash \"$(MLX_METALLIB_SCRIPT)\" release"))
+        XCTAssertTrue(makefile.contains("bash \"$(MLX_METALLIB_SCRIPT)\" debug"))
+        XCTAssertTrue(makefile.contains("\"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("@test -f \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
     }
 
     func testMakefileSkipsSherpaBootstrapWhenRuntimeLibrariesExist() throws {
@@ -110,12 +138,15 @@ final class BrandIdentityTests: XCTestCase {
 
         XCTAssertTrue(cleanupBody.contains("$(LSREGISTER)"), "cleanup should still clear stale local app registration")
         XCTAssertTrue(cleanupBody.contains("LEGACY_BUNDLE_ID"))
-        XCTAssertTrue(cleanupBody.contains("RENAMED_BUNDLE_ID"))
+        XCTAssertFalse(cleanupBody.contains("OBSOLETE_BUNDLE_ID"))
+        XCTAssertFalse(cleanupBody.contains("RENAMED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("CURRENT_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
         XCTAssertTrue(makefile.contains("LEGACY_BUNDLE_ID := com.voiceinput.app"))
-        XCTAssertTrue(makefile.contains("RENAMED_BUNDLE_ID := com.xingbofeng.VoxFlow"))
+        XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
+        XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
+        XCTAssertFalse(makefile.contains("RENAMED_BUNDLE_ID"))
         XCTAssertTrue(makefile.contains("REQUESTED_BUNDLE_ID := com.VoxFlow.app"))
         XCTAssertTrue(makefile.contains("STATUS_ITEM_AUTOSAVE_NAMES :="))
         XCTAssertTrue(makefile.contains("VoxFlowStatusItem"))
@@ -125,7 +156,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(cleanupBody.contains("NSStatusItem Preferred Position $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("NSStatusItem VisibleCC $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("VoxFlowStatusItemPlacementResetV1"))
-        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(LEGACY_BUNDLE_ID)\" \"$(RENAMED_BUNDLE_ID)\" \"$(REQUESTED_BUNDLE_ID)\" \"$(CURRENT_BUNDLE_ID)\""))
+        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(LEGACY_BUNDLE_ID)\" \"$(REQUESTED_BUNDLE_ID)\" \"$(CURRENT_BUNDLE_ID)\""))
         XCTAssertTrue(cleanupBody.contains("defaults delete \"$$bundle_id\""))
 
         // run target body itself should NOT contain defaults delete (delegated to prelaunch-cleanup)
@@ -189,6 +220,10 @@ final class BrandIdentityTests: XCTestCase {
         return try XCTUnwrap(
             PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
         )
+    }
+
+    private var obsoleteXingbofengBundleIdentifier: String {
+        ["com", "xingbofeng", "VoxFlow"].joined(separator: ".")
     }
 
     private static func repositoryRoot() -> URL {

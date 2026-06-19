@@ -2,6 +2,59 @@ import XCTest
 @testable import VoxFlowApp
 
 final class RepositoryBackedLLMRefinerTests: XCTestCase {
+    func testTextProcessingTraceSafeForPersistenceRedactsPromptResponseAndError() {
+        let trace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "provider",
+                providerName: "OpenAI",
+                endpoint: "https://api.example.com/v1/chat/completions",
+                model: "gpt-test",
+                temperature: 0.2,
+                timeoutSeconds: 8,
+                requestBodyJSON: #"{"messages":[{"role":"user","content":"敏感 prompt"}]}"#,
+                responseText: "敏感 response",
+                statusCode: 500,
+                durationMS: 123,
+                errorMessage: "敏感 error",
+                completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            ),
+            output: OutputDeliveryTrace(resultKind: OutputResultKind.failed.rawValue)
+        )
+
+        let safe = trace.safeForPersistence()
+
+        XCTAssertEqual(safe.llm?.providerID, "provider")
+        XCTAssertEqual(safe.llm?.model, "gpt-test")
+        XCTAssertEqual(safe.llm?.statusCode, 500)
+        XCTAssertEqual(safe.output?.resultKind, OutputResultKind.failed.rawValue)
+        XCTAssertTrue(safe.llm?.requestBodyJSON.contains("[redacted: user content]") == true)
+        XCTAssertNil(safe.llm?.responseText)
+        XCTAssertEqual(safe.llm?.errorMessage, "[redacted: error message]")
+        XCTAssertFalse(safe.llm?.requestBodyJSON.contains("敏感 prompt") == true)
+    }
+
+    func testRedactedSuccessfulTraceStillReportsSucceededFromStatusCode() {
+        let trace = LLMRefinementTrace(
+            providerID: "provider",
+            providerName: "OpenAI",
+            endpoint: "https://api.example.com/v1/chat/completions",
+            model: "gpt-test",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            requestBodyJSON: #"{"messages":[{"role":"user","content":"敏感 prompt"}]}"#,
+            responseText: "敏感 response",
+            statusCode: 200,
+            durationMS: 123,
+            errorMessage: nil,
+            completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let safe = trace.safeForPersistence()
+
+        XCTAssertNil(safe.responseText)
+        XCTAssertTrue(safe.succeeded)
+    }
+
     func testRefineUsesEnabledDefaultProviderConfiguration() async throws {
         let credentials = TestCredentialStore()
         let environment = AppEnvironment(
@@ -43,15 +96,24 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertEqual(body["model"] as? String, "style-model")
         XCTAssertEqual(body["temperature"] as? Double, 0.9)
         XCTAssertNil(body["max_tokens"])
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        XCTAssertEqual(messages.last?["role"] as? String, "user")
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertTrue(userContent.contains("待处理原文："))
+        XCTAssertTrue(userContent.contains("原文"))
+        XCTAssertFalse(userContent == "原文")
         XCTAssertEqual(refiner.lastTrace?.providerID, "global")
         XCTAssertEqual(refiner.lastTrace?.providerName, "OpenAI")
         XCTAssertEqual(refiner.lastTrace?.endpoint, "https://api.example.com/v1/chat/completions")
         XCTAssertEqual(refiner.lastTrace?.model, "style-model")
         XCTAssertEqual(refiner.lastTrace?.temperature, 0.9)
         XCTAssertEqual(refiner.lastTrace?.statusCode, 200)
-        XCTAssertEqual(refiner.lastTrace?.responseText, "修正后")
+        XCTAssertNil(refiner.lastTrace?.responseText)
         XCTAssertEqual(refiner.lastTrace?.errorMessage, nil)
-        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("\"messages\"") == true)
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: system prompt]") == true)
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: user content]") == true)
+        XCTAssertFalse(refiner.lastTrace?.requestBodyJSON.contains("原文") == true)
+        XCTAssertFalse(refiner.lastTrace?.requestBodyJSON.contains("系统提示") == true)
     }
 
     func testRefineStreamUsesInjectedSessionAndRequestsStreaming() async throws {
@@ -99,7 +161,12 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
             try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
         )
         XCTAssertEqual(body["stream"] as? Bool, true)
-        XCTAssertEqual(refiner.lastTrace?.responseText, "修正")
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertTrue(userContent.contains("待处理原文："))
+        XCTAssertFalse(userContent == "原文")
+        XCTAssertNil(refiner.lastTrace?.responseText)
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: user content]") == true)
     }
 
     func testNoEnabledDefaultProviderIsNotConfigured() throws {

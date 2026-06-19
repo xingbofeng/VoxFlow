@@ -116,6 +116,14 @@ public enum OutputResultKind: String, Codable, Equatable, Sendable {
     case cancelled
 }
 
+public struct OutputResultSnapshot: Codable, Equatable, Sendable {
+    public let kind: OutputResultKind
+
+    public init(kind: OutputResultKind) {
+        self.kind = kind
+    }
+}
+
 public extension OutputResult {
     var kind: OutputResultKind {
         switch self {
@@ -132,6 +140,26 @@ public extension OutputResult {
         case .cancelled:
             return .cancelled
         }
+    }
+
+    var snapshot: OutputResultSnapshot {
+        OutputResultSnapshot(kind: kind)
+    }
+}
+
+public extension OutputResultKind {
+    static func decodePersisted(from rawValue: String?) -> OutputResultKind? {
+        guard let rawValue,
+              let data = rawValue.data(using: .utf8) else {
+            return nil
+        }
+        if let snapshot = try? JSONDecoder().decode(OutputResultSnapshot.self, from: data) {
+            return snapshot.kind
+        }
+        if let outputResult = try? JSONDecoder().decode(OutputResult.self, from: data) {
+            return outputResult.kind
+        }
+        return nil
     }
 }
 

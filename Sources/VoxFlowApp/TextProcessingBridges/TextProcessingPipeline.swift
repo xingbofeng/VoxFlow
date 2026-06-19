@@ -26,7 +26,19 @@ struct TextProcessingResult: Equatable {
 }
 
 struct TextProcessingTrace: Equatable, Codable {
-    var llm: LLMRefinementTrace?
+    var llm: LLMRefinementTrace? = nil
+    var output: OutputDeliveryTrace? = nil
+
+    func safeForPersistence() -> TextProcessingTrace {
+        TextProcessingTrace(
+            llm: llm?.safeForPersistence(),
+            output: output
+        )
+    }
+}
+
+struct OutputDeliveryTrace: Equatable, Codable {
+    let resultKind: String
 }
 
 struct LLMRefinementTrace: Equatable, Codable {
@@ -44,7 +56,31 @@ struct LLMRefinementTrace: Equatable, Codable {
     var completedAt: Date?
 
     var succeeded: Bool {
-        errorMessage == nil && responseText != nil
+        guard errorMessage == nil else { return false }
+        if responseText != nil {
+            return true
+        }
+        if let statusCode {
+            return (200..<300).contains(statusCode)
+        }
+        return false
+    }
+
+    func safeForPersistence() -> LLMRefinementTrace {
+        LLMRefinementTrace(
+            providerID: providerID,
+            providerName: providerName,
+            endpoint: endpoint,
+            model: model,
+            temperature: temperature,
+            timeoutSeconds: timeoutSeconds,
+            requestBodyJSON: #"{"messages":[{"role":"system","content":"[redacted: system prompt]"},{"role":"user","content":"[redacted: user content]"}]}"#,
+            responseText: nil,
+            statusCode: statusCode,
+            durationMS: durationMS,
+            errorMessage: errorMessage.map { _ in "[redacted: error message]" },
+            completedAt: completedAt
+        )
     }
 }
 
@@ -160,28 +196,6 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     refinedText = try await promptAwareRefiner.refine(request)
                 }
                 promptMetadata = prompt.result
-                if prompt.result.styleID != nil,
-                   refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    == text.trimmingCharacters(in: .whitespacesAndNewlines) {
-                    warnings.append("llm_echo_retry")
-                    (refiner as? RefinementTraceProviding)?.clearLastTrace()
-                    let retryRequest = TextRefinementRequest(
-                        text: PromptBuilder.retryUserMessage(text),
-                        systemPrompt: PromptBuilder.retrySystemPrompt(
-                            prompt.result.systemPrompt
-                        ),
-                        model: prompt.result.model,
-                        temperature: prompt.result.temperature
-                    )
-                    if let streamingRefiner = refiner as? any StreamingPromptAwareTextRefining {
-                        refinedText = try await collectStream(
-                            streamingRefiner.refineStream(retryRequest),
-                            onUpdate: onRefinedTextUpdate
-                        )
-                    } else {
-                        refinedText = try await promptAwareRefiner.refine(retryRequest)
-                    }
-                }
             } else {
                 refinedText = try await refiner.refine(text)
                 promptMetadata = nil

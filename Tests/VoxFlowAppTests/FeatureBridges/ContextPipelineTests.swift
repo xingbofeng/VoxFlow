@@ -35,6 +35,22 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertEqual(request.recognitionLanguages, ["zh-Hans", "zh-Hant", "en-US"])
     }
 
+    func testScreenshotPermissionCheckDoesNotRequestAccessFromWorkflowPath() throws {
+        var repositoryRoot = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 {
+            repositoryRoot.deleteLastPathComponent()
+        }
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "Sources/VoxFlowApp/FeatureBridges/ContextPipeline.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(source.contains("CGRequestScreenCaptureAccess"))
+        XCTAssertTrue(source.contains("CGPreflightScreenCaptureAccess"))
+    }
+
     func testScreenshotWindowSelectionPrefersRecordedTargetWindowID() {
         let candidates = [
             ScreenshotWindowCandidate(

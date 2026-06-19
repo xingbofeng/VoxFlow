@@ -116,6 +116,21 @@ final class VoiceTaskRepository {
         }
     }
 
+    func clearFinalText(id: String) throws {
+        try databaseQueue.write { connection in
+            let statement = try connection.prepare(
+                """
+                UPDATE voice_tasks
+                SET final_text = NULL, updated_at = ?
+                WHERE id = ?
+                """
+            )
+            try statement.bind(formatter.string(from: clock.now), at: 1)
+            try statement.bind(id, at: 2)
+            _ = try statement.step()
+        }
+    }
+
     func updateContextJson(id: String, contextJson: String) throws {
         try databaseQueue.write { connection in
             let statement = try connection.prepare(

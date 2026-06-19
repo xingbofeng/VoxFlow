@@ -14,7 +14,7 @@ final class Qwen3LiveSmokeTests: XCTestCase {
 
         let modelPath = ProcessInfo.processInfo.environment["VOICEINPUT_TEST_QWEN3_MODEL_PATH"]
             ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support/VoxFlow/Models/qwen3-asr-0.6b-coreml-int8")
+                .appendingPathComponent("Library/Application Support/VoxFlow/Models/qwen3-asr-0.6b-mlx-4bit")
                 .path
 
         let stateFileURL = FileManager.default.temporaryDirectory

@@ -1,16 +1,19 @@
 import Foundation
 import Security
+import VoxFlowProviderCloudCore
 
-protocol CredentialStore: AnyObject {
+protocol CredentialStore: AnyObject, CloudASRCredentialReading {
     func readCredential(account: String) throws -> String?
     func saveCredential(_ value: String, account: String) throws
     func deleteCredential(account: String) throws
 }
 
 final class KeychainCredentialStore: CredentialStore {
+    static let defaultService = "\(ProductBrand.bundleIdentifier).credentials"
+
     private let service: String
 
-    init(service: String = "com.voxflow.app.credentials") {
+    init(service: String = KeychainCredentialStore.defaultService) {
         self.service = service
     }
 

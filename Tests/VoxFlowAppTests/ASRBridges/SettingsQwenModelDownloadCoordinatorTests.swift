@@ -9,7 +9,7 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL, size: .size0_6B)
         addTeardownBlock {
             try? FileManager.default.removeItem(at: modelURL)
         }
@@ -37,7 +37,7 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL, size: .size1_7B)
         addTeardownBlock {
             try? FileManager.default.removeItem(at: modelURL)
         }
@@ -63,7 +63,7 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         XCTAssertFalse(manager.isQwen3ModelAvailable)
     }
 
-    func testQwen17DownloadProvisionsRuntimeBeforeDownloadingAndPreparingModel() async throws {
+    func testQwen17DownloadPreparesModelWithoutExternalRuntimeProvisioning() async throws {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
@@ -71,7 +71,6 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         addTeardownBlock {
             try? FileManager.default.removeItem(at: modelURL)
         }
-        let runtimeProvisioner = CapturingQwen3RuntimeProvisioner()
         let readinessPreparer = CapturingQwen3ReadinessPreparer()
         let coordinator = SettingsQwenModelDownloadCoordinator(
             asrManager: manager,
@@ -79,43 +78,16 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
                 downloadedURL: modelURL,
                 missingPaths: []
             ),
-            readinessPreparer: readinessPreparer,
-            runtimeProvisioner: runtimeProvisioner
+            readinessPreparer: readinessPreparer
         )
 
         let installedRoot = try await coordinator.downloadQwen3Model(size: .size1_7B) { _ in }
 
         XCTAssertEqual(installedRoot, modelURL)
-        let prepareCallCount = await runtimeProvisioner.prepareCallCount
-        XCTAssertEqual(prepareCallCount, 1)
         let preparedModels = await readinessPreparer.preparedModelsSnapshot()
         XCTAssertEqual(preparedModels.map(\.size), [.size1_7B])
+        XCTAssertEqual(manager.qwen3ModelSize, .size1_7B)
         XCTAssertEqual(manager.qwen3ModelPath, modelURL.path)
-    }
-
-    func testDownloadRejectsQwen17WhenRuntimeProvisioningFailsBeforeDownloaderOrReadiness() async throws {
-        let manager = makeManager()
-        let readinessPreparer = CapturingQwen3ReadinessPreparer()
-        let coordinator = SettingsQwenModelDownloadCoordinator(
-            asrManager: manager,
-            downloader: SettingsFailingQwen3ModelDownloader(),
-            readinessPreparer: readinessPreparer,
-            runtimeProvisioner: CapturingQwen3RuntimeProvisioner(
-                result: .failure(Qwen3ModelReadinessTestError.runtimeProvisionFailed)
-            )
-        )
-
-        do {
-            _ = try await coordinator.downloadQwen3Model(size: .size1_7B) { _ in }
-            XCTFail("Expected Qwen 1.7B runtime provisioning failure.")
-        } catch {
-            XCTAssertEqual(error as? Qwen3ModelReadinessTestError, .runtimeProvisionFailed)
-        }
-
-        XCTAssertNil(manager.qwen3ModelPath)
-        XCTAssertFalse(manager.isQwen3ModelAvailable)
-        let preparedModels = await readinessPreparer.preparedModelsSnapshot()
-        XCTAssertTrue(preparedModels.isEmpty)
     }
 
     private func makeManager() -> ASRManager {
@@ -134,8 +106,24 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
             defaults: defaults,
             modelInstallationRepository: FileModelInstallationStateRepository(
                 fileURL: stateRoot.appendingPathComponent("installation-states.json")
-            )
+            ),
+            qwen3RuntimePreflight: { _ in .supported }
         )
+    }
+
+    private func createLoadableQwen3ModelDirectory(
+        at modelURL: URL,
+        size: ASRManager.ModelSize
+    ) throws {
+        let manifest = Qwen3ModelManifest.manifest(for: size)
+        for relativePath in manifest.requiredLocalPaths {
+            let fileURL = modelURL.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
+        }
     }
 }
 
@@ -159,46 +147,8 @@ private struct SettingsStubQwen3ModelDownloader: Qwen3ModelDownloading {
     }
 }
 
-private struct SettingsFailingQwen3ModelDownloader: Qwen3ModelDownloading {
-    func download(
-        manifest: Qwen3ModelManifest,
-        progress: @escaping Qwen3ModelDownloader.ProgressHandler
-    ) async throws -> URL {
-        XCTFail("Qwen 1.7B should fail before invoking the downloader.")
-        return URL(fileURLWithPath: "/tmp/unreachable-qwen17", isDirectory: true)
-    }
-
-    func missingRequiredLocalPaths(
-        size: ASRManager.ModelSize,
-        at directory: URL,
-        fileManager: FileManager
-    ) -> [String] {
-        XCTFail("Qwen 1.7B should fail before checking downloaded files.")
-        return []
-    }
-}
-
 private enum Qwen3ModelReadinessTestError: Error, Equatable {
     case canaryFailed
-    case runtimeProvisionFailed
-}
-
-private actor CapturingQwen3RuntimeProvisioner: Qwen3MLXRuntimeProvisioning {
-    private let result: Result<URL, Error>
-    private(set) var prepareCallCount = 0
-
-    init(
-        result: Result<URL, Error> = .success(
-            URL(fileURLWithPath: "/tmp/qwen3-managed-python")
-        )
-    ) {
-        self.result = result
-    }
-
-    func prepare() async throws -> URL {
-        prepareCallCount += 1
-        return try result.get()
-    }
 }
 
 private actor CapturingQwen3ReadinessPreparer: Qwen3ModelReadinessPreparing {

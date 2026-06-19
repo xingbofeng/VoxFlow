@@ -106,6 +106,18 @@ APP_DELEGATE_TEXT_INPUT_TOKENS = (
     "PasteCompletionWaiter",
     "CGEvent(keyboardEventSource:",
 )
+APP_RUNTIME_PREWARM_TOKENS = (
+    "ASRModelPrewarmCenter",
+    "ASRModelPrewarming",
+    "ASREngineWarmupProviding",
+    "ASRConfigurationEngineFactory",
+    "prewarmCurrentASREngine",
+    "prewarmSelectedEngine",
+    "prewarmSelectedEngineIfAvailable",
+    "cancelPrewarming(",
+    "waitUntilReadyForAudio(",
+    "modelPrewarmer",
+)
 DICTATION_ORCHESTRATOR_DIRECT_OUTPUT_TOKENS = (
     "textInjector.inject(",
     "clipboardService.setString(",
@@ -149,6 +161,11 @@ VOICE_INPUT_APP_QWEN_DIRECT_DOWNLOAD_IMPLEMENTATION_TOKENS = (
     "downloadTask(",
     "didWriteData",
     "didFinishDownloadingTo",
+)
+QWEN_STREAMING_DRIVER_PREWARM_TOKENS = (
+    "session?.prewarm(",
+    "session.prewarm(",
+    ".prewarm()",
 )
 VOICE_INPUT_APP_WHISPER_RUNTIME_IMPLEMENTATION_TOKENS = (
     "import WhisperKit",
@@ -396,6 +413,13 @@ def source_boundary_violations(source_root: Path, targets: dict[str, Target]) ->
                     f"{display_path}: AppDelegate must not perform direct text input or clipboard insertion"
                 )
 
+            if target_name == "VoxFlowApp" and any(
+                token in contents for token in APP_RUNTIME_PREWARM_TOKENS
+            ):
+                violations.append(
+                    f"{display_path}: VoxFlowApp must not prewarm ASR runtime during app launch, model switch, or dictation start"
+                )
+
             if path.name in {"AppDelegate.swift", "NotesRecordingService.swift"} and any(
                 "appendAudioBuffer(" in match.group("body")
                 for match in MAIN_ACTOR_TASK_PATTERN.finditer(contents)
@@ -465,6 +489,13 @@ def source_boundary_violations(source_root: Path, targets: dict[str, Target]) ->
             ):
                 violations.append(
                     f"{display_path}: VoxFlowApp Qwen downloader adapter must delegate download implementation to VoxFlowProviderQwen3 ModelStore"
+                )
+
+            if target_name == "VoxFlowProviderQwen3" and path.name == "Qwen3StreamingRuntimeDriver.swift" and any(
+                token in contents for token in QWEN_STREAMING_DRIVER_PREWARM_TOKENS
+            ):
+                violations.append(
+                    f"{display_path}: Qwen3 streaming driver start must not prewarm runtime without audio"
                 )
 
             if target_name == "VoxFlowApp" and any(

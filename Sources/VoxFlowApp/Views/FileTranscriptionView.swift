@@ -168,11 +168,12 @@ struct FileTranscriptionView: View {
                     start(job)
                 } label: {
                     Label(
-                        job.status == TranscriptionJobStatus.failed.rawValue ? "重试" : "开始",
-                        systemImage: job.status == TranscriptionJobStatus.failed.rawValue ? "arrow.clockwise" : "waveform"
+                        viewModel.primaryActionTitle(for: job),
+                        systemImage: job.status == TranscriptionJobStatus.queued.rawValue
+                            ? "waveform"
+                            : "arrow.clockwise"
                     )
                 }
-                .disabled(job.status == TranscriptionJobStatus.completed.rawValue)
             }
 
             Button {

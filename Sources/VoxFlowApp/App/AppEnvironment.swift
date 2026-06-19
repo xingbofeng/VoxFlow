@@ -8,6 +8,7 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
 
     var clock: any AppClock { container.clock }
     var paths: ApplicationSupportPaths? { container.paths }
+    var storageHealth: StorageHealthState { container.storageHealth }
     var databaseQueue: DatabaseQueue { container.databaseQueue }
     var credentialStore: CredentialStore { container.credentialStore }
     var historyRepository: any HistoryRepository { container.historyRepository }

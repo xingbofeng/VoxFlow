@@ -99,19 +99,6 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("不要改写"))
     }
 
-    func testRetryPromptDoesNotForceUnnecessaryRewrite() {
-        let systemPrompt = PromptBuilder.retrySystemPrompt("原始规则")
-        let userMessage = PromptBuilder.retryUserMessage("这是原文。")
-        let combined = systemPrompt + "\n" + userMessage
-
-        XCTAssertFalse(combined.contains("必须真正执行文本整理"))
-        XCTAssertFalse(combined.contains("不能再次原样返回"))
-        XCTAssertFalse(combined.contains("请务必修改"))
-        XCTAssertFalse(combined.contains("不要逐字照抄"))
-        XCTAssertTrue(combined.contains("不要为了制造差异而改写"))
-        XCTAssertTrue(combined.contains("没有可确认问题时，可以保持原文"))
-    }
-
     private func glossaryTerm(
         term: String,
         aliases: [String],

@@ -1,14 +1,29 @@
 import Foundation
 import VoxFlowASRCore
 import VoxFlowModelStore
+import VoxFlowProviderAliyunDashScope
+import VoxFlowProviderCloudCore
 import VoxFlowProviderFunASR
+import VoxFlowProviderGroq
 import VoxFlowProviderNVIDIA
+import VoxFlowProviderOmnilingual
+import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
+import VoxFlowProviderTencentCloud
 import VoxFlowProviderWhisper
 
 final class ASRManager: ASREngineFactory, @unchecked Sendable {
+    struct SelectionFallbackNotice: Equatable {
+        let selectedEngineType: ASREngineType
+        let effectiveEngineType: ASREngineType
+
+        var message: String {
+            "已选的 \(selectedEngineType.displayName) 不可用，临时改用\(effectiveEngineType.displayName)。"
+        }
+    }
+
     enum ModelSize: String, CaseIterable, Equatable {
         case size0_6B = "0.6B"
         case size1_7B = "1.7B"
@@ -26,6 +41,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     private let defaults: UserDefaults
     private let modelInstallationRepository: (any ModelInstallationStateStoring)?
+    private let qwen3RuntimePreflight: (ModelSize) -> Qwen3RuntimePreflightResult
+    private let credentialStore: any CredentialStore
+    private let settingsRepository: (any SettingsRepository)?
+    private let modelStoreRoot: URL?
 
     private enum Keys {
         static let selectedEngineType = "ASRManager.selectedEngineType"
@@ -35,7 +54,17 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         static let qwen3ValidatedModelSize = "ASRManager.qwen3ValidatedModelSize"
         static let funASRPrecision = "ASRManager.funASRPrecision"
         static let whisperVariant = "ASRManager.whisperVariant"
+        static let groqBaseURL = "ASRManager.groqBaseURL"
+        static let groqModel = "ASRManager.groqModel"
+        static let tencentRealtimeEngineModelType = "ASRManager.tencentRealtimeEngineModelType"
+        static let aliyunDashScopeModel = "ASRManager.aliyunDashScopeModel"
     }
+
+    static let groqAPIKeyAccount = "asr.groq.api-key"
+    static let tencentAppIDAccount = "asr.tencent.app-id"
+    static let tencentSecretIDAccount = "asr.tencent.secret-id"
+    static let tencentSecretKeyAccount = "asr.tencent.secret-key"
+    static let aliyunDashScopeAPIKeyAccount = "asr.aliyun-dashscope.api-key"
 
     var funASRPrecision: FunASRPrecision {
         get {
@@ -80,6 +109,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         nvidiaNemotronReadyInstallation() != nil
     }
 
+    var isParakeetModelAvailable: Bool {
+        parakeetReadyInstallation() != nil
+    }
+
+    var isOmnilingualModelAvailable: Bool {
+        omnilingualReadyInstallation() != nil
+    }
+
     var isNVIDIANemotronRuntimeSupported: Bool {
         Self.isNVIDIANemotronRuntimeSupported()
     }
@@ -122,10 +159,18 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     init(
         defaults: UserDefaults = .standard,
-        modelInstallationRepository: (any ModelInstallationStateStoring)? = nil
+        modelInstallationRepository: (any ModelInstallationStateStoring)? = nil,
+        credentialStore: any CredentialStore = KeychainCredentialStore(),
+        settingsRepository: (any SettingsRepository)? = nil,
+        qwen3RuntimePreflight: @escaping (ModelSize) -> Qwen3RuntimePreflightResult = ASRManager.qwen3RuntimePreflightResult(for:),
+        modelStoreRoot: URL? = nil
     ) {
         self.defaults = defaults
         self.modelInstallationRepository = modelInstallationRepository ?? Self.defaultModelInstallationRepository(for: defaults)
+        self.credentialStore = credentialStore
+        self.settingsRepository = settingsRepository
+        self.qwen3RuntimePreflight = qwen3RuntimePreflight
+        self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
     }
 
     // MARK: - Engine Selection
@@ -141,6 +186,199 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         set {
             defaults.set(newValue.rawValue, forKey: Keys.selectedEngineType)
         }
+    }
+
+    var groqBaseURL: String {
+        get { defaults.string(forKey: Keys.groqBaseURL) ?? GroqCloudASRClient.defaultBaseURL }
+        set { defaults.set(newValue, forKey: Keys.groqBaseURL) }
+    }
+
+    var groqModel: String {
+        get { defaults.string(forKey: Keys.groqModel) ?? GroqCloudASRClient.defaultModel }
+        set { defaults.set(newValue, forKey: Keys.groqModel) }
+    }
+
+    var tencentRealtimeEngineModelType: String {
+        get {
+            defaults.string(forKey: Keys.tencentRealtimeEngineModelType)
+                ?? TencentRealtimeASRConfiguration.defaultEngineModelType
+        }
+        set { defaults.set(newValue, forKey: Keys.tencentRealtimeEngineModelType) }
+    }
+
+    var aliyunDashScopeModel: String {
+        get {
+            defaults.string(forKey: Keys.aliyunDashScopeModel)
+                ?? AliyunDashScopeRealtimeASRConfiguration.defaultModel
+        }
+        set { defaults.set(newValue, forKey: Keys.aliyunDashScopeModel) }
+    }
+
+    var isGroqConfigured: Bool {
+        let value = storedCloudCredential(account: Self.groqAPIKeyAccount)
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func storedGroqAPIKey() -> String {
+        storedCloudCredential(account: Self.groqAPIKeyAccount)
+    }
+
+    func saveGroqAPIKey(_ apiKey: String) throws {
+        try saveCloudCredential(apiKey, account: Self.groqAPIKeyAccount)
+    }
+
+    func testGroqConnection() async throws -> ASRProviderHealthResult {
+        try await GroqCloudASRClient(credentialStore: cloudCredentialStore()).testConnection(
+            configuration: groqConfiguration
+        )
+    }
+
+    var isTencentCloudConfigured: Bool {
+        let appID = storedCloudCredential(account: Self.tencentAppIDAccount)
+        let secretID = storedCloudCredential(account: Self.tencentSecretIDAccount)
+        let secretKey = storedCloudCredential(account: Self.tencentSecretKeyAccount)
+        return !appID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !secretID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !secretKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func storedTencentCloudCredentials() -> (appID: String, secretID: String, secretKey: String) {
+        (
+            storedCloudCredential(account: Self.tencentAppIDAccount),
+            storedCloudCredential(account: Self.tencentSecretIDAccount),
+            storedCloudCredential(account: Self.tencentSecretKeyAccount)
+        )
+    }
+
+    func saveTencentCloudCredentials(appID: String, secretID: String, secretKey: String) throws {
+        try saveTencentCredential(appID, account: Self.tencentAppIDAccount)
+        try saveTencentCredential(secretID, account: Self.tencentSecretIDAccount)
+        try saveTencentCredential(secretKey, account: Self.tencentSecretKeyAccount)
+    }
+
+    func deleteTencentCloudCredentials() throws {
+        try saveCloudCredential("", account: Self.tencentAppIDAccount)
+        try saveCloudCredential("", account: Self.tencentSecretIDAccount)
+        try saveCloudCredential("", account: Self.tencentSecretKeyAccount)
+    }
+
+    func tencentCloudConfiguration() throws -> TencentRealtimeASRConfiguration {
+        let credentials = storedTencentCloudCredentials()
+        let configuration = TencentRealtimeASRConfiguration(
+            appID: credentials.appID,
+            secretID: credentials.secretID,
+            secretKey: credentials.secretKey,
+            engineModelType: tencentRealtimeEngineModelType
+        )
+        guard configuration.isComplete else {
+            throw TencentRealtimeASRError.missingCredential
+        }
+        return configuration
+    }
+
+    func testTencentCloudConnection() async throws -> ASRProviderHealthResult {
+        try await TencentRealtimeASRClient().testConnection(
+            configuration: tencentCloudConfiguration()
+        )
+    }
+
+    var isAliyunDashScopeConfigured: Bool {
+        let value = storedCloudCredential(account: Self.aliyunDashScopeAPIKeyAccount)
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func storedAliyunDashScopeAPIKey() -> String {
+        storedCloudCredential(account: Self.aliyunDashScopeAPIKeyAccount)
+    }
+
+    func saveAliyunDashScopeAPIKey(_ apiKey: String) throws {
+        try saveCloudCredential(apiKey, account: Self.aliyunDashScopeAPIKeyAccount)
+    }
+
+    func aliyunDashScopeConfiguration() throws -> AliyunDashScopeRealtimeASRConfiguration {
+        let configuration = AliyunDashScopeRealtimeASRConfiguration(
+            apiKey: storedAliyunDashScopeAPIKey(),
+            model: aliyunDashScopeModel
+        )
+        guard configuration.isComplete else {
+            throw AliyunDashScopeRealtimeASRError.missingCredential
+        }
+        return configuration
+    }
+
+    func testAliyunDashScopeConnection() async throws -> ASRProviderHealthResult {
+        try await AliyunDashScopeRealtimeASRClient().testConnection(
+            configuration: aliyunDashScopeConfiguration()
+        )
+    }
+
+    var groqConfiguration: CloudASRProviderConfiguration {
+        CloudASRProviderConfiguration(
+            providerID: ASRProviderID.groqWhisper,
+            displayName: "Groq（免费）",
+            baseURL: groqBaseURL,
+            model: groqModel,
+            apiKeyRef: Self.groqAPIKeyAccount,
+            timeoutSeconds: 60
+        )
+    }
+
+    private func saveTencentCredential(_ value: String, account: String) throws {
+        try saveCloudCredential(value, account: account)
+    }
+
+    fileprivate func saveCloudCredential(_ value: String, account: String) throws {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let settingsRepository {
+            let key = Self.cloudCredentialSettingsKey(account: account)
+            if trimmed.isEmpty {
+                try settingsRepository.deleteValue(forKey: key)
+            } else {
+                try settingsRepository.set(
+                    key,
+                    jsonValue: Self.encodedCredentialJSON(StoredCloudCredential(value: trimmed))
+                )
+            }
+            return
+        }
+        if trimmed.isEmpty {
+            try credentialStore.deleteCredential(account: account)
+        } else {
+            try credentialStore.saveCredential(trimmed, account: account)
+        }
+    }
+
+    fileprivate func storedCloudCredential(account: String) -> String {
+        if let settingsRepository,
+           let json = try? settingsRepository.value(forKey: Self.cloudCredentialSettingsKey(account: account)),
+           let data = json.data(using: .utf8),
+           let credential = try? JSONDecoder().decode(StoredCloudCredential.self, from: data) {
+            return credential.value
+        }
+        guard settingsRepository == nil else {
+            return ""
+        }
+        return (try? credentialStore.readCredential(account: account)) ?? ""
+    }
+
+    private func cloudCredentialStore() -> any CredentialStore {
+        ASRSettingsBackedCredentialStore(manager: self)
+    }
+
+    private static func cloudCredentialSettingsKey(account: String) -> String {
+        "ASRManager.cloudCredential.\(account)"
+    }
+
+    private static func encodedCredentialJSON(_ credential: StoredCloudCredential) -> String {
+        guard let data = try? JSONEncoder().encode(credential),
+              let string = String(data: data, encoding: .utf8) else {
+            return #"{"value":""}"#
+        }
+        return string
+    }
+
+    private struct StoredCloudCredential: Codable {
+        let value: String
     }
 
     // MARK: - Qwen3 Configuration
@@ -176,6 +414,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     func markQwen3ModelReady(at path: String, size: ModelSize) {
+        qwen3ModelSize = size
         qwen3ModelPath = path
         if let key = Self.qwen3ModelInstallKey(for: size),
            let modelInstallationRepository {
@@ -255,6 +494,118 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         try? modelInstallationRepository.save(.ready(installation), for: key)
     }
 
+    func markParakeetModelReady(at path: String) {
+        guard let modelInstallationRepository else {
+            return
+        }
+        let key = Self.parakeetModelInstallKey()
+        let installation = ModelInstallation(
+            modelID: key.modelID,
+            version: key.version,
+            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
+        )
+        try? modelInstallationRepository.save(.ready(installation), for: key)
+    }
+
+    func markOmnilingualModelReady(at path: String) {
+        guard let modelInstallationRepository else {
+            return
+        }
+        let key = Self.omnilingualModelInstallKey()
+        let installation = ModelInstallation(
+            modelID: key.modelID,
+            version: key.version,
+            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
+        )
+        try? modelInstallationRepository.save(.ready(installation), for: key)
+    }
+
+    func clearModelInstallationState(for engineType: ASREngineType) {
+        guard let modelInstallationRepository else {
+            return
+        }
+
+        switch engineType {
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+            return
+        case .qwen3:
+            clearQwen3ValidatedModelPath()
+        case .funASR:
+            guard let key = Self.funASRModelInstallKey(for: funASRPrecision) else {
+                return
+            }
+            try? modelInstallationRepository.removeState(for: key)
+        case .whisper:
+            guard let key = Self.whisperModelInstallKey(for: whisperVariant) else {
+                return
+            }
+            try? modelInstallationRepository.removeState(for: key)
+        case .senseVoice:
+            try? modelInstallationRepository.removeState(for: Self.senseVoiceModelInstallKey())
+        case .paraformer:
+            try? modelInstallationRepository.removeState(for: Self.paraformerModelInstallKey())
+        case .nvidiaNemotron:
+            try? modelInstallationRepository.removeState(for: Self.nvidiaNemotronModelInstallKey())
+        case .parakeetStreaming:
+            try? modelInstallationRepository.removeState(for: Self.parakeetModelInstallKey())
+        case .omnilingualASR:
+            try? modelInstallationRepository.removeState(for: Self.omnilingualModelInstallKey())
+        }
+    }
+
+    func markModelDeleting(for engineType: ASREngineType) {
+        guard let key = self.modelInstallKey(for: engineType),
+              let modelInstallationRepository,
+              case let .ready(installation) = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled else {
+            return
+        }
+        try? modelInstallationRepository.save(.deleting(installation), for: key)
+    }
+
+    func markModelDeletionFailed(for engineType: ASREngineType, message: String) {
+        guard let key = self.modelInstallKey(for: engineType),
+              let modelInstallationRepository else {
+            return
+        }
+        try? modelInstallationRepository.save(.failed(message: message), for: key)
+    }
+
+    func restoreModelInstallationState(_ state: ModelInstallationState, for engineType: ASREngineType) {
+        guard let key = self.modelInstallKey(for: engineType),
+              let modelInstallationRepository else {
+            return
+        }
+        switch state {
+        case .notInstalled:
+            try? modelInstallationRepository.removeState(for: key)
+        default:
+            try? modelInstallationRepository.save(state, for: key)
+        }
+    }
+
+    func modelInstallationState(for engineType: ASREngineType) -> ModelInstallationState {
+        switch engineType {
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+            return .notInstalled
+        case .qwen3:
+            return qwen3ModelInstallationState(for: qwen3ModelSize)
+        case .funASR:
+            return funASRModelInstallationState(for: funASRPrecision)
+        case .whisper:
+            return whisperModelInstallationState(for: whisperVariant)
+        case .senseVoice:
+            return senseVoiceModelInstallationState()
+        case .paraformer:
+            return paraformerModelInstallationState()
+        case .nvidiaNemotron:
+            return nvidiaNemotronModelInstallationState()
+        case .parakeetStreaming:
+            return parakeetModelInstallationState()
+        case .omnilingualASR:
+            return omnilingualModelInstallationState()
+        }
+    }
+
     /// Finds the path for a specific Qwen3 model size only after ModelStore marks it ready.
     func qwen3ModelPath(for size: ModelSize) -> String? {
         if let installation = qwen3ReadyInstallation(for: size) {
@@ -277,11 +628,24 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
               let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        let validated = Self.validatedReadyState(state) { installation in
+            Qwen3ModelManifest.manifest(for: size).modelsExist(at: installation.installedRoot)
+        }
+        switch validated {
+        case .notInstalled, .corrupt:
+            if let discovered = discoverQwen3ReadyInstallation(for: size, key: key) {
+                try? modelInstallationRepository.save(.ready(discovered), for: key)
+                return .ready(discovered)
+            }
+        default:
+            break
+        }
+        return validated
     }
 
     func qwen3ModelInstallationState(for size: ModelSize) -> ModelInstallationState {
-        let preflight = Self.qwen3RuntimePreflightResult(for: size)
+        let preflight = qwen3RuntimePreflight(size)
         switch preflight {
         case .supported:
             break
@@ -306,6 +670,18 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return type
         }
         return .apple
+    }
+
+    var selectionFallbackNotice: SelectionFallbackNotice? {
+        let selected = selectedEngineType
+        let effective = effectiveSelectedEngineType
+        guard selected != effective else {
+            return nil
+        }
+        return SelectionFallbackNotice(
+            selectedEngineType: selected,
+            effectiveEngineType: effective
+        )
     }
 
     func modelMetadata(for type: ASREngineType) -> (modelID: String?, modelVersion: String?) {
@@ -338,6 +714,18 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .nvidiaNemotron:
             let key = Self.nvidiaNemotronModelInstallKey()
             return (key.modelID.rawValue, key.version)
+        case .parakeetStreaming:
+            let key = Self.parakeetModelInstallKey()
+            return (key.modelID.rawValue, key.version)
+        case .omnilingualASR:
+            let key = Self.omnilingualModelInstallKey()
+            return (key.modelID.rawValue, key.version)
+        case .groqWhisper:
+            return (groqModel, nil)
+        case .tencentCloud:
+            return ("tencent-\(tencentRealtimeEngineModelType)", nil)
+        case .aliyunDashScope:
+            return ("aliyun-dashscope-\(aliyunDashScopeModel)", nil)
         }
     }
 
@@ -350,14 +738,32 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .whisper:
             return Self.isWhisperRuntimeSupported(variant: whisperVariant) && isWhisperModelAvailable
         case .qwen3:
-            return Self.isQwen3RuntimeSupported(size: qwen3ModelSize) && isQwen3ModelAvailable
+            return isQwen3RuntimeSupported(size: qwen3ModelSize) && isQwen3ModelAvailable
         case .senseVoice:
             return isSenseVoiceModelAvailable
         case .paraformer:
             return isParaformerModelAvailable
         case .nvidiaNemotron:
             return isNVIDIANemotronRuntimeSupported && isNVIDIANemotronModelAvailable
+        case .parakeetStreaming:
+            return isParakeetModelAvailable
+        case .omnilingualASR:
+            return isOmnilingualModelAvailable
+        case .groqWhisper:
+            return isGroqConfigured
+        case .tencentCloud:
+            return isTencentCloudConfigured
+        case .aliyunDashScope:
+            return isAliyunDashScopeConfigured
         }
+    }
+
+    func isQwen3RuntimeSupported(size: ModelSize) -> Bool {
+        qwen3RuntimePreflight(size).isSupported
+    }
+
+    func qwen3RuntimeUnsupportedMessage(for size: ModelSize) -> String {
+        qwen3RuntimePreflight(size).reason ?? ""
     }
 
     @discardableResult
@@ -377,9 +783,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     static func downloadURL(for size: ModelSize) -> URL {
         switch size {
         case .size0_6B:
-            return URL(string: "https://huggingface.co/Qwen/Qwen3-ASR-0.6B")!
+            return URL(string: "https://huggingface.co/aufklarer/Qwen3-ASR-0.6B-MLX-4bit")!
         case .size1_7B:
-            return URL(string: "https://huggingface.co/Qwen/Qwen3-ASR-1.7B")!
+            return URL(string: "https://huggingface.co/aufklarer/Qwen3-ASR-1.7B-MLX-8bit")!
         }
     }
 
@@ -401,6 +807,33 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return makeParaformerProviderBackedEngine()
         case .nvidiaNemotron:
             return makeNVIDIANemotronProviderBackedEngine()
+        case .parakeetStreaming:
+            return makeParakeetProviderBackedEngine()
+        case .omnilingualASR:
+            return makeOmnilingualProviderBackedEngine()
+        case .groqWhisper:
+            let client = GroqCloudASRClient(credentialStore: cloudCredentialStore())
+            return BufferedCloudASREngine(
+                client: client,
+                configuration: groqConfiguration,
+                configurationAvailable: { [weak self] in
+                    self?.isGroqConfigured ?? false
+                }
+            )
+        case .tencentCloud:
+            return TencentRealtimeASREngine { [weak self] in
+                guard let self else {
+                    throw TencentRealtimeASRError.missingCredential
+                }
+                return try self.tencentCloudConfiguration()
+            }
+        case .aliyunDashScope:
+            return AliyunDashScopeRealtimeASREngine { [weak self] in
+                guard let self else {
+                    throw AliyunDashScopeRealtimeASRError.missingCredential
+                }
+                return try self.aliyunDashScopeConfiguration()
+            }
         }
     }
 
@@ -520,6 +953,40 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    private func makeParakeetProviderBackedEngine() -> ASREngine {
+        let providerState = Self.asrModelInstallationState(
+            from: parakeetModelInstallationState()
+        )
+        let provider = ParakeetASRProvider(
+            descriptor: ParakeetProviderDescriptor.descriptor(
+                modelInstallationState: providerState
+            ),
+            modelURL: parakeetReadyInstallation()?.installedRoot
+        )
+        let descriptor = provider.descriptor
+        return ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: descriptor.supportedLanguages[0]
+        )
+    }
+
+    private func makeOmnilingualProviderBackedEngine() -> ASREngine {
+        let providerState = Self.asrModelInstallationState(
+            from: omnilingualModelInstallationState()
+        )
+        let provider = OmnilingualASRProvider(
+            descriptor: OmnilingualProviderDescriptor.descriptor(
+                modelInstallationState: providerState
+            ),
+            modelURL: omnilingualReadyInstallation()?.installedRoot
+        )
+        let descriptor = provider.descriptor
+        return ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: descriptor.supportedLanguages[0]
+        )
+    }
+
     private func isQwen3ValidatedModelPath(_ path: String, size: ModelSize) -> Bool {
         if let key = Self.qwen3ModelInstallKey(for: size),
            let modelInstallationRepository,
@@ -541,6 +1008,52 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return nil
         }
         return installation
+    }
+
+    private func discoverQwen3ReadyInstallation(
+        for size: ModelSize,
+        key: ModelInstallKey
+    ) -> ModelInstallation? {
+        guard let modelStoreRoot else {
+            return nil
+        }
+        let manifest = Qwen3ModelManifest.manifest(for: size)
+        let candidates = qwen3ModelStoreCandidates(
+            root: modelStoreRoot,
+            key: key,
+            manifest: manifest
+        )
+        guard let installedRoot = candidates.first(where: { manifest.modelsExist(at: $0) }) else {
+            return nil
+        }
+        return ModelInstallation(
+            modelID: key.modelID,
+            version: key.version,
+            installedRoot: installedRoot
+        )
+    }
+
+    private func qwen3ModelStoreCandidates(
+        root: URL,
+        key: ModelInstallKey,
+        manifest: Qwen3ModelManifest
+    ) -> [URL] {
+        let canonical = root
+            .appendingPathComponent(key.modelID.rawValue, isDirectory: true)
+            .appendingPathComponent(key.version, isDirectory: true)
+        let legacyParent = root.appendingPathComponent(manifest.localDirectoryName, isDirectory: true)
+        let legacyVersion = legacyParent.appendingPathComponent(key.version, isDirectory: true)
+        let legacyChildren = (
+            try? FileManager.default.contentsOfDirectory(
+                at: legacyParent,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        ) ?? []
+        return ([canonical, legacyVersion] + legacyChildren).reduce(into: []) { result, url in
+            guard !result.contains(url) else { return }
+            result.append(url)
+        }
     }
 
     func whisperModelDirectoryURL(for variant: WhisperVariant) -> URL {
@@ -569,13 +1082,17 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     func nvidiaNemotronModelDirectoryURL() -> URL {
         nvidiaNemotronReadyInstallation()?.installedRoot
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!
-            .appendingPathComponent("FluidAudio", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("Nemotron-3.5-ASR-Streaming-Multilingual-0.6b-CoreML", isDirectory: true)
-            .appendingPathComponent("multilingual", isDirectory: true)
-            .appendingPathComponent("1120ms", isDirectory: true)
+            ?? NVIDIANemotronModel.defaultDirectoryURL()
+    }
+
+    func parakeetModelDirectoryURL() -> URL {
+        parakeetReadyInstallation()?.installedRoot
+            ?? ParakeetModel.defaultDirectoryURL()
+    }
+
+    func omnilingualModelDirectoryURL() -> URL {
+        omnilingualReadyInstallation()?.installedRoot
+            ?? OmnilingualModel.defaultDirectoryURL()
     }
 
     func whisperModelInstallationState(for variant: WhisperVariant) -> ModelInstallationState {
@@ -583,7 +1100,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
               let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            WhisperKitModelVariant(variant: variant).modelsExist(at: installation.installedRoot)
+        }
     }
 
     func funASRModelInstallationState(for precision: FunASRPrecision) -> ModelInstallationState {
@@ -591,21 +1111,30 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
               let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            FunASRModelVariant(precision: precision).modelsExist(at: installation.installedRoot)
+        }
     }
 
     func senseVoiceModelInstallationState() -> ModelInstallationState {
         guard let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: Self.senseVoiceModelInstallKey())) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: Self.senseVoiceModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            SenseVoiceModel.modelsExist(at: installation.installedRoot)
+        }
     }
 
     func paraformerModelInstallationState() -> ModelInstallationState {
         guard let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: Self.paraformerModelInstallKey())) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: Self.paraformerModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            ParaformerModel.modelsExist(at: installation.installedRoot)
+        }
     }
 
     func nvidiaNemotronModelInstallationState() -> ModelInstallationState {
@@ -615,7 +1144,30 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         guard let modelInstallationRepository else {
             return .notInstalled
         }
-        return (try? modelInstallationRepository.state(for: Self.nvidiaNemotronModelInstallKey())) ?? .notInstalled
+        let state = (try? modelInstallationRepository.state(for: Self.nvidiaNemotronModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            NVIDIANemotronModel.modelsExist(at: installation.installedRoot)
+        }
+    }
+
+    func parakeetModelInstallationState() -> ModelInstallationState {
+        guard let modelInstallationRepository else {
+            return .notInstalled
+        }
+        let state = (try? modelInstallationRepository.state(for: Self.parakeetModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            ParakeetModel.modelsExist(at: installation.installedRoot)
+        }
+    }
+
+    func omnilingualModelInstallationState() -> ModelInstallationState {
+        guard let modelInstallationRepository else {
+            return .notInstalled
+        }
+        let state = (try? modelInstallationRepository.state(for: Self.omnilingualModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            OmnilingualModel.modelsExist(at: installation.installedRoot)
+        }
     }
 
     private func whisperReadyInstallation(for variant: WhisperVariant) -> ModelInstallation? {
@@ -661,6 +1213,40 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return nil
         }
         return installation
+    }
+
+    private func parakeetReadyInstallation() -> ModelInstallation? {
+        guard case let .ready(installation) = parakeetModelInstallationState(),
+              FileManager.default.fileExists(atPath: installation.installedRoot.path),
+              ParakeetModel.modelsExist(at: installation.installedRoot) else {
+            return nil
+        }
+        return installation
+    }
+
+    private func omnilingualReadyInstallation() -> ModelInstallation? {
+        guard case let .ready(installation) = omnilingualModelInstallationState(),
+              FileManager.default.fileExists(atPath: installation.installedRoot.path),
+              OmnilingualModel.modelsExist(at: installation.installedRoot) else {
+            return nil
+        }
+        return installation
+    }
+
+    private static func validatedReadyState(
+        _ state: ModelInstallationState,
+        modelsExist: (ModelInstallation) -> Bool
+    ) -> ModelInstallationState {
+        guard case let .ready(installation) = state else {
+            return state
+        }
+        guard FileManager.default.fileExists(atPath: installation.installedRoot.path) else {
+            return .notInstalled
+        }
+        guard modelsExist(installation) else {
+            return .corrupt(reason: "模型文件不完整，请重新下载。")
+        }
+        return state
     }
 
     private func clearQwen3ValidatedModelPath() {
@@ -722,6 +1308,43 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    private static func parakeetModelInstallKey() -> ModelInstallKey {
+        ModelInstallKey(
+            modelID: ModelID(rawValue: ParakeetModel.modelID),
+            version: ParakeetModel.version
+        )
+    }
+
+    private static func omnilingualModelInstallKey() -> ModelInstallKey {
+        ModelInstallKey(
+            modelID: ModelID(rawValue: OmnilingualModel.modelID),
+            version: OmnilingualModel.version
+        )
+    }
+
+    private func modelInstallKey(for engineType: ASREngineType) -> ModelInstallKey? {
+        switch engineType {
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+            return nil
+        case .qwen3:
+            return Self.qwen3ModelInstallKey(for: qwen3ModelSize)
+        case .funASR:
+            return Self.funASRModelInstallKey(for: funASRPrecision)
+        case .whisper:
+            return Self.whisperModelInstallKey(for: whisperVariant)
+        case .senseVoice:
+            return Self.senseVoiceModelInstallKey()
+        case .paraformer:
+            return Self.paraformerModelInstallKey()
+        case .nvidiaNemotron:
+            return Self.nvidiaNemotronModelInstallKey()
+        case .parakeetStreaming:
+            return Self.parakeetModelInstallKey()
+        case .omnilingualASR:
+            return Self.omnilingualModelInstallKey()
+        }
+    }
+
     private static func asrModelInstallationState(
         from state: ModelInstallationState
     ) -> ASRModelInstallationState {
@@ -732,7 +1355,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return .downloading(progress: progress.fractionCompleted ?? 0)
         case .paused(let progress):
             return .downloading(progress: progress.fractionCompleted ?? 0)
-        case .verifying, .extracting:
+        case .verifying, .extracting, .deleting(_):
             return .verifying
         case .compiling:
             return .compiling
@@ -765,6 +1388,34 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
                 isDirectory: false
             )
         )
+    }
+
+    private static func defaultModelStoreRoot(for defaults: UserDefaults) -> URL? {
+        guard defaults === UserDefaults.standard,
+              let paths = try? ApplicationSupportPaths.live() else {
+            return nil
+        }
+        return paths.modelsDirectory
+    }
+}
+
+private final class ASRSettingsBackedCredentialStore: CredentialStore, @unchecked Sendable {
+    private weak var manager: ASRManager?
+
+    init(manager: ASRManager) {
+        self.manager = manager
+    }
+
+    func readCredential(account: String) throws -> String? {
+        manager?.storedCloudCredential(account: account)
+    }
+
+    func saveCredential(_ value: String, account: String) throws {
+        try manager?.saveCloudCredential(value, account: account)
+    }
+
+    func deleteCredential(account: String) throws {
+        try manager?.saveCloudCredential("", account: account)
     }
 }
 

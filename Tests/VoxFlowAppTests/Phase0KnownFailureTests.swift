@@ -61,8 +61,11 @@ final class Phase0KnownFailureTests: XCTestCase {
     }
 
     func testPasteboardRestoreIsNotFixedDelayBased() throws {
-        let source = try String(contentsOf: Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowTextInsertion/FastPaste/FastPasteTextInserter.swift"))
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowTextInsertion/FastPaste/FastPasteTextInserter.swift"),
+            encoding: .utf8
+        )
 
         XCTAssertFalse(source.contains("pasteDelay"))
         XCTAssertFalse(source.contains("Task.sleep(nanoseconds: pasteDelay)"))
@@ -129,7 +132,8 @@ private final class Phase0TextInjector: TextInserting {
 private final class Phase0ClipboardService: ClipboardSetting {
     private(set) var copiedTexts: [String] = []
 
-    func setString(_ text: String) {
+    func setString(_ text: String) -> Bool {
         copiedTexts.append(text)
+        return true
     }
 }

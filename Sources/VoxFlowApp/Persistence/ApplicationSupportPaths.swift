@@ -38,6 +38,10 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("voice-task-audio", isDirectory: true)
     }
 
+    var llmTraceDiagnosticsDirectory: URL {
+        rootDirectory.appendingPathComponent("LLMTraceDiagnostics", isDirectory: true)
+    }
+
     func voiceTaskAudioURL(forTaskID taskID: String) -> URL {
         voiceTaskAudioDirectory.appendingPathComponent("\(taskID).m4a", isDirectory: false)
     }

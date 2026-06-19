@@ -35,7 +35,7 @@ struct ASRProviderCardInteractionPresentation: Equatable {
         isSelectionEnabled = provider.isAvailable && !provider.isDefault
         if provider.isDefault {
             cardTapBehavior = .ignore
-        } else if provider.externalLinks != nil {
+        } else if provider.localModelAction == .download || provider.localModelAction == .repair {
             cardTapBehavior = .ignore
         } else if provider.isAvailable {
             cardTapBehavior = .selectProvider

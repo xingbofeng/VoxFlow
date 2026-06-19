@@ -110,7 +110,86 @@ final class AgentComposeTests: XCTestCase {
         )
 
         XCTAssertEqual(result, .copied)
-        XCTAssertEqual(refiner.lastRequest?.text, "generate something")
+        XCTAssertEqual(
+            refiner.lastRequest?.text,
+            """
+            User's dictation intent:
+            <user_dictation_intent>
+            generate something
+            </user_dictation_intent>
+            """
+        )
+        XCTAssertFalse(refiner.lastRequest?.text.contains("Untrusted context data") ?? true)
+    }
+
+    func testDefaultHandlerWritesOnlyAgentComposeWorkflowWhenDictationIsAlsoActive() async throws {
+        let refiner = AgentComposeStubRefiner(result: "Generated text")
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner
+        )
+        let dictation = try coordinator.startTask(mode: .dictation, target: nil)
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        try handler.start(target: nil)
+        let agentComposeID = try XCTUnwrap(coordinator.activeTaskID(for: .agentCompose))
+
+        _ = try await handler.finish(rawTranscript: "compose only")
+
+        XCTAssertNil(try repository.fetch(id: dictation.id)?.rawTranscript)
+        XCTAssertEqual(try repository.fetch(id: agentComposeID)?.rawTranscript, "compose only")
+        XCTAssertEqual(try repository.fetch(id: agentComposeID)?.finalText, "Generated text")
+    }
+
+    func testAgentComposeCancellationDuringLLMDoesNotPersistFinalTextOrDeliverOutput() async throws {
+        let refiner = AgentComposeCancellingRefiner(result: "Stale generated text")
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner
+        )
+        let task = try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("compose stale text")
+        refiner.onRefine = {
+            await MainActor.run {
+                try? coordinator.cancelTask(kind: .agentCompose)
+            }
+        }
+
+        let result = try await coordinator.processAgentComposeAndDeliver(
+            context: nil,
+            stylePrompt: nil
+        )
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertNil(outputService.lastText)
+        let fetched = try repository.fetch(id: task.id)
+        XCTAssertNil(fetched?.finalText)
+        XCTAssertEqual(fetched?.status, .cancelled)
+    }
+
+    func testContextResultAfterAgentComposeCancellationIsDropped() async throws {
+        let contextPipeline = AgentComposeImmediateContextCollector(
+            snapshot: ContextSnapshot(
+                windowTitle: "Old Window",
+                targetAppBundleID: "com.old.app",
+                targetAppName: "Old App",
+                visibleText: "stale context",
+                sources: [.windowMetadata],
+                trimmedLength: 13
+            )
+        )
+        let coordinator = makeCoordinator(contextPipeline: contextPipeline)
+        try coordinator.startTask(mode: .agentCompose, target: nil)
+        coordinator.startContextCollection(target: nil, visionSupported: true)
+        try coordinator.cancelTask(kind: .agentCompose)
+
+        let context = await coordinator.awaitContextCollection(timeoutMilliseconds: 1_000)
+
+        XCTAssertNil(context)
     }
 
     // MARK: - testLLMFailureReturnsActionableError
@@ -253,7 +332,9 @@ final class AgentComposeTests: XCTestCase {
 
         // Verify agent prompt was sent to refiner with context
         XCTAssertNotNil(refiner.lastRequest)
-        XCTAssertTrue(refiner.lastRequest?.systemPrompt.contains("Chat Window") ?? false)
+        XCTAssertFalse(refiner.lastRequest?.systemPrompt.contains("Chat Window") ?? true)
+        XCTAssertTrue(refiner.lastRequest?.text.contains("Chat Window") ?? false)
+        XCTAssertTrue(refiner.lastRequest?.text.contains("Previous message content") ?? false)
     }
 
     // MARK: - Helpers
@@ -263,7 +344,8 @@ final class AgentComposeTests: XCTestCase {
             result: TextProcessingResult(rawText: "", finalText: "")
         ),
         outputService: AgentComposeStubOutputService = AgentComposeStubOutputService(result: .copied),
-        agentRefiner: AgentComposeStubRefiner? = nil
+        agentRefiner: (any PromptAwareTextRefining)? = nil,
+        contextPipeline: (any ContextCollecting)? = nil
     ) -> VoiceTaskCoordinator {
         VoiceTaskCoordinator(
             taskRepository: repository,
@@ -271,7 +353,7 @@ final class AgentComposeTests: XCTestCase {
             textPipeline: pipeline,
             targetProvider: AgentComposeStubTargetProvider(),
             clock: clock,
-            contextPipeline: nil,
+            contextPipeline: contextPipeline,
             agentRefiner: agentRefiner
         )
     }
@@ -305,8 +387,49 @@ private final class AgentComposeStubRefiner: PromptAwareTextRefining, @unchecked
     }
 }
 
+@MainActor
+private final class AgentComposeNilStyleSelector: StyleSelecting {
+    func style(for target: DictationTarget?) async throws -> StyleProfileRecord? {
+        nil
+    }
+}
+
 private enum AgentComposeStubError: Error {
     case networkTimeout
+}
+
+private final class AgentComposeImmediateContextCollector: ContextCollecting, @unchecked Sendable {
+    let snapshot: ContextSnapshot
+
+    init(snapshot: ContextSnapshot) {
+        self.snapshot = snapshot
+    }
+
+    func collect(target: DictationTarget?, visionSupported: Bool) async -> ContextSnapshot {
+        snapshot
+    }
+}
+
+private final class AgentComposeCancellingRefiner: PromptAwareTextRefining, @unchecked Sendable {
+    let result: String
+    var onRefine: (() async -> Void)?
+
+    init(result: String) {
+        self.result = result
+    }
+
+    var isEnabled: Bool { true }
+    var isConfigured: Bool { true }
+
+    func refine(_ text: String) async throws -> String {
+        await onRefine?()
+        return result
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        await onRefine?()
+        return result
+    }
 }
 
 @MainActor

@@ -17,20 +17,17 @@ struct SettingsQwenModelDownloadCoordinator {
     private let asrManager: ASRManager
     private let downloader: any Qwen3ModelDownloading
     private let readinessPreparer: any Qwen3ModelReadinessPreparing
-    private let runtimeProvisioner: any Qwen3MLXRuntimeProvisioning
     private let fileManager: FileManager
 
     init(
         asrManager: ASRManager,
         downloader: any Qwen3ModelDownloading,
         readinessPreparer: any Qwen3ModelReadinessPreparing = Qwen3ModelReadinessPreparer(),
-        runtimeProvisioner: any Qwen3MLXRuntimeProvisioning = Qwen3MLXRuntimeProvisioner(),
         fileManager: FileManager = .default
     ) {
         self.asrManager = asrManager
         self.downloader = downloader
         self.readinessPreparer = readinessPreparer
-        self.runtimeProvisioner = runtimeProvisioner
         self.fileManager = fileManager
     }
 
@@ -38,9 +35,6 @@ struct SettingsQwenModelDownloadCoordinator {
         size: ASRManager.ModelSize,
         progress: @escaping Qwen3ModelDownloader.ProgressHandler
     ) async throws -> URL {
-        if size == .size1_7B {
-            _ = try await runtimeProvisioner.prepare()
-        }
         let modelURL = try await downloader.download(
             manifest: Qwen3ModelManifest.manifest(for: size),
             progress: progress

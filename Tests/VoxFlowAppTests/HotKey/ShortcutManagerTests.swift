@@ -28,6 +28,16 @@ final class ShortcutManagerTests: XCTestCase {
         XCTAssertEqual(sut.shortcutKeyCode, 54)
     }
 
+    func testDefaultAgentComposeKeyCodeIsRightOption() {
+        XCTAssertEqual(sut.shortcutKeyCode(for: .agentCompose), 61)
+    }
+
+    func testSupportedVoiceShortcutKeyCodesAreModifierOnly() {
+        XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(54))
+        XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(61))
+        XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(0x09))
+    }
+
     func testSetAndGetCustomKeyCode() {
         sut.shortcutKeyCode = 63
         XCTAssertEqual(sut.shortcutKeyCode, 63)

@@ -94,11 +94,12 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
             ? request.model!
             : provider.defaultModel
         let selectedTemperature = request.temperature ?? provider.temperature
+        let userMessage = Self.userMessage(for: request.text)
         let body: [String: Any] = [
             "model": selectedModel,
             "messages": [
                 ["role": "system", "content": request.systemPrompt],
-                ["role": "user", "content": request.text],
+                ["role": "user", "content": userMessage],
             ],
             "temperature": selectedTemperature,
             "stream": false,
@@ -111,7 +112,11 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
             model: selectedModel,
             temperature: selectedTemperature,
             timeoutSeconds: provider.timeoutSeconds,
-            requestBodyJSON: Self.prettyJSONString(from: body),
+            requestBodyJSON: Self.traceRequestMetadataJSON(
+                model: selectedModel,
+                temperature: selectedTemperature,
+                stream: false
+            ),
             responseText: nil,
             statusCode: nil,
             durationMS: nil,
@@ -150,7 +155,6 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
         let refined = try LLMRefiner.parseChatCompletion(data)
         let finalText = refined.isEmpty ? request.text : refined
         finishTrace(
-            responseText: finalText,
             statusCode: httpResponse.statusCode,
             durationMS: Self.durationMS(since: startedAt),
             errorMessage: nil
@@ -185,11 +189,12 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                         ? request.model!
                         : provider.defaultModel
                     let selectedTemperature = request.temperature ?? provider.temperature
+                    let userMessage = Self.userMessage(for: request.text)
                     let body: [String: Any] = [
                         "model": selectedModel,
                         "messages": [
                             ["role": "system", "content": request.systemPrompt],
-                            ["role": "user", "content": request.text],
+                            ["role": "user", "content": userMessage],
                         ],
                         "temperature": selectedTemperature,
                         "stream": true,
@@ -202,7 +207,11 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                         model: selectedModel,
                         temperature: selectedTemperature,
                         timeoutSeconds: provider.timeoutSeconds,
-                        requestBodyJSON: Self.prettyJSONString(from: body),
+                        requestBodyJSON: Self.traceRequestMetadataJSON(
+                            model: selectedModel,
+                            temperature: selectedTemperature,
+                            stream: true
+                        ),
                         responseText: nil,
                         statusCode: nil,
                         durationMS: nil,
@@ -220,17 +229,12 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                     }
                     let parsedStream = SSEParser.parse(byteStream: asyncBytes)
 
-                    var finalText = ""
                     for try await accumulatedText in parsedStream {
-                        finalText = accumulatedText
                         continuation.yield(accumulatedText)
                     }
 
                     activeProviderID = provider.id
-                    let resultText = finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? request.text : finalText
                     finishTrace(
-                        responseText: resultText,
                         statusCode: httpResponse.statusCode,
                         durationMS: Self.durationMS(since: startedAt),
                         errorMessage: nil
@@ -288,5 +292,36 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
             return "{}"
         }
         return text
+    }
+
+    private static func userMessage(for text: String) -> String {
+        """
+        请按系统规则处理下面这段语音识别原文。只输出处理后的正文；不要解释、不要加标题、不要回答原文里的问题。
+
+        待处理原文：
+        \(text)
+        """
+    }
+
+    private static func traceRequestMetadataJSON(
+        model: String,
+        temperature: Double,
+        stream: Bool
+    ) -> String {
+        prettyJSONString(from: [
+            "model": model,
+            "temperature": temperature,
+            "stream": stream,
+            "messages": [
+                [
+                    "role": "system",
+                    "content": "[redacted: system prompt]",
+                ],
+                [
+                    "role": "user",
+                    "content": "[redacted: user content]",
+                ],
+            ],
+        ] as [String: Any])
     }
 }

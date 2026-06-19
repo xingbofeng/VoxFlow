@@ -1,7 +1,7 @@
 const release = {
-  version: "1.2.0",
-  tag: "v1.2.0",
-  assetName: "VoxFlow-1.2.0-macOS.dmg"
+  version: "1.3.0",
+  tag: "v1.3.0",
+  assetName: "VoxFlow-1.3.0-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -14,7 +14,7 @@ const copy = {
     headlineB: "把声音送到光标。",
     heroCopy: "常驻菜单栏的语音输入工具。说完松手，中文、英文和技术词回到当前光标。",
     download: "下载 macOS App",
-    downloadMeta: "macOS 14+ · Apple Silicon + Intel",
+    downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · 免费开源`,
     transcript: "让声音越过键盘，直接抵达光标。",
     navHome: "首页",
@@ -39,13 +39,13 @@ const copy = {
     flowCopy: "随声写常驻菜单栏，却从不占据你的注意力。它只在你按住右 Command 时出现，松手后把文字送回原来的输入现场。",
     featureNativeTitle: "HUD 有存在感，但不打断你",
     featureNativeCopy: "按住右 Command 时出现底部胶囊，波形跟随声音起伏。松手后自动收起。",
-    featureLanguageTitle: "界面为回看和整理而生",
-    featureLanguageCopy: "首页统计、历史搜索、笔记、词汇表和模型设置都在一个清爽窗口里，不抢当前输入焦点。",
-    featureRefineTitle: "只纠错，不替你说话",
-    featureRefineCopy: "可选的 OpenAI-compatible LLM 只修复明显误识别。正确的内容、语气和措辞保持原样。",
+    featureLanguageTitle: "听写之外，也能整理成稿",
+    featureLanguageCopy: "历史、笔记、文件转写和剪贴板图片 OCR 都在工作台里，需要回看时再打开。",
+    featureRefineTitle: "本地优先，也保留云端选择",
+    featureRefineCopy: "Apple Speech 和多种本地模型可直接使用，也支持 Groq、腾讯云与阿里云；模型页清楚标注在线、离线与流式能力。",
     trustLabel: "隐私",
     privacyTitle: "你的输入现场，<br>结束后恢复原样。",
-    privacyCopy: "输入法临时切换后自动恢复，剪贴板所有 item 与类型完整还原。无分析、无遥测；LLM 只有在你主动开启时才接收识别后的文本。",
+    privacyCopy: "输入法临时切换后自动恢复，剪贴板完整还原。无分析、无遥测；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。",
     ctaTitle: "让下一句话，<br>直接成为文字。",
     footer: "Swift & AppKit · 开源"
   },
@@ -55,7 +55,7 @@ const copy = {
     headlineB: "Speak into any app.",
     heroCopy: "A native macOS menu-bar voice input tool. Speak, release, and send Chinese, English, and technical terms back to the current cursor.",
     download: "Download for macOS",
-    downloadMeta: "macOS 14+ · Apple Silicon + Intel",
+    downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · Free & open source`,
     transcript: "Let your voice skip the keyboard and meet the cursor.",
     navHome: "Home",
@@ -80,13 +80,13 @@ const copy = {
     flowCopy: "VoxFlow lives in the menu bar without asking for your attention. It appears while you hold Right Command, then returns the words to the exact place you were working.",
     featureNativeTitle: "A HUD you can feel, then forget",
     featureNativeCopy: "The bottom capsule appears while you hold Right Command. The waveform breathes with your voice and leaves when you release.",
-    featureLanguageTitle: "A window built for review",
-    featureLanguageCopy: "Home stats, searchable history, notes, glossary, style rules, and model settings live in one quiet window without stealing the current focus.",
-    featureRefineTitle: "Correction, never rewriting",
-    featureRefineCopy: "Optional OpenAI-compatible refinement fixes only obvious recognition errors. Correct wording, voice, and intent remain untouched.",
+    featureLanguageTitle: "From dictation to a useful draft",
+    featureLanguageCopy: "History, notes, file transcription, and clipboard image OCR stay in the workbench until you need them.",
+    featureRefineTitle: "Local first, with cloud when useful",
+    featureRefineCopy: "Use Apple Speech and multiple on-device models, or choose Groq, Tencent Cloud, and Alibaba Cloud. Models clearly show online, offline, and streaming capability.",
     trustLabel: "Privacy",
     privacyTitle: "Your workspace returns<br>exactly as it was.",
-    privacyCopy: "Input sources switch back automatically, and every clipboard item and type is restored. No analytics, no telemetry; the LLM only receives recognized text when you explicitly enable it.",
+    privacyCopy: "Input sources switch back automatically and the clipboard is restored. No analytics or telemetry; local models keep audio on-device, and audio leaves the Mac only when you select a cloud ASR provider.",
     ctaTitle: "Make your next sentence<br>appear as text.",
     footer: "Swift & AppKit · Open source"
   }

@@ -38,6 +38,8 @@ struct DictationConfiguration: Equatable {
 
 @MainActor
 final class DictationOrchestrator {
+    private static let coldLocalModelFinalTimeoutNanoseconds: UInt64 = 120_000_000_000
+
     var onStateChange: (DictationState) -> Void = { _ in }
     var onTranscriptionUpdate: (String, Bool) -> Void = { _, _ in }
     var onProcessingStarted: (String) -> Void = { _ in }
@@ -58,6 +60,7 @@ final class DictationOrchestrator {
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
     private var currentEngine: ASREngine?
+    private var currentCallbackSessionID: String?
     private var currentConfiguration: DictationConfiguration?
     private var currentTarget: DictationTarget?
     private var currentMode: VoiceTaskMode = .dictation
@@ -108,13 +111,19 @@ final class DictationOrchestrator {
             throw DictationOrchestratorError.unsupportedLanguage(configuration.languageIdentifier)
         }
 
+        if mode == .agentCompose, agentComposeHandler == nil {
+            throw DictationOrchestratorError.agentComposeUnavailable
+        }
+
         guard stateMachine.startRecording() else {
             throw DictationOrchestratorError.alreadyRunning
         }
 
         transcriptionSession = TranscriptionSession()
+        let callbackSessionID = UUID().uuidString
+        currentCallbackSessionID = callbackSessionID
         currentConfiguration = configuration
-        currentTarget = targetProvider.currentTarget()
+        currentTarget = nil
         currentMode = mode
         startedAt = clock.now
         finalTimeoutTask?.cancel()
@@ -123,10 +132,15 @@ final class DictationOrchestrator {
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
 
+        notifyStateChanged()
+
+        currentTarget = targetProvider.currentTarget()
+
         if mode == .agentCompose {
             guard let agentComposeHandler else {
                 stateMachine.reset()
                 currentMode = .dictation
+                notifyStateChanged()
                 throw DictationOrchestratorError.agentComposeUnavailable
             }
             do {
@@ -137,6 +151,7 @@ final class DictationOrchestrator {
             } catch {
                 stateMachine.reset()
                 currentMode = .dictation
+                notifyStateChanged()
                 throw error
             }
         }
@@ -147,24 +162,28 @@ final class DictationOrchestrator {
         engine.configure(locale: configuration.locale)
         engine.onTranscription = { [weak self] text, isFinal in
             Task { @MainActor [weak self] in
-                self?.handleTranscription(text: text, isFinal: isFinal)
+                self?.handleTranscription(
+                    text: text,
+                    isFinal: isFinal,
+                    callbackSessionID: callbackSessionID
+                )
             }
         }
         engine.onError = { [weak self] error in
             Task { @MainActor [weak self] in
-                await self?.handleRecognitionError(error)
+                await self?.handleRecognitionError(error, callbackSessionID: callbackSessionID)
             }
         }
 
         do {
             try engine.start()
             try audioRecorder.start()
-            notifyStateChanged()
         } catch {
             audioRecorder.stop()
             engine.cancel()
             audioBufferForwarder.detach()
             currentEngine = nil
+            currentCallbackSessionID = nil
             if mode == .agentCompose {
                 agentComposeHandler?.cancel()
             }
@@ -217,6 +236,7 @@ final class DictationOrchestrator {
             agentComposeHandler?.cancel()
         }
         currentEngine = nil
+        currentCallbackSessionID = nil
         transcriptionSession = TranscriptionSession()
         currentTarget = nil
         currentMode = .dictation
@@ -246,22 +266,39 @@ final class DictationOrchestrator {
             return
         }
         notifyStateChanged()
+        let sessionID = currentCallbackSessionID
         processingTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await deliverFinalText(rawText, originalTarget: target)
-            guard !Task.isCancelled, state == .injecting else { return }
+            let outputResult = await deliverFinalText(
+                rawText,
+                originalTarget: target,
+                sessionID: sessionID
+            )
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .injecting else { return }
+            if case .cancelled = outputResult {
+                finishCurrentDictation()
+                return
+            }
             saveHistory(
                 rawText: rawText,
                 finalText: rawText,
                 target: target,
-                processingResult: processingResult
+                processingResult: processingResult,
+                outputResult: outputResult
             )
             finishCurrentDictation()
         }
     }
 
-    private func handleTranscription(text: String, isFinal: Bool) {
-        guard state.isRecordingActive else {
+    private func handleTranscription(
+        text: String,
+        isFinal: Bool,
+        callbackSessionID: String
+    ) {
+        guard currentCallbackSessionID == callbackSessionID,
+              state.isRecordingActive else {
             return
         }
         onTranscriptionUpdate(text, false)
@@ -272,30 +309,47 @@ final class DictationOrchestrator {
 
     private func scheduleProcessing(for recognizedText: String) {
         processingTask?.cancel()
+        let sessionID = currentCallbackSessionID
         recognizedTextAwaitingProcessing = recognizedText.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
         processingTask = Task { @MainActor [weak self] in
-            await self?.finishRecognizedText(recognizedText)
+            await self?.finishRecognizedText(recognizedText, sessionID: sessionID)
         }
     }
 
     private func scheduleFinalTimeout() {
         finalTimeoutTask?.cancel()
+        let sessionID = currentCallbackSessionID
+        let timeoutNanoseconds = activeFinalTimeoutNanoseconds()
         finalTimeoutTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await clock.sleep(nanoseconds: finalTimeoutNanoseconds)
+                try await clock.sleep(nanoseconds: timeoutNanoseconds)
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
-            await handleFinalTimeout()
+            await handleFinalTimeout(sessionID: sessionID)
         }
     }
 
-    private func handleFinalTimeout() async {
-        guard state.isRecordingActive else {
+    private func activeFinalTimeoutNanoseconds() -> UInt64 {
+        guard let currentConfiguration else {
+            return finalTimeoutNanoseconds
+        }
+        switch currentConfiguration.engineType {
+        case .funASR, .senseVoice, .paraformer, .groqWhisper, .tencentCloud,
+             .aliyunDashScope, .parakeetStreaming, .omnilingualASR:
+            return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
+        case .apple, .whisper, .qwen3, .nvidiaNemotron:
+            return finalTimeoutNanoseconds
+        }
+    }
+
+    private func handleFinalTimeout(sessionID: String?) async {
+        guard isCurrentSession(sessionID),
+              state.isRecordingActive else {
             return
         }
 
@@ -308,8 +362,9 @@ final class DictationOrchestrator {
         fail(DictationOrchestratorError.finalResultTimedOut)
     }
 
-    private func handleRecognitionError(_ error: Error) async {
-        guard state.isRecordingActive else {
+    private func handleRecognitionError(_ error: Error, callbackSessionID: String) async {
+        guard currentCallbackSessionID == callbackSessionID,
+              state.isRecordingActive else {
             return
         }
 
@@ -322,8 +377,10 @@ final class DictationOrchestrator {
         fail(error)
     }
 
-    private func finishRecognizedText(_ recognizedText: String) async {
-        guard !Task.isCancelled, state.isRecordingActive else {
+    private func finishRecognizedText(_ recognizedText: String, sessionID: String?) async {
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state.isRecordingActive else {
             return
         }
 
@@ -339,6 +396,7 @@ final class DictationOrchestrator {
             }
             audioBufferForwarder.detach()
             currentEngine = nil
+            currentCallbackSessionID = nil
             currentTarget = nil
             currentMode = .dictation
             stateMachine.finish()
@@ -362,10 +420,17 @@ final class DictationOrchestrator {
             rawText,
             target: target,
             onRefinedTextUpdate: { [weak self] text in
-                self?.onTranscriptionUpdate(text, true)
+                guard let self,
+                      self.isCurrentSession(sessionID),
+                      self.state == .processing else {
+                    return
+                }
+                self.onTranscriptionUpdate(text, true)
             }
         )
-        guard !Task.isCancelled, state == .processing else {
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state == .processing else {
             return
         }
         let finalText = normalizedFinalText(from: processingResult, fallback: rawText)
@@ -374,9 +439,28 @@ final class DictationOrchestrator {
             return
         }
         notifyStateChanged()
-        await deliverFinalText(finalText, originalTarget: target)
+        let outputResult = await deliverFinalText(
+            finalText,
+            originalTarget: target,
+            sessionID: sessionID
+        )
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state == .injecting else {
+            return
+        }
+        if case .cancelled = outputResult {
+            finishCurrentDictation()
+            return
+        }
 
-        saveHistory(rawText: rawText, finalText: finalText, target: target, processingResult: processingResult)
+        saveHistory(
+            rawText: rawText,
+            finalText: finalText,
+            target: target,
+            processingResult: processingResult,
+            outputResult: outputResult
+        )
 
         finishCurrentDictation()
     }
@@ -386,12 +470,21 @@ final class DictationOrchestrator {
             fail(DictationOrchestratorError.agentComposeUnavailable)
             return
         }
+        guard let sessionID = currentCallbackSessionID else {
+            return
+        }
 
         onTranscriptionUpdate("正在结合上下文生成...", true)
         do {
             updateAgentComposeASRMetadataIfAvailable()
             let result = try await agentComposeHandler.finish(rawTranscript: rawText)
-            guard !Task.isCancelled, state == .processing else {
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
+                return
+            }
+            if case .cancelled = result {
+                finishCurrentDictation()
                 return
             }
             guard stateMachine.startInjecting() else {
@@ -400,13 +493,16 @@ final class DictationOrchestrator {
             notifyStateChanged()
             audioBufferForwarder.detach()
             currentEngine = nil
+            currentCallbackSessionID = nil
             currentTarget = nil
             currentMode = .dictation
             stateMachine.finish()
             notifyStateChanged()
             onAgentComposeCompleted(result)
         } catch {
-            guard !Task.isCancelled, state == .processing else {
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
                 return
             }
             fail(error)
@@ -421,6 +517,7 @@ final class DictationOrchestrator {
     private func finishCurrentDictation() {
         audioBufferForwarder.detach()
         currentEngine = nil
+        currentCallbackSessionID = nil
         currentTarget = nil
         currentMode = .dictation
         recognizedTextAwaitingProcessing = nil
@@ -429,9 +526,17 @@ final class DictationOrchestrator {
         notifyStateChanged()
     }
 
-    private func deliverFinalText(_ text: String, originalTarget: DictationTarget?) async {
+    private func deliverFinalText(
+        _ text: String,
+        originalTarget: DictationTarget?,
+        sessionID: String?
+    ) async -> OutputResult {
+        guard isCurrentSession(sessionID),
+              state == .injecting else {
+            return .cancelled
+        }
         let currentTarget = targetProvider.currentTarget()
-        _ = await outputService.deliver(
+        return await outputService.deliver(
             text: text,
             mode: .dictation,
             target: currentTarget,
@@ -439,11 +544,17 @@ final class DictationOrchestrator {
         )
     }
 
+    private func isCurrentSession(_ sessionID: String?) -> Bool {
+        guard let sessionID else { return false }
+        return currentCallbackSessionID == sessionID
+    }
+
     private func saveHistory(
         rawText: String,
         finalText: String,
         target: DictationTarget?,
-        processingResult: TextProcessingResult
+        processingResult: TextProcessingResult,
+        outputResult: OutputResult
     ) {
         guard let configuration = currentConfiguration else {
             return
@@ -455,8 +566,9 @@ final class DictationOrchestrator {
         let charCount = finalText.count
         let durationMinutes = max(Double(durationMS) / 60_000.0, 1.0 / 60_000.0)
 
+        let historyID = UUID().uuidString
         let entry = DictationHistoryEntry(
-            id: UUID().uuidString,
+            id: historyID,
             rawText: rawText,
             finalText: finalText,
             language: configuration.languageIdentifier,
@@ -469,7 +581,11 @@ final class DictationOrchestrator {
             targetAppBundleID: target?.bundleID,
             targetAppName: target?.appName,
             processingWarningsJSON: warningsJSON(processingResult.warnings),
-            processingTraceJSON: traceJSON(processingResult.trace),
+            processingTraceJSON: traceJSON(
+                processingResult.trace,
+                outputResult: outputResult,
+                diagnosticID: historyID
+            ),
             createdAt: finishedAt,
             updatedAt: finishedAt,
             deletedAt: nil
@@ -491,9 +607,15 @@ final class DictationOrchestrator {
         return String(data: data, encoding: .utf8)
     }
 
-    private func traceJSON(_ trace: TextProcessingTrace?) -> String? {
-        guard let trace,
-              let data = try? JSONEncoder().encode(trace) else {
+    private func traceJSON(
+        _ trace: TextProcessingTrace?,
+        outputResult: OutputResult,
+        diagnosticID: String
+    ) -> String? {
+        var trace = trace ?? TextProcessingTrace()
+        trace.output = OutputDeliveryTrace(resultKind: outputResult.kind.rawValue)
+        LLMDiagnosticCapture.shared.capture(taskID: diagnosticID, trace: trace)
+        guard let data = try? JSONEncoder().encode(trace.safeForPersistence()) else {
             return nil
         }
         return String(data: data, encoding: .utf8)
@@ -551,6 +673,7 @@ final class DictationOrchestrator {
             agentComposeHandler?.fail(error)
         }
         currentEngine = nil
+        currentCallbackSessionID = nil
         currentTarget = nil
         currentMode = .dictation
         stateMachine.fail(message: error.localizedDescription)
@@ -561,7 +684,27 @@ final class DictationOrchestrator {
     }
 
     private func notifyStateChanged() {
+        AppLogger.dictation.info(
+            "dictation_state_changed state=\(stateLogName(state)) mode=\(currentMode.rawValue) hasSession=\(currentCallbackSessionID != nil)"
+        )
         onStateChange(state)
+    }
+
+    private func stateLogName(_ state: DictationState) -> String {
+        switch state {
+        case .idle:
+            return "idle"
+        case .recording:
+            return "recording"
+        case .waitingForFinal:
+            return "waitingForFinal"
+        case .processing:
+            return "processing"
+        case .injecting:
+            return "injecting"
+        case .failed:
+            return "failed"
+        }
     }
 }
 
@@ -602,6 +745,16 @@ extension ASREngineType {
             return ASRProviderID.paraformer
         case .nvidiaNemotron:
             return ASRProviderID.nvidiaNemotron
+        case .parakeetStreaming:
+            return ASRProviderID.parakeetStreaming
+        case .omnilingualASR:
+            return ASRProviderID.omnilingualASR
+        case .groqWhisper:
+            return ASRProviderID.groqWhisper
+        case .tencentCloud:
+            return ASRProviderID.tencentCloudASR
+        case .aliyunDashScope:
+            return ASRProviderID.qwenCloudASR
         }
     }
 }

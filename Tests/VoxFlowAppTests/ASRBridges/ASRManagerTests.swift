@@ -14,7 +14,7 @@ final class ASRManagerTests: XCTestCase {
         super.setUp()
         defaults = UserDefaults(suiteName: "test.ASRManager")!
         defaults.removePersistentDomain(forName: "test.ASRManager")
-        manager = ASRManager(defaults: defaults)
+        manager = ASRManager(defaults: defaults, qwen3RuntimePreflight: { _ in .supported })
     }
 
     override func tearDown() {
@@ -101,10 +101,14 @@ final class ASRManagerTests: XCTestCase {
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
             .appendingPathComponent("installation-states.json")
         let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
         addTeardownBlock {
             try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
             try? FileManager.default.removeItem(at: modelURL)
@@ -122,12 +126,43 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertTrue(manager.isQwen3ModelAvailable)
     }
 
-    func testQwen17ReadyStateIsBlockedByRuntimePreflightUntilMLXWorkerExists() throws {
+    func testDeletedQwen3ReadyDirectoryFallsBackToApple() throws {
         let stateFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
             .appendingPathComponent("installation-states.json")
         let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markQwen3ModelReady(at: modelURL.path, size: .size0_6B)
+        manager.selectedEngineType = .qwen3
+        try FileManager.default.removeItem(at: modelURL)
+
+        XCTAssertFalse(manager.isQwen3ModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.qwen3))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+    }
+
+    func testQwen17ReadyStateIsBlockedWhenRuntimePreflightFails() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .runtimeUnsupported(reason: "Qwen3-ASR 1.7B runtime unavailable.") }
+        )
         manager.qwen3ModelSize = .size1_7B
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
@@ -147,7 +182,7 @@ final class ASRManagerTests: XCTestCase {
 
         XCTAssertEqual(
             manager.qwen3ModelInstallationState(for: .size1_7B),
-            .runtimeUnsupported(reason: "Qwen3-ASR 1.7B 需要 MLX 本地 worker：voxflow-qwen3-mlx-worker。")
+            .runtimeUnsupported(reason: "Qwen3-ASR 1.7B runtime unavailable.")
         )
         XCTAssertFalse(manager.isQwen3ModelAvailable)
         XCTAssertFalse(manager.canSelectEngine(.qwen3))
@@ -155,12 +190,53 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
     }
 
+    func testQwen3ModelStoreDirectoryIsDiscoveredWhenReadyStateIsMissing() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let modelStoreRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-ModelStore-\(UUID().uuidString)", isDirectory: true)
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported },
+            modelStoreRoot: modelStoreRoot
+        )
+        manager.qwen3ModelSize = .size1_7B
+
+        let metadata = try Qwen3ModelStoreMetadata.metadata(for: Qwen3ModelManifest.manifest(for: .size1_7B))
+        let modelURL = modelStoreRoot
+            .appendingPathComponent(metadata.modelID.rawValue, isDirectory: true)
+            .appendingPathComponent(metadata.version, isDirectory: true)
+        try createLoadableQwen17MLXModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelStoreRoot)
+        }
+
+        XCTAssertTrue(manager.isQwen3ModelAvailableOnDisk(for: .size1_7B))
+        XCTAssertTrue(manager.canSelectEngine(.qwen3))
+        XCTAssertTrue(manager.selectEngine(.qwen3))
+        XCTAssertEqual(manager.selectedEngineType, .qwen3)
+
+        let key = ModelInstallKey(modelID: metadata.modelID, version: metadata.version)
+        XCTAssertEqual(
+            try repository.state(for: key),
+            .ready(ModelInstallation(modelID: metadata.modelID, version: metadata.version, installedRoot: modelURL))
+        )
+    }
+
     func testFunASRModelStoreReadyStateIsRecordedInInstallationRepository() throws {
         let stateFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
             .appendingPathComponent("installation-states.json")
         let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
         try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
@@ -183,6 +259,43 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertTrue(manager.canSelectEngine(.funASR))
     }
 
+    func testDeletingAndFailedModelStatesCannotBeSelected() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markFunASRModelReady(at: modelURL.path, precision: .int8)
+        manager.selectedEngineType = .funASR
+        manager.markModelDeleting(for: .funASR)
+
+        XCTAssertFalse(manager.isFunASRModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.funASR))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+
+        manager.markModelDeletionFailed(for: .funASR, message: "delete failed")
+
+        XCTAssertEqual(
+            manager.funASRModelInstallationState(for: .int8),
+            .failed(message: "delete failed")
+        )
+        XCTAssertFalse(manager.isFunASRModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.funASR))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+    }
+
     func testFunASRReadyStateWithoutCompleteFilesDoesNotMakeModelAvailable() throws {
         let stateFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
@@ -201,6 +314,29 @@ final class ASRManagerTests: XCTestCase {
 
         XCTAssertFalse(manager.isFunASRModelAvailable)
         XCTAssertFalse(manager.canSelectEngine(.funASR))
+    }
+
+    func testDeletedFunASRReadyDirectoryFallsBackToApple() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markFunASRModelReady(at: modelURL.path, precision: .int8)
+        manager.selectedEngineType = .funASR
+        try FileManager.default.removeItem(at: modelURL)
+
+        XCTAssertFalse(manager.isFunASRModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.funASR))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
     }
 
     func testParaformerModelStoreReadyStateMakesModelSelectable() throws {
@@ -251,6 +387,29 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertFalse(manager.canSelectEngine(.paraformer))
     }
 
+    func testDeletedParaformerReadyDirectoryFallsBackToApple() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableParaformerModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markParaformerModelReady(at: modelURL.path)
+        manager.selectedEngineType = .paraformer
+        try FileManager.default.removeItem(at: modelURL)
+
+        XCTAssertFalse(manager.isParaformerModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.paraformer))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+    }
+
     func testSenseVoiceModelStoreReadyStateIsRecordedInInstallationRepository() throws {
         let stateFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
@@ -299,45 +458,67 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertFalse(manager.canSelectEngine(.senseVoice))
     }
 
+    func testDeletedSenseVoiceReadyDirectoryFallsBackToApple() throws {
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableSenseVoiceModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markSenseVoiceModelReady(at: modelURL.path)
+        manager.selectedEngineType = .senseVoice
+        try FileManager.default.removeItem(at: modelURL)
+
+        XCTAssertFalse(manager.isSenseVoiceModelAvailable)
+        XCTAssertFalse(manager.canSelectEngine(.senseVoice))
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+    }
+
     func testSelectingQwen3WithoutModelFallsBackToApple() {
         XCTAssertFalse(manager.selectEngine(.qwen3))
         XCTAssertEqual(manager.selectedEngineType, .apple)
     }
 
-    func testQwen3DownloadURLsUseOfficialHuggingFaceModels() {
+    func testQwen3DownloadURLsUseConfiguredHuggingFaceModels() {
         XCTAssertEqual(
             ASRManager.downloadURL(for: .size0_6B).absoluteString,
-            "https://huggingface.co/Qwen/Qwen3-ASR-0.6B"
+            "https://huggingface.co/aufklarer/Qwen3-ASR-0.6B-MLX-4bit"
         )
         XCTAssertEqual(
             ASRManager.downloadURL(for: .size1_7B).absoluteString,
-            "https://huggingface.co/Qwen/Qwen3-ASR-1.7B"
+            "https://huggingface.co/aufklarer/Qwen3-ASR-1.7B-MLX-8bit"
         )
     }
 
-    func testQwen3CoreMLManifestUsesDirectDownloadURLs() {
+    func testQwen3SmallManifestUsesSpeechSwiftDownloadURLs() {
         let manifest = Qwen3ModelManifest.manifest(for: .size0_6B)
 
-        XCTAssertEqual(manifest.repository, "FluidInference/qwen3-asr-0.6b-coreml")
-        let embeddingsFile = Qwen3ModelManifest.File(
-            remotePath: "int8/qwen3_asr_embeddings.bin",
-            localPath: "qwen3_asr_embeddings.bin"
+        XCTAssertEqual(manifest.repository, "aufklarer/Qwen3-ASR-0.6B-MLX-4bit")
+        let weightsFile = Qwen3ModelManifest.File(
+            remotePath: "model.safetensors",
+            localPath: "model.safetensors"
         )
-        XCTAssertTrue(manifest.files.contains(embeddingsFile))
+        XCTAssertTrue(manifest.files.contains(weightsFile))
         XCTAssertEqual(
-            manifest.remoteURL(for: embeddingsFile).absoluteString,
-            "https://huggingface.co/FluidInference/qwen3-asr-0.6b-coreml/resolve/main/int8/qwen3_asr_embeddings.bin"
+            manifest.remoteURL(for: weightsFile).absoluteString,
+            "https://huggingface.co/aufklarer/Qwen3-ASR-0.6B-MLX-4bit/resolve/main/model.safetensors"
         )
     }
 
-    func testQwen3SupportedModelExistsRejectsEmbeddingWithWrongShape() throws {
+    func testQwen3SupportedModelExistsRejectsMissingSpeechSwiftWeights() throws {
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
         try createLoadableQwen3ModelDirectory(at: modelURL)
         defer { try? FileManager.default.removeItem(at: modelURL) }
 
-        let embeddingURL = modelURL.appendingPathComponent("qwen3_asr_embeddings.bin")
-        try makeEmbeddingFile(at: embeddingURL, hiddenSize: 2048)
+        try FileManager.default.removeItem(at: modelURL.appendingPathComponent("model.safetensors"))
 
         XCTAssertFalse(Qwen3ModelManifest.supportedModelExists(at: modelURL))
         manager.qwen3ModelPath = modelURL.path
@@ -354,7 +535,11 @@ final class ASRManagerTests: XCTestCase {
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
             .appendingPathComponent("installation-states.json")
         let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
         try createLoadableQwen3ModelDirectory(at: modelURL)
@@ -411,10 +596,6 @@ final class ASRManagerTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
-        try makeEmbeddingFile(
-            at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"),
-            hiddenSize: 1024
-        )
     }
 
     private func createLoadableQwen17MLXModelDirectory(at modelURL: URL) throws {
@@ -477,15 +658,4 @@ final class ASRManagerTests: XCTestCase {
         }
     }
 
-    private func makeEmbeddingFile(at url: URL, hiddenSize: UInt32) throws {
-        var header = Data()
-        var vocabSize = UInt32(151_936).littleEndian
-        var hiddenSize = hiddenSize.littleEndian
-        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
-        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
-        try header.write(to: url)
-        let handle = try FileHandle(forWritingTo: url)
-        try handle.truncate(atOffset: 8 + UInt64(151_936) * UInt64(hiddenSize) * 2)
-        try handle.close()
-    }
 }

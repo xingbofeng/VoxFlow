@@ -23,6 +23,75 @@ enum ASRSessionPresentationPhase: Equatable {
     }
 }
 
+enum ASRErrorUserMessage {
+    static func message(for error: ASRError) -> String {
+        switch error.category {
+        case .emptyTranscript:
+            return "没有检测到有效语音，请靠近麦克风再试一次。"
+        default:
+            return error.message
+        }
+    }
+}
+
+enum RecognitionErrorRecovery: Equatable {
+    case none
+    case openMainWindow
+    case openHistoryDetail
+}
+
+struct RecognitionErrorHUDFeedback: Equatable {
+    let message: String
+    let duration: TimeInterval
+    let isActionable: Bool
+}
+
+enum RecognitionErrorHUDPresentation {
+    static func feedback(
+        for error: Error,
+        recovery: RecognitionErrorRecovery
+    ) -> RecognitionErrorHUDFeedback {
+        if let asrError = asrError(from: error),
+           asrError.category == .emptyTranscript {
+            return RecognitionErrorHUDFeedback(
+                message: ASRErrorUserMessage.message(for: asrError),
+                duration: 2.4,
+                isActionable: false
+            )
+        }
+
+        let message = message(for: error, recovery: recovery)
+        return RecognitionErrorHUDFeedback(
+            message: message,
+            duration: 8.0,
+            isActionable: recovery != .none
+        )
+    }
+
+    private static func message(
+        for error: Error,
+        recovery: RecognitionErrorRecovery
+    ) -> String {
+        switch recovery {
+        case .openHistoryDetail:
+            return "处理失败：\(error.localizedDescription)"
+        case .none, .openMainWindow:
+            return error.localizedDescription
+        }
+    }
+
+    private static func asrError(from error: Error) -> ASRError? {
+        guard let engineError = error as? ASRCoreBackedASREngineError else {
+            return nil
+        }
+
+        switch engineError {
+        case .failure(let asrError):
+            return asrError
+        }
+    }
+}
+
 struct ASRSessionPresentationReducer {
     let sessionID: ASRSessionID
     private(set) var phase: ASRSessionPresentationPhase = .idle
@@ -53,7 +122,7 @@ struct ASRSessionPresentationReducer {
         case .metrics:
             return nil
         case let .failure(_, _, error):
-            phase = .failed(message: error.message)
+            phase = .failed(message: ASRErrorUserMessage.message(for: error))
         }
 
         return phase

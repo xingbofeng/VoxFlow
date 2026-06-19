@@ -13,6 +13,7 @@ final class NotesViewModel: ObservableObject {
     @Published private(set) var notes: [NoteRecord] = []
     @Published var searchQuery = ""
     @Published var selectedNoteID: String?
+    @Published var previewedNote: NoteRecord?
     @Published var draftTitle = ""
     @Published var draftBodyMarkdown = ""
     @Published var draftTagsText = ""
@@ -155,6 +156,9 @@ final class NotesViewModel: ObservableObject {
 
     func deleteNote(id: String) throws {
         try environment.noteRepository.softDelete(id: id, deletedAt: environment.clock.now)
+        if previewedNote?.id == id {
+            previewedNote = nil
+        }
         if selectedNoteID == id {
             selectedNoteID = nil
             draftTitle = ""
@@ -172,6 +176,15 @@ final class NotesViewModel: ObservableObject {
         draftTitle = note.title
         draftBodyMarkdown = note.bodyMarkdown
         draftTagsText = note.tags.joined(separator: ", ")
+    }
+
+    func previewNote(id: String) {
+        guard let note = notes.first(where: { $0.id == id }) else { return }
+        previewedNote = note
+    }
+
+    func dismissPreview() {
+        previewedNote = nil
     }
 
     func saveDraft() throws {

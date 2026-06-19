@@ -24,6 +24,7 @@ final class ModelInstallationStateTests: XCTestCase {
             .compiling,
             .warmingUp,
             .canaryTesting,
+            .deleting(readyInstallation),
             .ready(readyInstallation),
             .corrupt(reason: "sha256 mismatch"),
             .runtimeUnsupported(reason: "runtime missing"),
@@ -31,8 +32,9 @@ final class ModelInstallationStateTests: XCTestCase {
             .failed(message: "network offline"),
         ]
 
-        XCTAssertEqual(states.count, 14)
+        XCTAssertEqual(states.count, 15)
         XCTAssertTrue(ModelInstallationState.ready(readyInstallation).isReady)
+        XCTAssertFalse(ModelInstallationState.deleting(readyInstallation).isReady)
         XCTAssertFalse(ModelInstallationState.canaryTesting.isReady)
         XCTAssertTrue(ModelInstallationState.runtimeUnsupported(reason: "macOS").isUnsupported)
         XCTAssertTrue(ModelInstallationState.hardwareUnsupported(reason: "RAM").isUnsupported)

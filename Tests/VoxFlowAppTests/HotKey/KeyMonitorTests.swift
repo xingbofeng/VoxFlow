@@ -126,6 +126,45 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testRightOptionRoutesThroughHotKeyRouterToAgentCompose() {
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 61,
+                flags: [.maskAlternate],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode
+            ),
+            .voiceAction(.agentCompose)
+        )
+    }
+
+    func testModifierShortcutRequiresOnlyThatModifierFlag() {
+        XCTAssertTrue(
+            ShortcutModifierRouting.isPureModifierShortcut(
+                keyCode: 61,
+                flags: [.maskAlternate]
+            )
+        )
+        XCTAssertTrue(
+            ShortcutModifierRouting.isPureModifierShortcut(
+                keyCode: 61,
+                flags: []
+            )
+        )
+        XCTAssertFalse(
+            ShortcutModifierRouting.isPureModifierShortcut(
+                keyCode: 61,
+                flags: [.maskAlternate, .maskCommand, .maskShift]
+            )
+        )
+        XCTAssertFalse(
+            ShortcutModifierRouting.isPureModifierShortcut(
+                keyCode: 59,
+                flags: [.maskControl, .maskShift]
+            )
+        )
+    }
+
     func testConflictingShortcutRoutesToDictationForLegacySafety() {
         XCTAssertEqual(
             ShortcutActionRouting.action(

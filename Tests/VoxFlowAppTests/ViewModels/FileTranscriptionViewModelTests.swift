@@ -136,6 +136,17 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .cancelled)), "已取消")
     }
 
+    func testCompletedJobPrimaryActionIsRetry() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = FileTranscriptionViewModel(
+            environment: environment,
+            worker: StubFileTranscriptionWorker()
+        )
+
+        XCTAssertEqual(viewModel.primaryActionTitle(for: makeJob(status: .queued)), "开始")
+        XCTAssertEqual(viewModel.primaryActionTitle(for: makeJob(status: .completed)), "重试")
+    }
+
     func testCopyResultWritesCompletedTextToClipboard() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let clipboard = CapturingFileClipboardWriter()

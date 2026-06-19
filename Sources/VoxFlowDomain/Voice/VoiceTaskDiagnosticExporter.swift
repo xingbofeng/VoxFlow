@@ -60,12 +60,7 @@ public struct VoiceTaskDiagnosticSnapshot: Codable, Equatable, Sendable {
     }
 
     private static func outputResultKind(from rawValue: String?) -> OutputResultKind? {
-        guard let rawValue,
-              let data = rawValue.data(using: .utf8),
-              let outputResult = try? JSONDecoder().decode(OutputResult.self, from: data) else {
-            return nil
-        }
-        return outputResult.kind
+        OutputResultKind.decodePersisted(from: rawValue)
     }
 
     private static func failureSummary(from rawValue: String?) -> FailureSummary? {

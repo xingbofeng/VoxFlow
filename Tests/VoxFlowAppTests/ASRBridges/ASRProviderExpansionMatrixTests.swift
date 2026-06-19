@@ -9,9 +9,12 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
         XCTAssertEqual(
             Set(variants),
             [
+                "qwen3-asr-0.6b",
                 "qwen3-asr-1.7b",
                 "whisper-large-v3",
                 "nvidia-nemotron-asr-0.6b",
+                "parakeet-eou-120m",
+                "omnilingual-asr-300m",
                 "funasr-fp32",
                 "paraformer",
             ]
@@ -33,11 +36,17 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
         )
 
         XCTAssertEqual(
+            try XCTUnwrap(entries["qwen3-asr-0.6b"]).streamingSemantics,
+            .companionPartialFinal
+        )
+        XCTAssertEqual(
             try XCTUnwrap(entries["qwen3-asr-1.7b"]).streamingSemantics,
             .companionPartialFinal
         )
         XCTAssertEqual(try XCTUnwrap(entries["whisper-large-v3"]).streamingSemantics, .offlineFinalOnly)
         XCTAssertEqual(try XCTUnwrap(entries["nvidia-nemotron-asr-0.6b"]).streamingSemantics, .nativeStreaming)
+        XCTAssertEqual(try XCTUnwrap(entries["parakeet-eou-120m"]).streamingSemantics, .nativeStreaming)
+        XCTAssertEqual(try XCTUnwrap(entries["omnilingual-asr-300m"]).streamingSemantics, .offlineFinalOnly)
         XCTAssertEqual(try XCTUnwrap(entries["funasr-fp32"]).streamingSemantics, .rollingWindowConfirmedSegments)
         XCTAssertEqual(try XCTUnwrap(entries["paraformer"]).streamingSemantics, .rollingWindowConfirmedSegments)
 
@@ -55,14 +64,21 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
         )
     }
 
-    func testQwen17MatrixRecordsWorkerEntrypointHealthProbeAndAppSmokeCompletion() throws {
+    func testQwen17MatrixRecordsSpeechSwiftSharedModelAndSessionIsolation() throws {
+        let qwen06 = try XCTUnwrap(
+            ASRProviderExpansionMatrix.task11Entries.first { $0.variantID == "qwen3-asr-0.6b" }
+        )
         let qwen17 = try XCTUnwrap(
             ASRProviderExpansionMatrix.task11Entries.first { $0.variantID == "qwen3-asr-1.7b" }
         )
 
-        XCTAssertTrue(qwen17.runtimeRoute.contains("worker"))
-        XCTAssertTrue(qwen17.runtimeRoute.contains("health"))
-        XCTAssertTrue(qwen17.runtimeRoute.contains("throttled"))
+        XCTAssertTrue(qwen06.runtimeRoute.contains("speech-swift"))
+        XCTAssertTrue(qwen06.runtimeRoute.contains("shared"))
+        XCTAssertTrue(qwen06.runtimeRoute.contains("isolated"))
+        XCTAssertTrue(qwen17.runtimeRoute.contains("speech-swift"))
+        XCTAssertTrue(qwen17.runtimeRoute.contains("shared"))
+        XCTAssertTrue(qwen17.runtimeRoute.contains("isolated"))
+        XCTAssertEqual(qwen06.status, .implemented)
         XCTAssertEqual(qwen17.status, .implemented)
     }
 

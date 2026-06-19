@@ -40,14 +40,14 @@ VoxFlow（随声写）是一款原生 macOS 菜单栏语音输入工具。按住
 ## 品牌约定
 
 - 构建产物：`VoxFlow.app`，安装包：`VoxFlow-<version>-macOS.dmg`
-- Bundle ID：`com.xingbofeng.VoxFlow`
+- Bundle ID：`com.voxflow.app`
 - Legacy Bundle ID `com.voiceinput.app` **仅**用于明确的旧偏好/LaunchServices/状态栏缓存清理语境（如 `Makefile prelaunch-cleanup`、`ProductBrand.legacyBundleIdentifier`、相关测试 fixture）
 - SwiftPM executable product / target / module：`VoxFlowApp`
 - App 源码目录：`Sources/VoxFlowApp/`
 - App 测试目录：`Tests/VoxFlowAppTests/`
 - 用户数据目录：`~/Library/Application Support/VoxFlow/`
 - 主数据库：`voxflow.sqlite`
-- Keychain service：`com.xingbofeng.VoxFlow.credentials`
+- Keychain service：`com.voxflow.app.credentials`
 
 ## 项目结构
 
@@ -58,9 +58,10 @@ Sources/VoxFlowAudio/           # 音频帧、采集、转换、endpoint / flush
 Sources/VoxFlowASRCore/         # Provider / Session / Event 协议
 Sources/VoxFlowModelStore/      # 模型 manifest、下载、校验、安装状态
 Sources/VoxFlowTextInsertion/   # 剪贴板事务、输入源切换、文本插入
-Sources/VoxFlowProvider*/       # 各 ASR Provider runtime / descriptor / session
+Sources/VoxFlowProviders/VoxFlowProvider*/ # 各 ASR Provider runtime / descriptor / session/client，保持独立 SwiftPM target
 Tests/VoxFlowAppTests/          # App target 测试
-Tests/VoxFlow*Tests/            # 独立模块和 Provider 测试
+Tests/VoxFlowProviders/VoxFlowProvider*Tests/ # Provider target 测试
+Tests/VoxFlow*Tests/            # 其他独立模块测试
 Resources/                      # AppIcon.icns + iconset
 docs/                           # GitHub Pages 落地页、隐私政策、设计/资源文档
 .github/
@@ -84,7 +85,7 @@ CONTEXT.md                      # 领域术语、模块边界表、ADR
 | `OutputService` | 模式感知输出选择（注入 vs 复制） | ASR、提示词构建 |
 | `PromptBuilder` / `AgentPromptBuilder` | 纯 prompt 拼装，不持有 repository、不发网络请求 | 持久化、网络 |
 | `TextInjector` | 输入源切换 + 粘贴 + 剪贴板恢复 | 识别或 LLM |
-| `VoxFlowProvider*` | Provider descriptor、runtime/session、模型 readiness、provider-specific smoke | AppKit UI、菜单、全局快捷键 |
+| `Sources/VoxFlowProviders/VoxFlowProvider*` | Provider descriptor、runtime/session/client、模型 readiness、provider-specific smoke；每个 Provider 保持独立 target | AppKit UI、菜单、全局快捷键、其他 Provider 的运行时 |
 | `VoxFlowModelStore` | 模型 manifest、内容寻址、原子安装、安装状态、repair/prewarm/canary | 具体 Provider UI |
 | `VoxFlowTextInsertion` | 文本插入 contract、剪贴板事务、快速粘贴、模拟输入 | ASR、LLM、历史持久化 |
 

@@ -61,7 +61,7 @@
     <circle cx="27" cy="24" r="6" fill="#B2E8D7"/>
     <text x="46" y="31" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="650">Right Command</text>
     <rect x="190" width="148" height="48" rx="24" fill="#FFFDF8" stroke="#DCCBB9"/>
-    <text x="214" y="31" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="600">macOS 14+</text>
+    <text x="214" y="31" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="600">macOS 15+</text>
   </g>
 
   <g filter="url(#panelShadow)">

@@ -3,13 +3,23 @@ import VoxFlowModelStore
 import VoxFlowProviderQwen3
 @testable import VoxFlowApp
 
+@MainActor
 final class ASRCoordinatorTests: XCTestCase {
+    func testFactoryConformanceUsesSwift61CompatibleIsolationSyntax() throws {
+        let sourceURL = repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/ASRBridges/ASRCoordinator.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("final class ASRCoordinator: @preconcurrency ASREngineFactory"))
+        XCTAssertFalse(source.contains("final class ASRCoordinator: @MainActor ASREngineFactory"))
+    }
+
     func testCoordinatorOwnsMenuVariantSelectionState() {
         let suiteName = "test.ASRCoordinator.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let manager = ASRManager(defaults: defaults)
+        let manager = ASRManager(defaults: defaults, qwen3RuntimePreflight: { _ in .supported })
         let coordinator = ASRCoordinator(
             manager: manager,
             qwenAvailableOnDisk: { $0 == .size0_6B },
@@ -47,6 +57,41 @@ final class ASRCoordinatorTests: XCTestCase {
         XCTAssertEqual(configuration.asrProviderID, ASREngineType.apple.providerID)
     }
 
+    func testCoordinatorReportsFallbackNoticeWhenSelectedEngineIsUnavailable() {
+        let suiteName = "test.ASRCoordinator.fallbackNotice.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let manager = ASRManager(defaults: defaults)
+        manager.selectedEngineType = .funASR
+        let coordinator = ASRCoordinator(manager: manager)
+
+        let notice = coordinator.selectionFallbackNotice
+
+        XCTAssertEqual(notice?.selectedEngineType, .funASR)
+        XCTAssertEqual(notice?.effectiveEngineType, .apple)
+        XCTAssertEqual(coordinator.dictationConfiguration(for: .english).engineType, .apple)
+    }
+
+    func testMenuSelectionUsesEffectiveProviderWhenPersistedProviderIsUnavailable() {
+        let suiteName = "test.ASRCoordinator.effectiveMenuSelection.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let manager = ASRManager(defaults: defaults)
+        manager.selectedEngineType = .funASR
+        manager.funASRPrecision = .int8
+        let coordinator = ASRCoordinator(manager: manager)
+
+        let apple = ASRMenuModel(engineType: .apple, title: "系统自带")
+        let funASR = ASRMenuModel(engineType: .funASR, funASRPrecision: .int8, title: "FunASR INT8")
+
+        XCTAssertTrue(coordinator.isMenuOptionSelected(apple))
+        XCTAssertFalse(coordinator.isMenuOptionSelected(funASR))
+        XCTAssertEqual(manager.selectedEngineType, .funASR)
+        XCTAssertEqual(coordinator.dictationConfiguration(for: .english).engineType, .apple)
+    }
+
     func testCoordinatorBuildsQwenDictationConfigurationWithModelMetadata() throws {
         let suiteName = "test.ASRCoordinator.qwenMetadata.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -63,7 +108,8 @@ final class ASRCoordinatorTests: XCTestCase {
             defaults: defaults,
             modelInstallationRepository: FileModelInstallationStateRepository(
                 fileURL: stateRoot.appendingPathComponent("installation-states.json")
-            )
+            ),
+            qwen3RuntimePreflight: { _ in .supported }
         )
         manager.markQwen3ModelReady(at: modelURL.path, size: .size0_6B)
         let coordinator = ASRCoordinator(manager: manager)
@@ -73,8 +119,8 @@ final class ASRCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(configuration.engineType, .qwen3)
         XCTAssertEqual(configuration.asrProviderID, ASRProviderID.qwen3)
-        XCTAssertEqual(configuration.modelID, "qwen3-asr-0.6b-coreml-int8")
-        XCTAssertEqual(configuration.modelVersion, "c081689ec58bcf29c2ef7c474ef78a164bda672b")
+        XCTAssertEqual(configuration.modelID, "qwen3-asr-0.6b-mlx-4bit")
+        XCTAssertEqual(configuration.modelVersion, "bc441bd1e4295c1f42d9879f056049a925b6e013")
         XCTAssertEqual(configuration.languageIdentifier, "en-US")
     }
 
@@ -94,7 +140,8 @@ final class ASRCoordinatorTests: XCTestCase {
             defaults: defaults,
             modelInstallationRepository: FileModelInstallationStateRepository(
                 fileURL: stateRoot.appendingPathComponent("installation-states.json")
-            )
+            ),
+            qwen3RuntimePreflight: { _ in .supported }
         )
         manager.markQwen3ModelReady(at: modelURL.path, size: .size0_6B)
         let coordinator = ASRCoordinator(
@@ -117,7 +164,7 @@ final class ASRCoordinatorTests: XCTestCase {
         XCTAssertTrue(ASRCoordinator.requiresFinalRecognitionIndicator(for: .senseVoice))
         XCTAssertTrue(ASRCoordinator.requiresFinalRecognitionIndicator(for: .funASR))
         XCTAssertTrue(ASRCoordinator.requiresFinalRecognitionIndicator(for: .paraformer))
-        XCTAssertFalse(ASRCoordinator.requiresFinalRecognitionIndicator(for: .nvidiaNemotron))
+        XCTAssertTrue(ASRCoordinator.requiresFinalRecognitionIndicator(for: .nvidiaNemotron))
     }
 
     private func createLoadableQwen3ModelDirectory(at modelURL: URL) throws {
@@ -129,21 +176,13 @@ final class ASRCoordinatorTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
-        try makeEmbeddingFile(
-            at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"),
-            hiddenSize: 1024
-        )
     }
 
-    private func makeEmbeddingFile(at url: URL, hiddenSize: UInt32) throws {
-        var header = Data()
-        var vocabSize = UInt32(151_936).littleEndian
-        var hiddenSize = hiddenSize.littleEndian
-        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
-        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
-        try header.write(to: url)
-        let handle = try FileHandle(forWritingTo: url)
-        try handle.truncate(atOffset: 8 + UInt64(151_936) * UInt64(hiddenSize) * 2)
-        try handle.close()
+    private func repositoryRoot() -> URL {
+        var directory = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 {
+            directory.deleteLastPathComponent()
+        }
+        return directory
     }
 }

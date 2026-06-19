@@ -59,7 +59,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        refreshDynamicState(includeASRState: false)
+        refreshDynamicState()
         actions.menuWillOpen()
     }
 

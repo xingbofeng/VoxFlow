@@ -6,15 +6,17 @@ import VoxFlowTextInsertion
 
 @MainActor
 protocol ClipboardSetting: AnyObject {
-    func setString(_ text: String)
+    @discardableResult
+    func setString(_ text: String) -> Bool
 }
 
 @MainActor
 final class SystemClipboardService: ClipboardSetting {
-    func setString(_ text: String) {
+    @discardableResult
+    func setString(_ text: String) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        return pasteboard.setString(text, forType: .string)
     }
 }
 
@@ -108,41 +110,55 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         originalTarget: DictationTarget?,
         textInputMode: TextInputMode
     ) async -> OutputResult {
-        rememberLastResult(text)
-
         if mode == .agentCompose {
-            clipboardService.setString(text)
-            return .copied
+            let result: OutputResult = clipboardService.setString(text)
+                ? .copied
+                : .copyFailed(reason: "Clipboard write failed")
+            return logged(result, mode: mode, textInputMode: textInputMode)
         }
 
         if targetChanged(original: originalTarget, current: target) {
-            clipboardService.setString(text)
+            guard clipboardService.setString(text) else {
+                let result = OutputResult.copyFailed(
+                    reason: "Target changed and clipboard write failed"
+                )
+                rememberLastResult(text, mode: mode, result: result)
+                return logged(result, mode: mode, textInputMode: textInputMode)
+            }
             let reason = buildChangeReason(original: originalTarget, current: target)
-            return .targetChanged(reason: reason)
+            let result = OutputResult.targetChanged(reason: reason)
+            rememberLastResult(text, mode: mode, result: result)
+            return logged(result, mode: mode, textInputMode: textInputMode)
         }
 
         let result = await textInsertionCoordinator.insert(text, mode: textInputMode)
-        switch result {
+        let outputResult: OutputResult = switch result {
         case .success:
-            return .injected
+            .injected
         case .permissionDenied:
             clipboardService.setString(text)
-            return .permissionDenied(reason: "Accessibility permission denied")
+                ? .permissionDenied(reason: "Accessibility permission denied")
+                : .copyFailed(reason: "Accessibility permission denied and clipboard write failed")
         case .eventCreationFailed:
-            // Text is already on clipboard from the injection attempt
-            return .injectionFailed(reason: "Failed to create paste event")
+            clipboardService.setString(text)
+                ? .injectionFailed(reason: "Failed to create paste event")
+                : .copyFailed(reason: "Failed to create paste event and clipboard write failed")
         case .cancelled:
-            return .cancelled
+            .cancelled
         case .unavailable(let reason):
-            return .injectionFailed(reason: reason)
+            clipboardService.setString(text)
+                ? .injectionFailed(reason: reason)
+                : .copyFailed(reason: "\(reason) and clipboard write failed")
         }
+        rememberLastResult(text, mode: mode, result: outputResult)
+        return logged(outputResult, mode: mode, textInputMode: textInputMode)
     }
 
     func deliverToInAppTextTarget(
         text: String,
         target: InAppTextOutputTarget
     ) -> OutputResult {
-        rememberLastResult(text)
+        rememberLastResult(text, mode: .dictation, result: .injected)
         target.write(text)
         return .injected
     }
@@ -166,7 +182,43 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         return "Target window changed"
     }
 
-    private func rememberLastResult(_ text: String) {
+    private func rememberLastResult(
+        _ text: String,
+        mode: VoiceTaskMode,
+        result: OutputResult
+    ) {
+        guard mode == .dictation else { return }
+        guard result != .cancelled else { return }
         lastResultStore?.setLastResultText(text)
+    }
+
+    private func logged(
+        _ result: OutputResult,
+        mode: VoiceTaskMode,
+        textInputMode: TextInputMode
+    ) -> OutputResult {
+        AppLogger.general.info(
+            "text_output_delivered mode=\(mode.rawValue) textInputMode=\(textInputMode.rawValue) result=\(outputResultLabel(result))"
+        )
+        return result
+    }
+
+    private func outputResultLabel(_ result: OutputResult) -> String {
+        switch result {
+        case .injected:
+            return "injected"
+        case .copied:
+            return "copied"
+        case .targetChanged:
+            return "targetChanged"
+        case .permissionDenied:
+            return "permissionDenied"
+        case .injectionFailed:
+            return "injectionFailed"
+        case .copyFailed:
+            return "copyFailed"
+        case .cancelled:
+            return "cancelled"
+        }
     }
 }

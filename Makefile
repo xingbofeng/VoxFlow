@@ -3,20 +3,19 @@ SWIFT_EXECUTABLE := VoxFlowApp
 BUILD_DIR := .build
 BUNDLE_DIR := $(BUILD_DIR)/$(APP_NAME).app
 ARM_RELEASE_BIN_DIR := $(BUILD_DIR)/arm64-apple-macosx/release
-X86_RELEASE_BIN_DIR := $(BUILD_DIR)/x86_64-apple-macosx/release
 SWIFT_NATIVE_ARCH := $(shell uname -m)
 NATIVE_RELEASE_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release
 NATIVE_DEBUG_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug
 INSTALL_DIR := /Applications/$(APP_NAME).app
 PLIST := Sources/VoxFlowApp/Resources/Info.plist
 ICON := Resources/AppIcon.icns
-QWEN3_MLX_WORKER := Sources/VoxFlowProviderQwen3/Workers/voxflow-qwen3-mlx-worker
 SHERPA_ONNX_LIB := Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/libsherpa-onnx.a
 ONNXRUNTIME_LIB := Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/libonnxruntime.a
+MLX_METALLIB_SCRIPT := scripts/build-mlx-metallib.sh
+MLX_METALLIB := mlx.metallib
 CURRENT_BUNDLE_ID := com.voxflow.app
 LEGACY_APP_NAME := VoiceInput
 LEGACY_BUNDLE_ID := com.voiceinput.app
-RENAMED_BUNDLE_ID := com.xingbofeng.VoxFlow
 REQUESTED_BUNDLE_ID := com.VoxFlow.app
 STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
@@ -54,29 +53,26 @@ smoke-asr-live:
 build: prepare-runtime
 	@echo "🔨 Building $(APP_NAME)..."
 	swift build $(SWIFT_RELEASE_FLAGS) --arch arm64
-	swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64
+	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
 	@echo "📦 Creating app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Resources"
-	@lipo -create \
-		"$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" \
-		"$(X86_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" \
-		-output "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
+	@cp "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
+	@cp "$(ARM_RELEASE_BIN_DIR)/$(MLX_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@if [ -d "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
 		cp -R "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
 	fi
-	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64 x86_64
+	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64
+	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@cp "$(QWEN3_MLX_WORKER)" "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
-	@chmod 755 "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
-	@test -x "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)"
 	@codesign --verify --deep --strict "$(BUNDLE_DIR)"
 	@"$(LSREGISTER)" -f "$(BUNDLE_DIR)" >/dev/null 2>&1 || true
@@ -85,25 +81,26 @@ build: prepare-runtime
 build-native: prepare-runtime
 	@echo "🔨 Building $(APP_NAME) for native $(SWIFT_NATIVE_ARCH)..."
 	swift build $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
+	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
 	@echo "📦 Creating native app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Resources"
 	@cp "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
+	@cp "$(NATIVE_RELEASE_BIN_DIR)/$(MLX_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@if [ -d "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
 		cp -R "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
 	fi
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
+	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@cp "$(QWEN3_MLX_WORKER)" "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
-	@chmod 755 "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
-	@test -x "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)"
 	@codesign --verify --deep --strict "$(BUNDLE_DIR)"
 	@"$(LSREGISTER)" -f "$(BUNDLE_DIR)" >/dev/null 2>&1 || true
@@ -112,25 +109,26 @@ build-native: prepare-runtime
 build-dev: prepare-runtime
 	@echo "🔨 Building debug $(APP_NAME) for native $(SWIFT_NATIVE_ARCH)..."
 	swift build $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
+	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" debug
 	@echo "📦 Creating debug app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Resources"
 	@cp "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
+	@cp "$(NATIVE_DEBUG_BIN_DIR)/$(MLX_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@if [ -d "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
 		cp -R "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
 	fi
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
+	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@cp "$(QWEN3_MLX_WORKER)" "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
-	@chmod 755 "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
-	@test -x "$(BUNDLE_DIR)/Contents/Resources/voxflow-qwen3-mlx-worker"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)"
 	@codesign --verify --deep --strict "$(BUNDLE_DIR)"
 	@"$(LSREGISTER)" -f "$(BUNDLE_DIR)" >/dev/null 2>&1 || true
@@ -168,7 +166,7 @@ prelaunch-cleanup:
 		/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app; do \
 		"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
 	done
-	@for bundle_id in "$(LEGACY_BUNDLE_ID)" "$(RENAMED_BUNDLE_ID)" "$(REQUESTED_BUNDLE_ID)" "$(CURRENT_BUNDLE_ID)"; do \
+	@for bundle_id in "$(LEGACY_BUNDLE_ID)" "$(REQUESTED_BUNDLE_ID)" "$(CURRENT_BUNDLE_ID)"; do \
 		for autosave_name in $(STATUS_ITEM_AUTOSAVE_NAMES); do \
 			defaults delete "$$bundle_id" "NSStatusItem Preferred Position $$autosave_name" 2>/dev/null || true; \
 			defaults delete "$$bundle_id" "NSStatusItem Visible $$autosave_name" 2>/dev/null || true; \

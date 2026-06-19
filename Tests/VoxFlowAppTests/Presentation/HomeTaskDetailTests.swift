@@ -183,6 +183,37 @@ final class HomeTaskDetailTests: XCTestCase {
         XCTAssertEqual(actions, [.delete])
     }
 
+    func testCancelledTaskHidesCopyAndReoutputEvenWhenTextExists() {
+        let viewModel = makeViewModel()
+        let detail = HomeHistoryDetail(
+            id: "task-cancelled",
+            rawText: "cancelled raw",
+            finalText: "cancelled final",
+            language: "zh-CN",
+            asrProviderID: nil,
+            llmProviderID: nil,
+            styleID: nil,
+            appName: "Editor",
+            appBundleID: nil,
+            durationMS: 0,
+            charCount: 15,
+            cpm: 0,
+            warnings: [],
+            trace: nil,
+            createdAt: Date(),
+            updatedAt: Date(),
+            taskMode: .dictation,
+            taskStatus: .cancelled,
+            windowTitle: nil,
+            contextPreview: nil,
+            outputResultRaw: nil
+        )
+
+        let actions = viewModel.availableRecoveryActions(for: detail)
+
+        XCTAssertEqual(actions, [.delete])
+    }
+
     // MARK: - testRetryDoesNotSilentlyOverwriteOriginal
 
     func testRetryDoesNotSilentlyOverwriteOriginal() {

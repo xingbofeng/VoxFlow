@@ -11,10 +11,13 @@ final class ASRProviderIconTests: XCTestCase {
             ASRProviderID.groqWhisper,
             ASRProviderID.mistralVoxtral,
             ASRProviderID.nvidiaNemotron,
+            ASRProviderID.omnilingualASR,
             ASRProviderID.paraformer,
+            ASRProviderID.parakeetStreaming,
             ASRProviderID.qwen3,
             ASRProviderID.qwenCloudASR,
             ASRProviderID.senseVoice,
+            ASRProviderID.tencentCloudASR,
             ASRProviderID.volcengineDoubao,
             ASRProviderID.whisper,
         ]
@@ -33,12 +36,21 @@ final class ASRProviderIconTests: XCTestCase {
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.groqWhisper))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.mistralVoxtral))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.nvidiaNemotron))
+        XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.omnilingualASR))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.paraformer))
+        XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.parakeetStreaming))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.qwen3))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.qwenCloudASR))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.senseVoice))
+        XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.tencentCloudASR))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.volcengineDoubao))
         XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.whisper))
+    }
+
+    func testTencentCloudProviderUsesBundledIcon() throws {
+        let image = try XCTUnwrap(ASRProviderIcon.load(providerID: ASRProviderID.tencentCloudASR))
+        XCTAssertTrue(image.isTemplate)
+        XCTAssertNil(ASRProviderIcon.textBadge(providerID: ASRProviderID.tencentCloudASR))
     }
 
     func testAppleProviderDoesNotUseSystemSymbolWhenBundledIconExists() {

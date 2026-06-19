@@ -8,6 +8,12 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
             "Qwen3 本地识别"
         )
         XCTAssertEqual(
+            HomeHistoryDetailPresentation.recognitionProviderName(
+                for: "nvidia_nemotron_3_5_asr_streaming_0_6b"
+            ),
+            "NVIDIA Nemotron 本地识别"
+        )
+        XCTAssertEqual(
             HomeHistoryDetailPresentation.textCorrectionName(
                 providerID: "legacy-openai-compatible",
                 traceProviderName: nil
@@ -123,6 +129,13 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
                 taskMode: .agentCompose
             ),
             "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "llm_refinement_cancelled_by_user",
+                taskMode: .dictation
+            ),
+            "已取消文本纠错，直接使用原始识别文本。"
         )
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(

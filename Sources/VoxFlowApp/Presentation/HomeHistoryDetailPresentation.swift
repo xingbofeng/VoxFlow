@@ -25,10 +25,38 @@ enum HomeHistoryDetailPresentation {
 
     static func recognitionProviderName(for identifier: String?) -> String {
         switch identifier {
-        case ASRProviderID.qwen3:
-            return "Qwen3 本地识别"
         case ASRProviderID.appleSpeech:
             return "系统语音识别"
+        case ASRProviderID.funASR:
+            return "FunASR 本地识别"
+        case ASRProviderID.whisper:
+            return "Whisper 本地识别"
+        case ASRProviderID.qwen3:
+            return "Qwen3 本地识别"
+        case ASRProviderID.paraformer:
+            return "Paraformer 本地识别"
+        case ASRProviderID.senseVoice:
+            return "SenseVoice 本地识别"
+        case ASRProviderID.nvidiaNemotron:
+            return "NVIDIA Nemotron 本地识别"
+        case ASRProviderID.parakeetStreaming:
+            return "Parakeet 本地识别"
+        case ASRProviderID.omnilingualASR:
+            return "Omnilingual 本地识别"
+        case ASRProviderID.groqWhisper:
+            return "Groq 云端识别"
+        case ASRProviderID.tencentCloudASR:
+            return "腾讯云语音识别"
+        case ASRProviderID.qwenCloudASR:
+            return "阿里云语音识别"
+        case ASRProviderID.mistralVoxtral:
+            return "Mistral Voxtral 语音识别"
+        case ASRProviderID.assemblyAI:
+            return "AssemblyAI 语音识别"
+        case ASRProviderID.volcengineDoubao:
+            return "火山云语音识别"
+        case ASRProviderID.elevenLabsScribe:
+            return "ElevenLabs Scribe 语音识别"
         case nil, "":
             return "未记录"
         default:
@@ -94,6 +122,8 @@ enum HomeHistoryDetailPresentation {
             return "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
         case "llm_refinement_failed":
             return "文本纠错模型调用失败，已保留原始识别文本。"
+        case "llm_refinement_cancelled_by_user":
+            return "已取消文本纠错，直接使用原始识别文本。"
         case "context_collection_timeout":
             return "读取当前窗口上下文超时，已仅根据口述继续。"
         case "secure_text_field_detected":
@@ -116,6 +146,9 @@ enum HomeHistoryDetailPresentation {
         guard let userMessage = messages.first(where: { ($0["role"] as? String) == "user" }),
               let content = userMessage["content"] as? String else {
             return requestBodyJSON
+        }
+        if content.hasPrefix("[redacted:") {
+            return "默认隐私模式未保存完整请求正文。"
         }
         return content
     }

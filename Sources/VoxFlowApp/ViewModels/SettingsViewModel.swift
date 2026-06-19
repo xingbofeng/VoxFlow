@@ -6,7 +6,8 @@ import ApplicationServices
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
-    case models
+    case dictationModels
+    case correctionModels
     case system
     case dataPrivacy
 
@@ -15,7 +16,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "通用"
-        case .models: return "模型"
+        case .dictationModels: return "听写模型"
+        case .correctionModels: return "纠错模型"
         case .system: return "系统"
         case .dataPrivacy: return "数据与隐私"
         }
@@ -24,7 +26,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: return "slider.horizontal.3"
-        case .models: return "cpu"
+        case .dictationModels: return "waveform"
+        case .correctionModels: return "sparkles"
         case .system: return "macwindow"
         case .dataPrivacy: return "lock.shield"
         }
@@ -63,6 +66,7 @@ enum SettingsSystemOption: String, CaseIterable, Sendable {
     case grayMenuBarIcon = "settings.appearance.grayMenuBarIcon"
     case capsLockIndicator = "settings.appearance.capsLockIndicator"
     case crashLogs = "settings.privacy.crashLogs"
+    case llmTraceDiagnostics = "settings.privacy.llmTraceDiagnostics"
 
     var defaultValue: Bool {
         self == .restoreClipboard || self == .clipboardImageOCR
@@ -73,6 +77,48 @@ struct AudioInputDevice: Equatable, Identifiable, Sendable {
     let id: String
     let name: String
     let isDefault: Bool
+}
+
+struct SettingsStorageStatus: Equatable, Sendable {
+    let title: String
+    let message: String
+    let isHealthy: Bool
+    let badgeText: String
+
+    init(storageHealth: StorageHealthState) {
+        switch storageHealth {
+        case let .persistent(databaseURL):
+            title = "持久化存储正常"
+            message = "历史、设置和模型状态会保存到 \(databaseURL.path)。"
+            isHealthy = true
+            badgeText = "正常"
+        case let .readOnly(databaseURL, reason):
+            title = "数据目录只读"
+            message = "\(reason)。当前数据库位于 \(databaseURL.path)，随声写无法可靠写入新历史、设置或任务状态。请检查目录权限或复制数据后修复。"
+            isHealthy = false
+            badgeText = "只读"
+        case let .migrationRequired(databaseURL, reason):
+            title = "数据库需要迁移"
+            message = "\(reason)。当前数据库位于 \(databaseURL.path)，迁移完成前不会把新历史、设置或任务状态当作已保存。"
+            isHealthy = false
+            badgeText = "需迁移"
+        case let .corrupt(databaseURL, reason):
+            title = "数据库可能损坏"
+            message = "\(reason)。当前数据库位于 \(databaseURL.path)，请先导出或备份数据，再执行修复或重建。"
+            isHealthy = false
+            badgeText = "损坏"
+        case let .unavailable(reason):
+            title = "持久化存储不可用"
+            message = "\(reason)。当前历史、设置和任务状态只保存在内存里，重启后可能丢失。"
+            isHealthy = false
+            badgeText = "不可用"
+        case let .volatile(reason):
+            title = "临时存储模式"
+            message = "\(reason)。当前历史、设置和任务状态只保存在内存里，重启后可能丢失。"
+            isHealthy = false
+            badgeText = "临时"
+        }
+    }
 }
 
 protocol AudioInputDeviceProviding: Sendable {
@@ -181,6 +227,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var speechPermission: AudioRecorder.PermissionStatus = .notDetermined
     @Published private(set) var accessibilityGranted = false
     @Published private(set) var screenRecordingGranted = false
+    @Published private(set) var storageStatus: SettingsStorageStatus
     @Published private(set) var exportedDataJSON: String?
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
@@ -210,6 +257,7 @@ final class SettingsViewModel: ObservableObject {
         self.languageManager = languageManager
         self.paths = paths ?? environment.paths
         self.fileManager = fileManager
+        self.storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
         load()
         languageObserverID = languageManager.observeLanguageChanges { [weak self] language in
             self?.selectedRecognitionLanguage = language
@@ -230,8 +278,8 @@ final class SettingsViewModel: ObservableObject {
             shortcutKeyCode = shortcutManager.shortcutKeyCode
             longPressThreshold = shortcutManager.longPressThreshold
             shortPressBehavior = shortcutManager.shortPressBehavior
-            dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
-            agentComposeShortcutKeyCode = shortcutManager.agentComposeShortcutKeyCode
+            dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
+            agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
             shortcutConflict = shortcutManager.hasConflict()
             soundFeedbackEnabled = try readBool(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true)
             voiceEnhancementEnabled = try readBool(SettingsKey.audioVoiceEnhancementEnabled, defaultValue: false)
@@ -253,6 +301,7 @@ final class SettingsViewModel: ObservableObject {
             speechPermission = permissionProvider.speechPermission()
             accessibilityGranted = AXIsProcessTrusted()
             screenRecordingGranted = permissionProvider.screenRecordingPermission()
+            storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -263,7 +312,7 @@ final class SettingsViewModel: ObservableObject {
         selectedInputDeviceID = id
         try setString(SettingsKey.audioInputDeviceID, value: id)
         lastError = nil
-        lastActionMessage = "已更新输入设备"
+        lastActionMessage = persistentWriteMessage("已更新输入设备")
     }
 
     func updateShortcut(
@@ -271,13 +320,17 @@ final class SettingsViewModel: ObservableObject {
         longPressThreshold: TimeInterval,
         shortPressBehavior: ShortPressBehavior
     ) throws {
+        guard ShortcutManager.isSupportedVoiceShortcutKeyCode(keyCode) else {
+            throw SettingsViewModelError.unsupportedShortcutKeyCode
+        }
         shortcutManager.shortcutKeyCode = keyCode
         shortcutManager.longPressThreshold = longPressThreshold
         shortcutManager.shortPressBehavior = shortPressBehavior
         self.shortcutKeyCode = keyCode
         self.longPressThreshold = longPressThreshold
         self.shortPressBehavior = shortPressBehavior
-        self.dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
+        self.dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
+        self.agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
         self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新快捷键设置"
@@ -287,13 +340,16 @@ final class SettingsViewModel: ObservableObject {
         action: VoiceAction,
         keyCode: Int64?
     ) throws {
-        shortcutManager.setShortcutKeyCode(keyCode, for: action)
-        if shortcutManager.hasConflict() {
+        if let keyCode, !ShortcutManager.isSupportedVoiceShortcutKeyCode(keyCode) {
+            throw SettingsViewModelError.unsupportedShortcutKeyCode
+        }
+        if wouldConflict(action: action, keyCode: keyCode) {
             throw SettingsViewModelError.conflictingBindings
         }
+        shortcutManager.setShortcutKeyCode(keyCode, for: action)
         shortcutKeyCode = shortcutManager.shortcutKeyCode
-        dictationShortcutKeyCode = shortcutManager.dictationShortcutKeyCode
-        agentComposeShortcutKeyCode = shortcutManager.agentComposeShortcutKeyCode
+        dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
+        agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
         shortcutConflict = false
         lastError = nil
         lastActionMessage = "已更新\(action.displayName)快捷键"
@@ -323,7 +379,7 @@ final class SettingsViewModel: ObservableObject {
         try setBool(SettingsKey.audioSoundFeedbackEnabled, value: soundFeedback)
         try setBool(SettingsKey.audioVoiceEnhancementEnabled, value: voiceEnhancement)
         lastError = nil
-        lastActionMessage = "已更新音频设置"
+        lastActionMessage = persistentWriteMessage("已更新音频设置")
     }
 
     func updatePerformanceOptions(
@@ -335,14 +391,14 @@ final class SettingsViewModel: ObservableObject {
         try setBool(SettingsKey.audioMuteWhileRecordingEnabled, value: muteWhileRecording)
         try setBool(SettingsKey.performanceOptimizationEnabled, value: performanceOptimization)
         lastError = nil
-        lastActionMessage = "已更新系统设置"
+        lastActionMessage = persistentWriteMessage("已更新系统设置")
     }
 
     func setAnalyticsEnabled(_ enabled: Bool) throws {
         analyticsEnabled = enabled
         try setBool(SettingsKey.analyticsEnabled, value: enabled)
         lastError = nil
-        lastActionMessage = "已更新分析设置"
+        lastActionMessage = persistentWriteMessage("已更新分析设置")
     }
 
     func systemOption(_ option: SettingsSystemOption) -> Bool {
@@ -355,8 +411,20 @@ final class SettingsViewModel: ObservableObject {
         if option == .avoidClipboard {
             try setTextInputMode(enabled ? .simulatedTyping : .automatic)
         }
+        if option == .llmTraceDiagnostics, let paths {
+            LLMDiagnosticCapture.shared.configure(
+                enabled: enabled,
+                directory: paths.llmTraceDiagnosticsDirectory
+            )
+        }
         lastError = nil
-        lastActionMessage = "已更新系统设置"
+        lastActionMessage = persistentWriteMessage("已更新系统设置")
+    }
+
+    func clearLLMTraceDiagnostics() {
+        LLMDiagnosticCapture.shared.clear()
+        lastError = nil
+        lastActionMessage = "已删除 LLM 诊断内容"
     }
 
     func setTextInputMode(_ mode: TextInputMode) throws {
@@ -365,7 +433,7 @@ final class SettingsViewModel: ObservableObject {
         systemOptions[.avoidClipboard] = mode == .simulatedTyping
         try setBool(SettingsSystemOption.avoidClipboard.rawValue, value: mode == .simulatedTyping)
         lastError = nil
-        lastActionMessage = "已更新文本输入模式"
+        lastActionMessage = persistentWriteMessage("已更新文本输入模式")
     }
 
     func setRecognitionLanguage(_ language: RecognitionLanguage) throws {
@@ -380,11 +448,16 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func openApplicationSupportFolder() {
-        guard let paths else {
+        let resolvedPaths = paths ?? (try? ApplicationSupportPaths.live())
+        guard let resolvedPaths else {
             report(error: ApplicationSupportPathsError.applicationSupportDirectoryUnavailable)
             return
         }
-        NSWorkspace.shared.open(paths.rootDirectory)
+        try? fileManager.createDirectory(
+            at: resolvedPaths.rootDirectory,
+            withIntermediateDirectories: true
+        )
+        NSWorkspace.shared.open(resolvedPaths.rootDirectory)
         lastError = nil
         lastActionMessage = "已打开本地数据文件夹"
     }
@@ -395,11 +468,15 @@ final class SettingsViewModel: ObservableObject {
             try environment.historyRepository.softDelete(id: entry.id, deletedAt: environment.clock.now)
         }
         lastError = nil
-        lastActionMessage = "已清空历史"
+        lastActionMessage = persistentWriteMessage("已清空历史")
     }
 
     func clearCache() throws {
-        guard let paths else { return }
+        guard let paths else {
+            lastError = "没有可用的数据目录，缓存未清理。"
+            lastActionMessage = nil
+            return
+        }
         if fileManager.fileExists(atPath: paths.modelsDirectory.path) {
             try fileManager.removeItem(at: paths.modelsDirectory)
         }
@@ -448,7 +525,7 @@ final class SettingsViewModel: ObservableObject {
         }
         load()
         lastError = nil
-        lastActionMessage = "已导入设置"
+        lastActionMessage = persistentWriteMessage("已导入设置")
     }
 
     func resetSettings() throws {
@@ -462,7 +539,7 @@ final class SettingsViewModel: ObservableObject {
         exportedDataJSON = nil
         load()
         lastError = nil
-        lastActionMessage = "已重置设置"
+        lastActionMessage = persistentWriteMessage("已重置设置")
     }
 
     func report(error: Error) {
@@ -509,6 +586,16 @@ final class SettingsViewModel: ObservableObject {
         return id
     }
 
+    private func wouldConflict(action: VoiceAction, keyCode: Int64?) -> Bool {
+        guard let keyCode else { return false }
+        switch action {
+        case .dictation:
+            return shortcutManager.shortcutKeyCode(for: .agentCompose) == keyCode
+        case .agentCompose:
+            return shortcutManager.shortcutKeyCode(for: .dictation) == keyCode
+        }
+    }
+
     private func readSetting<T: Decodable>(_ key: String, defaultValue: T) throws -> T {
         guard let valueJSON = try environment.settingsRepository.value(forKey: key),
               let data = valueJSON.data(using: .utf8) else {
@@ -530,11 +617,26 @@ final class SettingsViewModel: ObservableObject {
         let string = String(data: data, encoding: .utf8) ?? "{}"
         try environment.settingsRepository.set(key, jsonValue: string)
     }
+
+    private func persistentWriteMessage(_ message: String) -> String {
+        guard !storageStatus.isHealthy else {
+            return message
+        }
+        switch environment.storageHealth {
+        case .unavailable, .volatile:
+            return "\(message)（仅当前会话生效，重启后可能丢失）"
+        case .readOnly, .migrationRequired, .corrupt:
+            return "\(message)（存储状态：\(storageStatus.badgeText)，不保证已持久保存）"
+        case .persistent:
+            return message
+        }
+    }
 }
 
 enum SettingsViewModelError: LocalizedError {
     case invalidImport
     case invalidShortcutKeyCode
+    case unsupportedShortcutKeyCode
     case conflictingBindings
 
     var errorDescription: String? {
@@ -543,6 +645,8 @@ enum SettingsViewModelError: LocalizedError {
             return "导入数据格式不正确。"
         case .invalidShortcutKeyCode:
             return "快捷键录制失败，请按下一个有效按键。"
+        case .unsupportedShortcutKeyCode:
+            return "语音快捷键仅支持 Command、Option、Control 或 Shift 这类单独修饰键。"
         case .conflictingBindings:
             return "两个操作不能使用相同的快捷键，请修改其中一个。"
         }

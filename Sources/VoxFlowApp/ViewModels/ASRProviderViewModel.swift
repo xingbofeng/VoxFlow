@@ -1,10 +1,15 @@
 import Combine
 import Foundation
+import VoxFlowProviderAliyunDashScope
 import VoxFlowProviderFunASR
+import VoxFlowProviderGroq
 import VoxFlowProviderNVIDIA
+import VoxFlowProviderOmnilingual
+import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
+import VoxFlowProviderTencentCloud
 import VoxFlowProviderWhisper
 
 enum ASRProviderScope: String, CaseIterable, Identifiable {
@@ -41,9 +46,9 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
         case .all:
             return true
         case .online:
-            return descriptor.tags.contains("在线")
+            return ASRProviderTagPresentation.cardTags(for: descriptor).contains("在线")
         case .offline:
-            return descriptor.tags.contains("离线")
+            return ASRProviderTagPresentation.cardTags(for: descriptor).contains("离线")
         }
     }
 
@@ -52,10 +57,11 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
         let rank = Dictionary(
             uniqueKeysWithValues: [
                 ASRProviderID.groqWhisper,
+                ASRProviderID.tencentCloudASR,
                 ASRProviderID.qwenCloudASR,
+                ASRProviderID.volcengineDoubao,
                 ASRProviderID.mistralVoxtral,
                 ASRProviderID.assemblyAI,
-                ASRProviderID.volcengineDoubao,
                 ASRProviderID.elevenLabsScribe,
             ].enumerated().map { ($0.element, $0.offset) }
         )
@@ -65,8 +71,72 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
     }
 }
 
+private enum GroqASRConfigurationError: LocalizedError {
+    case invalidHTTPSURL
+    case emptyModel
+    case unsupportedModel
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidHTTPSURL:
+            return "Groq 地址必须是有效的 HTTPS URL。"
+        case .emptyModel:
+            return "Groq 模型不能为空。"
+        case .unsupportedModel:
+            return "Groq 仅支持 Whisper 转写模型。"
+        }
+    }
+}
+
+private enum TencentCloudASRConfigurationError: LocalizedError {
+    case emptyAppID
+    case emptySecretID
+    case emptySecretKey
+    case emptyEngineModelType
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyAppID:
+            return "腾讯云 AppID 不能为空。"
+        case .emptySecretID:
+            return "腾讯云 SecretId 不能为空。"
+        case .emptySecretKey:
+            return "腾讯云 SecretKey 不能为空。"
+        case .emptyEngineModelType:
+            return "腾讯云识别引擎不能为空。"
+        }
+    }
+}
+
+private enum AliyunDashScopeASRConfigurationError: LocalizedError {
+    case emptyAPIKey
+    case emptyModel
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyAPIKey:
+            return "阿里云百炼 API Key 不能为空。"
+        case .emptyModel:
+            return "阿里云百炼识别模型不能为空。"
+        }
+    }
+}
+
+struct GroqASRModelOption: Identifiable, Equatable {
+    let id: String
+    let title: String
+}
+
 @MainActor
 final class ASRProviderViewModel: ObservableObject {
+    static let storedGroqAPIKeyMask = String(repeating: "•", count: 12)
+    static let storedTencentSecretMask = String(repeating: "•", count: 12)
+    static let storedAliyunDashScopeAPIKeyMask = String(repeating: "•", count: 12)
+    static let supportedGroqModels: [GroqASRModelOption] = [
+        GroqASRModelOption(id: "whisper-large-v3-turbo", title: "Whisper Large V3 Turbo"),
+        GroqASRModelOption(id: "whisper-large-v3", title: "Whisper Large V3"),
+    ]
+
     @Published private(set) var providers: [ASRProviderDescriptor] = []
     @Published private(set) var selectedTags: Set<String> = []
     @Published private(set) var providerScope: ASRProviderScope = .all
@@ -75,6 +145,18 @@ final class ASRProviderViewModel: ObservableObject {
     @Published private(set) var downloadingProviderID: String? = nil
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
+    @Published var groqAPIKeyInput = ""
+    @Published var groqBaseURLInput = GroqCloudASRClient.defaultBaseURL
+    @Published var groqModelInput = GroqCloudASRClient.defaultModel
+    @Published private(set) var isTestingGroq = false
+    @Published var tencentAppIDInput = ""
+    @Published var tencentSecretIDInput = ""
+    @Published var tencentSecretKeyInput = ""
+    @Published var tencentEngineModelTypeInput = TencentRealtimeASRConfiguration.defaultEngineModelType
+    @Published private(set) var isTestingTencentCloud = false
+    @Published var aliyunDashScopeAPIKeyInput = ""
+    @Published var aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+    @Published private(set) var isTestingAliyunDashScope = false
 
     private let environment: any AppServiceProviding
     private let asrManager: ASRManager
@@ -85,15 +167,16 @@ final class ASRProviderViewModel: ObservableObject {
     private let whisperKitModelDownloader: any WhisperKitModelDownloading
     private let paraformerModelDownloader: any ParaformerModelDownloading
     private let nvidiaNemotronModelDownloader: any NVIDIANemotronModelDownloading
+    private let parakeetModelDownloader: any ParakeetModelDownloading
+    private let omnilingualModelDownloader: any OmnilingualModelDownloading
     private let qwenReadinessPreparer: any Qwen3ModelReadinessPreparing
-    private let qwenRuntimeProvisioner: any Qwen3MLXRuntimeProvisioning
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
     private var providerRecordPersistenceTask: Task<Void, Never>?
 
     init(
         environment: any AppServiceProviding,
-        asrManager: ASRManager = ASRManager(),
+        asrManager: ASRManager? = nil,
         registry: ASRProviderRegistry? = nil,
         downloader: any Qwen3ModelDownloading = Qwen3ModelDownloader.live(),
         sherpaModelDownloader: any SherpaASRModelDownloading = SherpaASRModelDownloader(),
@@ -101,22 +184,42 @@ final class ASRProviderViewModel: ObservableObject {
         whisperKitModelDownloader: any WhisperKitModelDownloading = WhisperKitModelDownloader(),
         paraformerModelDownloader: any ParaformerModelDownloading = ParaformerModelDownloader(),
         nvidiaNemotronModelDownloader: any NVIDIANemotronModelDownloading = NVIDIANemotronModelDownloader(),
+        parakeetModelDownloader: any ParakeetModelDownloading = ParakeetModelDownloader(),
+        omnilingualModelDownloader: any OmnilingualModelDownloading = OmnilingualModelDownloader(),
         qwenReadinessPreparer: any Qwen3ModelReadinessPreparing = Qwen3ModelReadinessPreparer(),
-        qwenRuntimeProvisioner: any Qwen3MLXRuntimeProvisioning = Qwen3MLXRuntimeProvisioner(),
         fileManager: FileManager = .default
     ) {
+        let resolvedASRManager = asrManager ?? ASRManager(
+            credentialStore: environment.credentialStore,
+            settingsRepository: environment.settingsRepository
+        )
         self.environment = environment
-        self.asrManager = asrManager
-        self.registry = registry ?? ASRProviderRegistry(asrManager: asrManager)
+        self.asrManager = resolvedASRManager
+        self.registry = registry ?? ASRProviderRegistry(asrManager: resolvedASRManager)
         self.downloader = downloader
         self.sherpaModelDownloader = sherpaModelDownloader
         self.senseVoiceModelDownloader = senseVoiceModelDownloader
         self.whisperKitModelDownloader = whisperKitModelDownloader
         self.paraformerModelDownloader = paraformerModelDownloader
         self.nvidiaNemotronModelDownloader = nvidiaNemotronModelDownloader
+        self.parakeetModelDownloader = parakeetModelDownloader
+        self.omnilingualModelDownloader = omnilingualModelDownloader
         self.qwenReadinessPreparer = qwenReadinessPreparer
-        self.qwenRuntimeProvisioner = qwenRuntimeProvisioner
         self.fileManager = fileManager
+        groqBaseURLInput = resolvedASRManager.groqBaseURL
+        groqModelInput = Self.supportedGroqModels.contains { $0.id == resolvedASRManager.groqModel }
+            ? resolvedASRManager.groqModel
+            : GroqCloudASRClient.defaultModel
+        groqAPIKeyInput = resolvedASRManager.isGroqConfigured ? Self.storedGroqAPIKeyMask : ""
+        let tencentCredentials = resolvedASRManager.storedTencentCloudCredentials()
+        tencentAppIDInput = tencentCredentials.appID
+        tencentSecretIDInput = tencentCredentials.secretID
+        tencentSecretKeyInput = tencentCredentials.secretKey.isEmpty ? "" : Self.storedTencentSecretMask
+        tencentEngineModelTypeInput = TencentRealtimeASRConfiguration.defaultEngineModelType
+        aliyunDashScopeAPIKeyInput = resolvedASRManager.isAliyunDashScopeConfigured
+            ? Self.storedAliyunDashScopeAPIKeyMask
+            : ""
+        aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
         refreshProviders(persistRecords: false)
         // 监听菜单栏等外部途径切换模型后的 UserDefaults 变化
         NotificationCenter.default
@@ -129,14 +232,29 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     var visibleProviders: [ASRProviderDescriptor] {
-        providerScope.sort(providers.filter { descriptor in
-            providerScope.matches(descriptor)
-                && ASRProviderFilter(tags: selectedTags).matches(descriptor)
-        })
+        pinCurrentProviderFirst(providerScope.sort(scopedProviders().filter { descriptor in
+            ASRProviderFilter(tags: selectedTags).matches(descriptor)
+        }))
     }
 
     var availableTags: [String] {
-        Array(Set(providers.filter(providerScope.matches).flatMap(\.tags))).sorted()
+        let scopedTagSet = Set(scopedProviders().flatMap { descriptor in
+            ASRProviderTagPresentation.cardTags(for: descriptor)
+        })
+        return ASRProviderTagPresentation.approvedCardTags.filter { tag in
+            tag != "离线" && tag != "在线" && scopedTagSet.contains(tag)
+        }
+    }
+
+    private func scopedProviders() -> [ASRProviderDescriptor] {
+        switch providerScope {
+        case .all:
+            return providers
+        case .offline:
+            return registry.offlineDescriptors()
+        case .online:
+            return providers.filter(providerScope.matches)
+        }
     }
 
     var selectedQwenModelSize: ASRManager.ModelSize {
@@ -149,6 +267,264 @@ final class ASRProviderViewModel: ObservableObject {
 
     var selectedFunASRPrecision: ASRManager.FunASRPrecision { asrManager.funASRPrecision }
     var selectedWhisperVariant: ASRManager.WhisperVariant { asrManager.whisperVariant }
+    var hasStoredGroqAPIKey: Bool { asrManager.isGroqConfigured }
+    var hasStoredTencentCloudCredentials: Bool { asrManager.isTencentCloudConfigured }
+    var hasStoredAliyunDashScopeAPIKey: Bool { asrManager.isAliyunDashScopeConfigured }
+    var supportedGroqModels: [GroqASRModelOption] { Self.supportedGroqModels }
+
+    func groqAPIKeyForEditing() -> String {
+        hasStoredGroqAPIKey ? Self.storedGroqAPIKeyMask : ""
+    }
+
+    func storedGroqAPIKeyForEditing() -> String {
+        asrManager.storedGroqAPIKey()
+    }
+
+    func isMaskedGroqAPIKey(text: String) -> Bool {
+        !text.isEmpty && text == Self.storedGroqAPIKeyMask
+    }
+
+    func isMaskedTencentSecret(text: String) -> Bool {
+        !text.isEmpty && text == Self.storedTencentSecretMask
+    }
+
+    func isMaskedAliyunDashScopeAPIKey(text: String) -> Bool {
+        !text.isEmpty && text == Self.storedAliyunDashScopeAPIKeyMask
+    }
+
+    func aliyunDashScopeAPIKeyForEditing() -> String {
+        hasStoredAliyunDashScopeAPIKey ? Self.storedAliyunDashScopeAPIKeyMask : ""
+    }
+
+    func storedAliyunDashScopeAPIKeyForEditing() -> String {
+        asrManager.storedAliyunDashScopeAPIKey()
+    }
+
+    func storedTencentCloudCredentialsForEditing() -> (appID: String, secretID: String, secretKey: String) {
+        asrManager.storedTencentCloudCredentials()
+    }
+
+    func saveGroqConfiguration() {
+        do {
+            try persistGroqConfiguration()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已保存 Groq 配置"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func testGroqConnection() async {
+        guard !isTestingGroq else { return }
+        isTestingGroq = true
+        defer { isTestingGroq = false }
+        do {
+            try persistGroqConfiguration()
+            let result = try await asrManager.testGroqConnection()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = result.message
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func deleteGroqAPIKey() {
+        do {
+            try asrManager.saveGroqAPIKey("")
+            groqAPIKeyInput = ""
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已删除 Groq API Key"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func saveTencentCloudConfiguration() {
+        do {
+            try persistTencentCloudConfiguration()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已保存腾讯云配置"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func testTencentCloudConnection() async {
+        guard !isTestingTencentCloud else { return }
+        isTestingTencentCloud = true
+        defer { isTestingTencentCloud = false }
+        do {
+            try persistTencentCloudConfiguration()
+            let result = try await asrManager.testTencentCloudConnection()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = result.message
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func deleteTencentCloudCredentials() {
+        do {
+            try asrManager.deleteTencentCloudCredentials()
+            tencentAppIDInput = ""
+            tencentSecretIDInput = ""
+            tencentSecretKeyInput = ""
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已删除腾讯云凭据"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func saveAliyunDashScopeConfiguration() {
+        do {
+            try persistAliyunDashScopeConfiguration()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已保存阿里云百炼配置"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func testAliyunDashScopeConnection() async {
+        guard !isTestingAliyunDashScope else { return }
+        isTestingAliyunDashScope = true
+        defer { isTestingAliyunDashScope = false }
+        do {
+            try persistAliyunDashScopeConfiguration()
+            let result = try await asrManager.testAliyunDashScopeConnection()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = result.message
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func deleteAliyunDashScopeAPIKey() {
+        do {
+            try asrManager.saveAliyunDashScopeAPIKey("")
+            aliyunDashScopeAPIKeyInput = ""
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已删除阿里云百炼 API Key"
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func persistGroqConfiguration() throws {
+        let baseURL = groqBaseURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: baseURL),
+              components.scheme == "https",
+              components.host != nil else {
+            throw GroqASRConfigurationError.invalidHTTPSURL
+        }
+        let model = groqModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !model.isEmpty else {
+            throw GroqASRConfigurationError.emptyModel
+        }
+        guard Self.supportedGroqModels.contains(where: { $0.id == model }) else {
+            throw GroqASRConfigurationError.unsupportedModel
+        }
+        let key = groqAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty && key != Self.storedGroqAPIKeyMask {
+            try asrManager.saveGroqAPIKey(key)
+            groqAPIKeyInput = Self.storedGroqAPIKeyMask
+        } else if !asrManager.isGroqConfigured {
+            throw CloudASRClientError.missingCredential
+        } else {
+            groqAPIKeyInput = Self.storedGroqAPIKeyMask
+        }
+        asrManager.groqBaseURL = baseURL
+        asrManager.groqModel = model
+    }
+
+    private func persistTencentCloudConfiguration() throws {
+        let stored = asrManager.storedTencentCloudCredentials()
+        let appID = try resolvedTencentValue(
+            input: tencentAppIDInput,
+            stored: stored.appID,
+            missingError: TencentCloudASRConfigurationError.emptyAppID
+        )
+        let secretID = try resolvedTencentValue(
+            input: tencentSecretIDInput,
+            stored: stored.secretID,
+            missingError: TencentCloudASRConfigurationError.emptySecretID
+        )
+        let secretKey = try resolvedTencentValue(
+            input: tencentSecretKeyInput,
+            stored: stored.secretKey,
+            missingError: TencentCloudASRConfigurationError.emptySecretKey
+        )
+        try asrManager.saveTencentCloudCredentials(
+            appID: appID,
+            secretID: secretID,
+            secretKey: secretKey
+        )
+        asrManager.tencentRealtimeEngineModelType = TencentRealtimeASRConfiguration.defaultEngineModelType
+        tencentEngineModelTypeInput = TencentRealtimeASRConfiguration.defaultEngineModelType
+        tencentAppIDInput = appID
+        tencentSecretIDInput = secretID
+        tencentSecretKeyInput = Self.storedTencentSecretMask
+    }
+
+    private func resolvedTencentValue(
+        input: String,
+        stored: String,
+        missingError: TencentCloudASRConfigurationError
+    ) throws -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isMaskedTencentSecret(text: trimmed), !stored.isEmpty {
+            return stored
+        }
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        if !stored.isEmpty {
+            return stored
+        }
+        throw missingError
+    }
+
+    private func persistAliyunDashScopeConfiguration() throws {
+        let key = aliyunDashScopeAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty && key != Self.storedAliyunDashScopeAPIKeyMask {
+            try asrManager.saveAliyunDashScopeAPIKey(key)
+            aliyunDashScopeAPIKeyInput = Self.storedAliyunDashScopeAPIKeyMask
+        } else if !asrManager.isAliyunDashScopeConfigured {
+            throw AliyunDashScopeASRConfigurationError.emptyAPIKey
+        } else {
+            aliyunDashScopeAPIKeyInput = Self.storedAliyunDashScopeAPIKeyMask
+        }
+        asrManager.aliyunDashScopeModel = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+        aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+    }
 
     func sherpaVariant(for id: String) -> SherpaASRModelVariant? {
         switch id {
@@ -235,6 +611,10 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func toggleTag(_ tag: String) {
+        guard availableTags.contains(tag) else {
+            selectedTags.remove(tag)
+            return
+        }
         if selectedTags.contains(tag) {
             selectedTags.remove(tag)
         } else {
@@ -245,6 +625,17 @@ final class ASRProviderViewModel: ObservableObject {
     func selectProviderScope(_ scope: ASRProviderScope) {
         providerScope = scope
         selectedTags.formIntersection(availableTags)
+    }
+
+    private func pinCurrentProviderFirst(_ descriptors: [ASRProviderDescriptor]) -> [ASRProviderDescriptor] {
+        descriptors.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.isDefault != rhs.element.isDefault {
+                    return lhs.element.isDefault
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
     func selectDefaultProvider(id: String) {
@@ -281,12 +672,44 @@ final class ASRProviderViewModel: ObservableObject {
         switch id {
         case ASRProviderID.qwen3: return asrManager.qwen3ModelPath
         case ASRProviderID.funASR:
+            if case let .ready(installation) = asrManager.funASRModelInstallationState(
+                for: asrManager.funASRPrecision
+            ) {
+                return installation.installedRoot.path
+            }
             return asrManager.funASRModelDirectoryURL(for: asrManager.funASRPrecision).path
         case ASRProviderID.whisper:
+            if case let .ready(installation) = asrManager.whisperModelInstallationState(
+                for: asrManager.whisperVariant
+            ) {
+                return installation.installedRoot.path
+            }
             return asrManager.whisperModelDirectoryURL(for: asrManager.whisperVariant).path
-        case ASRProviderID.senseVoice: return asrManager.senseVoiceModelDirectoryURL().path
-        case ASRProviderID.paraformer: return asrManager.paraformerModelDirectoryURL().path
-        case ASRProviderID.nvidiaNemotron: return asrManager.nvidiaNemotronModelDirectoryURL().path
+        case ASRProviderID.senseVoice:
+            if case let .ready(installation) = asrManager.senseVoiceModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.senseVoiceModelDirectoryURL().path
+        case ASRProviderID.paraformer:
+            if case let .ready(installation) = asrManager.paraformerModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.paraformerModelDirectoryURL().path
+        case ASRProviderID.nvidiaNemotron:
+            if case let .ready(installation) = asrManager.nvidiaNemotronModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.nvidiaNemotronModelDirectoryURL().path
+        case ASRProviderID.parakeetStreaming:
+            if case let .ready(installation) = asrManager.parakeetModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.parakeetModelDirectoryURL().path
+        case ASRProviderID.omnilingualASR:
+            if case let .ready(installation) = asrManager.omnilingualModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.omnilingualModelDirectoryURL().path
         default: return nil
         }
     }
@@ -299,6 +722,11 @@ final class ASRProviderViewModel: ObservableObject {
         case ASRProviderID.senseVoice: return .senseVoice
         case ASRProviderID.paraformer: return .paraformer
         case ASRProviderID.nvidiaNemotron: return .nvidiaNemotron
+        case ASRProviderID.parakeetStreaming: return .parakeetStreaming
+        case ASRProviderID.omnilingualASR: return .omnilingualASR
+        case ASRProviderID.groqWhisper: return .groqWhisper
+        case ASRProviderID.tencentCloudASR: return .tencentCloud
+        case ASRProviderID.qwenCloudASR: return .aliyunDashScope
         default: return nil
         }
     }
@@ -320,7 +748,6 @@ final class ASRProviderViewModel: ObservableObject {
                     asrManager: asrManager,
                     downloader: downloader,
                     readinessPreparer: qwenReadinessPreparer,
-                    runtimeProvisioner: qwenRuntimeProvisioner,
                     fileManager: fileManager
                 )
                 _ = try await coordinator.downloadQwen3Model(size: modelSize) { [weak self] progress in
@@ -416,6 +843,38 @@ final class ASRProviderViewModel: ObservableObject {
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
+            } else if id == ASRProviderID.parakeetStreaming {
+                let installedURL = try await parakeetModelDownloader.download { [weak self] update in
+                    self?.downloadProgress = Qwen3ModelDownloadProgress(
+                        fileIndex: 0,
+                        fileCount: 1,
+                        fileName: update.status,
+                        fileProgress: update.fractionCompleted
+                    )
+                }
+                guard ParakeetModel.modelsExist(at: installedURL, fileManager: fileManager) else {
+                    throw ASREngineError.modelNotLoaded
+                }
+                asrManager.markParakeetModelReady(at: installedURL.path)
+                load()
+                lastError = nil
+                lastActionMessage = "本地模型下载完成"
+            } else if id == ASRProviderID.omnilingualASR {
+                let installedURL = try await omnilingualModelDownloader.download { [weak self] update in
+                    self?.downloadProgress = Qwen3ModelDownloadProgress(
+                        fileIndex: 0,
+                        fileCount: 1,
+                        fileName: update.status,
+                        fileProgress: update.fractionCompleted
+                    )
+                }
+                guard OmnilingualModel.modelsExist(at: installedURL, fileManager: fileManager) else {
+                    throw ASREngineError.modelNotLoaded
+                }
+                asrManager.markOmnilingualModelReady(at: installedURL.path)
+                load()
+                lastError = nil
+                lastActionMessage = "本地模型下载完成"
             } else {
                 return
             }
@@ -429,14 +888,18 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func deleteLocalModel(id: String) {
+        guard let fallbackEngine = self.fallbackEngine(for: id) else { return }
+        let pathToDelete = modelPath(id: id)
+        asrManager.markModelDeleting(for: fallbackEngine)
+        load()
         do {
-            guard let fallbackEngine = self.fallbackEngine(for: id) else { return }
-
-            if let path = modelPath(id: id), fileManager.fileExists(atPath: path) {
+            if let path = pathToDelete, fileManager.fileExists(atPath: path) {
                 try fileManager.removeItem(at: URL(fileURLWithPath: path, isDirectory: true))
             }
             if id == ASRProviderID.qwen3 {
                 asrManager.qwen3ModelPath = nil
+            } else {
+                asrManager.clearModelInstallationState(for: fallbackEngine)
             }
 
             if asrManager.selectedEngineType == fallbackEngine {
@@ -446,6 +909,9 @@ final class ASRProviderViewModel: ObservableObject {
             lastError = nil
             lastActionMessage = "已删除本地模型"
         } catch {
+            asrManager.markModelDeletionFailed(for: fallbackEngine, message: error.localizedDescription)
+            load()
+            lastActionMessage = nil
             lastError = error.localizedDescription
         }
     }

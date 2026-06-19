@@ -23,6 +23,14 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertEqual(drawingRect.midY, bounds.midY, accuracy: 0.5)
     }
 
+    func testShowMakesHUDOpaqueImmediately() {
+        let controller = OverlayWindowController()
+
+        controller.show()
+
+        XCTAssertEqual(controller.window?.alphaValue, 1.0)
+    }
+
     func testTemporaryTimeoutMessageDismissesHUD() async throws {
         let controller = OverlayWindowController()
         controller.showTemporaryMessage("请求超时", duration: 0.01)
@@ -45,10 +53,25 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertTrue(controller.window?.isVisible ?? false)
         XCTAssertEqual(controller.currentText, "请求超时")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        let deadline = ContinuousClock.now + .seconds(2)
+        while controller.window?.isVisible == true, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
 
         XCTAssertFalse(controller.window?.isVisible ?? true)
         XCTAssertEqual(controller.currentText, "")
+    }
+
+    func testTemporaryMessageAutoDismissDoesNotHideNewRecordingHUD() async throws {
+        let controller = OverlayWindowController()
+        controller.showTemporaryMessage("请求超时", duration: 0.01)
+        controller.show()
+        controller.updateTranscription("", isRefining: false)
+
+        try await Task.sleep(nanoseconds: 350_000_000)
+
+        XCTAssertTrue(controller.window?.isVisible ?? false)
+        XCTAssertEqual(controller.currentText, "正在聆听...")
     }
 
     func testTemporaryMessageCanInvokeClickAction() {

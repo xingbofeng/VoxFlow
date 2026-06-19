@@ -11,10 +11,16 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
         "VoxFlowProviderApple",
         "VoxFlowProviderQwen3",
         "VoxFlowProviderNVIDIA",
+        "VoxFlowProviderParakeet",
+        "VoxFlowProviderOmnilingual",
         "VoxFlowProviderParaformer",
         "VoxFlowProviderFunASR",
         "VoxFlowProviderSenseVoice",
         "VoxFlowProviderWhisper",
+        "VoxFlowProviderCloudCore",
+        "VoxFlowProviderGroq",
+        "VoxFlowProviderTencentCloud",
+        "VoxFlowProviderAliyunDashScope",
         "VoxFlowTextProcessing",
         "VoxFlowTextInsertion",
         "VoxFlowLocalization",
@@ -32,6 +38,10 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
         "VoxFlowProviderAppleTests",
         "VoxFlowProviderNVIDIATests",
         "VoxFlowProviderParaformerTests",
+        "VoxFlowProviderCloudCoreTests",
+        "VoxFlowProviderGroqTests",
+        "VoxFlowProviderTencentCloudTests",
+        "VoxFlowProviderAliyunDashScopeTests",
     ]
 
     func testPackageDeclaresVoxFlow2TargetSkeleton() throws {
@@ -71,31 +81,34 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
     }
 
     func testTargetSkeletonDirectoriesContainSwiftSource() throws {
-        let sourceRoot = try Self.repositoryRoot().appendingPathComponent("Sources", isDirectory: true)
+        let root = try Self.repositoryRoot()
 
         for target in requiredTargets {
-            let directory = sourceRoot.appendingPathComponent(target, isDirectory: true)
+            let directory = Self.sourceDirectory(for: target, root: root)
             var isDirectory: ObjCBool = false
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue,
-                "Sources/\(target) must exist."
+                "\(Self.relativePath(for: directory, root: root)) must exist."
             )
 
             let swiftFiles = try Self.swiftFiles(in: directory)
-            XCTAssertFalse(swiftFiles.isEmpty, "Sources/\(target) must contain at least one Swift file.")
+            XCTAssertFalse(
+                swiftFiles.isEmpty,
+                "\(Self.relativePath(for: directory, root: root)) must contain at least one Swift file."
+            )
         }
     }
 
     func testVoxFlowTargetsPlaceSwiftSourcesInsideResponsibilitySubdirectories() throws {
-        let sourceRoot = try Self.repositoryRoot().appendingPathComponent("Sources", isDirectory: true)
+        let root = try Self.repositoryRoot()
 
         for target in requiredTargets where target != "VoxFlowApp" {
-            let directory = sourceRoot.appendingPathComponent(target, isDirectory: true)
+            let directory = Self.sourceDirectory(for: target, root: root)
             let rootSwiftFiles = try FileManager.default.contentsOfDirectory(atPath: directory.path)
                 .filter { $0.hasSuffix(".swift") }
             XCTAssertTrue(
                 rootSwiftFiles.isEmpty,
-                "Sources/\(target) should organize Swift files in responsibility subdirectories, found root files: \(rootSwiftFiles)."
+                "\(Self.relativePath(for: directory, root: root)) should organize Swift files in responsibility subdirectories, found root files: \(rootSwiftFiles)."
             )
 
             let hasSwiftSubdirectory = try FileManager.default.contentsOfDirectory(
@@ -109,7 +122,7 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
             }
             XCTAssertTrue(
                 hasSwiftSubdirectory,
-                "Sources/\(target) must contain at least one responsibility subdirectory with Swift source."
+                "\(Self.relativePath(for: directory, root: root)) must contain at least one responsibility subdirectory with Swift source."
             )
         }
     }
@@ -130,14 +143,14 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
     }
 
     func testDedicatedVoxFlowTestTargetDirectoriesContainSwiftSource() throws {
-        let testRoot = try Self.repositoryRoot().appendingPathComponent("Tests", isDirectory: true)
+        let root = try Self.repositoryRoot()
 
         for target in requiredTestTargets {
-            let directory = testRoot.appendingPathComponent(target, isDirectory: true)
+            let directory = Self.testDirectory(for: target, root: root)
             var isDirectory: ObjCBool = false
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue,
-                "Tests/\(target) must exist."
+                "\(Self.relativePath(for: directory, root: root)) must exist."
             )
             guard isDirectory.boolValue else {
                 continue
@@ -145,8 +158,32 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
 
             let swiftFiles = try FileManager.default.contentsOfDirectory(atPath: directory.path)
                 .filter { $0.hasSuffix(".swift") }
-            XCTAssertFalse(swiftFiles.isEmpty, "Tests/\(target) must contain at least one Swift file.")
+            XCTAssertFalse(
+                swiftFiles.isEmpty,
+                "\(Self.relativePath(for: directory, root: root)) must contain at least one Swift file."
+            )
         }
+    }
+
+    private static func sourceDirectory(for target: String, root: URL) -> URL {
+        if target.hasPrefix("VoxFlowProvider") {
+            return root.appendingPathComponent("Sources/VoxFlowProviders/\(target)", isDirectory: true)
+        }
+        return root.appendingPathComponent("Sources/\(target)", isDirectory: true)
+    }
+
+    private static func testDirectory(for target: String, root: URL) -> URL {
+        if target.hasPrefix("VoxFlowProvider") {
+            return root.appendingPathComponent("Tests/VoxFlowProviders/\(target)", isDirectory: true)
+        }
+        return root.appendingPathComponent("Tests/\(target)", isDirectory: true)
+    }
+
+    private static func relativePath(for url: URL, root: URL) -> String {
+        let path = url.path
+        let rootPath = root.path + "/"
+        guard path.hasPrefix(rootPath) else { return path }
+        return String(path.dropFirst(rootPath.count))
     }
 
     private static func repositoryRoot() throws -> URL {

@@ -611,7 +611,7 @@ final class HomeDashboardViewModel: ObservableObject {
             targetAppBundleID: entry.targetAppBundleID,
             targetAppName: entry.targetAppName,
             processingWarningsJSON: warningsJSON(processingResult.warnings),
-            processingTraceJSON: traceJSON(processingResult.trace),
+            processingTraceJSON: traceJSON(processingResult.trace, diagnosticID: entry.id),
             createdAt: entry.createdAt,
             updatedAt: now,
             deletedAt: entry.deletedAt
@@ -626,9 +626,12 @@ final class HomeDashboardViewModel: ObservableObject {
         return String(data: data, encoding: .utf8)
     }
 
-    private func traceJSON(_ trace: TextProcessingTrace?) -> String? {
-        guard let trace,
-              let data = try? JSONEncoder().encode(trace) else {
+    private func traceJSON(_ trace: TextProcessingTrace?, diagnosticID: String) -> String? {
+        guard let trace else {
+            return nil
+        }
+        LLMDiagnosticCapture.shared.capture(taskID: diagnosticID, trace: trace)
+        guard let data = try? JSONEncoder().encode(trace.safeForPersistence()) else {
             return nil
         }
         return String(data: data, encoding: .utf8)
@@ -705,12 +708,7 @@ private extension HomeHistoryDetail {
     }
 
     var outputResultKind: OutputResultKind? {
-        guard let outputResultRaw,
-              let data = outputResultRaw.data(using: .utf8),
-              let outputResult = try? JSONDecoder().decode(OutputResult.self, from: data) else {
-            return nil
-        }
-        return outputResult.kind
+        OutputResultKind.decodePersisted(from: outputResultRaw)
     }
 
     init(entry: DictationHistoryEntry) {
@@ -797,6 +795,8 @@ private extension HomeHistoryDetail {
         guard let data = json?.data(using: .utf8) else {
             return nil
         }
-        return try? JSONDecoder().decode(TextProcessingTrace.self, from: data)
+        return try? JSONDecoder()
+            .decode(TextProcessingTrace.self, from: data)
+            .safeForPersistence()
     }
 }

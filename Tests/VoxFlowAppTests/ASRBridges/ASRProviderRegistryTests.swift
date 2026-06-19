@@ -26,7 +26,11 @@ final class ASRProviderRegistryTests: XCTestCase {
         super.setUp()
         defaults = UserDefaults(suiteName: "test.ASRProviderRegistry")!
         defaults.removePersistentDomain(forName: "test.ASRProviderRegistry")
-        manager = ASRManager(defaults: defaults)
+        manager = ASRManager(
+            defaults: defaults,
+            credentialStore: ASRProviderRegistryTestCredentialStore(),
+            qwen3RuntimePreflight: { _ in .supported }
+        )
         registry = ASRProviderRegistry(asrManager: manager)
     }
 
@@ -52,6 +56,93 @@ final class ASRProviderRegistryTests: XCTestCase {
         )
     }
 
+    func testBuiltInProviderCatalogOrderKeepsSystemQwenLocalThenOnlineProviders() {
+        let providerIDs = registry.descriptors().map(\.id)
+
+        XCTAssertEqual(providerIDs.first, ASRProviderID.appleSpeech)
+        XCTAssertEqual(providerIDs.dropFirst().first, ASRProviderID.qwen3)
+        XCTAssertEqual(
+            Array(providerIDs.prefix(9)),
+            [
+                ASRProviderID.appleSpeech,
+                ASRProviderID.qwen3,
+                ASRProviderID.funASR,
+                ASRProviderID.nvidiaNemotron,
+                ASRProviderID.parakeetStreaming,
+                ASRProviderID.omnilingualASR,
+                ASRProviderID.paraformer,
+                ASRProviderID.senseVoice,
+                ASRProviderID.whisper,
+            ]
+        )
+        XCTAssertEqual(
+            Array(providerIDs.suffix(7)),
+            [
+                ASRProviderID.groqWhisper,
+                ASRProviderID.tencentCloudASR,
+                ASRProviderID.qwenCloudASR,
+                ASRProviderID.volcengineDoubao,
+                ASRProviderID.mistralVoxtral,
+                ASRProviderID.assemblyAI,
+                ASRProviderID.elevenLabsScribe,
+            ]
+        )
+    }
+
+    func testOnlineCatalogUsesCurrentNamesOrderAndUnsupportedState() throws {
+        let groq = try XCTUnwrap(registry.descriptor(id: ASRProviderID.groqWhisper))
+        XCTAssertEqual(groq.displayName, "Groq（免费）")
+        XCTAssertEqual(groq.engineType, .groqWhisper)
+
+        let onlineProviders = registry.descriptors()
+            .filter { $0.tags.contains("在线") }
+        XCTAssertEqual(
+            onlineProviders.map(\.id),
+            [
+                ASRProviderID.groqWhisper,
+                ASRProviderID.tencentCloudASR,
+                ASRProviderID.qwenCloudASR,
+                ASRProviderID.volcengineDoubao,
+                ASRProviderID.mistralVoxtral,
+                ASRProviderID.assemblyAI,
+                ASRProviderID.elevenLabsScribe,
+            ]
+        )
+        XCTAssertEqual(registry.descriptor(id: ASRProviderID.qwenCloudASR)?.displayName, "阿里云")
+        XCTAssertEqual(registry.descriptor(id: ASRProviderID.volcengineDoubao)?.displayName, "火山云")
+
+        let tencent = try XCTUnwrap(registry.descriptor(id: ASRProviderID.tencentCloudASR))
+        XCTAssertFalse(tencent.isAvailable)
+        XCTAssertNil(tencent.engineType)
+        XCTAssertEqual(tencent.statusMessage, "需要配置 AppID、SecretId 和 SecretKey")
+
+        let aliyun = try XCTUnwrap(registry.descriptor(id: ASRProviderID.qwenCloudASR))
+        XCTAssertFalse(aliyun.isAvailable)
+        XCTAssertNil(aliyun.engineType)
+        XCTAssertEqual(aliyun.statusMessage, "需要配置百炼 API Key")
+
+        let unsupportedProviderIDs = [
+            ASRProviderID.volcengineDoubao,
+            ASRProviderID.mistralVoxtral,
+            ASRProviderID.assemblyAI,
+            ASRProviderID.elevenLabsScribe,
+        ]
+
+        for providerID in unsupportedProviderIDs {
+            let provider = try XCTUnwrap(registry.descriptor(id: providerID))
+
+            XCTAssertFalse(provider.isAvailable, "\(provider.displayName) must stay unavailable until runtime is implemented.")
+            XCTAssertNil(provider.engineType, "\(provider.displayName) must not expose a runtime engine before implementation.")
+            XCTAssertEqual(provider.statusMessage, "暂未支持")
+            XCTAssertThrowsError(try registry.selectDefaultProvider(id: providerID)) { error in
+                guard case .providerUnavailable(let providerName) = error as? ASRProviderRegistryError else {
+                    return XCTFail("Expected \(provider.displayName) unavailable error, got \(error)")
+                }
+                XCTAssertEqual(providerName, provider.displayName)
+            }
+        }
+    }
+
     func testFilteringByCapabilityAndTag() {
         let localProviders = registry.descriptors(
             matching: ASRProviderFilter(requiredCapabilities: [.local], tags: ["本地"])
@@ -60,7 +151,18 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertEqual(Set(localProviders.map(\.id)),
                        [ASRProviderID.funASR, ASRProviderID.whisper, ASRProviderID.qwen3,
                         ASRProviderID.senseVoice, ASRProviderID.paraformer,
-                        ASRProviderID.nvidiaNemotron])
+                        ASRProviderID.nvidiaNemotron, ASRProviderID.parakeetStreaming,
+                        ASRProviderID.omnilingualASR])
+    }
+
+    func testOfflineDescriptorsIncludeSystemProviderBeforeDownloadableLocalModels() {
+        let offlineProviders = registry.offlineDescriptors()
+
+        XCTAssertEqual(offlineProviders.first?.id, ASRProviderID.appleSpeech)
+        XCTAssertTrue(offlineProviders.contains { $0.id == ASRProviderID.appleSpeech })
+        XCTAssertTrue(offlineProviders.contains { $0.id == ASRProviderID.qwen3 })
+        XCTAssertTrue(offlineProviders.contains { $0.id == ASRProviderID.funASR })
+        XCTAssertFalse(offlineProviders.contains { $0.capabilities.contains(.cloud) })
     }
 
     func testFunASRAndSenseVoiceExposeOnlyChineseEnglishBasicLanguageTargets() throws {
@@ -106,18 +208,28 @@ final class ASRProviderRegistryTests: XCTestCase {
         }
     }
 
-    func testParaformerAndNVIDIANemotronAreFormalProvidersButUnavailableUntilReady() throws {
+    func testSpeechSwiftLocalProvidersAreFormalProvidersButUnavailableUntilReady() throws {
         let paraformer = try XCTUnwrap(registry.descriptor(id: ASRProviderID.paraformer))
         let nvidia = try XCTUnwrap(registry.descriptor(id: ASRProviderID.nvidiaNemotron))
+        let parakeet = try XCTUnwrap(registry.descriptor(id: ASRProviderID.parakeetStreaming))
+        let omnilingual = try XCTUnwrap(registry.descriptor(id: ASRProviderID.omnilingualASR))
 
         XCTAssertEqual(paraformer.displayName, "Paraformer Large zh")
         XCTAssertEqual(nvidia.displayName, "NVIDIA Nemotron ASR 0.6B")
+        XCTAssertEqual(parakeet.displayName, "Parakeet Streaming")
+        XCTAssertEqual(omnilingual.displayName, "Omnilingual ASR")
         XCTAssertTrue(paraformer.capabilities.contains(.streaming))
         XCTAssertTrue(nvidia.capabilities.contains(.streaming))
+        XCTAssertTrue(parakeet.capabilities.contains(.streaming))
+        XCTAssertFalse(omnilingual.capabilities.contains(.streaming))
         XCTAssertFalse(paraformer.isAvailable)
         XCTAssertFalse(nvidia.isAvailable)
+        XCTAssertFalse(parakeet.isAvailable)
+        XCTAssertFalse(omnilingual.isAvailable)
         XCTAssertEqual(paraformer.localModelAction, .download)
         XCTAssertEqual(nvidia.localModelAction, .download)
+        XCTAssertEqual(parakeet.localModelAction, .download)
+        XCTAssertEqual(omnilingual.localModelAction, .download)
     }
 
     func testDefaultProviderFallsBackToAppleWhenQwenModelIsMissing() throws {
@@ -135,13 +247,15 @@ final class ASRProviderRegistryTests: XCTestCase {
     func testDefaultProviderCanSelectAvailableQwenModel() throws {
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
         addTeardownBlock {
             try? FileManager.default.removeItem(at: modelURL)
         }
         manager = ASRManager(
             defaults: defaults,
-            modelInstallationRepository: makeInstallationRepository()
+            modelInstallationRepository: makeInstallationRepository(),
+            credentialStore: ASRProviderRegistryTestCredentialStore(),
+            qwen3RuntimePreflight: { _ in .supported }
         )
         registry = ASRProviderRegistry(asrManager: manager)
         manager.markQwen3ModelReady(at: modelURL.path, size: .size0_6B)
@@ -157,7 +271,11 @@ final class ASRProviderRegistryTests: XCTestCase {
 
     func testDefaultProviderCanSelectAvailableFunASRModel() throws {
         let repository = makeInstallationRepository()
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
         registry = ASRProviderRegistry(asrManager: manager)
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ASRProviderRegistryTests-\(UUID().uuidString)", isDirectory: true)
@@ -178,9 +296,13 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertTrue(descriptor.tags.contains("English"))
     }
 
-    func testFunASRProviderCatalogTrustsLifecycleStateButSelectionStillVerifiesFiles() throws {
+    func testFunASRProviderCatalogRejectsReadyStateWhenModelFilesAreIncomplete() throws {
         let repository = makeInstallationRepository()
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
         registry = ASRProviderRegistry(asrManager: manager)
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ASRProviderRegistryTests-\(UUID().uuidString)", isDirectory: true)
@@ -192,9 +314,10 @@ final class ASRProviderRegistryTests: XCTestCase {
 
         let descriptor = try XCTUnwrap(registry.descriptor(id: ASRProviderID.funASR))
 
-        XCTAssertTrue(descriptor.isAvailable)
-        XCTAssertEqual(descriptor.localModelAction, .delete)
-        XCTAssertEqual(descriptor.healthStatus, .ok)
+        XCTAssertFalse(descriptor.isAvailable)
+        XCTAssertEqual(descriptor.localModelAction, .repair)
+        XCTAssertEqual(descriptor.healthStatus, .repairRequired)
+        XCTAssertEqual(descriptor.statusMessage, "模型损坏，需要修复：模型文件不完整，请重新下载。")
         XCTAssertThrowsError(try registry.selectDefaultProvider(id: ASRProviderID.funASR)) { error in
             guard case .providerUnavailable("FunASR Nano") = error as? ASRProviderRegistryError else {
                 return XCTFail("Expected FunASR unavailable error, got \(error)")
@@ -202,9 +325,36 @@ final class ASRProviderRegistryTests: XCTestCase {
         }
     }
 
+    func testFunASRProviderCatalogRejectsReadyStateWhenModelDirectoryWasDeleted() throws {
+        let repository = makeInstallationRepository()
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
+        registry = ASRProviderRegistry(asrManager: manager)
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ASRProviderRegistryTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        manager.markFunASRModelReady(at: modelURL.path, precision: .int8)
+        try FileManager.default.removeItem(at: modelURL)
+
+        let descriptor = try XCTUnwrap(registry.descriptor(id: ASRProviderID.funASR))
+
+        XCTAssertFalse(descriptor.isAvailable)
+        XCTAssertEqual(descriptor.localModelAction, .download)
+        XCTAssertEqual(descriptor.healthStatus, .notInstalled)
+        XCTAssertEqual(descriptor.statusMessage, "尚未安装本地模型")
+        XCTAssertFalse(manager.canSelectEngine(.funASR))
+    }
+
     func testDefaultProviderCanSelectAvailableSenseVoiceModel() throws {
         let repository = makeInstallationRepository()
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
         registry = ASRProviderRegistry(asrManager: manager)
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ASRProviderRegistryTests-\(UUID().uuidString)", isDirectory: true)
@@ -265,7 +415,11 @@ final class ASRProviderRegistryTests: XCTestCase {
 
     func testQwenProviderShowsRepairWhenLifecycleStateIsCorrupt() throws {
         let repository = makeInstallationRepository()
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
         registry = ASRProviderRegistry(asrManager: manager)
         try saveQwenState(.corrupt(reason: "SHA 校验失败"), in: repository)
 
@@ -274,6 +428,29 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertFalse(qwenDescriptor.isAvailable)
         XCTAssertEqual(qwenDescriptor.localModelAction, .repair)
         XCTAssertEqual(qwenDescriptor.statusMessage, "模型损坏，需要修复：SHA 校验失败")
+        XCTAssertThrowsError(try registry.selectDefaultProvider(id: ASRProviderID.qwen3)) { error in
+            guard case .providerUnavailable("Qwen3-ASR") = error as? ASRProviderRegistryError else {
+                return XCTFail("Expected Qwen unavailable error, got \(error)")
+            }
+        }
+    }
+
+    func testQwenProviderShowsRepairWhenLifecycleStateFailed() throws {
+        let repository = makeInstallationRepository()
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
+        registry = ASRProviderRegistry(asrManager: manager)
+        try saveQwenState(.failed(message: "删除失败"), in: repository)
+
+        let qwenDescriptor = try XCTUnwrap(registry.descriptor(id: ASRProviderID.qwen3))
+
+        XCTAssertFalse(qwenDescriptor.isAvailable)
+        XCTAssertEqual(qwenDescriptor.localModelAction, .repair)
+        XCTAssertEqual(qwenDescriptor.healthStatus, .repairRequired)
+        XCTAssertEqual(qwenDescriptor.statusMessage, "模型准备失败：删除失败")
         XCTAssertThrowsError(try registry.selectDefaultProvider(id: ASRProviderID.qwen3)) { error in
             guard case .providerUnavailable("Qwen3-ASR") = error as? ASRProviderRegistryError else {
                 return XCTFail("Expected Qwen unavailable error, got \(error)")
@@ -328,8 +505,11 @@ final class ASRProviderRegistryTests: XCTestCase {
     }
 
     func testProviderCatalogDoesNotRunQwenRuntimePreflightDuringPresentation() throws {
-        let source = try String(contentsOf: Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/ASRBridges/ASRProviderRegistry.swift"))
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/ASRBridges/ASRProviderRegistry.swift"),
+            encoding: .utf8
+        )
 
         XCTAssertFalse(source.contains("ASRManager.isQwen3RuntimeSupported(size: size)"))
         XCTAssertFalse(source.contains("ASRManager.qwen3RuntimeUnsupportedMessage(for: size)"))
@@ -353,7 +533,11 @@ final class ASRProviderRegistryTests: XCTestCase {
 
     func testDefaultProviderCanSelectAvailableWhisperLargeV3Model() throws {
         let repository = makeInstallationRepository()
-        manager = ASRManager(defaults: defaults, modelInstallationRepository: repository)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            credentialStore: ASRProviderRegistryTestCredentialStore()
+        )
         registry = ASRProviderRegistry(asrManager: manager)
         manager.whisperVariant = .largeV3
         let modelURL = FileManager.default.temporaryDirectory
@@ -383,7 +567,6 @@ final class ASRProviderRegistryTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
-        try createValidEmbeddingFile(at: modelURL.appendingPathComponent("qwen3_asr_embeddings.bin"))
     }
 
     private func createLoadableFunASRModelDirectory(
@@ -448,15 +631,10 @@ final class ASRProviderRegistryTests: XCTestCase {
         try repository.save(state, for: key)
     }
 
-    private func createValidEmbeddingFile(at url: URL) throws {
-        var header = Data()
-        var vocabSize = UInt32(151_936).littleEndian
-        var hiddenSize = UInt32(1_024).littleEndian
-        withUnsafeBytes(of: &vocabSize) { header.append(contentsOf: $0) }
-        withUnsafeBytes(of: &hiddenSize) { header.append(contentsOf: $0) }
-        try header.write(to: url)
-        let handle = try FileHandle(forWritingTo: url)
-        try handle.truncate(atOffset: 8 + UInt64(151_936) * 1_024 * 2)
-        try handle.close()
-    }
+}
+
+private final class ASRProviderRegistryTestCredentialStore: CredentialStore {
+    func readCredential(account: String) throws -> String? { nil }
+    func saveCredential(_ value: String, account: String) throws {}
+    func deleteCredential(account: String) throws {}
 }

@@ -10,8 +10,6 @@ struct SettingsRootView: View {
     @State private var importedJSON = ""
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
 
-    private static let topPreferenceCardWidth: CGFloat = 506
-
     var body: some View {
         HStack(spacing: 0) {
             settingsSidebar
@@ -69,7 +67,8 @@ struct SettingsRootView: View {
                 .padding(.bottom, 4)
 
             settingsSidebarButton(.general)
-            settingsSidebarButton(.models)
+            settingsSidebarButton(.dictationModels)
+            settingsSidebarButton(.correctionModels)
             settingsSidebarButton(.system)
 
             Text("数据与隐私")
@@ -96,8 +95,10 @@ struct SettingsRootView: View {
         switch viewModel.selectedSection {
         case .general:
             generalSection
-        case .models:
-            modelsSection
+        case .dictationModels:
+            dictationModelsSection
+        case .correctionModels:
+            correctionModelsSection
         case .system:
             systemSection
         case .dataPrivacy:
@@ -105,37 +106,39 @@ struct SettingsRootView: View {
         }
     }
 
-    private var modelsSection: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            SettingsGroupCard(
-                title: "OpenAI 兼容模型",
-                subtitle: "配置用于文本修正的全局模型",
-                systemImage: "network",
-                tint: .blue
-            ) {
-                SettingsToggleRow(
-                    title: "启用 LLM 纠错",
-                    subtitle: "听写完成后使用默认 OpenAI 兼容模型润色文本",
-                    systemImage: "sparkles",
-                    tint: .blue,
-                    isOn: $llmCorrectionEnabled
-                )
-                LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
-            }
-            SettingsGroupCard(
-                title: "听写模型",
-                subtitle: "选择语音识别方式和本地模型大小",
-                systemImage: "waveform",
-                tint: AppTheme.ColorToken.accent
-            ) {
-                ASRProviderView(viewModel: asrProviderViewModel, embedded: true)
-            }
+    private var dictationModelsSection: some View {
+        SettingsGroupCard(
+            title: "听写模型",
+            subtitle: "选择语音识别方式和本地模型大小",
+            systemImage: "waveform",
+            tint: AppTheme.ColorToken.accent
+        ) {
+            ASRProviderView(viewModel: asrProviderViewModel, embedded: true)
+        }
+    }
+
+    private var correctionModelsSection: some View {
+        SettingsGroupCard(
+            title: "OpenAI 兼容模型",
+            subtitle: "配置用于文本修正的全局模型",
+            systemImage: "sparkles",
+            tint: .blue
+        ) {
+            SettingsToggleRow(
+                title: "启用 LLM 纠错",
+                subtitle: "听写完成后使用默认 OpenAI 兼容模型润色文本",
+                systemImage: "sparkles",
+                tint: .blue,
+                isOn: $llmCorrectionEnabled
+            )
+            LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
         }
     }
 
     private var generalSection: some View {
         VStack(alignment: .leading, spacing: 22) {
-            topPreferenceCards
+            inputLanguageCard
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             SettingsGroupCard(
                 title: "快捷键",
@@ -189,109 +192,92 @@ struct SettingsRootView: View {
         }
     }
 
-    private var topPreferenceCards: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 22) {
-                topPreferenceCard(inputDeviceCard)
-                topPreferenceCard(recognitionLanguageCard)
-            }
-
-            VStack(alignment: .leading, spacing: 22) {
-                topPreferenceCard(inputDeviceCard)
-                topPreferenceCard(recognitionLanguageCard)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func topPreferenceCard<Content: View>(_ content: Content) -> some View {
-        content.frame(width: Self.topPreferenceCardWidth, alignment: .topLeading)
-    }
-
-    private var inputDeviceCard: some View {
+    private var inputLanguageCard: some View {
         SettingsGroupCard(
-            title: "输入设备",
-            subtitle: "选择用于语音输入的麦克风",
+            title: "输入与语言",
+            subtitle: "选择麦克风和默认识别语言",
             systemImage: "mic",
             tint: .orange
         ) {
-            Menu {
-                ForEach(viewModel.inputDevices, id: \.id) { device in
-                    Button {
-                        perform { try viewModel.selectInputDevice(id: device.id) }
-                    } label: {
-                        if device.id == viewModel.selectedInputDeviceID {
-                            Label(device.name, systemImage: "checkmark")
-                        } else {
-                            Text(device.name)
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 14) {
-                    SettingsRowIcon(systemImage: "mic", tint: .orange)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(selectedInputDeviceName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(selectedInputDeviceName)
-                        Text("点击更换输入设备")
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-                .settingsRow()
-                .contentShape(Rectangle())
+            HStack(alignment: .top, spacing: 12) {
+                inputDeviceRow
+                recognitionLanguageRow
             }
-            .menuStyle(.borderlessButton)
         }
     }
 
-    private var recognitionLanguageCard: some View {
-        SettingsGroupCard(
-            title: "识别语言",
-            subtitle: "选择听写和文件转写默认使用的语言",
-            systemImage: "globe.asia.australia",
-            tint: .teal
-        ) {
-            Menu {
-                ForEach(viewModel.recognitionLanguages, id: \.rawValue) { language in
-                    Button {
-                        perform { try viewModel.setRecognitionLanguage(language) }
-                    } label: {
-                        if language == viewModel.selectedRecognitionLanguage {
-                            Label(language.displayName, systemImage: "checkmark")
-                        } else {
-                            Text(language.displayName)
-                        }
+    private var inputDeviceRow: some View {
+        Menu {
+            ForEach(viewModel.inputDevices, id: \.id) { device in
+                Button {
+                    perform { try viewModel.selectInputDevice(id: device.id) }
+                } label: {
+                    if device.id == viewModel.selectedInputDeviceID {
+                        Label(device.name, systemImage: "checkmark")
+                    } else {
+                        Text(device.name)
                     }
                 }
-            } label: {
-                HStack(spacing: 14) {
-                    SettingsRowIcon(systemImage: "globe.asia.australia", tint: .teal)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(selectedRecognitionLanguageName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            .lineLimit(1)
-                        Text("与菜单栏语言选择保持同步")
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-                .settingsRow()
-                .contentShape(Rectangle())
             }
-            .menuStyle(.borderlessButton)
+        } label: {
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: "mic", tint: .orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("输入设备")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(selectedInputDeviceName)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(selectedInputDeviceName)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            .settingsRow()
+            .contentShape(Rectangle())
         }
+        .menuStyle(.borderlessButton)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var recognitionLanguageRow: some View {
+        Menu {
+            ForEach(viewModel.recognitionLanguages, id: \.rawValue) { language in
+                Button {
+                    perform { try viewModel.setRecognitionLanguage(language) }
+                } label: {
+                    if language == viewModel.selectedRecognitionLanguage {
+                        Label(language.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(language.displayName)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: "globe.asia.australia", tint: .teal)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("识别语言")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(selectedRecognitionLanguageName)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            .settingsRow()
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var systemSection: some View {
@@ -437,6 +423,23 @@ struct SettingsRootView: View {
                     isOn: analyticsBinding
                 )
                 systemToggle(.crashLogs, "崩溃日志", "仅在本地保存崩溃信息和堆栈，用于排查问题", "ladybug", tint: .purple)
+                systemToggle(
+                    .llmTraceDiagnostics,
+                    "LLM 诊断采集",
+                    "默认关闭；开启后单独保存原始调用内容，保留 7 天且最多 100 份",
+                    "doc.text.magnifyingglass",
+                    tint: .orange
+                )
+                Button("立即删除 LLM 诊断内容", role: .destructive) {
+                    viewModel.clearLLMTraceDiagnostics()
+                }
+                .buttonStyle(.bordered)
+
+                Text("LLM 诊断文件不会写入主数据库或自动上传。关闭诊断采集会立即删除全部诊断文件。")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .settingsRow()
             }
 
             SettingsGroupCard(
@@ -445,7 +448,33 @@ struct SettingsRootView: View {
                 systemImage: "externaldrive",
                 tint: .orange
             ) {
+                HStack(spacing: 14) {
+                    SettingsRowIcon(
+                        systemImage: viewModel.storageStatus.isHealthy ? "internaldrive" : "exclamationmark.triangle",
+                        tint: viewModel.storageStatus.isHealthy ? .green : .orange
+                    )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(viewModel.storageStatus.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        Text(viewModel.storageStatus.message)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Text(viewModel.storageStatus.badgeText)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
+                        .clipShape(Capsule())
+                }
+                .settingsRow()
+
                 HStack(spacing: 10) {
+                    Button("打开数据目录") { viewModel.openApplicationSupportFolder() }
                     Button("导出数据") { perform { _ = try viewModel.exportDataJSON() } }
                     Button("清空历史", role: .destructive) { perform { try viewModel.clearHistory() } }
                     Button("清空缓存", role: .destructive) { perform { try viewModel.clearCache() } }
@@ -916,7 +945,7 @@ private struct SettingsRowIcon: View {
     }
 }
 
-private extension View {
+extension View {
     func settingsRow() -> some View {
         padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -933,7 +962,8 @@ private extension SettingsSection {
     var pageTitle: String {
         switch self {
         case .general: return "通用"
-        case .models: return "模型"
+        case .dictationModels: return "听写模型"
+        case .correctionModels: return "纠错模型"
         case .system: return "系统设置"
         case .dataPrivacy: return "数据与隐私"
         }

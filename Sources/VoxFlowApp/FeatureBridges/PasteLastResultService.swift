@@ -61,15 +61,25 @@ final class PasteLastResultService {
     }
 
     func paste() async -> PasteLastResultOutcome {
-        if isImageOCREnabled(), let image = clipboardImageProvider.currentImage() {
-            return await pasteOCRText(from: image)
-        }
+        await pasteLastResult()
+    }
 
+    func pasteLastResult() async -> PasteLastResultOutcome {
         guard let text = lastResultStore.lastResultText?.trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
             return .noTextAvailable
         }
         return await pasteText(text, success: .pastedLastResult, shouldRemember: false)
+    }
+
+    func pasteClipboardImageOCR() async -> PasteLastResultOutcome {
+        guard isImageOCREnabled() else {
+            return .ocrFailed("剪贴板图片 OCR 未启用")
+        }
+        guard let image = clipboardImageProvider.currentImage() else {
+            return .ocrFailed("剪贴板里没有可识别的图片")
+        }
+        return await pasteOCRText(from: image)
     }
 
     private func pasteOCRText(from image: CGImage) async -> PasteLastResultOutcome {

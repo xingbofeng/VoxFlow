@@ -12,6 +12,7 @@
 - **PromptBuilder**: The pure builder that combines conservative correction rules, selected style guidance, and enabled glossary terms into an LLM system prompt.
 - **App style rule**: A Settings-backed mapping from target app bundle/name to a style profile used during post-ASR refinement.
 - **ASR Provider**: A descriptor and runtime entry for a speech recognition backend, including capabilities, privacy summary, availability, and fallback behavior.
+- **Provider target**: A SwiftPM target that owns one ASR backend implementation. Provider targets live under the `Sources/VoxFlowProviders/` directory, but they remain separate targets rather than one large provider module.
 - **Capability tag**: A user-facing and filterable ASR Provider label such as local, streaming, cloud, multilingual, or punctuation.
 - **Injection**: Temporarily placing text on the pasteboard and posting Command-V to the focused application.
 - **HUD**: The bottom-centered non-activating capsule shown during recording and refinement.
@@ -71,6 +72,7 @@
 | `KnownApplicationRegistry` | Static versioned Bundle ID to style ID mapping, registry lookup and hit/miss reporting | LLM requests, user rule management |
 | `ApplicationStyleRecommendationService` | Merges registry hits and LLM classifications into preview-only recommendations; writes rules only on user confirmation | Direct rule persistence, prompt construction |
 | `ContextPipeline` | Parallel context collection (Accessibility text, window metadata, optional visual fallback), deduplication, trimming, timeout enforcement | ASR lifecycle, text injection |
+| `Sources/VoxFlowProviders/VoxFlowProvider*` | Individual ASR provider runtime, descriptor, manifest/client, and provider-specific tests | AppKit UI, settings view layout, unrelated provider implementations |
 
 ## Architecture Decisions
 

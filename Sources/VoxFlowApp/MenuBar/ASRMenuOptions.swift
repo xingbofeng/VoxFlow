@@ -27,6 +27,9 @@ enum ASRMenuOptions {
     static func makeOptions() -> [ASRMenuModel] {
         [
             ASRMenuModel(engineType: .apple, title: "系统自带"),
+            ASRMenuModel(engineType: .groqWhisper, title: "Groq"),
+            ASRMenuModel(engineType: .tencentCloud, title: "腾讯云"),
+            ASRMenuModel(engineType: .aliyunDashScope, title: "阿里云"),
             ASRMenuModel(engineType: .funASR, funASRPrecision: .int8, title: "FunASR Nano INT8"),
             ASRMenuModel(engineType: .funASR, funASRPrecision: .fp32, title: "FunASR Nano FP32"),
             ASRMenuModel(engineType: .whisper, whisperVariant: .turbo, title: "Whisper Turbo"),
@@ -36,6 +39,8 @@ enum ASRMenuOptions {
             ASRMenuModel(engineType: .senseVoice, title: "SenseVoice Small"),
             ASRMenuModel(engineType: .paraformer, title: "Paraformer Large zh"),
             ASRMenuModel(engineType: .nvidiaNemotron, title: "NVIDIA Nemotron ASR 0.6B"),
+            ASRMenuModel(engineType: .parakeetStreaming, title: "Parakeet Streaming"),
+            ASRMenuModel(engineType: .omnilingualASR, title: "Omnilingual ASR"),
         ]
     }
 }

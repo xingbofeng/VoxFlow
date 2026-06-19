@@ -60,6 +60,7 @@ public final class FastPasteTextInserter: TextInserting {
             if switchedInputSource, let savedSource = savedInputSource {
                 restoreInputSource(savedSource)
             }
+            pasteboardTransaction.restoreOriginalIfUnchanged(on: pasteboard)
             return .eventCreationFailed
         }
         vDown.flags = .maskCommand

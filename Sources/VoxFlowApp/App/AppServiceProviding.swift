@@ -4,6 +4,7 @@ import Foundation
 protocol AppServiceProviding {
     var clock: any AppClock { get }
     var paths: ApplicationSupportPaths? { get }
+    var storageHealth: StorageHealthState { get }
     var databaseQueue: DatabaseQueue { get }
     var credentialStore: CredentialStore { get }
     var historyRepository: any HistoryRepository { get }

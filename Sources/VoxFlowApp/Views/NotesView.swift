@@ -8,15 +8,19 @@ struct NotesView: View {
     @State private var editorSelection = NSRange(location: 0, length: 0)
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 48) {
-                quickCapture
-                recentNotes
+        ZStack {
+            ScrollView {
+                VStack(spacing: 48) {
+                    quickCapture
+                    recentNotes
+                }
+                .padding(.horizontal, 42)
+                .padding(.vertical, 36)
+                .frame(maxWidth: 980)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 42)
-            .padding(.vertical, 36)
-            .frame(maxWidth: 980)
-            .frame(maxWidth: .infinity)
+
+            notePreviewOverlay
         }
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
@@ -40,6 +44,20 @@ struct NotesView: View {
         }
         .onChange(of: viewModel.recordingState) { _, state in
             NotesCaptureCoordinator.shared.isRecording = state == .recording
+        }
+    }
+
+    @ViewBuilder
+    private var notePreviewOverlay: some View {
+        if let note = viewModel.previewedNote {
+            Color.black.opacity(0.24)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    viewModel.dismissPreview()
+                }
+
+            NoteMarkdownPreviewModal(note: note, onClose: viewModel.dismissPreview)
+                .onTapGesture {}
         }
     }
 
@@ -225,7 +243,7 @@ struct NotesView: View {
         .shadow(color: AppTheme.ColorToken.accent.opacity(0.03), radius: 5, y: 2)
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.selectNote(id: note.id)
+            viewModel.previewNote(id: note.id)
         }
     }
 
@@ -322,6 +340,60 @@ struct NotesView: View {
             viewModel.finishRecording()
             coordinator.isRecording = false
         }
+    }
+}
+
+private struct NoteMarkdownPreviewModal: View {
+    let note: NoteRecord
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(note.title)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(note.updatedAt.formatted(.dateTime.year().month().day().hour().minute()))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+
+                Spacer()
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("关闭预览")
+            }
+
+            Divider()
+
+            ScrollView {
+                Text(markdownText)
+                    .font(.system(size: 15))
+                    .lineSpacing(6)
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.vertical, 4)
+            }
+        }
+        .padding(28)
+        .frame(width: 720, height: 560)
+        .background(AppTheme.ColorToken.panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 28, y: 14)
+    }
+
+    private var markdownText: AttributedString {
+        (try? AttributedString(markdown: note.bodyMarkdown)) ?? AttributedString(note.bodyMarkdown)
     }
 }
 

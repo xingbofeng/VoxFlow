@@ -47,6 +47,92 @@ final class NotesRecordingServiceTests: XCTestCase {
         XCTAssertEqual(engine.configuredLocaleIdentifiers, ["ja-JP"])
         XCTAssertEqual(recorder.startCallCount, 1)
     }
+
+    func testFinishFallsBackToLatestPartialWhenFinalTimesOut() async throws {
+        let engine = CapturingNotesASREngine()
+        let recorder = NotesAudioRecorderSpy()
+        let clock = ImmediateNotesClock()
+        let service = NotesRecordingService(
+            recorder: recorder,
+            audioBufferForwarder: NotesAudioFrameForwarderSpy(),
+            currentLanguage: { .english },
+            selectedEngineType: { .apple },
+            makeEngine: { _ in engine },
+            microphonePermission: { true },
+            speechRecognitionPermission: { true },
+            clock: clock,
+            finalTimeoutNanoseconds: 1
+        )
+        var events: [(String, Bool)] = []
+        service.onTranscription = { text, isFinal in
+            events.append((text, isFinal))
+        }
+
+        try await service.start()
+        engine.emit(text: "partial result", isFinal: false)
+        service.finish()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(events.map(\.0), ["partial result", "partial result"])
+        XCTAssertEqual(events.map(\.1), [false, true])
+        XCTAssertEqual(recorder.stopCallCount, 1)
+        XCTAssertEqual(recorder.drainCallCount, 1)
+    }
+
+    func testRecognitionErrorAfterFinishFallsBackToLatestPartial() async throws {
+        let engine = CapturingNotesASREngine()
+        let recorder = NotesAudioRecorderSpy()
+        let service = NotesRecordingService(
+            recorder: recorder,
+            audioBufferForwarder: NotesAudioFrameForwarderSpy(),
+            currentLanguage: { .english },
+            selectedEngineType: { .apple },
+            makeEngine: { _ in engine },
+            microphonePermission: { true },
+            speechRecognitionPermission: { true }
+        )
+        var transcriptions: [(String, Bool)] = []
+        var errors: [String] = []
+        service.onTranscription = { text, isFinal in
+            transcriptions.append((text, isFinal))
+        }
+        service.onError = { error in
+            errors.append(error.localizedDescription)
+        }
+
+        try await service.start()
+        engine.emit(text: "latest partial", isFinal: false)
+        service.finish()
+        engine.fail(NotesRecordingServiceTestError.expected)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(transcriptions.map(\.0), ["latest partial", "latest partial"])
+        XCTAssertEqual(transcriptions.map(\.1), [false, true])
+        XCTAssertTrue(errors.isEmpty)
+    }
+
+    func testTencentCloudFinishUsesInteractiveTimeoutInsteadOfColdLocalModelTimeout() async throws {
+        let engine = CapturingNotesASREngine()
+        let clock = CapturingNotesClock()
+        let service = NotesRecordingService(
+            recorder: NotesAudioRecorderSpy(),
+            audioBufferForwarder: NotesAudioFrameForwarderSpy(),
+            currentLanguage: { .simplifiedChinese },
+            selectedEngineType: { .tencentCloud },
+            makeEngine: { _ in engine },
+            microphonePermission: { true },
+            speechRecognitionPermission: { true },
+            clock: clock,
+            finalTimeoutNanoseconds: 1
+        )
+
+        try await service.start()
+        engine.emit(text: "云端 partial", isFinal: false)
+        service.finish()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(clock.sleepDurations, [1])
+    }
 }
 
 @MainActor
@@ -97,4 +183,40 @@ private final class CapturingNotesASREngine: ASREngine {
     func endAudio() {}
     func stop() {}
     func cancel() {}
+
+    func emit(text: String, isFinal: Bool) {
+        onTranscription?(text, isFinal)
+    }
+
+    func fail(_ error: Error) {
+        onError?(error)
+    }
+}
+
+private struct NotesRecordingServiceTestError: LocalizedError {
+    static let expected = NotesRecordingServiceTestError()
+
+    var errorDescription: String? {
+        "expected"
+    }
+}
+
+private final class ImmediateNotesClock: AppClock, @unchecked Sendable {
+    var now: Date = Date()
+
+    func sleep(nanoseconds: UInt64) async throws {}
+}
+
+private final class CapturingNotesClock: AppClock, @unchecked Sendable {
+    var now: Date = Date()
+    private(set) var sleepDurations: [UInt64] = []
+
+    func sleep(nanoseconds: UInt64) async throws {
+        sleepDurations.append(nanoseconds)
+    }
+}
+
+private func drainMainActorTasks() async {
+    await Task.yield()
+    await Task.yield()
 }

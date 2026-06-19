@@ -3,33 +3,109 @@ import XCTest
 @testable import VoxFlowApp
 
 final class PasteLastResultHotKeyTests: XCTestCase {
-    func testCommandShiftVMatchesPasteLastResultShortcut() {
+    func testCommandShiftVMatchesClipboardImageOCRShortcutOnly() {
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x09,
+                flags: [.maskCommand, .maskShift]
+            ),
+            .clipboardImageOCR
+        )
         XCTAssertTrue(
-            PasteLastResultShortcut.matches(
+            ClipboardImageOCRShortcut.matches(
                 keyCode: 0x09,
                 flags: [.maskCommand, .maskShift]
             )
         )
     }
 
-    func testShortcutIgnoresPlainVCommandVAndControlShiftV() {
-        XCTAssertFalse(
-            PasteLastResultShortcut.matches(
-                keyCode: 0x09,
-                flags: []
-            )
-        )
-        XCTAssertFalse(
-            PasteLastResultShortcut.matches(
-                keyCode: 0x09,
-                flags: [.maskCommand]
-            )
-        )
-        XCTAssertFalse(
-            PasteLastResultShortcut.matches(
+    func testShortcutIgnoresPlainVAndCommandV() {
+        XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: []))
+        XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: [.maskCommand]))
+    }
+
+    func testControlShiftVPassesThrough() {
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
                 keyCode: 0x09,
                 flags: [.maskControl, .maskShift]
             )
+        )
+        XCTAssertFalse(
+            ClipboardImageOCRShortcut.matches(
+                keyCode: 0x09,
+                flags: [.maskControl, .maskShift]
+            )
+        )
+    }
+
+    func testShortcutRoutingRejectsAmbiguousModifierMixes() {
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x09,
+                flags: [.maskCommand, .maskShift, .maskControl]
+            )
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x09,
+                flags: [.maskShift]
+            )
+        )
+    }
+
+    func testPlainEscapeRoutesToCancelShortcutOnly() {
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 53,
+                flags: []
+            ),
+            .cancel
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 53,
+                flags: [.maskCommand]
+            )
+        )
+    }
+
+    func testHotKeyRouterSeparatesVoiceActionsFromWorkflowShortcuts() {
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 54,
+                flags: [.maskCommand],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61
+            ),
+            .voiceAction(.dictation)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x09,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61
+            ),
+            .workflowShortcut(.clipboardImageOCR)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x09,
+                flags: [.maskControl, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61
+            ),
+            .passThrough
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x09,
+                flags: [.maskCommand],
+                dictationKeyCode: 0x09,
+                agentComposeKeyCode: 61
+            ),
+            .passThrough
         )
     }
 }

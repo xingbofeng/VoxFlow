@@ -46,7 +46,7 @@ jobs:
       - name: Verify bundle and DMG
         run: |
           codesign --verify --deep --strict .build/VoxFlow.app
-          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64 x86_64
+          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
           test -f .build/VoxFlow.app/Contents/Resources/AppIcon.icns
           test -f dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
           shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256

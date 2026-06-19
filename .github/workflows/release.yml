@@ -18,6 +18,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Prepare sherpa-onnx runtime
+        run: ./scripts/bootstrap-sherpa-onnx.sh
+
       - name: Run tests
         run: swift test
 
@@ -33,7 +36,7 @@ jobs:
       - name: Verify release assets
         run: |
           codesign --verify --deep --strict .build/VoxFlow.app
-          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64 x86_64
+          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
           shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
       - name: Publish GitHub Release

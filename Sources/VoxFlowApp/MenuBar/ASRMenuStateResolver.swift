@@ -12,7 +12,7 @@ final class ASRMenuStateResolver {
 
     init(
         asrManager: ASRManager,
-        qwenAvailableOnDisk: @escaping QwenAvailability,
+        qwenAvailableOnDisk: @escaping QwenAvailability = { _ in false },
         funASRAvailable: @escaping FunASRAvailability = { _ in false },
         whisperAvailable: @escaping WhisperAvailability = { _ in false }
     ) {
@@ -40,7 +40,7 @@ final class ASRMenuStateResolver {
 
     func isEnabled(_ option: ASRMenuModel) -> Bool {
         if option.engineType == .qwen3, let size = option.modelSize {
-            guard ASRManager.isQwen3RuntimeSupported(size: size) else {
+            guard asrManager.isQwen3RuntimeSupported(size: size) else {
                 return false
             }
             return qwenAvailableOnDisk(size)
@@ -58,16 +58,43 @@ final class ASRMenuStateResolver {
     }
 
     func isSelected(_ option: ASRMenuModel) -> Bool {
+        let selectedEngineType = effectiveSelectedEngineTypeForMenu()
         if option.engineType == .qwen3, let size = option.modelSize {
-            return asrManager.selectedEngineType == .qwen3 && asrManager.qwen3ModelSize == size
+            return selectedEngineType == .qwen3 && asrManager.qwen3ModelSize == size
         }
         if option.engineType == .funASR, let precision = option.funASRPrecision {
-            return asrManager.selectedEngineType == .funASR && asrManager.funASRPrecision == precision
+            return selectedEngineType == .funASR && asrManager.funASRPrecision == precision
         }
         if option.engineType == .whisper, let variant = option.whisperVariant {
-            return asrManager.selectedEngineType == .whisper && asrManager.whisperVariant == variant
+            return selectedEngineType == .whisper && asrManager.whisperVariant == variant
         }
-        return asrManager.effectiveSelectedEngineType == option.engineType
+        return selectedEngineType == option.engineType
+    }
+
+    private func effectiveSelectedEngineTypeForMenu() -> ASREngineType {
+        let selectedEngineType = asrManager.selectedEngineType
+        guard isCurrentSelectionAvailableForMenu() else {
+            return .apple
+        }
+        return selectedEngineType
+    }
+
+    private func isCurrentSelectionAvailableForMenu() -> Bool {
+        switch asrManager.selectedEngineType {
+        case .apple:
+            return true
+        case .qwen3:
+            let size = asrManager.qwen3ModelSize
+            return asrManager.isQwen3RuntimeSupported(size: size) && qwenAvailableOnDisk(size)
+        case .funASR:
+            return funASRAvailable(asrManager.funASRPrecision)
+        case .whisper:
+            let variant = asrManager.whisperVariant
+            return ASRManager.isWhisperRuntimeSupported(variant: variant) && whisperAvailable(variant)
+        case .senseVoice, .paraformer, .nvidiaNemotron, .parakeetStreaming, .omnilingualASR,
+             .groqWhisper, .tencentCloud, .aliyunDashScope:
+            return asrManager.canSelectEngine(asrManager.selectedEngineType)
+        }
     }
 
     @discardableResult

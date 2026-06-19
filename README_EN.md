@@ -9,7 +9,7 @@
   <p><sub><a href="README.md">中文</a></sub></p>
 
   <p>
-    <img src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
+    <img src="https://img.shields.io/badge/macOS-15%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 15+">
     <a href="https://github.com/xingbofeng/VoxFlow/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoxFlow?style=flat-square&label=release" alt="Latest release"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-open%20source-10B981?style=flat-square" alt="License"></a>
   </p>
@@ -58,7 +58,34 @@ There is no need to switch apps or manually copy text back.
 
 While you speak, VoxFlow shows recognized text in real time so you can stay oriented. It works for short commands, long explanations, Chinese, English, and mixed Chinese-English speech.
 
-VoxFlow includes the system speech recognizer and also supports local ASR providers. The system model works out of the box; local Qwen3-ASR, Whisper, FunASR, and SenseVoice routes are being consolidated under a unified provider architecture for offline and privacy-focused workflows. The Models page now labels streaming capability explicitly; providers that do not currently support real-time streaming, such as Whisper, SenseVoice, and Groq Whisper, are marked as **Non-streaming** and return their final result after recording finishes.
+VoxFlow includes the system speech recognizer plus local and cloud ASR providers. Apple Speech works out of the box; Qwen3-ASR, Whisper, FunASR, SenseVoice, NVIDIA Nemotron, Parakeet, and Omnilingual cover local workflows, while Groq, Tencent Cloud, and Alibaba Cloud provide online recognition. The Models page labels local versus online, streaming capability, and language coverage explicitly.
+
+### Supported Speech Models
+
+VoxFlow does not force every local model into the same runtime. Each provider follows the route that best matches its upstream model format and latency target:
+
+| Provider / Model | Current Runtime Route | Recommended Use |
+| --- | --- | --- |
+| Apple Speech | Apple Speech / SFSpeechRecognizer | Out-of-the-box dictation without downloading a model |
+| Qwen3-ASR 0.6B | speech-swift Qwen3ASR MLX 4bit | Default local route using the unified speech-swift runtime |
+| Qwen3-ASR 1.7B | speech-swift Qwen3ASR MLX 8bit | Higher-accuracy local route sharing the same speech-swift loading and session path as 0.6B |
+| Whisper Turbo / Large V3 | WhisperKit `.mlmodelc` | High-quality full-recording transcription after capture ends |
+| FunASR | Sherpa-ONNX | Local Chinese fallback path; not CoreML |
+| SenseVoice | FluidAudio / CoreML | Local multilingual and short-utterance transcription |
+| Paraformer | FluidAudio / CoreML int8 | Local Chinese transcription |
+| NVIDIA Nemotron 0.6B | speech-swift NemotronStreamingASR / CoreML | Local multilingual streaming transcription |
+| Parakeet Streaming | speech-swift ParakeetStreamingASR / CoreML | Low-latency local streaming dictation for English and European languages |
+| Omnilingual ASR | speech-swift OmnilingualASR / CoreML | Broad-language offline transcription and experimental workflows |
+
+Cloud providers send recorded audio to the selected service. Groq returns a final transcript after recording; Tencent Cloud and Alibaba Cloud support real-time WebSocket transcription.
+
+| Cloud Provider | Status | Streaming | Default Model / API | Configuration |
+| --- | --- | --- | --- | --- |
+| Groq (Free) | Supported | No | `whisper-large-v3-turbo` audio transcription | API Key, model |
+| Tencent Cloud | Supported | Yes | Realtime Speech Recognition WebSocket, `16k_zh` | AppID, SecretId, SecretKey |
+| Alibaba Cloud | Supported | Yes | DashScope WebSocket, `fun-asr-realtime` | Bailian API Key |
+| Volcengine Cloud | Planned | Planned | Doubao streaming ASR | To be determined |
+| Mistral Voxtral, AssemblyAI, ElevenLabs Scribe | Not yet supported | To be determined | Reserved providers | None |
 
 ### Optional LLM Correction
 
@@ -84,11 +111,12 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 - **Global dictation**: Works in any editable text field, not only inside VoxFlow.
 - **Non-intrusive overlay**: Shows live text and voice activity without taking focus.
-- **Multiple ASR providers**: Start with the built-in system recognizer; local Qwen3-ASR, Whisper, FunASR, and SenseVoice providers are being unified under the same runtime model; providers without real-time streaming are marked as **Non-streaming** in Models.
+- **Multiple ASR providers**: Start with the built-in system recognizer; local Qwen3-ASR, Whisper, FunASR, SenseVoice, NVIDIA Nemotron, Parakeet, and Omnilingual providers are being unified under the same runtime model; providers without real-time streaming are marked as **Non-streaming** in Models.
 - **Stable text insertion**: Temporarily switches input source before paste, then restores both input source and clipboard to reduce CJK input-method interference.
 - **Input device selection**: Choose your microphone; long device names are handled gracefully.
 - **Shortcut recording**: Record the key you want to use and configure short-press behavior.
-- **OpenAI-compatible providers**: Add, test, edit, and delete providers; API keys are stored in macOS Keychain.
+- **Clipboard image OCR**: Copy a screenshot or image, press `Command + Shift + V`, and VoxFlow recognizes the image text and pastes it into the current field.
+- **OpenAI-compatible providers**: Add, test, edit, and delete providers; LLM API keys are stored in macOS Keychain.
 - **Glossary and replacements**: Teach VoxFlow your own terms, aliases, and fixed transformations.
 - **History and notes**: Search, copy, edit, and reuse previous dictation results.
 - **File transcription**: Turn recordings, videos, or meeting audio into text.
@@ -100,13 +128,13 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.2.0-macOS.dmg`
+1. Open `VoxFlow-1.3.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
 ### Requirements
 
-- macOS 14 Sonoma or later
+- macOS 15 Sequoia or later (Apple Silicon)
 - A Mac with a microphone
 
 ### First Permissions
@@ -141,6 +169,12 @@ Open the workbench and go to **Notes**. Click the record button to start a quick
 
 Open **File Transcription**, select an audio or video file, and let VoxFlow process it. Completed jobs can be copied, exported, or saved as notes.
 
+### Clipboard Image OCR
+
+Copy a screenshot or image, then press `Command + Shift + V`. VoxFlow reads the image from your clipboard, runs OCR, and pastes the recognized text into the current cursor position.
+
+If the clipboard does not contain an image, this shortcut does not start normal dictation; it is reserved for the clipboard image OCR workflow.
+
 ### Improve Names And Terms
 
 Use **Glossary** to add project names, people names, product names, technical terms, or fixed replacements. These entries help future dictation and correction feel closer to your own vocabulary.
@@ -149,18 +183,18 @@ Use **Glossary** to add project names, people names, product names, technical te
 
 Open **Settings -> Models**, add an OpenAI-compatible provider, fill in Base URL, Model, and API Key, then test the connection. Once it works, enable **LLM Correction** in the same settings page.
 
-API keys are stored in macOS Keychain.
+LLM API keys are stored in macOS Keychain. Cloud ASR credentials for Groq, Tencent Cloud, and Alibaba Cloud are stored in the local SQLite settings database and can be revealed, hidden, or removed from Models.
 
 ## Privacy
 
 VoxFlow is local-first by default.
 
 - History, glossary, notes, transcription jobs, and non-secret settings are stored locally.
-- API keys are stored in macOS Keychain.
+- LLM API keys are stored in macOS Keychain; cloud ASR credentials are stored in the local SQLite settings database.
 - Apple Speech may process audio according to macOS system behavior.
 - Local Qwen3-ASR runs on-device after the model is downloaded.
 - LLM correction is disabled by default. When enabled, only recognized text is sent to your configured API provider.
-- VoxFlow does not automatically upload your audio, notes, history, or clipboard content.
+- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device. VoxFlow does not automatically upload notes, history, or clipboard content.
 
 See [Privacy](docs/PRIVACY.md) for more details.
 
@@ -190,7 +224,7 @@ Common commands:
 ```bash
 make run-dev      # Daily development: Debug + native arch, package and launch .app
 make run-native   # Native Release for local checks close to shipped behavior
-make build        # Universal Release: arm64 + x86_64, used for release/DMG
+make build        # arm64 Release, used for release/DMG
 make install      # Install into /Applications
 swift test        # Run tests
 ```

@@ -4,22 +4,22 @@ import XCTest
 
 @MainActor
 final class PasteLastResultServiceTests: XCTestCase {
-    func testDisabledImageOCRPastesPreviousResultWithoutReadingImage() async {
+    func testPasteLastResultIgnoresClipboardImage() async {
         let recorder = PasteLastResultRecorder(
             image: PasteLastResultTestImage.make(),
             recognizedText: "image text",
             lastResult: "previous text",
-            imageOCREnabled: false
+            imageOCREnabled: true
         )
 
-        let outcome = await recorder.service.paste()
+        let outcome = await recorder.service.pasteLastResult()
 
         XCTAssertEqual(outcome, .pastedLastResult)
         XCTAssertEqual(recorder.output.deliveredTexts, ["previous text"])
         XCTAssertEqual(recorder.ocr.requestCount, 0)
     }
 
-    func testEnabledImageOCRPastesRecognizedImageTextThroughOutputService() async {
+    func testClipboardImageOCRPastesRecognizedImageTextThroughOutputService() async {
         let recorder = PasteLastResultRecorder(
             image: PasteLastResultTestImage.make(),
             recognizedText: "  image text  ",
@@ -27,14 +27,14 @@ final class PasteLastResultServiceTests: XCTestCase {
             imageOCREnabled: true
         )
 
-        let outcome = await recorder.service.paste()
+        let outcome = await recorder.service.pasteClipboardImageOCR()
 
         XCTAssertEqual(outcome, .pastedOCRText)
         XCTAssertEqual(recorder.output.deliveredTexts, ["image text"])
         XCTAssertEqual(recorder.store.lastResultText, "image text")
     }
 
-    func testEnabledImageOCRFallsBackToPreviousResultWhenClipboardHasNoImage() async {
+    func testClipboardImageOCRDoesNotFallBackToPreviousResultWhenClipboardHasNoImage() async {
         let recorder = PasteLastResultRecorder(
             image: nil,
             recognizedText: "image text",
@@ -42,10 +42,10 @@ final class PasteLastResultServiceTests: XCTestCase {
             imageOCREnabled: true
         )
 
-        let outcome = await recorder.service.paste()
+        let outcome = await recorder.service.pasteClipboardImageOCR()
 
-        XCTAssertEqual(outcome, .pastedLastResult)
-        XCTAssertEqual(recorder.output.deliveredTexts, ["previous text"])
+        XCTAssertEqual(outcome, .ocrFailed("剪贴板里没有可识别的图片"))
+        XCTAssertTrue(recorder.output.deliveredTexts.isEmpty)
         XCTAssertEqual(recorder.ocr.requestCount, 0)
     }
 
@@ -58,11 +58,26 @@ final class PasteLastResultServiceTests: XCTestCase {
         )
         recorder.ocr.error = PasteLastResultTestError.ocrFailed
 
-        let outcome = await recorder.service.paste()
+        let outcome = await recorder.service.pasteClipboardImageOCR()
 
         XCTAssertEqual(outcome, .ocrFailed("ocr failed"))
         XCTAssertTrue(recorder.output.deliveredTexts.isEmpty)
         XCTAssertEqual(recorder.store.lastResultText, "previous text")
+    }
+
+    func testDisabledClipboardImageOCRDoesNotPastePreviousResult() async {
+        let recorder = PasteLastResultRecorder(
+            image: PasteLastResultTestImage.make(),
+            recognizedText: "image text",
+            lastResult: "previous text",
+            imageOCREnabled: false
+        )
+
+        let outcome = await recorder.service.pasteClipboardImageOCR()
+
+        XCTAssertEqual(outcome, .ocrFailed("剪贴板图片 OCR 未启用"))
+        XCTAssertTrue(recorder.output.deliveredTexts.isEmpty)
+        XCTAssertEqual(recorder.ocr.requestCount, 0)
     }
 }
 

@@ -78,12 +78,13 @@ final class DictationFeatureController {
 
         do {
             setVoiceEnhancementEnabled(voiceEnhancementEnabled())
+            activeVoiceAction = action
             try startDictation(
                 currentConfiguration(),
                 action == .agentCompose ? .agentCompose : .dictation
             )
-            activeVoiceAction = action
         } catch {
+            activeVoiceAction = nil
             if isRecordingPermissionError(error) {
                 showRecordingPermissionsAlert()
             } else {

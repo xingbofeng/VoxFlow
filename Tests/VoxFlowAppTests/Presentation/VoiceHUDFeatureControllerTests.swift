@@ -3,6 +3,79 @@ import XCTest
 
 @MainActor
 final class VoiceHUDFeatureControllerTests: XCTestCase {
+    func testDictationStateMapsToHUDSnapshots() {
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(
+                state: .recording,
+                activeVoiceAction: .dictation,
+                shouldShowWaitingIndicator: false
+            ),
+            .recording(action: .dictation)
+        )
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(
+                state: .waitingForFinal,
+                activeVoiceAction: .dictation,
+                shouldShowWaitingIndicator: true
+            ),
+            .waitingForFinal(showIndicator: true)
+        )
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(
+                state: .injecting,
+                activeVoiceAction: .dictation,
+                shouldShowWaitingIndicator: false
+            ),
+            .inserting
+        )
+    }
+
+    func testASRPresentationPhaseMapsToHUDSnapshots() {
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(phase: .preparing),
+            .preparing
+        )
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(phase: .recognizing(text: "partial")),
+            .recognizing(text: "partial")
+        )
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(phase: .waitingForFinal(text: "")),
+            .finalizing(text: "")
+        )
+        XCTAssertEqual(
+            VoiceHUDFeatureController.snapshot(phase: .completed(text: "final")),
+            .completed(text: "final")
+        )
+    }
+
+    func testAgentComposeStageRendersThroughSnapshot() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.render(.agentComposeStage(.generating))
+
+        XCTAssertEqual(overlay.events, [
+            .updateAgentComposeStatus(.generating),
+            .showWithoutReset,
+        ])
+    }
+
+    func testStreamingTranscriptionAndAudioLevelRenderThroughSnapshots() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.render(.transcription(text: "hello", isRefining: false))
+        controller.render(.streamingText("partial"))
+        controller.render(.audioLevel(0.4))
+
+        XCTAssertEqual(overlay.events, [
+            .updateTranscription(text: "hello", isRefining: false),
+            .updateStreamingText("partial"),
+            .updateRMS(0.4),
+        ])
+    }
+
     func testDictationRecordingShowsDefaultHUDAndClearsText() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -57,15 +130,36 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
-    func testTerminalStatesDismissHUD() {
+    func testProcessingShowsLoadingIndicatorImmediately() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
-        controller.handleState(.idle, activeVoiceAction: nil, shouldShowWaitingIndicator: false)
+        controller.handleState(
+            .processing,
+            activeVoiceAction: .dictation,
+            shouldShowWaitingIndicator: true
+        )
+
+        XCTAssertEqual(overlay.events, [
+            .showWithoutReset,
+            .updateTranscription(text: "正在处理...", isRefining: true),
+        ])
+    }
+
+    func testInjectingShowsWritingStateAndTerminalStatesDismissHUD() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
         controller.handleState(.injecting, activeVoiceAction: nil, shouldShowWaitingIndicator: false)
+        controller.handleState(.idle, activeVoiceAction: nil, shouldShowWaitingIndicator: false)
         controller.handleState(.failed("error"), activeVoiceAction: nil, shouldShowWaitingIndicator: false)
 
-        XCTAssertEqual(overlay.events, [.dismiss, .dismiss, .dismiss])
+        XCTAssertEqual(overlay.events, [
+            .showWithoutReset,
+            .updateTranscription(text: "正在写入...", isRefining: true),
+            .dismiss,
+            .dismiss,
+        ])
     }
 
     func testStreamingAndTemporaryMessagesAreForwarded() {
@@ -83,8 +177,80 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
             .updateTranscription(text: "hello", isRefining: true),
             .updateStreamingText("partial"),
             .updateRMS(0.4),
-            .showTemporaryMessage(message: "done", duration: 2.5),
+            .showTemporaryMessage(message: "done", duration: 2.5, tone: .info),
         ])
+    }
+
+    func testClipboardImageOCRSuccessUsesSuccessTone() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.handleWorkflowFeedback(.clipboardImageOCRSucceeded)
+
+        XCTAssertEqual(overlay.events, [
+            .showTemporaryMessage(
+                message: "已识别图片文字并粘贴",
+                duration: 2.2,
+                tone: .success
+            ),
+        ])
+    }
+
+    func testAgentComposeOutputSuccessUsesSuccessTone() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.handleWorkflowFeedback(.agentComposeCopied)
+        controller.handleWorkflowFeedback(.agentComposeInjected)
+
+        XCTAssertEqual(overlay.events, [
+            .showTemporaryMessage(
+                message: "已生成并复制到剪贴板",
+                duration: 2.5,
+                tone: .success
+            ),
+            .showTemporaryMessage(
+                message: "已生成并写入当前输入框",
+                duration: 2.5,
+                tone: .success
+            ),
+        ])
+    }
+
+    func testRecognitionErrorFeedbackOnlyBindsActionWhenActionable() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.handleRecognitionErrorFeedback(
+            RecognitionErrorHUDFeedback(
+                message: "没有检测到有效语音，请靠近麦克风再试一次。",
+                duration: 2.4,
+                isActionable: false
+            )
+        ) {
+            XCTFail("Non-actionable recognition feedback should not keep an action")
+        }
+        controller.handleRecognitionErrorFeedback(
+            RecognitionErrorHUDFeedback(
+                message: "final timed out",
+                duration: 8.0,
+                isActionable: true
+            )
+        ) {}
+
+        XCTAssertEqual(overlay.events, [
+            .showTemporaryMessage(
+                message: "没有检测到有效语音，请靠近麦克风再试一次。",
+                duration: 2.4,
+                tone: .info
+            ),
+            .showTemporaryMessage(
+                message: "final timed out",
+                duration: 8.0,
+                tone: .info
+            ),
+        ])
+        XCTAssertEqual(overlay.actionBindingCount, 1)
     }
 }
 
@@ -98,10 +264,15 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
         case updateAgentComposeStatus(AgentComposeHUDStage)
         case updateStreamingText(String)
         case updateRMS(Float)
-        case showTemporaryMessage(message: String, duration: TimeInterval)
+        case showTemporaryMessage(
+            message: String,
+            duration: TimeInterval,
+            tone: HUDTemporaryMessageTone
+        )
     }
 
     private(set) var events: [Event] = []
+    private(set) var actionBindingCount = 0
 
     func show() {
         events.append(.show)
@@ -134,8 +305,12 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
     func showTemporaryMessage(
         _ message: String,
         duration: TimeInterval,
+        tone: HUDTemporaryMessageTone,
         action: (() -> Void)?
     ) {
-        events.append(.showTemporaryMessage(message: message, duration: duration))
+        if action != nil {
+            actionBindingCount += 1
+        }
+        events.append(.showTemporaryMessage(message: message, duration: duration, tone: tone))
     }
 }

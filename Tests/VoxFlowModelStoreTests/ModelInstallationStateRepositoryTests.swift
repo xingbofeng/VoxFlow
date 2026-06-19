@@ -5,7 +5,7 @@ final class ModelInstallationStateRepositoryTests: XCTestCase {
     func testRepositoryPersistsLifecycleStateByInstallKey() throws {
         let fileURL = temporaryStateFileURL()
         let key = ModelInstallKey(
-            modelID: ModelID(rawValue: "qwen3-asr-0.6b-coreml-int8"),
+            modelID: ModelID(rawValue: "qwen3-asr-0.6b-mlx-4bit"),
             version: "2026.06.17"
         )
         let installation = ModelInstallation(
@@ -23,12 +23,16 @@ final class ModelInstallationStateRepositoryTests: XCTestCase {
         try repository.save(.ready(installation), for: key)
         let reloaded = FileModelInstallationStateRepository(fileURL: fileURL)
         XCTAssertEqual(try reloaded.state(for: key), .ready(installation))
+
+        try repository.save(.deleting(installation), for: key)
+        let reloadedDeleting = FileModelInstallationStateRepository(fileURL: fileURL)
+        XCTAssertEqual(try reloadedDeleting.state(for: key), .deleting(installation))
     }
 
     func testRepositoryRemovesOneInstallStateWithoutAffectingOthers() throws {
         let fileURL = temporaryStateFileURL()
         let first = ModelInstallKey(
-            modelID: ModelID(rawValue: "qwen3-asr-0.6b-coreml-int8"),
+            modelID: ModelID(rawValue: "qwen3-asr-0.6b-mlx-4bit"),
             version: "2026.06.17"
         )
         let second = ModelInstallKey(

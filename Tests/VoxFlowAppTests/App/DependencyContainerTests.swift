@@ -5,6 +5,7 @@ final class DependencyContainerTests: XCTestCase {
     func testInMemoryContainerCreatesMigratedRepositories() throws {
         let container = try DependencyContainer.inMemory()
 
+        XCTAssertFalse(container.storageHealth.isPersistent)
         try container.settingsRepository.set("test.key", jsonValue: #"{"ok":true}"#)
 
         XCTAssertEqual(
@@ -18,6 +19,7 @@ final class DependencyContainerTests: XCTestCase {
 
         let environment = AppEnvironment(container: container)
 
+        XCTAssertEqual(environment.storageHealth, container.storageHealth)
         try environment.historyRepository.save(
             DictationHistoryEntry(
                 id: "entry",
@@ -40,5 +42,16 @@ final class DependencyContainerTests: XCTestCase {
         )
 
         XCTAssertEqual(try environment.historyRepository.listRecent(limit: 10).map(\.id), ["entry"])
+    }
+
+    func testInMemoryContainerCanExposeLaunchFailureReason() throws {
+        let container = try DependencyContainer.inMemory(
+            storageHealth: .volatile(reason: "Persistent storage failed to initialize: disk locked")
+        )
+
+        XCTAssertEqual(
+            container.storageHealth,
+            .volatile(reason: "Persistent storage failed to initialize: disk locked")
+        )
     }
 }

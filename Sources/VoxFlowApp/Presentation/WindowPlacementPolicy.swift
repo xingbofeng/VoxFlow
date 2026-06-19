@@ -40,7 +40,7 @@ enum WindowPlacementPolicy {
         }
         window.setFrame(
             centeredFrame(windowSize: window.frame.size, visibleFrame: visibleFrame),
-            display: true,
+            display: window.isVisible,
             animate: false
         )
     }

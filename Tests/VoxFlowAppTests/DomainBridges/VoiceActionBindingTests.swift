@@ -33,8 +33,15 @@ final class VoiceActionBindingTests: XCTestCase {
         XCTAssertEqual(migrated.shortcutKeyCode, 54)
     }
 
-    func testAgentComposeBindingDefaultsToNil() {
-        XCTAssertNil(manager.agentComposeShortcutKeyCode)
+    func testAgentComposeBindingDefaultsToRightOption() {
+        XCTAssertEqual(manager.shortcutKeyCode(for: .agentCompose), 61)
+    }
+
+    func testAgentComposeDefaultDoesNotConflictWithExistingDictationOptionBinding() {
+        manager.dictationShortcutKeyCode = 61
+
+        XCTAssertNil(manager.shortcutKeyCode(for: .agentCompose))
+        XCTAssertFalse(manager.hasConflict())
     }
 
     func testConflictingBindingsBlocked() {
@@ -57,7 +64,7 @@ final class VoiceActionBindingTests: XCTestCase {
         let normalized = ShortcutManager(defaults: defaults)
 
         XCTAssertEqual(normalized.shortcutKeyCode(for: .dictation), 54)
-        XCTAssertNil(normalized.shortcutKeyCode(for: .agentCompose))
+        XCTAssertEqual(normalized.shortcutKeyCode(for: .agentCompose), 61)
         XCTAssertFalse(normalized.hasConflict())
     }
 
@@ -78,11 +85,18 @@ final class VoiceActionBindingTests: XCTestCase {
         XCTAssertEqual(migrated.dictationShortcutKeyCode, 48)
     }
 
-    func testAgentComposeShowsSetupPromptWhenUnbound() {
+    func testAgentComposeUsesDefaultShortcutWhenUnbound() {
         XCTAssertNil(manager.agentComposeShortcutKeyCode)
-        XCTAssertNil(manager.shortcutKeyCode(for: .agentCompose))
+        XCTAssertEqual(manager.shortcutKeyCode(for: .agentCompose), 61)
 
         // Dictation should always have a value
         XCTAssertNotNil(manager.shortcutKeyCode(for: .dictation))
+    }
+
+    func testAgentComposeCanBeExplicitlyDisabled() {
+        manager.agentComposeShortcutKeyCode = nil
+
+        XCTAssertNil(manager.agentComposeShortcutKeyCode)
+        XCTAssertNil(manager.shortcutKeyCode(for: .agentCompose))
     }
 }
