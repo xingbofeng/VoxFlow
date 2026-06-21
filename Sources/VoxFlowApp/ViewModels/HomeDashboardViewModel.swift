@@ -111,6 +111,7 @@ final class HomeDashboardViewModel: ObservableObject {
     private var recentEntries: [DictationHistoryEntry] = []
     private var recentAgentTasks: [VoiceTask] = []
     private var cancellables: Set<AnyCancellable> = []
+    private var hasLoaded = false
 
     var openHistoryDetailRequests: AnyPublisher<String, Never> {
         environment.openHistoryDetailPublisher
@@ -147,24 +148,41 @@ final class HomeDashboardViewModel: ObservableObject {
     func load() {
         do {
             let entries = try environment.historyRepository.listRecent(limit: historyLimit)
-            recentAgentTasks = try voiceTaskRepository.listRecent(
-                mode: .agentCompose,
-                limit: historyLimit
-            )
+            recentAgentTasks = try ([VoiceTaskMode.agentCompose, .agentDispatch]
+                .flatMap { mode in
+                    try voiceTaskRepository.listRecent(mode: mode, limit: historyLimit)
+                }
+                .sorted { $0.createdAt > $1.createdAt }
+                .prefix(historyLimit))
+                .map { $0 }
             recentEntries = entries
             activity = makeActivity(from: entries)
             stats = makeStats(from: scopedEntries(entries), focusDay: selectedActivityDate)
-            historyGroups = try makeHistoryGroups(query: searchText)
+            historyGroups = try makeHistoryGroups(
+                entries: historyEntriesForGroups(query: searchText, fallback: entries),
+                query: searchText
+            )
+            hasLoaded = true
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
     }
 
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
+    }
+
     func updateSearch(_ query: String) {
         searchText = query
         do {
-            historyGroups = try makeHistoryGroups(query: query)
+            historyGroups = try makeHistoryGroups(
+                entries: historyEntriesForGroups(query: query, fallback: recentEntries),
+                query: query
+            )
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -204,7 +222,7 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func deleteHistoryItem(id: String) {
         do {
-            if historyGroups.flatMap(\.items).first(where: { $0.id == id })?.taskMode == .agentCompose {
+            if historyGroups.flatMap(\.items).first(where: { $0.id == id })?.taskMode != nil {
                 try voiceTaskRepository.delete(id: id)
             } else {
                 try environment.historyRepository.softDelete(id: id, deletedAt: environment.clock.now)
@@ -378,7 +396,10 @@ final class HomeDashboardViewModel: ObservableObject {
     private func refreshScopedDashboardState() {
         do {
             stats = makeStats(from: scopedEntries(recentEntries), focusDay: selectedActivityDate)
-            historyGroups = try makeHistoryGroups(query: searchText)
+            historyGroups = try makeHistoryGroups(
+                entries: historyEntriesForGroups(query: searchText, fallback: recentEntries),
+                query: searchText
+            )
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -397,8 +418,6 @@ final class HomeDashboardViewModel: ObservableObject {
         )
         return DefaultTextProcessingPipeline(
             refiner: refiner,
-            replacementRuleRepository: environment.replacementRuleRepository,
-            glossaryRepository: environment.glossaryRepository,
             styleSelector: styleSelector
         )
     }
@@ -510,15 +529,22 @@ final class HomeDashboardViewModel: ObservableObject {
         return streak
     }
 
-    private func makeHistoryGroups(query: String) throws -> [HomeHistoryGroup] {
+    private func historyEntriesForGroups(
+        query: String,
+        fallback: [DictationHistoryEntry]
+    ) throws -> [DictationHistoryEntry] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let entries: [DictationHistoryEntry]
-        if trimmedQuery.isEmpty {
-            entries = try environment.historyRepository.listRecent(limit: historyLimit)
-        } else {
-            entries = try environment.historyRepository.search(trimmedQuery, limit: historyLimit)
+        guard !trimmedQuery.isEmpty else {
+            return fallback
         }
+        return try environment.historyRepository.search(trimmedQuery, limit: historyLimit)
+    }
 
+    private func makeHistoryGroups(
+        entries: [DictationHistoryEntry],
+        query: String
+    ) -> [HomeHistoryGroup] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let taskItems = recentAgentTasks
             .filter { task in
                 guard !trimmedQuery.isEmpty else { return true }
@@ -550,7 +576,7 @@ final class HomeDashboardViewModel: ObservableObject {
             let items = (grouped[day] ?? [])
                 .sorted { $0.createdAt > $1.createdAt }
             return HomeHistoryGroup(
-                id: ISO8601DateFormatter().string(from: day),
+                id: Self.dayIDFormatter.string(from: day),
                 title: title(for: day, preferExplicitDate: selectedActivityDate != nil),
                 date: day,
                 items: items
@@ -636,6 +662,8 @@ final class HomeDashboardViewModel: ObservableObject {
         }
         return String(data: data, encoding: .utf8)
     }
+
+    private static let dayIDFormatter = ISO8601DateFormatter()
 }
 
 private extension HomeHistoryItem {

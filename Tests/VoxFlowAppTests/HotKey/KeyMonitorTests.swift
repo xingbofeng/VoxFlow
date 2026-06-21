@@ -3,62 +3,140 @@ import XCTest
 @testable import VoxFlowApp
 
 final class KeyMonitorTests: XCTestCase {
-    func testRightCommandTransitionsProduceOnePressAndOneRelease() {
-        var state = RightCommandKeyState()
+    func testVoiceShortcutTransitionsProduceOnePressAndOneRelease() {
+        var state = VoiceShortcutKeyState()
 
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.0), .pressed)
-        XCTAssertEqual(state.transition(isModifierPressed: false, threshold: 0.0), .released)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.0),
+            .pressed
+        )
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 0.0),
+            .released
+        )
     }
 
-    func testRepeatedRightCommandDownEventDoesNotToggleIntoRelease() {
-        var state = RightCommandKeyState()
+    func testRepeatedVoiceShortcutDownEventDoesNotToggleIntoRelease() {
+        var state = VoiceShortcutKeyState()
 
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.5), .pressed)
-        XCTAssertNil(state.transition(isModifierPressed: true, threshold: 0.5))
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.5),
+            .pressed
+        )
+        XCTAssertNil(state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.5))
         XCTAssertTrue(state.isPressed)
     }
 
     func testMultiplePressesAreTrackedCorrectly() {
-        var state = RightCommandKeyState()
+        var state = VoiceShortcutKeyState()
 
-        // First press/release cycle with threshold 0.0 (any duration >= 0 → long press)
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.0), .pressed)
-        XCTAssertEqual(state.transition(isModifierPressed: false, threshold: 0.0), .released)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.0),
+            .pressed
+        )
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 0.0),
+            .released
+        )
 
-        // Second press — should restart from fresh
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.0), .pressed)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.0),
+            .pressed
+        )
         XCTAssertTrue(state.isPressed)
 
-        // Release with high threshold → shortPress
-        XCTAssertEqual(state.transition(isModifierPressed: false, threshold: 10.0), .shortPress)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 10.0),
+            .shortPress
+        )
         XCTAssertFalse(state.isPressed)
     }
 
     func testResetAllowsNextEventToPress() {
-        var state = RightCommandKeyState()
+        var state = VoiceShortcutKeyState()
 
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.5), .pressed)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.5),
+            .pressed
+        )
         state.reset()
-        // After reset, isPressed should be false, so next transition is a press
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.5), .pressed)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.5),
+            .pressed
+        )
+    }
+
+    func testUnrelatedModifierEventDoesNotClearActiveVoiceShortcut() {
+        var state = VoiceShortcutKeyState()
+
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.0),
+            .pressed
+        )
+        XCTAssertNil(
+            state.transition(keyCode: 56, action: .agentCompose, isModifierPressed: true, threshold: 0.0)
+        )
+        XCTAssertTrue(state.isPressed)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 0.0),
+            .released
+        )
+    }
+
+    func testHotKeyStateMachineSerializesConcurrentTransitions() {
+        let stateMachine = HotKeyStateMachine()
+        let queue = DispatchQueue(label: "HotKeyStateMachineTests.concurrent", attributes: .concurrent)
+        let group = DispatchGroup()
+
+        for _ in 0..<200 {
+            group.enter()
+            queue.async {
+                _ = stateMachine.transition(
+                    keyCode: 54,
+                    action: .dictation,
+                    isModifierPressed: true,
+                    threshold: 0.0
+                )
+                _ = stateMachine.transition(
+                    keyCode: 54,
+                    action: .dictation,
+                    isModifierPressed: false,
+                    threshold: 0.0
+                )
+                group.leave()
+            }
+        }
+
+        XCTAssertEqual(group.wait(timeout: .now() + 2), .success)
+        XCTAssertFalse(stateMachine.isPressed)
     }
 
     // MARK: - Short press vs long press
 
     func testShortPressDetectedWhenDurationBelowThreshold() {
-        var state = RightCommandKeyState()
+        var state = VoiceShortcutKeyState()
 
-        // Press and immediately release — duration is virtually zero, well below 10s
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 10.0), .pressed)
-        XCTAssertEqual(state.transition(isModifierPressed: false, threshold: 10.0), .shortPress)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 10.0),
+            .pressed
+        )
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 10.0),
+            .shortPress
+        )
     }
 
     func testLongPressDetectedWhenDurationAboveThreshold() {
-        var state = RightCommandKeyState()
+        var state = VoiceShortcutKeyState()
 
-        // Any non-negative duration is >= 0, so release is always a long press
-        XCTAssertEqual(state.transition(isModifierPressed: true, threshold: 0.0), .pressed)
-        XCTAssertEqual(state.transition(isModifierPressed: false, threshold: 0.0), .released)
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: true, threshold: 0.0),
+            .pressed
+        )
+        XCTAssertEqual(
+            state.transition(keyCode: 54, action: .dictation, isModifierPressed: false, threshold: 0.0),
+            .released
+        )
     }
 
     func testShortcutEventsPassThroughWhileAppIsActive() {
@@ -81,15 +159,15 @@ final class KeyMonitorTests: XCTestCase {
     func testShortcutEventsPassThroughOnlyWhileCapturingShortcut() {
         XCTAssertTrue(
             ShortcutEventRouting.shouldPassThrough(
-                appIsActive: true,
+                appIsActive: false,
                 appIsFrontmost: false,
                 isCapturingShortcut: true
             )
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             ShortcutEventRouting.shouldPassThrough(
-                appIsActive: false,
-                appIsFrontmost: false,
+                appIsActive: true,
+                appIsFrontmost: true,
                 isCapturingShortcut: true
             )
         )
@@ -126,6 +204,17 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testAgentDispatchIsNotRoutedByASeparateModifierKey() {
+        XCTAssertNil(
+            ShortcutActionRouting.action(
+                for: 62,
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61,
+                agentDispatchKeyCode: nil
+            )
+        )
+    }
+
     func testRightOptionRoutesThroughHotKeyRouterToAgentCompose() {
         XCTAssertEqual(
             HotKeyRouter.route(
@@ -135,6 +224,32 @@ final class KeyMonitorTests: XCTestCase {
                 agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode
             ),
             .voiceAction(.agentCompose)
+        )
+    }
+
+    func testCombinationShortcutRoutesThroughHotKeyRouterToDictation() {
+        let commandShiftY = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x10,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: commandShiftY,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode
+            ),
+            .voiceAction(.dictation)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x10,
+                flags: [.maskCommand],
+                dictationKeyCode: commandShiftY,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode
+            ),
+            .passThrough
         )
     }
 

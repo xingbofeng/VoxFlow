@@ -11,12 +11,12 @@ final class AppMainMenuBuilderTests: XCTestCase {
 
         let applicationMenu = try XCTUnwrap(menu.items.first?.submenu)
         XCTAssertEqual(applicationMenu.items.map { $0.title }, [
-            "关于随声写",
+            "关于码上写",
             "",
-            "隐藏随声写",
+            "隐藏码上写",
             "隐藏其他",
             "",
-            "退出随声写",
+            "退出码上写",
         ])
         XCTAssertEqual(applicationMenu.items[0].action, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         XCTAssertEqual(applicationMenu.items[2].action, #selector(NSApplication.hide(_:)))

@@ -16,7 +16,7 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         XCTAssertNotNil(recorder.workflowShortcutHandler)
     }
 
-    func testPressStartsDictationImmediatelyWhenIdle() {
+    func testHoldModeShortPressDoesNotStart() {
         let recorder = HotKeyFeatureRecorder()
         recorder.dictationState = .idle
         recorder.shortPressBehavior = .none
@@ -25,10 +25,48 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         controller.start()
 
         recorder.pressHandler?(.dictation)
+        recorder.shortPressHandler?(.dictation)
 
-        XCTAssertTrue(recorder.scheduledActions.isEmpty)
-        XCTAssertTrue(recorder.scheduledThresholds.isEmpty)
+        XCTAssertEqual(recorder.scheduledActions, [.dictation])
+        XCTAssertEqual(recorder.scheduledThresholds, [0.42])
+        XCTAssertEqual(recorder.cancelCount, 1)
+        XCTAssertTrue(recorder.decisions.isEmpty)
+    }
+
+    func testHoldModeStartsOnlyAfterThreshold() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .none
+        recorder.longPressThreshold = 0.42
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+        recorder.fireScheduledPress()
+        recorder.fireScheduledPress()
+
+        XCTAssertEqual(recorder.scheduledActions, [.dictation])
+        XCTAssertEqual(recorder.scheduledThresholds, [0.42])
         XCTAssertEqual(recorder.decisions, [.startDictation(.dictation)])
+    }
+
+    func testHoldModeReleaseStopsStartedRecording() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .none
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+        recorder.fireScheduledPress()
+        recorder.dictationState = .recording
+        recorder.activeVoiceAction = .dictation
+        recorder.releaseHandler?(.dictation)
+
+        XCTAssertEqual(
+            recorder.decisions,
+            [.startDictation(.dictation), .releaseDictation(.dictation)]
+        )
     }
 
     func testPressStartsImmediatelyWhenShortPressToggleIsEnabled() {
@@ -44,6 +82,37 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         XCTAssertTrue(recorder.scheduledActions.isEmpty)
         XCTAssertTrue(recorder.scheduledThresholds.isEmpty)
         XCTAssertEqual(recorder.decisions, [.startDictation(.dictation)])
+    }
+
+    func testDictationShortcutStartsAgentDispatchWhenCommandCenterIsEnabled() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .toggleListening
+        recorder.primaryVoiceAction = .agentDispatch
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+
+        XCTAssertEqual(recorder.decisions, [.startDictation(.agentDispatch)])
+    }
+
+    func testCommandCenterDoesNotStealNotesCaptureShortcut() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .toggleListening
+        recorder.primaryVoiceAction = .agentDispatch
+        recorder.notesState = HotKeyNotesState(
+            shouldCaptureHotKey: true,
+            isActive: true,
+            isRecording: false
+        )
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+
+        XCTAssertEqual(recorder.decisions, [.startNotesRecording])
     }
 
     func testAgentComposePressStartsImmediatelyWhenShortPressToggleIsEnabled() {
@@ -110,6 +179,24 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         controller.start()
 
         recorder.pressHandler?(.dictation)
+
+        XCTAssertTrue(recorder.scheduledActions.isEmpty)
+        XCTAssertTrue(recorder.decisions.isEmpty)
+    }
+
+    func testAgentComposePressIsIgnoredWhileNotesRecording() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .toggleListening
+        recorder.notesState = HotKeyNotesState(
+            shouldCaptureHotKey: false,
+            isActive: true,
+            isRecording: true
+        )
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.agentCompose)
 
         XCTAssertTrue(recorder.scheduledActions.isEmpty)
         XCTAssertTrue(recorder.decisions.isEmpty)
@@ -218,6 +305,7 @@ private final class HotKeyFeatureRecorder {
     )
     var shortPressBehavior: ShortPressBehavior = .none
     var longPressThreshold: TimeInterval = 0.25
+    var primaryVoiceAction: VoiceAction = .dictation
     var monitorStartResult = true
     var workflowShortcutShouldConsume = true
 
@@ -283,6 +371,9 @@ private final class HotKeyFeatureRecorder {
             },
             activeVoiceAction: { [weak self] in
                 self?.activeVoiceAction
+            },
+            primaryVoiceAction: { [weak self] in
+                self?.primaryVoiceAction ?? .dictation
             },
             currentNotesState: { [weak self] in
                 self?.notesState ?? HotKeyNotesState(

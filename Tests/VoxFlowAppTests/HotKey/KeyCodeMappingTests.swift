@@ -15,4 +15,14 @@ final class KeyCodeMappingTests: XCTestCase {
         XCTAssertEqual(KeyCodeMapping.displayName(for: 999), "按键 999")
         XCTAssertEqual(KeyCodeMapping.iconName(for: 999), "keyboard")
     }
+
+    func testCombinationShortcutDisplaysModifierNamesAndBaseKey() {
+        let commandShiftY = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+
+        XCTAssertEqual(KeyCodeMapping.displayName(for: commandShiftY), "Command + Shift + Y")
+        XCTAssertEqual(KeyCodeMapping.iconName(for: commandShiftY), "keyboard")
+    }
 }

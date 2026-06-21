@@ -34,6 +34,60 @@ final class PasteLastResultServiceTests: XCTestCase {
         XCTAssertEqual(recorder.store.lastResultText, "image text")
     }
 
+    func testClipboardImageOCRUsesOriginalTargetFromStartOfOCR() async {
+        let originalTarget = DictationTarget(bundleID: "app.a", appName: "App A", pid: 1)
+        let currentTarget = DictationTarget(bundleID: "app.b", appName: "App B", pid: 2)
+        let ocr = SuspendingOCRRecognizer()
+        let recorder = PasteLastResultRecorder(
+            image: PasteLastResultTestImage.make(),
+            recognizedText: "image text",
+            lastResult: nil,
+            imageOCREnabled: true,
+            target: originalTarget,
+            ocr: ocr
+        )
+        recorder.output.onDeliver = { _, target, originalTarget in
+            DictationTargetChangePolicy.targetChanged(original: originalTarget, current: target)
+                ? .targetChanged(reason: "目标窗口已变化，内容已复制到剪贴板")
+                : .injected
+        }
+        let task = Task { @MainActor in
+            await recorder.service.pasteClipboardImageOCR()
+        }
+        await ocr.waitUntilStarted()
+        recorder.targetProvider.target = currentTarget
+        await ocr.finish(with: "image text")
+
+        let outcome = await task.value
+
+        XCTAssertEqual(outcome, .outputFailed(.targetChanged(reason: "目标窗口已变化，内容已复制到剪贴板")))
+        XCTAssertEqual(recorder.output.deliveries.map(\.target), [currentTarget])
+        XCTAssertEqual(recorder.output.deliveries.map(\.originalTarget), [originalTarget])
+        XCTAssertNil(recorder.store.lastResultText)
+    }
+
+    func testCancelledClipboardImageOCRDoesNotDeliverOrRememberText() async {
+        let ocr = SuspendingOCRRecognizer()
+        let recorder = PasteLastResultRecorder(
+            image: PasteLastResultTestImage.make(),
+            recognizedText: "ignored",
+            lastResult: nil,
+            imageOCREnabled: true,
+            ocr: ocr
+        )
+
+        let task = Task { @MainActor in
+            await recorder.service.pasteClipboardImageOCR()
+        }
+        await ocr.waitUntilStarted()
+        task.cancel()
+        await ocr.finish(with: "late text")
+        _ = await task.value
+
+        XCTAssertTrue(recorder.output.deliveredTexts.isEmpty)
+        XCTAssertNil(recorder.store.lastResultText)
+    }
+
     func testClipboardImageOCRDoesNotFallBackToPreviousResultWhenClipboardHasNoImage() async {
         let recorder = PasteLastResultRecorder(
             image: nil,
@@ -87,25 +141,29 @@ private final class PasteLastResultRecorder {
     let imageProvider: StubClipboardImageProvider
     let ocr: StubOCRRecognizer
     let output: CapturingOutputService
+    let targetProvider: MutableDictationTargetProvider
     let service: PasteLastResultService
 
     init(
         image: CGImage?,
         recognizedText: String,
         lastResult: String?,
-        imageOCREnabled: Bool
+        imageOCREnabled: Bool,
+        target: DictationTarget? = nil,
+        ocr: (any TextOCRRecognizing)? = nil
     ) {
         store = InMemoryLastResultStore()
         store.setLastResultText(lastResult)
         imageProvider = StubClipboardImageProvider(image: image)
-        ocr = StubOCRRecognizer(text: recognizedText)
+        self.ocr = StubOCRRecognizer(text: recognizedText)
         output = CapturingOutputService()
+        targetProvider = MutableDictationTargetProvider(target: target)
         service = PasteLastResultService(
             lastResultStore: store,
             clipboardImageProvider: imageProvider,
-            ocrRecognizer: ocr,
+            ocrRecognizer: ocr ?? self.ocr,
             outputService: output,
-            targetProvider: StaticDictationTargetProvider(target: nil),
+            targetProvider: targetProvider,
             isImageOCREnabled: { imageOCREnabled }
         )
     }
@@ -151,7 +209,7 @@ private final class StubClipboardImageProvider: ClipboardImageProviding {
 }
 
 @MainActor
-private final class StubOCRRecognizer: TextOCRRecognizing {
+private final class StubOCRRecognizer: TextOCRRecognizing, @unchecked Sendable {
     private let text: String
     var error: Error?
     private(set) var requestCount = 0
@@ -170,8 +228,58 @@ private final class StubOCRRecognizer: TextOCRRecognizing {
 }
 
 @MainActor
+private final class SuspendingOCRRecognizer: TextOCRRecognizing, @unchecked Sendable {
+    private var hasStarted = false
+    private var startedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var resultContinuation: CheckedContinuation<String, Never>?
+    private(set) var wasCancelled = false
+
+    func recognizeText(in image: CGImage) async throws -> String {
+        hasStarted = true
+        let waiters = startedWaiters
+        startedWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                resultContinuation = continuation
+            }
+        } onCancel: {
+            Task { @MainActor in
+                self.wasCancelled = true
+            }
+        }
+    }
+
+    func waitUntilStarted() async {
+        if hasStarted { return }
+        await withCheckedContinuation { continuation in
+            if hasStarted {
+                continuation.resume()
+            } else {
+                startedWaiters.append(continuation)
+            }
+        }
+    }
+
+    func finish(with text: String) async {
+        resultContinuation?.resume(returning: text)
+        resultContinuation = nil
+    }
+}
+
+@MainActor
 private final class CapturingOutputService: OutputService {
+    struct Delivery: Equatable {
+        let text: String
+        let target: DictationTarget?
+        let originalTarget: DictationTarget?
+    }
+
     private(set) var deliveredTexts: [String] = []
+    private(set) var deliveries: [Delivery] = []
+    var onDeliver: ((String, DictationTarget?, DictationTarget?) -> OutputResult)?
 
     func deliver(
         text: String,
@@ -180,12 +288,18 @@ private final class CapturingOutputService: OutputService {
         originalTarget: DictationTarget?
     ) async -> OutputResult {
         deliveredTexts.append(text)
-        return .injected
+        deliveries.append(Delivery(text: text, target: target, originalTarget: originalTarget))
+        return onDeliver?(text, target, originalTarget) ?? .injected
     }
 }
 
-private struct StaticDictationTargetProvider: DictationTargetProviding {
-    let target: DictationTarget?
+@MainActor
+private final class MutableDictationTargetProvider: DictationTargetProviding {
+    var target: DictationTarget?
+
+    init(target: DictationTarget?) {
+        self.target = target
+    }
 
     func currentTarget() -> DictationTarget? {
         target

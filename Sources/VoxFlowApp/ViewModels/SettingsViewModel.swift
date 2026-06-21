@@ -6,8 +6,11 @@ import ApplicationServices
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
+    case vibeCoding
     case dictationModels
     case correctionModels
+    case ttsModels
+    case translationModels
     case system
     case dataPrivacy
 
@@ -16,8 +19,11 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "通用"
-        case .dictationModels: return "听写模型"
-        case .correctionModels: return "纠错模型"
+        case .vibeCoding: return "Vibe Coding"
+        case .dictationModels: return "ASR 模型"
+        case .correctionModels: return "LLM 模型"
+        case .ttsModels: return "TTS 模型"
+        case .translationModels: return "翻译模型"
         case .system: return "系统"
         case .dataPrivacy: return "数据与隐私"
         }
@@ -26,8 +32,11 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: return "slider.horizontal.3"
+        case .vibeCoding: return "terminal"
         case .dictationModels: return "waveform"
         case .correctionModels: return "sparkles"
+        case .ttsModels: return "speaker.wave.2"
+        case .translationModels: return "globe.asia.australia"
         case .system: return "macwindow"
         case .dataPrivacy: return "lock.shield"
         }
@@ -42,6 +51,10 @@ enum SettingsKey {
     static let performanceOptimizationEnabled = "settings.performance.optimizationEnabled"
     static let analyticsEnabled = "settings.privacy.analyticsEnabled"
     static let outputTextInputMode = "settings.output.textInputMode"
+    static let agentDispatchEnabled = "settings.agentDispatch.enabled"
+    static let agentDispatchExactDirectEnabled = "settings.agentDispatch.exactDirectEnabled"
+    static let agentDispatchMCPEnabled = "settings.agentDispatch.mcpEnabled"
+    static let agentDispatchUnresolvedBehavior = "settings.agentDispatch.unresolvedBehavior"
 
     static let all = [
         audioInputDeviceID,
@@ -51,6 +64,10 @@ enum SettingsKey {
         performanceOptimizationEnabled,
         analyticsEnabled,
         outputTextInputMode,
+        agentDispatchEnabled,
+        agentDispatchExactDirectEnabled,
+        agentDispatchMCPEnabled,
+        agentDispatchUnresolvedBehavior,
     ]
 }
 
@@ -94,7 +111,7 @@ struct SettingsStorageStatus: Equatable, Sendable {
             badgeText = "正常"
         case let .readOnly(databaseURL, reason):
             title = "数据目录只读"
-            message = "\(reason)。当前数据库位于 \(databaseURL.path)，随声写无法可靠写入新历史、设置或任务状态。请检查目录权限或复制数据后修复。"
+            message = "\(reason)。当前数据库位于 \(databaseURL.path)，码上写无法可靠写入新历史、设置或任务状态。请检查目录权限或复制数据后修复。"
             isHealthy = false
             badgeText = "只读"
         case let .migrationRequired(databaseURL, reason):
@@ -182,6 +199,17 @@ protocol SettingsPermissionProviding: Sendable {
     func screenRecordingPermission() -> Bool
 }
 
+protocol ASRSettingsResetting: AnyObject {
+    func resetASRSettingsToDefaults()
+}
+
+protocol LocalModelDeletionCoordinating: AnyObject {
+    func deleteAllLocalModels(in modelsDirectory: URL, fileManager: FileManager) throws
+    func localModelStorageBytes(in modelsDirectory: URL, fileManager: FileManager) -> Int64
+}
+
+extension ASRManager: ASRSettingsResetting, LocalModelDeletionCoordinating {}
+
 struct SystemSettingsPermissionProvider: SettingsPermissionProviding {
     func microphonePermission() -> AudioRecorder.PermissionStatus {
         AudioRecorder.checkPermission()
@@ -213,6 +241,14 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var shortPressBehavior: ShortPressBehavior = .toggleListening
     @Published private(set) var dictationShortcutKeyCode: Int64? = nil
     @Published private(set) var agentComposeShortcutKeyCode: Int64? = nil
+    @Published private(set) var agentDispatchEnabled = false
+    @Published private(set) var agentDispatchExactDirectEnabled = true
+    @Published private(set) var agentDispatchMCPEnabled = true
+    @Published private(set) var agentDispatchUnresolvedBehavior = "confirm"
+    @Published private(set) var agentSessions: [AgentSessionCard] = []
+    @Published private(set) var agentAliases: [String: String] = [:]
+    @Published private(set) var agentDispatchLogs: [AgentDispatchLogEntry] = []
+    @Published private(set) var agentCLIRegistrationStatus: AgentCLIRegistrationStatus?
     @Published private(set) var shortcutConflict: Bool = false
     @Published private(set) var soundFeedbackEnabled = true
     @Published private(set) var voiceEnhancementEnabled = false
@@ -232,14 +268,29 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
 
+    var currentAgentSessions: [AgentSessionCard] {
+        agentSessions.currentDispatchableAgents
+    }
+
+    func preferredAlias(for agentID: String) -> String? {
+        agentAliases
+            .filter { $0.value == agentID }
+            .map(\.key)
+            .sorted()
+            .first
+    }
+
     private let environment: any AppServiceProviding
     private let shortcutManager: ShortcutManager
     private let audioDeviceProvider: any AudioInputDeviceProviding
     private let permissionProvider: any SettingsPermissionProviding
     private let languageManager: LanguageManager
+    private let asrSettingsResetter: (any ASRSettingsResetting)?
+    private let localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)?
     private let paths: ApplicationSupportPaths?
     private let fileManager: FileManager
     private var languageObserverID: UUID?
+    private var hasLoaded = false
 
     init(
         environment: any AppServiceProviding,
@@ -247,6 +298,8 @@ final class SettingsViewModel: ObservableObject {
         audioDeviceProvider: any AudioInputDeviceProviding = SystemAudioInputDeviceProvider(),
         permissionProvider: any SettingsPermissionProviding = SystemSettingsPermissionProvider(),
         languageManager: LanguageManager = .shared,
+        asrSettingsResetter: (any ASRSettingsResetting)? = nil,
+        localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)? = nil,
         paths: ApplicationSupportPaths? = nil,
         fileManager: FileManager = .default
     ) {
@@ -255,6 +308,8 @@ final class SettingsViewModel: ObservableObject {
         self.audioDeviceProvider = audioDeviceProvider
         self.permissionProvider = permissionProvider
         self.languageManager = languageManager
+        self.asrSettingsResetter = asrSettingsResetter
+        self.localModelDeletionCoordinator = localModelDeletionCoordinator
         self.paths = paths ?? environment.paths
         self.fileManager = fileManager
         self.storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
@@ -280,6 +335,22 @@ final class SettingsViewModel: ObservableObject {
             shortPressBehavior = shortcutManager.shortPressBehavior
             dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
             agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+            agentDispatchEnabled = try readBool(
+                SettingsKey.agentDispatchEnabled,
+                defaultValue: false
+            )
+            agentDispatchExactDirectEnabled = try readBool(
+                SettingsKey.agentDispatchExactDirectEnabled,
+                defaultValue: true
+            )
+            agentDispatchMCPEnabled = try readBool(
+                SettingsKey.agentDispatchMCPEnabled,
+                defaultValue: true
+            )
+            agentDispatchUnresolvedBehavior = try readString(
+                SettingsKey.agentDispatchUnresolvedBehavior,
+                defaultValue: "confirm"
+            )
             shortcutConflict = shortcutManager.hasConflict()
             soundFeedbackEnabled = try readBool(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true)
             voiceEnhancementEnabled = try readBool(SettingsKey.audioVoiceEnhancementEnabled, defaultValue: false)
@@ -302,10 +373,19 @@ final class SettingsViewModel: ObservableObject {
             accessibilityGranted = AXIsProcessTrusted()
             screenRecordingGranted = permissionProvider.screenRecordingPermission()
             storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
+            applyRuntimeSettingsSnapshot()
+            hasLoaded = true
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
     }
 
     func selectInputDevice(id: String) throws {
@@ -353,6 +433,185 @@ final class SettingsViewModel: ObservableObject {
         shortcutConflict = false
         lastError = nil
         lastActionMessage = "已更新\(action.displayName)快捷键"
+    }
+
+    func setAgentDispatchEnabled(_ enabled: Bool) throws {
+        agentDispatchEnabled = enabled
+        try setBool(SettingsKey.agentDispatchEnabled, value: enabled)
+        lastActionMessage = enabled
+            ? "已启用 Vibe Coding 指挥中心"
+            : "已关闭 Vibe Coding 指挥中心"
+    }
+
+    func setAgentDispatchExactDirectEnabled(_ enabled: Bool) throws {
+        agentDispatchExactDirectEnabled = enabled
+        try setBool(SettingsKey.agentDispatchExactDirectEnabled, value: enabled)
+        lastActionMessage = "已更新准确命名发送策略"
+    }
+
+    func setAgentDispatchUnresolvedBehavior(_ behavior: String) throws {
+        guard ["confirm", "cancel", "model", "default"].contains(behavior) else { return }
+        agentDispatchUnresolvedBehavior = behavior
+        try setString(SettingsKey.agentDispatchUnresolvedBehavior, value: behavior)
+        lastActionMessage = "已更新未命中处理方式"
+    }
+
+    func setAgentDispatchMCPEnabled(_ enabled: Bool) throws {
+        agentDispatchMCPEnabled = enabled
+        try setBool(SettingsKey.agentDispatchMCPEnabled, value: enabled)
+        if let paths {
+            try paths.ensureDirectories(fileManager: fileManager)
+            let data = try JSONSerialization.data(
+                withJSONObject: ["mcp_enabled": enabled],
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            try data.write(
+                to: paths.agentRouterDirectory.appendingPathComponent("settings.json"),
+                options: .atomic
+            )
+        }
+        lastActionMessage = "已更新 MCP 自报身份设置"
+    }
+
+    func refreshAgentSessions(reportFailures: Bool = true) async {
+        guard let paths else { return }
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            agentSessions = try await client.listAllAgents()
+            agentAliases = try await client.listAliases()
+            agentDispatchLogs = try await client.listDispatchLog()
+            lastError = nil
+        } catch {
+            agentSessions = []
+            if reportFailures {
+                lastError = error.localizedDescription
+            }
+        }
+    }
+
+    func addAgentAlias(_ alias: String, agentID: String) async {
+        guard let paths else { return }
+        let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            try await client.learnAlias(trimmed, agentID: agentID, userConfirmed: true)
+            agentAliases = try await client.listAliases()
+            lastError = nil
+            lastActionMessage = "已保存队员别名"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func removeAgentAlias(_ alias: String) async {
+        guard let paths else { return }
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            try await client.removeAlias(alias)
+            agentAliases = try await client.listAliases()
+            lastError = nil
+            lastActionMessage = "已删除队员别名"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func setAgentAlias(_ alias: String, for agentID: String) async {
+        guard let paths else { return }
+        let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            if let existingAlias = preferredAlias(for: agentID), existingAlias != trimmed {
+                try await client.removeAlias(existingAlias)
+            }
+            if !trimmed.isEmpty {
+                try await client.learnAlias(trimmed, agentID: agentID, userConfirmed: true)
+            }
+            agentAliases = try await client.listAliases()
+            lastError = nil
+            lastActionMessage = trimmed.isEmpty ? "已清空队员别名" : "已更新队员别名"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func cleanStaleAgentSessions() async {
+        guard let paths else { return }
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            try await client.cleanStaleSessions()
+            await refreshAgentSessions()
+            lastActionMessage = "已清理失效队员"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func clearAgentDispatchLogs() async {
+        guard let paths else { return }
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            try await client.clearDispatchLog()
+            agentDispatchLogs = []
+            lastError = nil
+            lastActionMessage = "已清空调度记录"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func copyAgentLaunchCommand(_ agent: AgentSessionCard) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(
+            "voxflow run -- \(agent.command.joined(separator: " "))",
+            forType: .string
+        )
+        lastActionMessage = "已复制队员启动命令"
+    }
+
+    func registerAgentCLI() {
+        guard let paths else {
+            report(error: ApplicationSupportPathsError.applicationSupportDirectoryUnavailable)
+            return
+        }
+        do {
+            agentCLIRegistrationStatus = try AgentHelperManager(paths: paths).registerCLI()
+            lastError = nil
+            lastActionMessage = agentCLIRegistrationStatus?.isOnCurrentPath == true
+                ? "终端命令已注册"
+                : "终端命令已注册；请新开终端后使用"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func unregisterAgentCLI() {
+        guard let paths else {
+            report(error: ApplicationSupportPathsError.applicationSupportDirectoryUnavailable)
+            return
+        }
+        do {
+            try AgentHelperManager(paths: paths).unregisterCLI()
+            agentCLIRegistrationStatus = nil
+            lastError = nil
+            lastActionMessage = "终端命令已卸载"
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func agentCLIRegistrationPreview() -> AgentCLIRegistrationPreview {
+        AgentHelperManager.registrationPreview()
+    }
+
+    func copyAgentCLIExamples() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(
+            "vox flow codex\nvox flow --claude\nvox flow --codebuddy",
+            forType: .string
+        )
+        lastActionMessage = "已复制启动命令"
     }
 
     func applyShortcutKeyCode(_ text: String) {
@@ -411,12 +670,7 @@ final class SettingsViewModel: ObservableObject {
         if option == .avoidClipboard {
             try setTextInputMode(enabled ? .simulatedTyping : .automatic)
         }
-        if option == .llmTraceDiagnostics, let paths {
-            LLMDiagnosticCapture.shared.configure(
-                enabled: enabled,
-                directory: paths.llmTraceDiagnosticsDirectory
-            )
-        }
+        applyRuntimeSettingsSnapshot()
         lastError = nil
         lastActionMessage = persistentWriteMessage("已更新系统设置")
     }
@@ -472,20 +726,34 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func clearCache() throws {
+        try deleteAllLocalModels()
+    }
+
+    func deleteAllLocalModels() throws {
         guard let paths else {
-            lastError = "没有可用的数据目录，缓存未清理。"
+            lastError = "没有可用的数据目录，本地模型未删除。"
             lastActionMessage = nil
             return
         }
-        if fileManager.fileExists(atPath: paths.modelsDirectory.path) {
-            try fileManager.removeItem(at: paths.modelsDirectory)
+        if let localModelDeletionCoordinator {
+            try localModelDeletionCoordinator.deleteAllLocalModels(
+                in: paths.modelsDirectory,
+                fileManager: fileManager
+            )
+        } else {
+            try deleteModelDirectoryContents(paths.modelsDirectory)
         }
-        try fileManager.createDirectory(
-            at: paths.modelsDirectory,
-            withIntermediateDirectories: true
-        )
         lastError = nil
-        lastActionMessage = "已清空缓存"
+        lastActionMessage = "已删除全部本地模型"
+    }
+
+    func localModelStorageDescription() -> String {
+        guard let paths else { return "大小未知" }
+        let bytes = localModelDeletionCoordinator?.localModelStorageBytes(
+            in: paths.modelsDirectory,
+            fileManager: fileManager
+        ) ?? directoryAllocatedBytes(paths.modelsDirectory)
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     @discardableResult
@@ -533,9 +801,8 @@ final class SettingsViewModel: ObservableObject {
         for record in records {
             try environment.settingsRepository.deleteValue(forKey: record.key)
         }
-        shortcutManager.shortcutKeyCode = ShortcutManager.defaultShortcutKeyCode
-        shortcutManager.longPressThreshold = ShortcutManager.defaultLongPressThreshold
-        shortcutManager.shortPressBehavior = .toggleListening
+        shortcutManager.resetToDefaults()
+        asrSettingsResetter?.resetASRSettingsToDefaults()
         exportedDataJSON = nil
         load()
         lastError = nil
@@ -590,9 +857,15 @@ final class SettingsViewModel: ObservableObject {
         guard let keyCode else { return false }
         switch action {
         case .dictation:
-            return shortcutManager.shortcutKeyCode(for: .agentCompose) == keyCode
+            return [.agentCompose].contains {
+                shortcutManager.shortcutKeyCode(for: $0) == keyCode
+            }
         case .agentCompose:
-            return shortcutManager.shortcutKeyCode(for: .dictation) == keyCode
+            return [.dictation].contains {
+                shortcutManager.shortcutKeyCode(for: $0) == keyCode
+            }
+        case .agentDispatch:
+            return false
         }
     }
 
@@ -602,6 +875,46 @@ final class SettingsViewModel: ObservableObject {
             return defaultValue
         }
         return try JSONDecoder().decode(DecodedSettingValue<T>.self, from: data).value
+    }
+
+    private func applyRuntimeSettingsSnapshot() {
+        LLMDiagnosticCapture.shared.configure(
+            enabled: systemOption(.llmTraceDiagnostics),
+            directory: paths?.llmTraceDiagnosticsDirectory
+        )
+    }
+
+    private func deleteModelDirectoryContents(_ modelsDirectory: URL) throws {
+        if fileManager.fileExists(atPath: modelsDirectory.path) {
+            let contents = try fileManager.contentsOfDirectory(
+                at: modelsDirectory,
+                includingPropertiesForKeys: nil
+            )
+            for url in contents {
+                try fileManager.removeItem(at: url)
+            }
+        }
+        try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+    }
+
+    private func directoryAllocatedBytes(_ directory: URL) -> Int64 {
+        guard let enumerator = fileManager.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            guard let values = try? url.resourceValues(
+                forKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isDirectoryKey]
+            ), values.isDirectory != true else {
+                continue
+            }
+            total += Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+        }
+        return total
     }
 
     private func setBool(_ key: String, value: Bool) throws {
@@ -646,7 +959,7 @@ enum SettingsViewModelError: LocalizedError {
         case .invalidShortcutKeyCode:
             return "快捷键录制失败，请按下一个有效按键。"
         case .unsupportedShortcutKeyCode:
-            return "语音快捷键仅支持 Command、Option、Control 或 Shift 这类单独修饰键。"
+            return "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键；Command+Shift+A/V 已保留给 OCR。"
         case .conflictingBindings:
             return "两个操作不能使用相同的快捷键，请修改其中一个。"
         }

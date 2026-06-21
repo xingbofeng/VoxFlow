@@ -12,14 +12,15 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
     var databaseQueue: DatabaseQueue { container.databaseQueue }
     var credentialStore: CredentialStore { container.credentialStore }
     var historyRepository: any HistoryRepository { container.historyRepository }
-    var glossaryRepository: any GlossaryRepository { container.glossaryRepository }
-    var replacementRuleRepository: any ReplacementRuleRepository { container.replacementRuleRepository }
     var styleRepository: any StyleRepository { container.styleRepository }
     var asrProviderRepository: any ASRProviderRepository { container.asrProviderRepository }
     var llmProviderRepository: any LLMProviderRepository { container.llmProviderRepository }
     var transcriptionJobRepository: any TranscriptionJobRepository { container.transcriptionJobRepository }
     var noteRepository: any NoteRepository { container.noteRepository }
     var settingsRepository: any SettingsRepository { container.settingsRepository }
+    var correctionRuleRepository: any CorrectionRuleRepository { container.correctionRuleRepository }
+    var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { container.correctionSnapshotProvider }
+    var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { container.voiceCorrectionProcessor }
 
     var historyDidChangePublisher: AnyPublisher<Void, Never> {
         historyDidChangeSubject.eraseToAnyPublisher()

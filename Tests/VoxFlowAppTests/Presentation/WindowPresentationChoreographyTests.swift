@@ -1,4 +1,5 @@
 import XCTest
+@testable import VoxFlowApp
 
 final class WindowPresentationChoreographyTests: XCTestCase {
     func testMainWindowDoesNotUseVisiblePostShowCorrection() throws {
@@ -78,6 +79,25 @@ final class WindowPresentationChoreographyTests: XCTestCase {
             shellSource.contains(".frame(minWidth: 1_260, minHeight: 720)"),
             "Keep this in sync with MainWindowController's initial contentRect."
         )
+    }
+
+    func testSettingsTabMapsToWorkbenchSettingsSections() {
+        XCTAssertEqual(SettingsSection(settingsTab: .asr), .dictationModels)
+        XCTAssertEqual(SettingsSection(settingsTab: .llm), .correctionModels)
+        XCTAssertEqual(SettingsSection(settingsTab: .shortcut), .system)
+    }
+
+    func testShowSettingsRoutesToRequestedSettingsTab() throws {
+        let coordinatorSource = try projectFile(
+            "Sources/VoxFlowApp/Presentation/WindowCoordinator.swift"
+        )
+        let shellSource = try projectFile(
+            "Sources/VoxFlowApp/Views/MainShellView.swift"
+        )
+
+        XCTAssertTrue(coordinatorSource.contains("navigationRouter.showSettings(tab: tab)"))
+        XCTAssertTrue(shellSource.contains("settingsViewModel.selectedSection = settingsSection"))
+        XCTAssertTrue(shellSource.contains("selectedRoute = command.route"))
     }
 
     func testFirstOrderedMainWindowStaysHiddenUntilFinalCenteredFrame() throws {

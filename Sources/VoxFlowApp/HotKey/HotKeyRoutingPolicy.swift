@@ -22,6 +22,7 @@ enum HotKeyRoutingDecision: Equatable {
 
 enum HotKeyWorkflowShortcut: Equatable {
     case clipboardImageOCR
+    case screenshotOCR
     case cancel
 }
 
@@ -30,6 +31,14 @@ enum ClipboardImageOCRShortcut {
 
     static func matches(keyCode: Int64, flags: CGEventFlags) -> Bool {
         HotKeyShortcutRouting.workflowShortcut(keyCode: keyCode, flags: flags) == .clipboardImageOCR
+    }
+}
+
+enum ScreenshotOCRShortcut {
+    static let keyCode: Int64 = HotKeyShortcutRouting.aKeyCode
+
+    static func matches(keyCode: Int64, flags: CGEventFlags) -> Bool {
+        HotKeyShortcutRouting.workflowShortcut(keyCode: keyCode, flags: flags) == .screenshotOCR
     }
 }
 
@@ -44,7 +53,8 @@ enum HotKeyRouter {
         keyCode: Int64,
         flags: CGEventFlags,
         dictationKeyCode: Int64?,
-        agentComposeKeyCode: Int64?
+        agentComposeKeyCode: Int64?,
+        agentDispatchKeyCode: Int64? = nil
     ) -> HotKeyRouterResult {
         if let workflowShortcut = HotKeyShortcutRouting.workflowShortcut(keyCode: keyCode, flags: flags) {
             return .workflowShortcut(workflowShortcut)
@@ -52,14 +62,11 @@ enum HotKeyRouter {
 
         guard let action = ShortcutActionRouting.action(
             for: keyCode,
+            flags: flags,
             dictationKeyCode: dictationKeyCode,
-            agentComposeKeyCode: agentComposeKeyCode
+            agentComposeKeyCode: agentComposeKeyCode,
+            agentDispatchKeyCode: agentDispatchKeyCode
         ) else {
-            return .passThrough
-        }
-
-        guard ShortcutManager.isSupportedVoiceShortcutKeyCode(keyCode),
-              ShortcutModifierRouting.isPureModifierShortcut(keyCode: keyCode, flags: flags) else {
             return .passThrough
         }
 
@@ -68,6 +75,7 @@ enum HotKeyRouter {
 }
 
 enum HotKeyShortcutRouting {
+    static let aKeyCode: Int64 = 0x00
     static let vKeyCode: Int64 = 0x09
     static let escapeKeyCode: Int64 = 53
 
@@ -81,7 +89,7 @@ enum HotKeyShortcutRouting {
             ]).isEmpty ? .cancel : nil
         }
 
-        guard keyCode == vKeyCode else { return nil }
+        guard keyCode == vKeyCode || keyCode == aKeyCode else { return nil }
 
         let activeFlags = flags.intersection([
             .maskCommand,
@@ -91,7 +99,7 @@ enum HotKeyShortcutRouting {
         ])
 
         if activeFlags == [.maskCommand, .maskShift] {
-            return .clipboardImageOCR
+            return keyCode == vKeyCode ? .clipboardImageOCR : .screenshotOCR
         }
 
         return nil
@@ -108,18 +116,27 @@ enum HotKeyRoutingPolicy {
     ) -> HotKeyRoutingDecision {
         switch event {
         case .press:
+            if action != .dictation, notesState.isActive, notesState.isRecording {
+                return .ignore
+            }
             if action == .dictation, notesState.shouldCaptureHotKey {
                 return .startNotesRecording
             }
             return dictationState.isIdle ? .startDictation(action) : .ignore
 
         case .release:
+            if action != .dictation, notesState.isActive, notesState.isRecording {
+                return .ignore
+            }
             if action == .dictation, notesState.isActive, notesState.isRecording {
                 return .finishNotesRecording
             }
             return activeVoiceAction == action ? .releaseDictation(action) : .ignore
 
         case .shortPress:
+            if action != .dictation, notesState.isActive, notesState.isRecording {
+                return .ignore
+            }
             if action == .dictation, notesState.shouldCaptureHotKey {
                 return notesState.isRecording ? .finishNotesRecording : .startNotesRecording
             }
@@ -132,6 +149,36 @@ enum HotKeyRoutingPolicy {
             case .processing, .injecting, .failed:
                 return .ignore
             }
+        }
+    }
+}
+
+enum HotKeyWorkflowRoutingPolicy {
+    static func shouldStartEphemeralWorkflow(
+        _ shortcut: HotKeyWorkflowShortcut,
+        dictationState: DictationState
+    ) -> Bool {
+        switch shortcut {
+        case .clipboardImageOCR:
+            return dictationState.isIdle
+        case .screenshotOCR:
+            return true
+        case .cancel:
+            return false
+        }
+    }
+
+    static func shouldPresentEphemeralWorkflowHUD(
+        _ shortcut: HotKeyWorkflowShortcut,
+        dictationState: DictationState
+    ) -> Bool {
+        switch shortcut {
+        case .clipboardImageOCR:
+            return dictationState.isIdle
+        case .screenshotOCR:
+            return false
+        case .cancel:
+            return false
         }
     }
 }

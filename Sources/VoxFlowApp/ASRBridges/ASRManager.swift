@@ -14,6 +14,17 @@ import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
 import VoxFlowProviderWhisper
 
+enum LocalModelDeletionError: LocalizedError, Equatable {
+    case modelOperationInProgress
+
+    var errorDescription: String? {
+        switch self {
+        case .modelOperationInProgress:
+            return "本地模型正在下载、验证或删除中，请等待完成后再删除全部本地模型。"
+        }
+    }
+}
+
 final class ASRManager: ASREngineFactory, @unchecked Sendable {
     struct SelectionFallbackNotice: Equatable {
         let selectedEngineType: ASREngineType
@@ -42,8 +53,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private let defaults: UserDefaults
     private let modelInstallationRepository: (any ModelInstallationStateStoring)?
     private let qwen3RuntimePreflight: (ModelSize) -> Qwen3RuntimePreflightResult
-    private let credentialStore: any CredentialStore
-    private let settingsRepository: (any SettingsRepository)?
+    private let cloudCredentials: ASRCloudCredentialManager
     private let modelStoreRoot: URL?
 
     private enum Keys {
@@ -160,15 +170,17 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     init(
         defaults: UserDefaults = .standard,
         modelInstallationRepository: (any ModelInstallationStateStoring)? = nil,
-        credentialStore: any CredentialStore = KeychainCredentialStore(),
+        credentialStore: any CredentialStore = AppLocalCredentialStore.liveDefault(),
         settingsRepository: (any SettingsRepository)? = nil,
         qwen3RuntimePreflight: @escaping (ModelSize) -> Qwen3RuntimePreflightResult = ASRManager.qwen3RuntimePreflightResult(for:),
         modelStoreRoot: URL? = nil
     ) {
         self.defaults = defaults
         self.modelInstallationRepository = modelInstallationRepository ?? Self.defaultModelInstallationRepository(for: defaults)
-        self.credentialStore = credentialStore
-        self.settingsRepository = settingsRepository
+        cloudCredentials = ASRCloudCredentialManager(
+            credentialStore: credentialStore,
+            settingsRepository: settingsRepository
+        )
         self.qwen3RuntimePreflight = qwen3RuntimePreflight
         self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
     }
@@ -215,16 +227,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isGroqConfigured: Bool {
-        let value = storedCloudCredential(account: Self.groqAPIKeyAccount)
-        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        cloudCredentials.isConfigured(account: Self.groqAPIKeyAccount)
     }
 
     func storedGroqAPIKey() -> String {
-        storedCloudCredential(account: Self.groqAPIKeyAccount)
+        cloudCredentials.storedCredential(account: Self.groqAPIKeyAccount)
     }
 
     func saveGroqAPIKey(_ apiKey: String) throws {
-        try saveCloudCredential(apiKey, account: Self.groqAPIKeyAccount)
+        try cloudCredentials.saveCredential(apiKey, account: Self.groqAPIKeyAccount)
     }
 
     func testGroqConnection() async throws -> ASRProviderHealthResult {
@@ -234,32 +245,29 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isTencentCloudConfigured: Bool {
-        let appID = storedCloudCredential(account: Self.tencentAppIDAccount)
-        let secretID = storedCloudCredential(account: Self.tencentSecretIDAccount)
-        let secretKey = storedCloudCredential(account: Self.tencentSecretKeyAccount)
-        return !appID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !secretID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !secretKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        cloudCredentials.isConfigured(account: Self.tencentAppIDAccount)
+            && cloudCredentials.isConfigured(account: Self.tencentSecretIDAccount)
+            && cloudCredentials.isConfigured(account: Self.tencentSecretKeyAccount)
     }
 
     func storedTencentCloudCredentials() -> (appID: String, secretID: String, secretKey: String) {
         (
-            storedCloudCredential(account: Self.tencentAppIDAccount),
-            storedCloudCredential(account: Self.tencentSecretIDAccount),
-            storedCloudCredential(account: Self.tencentSecretKeyAccount)
+            cloudCredentials.storedCredential(account: Self.tencentAppIDAccount),
+            cloudCredentials.storedCredential(account: Self.tencentSecretIDAccount),
+            cloudCredentials.storedCredential(account: Self.tencentSecretKeyAccount)
         )
     }
 
     func saveTencentCloudCredentials(appID: String, secretID: String, secretKey: String) throws {
-        try saveTencentCredential(appID, account: Self.tencentAppIDAccount)
-        try saveTencentCredential(secretID, account: Self.tencentSecretIDAccount)
-        try saveTencentCredential(secretKey, account: Self.tencentSecretKeyAccount)
+        try cloudCredentials.saveCredential(appID, account: Self.tencentAppIDAccount)
+        try cloudCredentials.saveCredential(secretID, account: Self.tencentSecretIDAccount)
+        try cloudCredentials.saveCredential(secretKey, account: Self.tencentSecretKeyAccount)
     }
 
     func deleteTencentCloudCredentials() throws {
-        try saveCloudCredential("", account: Self.tencentAppIDAccount)
-        try saveCloudCredential("", account: Self.tencentSecretIDAccount)
-        try saveCloudCredential("", account: Self.tencentSecretKeyAccount)
+        try cloudCredentials.deleteCredential(account: Self.tencentAppIDAccount)
+        try cloudCredentials.deleteCredential(account: Self.tencentSecretIDAccount)
+        try cloudCredentials.deleteCredential(account: Self.tencentSecretKeyAccount)
     }
 
     func tencentCloudConfiguration() throws -> TencentRealtimeASRConfiguration {
@@ -283,16 +291,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isAliyunDashScopeConfigured: Bool {
-        let value = storedCloudCredential(account: Self.aliyunDashScopeAPIKeyAccount)
-        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        cloudCredentials.isConfigured(account: Self.aliyunDashScopeAPIKeyAccount)
     }
 
     func storedAliyunDashScopeAPIKey() -> String {
-        storedCloudCredential(account: Self.aliyunDashScopeAPIKeyAccount)
+        cloudCredentials.storedCredential(account: Self.aliyunDashScopeAPIKeyAccount)
     }
 
     func saveAliyunDashScopeAPIKey(_ apiKey: String) throws {
-        try saveCloudCredential(apiKey, account: Self.aliyunDashScopeAPIKeyAccount)
+        try cloudCredentials.saveCredential(apiKey, account: Self.aliyunDashScopeAPIKeyAccount)
     }
 
     func aliyunDashScopeConfiguration() throws -> AliyunDashScopeRealtimeASRConfiguration {
@@ -323,62 +330,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
-    private func saveTencentCredential(_ value: String, account: String) throws {
-        try saveCloudCredential(value, account: account)
-    }
-
-    fileprivate func saveCloudCredential(_ value: String, account: String) throws {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let settingsRepository {
-            let key = Self.cloudCredentialSettingsKey(account: account)
-            if trimmed.isEmpty {
-                try settingsRepository.deleteValue(forKey: key)
-            } else {
-                try settingsRepository.set(
-                    key,
-                    jsonValue: Self.encodedCredentialJSON(StoredCloudCredential(value: trimmed))
-                )
-            }
-            return
-        }
-        if trimmed.isEmpty {
-            try credentialStore.deleteCredential(account: account)
-        } else {
-            try credentialStore.saveCredential(trimmed, account: account)
-        }
-    }
-
-    fileprivate func storedCloudCredential(account: String) -> String {
-        if let settingsRepository,
-           let json = try? settingsRepository.value(forKey: Self.cloudCredentialSettingsKey(account: account)),
-           let data = json.data(using: .utf8),
-           let credential = try? JSONDecoder().decode(StoredCloudCredential.self, from: data) {
-            return credential.value
-        }
-        guard settingsRepository == nil else {
-            return ""
-        }
-        return (try? credentialStore.readCredential(account: account)) ?? ""
-    }
-
     private func cloudCredentialStore() -> any CredentialStore {
-        ASRSettingsBackedCredentialStore(manager: self)
-    }
-
-    private static func cloudCredentialSettingsKey(account: String) -> String {
-        "ASRManager.cloudCredential.\(account)"
-    }
-
-    private static func encodedCredentialJSON(_ credential: StoredCloudCredential) -> String {
-        guard let data = try? JSONEncoder().encode(credential),
-              let string = String(data: data, encoding: .utf8) else {
-            return #"{"value":""}"#
-        }
-        return string
-    }
-
-    private struct StoredCloudCredential: Codable {
-        let value: String
+        cloudCredentials
     }
 
     // MARK: - Qwen3 Configuration
@@ -768,12 +721,80 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     @discardableResult
     func selectEngine(_ type: ASREngineType) -> Bool {
+        selectedEngineType = type
         guard canSelectEngine(type) else {
-            selectedEngineType = .apple
             return false
         }
-        selectedEngineType = type
         return true
+    }
+
+    func resetASRSettingsToDefaults() {
+        selectedEngineType = .apple
+        qwen3ModelPath = nil
+        qwen3ModelSize = .size0_6B
+        funASRPrecision = .int8
+        whisperVariant = .turbo
+        groqBaseURL = GroqCloudASRClient.defaultBaseURL
+        groqModel = GroqCloudASRClient.defaultModel
+        tencentRealtimeEngineModelType = TencentRealtimeASRConfiguration.defaultEngineModelType
+        aliyunDashScopeModel = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+    }
+
+    func deleteAllLocalModels(
+        in modelsDirectory: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        try throwIfLocalModelOperationInProgress()
+
+        for key in Self.allLocalModelInstallKeys() {
+            if case let .ready(installation) = try modelInstallationRepository?.state(for: key) ?? .notInstalled {
+                try? modelInstallationRepository?.save(.deleting(installation), for: key)
+            }
+        }
+
+        if fileManager.fileExists(atPath: modelsDirectory.path) {
+            let contents = try fileManager.contentsOfDirectory(
+                at: modelsDirectory,
+                includingPropertiesForKeys: nil,
+                options: []
+            )
+            for url in contents {
+                try fileManager.removeItem(at: url)
+            }
+        }
+        try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+
+        for key in Self.allLocalModelInstallKeys() {
+            try? modelInstallationRepository?.removeState(for: key)
+        }
+        qwen3ModelPath = nil
+        if selectedEngineType.isLocalModelProvider {
+            selectedEngineType = .apple
+        }
+    }
+
+    func localModelStorageBytes(
+        in modelsDirectory: URL,
+        fileManager: FileManager = .default
+    ) -> Int64 {
+        guard let enumerator = fileManager.enumerator(
+            at: modelsDirectory,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return 0
+        }
+
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            guard let values = try? url.resourceValues(
+                forKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isDirectoryKey]
+            ), values.isDirectory != true else {
+                continue
+            }
+            total += Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+        }
+        return total
     }
 
     var qwen3DownloadURL: URL {
@@ -1322,6 +1343,28 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    private static func allLocalModelInstallKeys() -> [ModelInstallKey] {
+        let variableKeys = ModelSize.allCases.compactMap(qwen3ModelInstallKey)
+            + WhisperVariant.allCases.compactMap(whisperModelInstallKey)
+            + FunASRPrecision.allCases.compactMap(funASRModelInstallKey)
+        return variableKeys + [
+            senseVoiceModelInstallKey(),
+            paraformerModelInstallKey(),
+            nvidiaNemotronModelInstallKey(),
+            parakeetModelInstallKey(),
+            omnilingualModelInstallKey(),
+        ]
+    }
+
+    private func throwIfLocalModelOperationInProgress() throws {
+        guard let modelInstallationRepository else { return }
+        for key in Self.allLocalModelInstallKeys() {
+            if try modelInstallationRepository.state(for: key).isOperationInProgress {
+                throw LocalModelDeletionError.modelOperationInProgress
+            }
+        }
+    }
+
     private func modelInstallKey(for engineType: ASREngineType) -> ModelInstallKey? {
         switch engineType {
         case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
@@ -1399,23 +1442,28 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 }
 
-private final class ASRSettingsBackedCredentialStore: CredentialStore, @unchecked Sendable {
-    private weak var manager: ASRManager?
-
-    init(manager: ASRManager) {
-        self.manager = manager
+private extension ASREngineType {
+    var isLocalModelProvider: Bool {
+        switch self {
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+            return false
+        case .funASR, .whisper, .qwen3, .senseVoice, .paraformer,
+             .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:
+            return true
+        }
     }
+}
 
-    func readCredential(account: String) throws -> String? {
-        manager?.storedCloudCredential(account: account)
-    }
-
-    func saveCredential(_ value: String, account: String) throws {
-        try manager?.saveCloudCredential(value, account: account)
-    }
-
-    func deleteCredential(account: String) throws {
-        try manager?.saveCloudCredential("", account: account)
+private extension ModelInstallationState {
+    var isOperationInProgress: Bool {
+        switch self {
+        case .downloading, .paused, .verifying, .extracting, .compiling,
+             .warmingUp, .canaryTesting, .deleting:
+            return true
+        case .notInstalled, .insufficientDisk, .ready, .corrupt,
+             .runtimeUnsupported, .hardwareUnsupported, .failed:
+            return false
+        }
     }
 }
 

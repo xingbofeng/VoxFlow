@@ -569,6 +569,51 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
     }
 
+    func testDeleteAutoDiscoveredQwenModelRemovesModelStoreInstallation() throws {
+        let suiteName = "test.ASRProviderViewModel.autodiscovered.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenAutoDiscoveredDeleteTests-\(UUID().uuidString)", isDirectory: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+        let stateRepository = FileModelInstallationStateRepository(
+            fileURL: root.appendingPathComponent("installation-states.json")
+        )
+        let modelStoreRoot = root.appendingPathComponent("models", isDirectory: true)
+        let metadata = try Qwen3ModelStoreMetadata.metadata(for: Qwen3ModelManifest.manifest(for: .size0_6B))
+        let modelURL = modelStoreRoot
+            .appendingPathComponent(metadata.modelID.rawValue, isDirectory: true)
+            .appendingPathComponent(metadata.version, isDirectory: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        let manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: stateRepository,
+            credentialStore: ASRProviderViewModelTestCredentialStore(),
+            qwen3RuntimePreflight: { _ in .supported },
+            modelStoreRoot: modelStoreRoot
+        )
+        manager.selectedEngineType = .qwen3
+        XCTAssertNil(manager.qwen3ModelPath)
+        XCTAssertTrue(manager.isQwen3ModelAvailable)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        viewModel.deleteLocalQwenModel()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
+        XCTAssertEqual(manager.qwen3ModelInstallationState, .notInstalled)
+        XCTAssertEqual(manager.selectedEngineType, .apple)
+    }
+
     func testDeleteLocalFunASRModelClearsModelStoreStateAndRefreshesProvider() throws {
         let manager = makeManager()
         manager.funASRPrecision = .int8
@@ -734,6 +779,42 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
         XCTAssertNil(viewModel.lastError)
         XCTAssertTrue(manager.isWhisperModelAvailable(for: .largeV3))
+    }
+
+    func testDownloadModelIgnoresReentryWhileDownloadIsRunning() async throws {
+        let manager = makeManager()
+        manager.whisperVariant = .largeV3
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("WhisperReentryTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableWhisperModelDirectory(at: modelURL, variant: .largeV3)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingWhisperKitModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            whisperKitModelDownloader: downloader
+        )
+
+        let first = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.whisper)
+        }
+        await downloader.waitUntilRequestCount(1)
+
+        let second = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.whisper)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let requestCount = await downloader.requestCountSnapshot()
+        XCTAssertEqual(requestCount, 1)
+
+        await downloader.finishAll()
+        await first.value
+        await second.value
     }
 
     func testDownloadFunASRMarksModelStoreReadyState() async throws {
@@ -994,6 +1075,62 @@ private actor StubWhisperKitModelDownloader: WhisperKitModelDownloading {
 
     func requestedVariants() -> [WhisperKitModelVariant] {
         variants
+    }
+}
+
+private actor BlockingWhisperKitModelDownloader: WhisperKitModelDownloading {
+    private let downloadedURL: URL
+    private var requestCount = 0
+    private var requestCountWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var released = false
+
+    init(downloadedURL: URL) {
+        self.downloadedURL = downloadedURL
+    }
+
+    func download(
+        variant: WhisperKitModelVariant,
+        modelsDirectory: URL,
+        progress: @escaping @MainActor @Sendable (WhisperKitModelDownloadProgress) -> Void
+    ) async throws -> URL {
+        requestCount += 1
+        resumeSatisfiedRequestCountWaiters()
+        await progress(.init(fractionCompleted: 0.1, status: "下载中"))
+        await waitForRelease()
+        await progress(.init(fractionCompleted: 1, status: "模型已就绪"))
+        return downloadedURL
+    }
+
+    func waitUntilRequestCount(_ expected: Int) async {
+        if requestCount >= expected { return }
+        await withCheckedContinuation { continuation in
+            requestCountWaiters.append((expected, continuation))
+        }
+    }
+
+    func requestCountSnapshot() -> Int {
+        requestCount
+    }
+
+    func finishAll() {
+        released = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
+    private func waitForRelease() async {
+        if released { return }
+        await withCheckedContinuation { continuation in
+            releaseContinuations.append(continuation)
+        }
+    }
+
+    private func resumeSatisfiedRequestCountWaiters() {
+        let satisfied = requestCountWaiters.filter { requestCount >= $0.0 }
+        requestCountWaiters.removeAll { requestCount >= $0.0 }
+        satisfied.forEach { $0.1.resume() }
     }
 }
 

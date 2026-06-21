@@ -6,12 +6,16 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  test-and-package:
-    name: Test and package macOS app
+  checks:
+    name: Test and build macOS app
     runs-on: macos-15
     timeout-minutes: 20
 
@@ -22,40 +26,55 @@ jobs:
       - name: Show Swift toolchain
         run: swift --version
 
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/artifacts
+            .build/checkouts
+            .build/plugins
+            .build/repositories
+          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-
+
+      - name: Cache sherpa-onnx runtime
+        uses: actions/cache@v4
+        with:
+          path: Vendor/sherpa-onnx.xcframework
+          key: ${{ runner.os }}-sherpa-onnx-${{ hashFiles('scripts/bootstrap-sherpa-onnx.sh') }}
+
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
       - name: Run tests
         run: swift test
 
+      - name: Run voice correction benchmark
+        run: |
+          swift run --package-path Packages/VoxFlowVoiceCorrectionKit VoxFlowVoiceCorrectionBench \
+            --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
+            --baseline Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Baselines/phase1-baseline.json \
+            --output .build/voice-correction-benchmark
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Check Rust agent router
+        working-directory: agent-cli
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Check helper script syntax
+        run: |
+          bash -n agent-cli/vox
+
       - name: Check architecture boundaries
         run: make architecture-check
 
       - name: Build with warnings as errors
         run: swift build -c debug -Xswiftc -warnings-as-errors
-
-      - name: Build release DMG
-        run: make dmg
-
-      - name: Read version
-        id: version
-        run: |
-          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoxFlowApp/Resources/Info.plist)
-          echo "value=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Verify bundle and DMG
-        run: |
-          codesign --verify --deep --strict .build/VoxFlow.app
-          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
-          test -f .build/VoxFlow.app/Contents/Resources/AppIcon.icns
-          test -f dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
-          shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
-
-      - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: VoxFlow-macOS
-          path: |
-            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
-            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
-          if-no-files-found: error

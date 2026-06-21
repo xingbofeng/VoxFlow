@@ -81,7 +81,7 @@ final class DictationFeatureController {
             activeVoiceAction = action
             try startDictation(
                 currentConfiguration(),
-                action == .agentCompose ? .agentCompose : .dictation
+                taskMode(for: action)
             )
         } catch {
             activeVoiceAction = nil
@@ -109,5 +109,16 @@ final class DictationFeatureController {
 
     func handleRecognitionError(_ error: Error) {
         showRecognitionError(error)
+    }
+
+    private func taskMode(for action: VoiceAction) -> VoiceTaskMode {
+        switch action {
+        case .dictation:
+            return .dictation
+        case .agentCompose:
+            return .agentCompose
+        case .agentDispatch:
+            return .agentDispatch
+        }
     }
 }

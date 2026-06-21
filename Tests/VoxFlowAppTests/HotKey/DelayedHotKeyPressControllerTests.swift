@@ -11,9 +11,11 @@ final class DelayedHotKeyPressControllerTests: XCTestCase {
             }
         )
         var handledActions: [VoiceAction] = []
+        let fired = expectation(description: "delayed press fired")
 
         controller.schedule(action: .dictation, threshold: 0.25) { action in
             handledActions.append(action)
+            fired.fulfill()
         }
         await sleeper.waitUntilSleeping()
 
@@ -22,7 +24,7 @@ final class DelayedHotKeyPressControllerTests: XCTestCase {
         XCTAssertTrue(handledActions.isEmpty)
 
         await sleeper.resume()
-        await Task.yield()
+        await fulfillment(of: [fired], timeout: 1.0)
 
         XCTAssertEqual(handledActions, [.dictation])
     }
@@ -35,15 +37,18 @@ final class DelayedHotKeyPressControllerTests: XCTestCase {
             }
         )
         var handledActions: [VoiceAction] = []
+        let fired = expectation(description: "cancelled delayed press does not fire")
+        fired.isInverted = true
 
         controller.schedule(action: .agentCompose, threshold: 0.25) { action in
             handledActions.append(action)
+            fired.fulfill()
         }
         await sleeper.waitUntilSleeping()
         controller.cancel()
 
         await sleeper.resume()
-        await Task.yield()
+        await fulfillment(of: [fired], timeout: 0.1)
 
         XCTAssertTrue(handledActions.isEmpty)
     }

@@ -1,10 +1,31 @@
 import Foundation
 
+enum TextRefinementPurpose: Equatable {
+    case dictationCorrection
+    case agentCompose
+}
+
 struct TextRefinementRequest: Equatable {
     let text: String
     let systemPrompt: String
     let model: String?
     let temperature: Double?
+
+    init(
+        text: String,
+        systemPrompt: String,
+        model: String?,
+        temperature: Double?,
+        purpose: TextRefinementPurpose = .dictationCorrection
+    ) {
+        self.text = text
+        self.systemPrompt = systemPrompt
+        self.model = model
+        self.temperature = temperature
+        self.purpose = purpose
+    }
+
+    let purpose: TextRefinementPurpose
 }
 
 struct PromptBuildResult: Equatable {

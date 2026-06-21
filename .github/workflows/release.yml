@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,20 +19,49 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/artifacts
+            .build/checkouts
+            .build/plugins
+            .build/repositories
+          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-
+
+      - name: Cache sherpa-onnx runtime
+        uses: actions/cache@v4
+        with:
+          path: Vendor/sherpa-onnx.xcframework
+          key: ${{ runner.os }}-sherpa-onnx-${{ hashFiles('scripts/bootstrap-sherpa-onnx.sh') }}
+
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
+
+      - name: Verify release version metadata
+        id: version
+        run: |
+          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoxFlowApp/Resources/Info.plist)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            test "$TAG_VERSION" = "$PLIST_VERSION"
+          fi
+          test -f ".github/release-notes/v${PLIST_VERSION}.md"
+          echo "value=$PLIST_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         run: swift test
 
+      - name: Check architecture boundaries
+        run: make architecture-check
+
+      - name: Build with warnings as errors
+        run: swift build -c debug -Xswiftc -warnings-as-errors
+
       - name: Build release DMG
         run: make dmg
-
-      - name: Read version
-        id: version
-        run: |
-          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Sources/VoxFlowApp/Resources/Info.plist)
-          echo "value=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Verify release assets
         run: |
@@ -40,6 +70,7 @@ jobs:
           shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
       - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           name: VoxFlow ${{ steps.version.outputs.value }}

@@ -19,6 +19,16 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
     }
 
+    func testEscapeCancelsActiveAgentDispatchConfirmationEvenAfterDictationIsIdle() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("voiceTaskCoordinator.activeTaskID(for: .agentDispatch)"))
+        XCTAssertTrue(source.contains("agentDispatchHandler?.cancel()"))
+        XCTAssertTrue(source.contains("hudFeatureController.render(.hidden)"))
+    }
+
     func testHotKeyRoutingSendsDictationPressToNotesWhenNotesCanCapture() {
         let decision = HotKeyRoutingPolicy.decision(
             for: .press,
@@ -77,6 +87,66 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
 
         XCTAssertEqual(decision, .ignore)
+    }
+
+    func testClipboardImageOCRDoesNotStartWhileVoiceTaskIsActive() {
+        for state in [DictationState.recording, .waitingForFinal, .processing, .injecting] {
+            XCTAssertFalse(
+                HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                    .clipboardImageOCR,
+                    dictationState: state
+                )
+            )
+        }
+    }
+
+    func testScreenshotOCRCanStartWhileVoiceTaskIsActiveWithoutTakingHUD() {
+        for state in [DictationState.recording, .waitingForFinal, .processing, .injecting] {
+            XCTAssertTrue(
+                HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                    .screenshotOCR,
+                    dictationState: state
+                )
+            )
+            XCTAssertFalse(
+                HotKeyWorkflowRoutingPolicy.shouldPresentEphemeralWorkflowHUD(
+                    .screenshotOCR,
+                    dictationState: state
+                )
+            )
+        }
+    }
+
+    func testScreenshotOCRNeverPresentsHUD() {
+        for state in [DictationState.idle, .recording, .waitingForFinal, .processing, .injecting] {
+            XCTAssertFalse(
+                HotKeyWorkflowRoutingPolicy.shouldPresentEphemeralWorkflowHUD(
+                    .screenshotOCR,
+                    dictationState: state
+                )
+            )
+        }
+    }
+
+    func testEphemeralOCRWorkflowsCanStartWhileDictationIsIdle() {
+        XCTAssertTrue(
+            HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                .screenshotOCR,
+                dictationState: .idle
+            )
+        )
+        XCTAssertTrue(
+            HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                .clipboardImageOCR,
+                dictationState: .idle
+            )
+        )
+        XCTAssertTrue(
+            HotKeyWorkflowRoutingPolicy.shouldPresentEphemeralWorkflowHUD(
+                .clipboardImageOCR,
+                dictationState: .idle
+            )
+        )
     }
 
     private static func repositoryRoot() throws -> URL {

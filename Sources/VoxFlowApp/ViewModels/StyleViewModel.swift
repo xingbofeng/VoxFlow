@@ -14,6 +14,7 @@ final class StyleViewModel: ObservableObject {
     private let appStyleRuleStore: AppStyleRuleStore
     private let smartConfigurationAppProvider: any InstalledApplicationProviding
     private let smartConfigurationClassifierFactory: @MainActor (any AppServiceProviding) -> (any BatchApplicationClassifying)?
+    private var hasLoaded = false
 
     init(
         environment: any AppServiceProviding,
@@ -36,10 +37,18 @@ final class StyleViewModel: ObservableObject {
                 ?? defaultProfile
                 ?? profiles.first
             appStyleRules = try appStyleRuleStore.list()
+            hasLoaded = true
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
     }
 
     func updateProfile(

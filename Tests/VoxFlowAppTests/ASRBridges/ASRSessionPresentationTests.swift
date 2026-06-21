@@ -183,6 +183,7 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
         case dismiss
         case updateTranscription(text: String, isRefining: Bool)
         case updateAgentComposeStatus(AgentComposeHUDStage)
+        case updateAgentDispatch(AgentDispatchHUDPresentation)
         case updateStreamingText(String)
         case updateRMS(Float)
         case showTemporaryMessage(
@@ -212,6 +213,10 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
 
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage) {
         events.append(.updateAgentComposeStatus(stage))
+    }
+
+    func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
+        events.append(.updateAgentDispatch(presentation))
     }
 
     func updateStreamingText(_ partialText: String) {

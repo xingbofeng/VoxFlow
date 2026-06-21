@@ -71,7 +71,7 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
     }
 }
 
-private enum GroqASRConfigurationError: LocalizedError {
+enum GroqASRConfigurationError: LocalizedError {
     case invalidHTTPSURL
     case emptyModel
     case unsupportedModel
@@ -88,7 +88,7 @@ private enum GroqASRConfigurationError: LocalizedError {
     }
 }
 
-private enum TencentCloudASRConfigurationError: LocalizedError {
+enum TencentCloudASRConfigurationError: LocalizedError {
     case emptyAppID
     case emptySecretID
     case emptySecretKey
@@ -108,7 +108,7 @@ private enum TencentCloudASRConfigurationError: LocalizedError {
     }
 }
 
-private enum AliyunDashScopeASRConfigurationError: LocalizedError {
+enum AliyunDashScopeASRConfigurationError: LocalizedError {
     case emptyAPIKey
     case emptyModel
 
@@ -160,6 +160,7 @@ final class ASRProviderViewModel: ObservableObject {
 
     private let environment: any AppServiceProviding
     private let asrManager: ASRManager
+    private let configurationService: ASRProviderConfigurationService
     private let registry: ASRProviderRegistry
     private let downloader: any Qwen3ModelDownloading
     private let sherpaModelDownloader: any SherpaASRModelDownloading
@@ -173,6 +174,7 @@ final class ASRProviderViewModel: ObservableObject {
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
     private var providerRecordPersistenceTask: Task<Void, Never>?
+    private var hasLoaded = false
 
     init(
         environment: any AppServiceProviding,
@@ -195,6 +197,7 @@ final class ASRProviderViewModel: ObservableObject {
         )
         self.environment = environment
         self.asrManager = resolvedASRManager
+        configurationService = ASRProviderConfigurationService(asrManager: resolvedASRManager)
         self.registry = registry ?? ASRProviderRegistry(asrManager: resolvedASRManager)
         self.downloader = downloader
         self.sherpaModelDownloader = sherpaModelDownloader
@@ -306,7 +309,15 @@ final class ASRProviderViewModel: ObservableObject {
 
     func saveGroqConfiguration() {
         do {
-            try persistGroqConfiguration()
+            apply(
+                try configurationService.saveGroqConfiguration(
+                    apiKeyInput: groqAPIKeyInput,
+                    baseURLInput: groqBaseURLInput,
+                    modelInput: groqModelInput,
+                    apiKeyMask: Self.storedGroqAPIKeyMask,
+                    supportedModels: Self.supportedGroqModels
+                )
+            )
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -322,8 +333,16 @@ final class ASRProviderViewModel: ObservableObject {
         isTestingGroq = true
         defer { isTestingGroq = false }
         do {
-            try persistGroqConfiguration()
-            let result = try await asrManager.testGroqConnection()
+            apply(
+                try configurationService.saveGroqConfiguration(
+                    apiKeyInput: groqAPIKeyInput,
+                    baseURLInput: groqBaseURLInput,
+                    modelInput: groqModelInput,
+                    apiKeyMask: Self.storedGroqAPIKeyMask,
+                    supportedModels: Self.supportedGroqModels
+                )
+            )
+            let result = try await configurationService.testGroqConnection()
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -336,7 +355,7 @@ final class ASRProviderViewModel: ObservableObject {
 
     func deleteGroqAPIKey() {
         do {
-            try asrManager.saveGroqAPIKey("")
+            try configurationService.deleteGroqAPIKey()
             groqAPIKeyInput = ""
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
@@ -350,7 +369,14 @@ final class ASRProviderViewModel: ObservableObject {
 
     func saveTencentCloudConfiguration() {
         do {
-            try persistTencentCloudConfiguration()
+            apply(
+                try configurationService.saveTencentCloudConfiguration(
+                    appIDInput: tencentAppIDInput,
+                    secretIDInput: tencentSecretIDInput,
+                    secretKeyInput: tencentSecretKeyInput,
+                    secretMask: Self.storedTencentSecretMask
+                )
+            )
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -366,8 +392,15 @@ final class ASRProviderViewModel: ObservableObject {
         isTestingTencentCloud = true
         defer { isTestingTencentCloud = false }
         do {
-            try persistTencentCloudConfiguration()
-            let result = try await asrManager.testTencentCloudConnection()
+            apply(
+                try configurationService.saveTencentCloudConfiguration(
+                    appIDInput: tencentAppIDInput,
+                    secretIDInput: tencentSecretIDInput,
+                    secretKeyInput: tencentSecretKeyInput,
+                    secretMask: Self.storedTencentSecretMask
+                )
+            )
+            let result = try await configurationService.testTencentCloudConnection()
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -380,7 +413,7 @@ final class ASRProviderViewModel: ObservableObject {
 
     func deleteTencentCloudCredentials() {
         do {
-            try asrManager.deleteTencentCloudCredentials()
+            try configurationService.deleteTencentCloudCredentials()
             tencentAppIDInput = ""
             tencentSecretIDInput = ""
             tencentSecretKeyInput = ""
@@ -396,7 +429,12 @@ final class ASRProviderViewModel: ObservableObject {
 
     func saveAliyunDashScopeConfiguration() {
         do {
-            try persistAliyunDashScopeConfiguration()
+            apply(
+                try configurationService.saveAliyunDashScopeConfiguration(
+                    apiKeyInput: aliyunDashScopeAPIKeyInput,
+                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask
+                )
+            )
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -412,8 +450,13 @@ final class ASRProviderViewModel: ObservableObject {
         isTestingAliyunDashScope = true
         defer { isTestingAliyunDashScope = false }
         do {
-            try persistAliyunDashScopeConfiguration()
-            let result = try await asrManager.testAliyunDashScopeConnection()
+            apply(
+                try configurationService.saveAliyunDashScopeConfiguration(
+                    apiKeyInput: aliyunDashScopeAPIKeyInput,
+                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask
+                )
+            )
+            let result = try await configurationService.testAliyunDashScopeConnection()
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
@@ -426,7 +469,7 @@ final class ASRProviderViewModel: ObservableObject {
 
     func deleteAliyunDashScopeAPIKey() {
         do {
-            try asrManager.saveAliyunDashScopeAPIKey("")
+            try configurationService.deleteAliyunDashScopeAPIKey()
             aliyunDashScopeAPIKeyInput = ""
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
@@ -438,92 +481,22 @@ final class ASRProviderViewModel: ObservableObject {
         }
     }
 
-    private func persistGroqConfiguration() throws {
-        let baseURL = groqBaseURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let components = URLComponents(string: baseURL),
-              components.scheme == "https",
-              components.host != nil else {
-            throw GroqASRConfigurationError.invalidHTTPSURL
-        }
-        let model = groqModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !model.isEmpty else {
-            throw GroqASRConfigurationError.emptyModel
-        }
-        guard Self.supportedGroqModels.contains(where: { $0.id == model }) else {
-            throw GroqASRConfigurationError.unsupportedModel
-        }
-        let key = groqAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !key.isEmpty && key != Self.storedGroqAPIKeyMask {
-            try asrManager.saveGroqAPIKey(key)
-            groqAPIKeyInput = Self.storedGroqAPIKeyMask
-        } else if !asrManager.isGroqConfigured {
-            throw CloudASRClientError.missingCredential
-        } else {
-            groqAPIKeyInput = Self.storedGroqAPIKeyMask
-        }
-        asrManager.groqBaseURL = baseURL
-        asrManager.groqModel = model
+    private func apply(_ state: GroqASRConfigurationInputState) {
+        groqAPIKeyInput = state.apiKeyInput
+        groqBaseURLInput = state.baseURLInput
+        groqModelInput = state.modelInput
     }
 
-    private func persistTencentCloudConfiguration() throws {
-        let stored = asrManager.storedTencentCloudCredentials()
-        let appID = try resolvedTencentValue(
-            input: tencentAppIDInput,
-            stored: stored.appID,
-            missingError: TencentCloudASRConfigurationError.emptyAppID
-        )
-        let secretID = try resolvedTencentValue(
-            input: tencentSecretIDInput,
-            stored: stored.secretID,
-            missingError: TencentCloudASRConfigurationError.emptySecretID
-        )
-        let secretKey = try resolvedTencentValue(
-            input: tencentSecretKeyInput,
-            stored: stored.secretKey,
-            missingError: TencentCloudASRConfigurationError.emptySecretKey
-        )
-        try asrManager.saveTencentCloudCredentials(
-            appID: appID,
-            secretID: secretID,
-            secretKey: secretKey
-        )
-        asrManager.tencentRealtimeEngineModelType = TencentRealtimeASRConfiguration.defaultEngineModelType
-        tencentEngineModelTypeInput = TencentRealtimeASRConfiguration.defaultEngineModelType
-        tencentAppIDInput = appID
-        tencentSecretIDInput = secretID
-        tencentSecretKeyInput = Self.storedTencentSecretMask
+    private func apply(_ state: TencentCloudASRConfigurationInputState) {
+        tencentAppIDInput = state.appIDInput
+        tencentSecretIDInput = state.secretIDInput
+        tencentSecretKeyInput = state.secretKeyInput
+        tencentEngineModelTypeInput = state.engineModelTypeInput
     }
 
-    private func resolvedTencentValue(
-        input: String,
-        stored: String,
-        missingError: TencentCloudASRConfigurationError
-    ) throws -> String {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if isMaskedTencentSecret(text: trimmed), !stored.isEmpty {
-            return stored
-        }
-        if !trimmed.isEmpty {
-            return trimmed
-        }
-        if !stored.isEmpty {
-            return stored
-        }
-        throw missingError
-    }
-
-    private func persistAliyunDashScopeConfiguration() throws {
-        let key = aliyunDashScopeAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !key.isEmpty && key != Self.storedAliyunDashScopeAPIKeyMask {
-            try asrManager.saveAliyunDashScopeAPIKey(key)
-            aliyunDashScopeAPIKeyInput = Self.storedAliyunDashScopeAPIKeyMask
-        } else if !asrManager.isAliyunDashScopeConfigured {
-            throw AliyunDashScopeASRConfigurationError.emptyAPIKey
-        } else {
-            aliyunDashScopeAPIKeyInput = Self.storedAliyunDashScopeAPIKeyMask
-        }
-        asrManager.aliyunDashScopeModel = AliyunDashScopeRealtimeASRConfiguration.defaultModel
-        aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+    private func apply(_ state: AliyunDashScopeASRConfigurationInputState) {
+        aliyunDashScopeAPIKeyInput = state.apiKeyInput
+        aliyunDashScopeModelInput = state.modelInput
     }
 
     func sherpaVariant(for id: String) -> SherpaASRModelVariant? {
@@ -582,6 +555,14 @@ final class ASRProviderViewModel: ObservableObject {
 
     func load() {
         refreshProviders(persistRecords: true)
+        hasLoaded = lastError == nil
+    }
+
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
     }
 
     private func refreshProviders(persistRecords: Bool) {
@@ -670,7 +651,9 @@ final class ASRProviderViewModel: ObservableObject {
 
     private func modelPath(id: String) -> String? {
         switch id {
-        case ASRProviderID.qwen3: return asrManager.qwen3ModelPath
+        case ASRProviderID.qwen3:
+            return asrManager.qwen3ModelPath(for: asrManager.qwen3ModelSize)
+                ?? asrManager.qwen3ModelPath
         case ASRProviderID.funASR:
             if case let .ready(installation) = asrManager.funASRModelInstallationState(
                 for: asrManager.funASRPrecision
@@ -732,6 +715,7 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func downloadModel(id: String) async {
+        guard !isDownloading else { return }
         isDownloading = true
         downloadingProviderID = id
         downloadProgress = nil

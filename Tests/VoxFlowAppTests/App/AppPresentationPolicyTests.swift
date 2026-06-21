@@ -43,13 +43,13 @@ final class AppPresentationPolicyTests: XCTestCase {
         )
         let launchRange = try XCTUnwrap(source.range(of: "func applicationDidFinishLaunching"))
         let launchSource = source[launchRange.lowerBound...]
-        let dependencyRange = try XCTUnwrap(launchSource.range(of: "DependencyContainer.live()"))
+        let bootstrapRange = try XCTUnwrap(launchSource.range(of: "AppRuntime.bootstrap()"))
         let orchestratorRange = try XCTUnwrap(launchSource.range(of: "setupDictationOrchestrator()"))
         let statusItemRange = try XCTUnwrap(launchSource.range(of: "setupStatusItem()"))
         let menuRange = try XCTUnwrap(launchSource.range(of: "setupMenu()"))
 
         XCTAssertLessThan(
-            dependencyRange.lowerBound,
+            bootstrapRange.lowerBound,
             statusItemRange.lowerBound,
             "Match the known-good foreground launch path: initialize the app runtime before registering the status item."
         )

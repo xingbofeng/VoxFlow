@@ -17,10 +17,6 @@ private final class SettingsWindow: NSWindow {
 /// Settings window with three-panel tab view: ASR, LLM, Shortcut.
 @MainActor
 final class SettingsWindowController: NSWindowController {
-    // MARK: - Singleton
-
-    static let shared = SettingsWindowController()
-
     // MARK: - Tab View
 
     private let tabView = NSTabView()
@@ -59,13 +55,17 @@ final class SettingsWindowController: NSWindowController {
 
     // MARK: - Shared Instances
 
-    private lazy var asrManager = ASRManager()
+    private let asrManager: ASRManager
     private let modelDownloader: any Qwen3ModelDownloading
     private var modelDownloadTask: Task<Void, Never>?
 
     // MARK: - Init
 
-    private init(modelDownloader: any Qwen3ModelDownloading = Qwen3ModelDownloader.live()) {
+    init(
+        asrManager: ASRManager,
+        modelDownloader: any Qwen3ModelDownloading = Qwen3ModelDownloader.live()
+    ) {
+        self.asrManager = asrManager
         self.modelDownloader = modelDownloader
         let window = SettingsWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 340),
@@ -123,7 +123,7 @@ final class SettingsWindowController: NSWindowController {
         let view = NSView()
 
         // --- Engine Selection ---
-        let engineLabel = makeTitleLabel("语音识别引擎")
+        let engineLabel = makeTitleLabel("ASR 模型")
 
         appleRadio.translatesAutoresizingMaskIntoConstraints = false
         appleRadio.target = self

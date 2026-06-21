@@ -1,0 +1,120 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "original": "q 问",
+    "replacement": "Qwen",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "original": "queue win",
+    "replacement": "Qwen",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "original": "teh",
+    "replacement": "the",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "original": "hyper frame",
+    "replacement": "Hyperframe",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "original": "ai 的",
+    "replacement": "AI 的",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "original": "command shift v",
+    "replacement": "Cmd + Shift + V",
+    "matchPolicy": "exact"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "original": "claude",
+    "replacement": "Claude",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "original": "frame",
+    "replacement": "FRAME",
+    "matchPolicy": "substring"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000009",
+    "original": "foo",
+    "replacement": "bar",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "original": "bar",
+    "replacement": "baz",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000011",
+    "original": "vox flow",
+    "replacement": "VoxFlow",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000012",
+    "original": "swift ui",
+    "replacement": "SwiftUI",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000013",
+    "original": "gpt image 2",
+    "replacement": "GPT Image 2",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000014",
+    "original": "mac os",
+    "replacement": "macOS",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000015",
+    "original": "dont",
+    "replacement": "don't",
+    "matchPolicy": "boundary"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000016",
+    "original": "码上 写",
+    "replacement": "码上写",
+    "matchPolicy": "substring"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000017",
+    "original": "易 错 词",
+    "replacement": "易错词",
+    "matchPolicy": "substring"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000018",
+    "original": "¿",
+    "replacement": "",
+    "matchPolicy": "substring"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000019",
+    "original": "dock",
+    "replacement": "Dock",
+    "matchPolicy": "boundary",
+    "scope": {
+      "type": "application",
+      "bundleIdentifier": "com.apple.finder"
+    }
+  }
+]

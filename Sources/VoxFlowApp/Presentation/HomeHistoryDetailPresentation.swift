@@ -4,6 +4,9 @@ enum HomeHistoryDetailPresentation {
     static let missingTraceMessage = "这条记录没有模型纠错信息。可能是当时没有开启文本纠错，或者它是在追踪功能上线前生成的。点击右上角“重新处理”，即可查看是否调用模型、发送内容和返回结果。"
 
     static func missingTraceMessage(for taskMode: VoiceTaskMode?) -> String {
+        if taskMode == .agentDispatch {
+            return "这条 Vibe Coding 指挥记录不调用文本纠错模型；语音原文和调度结果已单独保留。"
+        }
         guard taskMode == .agentCompose else {
             return missingTraceMessage
         }
@@ -121,7 +124,7 @@ enum HomeHistoryDetailPresentation {
         case "agent_llm_failed":
             return "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
         case "llm_refinement_failed":
-            return "文本纠错模型调用失败，已保留原始识别文本。"
+            return "LLM 模型调用失败，已保留原始识别文本。"
         case "llm_refinement_cancelled_by_user":
             return "已取消文本纠错，直接使用原始识别文本。"
         case "context_collection_timeout":

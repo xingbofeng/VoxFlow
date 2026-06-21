@@ -13,9 +13,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let audioRecorder = AudioRecorder()
     private nonisolated let dictationAudioBufferForwarder = ASREngineAudioFrameForwarder()
-    private lazy var asrCoordinator = ASRCoordinator(
-        manager: ASRManager(settingsRepository: appEnvironment.settingsRepository)
-    )
+    private var runtime: AppRuntime?
+    private var appEnvironment: AppEnvironment { runtime!.environment }
+    private var asrCoordinator: ASRCoordinator { runtime!.asrCoordinator }
+    private var windowCoordinator: WindowCoordinator { runtime!.windowCoordinator }
+    private var llmRefiner: RepositoryBackedLLMRefiner { runtime!.llmRefiner }
+    private var fastPasteTextInserter: FastPasteTextInserter { runtime!.fastPasteTextInserter }
+    private var lastResultStore: InMemoryLastResultStore { runtime!.lastResultStore }
+    private var clipboardService: SystemClipboardService { runtime!.clipboardService }
+    private var outputService: DefaultOutputService { runtime!.outputService }
+    private var styleSelector: SettingsBackedStyleSelector { runtime!.styleSelector }
+    private var textPipeline: DefaultTextProcessingPipeline { runtime!.textPipeline }
+    private var capabilityModelDownloader: SoniqoCapabilityModelDownloader { runtime!.capabilityModelDownloader }
+    private var screenshotOCRService: ScreenshotOCRService { runtime!.screenshotOCRService }
+    private var voiceTaskCoordinator: VoiceTaskCoordinator { runtime!.voiceTaskCoordinator }
+    private var agentHelperManager: AgentHelperManager? { runtime!.agentHelperManager }
     private lazy var menuBarCoordinator = MenuBarCoordinator(
         asrOptions: Self.makeASRMenuOptions(),
         currentLanguage: { LanguageManager.shared.currentLanguage },
@@ -28,29 +40,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         actions: MenuBarActions(
             selectLanguage: { [weak self] language in self?.selectLanguage(language) },
             selectASRMenuOption: { [weak self] option in self?.selectASREngine(option) },
+            selectLLMProvider: { [weak self] providerID in self?.selectLLMProvider(providerID) },
+            selectCapabilityModel: { [weak self] kind, modelID in self?.selectCapabilityModel(kind: kind, modelID: modelID) },
             openWorkbench: { [weak self] in self?.openWorkbench() },
             openSettings: { [weak self] in self?.openSettings() },
             openGitHub: { [weak self] in self?.openGitHub() },
             checkPermissions: { [weak self] in self?.checkPermissions() },
             quit: { [weak self] in self?.quitApp() },
             menuWillOpen: { [weak self] in self?.refreshStatusItemAppearance() }
-        )
+        ),
+        llmProviders: { [weak self] in
+            (try? self?.appEnvironment.llmProviderRepository.list()) ?? []
+        },
+        selectedLLMProviderID: { [weak self] in
+            (try? self?.appEnvironment.llmProviderRepository.list().first { $0.enabled && $0.isDefault }?.id) ?? nil
+        },
+        capabilityModels: { [weak self] kind in
+            CapabilityModelCatalog.models(for: kind).map { model in
+                var mutable = model
+                mutable.isInstalled = CapabilityModelID.isBuiltInOption(model.id) ||
+                    (self?.capabilityModelDownloader.isInstalled(modelID: model.id) ?? false)
+                return mutable
+            }
+        },
+        selectedCapabilityModelID: { kind in
+            CapabilityModelViewModel.selectedModelID(kind: kind)
+        },
+        isCapabilityModelEnabled: { $0.isInstalled }
     )
     private lazy var recordingPermissionService = RecordingPermissionService(
         engineTypeProvider: { [asrCoordinator] in asrCoordinator.effectiveSelectedEngineType }
-    )
-    private let fastPasteTextInserter = FastPasteTextInserter()
-    private let simulatedTypingInserter = SimulatedTypingInserter()
-    private lazy var textInsertionCoordinator = TextInsertionCoordinator(
-        fastPasteInserter: fastPasteTextInserter,
-        simulatedTypingInserter: simulatedTypingInserter
-    )
-    private let lastResultStore = InMemoryLastResultStore()
-    private let clipboardService = SystemClipboardService()
-    private lazy var outputService = DefaultOutputService(
-        textInsertionCoordinator: textInsertionCoordinator,
-        clipboardService: clipboardService,
-        lastResultStore: lastResultStore
     )
     private lazy var pasteLastResultService = PasteLastResultService(
         lastResultStore: lastResultStore,
@@ -65,7 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) ?? false
         }
     )
-    private var llmRefiner: RepositoryBackedLLMRefiner!
+    private lazy var screenshotOCRResultPanelController = ScreenshotOCRResultPanelController(
+        service: screenshotOCRService,
+        clipboard: clipboardService
+    )
     private let overlayController = OverlayWindowController()
     private lazy var hudFeatureController = VoiceHUDFeatureController(overlay: overlayController)
     private var pendingASRSelectionFallbackNotice: ASRManager.SelectionFallbackNotice?
@@ -177,11 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     private var recordingFeedbackController: RecordingAudioFeedbackController!
     private var permissionGuideController: PermissionGuideWindowController?
-    private var appEnvironment: AppEnvironment!
-    private var windowCoordinator: WindowCoordinator!
     private var dictationOrchestrator: DictationOrchestrator!
-    private var voiceTaskCoordinator: VoiceTaskCoordinator!
     private var agentComposeHandler: DefaultAgentComposeHandler!
+    private var agentDispatchHandler: DefaultAgentDispatchHandler?
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
         HotKeyFeatureController(
@@ -198,6 +218,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             activeVoiceAction: { [weak self] in
                 self?.dictationFeatureController.activeVoiceAction
+            },
+            primaryVoiceAction: { [weak self] in
+                self?.isSettingEnabled(
+                    SettingsKey.agentDispatchEnabled,
+                    defaultValue: false
+                ) == true ? .agentDispatch : .dictation
             },
             currentNotesState: {
                 let notesCoordinator = NotesCaptureCoordinator.shared
@@ -230,27 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
-        do {
-            appEnvironment = AppEnvironment(container: try DependencyContainer.live())
-        } catch {
-            AppLogger.general.error("Failed to initialize app environment: \(error.localizedDescription)")
-            try? FileManager.default.createDirectory(
-                at: FileManager.default.temporaryDirectory,
-                withIntermediateDirectories: true
-            )
-            appEnvironment = AppEnvironment(
-                container: try! DependencyContainer.inMemory(
-                    storageHealth: .unavailable(
-                        reason: "Persistent storage failed to initialize: \(error.localizedDescription)"
-                    )
-                )
-            )
-        }
-        windowCoordinator = WindowCoordinator(environment: appEnvironment)
-        llmRefiner = RepositoryBackedLLMRefiner(
-            providerRepository: appEnvironment.llmProviderRepository,
-            credentialStore: appEnvironment.credentialStore
-        )
+        runtime = AppRuntime.bootstrap()
         setupDictationOrchestrator()
         recordingFeedbackController = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true) ?? true },
@@ -297,33 +303,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeyFeatureController.stop()
         audioRecorder.stop()
         dictationOrchestrator.cancel()
+        agentDispatchHandler?.cancel()
+        agentHelperManager?.stopRouter()
     }
 
     private func setupDictationOrchestrator() {
-        let styleSelector = SettingsBackedStyleSelector(
-            styleRepository: appEnvironment.styleRepository,
-            settingsRepository: appEnvironment.settingsRepository,
-            classifier: LLMApplicationStyleClassifier(refiner: llmRefiner)
-        )
-        let targetProvider = WorkspaceDictationTargetProvider()
-        let textPipeline = DefaultTextProcessingPipeline(
-            refiner: llmRefiner,
-            replacementRuleRepository: appEnvironment.replacementRuleRepository,
-            glossaryRepository: appEnvironment.glossaryRepository,
-            styleSelector: styleSelector
-        )
-        voiceTaskCoordinator = VoiceTaskCoordinator(
-            taskRepository: VoiceTaskRepository(
-                databaseQueue: appEnvironment.container.databaseQueue,
-                clock: appEnvironment.clock
-            ),
-            outputService: outputService,
-            textPipeline: textPipeline,
-            targetProvider: targetProvider,
-            clock: appEnvironment.clock,
-            contextPipeline: ContextPipeline(),
-            agentRefiner: llmRefiner
-        )
+        let targetProvider = runtime!.dictationTargetProvider
         agentComposeHandler = DefaultAgentComposeHandler(
             coordinator: voiceTaskCoordinator,
             styleSelector: styleSelector
@@ -333,6 +318,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         agentComposeHandler.onStreamingDelta = { [weak self] partialText in
             self?.hudFeatureController.updateStreamingText(partialText)
+        }
+        if let helperManager = agentHelperManager,
+           let agentRouterClient = runtime!.agentRouterClient {
+            Task { @MainActor in
+                do {
+                    try await helperManager.startRouter()
+                } catch {
+                    AppLogger.general.error("Failed to start Agent Router: \(error.localizedDescription)")
+                }
+            }
+            let dispatchCoordinator = AgentDispatchCoordinator(
+                router: agentRouterClient,
+                modelResolver: LLMAgentTargetResolver(
+                    refiner: llmRefiner,
+                    isEnabled: { [weak self] in
+                        await MainActor.run {
+                            self?.settingString(
+                                SettingsKey.agentDispatchUnresolvedBehavior,
+                                defaultValue: "confirm"
+                            ) == "model"
+                        }
+                    }
+                ),
+                directSendEnabled: { [weak self] in
+                    self?.isSettingEnabled(
+                        SettingsKey.agentDispatchExactDirectEnabled,
+                        defaultValue: true
+                    ) ?? true
+                },
+                unresolvedBehavior: { [weak self] in
+                    self?.settingString(
+                        SettingsKey.agentDispatchUnresolvedBehavior,
+                        defaultValue: "confirm"
+                    ) ?? "confirm"
+                }
+            )
+            let handler = DefaultAgentDispatchHandler(
+                taskCoordinator: voiceTaskCoordinator,
+                dispatchCoordinator: dispatchCoordinator,
+                clipboardService: clipboardService
+            )
+            handler.onPresentationChange = { [weak self] presentation in
+                self?.hudFeatureController.handleAgentDispatch(presentation)
+            }
+            overlayController.onAgentCandidateSelected = { [weak handler] agentID, utterance in
+                Task { @MainActor in
+                    let intent = AgentConfirmationIntent.parse(utterance)
+                    await handler?.confirm(
+                        agentID: agentID,
+                        utterance: utterance,
+                        message: intent.message,
+                        alias: intent.alias
+                    )
+                }
+            }
+            agentDispatchHandler = handler
         }
         dictationOrchestrator = DictationOrchestrator(
             asrEngineFactory: asrCoordinator,
@@ -344,7 +385,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             clock: appEnvironment.clock,
             targetProvider: targetProvider,
             outputService: outputService,
-            agentComposeHandler: agentComposeHandler
+            agentComposeHandler: agentComposeHandler,
+            agentDispatchHandler: agentDispatchHandler,
+            audioCaptureCoordinator: runtime!.audioCaptureCoordinator
         )
         dictationOrchestrator.onStateChange = { [weak self] state in
             self?.handleDictationStateChange(state)
@@ -361,6 +404,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dictationOrchestrator.onAgentComposeCompleted = { [weak self] result in
             self?.appEnvironment.notifyHistoryDidChange()
             self?.showAgentComposeResult(result)
+        }
+        dictationOrchestrator.onAgentDispatchPresentation = { [weak self] presentation in
+            self?.hudFeatureController.handleAgentDispatch(presentation)
+            self?.appEnvironment.notifyHistoryDidChange()
         }
         dictationOrchestrator.onError = { [weak self] error in
             self?.dictationFeatureController.handleRecognitionError(error)
@@ -400,6 +447,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.showSettings(tab: .asr)
     }
 
+    private func selectLLMProvider(_ providerID: String) {
+        do {
+            let viewModel = LLMProviderViewModel(environment: appEnvironment)
+            try viewModel.setDefaultProvider(id: providerID)
+        } catch {
+            AppLogger.general.error("Failed to select LLM provider from menu: \(error.localizedDescription)")
+        }
+    }
+
+    private func selectCapabilityModel(kind: CapabilityModelKind, modelID: String) {
+        CapabilityModelViewModel.setSelectedModelID(modelID, kind: kind)
+    }
+
     private func openWorkbench() {
         windowCoordinator.showMainWindow()
     }
@@ -431,7 +491,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let shortcutName = Self.keyDisplayName(for: ShortcutManager.shared.shortcutKeyCode)
         presentPermissionGuide(
             title: "需要辅助功能权限",
-            subtitle: "随声写需要辅助功能权限来监听 \(shortcutName) 并向当前应用输入转写文本。",
+            subtitle: "码上写需要辅助功能权限来监听 \(shortcutName) 并向当前应用输入转写文本。",
             items: [
                 PermissionStatusItem(
                     title: "辅助功能",
@@ -486,7 +546,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         presentPermissionGuide(
             title: "权限检查",
-            subtitle: "确认随声写录音、转写和文本输入所需权限。",
+            subtitle: "确认码上写录音、转写和文本输入所需权限。",
             items: PermissionGuideContent.allPermissionItems(
                 microphonePermission: recordingPermissions.microphonePermission,
                 speechPermission: recordingPermissions.speechPermission,
@@ -593,15 +653,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dictationOrchestrator.finishWithoutTextCorrection()
         } else {
             dictationOrchestrator.cancel()
+            agentDispatchHandler?.cancel()
+            hudFeatureController.render(.hidden)
         }
     }
 
     private func performWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
         switch shortcut {
         case .clipboardImageOCR:
-            Task { @MainActor [weak self] in
-                await self?.handleClipboardImageOCRShortcut()
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
             }
+            let lease: VoiceWorkflowLease
+            do {
+                lease = try voiceTaskCoordinator.beginEphemeralWorkflow(kind: .clipboardImageOCR)
+            } catch {
+                hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRAlreadyRunning)
+                return true
+            }
+            let task = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.handleClipboardImageOCRShortcut(lease: lease)
+            }
+            voiceTaskCoordinator.registerEphemeralWorkflowTask(task, for: lease)
+            return true
+        case .screenshotOCR:
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            let shouldPresentHUD = shouldPresentEphemeralWorkflowHUD(shortcut)
+            let lease: VoiceWorkflowLease
+            do {
+                lease = try voiceTaskCoordinator.beginEphemeralWorkflow(kind: .screenshotOCR)
+            } catch {
+                if shouldPresentHUD {
+                    hudFeatureController.showTemporaryMessage("屏幕 OCR 正在处理中", duration: 2.2)
+                }
+                return true
+            }
+            let task = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.handleScreenshotOCRShortcut(
+                    lease: lease,
+                    shouldPresentHUD: shouldPresentHUD
+                )
+            }
+            voiceTaskCoordinator.registerEphemeralWorkflowTask(task, for: lease)
             return true
         case .cancel:
             if voiceTaskCoordinator.activeTaskID(for: .clipboardImageOCR) != nil {
@@ -612,12 +709,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 voiceTaskCoordinator.cancelEphemeralWorkflow(kind: .screenshotOCR)
                 return true
             }
+            if voiceTaskCoordinator.activeTaskID(for: .agentDispatch) != nil {
+                handleEscapeKey()
+                return true
+            }
             guard !dictationOrchestrator.state.isIdle else {
                 return false
             }
             handleEscapeKey()
             return true
         }
+    }
+
+    private func shouldStartEphemeralWorkflow(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
+        let shouldStart = HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+            shortcut,
+            dictationState: dictationOrchestrator.state
+        )
+        if !shouldStart {
+            hudFeatureController.showTemporaryMessage("语音输入进行中，请先结束当前任务", duration: 2.2)
+        }
+        return shouldStart
+    }
+
+    private func shouldPresentEphemeralWorkflowHUD(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
+        HotKeyWorkflowRoutingPolicy.shouldPresentEphemeralWorkflowHUD(
+            shortcut,
+            dictationState: dictationOrchestrator.state
+        )
     }
 
     private func handlePasteLastResultShortcut() async {
@@ -638,19 +757,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func handleClipboardImageOCRShortcut() async {
-        let lease: VoiceWorkflowLease
-        do {
-            lease = try voiceTaskCoordinator.beginEphemeralWorkflow(kind: .clipboardImageOCR)
-        } catch {
-            hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRAlreadyRunning)
-            return
-        }
+    private func handleClipboardImageOCRShortcut(lease: VoiceWorkflowLease) async {
         defer {
             voiceTaskCoordinator.completeEphemeralWorkflow(lease)
         }
 
         let outcome = await pasteLastResultService.pasteClipboardImageOCR()
+        guard !Task.isCancelled else { return }
         guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {
             return
         }
@@ -665,6 +778,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             })
         case .pastedLastResult, .noTextAvailable:
             hudFeatureController.handleWorkflowFeedback(.noClipboardImage)
+        }
+    }
+
+    private func handleScreenshotOCRShortcut(
+        lease: VoiceWorkflowLease,
+        shouldPresentHUD: Bool
+    ) async {
+        defer {
+            voiceTaskCoordinator.completeEphemeralWorkflow(lease)
+        }
+
+        if shouldPresentHUD {
+            hudFeatureController.showTemporaryMessage("框选截图区域以识别文字", duration: 1.8)
+        }
+        let outcome = await screenshotOCRService.captureAndRecognize()
+        guard !Task.isCancelled else { return }
+        guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {
+            return
+        }
+
+        switch outcome {
+        case .recognized(let result):
+            screenshotOCRResultPanelController.present(result: result)
+            if shouldPresentHUD {
+                hudFeatureController.showTemporaryMessage("屏幕文字识别完成", duration: 1.8, tone: .success)
+            }
+        case .captureCancelled:
+            if shouldPresentHUD {
+                hudFeatureController.showTemporaryMessage("已取消截图", duration: 1.6)
+            }
+        case .captureFailed(let reason):
+            if shouldPresentHUD {
+                hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRFailed(reason))
+            }
+        case .ocrFailed(let reason):
+            if shouldPresentHUD {
+                hudFeatureController.handleWorkflowFeedback(.clipboardImageOCRFailed(reason))
+            }
+        case .translated, .summarized, .translationUnavailable, .summaryUnavailable,
+             .translationFailed, .summaryFailed:
+            break
         }
     }
 
@@ -713,13 +867,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func isSettingEnabled(_ key: String, defaultValue: Bool) -> Bool {
-        guard let repo = appEnvironment?.settingsRepository else { return defaultValue }
+        guard let repo = runtime?.environment.settingsRepository else { return defaultValue }
         guard let jsonString = try? repo.value(forKey: key),
               let data = jsonString.data(using: .utf8) else {
             return defaultValue
         }
         return (try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data).value) ?? defaultValue
     }
+
+    private func settingString(_ key: String, defaultValue: String) -> String {
+        let repo = appEnvironment.settingsRepository
+        guard let jsonString = try? repo.value(forKey: key),
+              let data = jsonString.data(using: .utf8) else {
+            return defaultValue
+        }
+        return (try? JSONDecoder().decode(DecodedSettingValue<String>.self, from: data).value)
+            ?? defaultValue
+    }
+
 }
 
 // MARK: - AudioRecorder Delegate

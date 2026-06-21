@@ -7,6 +7,7 @@ extension VoiceAction {
         switch self {
         case .dictation: return "听写"
         case .agentCompose: return "帮我说"
+        case .agentDispatch: return "Vibe Coding 指挥中心"
         }
     }
 
@@ -14,6 +15,7 @@ extension VoiceAction {
         switch self {
         case .dictation: return "waveform"
         case .agentCompose: return "sparkles.rectangle.stack"
+        case .agentDispatch: return "terminal"
         }
     }
 }

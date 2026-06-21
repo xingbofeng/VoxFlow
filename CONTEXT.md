@@ -2,7 +2,7 @@
 
 ## Domain Language
 
-- **VoxFlow / 随声写**: The menu-bar application and shipped `VoxFlow.app` bundle. `VoiceInput` remains only in compatibility paths and internal module identifiers.
+- **VoxFlow / 码上写**: The menu-bar application and shipped `VoxFlow.app` bundle. `VoiceInput` remains only in compatibility paths and internal module identifiers.
 - **Right Command session**: One press-hold-release interaction that owns a single transcription.
 - **Partial result**: A non-final text update emitted by Apple Speech while recording.
 - **Final result**: Apple's final transcription after `endAudio()`.
@@ -19,14 +19,18 @@
 - **Workbench window**: The regular macOS application window shown in Dock, `Command+Tab`, and Force Quit while the menu-bar dictation controls remain available.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
 - **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
-- **VoiceTask mode**: Either `dictation` (existing right-Command transcription with optional style correction) or `agentCompose` ("帮我说" - context-aware LLM generation from user dictation plus window context).
+- **VoiceTask mode**: One of `dictation` (right-Command transcription with optional style correction), `agentCompose` ("帮我说" - context-aware LLM generation from user dictation plus window context), or `agentDispatch` (voice-routed instruction delivery to an Agent session).
 - **VoiceTask stage**: A step in the task lifecycle: `recording`, `transcribing`, `collectingContext`, `processing`, `outputting`. Stages advance monotonically; backwards transitions are rejected.
 - **Agent Compose ("帮我说")**: A voice mode that reads the current window's context (Accessibility text, window title, optionally a screenshot fallback) and uses an LLM to generate text guided by the user's dictation intent. Output is copy-only: no keyboard injection or auto-send.
+- **Agent Dispatch / 队员调度**: A voice mode that routes a dictated instruction to a registered local coding-agent session and submits it through that session's controlled input channel.
+- **Agent session / 队员会话**: A registered local coding-agent CLI session that can receive an Agent Dispatch instruction.
+- **Agent alias / 队员别名**: A user-confirmed phrase that resolves to an Agent session for future Agent Dispatch targeting.
+- **Provider session reference**: A coding-agent CLI's own session identifier or transcript reference linked to an Agent session for resume, diagnostics, and log lookup.
 - **ContextSnapshot**: A structured object holding collected context for a single agent-compose request: trimmed text, source markers, window metadata. Screenshots are transient and never persisted.
 - **Installed application**: A discovered macOS application with name, Bundle ID, icon reference, path, and system category, produced by scanning `/Applications`, `~/Applications`, and system directories.
 - **Known application registry**: A built-in, versioned, static mapping from Bundle IDs to suggested style IDs. Registry hits skip LLM classification and are labeled "system preset."
 - **Application style recommendation**: A temporary suggestion (from registry or LLM classification) with source and confidence. Remains preview-only until the user explicitly confirms, at which point it becomes an app style rule.
-- **VoiceAction**: An enum (`dictation`, `agentCompose`) representing a bindable hotkey action. Each action has an independent trigger; conflicts between actions are blocked.
+- **VoiceAction**: An enum (`dictation`, `agentCompose`, `agentDispatch`) representing a bindable hotkey action. Each action has an independent trigger; conflicts between actions are blocked.
 - **OutputResult**: A structured result from the output stage: `injected` (dictation success), `copied` (agent compose success), or various failure modes with recovery paths.
 - **OutputService**: The service that selects between injection (dictation mode) and clipboard copy (agent compose mode), returning a structured OutputResult. Replaces ad-hoc injection logic.
 - **HistoryRecoveryAction**: An enum (`copy`, `reinject`, `regenerate`, `retranscribe`, `delete`) representing a recovery operation available on a history/task detail. Available actions are computed from task mode, status, and data availability. Retries never silently overwrite the original transcription or result.
@@ -119,3 +123,7 @@ The existing PromptBuilder produces conservative correction prompts for dictatio
 ### ADR-011: Copy-Only Agent Compose Output
 
 Agent compose output is copy-only (clipboard write). No Command-V injection, no Enter simulation, no app-specific send actions. This is a firm v1 boundary: automatic sending introduces reliability and safety risks that require per-app adapters and extensive testing.
+
+### ADR-012: Agent Dispatch Uses Registered PTY Sessions
+
+Agent Dispatch sends instructions only to registered Agent sessions through a wrapper-owned input channel. This avoids GUI focus/paste risks and keeps MCP as an optional self-reporting interface rather than the mechanism that controls terminal input.

@@ -16,10 +16,11 @@ from pathlib import Path
 
 
 TARGET_PATTERN = re.compile(
-    r"\.(?:target|executableTarget|testTarget)\s*\(\s*name:\s*\"([^\"]+)\"(?P<body>.*?)\n\s*\)",
+    r"\.(?P<kind>target|executableTarget|testTarget)\s*\(\s*name:\s*\"([^\"]+)\"(?P<body>.*?)\n\s*\)",
     re.DOTALL,
 )
 DEPENDENCIES_PATTERN = re.compile(r"dependencies:\s*\[(?P<body>.*?)\]", re.DOTALL)
+PATH_PATTERN = re.compile(r"path:\s*\"([^\"]+)\"")
 STRING_PATTERN = re.compile(r"\"([^\"]+)\"")
 IMPORT_PATTERN = re.compile(r"^\s*import\s+([A-Za-z0-9_]+)\b", re.MULTILINE)
 CJK_PATTERN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
@@ -211,6 +212,9 @@ SETTINGS_WINDOW_DIRECT_MODEL_DOWNLOAD_TOKENS = (
 SETTINGS_WINDOW_DIRECT_QWEN_MANIFEST_TOKENS = (
     "Qwen3ModelManifest.manifest(",
 )
+SETTINGS_WINDOW_DIRECT_ASR_MANAGER_TOKENS = (
+    "ASRManager()",
+)
 ASR_PROVIDER_VIEW_MODEL_DIRECT_QWEN_MANIFEST_TOKENS = (
     "Qwen3ModelManifest.manifest(",
 )
@@ -227,18 +231,24 @@ MAIN_ACTOR_TASK_PATTERN = re.compile(
 class Target:
     name: str
     dependencies: tuple[str, ...]
+    path: str | None = None
+    kind: str = "target"
 
 
 def parse_package(package_path: Path) -> dict[str, Target]:
     contents = package_path.read_text(encoding="utf-8")
     targets: dict[str, Target] = {}
     for match in TARGET_PATTERN.finditer(contents):
-        name = match.group(1)
+        kind = match.group("kind")
+        name = match.group(2)
         body = match.group("body")
         dependencies: list[str] = []
         if dependency_match := DEPENDENCIES_PATTERN.search(body):
             dependencies = STRING_PATTERN.findall(dependency_match.group("body"))
-        targets[name] = Target(name=name, dependencies=tuple(dependencies))
+        path = None
+        if path_match := PATH_PATTERN.search(body):
+            path = path_match.group(1)
+        targets[name] = Target(name=name, dependencies=tuple(dependencies), path=path, kind=kind)
     return targets
 
 
@@ -295,22 +305,39 @@ def relative(path: Path, root: Path) -> str:
         return str(path)
 
 
-def source_boundary_violations(source_root: Path, targets: dict[str, Target]) -> list[str]:
+def target_directory(target: Target, package_root: Path, source_root: Path) -> Path:
+    if target.path:
+        return package_root / target.path
+    return source_root / target.name
+
+
+def source_boundary_violations(
+    source_root: Path,
+    targets: dict[str, Target],
+    package_root: Path,
+) -> tuple[list[str], dict[str, int]]:
     violations: list[str] = []
+    scanned_counts: dict[str, int] = {}
 
     for target_name in sorted(targets):
-        target_dir = source_root / target_name
+        target_dir = target_directory(targets[target_name], package_root, source_root)
         files = swift_files(target_dir)
+        scanned_counts[target_name] = len(files)
+
+        target = targets[target_name]
+        is_provider_production_target = (
+            target.kind != "testTarget" and target_name.startswith("VoxFlowProvider")
+        )
 
         for path in files:
             contents = path.read_text(encoding="utf-8")
             imports = set(IMPORT_PATTERN.findall(contents))
             display_path = relative(path, source_root.parent)
 
-            if target_name.startswith("VoxFlowProvider") and "SwiftUI" in imports:
+            if is_provider_production_target and "SwiftUI" in imports:
                 violations.append(f"{display_path}: Provider target must not import SwiftUI")
 
-            if target_name.startswith("VoxFlowProvider"):
+            if is_provider_production_target:
                 if any(token in contents for token in PROVIDER_DATABASE_TOKENS):
                     violations.append(f"{display_path}: Provider target must not access database primitives")
 
@@ -318,6 +345,7 @@ def source_boundary_violations(source_root: Path, targets: dict[str, Target]) ->
                     module
                     for module in imports
                     if module.startswith("VoxFlowProvider") and module != target_name
+                    and module not in target.dependencies
                 )
                 for module in provider_imports:
                     violations.append(
@@ -565,6 +593,13 @@ def source_boundary_violations(source_root: Path, targets: dict[str, Target]) ->
                     f"{display_path}: SettingsWindowController must delegate Qwen manifest creation to model download dependencies"
                 )
 
+            if path.name == "SettingsWindowController.swift" and any(
+                token in contents for token in SETTINGS_WINDOW_DIRECT_ASR_MANAGER_TOKENS
+            ):
+                violations.append(
+                    f"{display_path}: SettingsWindowController must receive app-scoped ASR runtime dependencies instead of constructing ASRManager"
+                )
+
             if path.name == "ASRProviderViewModel.swift" and any(
                 token in contents for token in ASR_PROVIDER_VIEW_MODEL_DIRECT_QWEN_MANIFEST_TOKENS
             ):
@@ -579,24 +614,29 @@ def source_boundary_violations(source_root: Path, targets: dict[str, Target]) ->
                     f"{display_path}: ASRProviderViewModel must receive Qwen model download dependencies from Qwen3ModelDownloader.live()"
                 )
 
-    return violations
+    return violations, scanned_counts
 
 
-def run(package_path: Path, source_root: Path) -> list[str]:
+def run(package_path: Path, source_root: Path) -> tuple[list[str], dict[str, int]]:
     violations: list[str] = []
     if not package_path.exists():
-        return [f"{package_path}: Package.swift not found"]
+        return [f"{package_path}: Package.swift not found"], {}
     if not source_root.exists():
-        return [f"{source_root}: source root not found"]
+        return [f"{source_root}: source root not found"], {}
 
     targets = parse_package(package_path)
     if not targets:
         violations.append(f"{package_path}: no SwiftPM targets found")
-        return violations
+        return violations, {}
 
     violations.extend(detect_cycles(targets))
-    violations.extend(source_boundary_violations(source_root, targets))
-    return violations
+    boundary_violations, scanned_counts = source_boundary_violations(
+        source_root,
+        targets,
+        package_path.parent,
+    )
+    violations.extend(boundary_violations)
+    return violations, scanned_counts
 
 
 def main() -> int:
@@ -605,7 +645,9 @@ def main() -> int:
     parser.add_argument("--source-root", type=Path, default=Path("Sources"))
     args = parser.parse_args()
 
-    violations = run(args.package, args.source_root)
+    violations, scanned_counts = run(args.package, args.source_root)
+    for target_name in sorted(scanned_counts):
+        print(f"target {target_name}: scanned {scanned_counts[target_name]} Swift files")
     if violations:
         print("architecture-check failed:")
         for violation in violations:

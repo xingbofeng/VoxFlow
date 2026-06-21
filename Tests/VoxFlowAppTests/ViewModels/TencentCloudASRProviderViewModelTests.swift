@@ -8,8 +8,18 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory(defaults: defaults))
-        let manager = ASRManager(defaults: defaults, settingsRepository: environment.settingsRepository)
+        let credentials = TencentCloudViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
         let viewModel = ASRProviderViewModel(
             environment: environment,
             asrManager: manager,
@@ -26,9 +36,12 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.hasStoredTencentCloudCredentials)
         XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.tencentCloudASR })?.isAvailable == true)
         let settingsJSON = try environment.settingsRepository.list().map(\.valueJSON).joined()
-        XCTAssertTrue(settingsJSON.contains("1259220000"))
-        XCTAssertTrue(settingsJSON.contains("AKIDEXAMPLE"))
-        XCTAssertTrue(settingsJSON.contains("SECRETEXAMPLE"))
+        XCTAssertEqual(try credentials.readCredential(account: ASRManager.tencentAppIDAccount), "1259220000")
+        XCTAssertEqual(try credentials.readCredential(account: ASRManager.tencentSecretIDAccount), "AKIDEXAMPLE")
+        XCTAssertEqual(try credentials.readCredential(account: ASRManager.tencentSecretKeyAccount), "SECRETEXAMPLE")
+        XCTAssertFalse(settingsJSON.contains("1259220000"))
+        XCTAssertFalse(settingsJSON.contains("AKIDEXAMPLE"))
+        XCTAssertFalse(settingsJSON.contains("SECRETEXAMPLE"))
         XCTAssertFalse(defaults.dictionaryRepresentation().values.contains { String(describing: $0).contains("SECRETEXAMPLE") })
         XCTAssertEqual(viewModel.tencentSecretKeyInput, ASRProviderViewModel.storedTencentSecretMask)
     }
@@ -43,7 +56,7 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(source.contains("SecretId"))
         XCTAssertTrue(source.contains("SecretKey"))
         XCTAssertTrue(source.contains("实时流式语音识别"))
-        XCTAssertTrue(source.contains("本地数据库"))
+        XCTAssertTrue(source.contains("系统钥匙串"))
     }
 
     private static func repositoryRoot() -> URL {
@@ -56,4 +69,12 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         }
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
+}
+
+private final class TencentCloudViewModelCredentialStore: CredentialStore {
+    private var values: [String: String] = [:]
+
+    func readCredential(account: String) throws -> String? { values[account] }
+    func saveCredential(_ value: String, account: String) throws { values[account] = value }
+    func deleteCredential(account: String) throws { values.removeValue(forKey: account) }
 }

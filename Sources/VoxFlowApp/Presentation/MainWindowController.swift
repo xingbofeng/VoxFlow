@@ -4,54 +4,54 @@ import VoxFlowTextInsertion
 
 @MainActor
 final class MainWindowController: NSWindowController {
-    init(environment: AppEnvironment) {
+    init(
+        environment: AppEnvironment,
+        asrRuntime: AppASRRuntime,
+        textRuntime: AppTextRuntime,
+        audioCaptureCoordinator: AudioCaptureCoordinator,
+        navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter()
+    ) {
         let viewModel = WorkbenchViewModel(environment: environment)
-        let refiner = RepositoryBackedLLMRefiner(
-            providerRepository: environment.llmProviderRepository,
-            credentialStore: environment.credentialStore
-        )
-        let styleSelector = SettingsBackedStyleSelector(
-            styleRepository: environment.styleRepository,
-            settingsRepository: environment.settingsRepository,
-            classifier: LLMApplicationStyleClassifier(refiner: refiner)
-        )
-        let outputService = DefaultOutputService(
-            textInsertionCoordinator: TextInsertionCoordinator(
-                fastPasteInserter: FastPasteTextInserter()
-            ),
-            clipboardService: SystemClipboardService()
-        )
         let homeViewModel = HomeDashboardViewModel(
             environment: environment,
-            outputService: outputService,
+            outputService: textRuntime.outputService,
             targetProvider: WorkspaceDictationTargetProvider(),
-            textPipeline: DefaultTextProcessingPipeline(
-                refiner: refiner,
-                replacementRuleRepository: environment.replacementRuleRepository,
-                glossaryRepository: environment.glossaryRepository,
-                styleSelector: styleSelector
-            )
+            textPipeline: textRuntime.textPipeline
         )
         let glossaryViewModel = GlossaryViewModel(environment: environment)
+        let voiceCorrectionViewModel = VoiceCorrectionViewModel(environment: environment)
         let styleViewModel = StyleViewModel(environment: environment)
         let llmProviderViewModel = LLMProviderViewModel(environment: environment)
-        let asrProviderViewModel = ASRProviderViewModel(environment: environment)
-        let settingsViewModel = SettingsViewModel(environment: environment)
-        let fileTranscriptionViewModel = FileTranscriptionViewModel(environment: environment)
+        let asrProviderViewModel = ASRProviderViewModel(environment: environment, asrManager: asrRuntime.manager, registry: asrRuntime.registry)
+        let settingsViewModel = SettingsViewModel(
+            environment: environment,
+            asrSettingsResetter: asrRuntime.manager,
+            localModelDeletionCoordinator: asrRuntime.manager
+        )
+        let fileTranscriptionViewModel = FileTranscriptionViewModel(
+            environment: environment,
+            worker: ASRFileTranscriptionWorker(asrManager: asrRuntime.manager),
+            currentASRProviderID: { asrRuntime.manager.effectiveSelectedEngineType.providerID }
+        )
         let notesViewModel = NotesViewModel(
             environment: environment,
-            transcriber: NotesRecordingService()
+            transcriber: NotesRecordingService(
+                asrManager: asrRuntime.manager,
+                audioCaptureCoordinator: audioCaptureCoordinator
+            )
         )
         let rootView = MainShellView(
             viewModel: viewModel,
             homeViewModel: homeViewModel,
             glossaryViewModel: glossaryViewModel,
+            voiceCorrectionViewModel: voiceCorrectionViewModel,
             styleViewModel: styleViewModel,
             llmProviderViewModel: llmProviderViewModel,
             asrProviderViewModel: asrProviderViewModel,
             settingsViewModel: settingsViewModel,
             fileTranscriptionViewModel: fileTranscriptionViewModel,
-            notesViewModel: notesViewModel
+            notesViewModel: notesViewModel,
+            navigationRouter: navigationRouter
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(

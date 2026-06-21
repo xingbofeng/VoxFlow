@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" != "flow" ]; then
+  echo "usage: vox flow <agent>" >&2
+  exit 2
+fi
+shift
+
+case "${1:-}" in
+  --claude) shift; set -- claude "$@" ;;
+  --codebuddy) shift; set -- codebuddy "$@" ;;
+esac
+
+exec voxflow "$@"

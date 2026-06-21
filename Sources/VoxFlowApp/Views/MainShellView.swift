@@ -8,12 +8,14 @@ struct MainShellView: View {
     @ObservedObject var viewModel: WorkbenchViewModel
     @ObservedObject var homeViewModel: HomeDashboardViewModel
     @ObservedObject var glossaryViewModel: GlossaryViewModel
+    @ObservedObject var voiceCorrectionViewModel: VoiceCorrectionViewModel
     @ObservedObject var styleViewModel: StyleViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject var fileTranscriptionViewModel: FileTranscriptionViewModel
     @ObservedObject var notesViewModel: NotesViewModel
+    @ObservedObject var navigationRouter: WorkbenchNavigationRouter
 
     var body: some View {
         HStack(spacing: 0) {
@@ -45,7 +47,7 @@ struct MainShellView: View {
         .tint(AppTheme.ColorToken.accent)
         .preferredColorScheme(settingsViewModel.systemOption(.darkMode) ? .dark : .light)
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
             installApplicationPointerMonitor()
         }
         .onDisappear {
@@ -55,6 +57,12 @@ struct MainShellView: View {
             selectedRoute = .home
             homeViewModel.load()
             homeViewModel.selectHistoryItem(id: id)
+        }
+        .onReceive(navigationRouter.$command.compactMap { $0 }) { command in
+            if let settingsSection = command.settingsSection {
+                settingsViewModel.selectedSection = settingsSection
+            }
+            selectedRoute = command.route
         }
     }
 
@@ -82,6 +90,7 @@ struct MainShellView: View {
             snapshot: viewModel.snapshot,
             homeViewModel: homeViewModel,
             glossaryViewModel: glossaryViewModel,
+            voiceCorrectionViewModel: voiceCorrectionViewModel,
             styleViewModel: styleViewModel,
             llmProviderViewModel: llmProviderViewModel,
             asrProviderViewModel: asrProviderViewModel,
@@ -122,6 +131,7 @@ private struct WorkbenchDetailView: View {
     let snapshot: WorkbenchSnapshot
     @ObservedObject var homeViewModel: HomeDashboardViewModel
     @ObservedObject var glossaryViewModel: GlossaryViewModel
+    @ObservedObject var voiceCorrectionViewModel: VoiceCorrectionViewModel
     @ObservedObject var styleViewModel: StyleViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
@@ -133,12 +143,16 @@ private struct WorkbenchDetailView: View {
         switch route {
         case .home:
             HomeDashboardView(viewModel: homeViewModel)
+        case .vibeCoding:
+            VibeCodingStatusView(viewModel: settingsViewModel)
         case .fileTranscription:
             FileTranscriptionView(viewModel: fileTranscriptionViewModel)
         case .notes:
             NotesView(viewModel: notesViewModel)
         case .glossary:
             GlossaryView(viewModel: glossaryViewModel)
+        case .voiceCorrection:
+            VoiceCorrectionView(viewModel: voiceCorrectionViewModel)
         case .styles:
             StyleWorkspaceView(styleViewModel: styleViewModel)
         case .settings:

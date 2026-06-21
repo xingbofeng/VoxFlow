@@ -19,6 +19,22 @@ final class PasteLastResultHotKeyTests: XCTestCase {
         )
     }
 
+    func testCommandShiftAMatchesScreenshotOCRShortcutOnly() {
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x00,
+                flags: [.maskCommand, .maskShift]
+            ),
+            .screenshotOCR
+        )
+        XCTAssertTrue(
+            ScreenshotOCRShortcut.matches(
+                keyCode: 0x00,
+                flags: [.maskCommand, .maskShift]
+            )
+        )
+    }
+
     func testShortcutIgnoresPlainVAndCommandV() {
         XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: []))
         XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: [.maskCommand]))
@@ -50,6 +66,12 @@ final class PasteLastResultHotKeyTests: XCTestCase {
             HotKeyShortcutRouting.workflowShortcut(
                 keyCode: 0x09,
                 flags: [.maskShift]
+            )
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x00,
+                flags: [.maskCommand, .maskShift, .maskAlternate]
             )
         )
     }
@@ -88,6 +110,15 @@ final class PasteLastResultHotKeyTests: XCTestCase {
                 agentComposeKeyCode: 61
             ),
             .workflowShortcut(.clipboardImageOCR)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: 0x00,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61
+            ),
+            .workflowShortcut(.screenshotOCR)
         )
         XCTAssertEqual(
             HotKeyRouter.route(

@@ -43,6 +43,58 @@ final class ArchitectureCheckTests: XCTestCase {
         )
     }
 
+    func testArchitectureCheckRejectsProviderSwiftUIImportFromCustomTargetPath() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetPaths: [
+            "VoxFlowProviderFoo": "Sources/VoxFlowProviders/VoxFlowProviderFoo",
+        ])
+        try fixture.writeSource(
+            target: "VoxFlowProviders/VoxFlowProviderFoo",
+            file: "ProviderViewLeak.swift",
+            contents: """
+            import SwiftUI
+
+            struct ProviderViewLeak {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("Sources/VoxFlowProviders/VoxFlowProviderFoo/ProviderViewLeak.swift"),
+            result.output
+        )
+        XCTAssertTrue(
+            result.output.contains("Provider target must not import SwiftUI"),
+            result.output
+        )
+    }
+
+    func testArchitectureCheckReportsScannedSwiftFileCounts() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetPaths: [
+            "VoxFlowProviderFoo": "Sources/VoxFlowProviders/VoxFlowProviderFoo",
+        ])
+        try fixture.writeSource(
+            target: "VoxFlowProviders/VoxFlowProviderFoo",
+            file: "ProviderRuntime.swift",
+            contents: """
+            import Foundation
+
+            struct ProviderRuntime {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("target VoxFlowProviderFoo: scanned 1 Swift files"),
+            result.output
+        )
+    }
+
     func testArchitectureCheckRejectsLegacyVoiceInputBrandReferences() throws {
         let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp"])
@@ -130,6 +182,64 @@ final class ArchitectureCheckTests: XCTestCase {
             result.output.contains("Provider target must not import provider target VoxFlowProviderWhisper"),
             result.output
         )
+    }
+
+    func testArchitectureCheckAllowsDeclaredProviderDependency() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetDeclarations: """
+        .target(
+            name: "VoxFlowProviderCloudCore",
+            path: "Sources/VoxFlowProviderCloudCore"
+        ),
+        .target(
+            name: "VoxFlowProviderGroq",
+            dependencies: ["VoxFlowProviderCloudCore"],
+            path: "Sources/VoxFlowProviderGroq"
+        )
+        """)
+        try fixture.writeSource(
+            target: "VoxFlowProviderGroq",
+            file: "GroqClient.swift",
+            contents: """
+            import Foundation
+            import VoxFlowProviderCloudCore
+
+            struct GroqClient {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertEqual(result.status, 0, result.output)
+    }
+
+    func testArchitectureCheckAllowsProviderTestTargetImports() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetDeclarations: """
+        .target(
+            name: "VoxFlowProviderGroq",
+            path: "Sources/VoxFlowProviderGroq"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderGroqTests",
+            dependencies: ["VoxFlowProviderGroq"],
+            path: "Tests/VoxFlowProviderGroqTests"
+        )
+        """)
+        try fixture.writeSource(
+            target: "../Tests/VoxFlowProviderGroqTests",
+            file: "GroqClientTests.swift",
+            contents: """
+            import XCTest
+            import VoxFlowProviderGroq
+
+            final class GroqClientTests: XCTestCase {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertEqual(result.status, 0, result.output)
     }
 
     func testArchitectureCheckRejectsLocalizationFeatureImport() throws {
@@ -856,6 +966,30 @@ final class ArchitectureCheckTests: XCTestCase {
         )
     }
 
+    func testArchitectureCheckRejectsSettingsWindowDirectASRManagerConstruction() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowApp"])
+        try fixture.writeSource(
+            target: "VoxFlowApp",
+            file: "SettingsWindowController.swift",
+            contents: """
+            import AppKit
+
+            final class SettingsWindowController {
+                private let asrManager = ASRManager()
+            }
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("SettingsWindowController must receive app-scoped ASR runtime dependencies instead of constructing ASRManager"),
+            result.output
+        )
+    }
+
     func testArchitectureCheckRejectsASRProviderViewModelDirectQwenManifestConstruction() throws {
         let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp"])
@@ -1102,6 +1236,18 @@ private struct ArchitectureFixture {
         let targetDeclarations = targetNames
             .map { "        .target(name: \"\($0)\", path: \"Sources/\($0)\")" }
             .joined(separator: ",\n")
+        try writePackage(targetDeclarations: targetDeclarations)
+    }
+
+    func writePackage(targetPaths: [String: String]) throws {
+        let targetDeclarations = targetPaths
+            .sorted { $0.key < $1.key }
+            .map { "        .target(name: \"\($0.key)\", path: \"\($0.value)\")" }
+            .joined(separator: ",\n")
+        try writePackage(targetDeclarations: targetDeclarations)
+    }
+
+    func writePackage(targetDeclarations: String) throws {
         let contents = """
         // swift-tools-version: 6.0
         import PackageDescription

@@ -23,6 +23,34 @@ final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
     }
 }
 
+private final class AgentCandidateButton: NSView {
+    var agentID = ""
+    var onSelect: ((String) -> Void)?
+
+    override func mouseUp(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point) else { return }
+        onSelect?(agentID)
+    }
+}
+
+private enum AgentDispatchConfirmationUtteranceFormatter {
+    static let maximumDisplayedCharacters = 72
+
+    static func displayText(
+        _ text: String,
+        maxCharacters: Int = maximumDisplayedCharacters
+    ) -> String {
+        let normalized = text
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        guard normalized.count > maxCharacters else { return normalized }
+
+        let suffixLength = max(1, maxCharacters - 1)
+        return "…" + String(normalized.suffix(suffixLength))
+    }
+}
+
 /// Manages the compact floating overlay window that displays real-time transcription
 /// with an animated waveform during voice recording.
 final class OverlayWindowController: NSWindowController {
@@ -41,6 +69,14 @@ final class OverlayWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "")
     private let refiningSpinner = NSProgressIndicator()
     private let visualEffectView = NSView()
+    private let confirmationContainer = NSView()
+    private let confirmationStatusLabel = NSTextField(labelWithString: "")
+    private let confirmationUtteranceRow = NSView()
+    private let confirmationUtteranceIconLabel = NSTextField(labelWithString: "")
+    private let confirmationUtteranceLabel = NSTextField(labelWithString: "")
+    private let confirmationRowsStack = NSStackView()
+    private let confirmationFooterLabel = NSTextField(labelWithString: "")
+    private var confirmationLayoutConstraints: [NSLayoutConstraint] = []
 
     // MARK: - Temporary Message
 
@@ -48,6 +84,11 @@ final class OverlayWindowController: NSWindowController {
     private var temporaryMessageAction: (() -> Void)?
     private var isShowingTemporaryMessage = false
     private var presentationGeneration: UInt = 0
+    private var agentConfirmationCandidates: [AgentSessionCard] = []
+    private var agentConfirmationUtterance = ""
+    private var agentCandidateButtons: [AgentCandidateButton] = []
+
+    var onAgentCandidateSelected: ((String, String) -> Void)?
 
     // MARK: - Initialization
 
@@ -165,6 +206,8 @@ final class OverlayWindowController: NSWindowController {
         refiningSpinner.isHidden = true
         indicatorBackgroundView.addSubview(refiningSpinner)
 
+        setupConfirmationContainer()
+
         // Layout — vertical padding and variable-height text
         NSLayoutConstraint.activate([
             indicatorBackgroundView.leadingAnchor.constraint(
@@ -210,6 +253,139 @@ final class OverlayWindowController: NSWindowController {
         ])
     }
 
+    private func setupConfirmationContainer() {
+        confirmationContainer.translatesAutoresizingMaskIntoConstraints = false
+        confirmationContainer.isHidden = true
+        visualEffectView.addSubview(confirmationContainer)
+
+        confirmationStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        confirmationStatusLabel.cell = VerticallyCenteredTextFieldCell(textCell: "")
+        confirmationStatusLabel.isBezeled = false
+        confirmationStatusLabel.isEditable = false
+        confirmationStatusLabel.drawsBackground = false
+        confirmationStatusLabel.alignment = .center
+        confirmationStatusLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        confirmationStatusLabel.textColor = NSColor(red: 0.690, green: 0.370, blue: 0.090, alpha: 1.0)
+        confirmationStatusLabel.stringValue = "需要确认"
+        confirmationStatusLabel.wantsLayer = true
+        confirmationStatusLabel.layer?.cornerRadius = 10
+        confirmationStatusLabel.layer?.backgroundColor = NSColor(
+            red: 1.0,
+            green: 0.530,
+            blue: 0.200,
+            alpha: 0.12
+        ).cgColor
+        confirmationContainer.addSubview(confirmationStatusLabel)
+
+        confirmationUtteranceRow.translatesAutoresizingMaskIntoConstraints = false
+        confirmationUtteranceRow.wantsLayer = true
+        confirmationUtteranceRow.layer?.cornerRadius = 12
+        confirmationUtteranceRow.layer?.borderWidth = 1
+        confirmationUtteranceRow.layer?.borderColor = NSColor(
+            red: 0.880,
+            green: 0.905,
+            blue: 0.890,
+            alpha: 0.90
+        ).cgColor
+        confirmationUtteranceRow.layer?.backgroundColor = NSColor(
+            red: 0.996,
+            green: 0.996,
+            blue: 0.990,
+            alpha: 0.90
+        ).cgColor
+        confirmationContainer.addSubview(confirmationUtteranceRow)
+
+        confirmationUtteranceIconLabel.translatesAutoresizingMaskIntoConstraints = false
+        confirmationUtteranceIconLabel.cell = VerticallyCenteredTextFieldCell(textCell: "")
+        confirmationUtteranceIconLabel.isBezeled = false
+        confirmationUtteranceIconLabel.isEditable = false
+        confirmationUtteranceIconLabel.drawsBackground = false
+        confirmationUtteranceIconLabel.alignment = .center
+        confirmationUtteranceIconLabel.font = NSFont.systemFont(ofSize: 20, weight: .bold)
+        confirmationUtteranceIconLabel.textColor = NSColor(red: 0.890, green: 0.480, blue: 0.140, alpha: 1.0)
+        confirmationUtteranceIconLabel.stringValue = "“"
+        confirmationUtteranceIconLabel.wantsLayer = true
+        confirmationUtteranceIconLabel.layer?.cornerRadius = 9
+        confirmationUtteranceIconLabel.layer?.backgroundColor = NSColor(
+            red: 1.0,
+            green: 0.540,
+            blue: 0.180,
+            alpha: 0.12
+        ).cgColor
+        confirmationUtteranceRow.addSubview(confirmationUtteranceIconLabel)
+
+        confirmationUtteranceLabel.translatesAutoresizingMaskIntoConstraints = false
+        confirmationUtteranceLabel.isBezeled = false
+        confirmationUtteranceLabel.isEditable = false
+        confirmationUtteranceLabel.drawsBackground = false
+        confirmationUtteranceLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        confirmationUtteranceLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        confirmationUtteranceLabel.lineBreakMode = .byTruncatingTail
+        confirmationUtteranceLabel.maximumNumberOfLines = 1
+        confirmationUtteranceLabel.cell?.wraps = false
+        confirmationUtteranceLabel.cell?.usesSingleLineMode = true
+        confirmationUtteranceLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        confirmationUtteranceLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        confirmationUtteranceRow.addSubview(confirmationUtteranceLabel)
+
+        confirmationRowsStack.translatesAutoresizingMaskIntoConstraints = false
+        confirmationRowsStack.orientation = .vertical
+        confirmationRowsStack.spacing = 8
+        confirmationRowsStack.alignment = .leading
+        confirmationRowsStack.distribution = .fill
+        confirmationContainer.addSubview(confirmationRowsStack)
+
+        confirmationFooterLabel.translatesAutoresizingMaskIntoConstraints = false
+        confirmationFooterLabel.isBezeled = false
+        confirmationFooterLabel.isEditable = false
+        confirmationFooterLabel.drawsBackground = false
+        confirmationFooterLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+        confirmationFooterLabel.textColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.85)
+        confirmationFooterLabel.stringValue = "未准确命中队员名时，需要你确认目标"
+        confirmationContainer.addSubview(confirmationFooterLabel)
+
+        confirmationLayoutConstraints = [
+            confirmationContainer.leadingAnchor.constraint(equalTo: visualEffectView.leadingAnchor, constant: 22),
+            confirmationContainer.trailingAnchor.constraint(equalTo: visualEffectView.trailingAnchor, constant: -22),
+            confirmationContainer.topAnchor.constraint(equalTo: visualEffectView.topAnchor, constant: 18),
+            confirmationContainer.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor, constant: -16),
+
+            confirmationStatusLabel.leadingAnchor.constraint(equalTo: confirmationContainer.leadingAnchor),
+            confirmationStatusLabel.topAnchor.constraint(equalTo: confirmationContainer.topAnchor),
+            confirmationStatusLabel.widthAnchor.constraint(equalToConstant: 78),
+            confirmationStatusLabel.heightAnchor.constraint(equalToConstant: 28),
+
+            confirmationUtteranceRow.leadingAnchor.constraint(equalTo: confirmationContainer.leadingAnchor),
+            confirmationUtteranceRow.trailingAnchor.constraint(equalTo: confirmationContainer.trailingAnchor),
+            confirmationUtteranceRow.topAnchor.constraint(equalTo: confirmationStatusLabel.bottomAnchor, constant: 14),
+            confirmationUtteranceRow.heightAnchor.constraint(equalToConstant: 50),
+
+            confirmationUtteranceIconLabel.leadingAnchor.constraint(equalTo: confirmationUtteranceRow.leadingAnchor, constant: 12),
+            confirmationUtteranceIconLabel.centerYAnchor.constraint(equalTo: confirmationUtteranceRow.centerYAnchor),
+            confirmationUtteranceIconLabel.widthAnchor.constraint(equalToConstant: 32),
+            confirmationUtteranceIconLabel.heightAnchor.constraint(equalToConstant: 32),
+
+            confirmationUtteranceLabel.leadingAnchor.constraint(
+                equalTo: confirmationUtteranceIconLabel.trailingAnchor,
+                constant: 14
+            ),
+            confirmationUtteranceLabel.trailingAnchor.constraint(
+                equalTo: confirmationUtteranceRow.trailingAnchor,
+                constant: -14
+            ),
+            confirmationUtteranceLabel.centerYAnchor.constraint(equalTo: confirmationUtteranceRow.centerYAnchor),
+
+            confirmationRowsStack.leadingAnchor.constraint(equalTo: confirmationContainer.leadingAnchor),
+            confirmationRowsStack.trailingAnchor.constraint(equalTo: confirmationContainer.trailingAnchor),
+            confirmationRowsStack.topAnchor.constraint(equalTo: confirmationUtteranceRow.bottomAnchor, constant: 10),
+
+            confirmationFooterLabel.leadingAnchor.constraint(equalTo: confirmationContainer.leadingAnchor),
+            confirmationFooterLabel.trailingAnchor.constraint(equalTo: confirmationContainer.trailingAnchor),
+            confirmationFooterLabel.topAnchor.constraint(equalTo: confirmationRowsStack.bottomAnchor, constant: 10),
+            confirmationFooterLabel.bottomAnchor.constraint(equalTo: confirmationContainer.bottomAnchor),
+        ]
+    }
+
     // MARK: - Sizing
 
     private func updateWindowSize(textWidth: CGFloat, textHeight: CGFloat = 0) {
@@ -218,6 +394,11 @@ final class OverlayWindowController: NSWindowController {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
 
+        window.minSize = .zero
+        window.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
         let windowWidth = ceil(OverlayLayout.windowWidth(textWidth: textWidth))
         let windowHeight = OverlayLayout.windowHeight(textHeight: textHeight)
         let x = screenFrame.midX - windowWidth / 2
@@ -227,11 +408,221 @@ final class OverlayWindowController: NSWindowController {
         window.setFrame(frame, display: true, animate: false)
     }
 
+    private func updateWindowFrame(width: CGFloat, height: CGFloat) {
+        guard let window, let screen = NSScreen.main else { return }
+        let screenFrame = screen.visibleFrame
+        let size = NSSize(width: width, height: height)
+        window.minSize = size
+        window.maxSize = size
+        let frame = NSRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.minY + OverlayLayout.bottomOffset,
+            width: width,
+            height: height
+        )
+        window.setFrame(frame, display: true, animate: false)
+    }
+
+    private func measuredOverlayTextSize(for text: String) -> CGSize {
+        let textSize = (text as NSString).boundingRect(
+            with: NSSize(
+                width: OverlayLayout.maximumTextWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: textLabel.font as Any]
+        )
+        return CGSize(width: textSize.width + 8, height: textSize.height + 8)
+    }
+
+    private func hideAgentConfirmationPresentation() {
+        NSLayoutConstraint.deactivate(confirmationLayoutConstraints)
+        confirmationContainer.isHidden = true
+        agentCandidateButtons.removeAll()
+        for row in confirmationRowsStack.arrangedSubviews {
+            confirmationRowsStack.removeArrangedSubview(row)
+            row.removeFromSuperview()
+        }
+        indicatorBackgroundView.isHidden = false
+        textLabel.isHidden = false
+        statusLabel.isHidden = false
+    }
+
+    private func showAgentConfirmationPresentation(
+        utterance: String,
+        candidates: [AgentSessionCard]
+    ) {
+        temporaryMessageTask?.cancel()
+        temporaryMessageTask = nil
+        temporaryMessageAction = nil
+        isShowingTemporaryMessage = false
+        presentationGeneration &+= 1
+        indicatorBackgroundView.isHidden = true
+        waveformView.stopAnimation()
+        refiningSpinner.stopAnimation(nil)
+        textLabel.isHidden = true
+        textLabel.stringValue = ""
+        statusLabel.isHidden = true
+        statusLabel.stringValue = ""
+        confirmationContainer.isHidden = false
+        NSLayoutConstraint.activate(confirmationLayoutConstraints)
+        confirmationUtteranceLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(utterance)
+        confirmationUtteranceLabel.toolTip = utterance
+        rebuildAgentCandidateRows(candidates)
+        let confirmationWidth: CGFloat = 600
+        let confirmationHeight = CGFloat(264 + min(max(candidates.count, 1), 4) * 36)
+        updateWindowFrame(width: confirmationWidth, height: confirmationHeight)
+        guard let window else { return }
+        window.ignoresMouseEvents = false
+        present(window)
+        updateWindowFrame(width: confirmationWidth, height: confirmationHeight)
+    }
+
+    private func rebuildAgentCandidateRows(_ candidates: [AgentSessionCard]) {
+        agentCandidateButtons.removeAll()
+        for row in confirmationRowsStack.arrangedSubviews {
+            confirmationRowsStack.removeArrangedSubview(row)
+            row.removeFromSuperview()
+        }
+
+        for (index, candidate) in candidates.prefix(4).enumerated() {
+            let button = AgentCandidateButton()
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.agentID = candidate.agentID
+            button.identifier = NSUserInterfaceItemIdentifier("agentCandidateRow")
+            button.onSelect = { [weak self] agentID in
+                self?.selectAgentCandidate(agentID: agentID)
+            }
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 11
+            button.layer?.borderWidth = 1
+            button.layer?.borderColor = NSColor(
+                red: 0.875,
+                green: 0.900,
+                blue: 0.885,
+                alpha: 0.95
+            ).cgColor
+            button.layer?.backgroundColor = NSColor(
+                red: 0.998,
+                green: 0.998,
+                blue: 0.994,
+                alpha: 0.92
+            ).cgColor
+            configureAgentCandidateButton(
+                button,
+                number: index + 1,
+                name: candidate.displayName,
+                confidenceBar: confidenceBar(for: index)
+            )
+            confirmationRowsStack.addArrangedSubview(button)
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalTo: confirmationRowsStack.widthAnchor),
+                button.heightAnchor.constraint(equalToConstant: 44),
+            ])
+            agentCandidateButtons.append(button)
+        }
+    }
+
+    private func configureAgentCandidateButton(
+        _ button: AgentCandidateButton,
+        number: Int,
+        name: String,
+        confidenceBar: String
+    ) {
+        let numberLabel = confirmationRowText("\(number)", size: 14, weight: .semibold)
+        numberLabel.alignment = .center
+        numberLabel.wantsLayer = true
+        numberLabel.layer?.cornerRadius = 8
+        numberLabel.layer?.backgroundColor = NSColor(
+            red: 1.0,
+            green: 0.540,
+            blue: 0.180,
+            alpha: 0.12
+        ).cgColor
+
+        let nameLabel = confirmationRowText(name, size: 14, weight: .semibold)
+        nameLabel.lineBreakMode = .byTruncatingTail
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let confidenceLabel = confirmationRowText("置信度", size: 12, weight: .medium)
+        confidenceLabel.textColor = NSColor(red: 0.425, green: 0.475, blue: 0.450, alpha: 0.95)
+
+        let confidenceView = confidenceBarView(confidenceBar)
+
+        [numberLabel, nameLabel, confidenceLabel, confidenceView].forEach(button.addSubview)
+        NSLayoutConstraint.activate([
+            numberLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+            numberLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            numberLabel.widthAnchor.constraint(equalToConstant: 28),
+            numberLabel.heightAnchor.constraint(equalToConstant: 28),
+
+            nameLabel.leadingAnchor.constraint(equalTo: numberLabel.trailingAnchor, constant: 14),
+            nameLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+
+            confidenceLabel.leadingAnchor.constraint(
+                greaterThanOrEqualTo: nameLabel.trailingAnchor,
+                constant: 12
+            ),
+            confidenceLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+
+            confidenceView.leadingAnchor.constraint(equalTo: confidenceLabel.trailingAnchor, constant: 12),
+            confidenceView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -14),
+            confidenceView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            confidenceView.widthAnchor.constraint(equalToConstant: 58),
+            confidenceView.heightAnchor.constraint(equalToConstant: 10),
+        ])
+    }
+
+    private func confirmationRowText(
+        _ text: String,
+        size: CGFloat,
+        weight: NSFont.Weight
+    ) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.isBezeled = false
+        label.isEditable = false
+        label.drawsBackground = false
+        label.font = NSFont.systemFont(ofSize: size, weight: weight)
+        label.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        return label
+    }
+
+    private func confidenceBarView(_ value: String) -> NSView {
+        let stack = NSStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.orientation = .horizontal
+        stack.spacing = 3
+        stack.distribution = .fillEqually
+
+        for character in value {
+            let segment = NSView()
+            segment.translatesAutoresizingMaskIntoConstraints = false
+            segment.wantsLayer = true
+            segment.layer?.cornerRadius = 2
+            segment.layer?.backgroundColor = (character == "■"
+                ? NSColor(red: 0.250, green: 0.690, blue: 0.455, alpha: 1.0)
+                : NSColor(red: 0.895, green: 0.915, blue: 0.905, alpha: 1.0)
+            ).cgColor
+            stack.addArrangedSubview(segment)
+        }
+        return stack
+    }
+
+    private func confidenceBar(for index: Int) -> String {
+        switch index {
+        case 0: return "■■■■□□"
+        case 1: return "■■■□□□"
+        default: return "■■□□□□"
+        }
+    }
+
     // MARK: - Public API
 
     /// Shows the overlay in the default dictation state (waveform + "听写中").
     func show() {
         guard let window = window else { return }
+        hideAgentConfirmationPresentation()
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
         temporaryMessageAction = nil
@@ -286,6 +677,7 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func updateTranscription(_ text: String, isRefining: Bool) {
+        hideAgentConfirmationPresentation()
         let displayText: String
         if isRefining {
             displayText = text.isEmpty ? "正在识别文本" : text
@@ -307,37 +699,9 @@ final class OverlayWindowController: NSWindowController {
         let visibleText = OverlayLayout.visibleTranscriptionText(displayText)
         textLabel.stringValue = visibleText
 
-        let textSize = (visibleText as NSString).boundingRect(
-            with: NSSize(
-                width: OverlayLayout.maximumTextWidth,
-                height: CGFloat.greatestFiniteMagnitude
-            ),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: textLabel.font as Any]
-        )
-        let newTextWidth = textSize.width + 8
-        let newTextHeight = textSize.height + 8
+        let textSize = measuredOverlayTextSize(for: visibleText)
 
-        guard let window = window else { return }
-        let totalWidth = OverlayLayout.windowWidth(textWidth: newTextWidth)
-        let totalHeight = OverlayLayout.windowHeight(textHeight: newTextHeight)
-
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-
-        let newFrame = NSRect(
-            x: screenFrame.midX - totalWidth / 2,
-            y: screenFrame.minY + OverlayLayout.bottomOffset,
-            width: totalWidth,
-            height: totalHeight
-        )
-
-        // Smooth width transition (0.25s)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            window.animator().setFrame(newFrame, display: true)
-        }
+        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
     }
 
     func updateRMS(_ rms: Float) {
@@ -352,6 +716,7 @@ final class OverlayWindowController: NSWindowController {
         tone: HUDTemporaryMessageTone = .info,
         action: (() -> Void)? = nil
     ) {
+        hideAgentConfirmationPresentation()
         temporaryMessageTask?.cancel()
         guard OverlayLayout.shouldShowTemporaryMessage(text) else {
             temporaryMessageAction = nil
@@ -449,6 +814,7 @@ final class OverlayWindowController: NSWindowController {
 
     private func completeDismiss(window: NSWindow, generation: UInt) {
         guard presentationGeneration == generation else { return }
+        hideAgentConfirmationPresentation()
         textLabel.stringValue = ""
         statusLabel.stringValue = ""
         temporaryMessageAction = nil
@@ -463,7 +829,19 @@ final class OverlayWindowController: NSWindowController {
 
     @objc private func handleOverlayClick(_ recognizer: NSClickGestureRecognizer) {
         guard recognizer.state == .ended else { return }
+        if !agentConfirmationCandidates.isEmpty {
+            return
+        }
         temporaryMessageAction?()
+    }
+
+    private func selectAgentCandidate(agentID: String) {
+        let utterance = agentConfirmationUtterance
+        agentConfirmationCandidates = []
+        agentConfirmationUtterance = ""
+        hideAgentConfirmationPresentation()
+        window?.ignoresMouseEvents = true
+        onAgentCandidateSelected?(agentID, utterance)
     }
 
     /// Returns the current transcription text shown in the overlay.
@@ -475,6 +853,7 @@ final class OverlayWindowController: NSWindowController {
 
     /// Updates the overlay for agent compose mode stages.
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage) {
+        hideAgentConfirmationPresentation()
         switch stage {
         case .readingWindow:
             statusLabel.stringValue = "读取窗口"
@@ -527,20 +906,66 @@ final class OverlayWindowController: NSWindowController {
         }
     }
 
+    func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
+        if case let .confirmation(utterance, candidates) = presentation {
+            guard !candidates.isEmpty else {
+                updateAgentDispatch(.failure(message: "没有可用队员", retainedText: utterance))
+                return
+            }
+            agentConfirmationCandidates = candidates
+            agentConfirmationUtterance = utterance
+            showAgentConfirmationPresentation(utterance: utterance, candidates: candidates)
+            return
+        }
+
+        hideAgentConfirmationPresentation()
+        waveformView.stopAnimation()
+        refiningSpinner.stopAnimation(nil)
+        refiningSpinner.isHidden = true
+        statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+        textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        statusLabel.stringValue = presentation.badge ?? presentation.title
+        if case .listening = presentation {
+            textLabel.stringValue = "说出要交给队员的任务"
+            textLabel.toolTip = nil
+        } else if case let .clipboardFallback(text) = presentation {
+            textLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(text)
+            textLabel.toolTip = text
+        } else {
+            textLabel.stringValue = presentation.detail.isEmpty
+                ? presentation.title
+                : presentation.detail
+            textLabel.toolTip = nil
+        }
+
+        switch presentation {
+        case .listening:
+            waveformView.isHidden = false
+            waveformView.startAnimation()
+        case .fallbackInput, .clipboardFallback, .sent:
+            waveformView.isHidden = true
+        case .failure:
+            waveformView.isHidden = true
+            statusLabel.textColor = NSColor.systemRed
+        case .idle, .exact:
+            waveformView.isHidden = true
+        case .confirmation:
+            break
+        }
+        agentConfirmationCandidates = []
+        agentConfirmationUtterance = ""
+        window?.ignoresMouseEvents = true
+        let textSize = measuredOverlayTextSize(for: textLabel.stringValue)
+        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
+    }
+
     /// Updates the overlay text in real-time as LLM streaming content arrives.
     /// Called during the .generating stage to show partial text to the user.
     func updateStreamingText(_ partialText: String) {
         let displayText = OverlayLayout.visibleTranscriptionText(partialText)
         textLabel.stringValue = displayText
-        let textSize = (displayText as NSString).boundingRect(
-            with: NSSize(
-                width: OverlayLayout.maximumTextWidth,
-                height: CGFloat.greatestFiniteMagnitude
-            ),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: textLabel.font as Any]
-        )
-        updateWindowSize(textWidth: textSize.width + 8, textHeight: textSize.height + 8)
+        let textSize = measuredOverlayTextSize(for: displayText)
+        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
         guard let window else { return }
         present(window)
     }

@@ -1,0 +1,7 @@
+{
+  "minimumCases": 100,
+  "correctionPrecision": 1,
+  "supportedCorrectionRecall": 1,
+  "falseReplacementRate": 0,
+  "regressionRate": 0
+}

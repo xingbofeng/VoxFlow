@@ -28,6 +28,17 @@ enum AppDatabase {
                         column: "asr_metadata_json",
                         definition: "TEXT"
                     )
+                },
+                DatabaseMigration(id: 6, name: "drop_legacy_glossary_and_replacement_tables") { connection in
+                    try connection.execute(
+                        """
+                        DROP TABLE IF EXISTS glossary_terms;
+                        DROP TABLE IF EXISTS replacement_rules;
+                        """
+                    )
+                },
+                DatabaseMigration(id: 7, name: "voice_correction") { connection in
+                    try connection.execute(voiceCorrectionSQL)
                 }
             ],
             clock: clock
@@ -62,6 +73,68 @@ enum AppDatabase {
     CREATE INDEX IF NOT EXISTS idx_voice_tasks_created_at ON voice_tasks(created_at);
     """
 
+    static let voiceCorrectionSQL = """
+    CREATE TABLE IF NOT EXISTS voice_correction_rules (
+        id TEXT PRIMARY KEY,
+        original TEXT NOT NULL,
+        replacement TEXT NOT NULL,
+        match_policy TEXT NOT NULL,
+        scope_type TEXT NOT NULL,
+        scope_value TEXT,
+        allowed_modes_json TEXT NOT NULL,
+        lifecycle TEXT NOT NULL,
+        source TEXT NOT NULL,
+        case_sensitive INTEGER NOT NULL DEFAULT 0,
+        confidence REAL NOT NULL,
+        observed_count INTEGER NOT NULL DEFAULT 0,
+        applied_count INTEGER NOT NULL DEFAULT 0,
+        reverted_count INTEGER NOT NULL DEFAULT 0,
+        provider_id TEXT,
+        model_id TEXT,
+        language TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_applied_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_active_scope_original
+    ON voice_correction_rules(scope_type, IFNULL(scope_value, ''), original COLLATE NOCASE)
+    WHERE lifecycle = 'active';
+    CREATE INDEX IF NOT EXISTS idx_voice_correction_rules_lifecycle
+    ON voice_correction_rules(lifecycle, enabled);
+
+    CREATE TABLE IF NOT EXISTS voice_correction_events (
+        id TEXT PRIMARY KEY,
+        rule_id TEXT,
+        original TEXT NOT NULL,
+        replacement TEXT NOT NULL,
+        range_location INTEGER NOT NULL,
+        range_length INTEGER NOT NULL,
+        scope_type TEXT NOT NULL,
+        scope_value TEXT,
+        source TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_voice_correction_events_created_at
+    ON voice_correction_events(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS voice_correction_learning_suppression (
+        id TEXT PRIMARY KEY,
+        original TEXT NOT NULL,
+        replacement TEXT NOT NULL,
+        bundle_identifier TEXT,
+        suppressed_until TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_suppression_pair
+    ON voice_correction_learning_suppression(
+        original COLLATE NOCASE,
+        replacement COLLATE NOCASE,
+        IFNULL(bundle_identifier, '')
+    );
+    """
+
     static let initialSchemaSQL = """
     CREATE TABLE IF NOT EXISTS dictation_history (
         id TEXT PRIMARY KEY,
@@ -88,34 +161,6 @@ enum AppDatabase {
 
     CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_at
     ON dictation_history(deleted_at);
-
-    CREATE TABLE IF NOT EXISTS glossary_terms (
-        id TEXT PRIMARY KEY,
-        term TEXT NOT NULL,
-        aliases_json TEXT NOT NULL DEFAULT '[]',
-        category TEXT NOT NULL DEFAULT 'general',
-        enabled INTEGER NOT NULL DEFAULT 1,
-        priority INTEGER NOT NULL DEFAULT 100,
-        notes TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_glossary_terms_unique
-    ON glossary_terms(lower(term), category);
-
-    CREATE TABLE IF NOT EXISTS replacement_rules (
-        id TEXT PRIMARY KEY,
-        source TEXT NOT NULL,
-        target TEXT NOT NULL,
-        match_mode TEXT NOT NULL DEFAULT 'contains',
-        apply_stage TEXT NOT NULL DEFAULT 'beforeLLM',
-        category TEXT NOT NULL DEFAULT 'general',
-        enabled INTEGER NOT NULL DEFAULT 1,
-        priority INTEGER NOT NULL DEFAULT 100,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
 
     CREATE TABLE IF NOT EXISTS style_profiles (
         id TEXT PRIMARY KEY,

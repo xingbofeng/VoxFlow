@@ -641,6 +641,45 @@ html[lang="zh-CN"] h1 {
 .mini-hud span:nth-child(3) { --h: 1; --d: 2; }
 .mini-hud span:nth-child(4) { --h: .62; --d: 3; }
 .mini-hud span:nth-child(5) { --h: .44; --d: 4; }
+.feature-correction {
+  background:
+    radial-gradient(circle at 78% 14%, rgba(15, 124, 100, .14), transparent 34%),
+    rgba(255, 255, 255, .64);
+}
+.correction-demo {
+  position: absolute;
+  top: 46px;
+  left: 34px;
+  right: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 12px 14px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 20px 50px rgba(30, 80, 62, .09);
+}
+.correction-demo span,
+.correction-demo strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.correction-demo span {
+  color: #9b9b95;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.correction-demo b {
+  color: #c5b9aa;
+  font-size: 13px;
+}
+.correction-demo strong {
+  color: var(--accent);
+  font-weight: 800;
+}
 .feature-window {
   background:
     linear-gradient(145deg, rgba(223, 238, 232, .7), rgba(255, 255, 255, .62));
@@ -698,6 +737,15 @@ html[lang="zh-CN"] h1 {
 }
 .refine-demo span:nth-child(4) {
   grid-column: 1;
+}
+.feature-command {
+  background:
+    linear-gradient(145deg, rgba(255, 246, 237, .78), rgba(255, 255, 255, .62));
+}
+.feature-command .refine-demo {
+  min-height: 190px;
+  padding: 38px 6% 0;
+  font-size: clamp(24px, 3.8vw, 48px);
 }
 
 .privacy {
@@ -895,6 +943,13 @@ html[lang="zh-CN"] h1 {
   .mini-window {
     left: 24px;
     right: 24px;
+  }
+  .correction-demo {
+    left: 24px;
+    right: 24px;
+    gap: 10px;
+    padding: 18px;
+    font-size: 14px;
   }
   .refine-demo {
     grid-template-columns: 1fr auto 1fr;

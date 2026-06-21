@@ -59,11 +59,26 @@ struct ContextPipeline: ContextCollecting {
             }
         }
 
-        // 2. Security gate: check if the focused element is a secure text field
-        let isSecure = accessibilityProvider.isSecureTextField(pid: target?.pid)
-        if isSecure {
+        // 2. Accessibility collection. Race synchronous AX work against a hard timeout.
+        guard let accessibilityResult = await collectAccessibility(pid: target?.pid) else {
+            warnings.append("context_collection_timeout")
+            return ContextSnapshot(
+                windowTitle: windowTitle,
+                targetAppBundleID: bundleID,
+                targetAppName: appName,
+                visibleText: nil,
+                selectedText: nil,
+                inputAreaText: nil,
+                visualContentAvailable: false,
+                sources: sources,
+                trimmedLength: 0,
+                warnings: warnings
+            )
+        }
+
+        // 3. Security gate: block all accessibility collection for secure fields.
+        if accessibilityResult.isSecure {
             warnings.append("secure_text_field_detected")
-            // Block all accessibility collection for secure fields
             let snapshot = ContextSnapshot(
                 windowTitle: windowTitle,
                 targetAppBundleID: bundleID,
@@ -79,40 +94,22 @@ struct ContextPipeline: ContextCollecting {
             return snapshot
         }
 
-        // 3. Accessibility visible text
-        if ContinuousClock.now < deadline {
-            let visible = accessibilityProvider.visibleText(pid: target?.pid)
-            if let visible = visible.flatMap(ContextTextSanitizer.sanitize),
-               !Self.isNoise(visible) {
-                visibleText = visible
-                sources.append(.accessibilityVisibleText)
-            }
-        } else {
-            warnings.append("context_collection_timeout")
+        if let visible = accessibilityResult.visibleText.flatMap(ContextTextSanitizer.sanitize),
+           !Self.isNoise(visible) {
+            visibleText = visible
+            sources.append(.accessibilityVisibleText)
         }
 
-        // 4. Selected text
-        if ContinuousClock.now < deadline {
-            let selected = accessibilityProvider.selectedText(pid: target?.pid)
-            if let selected = selected.flatMap(ContextTextSanitizer.sanitize),
-               !Self.isNoise(selected) {
-                selectedText = selected
-                sources.append(.accessibilitySelectedText)
-            }
-        } else if !warnings.contains("context_collection_timeout") {
-            warnings.append("context_collection_timeout")
+        if let selected = accessibilityResult.selectedText.flatMap(ContextTextSanitizer.sanitize),
+           !Self.isNoise(selected) {
+            selectedText = selected
+            sources.append(.accessibilitySelectedText)
         }
 
-        // 5. Input area text
-        if ContinuousClock.now < deadline {
-            let inputArea = accessibilityProvider.inputAreaText(pid: target?.pid)
-            if let inputArea = inputArea.flatMap(ContextTextSanitizer.sanitize),
-               !Self.isNoise(inputArea) {
-                inputAreaText = inputArea
-                sources.append(.accessibilityInputArea)
-            }
-        } else if !warnings.contains("context_collection_timeout") {
-            warnings.append("context_collection_timeout")
+        if let inputArea = accessibilityResult.inputAreaText.flatMap(ContextTextSanitizer.sanitize),
+           !Self.isNoise(inputArea) {
+            inputAreaText = inputArea
+            sources.append(.accessibilityInputArea)
         }
 
         // 6. Deduplicate
@@ -191,6 +188,25 @@ struct ContextPipeline: ContextCollecting {
         )
     }
 
+    private func collectAccessibility(pid: Int?) async -> AccessibilityCollectionResult? {
+        await withCheckedContinuation { continuation in
+            let gate = SingleResumeGate<AccessibilityCollectionResult?>()
+            Task.detached(priority: .userInitiated) {
+                let result = AccessibilityCollectionResult(
+                    isSecure: accessibilityProvider.isSecureTextField(pid: pid),
+                    visibleText: accessibilityProvider.visibleText(pid: pid),
+                    selectedText: accessibilityProvider.selectedText(pid: pid),
+                    inputAreaText: accessibilityProvider.inputAreaText(pid: pid)
+                )
+                gate.resumeOnce(result, continuation: continuation)
+            }
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(Self.timeoutMilliseconds) * 1_000_000)
+                gate.resumeOnce(nil, continuation: continuation)
+            }
+        }
+    }
+
     // MARK: - Text processing
 
     /// Deduplicate identical text from different sources.
@@ -229,36 +245,29 @@ struct ContextPipeline: ContextCollecting {
         inputAreaText: String?,
         maxLength: Int
     ) -> (visibleText: String?, selectedText: String?, inputAreaText: String?) {
+        let budget = max(0, maxLength)
         let totalLength = (visibleText?.count ?? 0)
             + (selectedText?.count ?? 0)
             + (inputAreaText?.count ?? 0)
 
-        guard totalLength > maxLength else {
+        guard totalLength > budget else {
             return (visibleText, selectedText, inputAreaText)
         }
 
-        // Priority: selectedText > inputAreaText > visibleText
-        // Trim visibleText first (it's typically the largest)
-        var vText = visibleText
-        let sText = selectedText
-        var iText = inputAreaText
-
-        // First pass: trim visible text
-        let otherLength = (sText?.count ?? 0) + (iText?.count ?? 0)
-        let availableForVisible = max(0, maxLength - otherLength)
-        if let v = vText, v.count > availableForVisible {
-            vText = String(v.prefix(availableForVisible))
+        var remaining = budget
+        func take(_ text: String?) -> String? {
+            guard let text else { return nil }
+            let count = min(text.count, remaining)
+            remaining -= count
+            return String(text.prefix(count))
         }
 
-        // Second pass: if still over, trim input area
-        let currentTotal = (vText?.count ?? 0) + (sText?.count ?? 0) + (iText?.count ?? 0)
-        if currentTotal > maxLength {
-            let availableForInput = max(0, maxLength - (vText?.count ?? 0) - (sText?.count ?? 0))
-            if let i = iText, i.count > availableForInput {
-                iText = String(i.prefix(availableForInput))
-            }
-        }
-
+        // Priority: selectedText > inputAreaText > visibleText.
+        let sText = take(selectedText)
+        let iText = take(inputAreaText)
+        let vText = take(visibleText)
+        let trimmedTotal = (vText?.count ?? 0) + (sText?.count ?? 0) + (iText?.count ?? 0)
+        precondition(trimmedTotal <= budget)
         return (vText, sText, iText)
     }
 
@@ -354,6 +363,29 @@ protocol AccessibilityProviding: Sendable {
     func selectedText(pid: Int?) -> String?
     func inputAreaText(pid: Int?) -> String?
     func isSecureTextField(pid: Int?) -> Bool
+}
+
+private struct AccessibilityCollectionResult: Sendable {
+    let isSecure: Bool
+    let visibleText: String?
+    let selectedText: String?
+    let inputAreaText: String?
+}
+
+private final class SingleResumeGate<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+
+    func resumeOnce(_ value: Value, continuation: CheckedContinuation<Value, Never>) {
+        let shouldResume = lock.withLock {
+            guard !didResume else { return false }
+            didResume = true
+            return true
+        }
+        if shouldResume {
+            continuation.resume(returning: value)
+        }
+    }
 }
 
 enum AccessibilityVisibleTextSummary {

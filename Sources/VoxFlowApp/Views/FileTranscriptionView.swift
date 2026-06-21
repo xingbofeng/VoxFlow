@@ -13,7 +13,7 @@ struct FileTranscriptionView: View {
             dropArea
 
             ScrollView {
-                VStack(spacing: AppTheme.Spacing.grid) {
+                LazyVStack(spacing: AppTheme.Spacing.grid) {
                     ForEach(viewModel.jobs, id: \.id) { job in
                         jobRow(job)
                     }

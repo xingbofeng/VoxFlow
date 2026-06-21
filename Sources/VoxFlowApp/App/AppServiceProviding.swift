@@ -8,14 +8,15 @@ protocol AppServiceProviding {
     var databaseQueue: DatabaseQueue { get }
     var credentialStore: CredentialStore { get }
     var historyRepository: any HistoryRepository { get }
-    var glossaryRepository: any GlossaryRepository { get }
-    var replacementRuleRepository: any ReplacementRuleRepository { get }
     var styleRepository: any StyleRepository { get }
     var asrProviderRepository: any ASRProviderRepository { get }
     var llmProviderRepository: any LLMProviderRepository { get }
     var transcriptionJobRepository: any TranscriptionJobRepository { get }
     var noteRepository: any NoteRepository { get }
     var settingsRepository: any SettingsRepository { get }
+    var correctionRuleRepository: any CorrectionRuleRepository { get }
+    var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { get }
+    var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { get }
 }
 
 protocol AppEventRouting {

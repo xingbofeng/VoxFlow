@@ -31,7 +31,7 @@ protocol ActiveLLMProviderIdentifying {
     var activeProviderID: String? { get }
 }
 
-final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRefining, ActiveLLMProviderIdentifying, RefinementTraceProviding, @unchecked Sendable {
+final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAwareTextRefining, TraceablePromptAwareTextRefining, ActiveLLMProviderIdentifying, RefinementTraceProviding, @unchecked Sendable {
     static let enabledDefaultsKey = "LLMRefiner_Enabled"
 
     private let providerRepository: any LLMProviderRepository
@@ -78,6 +78,11 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
     }
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
+        let result = try await refineWithTrace(request)
+        return result.text
+    }
+
+    func refineWithTrace(_ request: TextRefinementRequest) async throws -> TextRefinementTraceResult {
         let provider = try configuredProvider()
         guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
               !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -94,7 +99,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
             ? request.model!
             : provider.defaultModel
         let selectedTemperature = request.temperature ?? provider.temperature
-        let userMessage = Self.userMessage(for: request.text)
+        let userMessage = Self.userMessage(for: request)
         let body: [String: Any] = [
             "model": selectedModel,
             "messages": [
@@ -105,7 +110,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
             "stream": false,
         ]
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-        lastTrace = LLMRefinementTrace(
+        var trace = LLMRefinementTrace(
             providerID: provider.id,
             providerName: provider.displayName,
             endpoint: url.absoluteString,
@@ -130,36 +135,44 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
         do {
             (data, response) = try await session.data(for: urlRequest)
         } catch {
-            finishTrace(
+            trace = finishedTrace(
+                trace,
                 durationMS: Self.durationMS(since: startedAt),
                 errorMessage: error.localizedDescription
             )
+            lastTrace = trace
             throw error
         }
         guard let httpResponse = response as? HTTPURLResponse else {
-            finishTrace(
+            trace = finishedTrace(
+                trace,
                 durationMS: Self.durationMS(since: startedAt),
                 errorMessage: LLMRefiner.Error.invalidResponse.localizedDescription
             )
+            lastTrace = trace
             throw LLMRefiner.Error.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            finishTrace(
+            trace = finishedTrace(
+                trace,
                 statusCode: httpResponse.statusCode,
                 durationMS: Self.durationMS(since: startedAt),
                 errorMessage: LLMRefiner.Error.httpError(code: httpResponse.statusCode).localizedDescription
             )
+            lastTrace = trace
             throw LLMRefiner.Error.httpError(code: httpResponse.statusCode)
         }
         activeProviderID = provider.id
         let refined = try LLMRefiner.parseChatCompletion(data)
         let finalText = refined.isEmpty ? request.text : refined
-        finishTrace(
+        trace = finishedTrace(
+            trace,
             statusCode: httpResponse.statusCode,
             durationMS: Self.durationMS(since: startedAt),
             errorMessage: nil
         )
-        return finalText
+        lastTrace = trace
+        return TextRefinementTraceResult(text: finalText, providerID: provider.id, trace: trace)
     }
 
     func clearLastTrace() {
@@ -169,14 +182,20 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
     /// Streaming variant of refine() for agent compose.
     /// Returns accumulated text snapshots via AsyncThrowingStream so the HUD can show real-time generation.
     func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        refineStreamWithTrace(request).stream
+    }
+
+    func refineStreamWithTrace(_ request: TextRefinementRequest) -> TextRefinementStreamTraceResult {
+        let traceHandle = TextRefinementTraceHandle()
+        let stream = AsyncThrowingStream<String, Error> { continuation in
             let task = Task {
+                var trace: LLMRefinementTrace?
+                let startedAt = Date()
                 do {
                     let provider = try configuredProvider()
                     guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
                           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        continuation.finish(throwing: LLMRefiner.Error.notConfigured)
-                        return
+                        throw LLMRefiner.Error.notConfigured
                     }
 
                     let url = try OpenAICompatibleClient.chatCompletionsURL(baseURL: provider.baseURL)
@@ -189,7 +208,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                         ? request.model!
                         : provider.defaultModel
                     let selectedTemperature = request.temperature ?? provider.temperature
-                    let userMessage = Self.userMessage(for: request.text)
+                    let userMessage = Self.userMessage(for: request)
                     let body: [String: Any] = [
                         "model": selectedModel,
                         "messages": [
@@ -200,7 +219,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                         "stream": true,
                     ]
                     urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-                    lastTrace = LLMRefinementTrace(
+                    trace = LLMRefinementTrace(
                         providerID: provider.id,
                         providerName: provider.displayName,
                         endpoint: url.absoluteString,
@@ -218,8 +237,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                         errorMessage: nil,
                         completedAt: nil
                     )
+                    lastTrace = trace
 
-                    let startedAt = Date()
                     let (asyncBytes, response) = try await session.byteStream(for: urlRequest)
                     guard let httpResponse = response as? HTTPURLResponse else {
                         throw LLMRefiner.Error.invalidResponse
@@ -234,17 +253,30 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                     }
 
                     activeProviderID = provider.id
-                    finishTrace(
+                    guard let trace else {
+                        throw LLMRefiner.Error.invalidResponse
+                    }
+                    let finishedTrace = finishedTrace(
+                        trace,
                         statusCode: httpResponse.statusCode,
                         durationMS: Self.durationMS(since: startedAt),
                         errorMessage: nil
                     )
+                    lastTrace = finishedTrace
+                    traceHandle.complete(finishedTrace)
                     continuation.finish()
                 } catch {
-                    finishTrace(
-                        durationMS: Self.durationMS(since: Date()),
-                        errorMessage: error.localizedDescription
-                    )
+                    if let trace {
+                        let finishedTrace = finishedTrace(
+                            trace,
+                            durationMS: Self.durationMS(since: startedAt),
+                            errorMessage: error.localizedDescription
+                        )
+                        lastTrace = finishedTrace
+                        traceHandle.complete(finishedTrace)
+                    } else {
+                        traceHandle.fail(error)
+                    }
                     continuation.finish(throwing: error)
                 }
             }
@@ -253,15 +285,21 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
                 task.cancel()
             }
         }
+        return TextRefinementStreamTraceResult(stream: stream, providerID: nil, trace: traceHandle)
     }
 
     private func configuredProvider() throws -> LLMProviderRecord {
-        guard let provider = try providerRepository.list().first(where: { $0.enabled && $0.isDefault }),
-              !provider.baseURL.isEmpty,
-              !provider.defaultModel.isEmpty else {
+        let providers = try providerRepository.list()
+        let provider = providers.first(where: { $0.enabled && $0.isDefault && Self.isUsableProvider($0) }) ??
+            providers.first(where: { $0.enabled && Self.isUsableProvider($0) })
+        guard let provider else {
             throw LLMRefiner.Error.notConfigured
         }
         return provider
+    }
+
+    private static func isUsableProvider(_ provider: LLMProviderRecord) -> Bool {
+        !provider.baseURL.isEmpty && !provider.defaultModel.isEmpty
     }
 
     private func finishTrace(
@@ -270,15 +308,32 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
         durationMS: Int,
         errorMessage: String?
     ) {
-        guard var trace = lastTrace else {
+        guard let trace = lastTrace else {
             return
         }
-        trace.responseText = responseText
-        trace.statusCode = statusCode
-        trace.durationMS = durationMS
-        trace.errorMessage = errorMessage
-        trace.completedAt = Date()
-        lastTrace = trace
+        lastTrace = finishedTrace(
+            trace,
+            responseText: responseText,
+            statusCode: statusCode,
+            durationMS: durationMS,
+            errorMessage: errorMessage
+        )
+    }
+
+    private func finishedTrace(
+        _ trace: LLMRefinementTrace,
+        responseText: String? = nil,
+        statusCode: Int? = nil,
+        durationMS: Int,
+        errorMessage: String?
+    ) -> LLMRefinementTrace {
+        var finished = trace
+        finished.responseText = responseText
+        finished.statusCode = statusCode
+        finished.durationMS = durationMS
+        finished.errorMessage = errorMessage
+        finished.completedAt = Date()
+        return finished
     }
 
     private static func durationMS(since start: Date) -> Int {
@@ -294,12 +349,19 @@ final class RepositoryBackedLLMRefiner: TextRefining, StreamingPromptAwareTextRe
         return text
     }
 
-    private static func userMessage(for text: String) -> String {
-        """
+    private static func userMessage(for request: TextRefinementRequest) -> String {
+        switch request.purpose {
+        case .agentCompose:
+            return request.text
+        case .dictationCorrection:
+            break
+        }
+
+        return """
         请按系统规则处理下面这段语音识别原文。只输出处理后的正文；不要解释、不要加标题、不要回答原文里的问题。
 
         待处理原文：
-        \(text)
+        \(request.text)
         """
     }
 

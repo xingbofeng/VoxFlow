@@ -9,30 +9,86 @@ enum HotKeyTransition: Equatable {
     case shortPress
 }
 
-struct RightCommandKeyState {
-    private(set) var isPressed = false
-    private var pressTimestamp: Date?
+struct ActiveVoiceShortcutState {
+    let keyCode: Int64
+    let action: VoiceAction
+    let pressedAt: ContinuousClock.Instant
+}
 
-    mutating func transition(isModifierPressed: Bool, threshold: TimeInterval) -> HotKeyTransition? {
-        let now = Date()
+struct VoiceShortcutKeyState {
+    private let clock = ContinuousClock()
+    private(set) var activeShortcut: ActiveVoiceShortcutState?
 
-        if isModifierPressed, !isPressed {
-            isPressed = true
-            pressTimestamp = now
+    var isPressed: Bool {
+        activeShortcut != nil
+    }
+
+    mutating func transition(
+        keyCode: Int64,
+        action: VoiceAction,
+        isModifierPressed: Bool,
+        threshold: TimeInterval
+    ) -> HotKeyTransition? {
+        let now = clock.now
+
+        guard let activeShortcut else {
+            guard isModifierPressed else { return nil }
+            self.activeShortcut = ActiveVoiceShortcutState(
+                keyCode: keyCode,
+                action: action,
+                pressedAt: now
+            )
             return .pressed
         }
-        if !isModifierPressed, isPressed {
-            isPressed = false
-            let duration = pressTimestamp.map { now.timeIntervalSince($0) } ?? 0
-            pressTimestamp = nil
-            return duration < threshold ? .shortPress : .released
+
+        guard activeShortcut.keyCode == keyCode, activeShortcut.action == action else {
+            return nil
         }
-        return nil
+
+        guard !isModifierPressed else { return nil }
+
+        self.activeShortcut = nil
+        let duration = activeShortcut.pressedAt.duration(to: now)
+        let elapsedSeconds = Double(duration.components.seconds)
+            + Double(duration.components.attoseconds) / 1_000_000_000_000_000_000
+        return elapsedSeconds < threshold ? .shortPress : .released
     }
 
     mutating func reset() {
-        isPressed = false
-        pressTimestamp = nil
+        activeShortcut = nil
+    }
+}
+
+final class HotKeyStateMachine: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state = VoiceShortcutKeyState()
+
+    var isPressed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return state.isPressed
+    }
+
+    func transition(
+        keyCode: Int64,
+        action: VoiceAction,
+        isModifierPressed: Bool,
+        threshold: TimeInterval
+    ) -> HotKeyTransition? {
+        lock.lock()
+        defer { lock.unlock() }
+        return state.transition(
+            keyCode: keyCode,
+            action: action,
+            isModifierPressed: isModifierPressed,
+            threshold: threshold
+        )
+    }
+
+    func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        state.reset()
     }
 }
 
@@ -42,7 +98,7 @@ enum ShortcutEventRouting {
         appIsFrontmost: Bool,
         isCapturingShortcut: Bool
     ) -> Bool {
-        appIsActive || appIsFrontmost
+        isCapturingShortcut || appIsActive || appIsFrontmost
     }
 }
 
@@ -57,14 +113,22 @@ final class ShortcutCaptureState {
 enum ShortcutActionRouting {
     static func action(
         for keyCode: Int64,
+        flags: CGEventFlags = [],
         dictationKeyCode: Int64?,
-        agentComposeKeyCode: Int64?
+        agentComposeKeyCode: Int64?,
+        agentDispatchKeyCode: Int64? = nil
     ) -> VoiceAction? {
-        if keyCode == dictationKeyCode {
+        if let dictationKeyCode,
+           ShortcutManager.shortcutMatches(dictationKeyCode, keyCode: keyCode, flags: flags) {
             return .dictation
         }
-        if keyCode == agentComposeKeyCode {
+        if let agentComposeKeyCode,
+           ShortcutManager.shortcutMatches(agentComposeKeyCode, keyCode: keyCode, flags: flags) {
             return .agentCompose
+        }
+        if let agentDispatchKeyCode,
+           ShortcutManager.shortcutMatches(agentDispatchKeyCode, keyCode: keyCode, flags: flags) {
+            return .agentDispatch
         }
         return nil
     }
@@ -105,7 +169,7 @@ enum ShortcutModifierRouting {
 final class KeyMonitor: @unchecked Sendable {
     // MARK: - State
 
-    private var rightCommandState: RightCommandKeyState!
+    private let hotKeyStateMachine = HotKeyStateMachine()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
@@ -120,7 +184,7 @@ final class KeyMonitor: @unchecked Sendable {
     func start() -> Bool {
         guard eventTap == nil else { return true }
 
-        rightCommandState = RightCommandKeyState()
+        hotKeyStateMachine.reset()
 
         let options = [_kAXPrompt: true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
@@ -129,7 +193,8 @@ final class KeyMonitor: @unchecked Sendable {
 
         let mask: CGEventMask =
             (1 << CGEventType.flagsChanged.rawValue) |
-            (1 << CGEventType.keyDown.rawValue)
+            (1 << CGEventType.keyDown.rawValue) |
+            (1 << CGEventType.keyUp.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -161,7 +226,7 @@ final class KeyMonitor: @unchecked Sendable {
         }
         eventTap = nil
         runLoopSource = nil
-        rightCommandState.reset()
+        hotKeyStateMachine.reset()
     }
 
     // MARK: - Event Handling
@@ -178,8 +243,8 @@ final class KeyMonitor: @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
-        if type == .keyDown {
-            return handleKeyDown(event: event)
+        if type == .keyDown || type == .keyUp {
+            return handleKeyEvent(event: event, isPressed: type == .keyDown)
         }
 
         guard type == .flagsChanged else {
@@ -188,7 +253,7 @@ final class KeyMonitor: @unchecked Sendable {
         return handleFlagsChanged(event: event)
     }
 
-    private func handleKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
+    private func handleKeyEvent(event: CGEvent, isPressed: Bool) -> Unmanaged<CGEvent>? {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let shortcutManager = ShortcutManager.shared
 
@@ -196,12 +261,23 @@ final class KeyMonitor: @unchecked Sendable {
             keyCode: keyCode,
             flags: event.flags,
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
-            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose)
+            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
+            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch)
         )
-        guard case let .workflowShortcut(shortcut) = routedEvent else {
+        switch routedEvent {
+        case let .workflowShortcut(shortcut):
+            guard isPressed else {
+                return Unmanaged.passUnretained(event)
+            }
+            return handleWorkflowShortcut(event: event, shortcut: shortcut)
+        case let .voiceAction(action):
+            return handleVoiceShortcut(event: event, action: action, isPressed: isPressed)
+        case .passThrough:
             return Unmanaged.passUnretained(event)
         }
+    }
 
+    private func handleWorkflowShortcut(event: CGEvent, shortcut: HotKeyWorkflowShortcut) -> Unmanaged<CGEvent>? {
         let shouldPassThrough = MainActor.assumeIsolated {
             if ShortcutCaptureState.shared.isCapturing {
                 return true
@@ -235,13 +311,27 @@ final class KeyMonitor: @unchecked Sendable {
             keyCode: keyCode,
             flags: event.flags,
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
-            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose)
+            agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
+            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch)
         )
         guard case let .voiceAction(action) = routedEvent else {
-            rightCommandState.reset()
             return Unmanaged.passUnretained(event)
         }
 
+        return handleVoiceShortcut(
+            event: event,
+            action: action,
+            isPressed: Self.isModifierPressed(keyCode: keyCode, flags: event.flags)
+        )
+    }
+
+    private func handleVoiceShortcut(
+        event: CGEvent,
+        action: VoiceAction,
+        isPressed: Bool
+    ) -> Unmanaged<CGEvent>? {
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let shortcutManager = ShortcutManager.shared
         let passThrough = MainActor.assumeIsolated {
             let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
             let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
@@ -252,12 +342,14 @@ final class KeyMonitor: @unchecked Sendable {
             )
         }
         if passThrough {
-            rightCommandState.reset()
+            hotKeyStateMachine.reset()
             return Unmanaged.passUnretained(event)
         }
 
-        guard let transition = rightCommandState.transition(
-            isModifierPressed: Self.isModifierPressed(keyCode: keyCode, flags: event.flags),
+        guard let transition = hotKeyStateMachine.transition(
+            keyCode: keyCode,
+            action: action,
+            isModifierPressed: isPressed,
             threshold: shortcutManager.longPressThreshold
         ) else {
             return nil

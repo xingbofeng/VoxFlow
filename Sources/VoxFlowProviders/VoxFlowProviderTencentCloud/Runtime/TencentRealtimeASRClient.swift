@@ -9,6 +9,7 @@ public enum TencentRealtimeASRError: Error, LocalizedError, Equatable {
     case providerError(code: Int, message: String)
     case unsupportedSampleRate(Int)
     case inconsistentSampleRate
+    case connectionTimedOut
 
     public var errorDescription: String? {
         switch self {
@@ -24,6 +25,8 @@ public enum TencentRealtimeASRError: Error, LocalizedError, Equatable {
             return "腾讯云实时语音识别当前仅支持 16k PCM，收到 \(sampleRate)Hz 音频。"
         case .inconsistentSampleRate:
             return "录音采样率发生变化，无法提交腾讯云实时识别。"
+        case .connectionTimedOut:
+            return "腾讯云实时语音识别连接超时。"
         }
     }
 }
@@ -228,14 +231,14 @@ public protocol TencentRealtimeWebSocketConnection: Sendable {
 }
 
 public protocol TencentRealtimeWebSocketTransport: Sendable {
-    func connect(url: URL) async throws -> any TencentRealtimeWebSocketConnection
+    func connect(request: URLRequest) async throws -> any TencentRealtimeWebSocketConnection
 }
 
 public struct URLSessionTencentRealtimeWebSocketTransport: TencentRealtimeWebSocketTransport {
     public init() {}
 
-    public func connect(url: URL) async throws -> any TencentRealtimeWebSocketConnection {
-        let task = URLSession.shared.webSocketTask(with: url)
+    public func connect(request: URLRequest) async throws -> any TencentRealtimeWebSocketConnection {
+        let task = URLSession.shared.webSocketTask(with: request)
         task.resume()
         return URLSessionTencentRealtimeWebSocketConnection(task: task)
     }
@@ -272,14 +275,8 @@ private final class URLSessionTencentRealtimeWebSocketConnection: TencentRealtim
     }
 }
 
-public protocol TencentRealtimeASRStreamingClient: Sendable {
-    func testConnection(configuration: TencentRealtimeASRConfiguration) async throws -> ASRProviderHealthResult
-    func transcribe(
-        configuration: TencentRealtimeASRConfiguration,
-        audioChunks: AsyncStream<Data>,
-        onMessage: @escaping @Sendable (TencentRealtimeASRMessage) -> Void
-    ) async throws
-}
+public protocol TencentRealtimeASRStreamingClient: CloudASRStreamingClient
+where Configuration == TencentRealtimeASRConfiguration, Message == TencentRealtimeASRMessage {}
 
 public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, @unchecked Sendable {
     private let transport: any TencentRealtimeWebSocketTransport
@@ -301,9 +298,12 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
 
     public func testConnection(configuration: TencentRealtimeASRConfiguration) async throws -> ASRProviderHealthResult {
         let startedAt = Date()
-        let connection = try await transport.connect(url: signedURL(configuration: configuration))
+        let connection = try await transport.connect(request: signedRequest(configuration: configuration))
         defer { connection.close() }
-        let handshake = try await receiveDecodedMessage(from: connection)
+        let handshake = try await receiveDecodedMessage(
+            from: connection,
+            timeoutSeconds: configuration.timeoutSeconds
+        )
         try validate(handshake)
         return ASRProviderHealthResult(
             status: .ok,
@@ -317,14 +317,20 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
         audioChunks: AsyncStream<Data>,
         onMessage: @escaping @Sendable (TencentRealtimeASRMessage) -> Void
     ) async throws {
-        let connection = try await transport.connect(url: signedURL(configuration: configuration))
+        let connection = try await transport.connect(request: signedRequest(configuration: configuration))
         defer { connection.close() }
-        let handshake = try await receiveDecodedMessage(from: connection)
+        let handshake = try await receiveDecodedMessage(
+            from: connection,
+            timeoutSeconds: configuration.timeoutSeconds
+        )
         try validate(handshake)
 
-        async let sender: Void = send(audioChunks: audioChunks, to: connection)
-        async let receiver: Void = receiveMessages(from: connection, onMessage: onMessage)
-        _ = try await (sender, receiver)
+        try await runStreamingTasks(
+            audioChunks: audioChunks,
+            connection: connection,
+            timeoutSeconds: configuration.timeoutSeconds,
+            onMessage: onMessage
+        )
     }
 
     private func signedURL(configuration: TencentRealtimeASRConfiguration) throws -> URL {
@@ -346,22 +352,67 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
         ).signedURL()
     }
 
+    private func signedRequest(configuration: TencentRealtimeASRConfiguration) throws -> URLRequest {
+        var request = URLRequest(url: try signedURL(configuration: configuration))
+        request.timeoutInterval = configuration.timeoutSeconds
+        return request
+    }
+
     private func send(
         audioChunks: AsyncStream<Data>,
         to connection: any TencentRealtimeWebSocketConnection
     ) async throws {
         for await chunk in audioChunks where !chunk.isEmpty {
+            try Task.checkCancellation()
             try await connection.sendData(chunk)
         }
+        try Task.checkCancellation()
         try await connection.sendText(#"{"type":"end"}"#)
+    }
+
+    private func runStreamingTasks(
+        audioChunks: AsyncStream<Data>,
+        connection: any TencentRealtimeWebSocketConnection,
+        timeoutSeconds: Double,
+        onMessage: @escaping @Sendable (TencentRealtimeASRMessage) -> Void
+    ) async throws {
+        try await withThrowingTaskGroup(of: StreamingTaskResult.self) { group in
+            group.addTask {
+                try await self.send(audioChunks: audioChunks, to: connection)
+                return .senderFinished
+            }
+            group.addTask {
+                try await self.receiveMessages(
+                    from: connection,
+                    timeoutSeconds: timeoutSeconds,
+                    onMessage: onMessage
+                )
+                return .receiverFinished
+            }
+            defer { group.cancelAll() }
+
+            while let result = try await group.next() {
+                switch result {
+                case .senderFinished:
+                    continue
+                case .receiverFinished:
+                    return
+                }
+            }
+        }
     }
 
     private func receiveMessages(
         from connection: any TencentRealtimeWebSocketConnection,
+        timeoutSeconds: Double,
         onMessage: @escaping @Sendable (TencentRealtimeASRMessage) -> Void
     ) async throws {
         while true {
-            let message = try await receiveDecodedMessage(from: connection)
+            try Task.checkCancellation()
+            let message = try await receiveDecodedMessage(
+                from: connection,
+                timeoutSeconds: timeoutSeconds
+            )
             try validate(message)
             onMessage(message)
             if message.isFinal {
@@ -371,13 +422,113 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
     }
 
     private func receiveDecodedMessage(
-        from connection: any TencentRealtimeWebSocketConnection
+        from connection: any TencentRealtimeWebSocketConnection,
+        timeoutSeconds: Double
     ) async throws -> TencentRealtimeASRMessage {
-        switch try await connection.receive() {
-        case .text(let text):
-            return try TencentRealtimeASRMessage.decode(text)
-        case .data(let data):
-            return try TencentRealtimeASRMessage.decode(data)
+        try await Self.withTimeout(
+            seconds: timeoutSeconds,
+            timeoutError: TencentRealtimeASRError.connectionTimedOut,
+            onTimeout: {
+                connection.close()
+            }
+        ) {
+            switch try await connection.receive() {
+            case .text(let text):
+                return try TencentRealtimeASRMessage.decode(text)
+            case .data(let data):
+                return try TencentRealtimeASRMessage.decode(data)
+            }
+        }
+    }
+
+    private static func withTimeout<T: Sendable>(
+        seconds: Double,
+        timeoutError: Error,
+        onTimeout: @escaping @Sendable () -> Void,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        let nanoseconds = UInt64(max(seconds, 0.001) * 1_000_000_000)
+        let race = TimeoutRace<T>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let operationTask = Task {
+                    do {
+                        let value = try await operation()
+                        await race.resume(.success(value), continuation: continuation)
+                    } catch {
+                        await race.resume(.failure(error), continuation: continuation)
+                    }
+                }
+                let timeoutTask = Task {
+                    do {
+                        try await Task.sleep(nanoseconds: nanoseconds)
+                    } catch {
+                        return
+                    }
+                    onTimeout()
+                    await race.resume(.failure(timeoutError), continuation: continuation)
+                }
+                Task {
+                    await race.register(
+                        continuation: continuation,
+                        operationTask: operationTask,
+                        timeoutTask: timeoutTask
+                    )
+                }
+            }
+        } onCancel: {
+            onTimeout()
+            Task {
+                await race.cancel()
+            }
+        }
+    }
+
+    private actor TimeoutRace<T: Sendable> {
+        private var didResume = false
+        private var continuation: CheckedContinuation<T, Error>?
+        private var operationTask: Task<Void, Never>?
+        private var timeoutTask: Task<Void, Never>?
+
+        func register(
+            continuation: CheckedContinuation<T, Error>,
+            operationTask: Task<Void, Never>,
+            timeoutTask: Task<Void, Never>
+        ) {
+            guard !didResume else {
+                operationTask.cancel()
+                timeoutTask.cancel()
+                return
+            }
+            self.continuation = continuation
+            self.operationTask = operationTask
+            self.timeoutTask = timeoutTask
+        }
+
+        func resume(
+            _ result: Result<T, Error>,
+            continuation fallbackContinuation: CheckedContinuation<T, Error>
+        ) {
+            guard !didResume else { return }
+            didResume = true
+            let continuation = continuation ?? fallbackContinuation
+            operationTask?.cancel()
+            timeoutTask?.cancel()
+            self.continuation = nil
+            operationTask = nil
+            timeoutTask = nil
+            continuation.resume(with: result)
+        }
+
+        func cancel() {
+            guard !didResume else { return }
+            didResume = true
+            operationTask?.cancel()
+            timeoutTask?.cancel()
+            continuation?.resume(throwing: CancellationError())
+            continuation = nil
+            operationTask = nil
+            timeoutTask = nil
         }
     }
 
@@ -388,5 +539,10 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
                 message: message.message
             )
         }
+    }
+
+    private enum StreamingTaskResult: Sendable {
+        case senderFinished
+        case receiverFinished
     }
 }

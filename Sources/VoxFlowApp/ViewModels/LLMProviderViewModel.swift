@@ -13,6 +13,7 @@ final class LLMProviderViewModel: ObservableObject {
 
     private let environment: any AppServiceProviding
     private let client: any LLMProviderConnecting
+    private var hasLoaded = false
 
     var defaultProvider: LLMProviderRecord? {
         providers.first(where: \.isDefault)
@@ -30,10 +31,18 @@ final class LLMProviderViewModel: ObservableObject {
     func load() {
         do {
             providers = try environment.llmProviderRepository.list()
+            hasLoaded = true
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
     }
 
     func saveProvider(

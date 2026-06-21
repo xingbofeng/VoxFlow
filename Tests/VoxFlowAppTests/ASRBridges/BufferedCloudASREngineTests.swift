@@ -6,6 +6,34 @@ import XCTest
 @testable import VoxFlowApp
 
 final class BufferedCloudASREngineTests: XCTestCase {
+    func testRecordingWritesTemporaryWAVAndCancelDeletesIt() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BufferedCloudASREngineTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let engine = BufferedCloudASREngine(
+            client: CapturingBufferedCloudClient(resultText: "unused"),
+            configuration: configuration(),
+            configurationAvailable: { true },
+            temporaryDirectory: temporaryDirectory
+        )
+
+        try engine.start()
+        engine.appendAudioFrame(
+            AudioFrame(
+                sequenceNumber: 0,
+                startSample: 0,
+                samples: [0, 0.5, -0.5],
+                sampleRate: 16_000,
+                capturedAt: ContinuousClock().now
+            )
+        )
+
+        XCTAssertFalse(try temporaryWAVFiles(in: temporaryDirectory).isEmpty)
+        engine.cancel()
+        XCTAssertTrue(try temporaryWAVFiles(in: temporaryDirectory).isEmpty)
+    }
+
     func testEndAudioEncodesWAVUploadsAndEmitsFinalResult() async throws {
         let client = CapturingBufferedCloudClient(resultText: "云端结果")
         let engine = BufferedCloudASREngine(
@@ -94,6 +122,13 @@ final class BufferedCloudASREngineTests: XCTestCase {
             apiKeyRef: "groq-key",
             timeoutSeconds: 30
         )
+    }
+
+    private func temporaryWAVFiles(in directory: URL) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.lastPathComponent.hasPrefix("VoxFlow-Cloud-ASR-") }
     }
 }
 

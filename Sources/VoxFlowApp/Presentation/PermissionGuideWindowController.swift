@@ -139,7 +139,7 @@ private struct PermissionGuideView: View {
                 }
             }
 
-            Text("权限刚刚修改后，请回到随声写重新检查。")
+            Text("权限刚刚修改后，请回到码上写重新检查。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
 

@@ -29,13 +29,16 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     private let provider: any ASRProvider
     private let defaultLanguage: ASRLanguageCapability
     private let callbacks = ASRCoreBackedCallbackBox()
+    private let lifecycleLock = NSLock()
     private let metadataLock = NSLock()
     private var configuredLanguage: ASRLanguageCapability?
     private var sessionTask: Task<any ASRSession, Error>?
     private var eventTask: Task<Void, Never>?
-    private var frameTask: Task<Void, Never>?
+    private var frameConsumerTask: Task<Void, Never>?
+    private var frameContinuation: AsyncStream<AudioFrame>.Continuation?
     private var isFinishing = false
     private var hasAcceptedAudioFrame = false
+    private var generation: UInt64 = 0
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
     private var startedAt: ContinuousClock.Instant?
 
@@ -48,9 +51,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     }
 
     func configure(locale: Locale) {
-        configuredLanguage = ASRLanguageCapability(
+        let language = ASRLanguageCapability(
             bcp47Tag: locale.identifier.replacingOccurrences(of: "_", with: "-")
         )
+        lifecycleLock.withLock {
+            configuredLanguage = language
+        }
     }
 
     func start() throws {
@@ -59,81 +65,141 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
         }
 
         let provider = provider
-        let language = configuredLanguage ?? defaultLanguage
+        let language = lifecycleLock.withLock { configuredLanguage ?? defaultLanguage }
         let callbacks = callbacks
-        isFinishing = false
-        hasAcceptedAudioFrame = false
-        startedAt = ContinuousClock.now
         metadataLock.withLock {
             runtimeMetadata = ASRRuntimeMetadataSnapshot()
+        }
+        let generation = lifecycleLock.withLock {
+            self.generation &+= 1
+            isFinishing = false
+            hasAcceptedAudioFrame = false
+            startedAt = ContinuousClock.now
+            return self.generation
+        }
+        var frameContinuation: AsyncStream<AudioFrame>.Continuation?
+        let frameStream = AsyncStream<AudioFrame>(bufferingPolicy: .bufferingNewest(96)) { continuation in
+            frameContinuation = continuation
         }
         let sessionTask = Task<any ASRSession, Error> {
             let session = try await provider.makeSession(language: language)
             try await session.start()
             return session
         }
-        self.sessionTask = sessionTask
-        eventTask = Task {
+        lifecycleLock.withLock {
+            self.sessionTask = sessionTask
+            self.frameContinuation = frameContinuation
+        }
+        let frameConsumerTask = Task {
+            do {
+                let session = try await sessionTask.value
+                for await frame in frameStream {
+                    guard self.isCurrentGeneration(generation) else { break }
+                    try await session.accept(frame)
+                }
+            } catch is CancellationError {
+            } catch {
+                guard self.isCurrentGeneration(generation) else { return }
+                await MainActor.run {
+                    callbacks.onError?(error)
+                }
+            }
+        }
+        let eventTask = Task {
             do {
                 let session = try await sessionTask.value
                 for await event in session.events {
+                    guard self.isCurrentGeneration(generation) else { break }
                     self.record(event)
                     await Self.deliver(event, callbacks: callbacks)
                 }
             } catch is CancellationError {
             } catch {
+                guard self.isCurrentGeneration(generation) else { return }
                 await MainActor.run {
                     callbacks.onError?(error)
                 }
+            }
+        }
+        lifecycleLock.withLock {
+            if self.generation == generation {
+                self.frameConsumerTask = frameConsumerTask
+                self.eventTask = eventTask
+            } else {
+                frameConsumerTask.cancel()
+                eventTask.cancel()
             }
         }
     }
 
     func appendAudioFrame(_ frame: AudioFrame) {
-        guard let sessionTask, !isFinishing else { return }
-        if !frame.samples.isEmpty {
-            hasAcceptedAudioFrame = true
-        }
-        let callbacks = callbacks
-        let previousTask = frameTask
-        frameTask = Task { [previousTask] in
-            await previousTask?.value
-            guard !Task.isCancelled else { return }
-            do {
-                let session = try await sessionTask.value
-                try await session.accept(frame)
-            } catch is CancellationError {
-            } catch {
-                await MainActor.run {
-                    callbacks.onError?(error)
-                }
+        let continuation = lifecycleLock.withLock {
+            guard sessionTask != nil, !isFinishing, let frameContinuation else {
+                return Optional<AsyncStream<AudioFrame>.Continuation>.none
             }
+            if !frame.samples.isEmpty {
+                hasAcceptedAudioFrame = true
+            }
+            return frameContinuation
+        }
+        guard let continuation else { return }
+        switch continuation.yield(frame) {
+        case .dropped:
+            recordDroppedFrame()
+        case .enqueued, .terminated:
+            break
+        @unknown default:
+            break
         }
     }
 
     func endAudio() {
-        guard let sessionTask else { return }
-        isFinishing = true
+        let snapshot = lifecycleLock.withLock {
+            guard let sessionTask else {
+                return Optional<(
+                    sessionTask: Task<any ASRSession, Error>,
+                    eventTask: Task<Void, Never>?,
+                    frameConsumerTask: Task<Void, Never>?,
+                    frameContinuation: AsyncStream<AudioFrame>.Continuation?,
+                    generation: UInt64,
+                    hasAcceptedAudioFrame: Bool
+                )>.none
+            }
+            isFinishing = true
+            let snapshot = (
+                sessionTask: sessionTask,
+                eventTask: eventTask,
+                frameConsumerTask: frameConsumerTask,
+                frameContinuation: frameContinuation,
+                generation: generation,
+                hasAcceptedAudioFrame: hasAcceptedAudioFrame
+            )
+            frameContinuation = nil
+            return snapshot
+        }
+        guard let snapshot else { return }
         let callbacks = callbacks
-        guard hasAcceptedAudioFrame else {
-            frameTask = nil
-            eventTask?.cancel()
+        snapshot.frameContinuation?.finish()
+        guard snapshot.hasAcceptedAudioFrame else {
+            snapshot.frameConsumerTask?.cancel()
+            snapshot.eventTask?.cancel()
             callbacks.onTranscription?("", true)
             Task {
-                if let session = try? await sessionTask.value {
+                if let session = try? await snapshot.sessionTask.value {
                     await session.cancel()
                 }
             }
             return
         }
-        let pendingFrameTask = frameTask
         Task {
             do {
-                await pendingFrameTask?.value
-                let session = try await sessionTask.value
+                await snapshot.frameConsumerTask?.value
+                guard self.isCurrentGeneration(snapshot.generation) else { return }
+                let session = try await snapshot.sessionTask.value
                 try await session.finish()
             } catch is CancellationError {
             } catch {
+                guard self.isCurrentGeneration(snapshot.generation) else { return }
                 await MainActor.run {
                     callbacks.onError?(error)
                 }
@@ -142,23 +208,58 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     }
 
     func stop() {
-        isFinishing = true
-        frameTask = nil
+        let snapshot = lifecycleLock.withLock {
+            generation &+= 1
+            isFinishing = true
+            let snapshot = (
+                frameContinuation: frameContinuation,
+                frameConsumerTask: frameConsumerTask,
+                eventTask: eventTask,
+                sessionTask: sessionTask
+            )
+            frameContinuation = nil
+            frameConsumerTask = nil
+            eventTask = nil
+            sessionTask = nil
+            hasAcceptedAudioFrame = false
+            startedAt = nil
+            return snapshot
+        }
+        snapshot.frameContinuation?.finish()
+        snapshot.frameConsumerTask?.cancel()
+        snapshot.eventTask?.cancel()
+        snapshot.sessionTask?.cancel()
+        Task {
+            if let session = try? await snapshot.sessionTask?.value {
+                await session.cancel()
+            }
+        }
     }
 
     func cancel() {
-        frameTask?.cancel()
-        eventTask?.cancel()
-        let task = sessionTask
-        sessionTask?.cancel()
-        frameTask = nil
-        eventTask = nil
-        sessionTask = nil
-        isFinishing = false
-        hasAcceptedAudioFrame = false
-        startedAt = nil
+        let snapshot = lifecycleLock.withLock {
+            generation &+= 1
+            let snapshot = (
+                frameContinuation: frameContinuation,
+                frameConsumerTask: frameConsumerTask,
+                eventTask: eventTask,
+                sessionTask: sessionTask
+            )
+            frameConsumerTask = nil
+            frameContinuation = nil
+            eventTask = nil
+            sessionTask = nil
+            isFinishing = false
+            hasAcceptedAudioFrame = false
+            startedAt = nil
+            return snapshot
+        }
+        snapshot.frameContinuation?.finish()
+        snapshot.frameConsumerTask?.cancel()
+        snapshot.eventTask?.cancel()
+        snapshot.sessionTask?.cancel()
         Task {
-            if let session = try? await task?.value {
+            if let session = try? await snapshot.sessionTask?.value {
                 await session.cancel()
             }
         }
@@ -166,6 +267,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
 
     private func record(_ event: ASREvent) {
         let finalLatencyMs: Int?
+        let startedAt = lifecycleLock.withLock { self.startedAt }
         if case .final = event, let startedAt {
             finalLatencyMs = Self.milliseconds(from: startedAt.duration(to: ContinuousClock.now))
         } else {
@@ -188,6 +290,18 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             case .preparing, .ready, .speechStarted, .endpoint:
                 break
             }
+        }
+    }
+
+    private func recordDroppedFrame() {
+        metadataLock.withLock {
+            runtimeMetadata.droppedFrameCount = (runtimeMetadata.droppedFrameCount ?? 0) + 1
+        }
+    }
+
+    private func isCurrentGeneration(_ expectedGeneration: UInt64) -> Bool {
+        lifecycleLock.withLock {
+            generation == expectedGeneration && sessionTask != nil
         }
     }
 

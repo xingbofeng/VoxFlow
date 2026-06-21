@@ -29,7 +29,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     private let configurationAvailable: @Sendable () -> Bool
     private let temporaryDirectory: URL
     private var locale = Locale(identifier: "zh_CN")
-    private var frames: [AudioFrame] = []
+    private var audioWriter: StreamingWAVFileWriter?
     private var generation: UUID?
     private var transcriptionTask: Task<Void, Never>?
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
@@ -65,40 +65,63 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             throw BufferedCloudASREngineError.providerNotConfigured
         }
         let sessionID = "cloud-asr-\(UUID().uuidString)"
+        let fileURL = temporaryDirectory.appendingPathComponent(
+            "VoxFlow-Cloud-ASR-\(UUID().uuidString).wav",
+            isDirectory: false
+        )
+        let writer = try StreamingWAVFileWriter(fileURL: fileURL)
         lock.withLock {
             transcriptionTask?.cancel()
             transcriptionTask = nil
-            frames.removeAll(keepingCapacity: true)
+            audioWriter?.cancelAndDelete()
+            audioWriter = writer
             generation = UUID()
             runtimeMetadata = ASRRuntimeMetadataSnapshot(sessionID: sessionID)
         }
     }
 
     func appendAudioFrame(_ frame: AudioFrame) {
-        lock.withLock {
-            guard generation != nil else { return }
-            frames.append(frame)
+        do {
+            try lock.withLock {
+                guard generation != nil else { return }
+                try audioWriter?.append(frame)
+                runtimeMetadata.audioDurationMs = audioWriter?.durationMS
+            }
+        } catch {
+            let currentGeneration = lock.withLock { generation }
+            guard let currentGeneration else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isCurrent(currentGeneration) else { return }
+                self.onError?(error)
+            }
         }
     }
 
     func endAudio() {
-        let snapshot = lock.withLock { () -> (UUID, [AudioFrame], Locale)? in
-            guard let generation else { return nil }
-            return (generation, frames, locale)
+        let snapshot: (generation: UUID, fileURL: URL, durationMS: Int, locale: Locale)?
+        do {
+            snapshot = try lock.withLock { () -> (UUID, URL, Int, Locale)? in
+                guard let generation, let writer = audioWriter else { return nil }
+                let finished = try writer.finish()
+                audioWriter = nil
+                return (generation, finished.fileURL, finished.durationMS, locale)
+            }
+        } catch {
+            let currentGeneration = lock.withLock { generation }
+            guard let currentGeneration else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isCurrent(currentGeneration) else { return }
+                self.onError?(error)
+            }
+            return
         }
-        guard let (generation, frames, locale) = snapshot else { return }
+        guard let (generation, fileURL, durationMS, locale) = snapshot else { return }
 
         let task = Task { [weak self] in
             guard let self else { return }
-            let fileURL = temporaryDirectory.appendingPathComponent(
-                "VoxFlow-Cloud-ASR-\(UUID().uuidString).wav",
-                isDirectory: false
-            )
             defer { try? FileManager.default.removeItem(at: fileURL) }
 
             do {
-                let encoded = try PCM16WAVEncoder.encode(frames: frames)
-                try encoded.data.write(to: fileURL, options: .atomic)
                 let request = CloudASRFileRequest(
                     fileURL: fileURL,
                     locale: locale,
@@ -109,7 +132,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 guard isCurrent(generation), !Task.isCancelled else { return }
                 let latencyMS = max(0, Int(Date().timeIntervalSince(startedAt) * 1_000))
                 lock.withLock {
-                    runtimeMetadata.audioDurationMs = encoded.durationMS
+                    runtimeMetadata.audioDurationMs = durationMS
                     runtimeMetadata.finalLatencyMs = latencyMS
                 }
                 DispatchQueue.main.async { [weak self] in
@@ -143,7 +166,8 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     func cancel() {
         lock.withLock {
             generation = nil
-            frames.removeAll(keepingCapacity: false)
+            audioWriter?.cancelAndDelete()
+            audioWriter = nil
             transcriptionTask?.cancel()
             transcriptionTask = nil
         }
@@ -154,51 +178,95 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     }
 }
 
-private enum PCM16WAVEncoder {
-    struct EncodedAudio {
-        let data: Data
+private final class StreamingWAVFileWriter {
+    struct FinishedAudio {
+        let fileURL: URL
         let durationMS: Int
     }
 
-    static func encode(frames: [AudioFrame]) throws -> EncodedAudio {
-        guard let first = frames.first, !frames.allSatisfy(\.samples.isEmpty) else {
-            throw BufferedCloudASREngineError.noAudio
-        }
-        guard first.sampleRate > 0,
-              frames.allSatisfy({ $0.sampleRate == first.sampleRate }) else {
+    let fileURL: URL
+    private let handle: FileHandle
+    private var sampleRate: Int?
+    private var pcmByteCount = 0
+    private var sampleCount = 0
+    private var isFinished = false
+
+    init(fileURL: URL) throws {
+        self.fileURL = fileURL
+        FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        handle = try FileHandle(forWritingTo: fileURL)
+        try writePlaceholderHeader()
+    }
+
+    var durationMS: Int? {
+        guard let sampleRate, sampleRate > 0 else { return nil }
+        return Int(Double(sampleCount) / Double(sampleRate) * 1_000)
+    }
+
+    func append(_ frame: AudioFrame) throws {
+        guard !isFinished else { return }
+        if let sampleRate, sampleRate != frame.sampleRate {
             throw BufferedCloudASREngineError.inconsistentSampleRate
         }
-
-        let samples = frames.flatMap(\.samples)
-        var pcm = Data(capacity: samples.count * MemoryLayout<Int16>.size)
-        for sample in samples {
+        if sampleRate == nil {
+            sampleRate = frame.sampleRate
+        }
+        guard frame.sampleRate > 0 else {
+            throw BufferedCloudASREngineError.inconsistentSampleRate
+        }
+        var pcm = Data(capacity: frame.samples.count * MemoryLayout<Int16>.size)
+        for sample in frame.samples {
             let clamped = min(1, max(-1, sample))
             var value = Int16(clamped * Float(Int16.max)).littleEndian
             withUnsafeBytes(of: &value) { pcm.append(contentsOf: $0) }
         }
+        try handle.write(contentsOf: pcm)
+        pcmByteCount += pcm.count
+        sampleCount += frame.samples.count
+    }
 
-        let sampleRate = UInt32(first.sampleRate)
+    func finish() throws -> FinishedAudio {
+        guard !isFinished else {
+            return FinishedAudio(fileURL: fileURL, durationMS: durationMS ?? 0)
+        }
+        guard let sampleRate, pcmByteCount > 0 else {
+            throw BufferedCloudASREngineError.noAudio
+        }
+        try rewriteHeader(sampleRate: sampleRate)
+        try handle.close()
+        isFinished = true
+        return FinishedAudio(fileURL: fileURL, durationMS: durationMS ?? 0)
+    }
+
+    func cancelAndDelete() {
+        try? handle.close()
+        try? FileManager.default.removeItem(at: fileURL)
+        isFinished = true
+    }
+
+    private func writePlaceholderHeader() throws {
+        try handle.write(contentsOf: Data(repeating: 0, count: 44))
+    }
+
+    private func rewriteHeader(sampleRate: Int) throws {
+        try handle.seek(toOffset: 0)
+        let sampleRate = UInt32(sampleRate)
         let byteRate = sampleRate * 2
-        var wav = Data(capacity: 44 + pcm.count)
-        wav.appendASCII("RIFF")
-        wav.appendLittleEndian(UInt32(36 + pcm.count))
-        wav.appendASCII("WAVE")
-        wav.appendASCII("fmt ")
-        wav.appendLittleEndian(UInt32(16))
-        wav.appendLittleEndian(UInt16(1))
-        wav.appendLittleEndian(UInt16(1))
-        wav.appendLittleEndian(sampleRate)
-        wav.appendLittleEndian(byteRate)
-        wav.appendLittleEndian(UInt16(2))
-        wav.appendLittleEndian(UInt16(16))
-        wav.appendASCII("data")
-        wav.appendLittleEndian(UInt32(pcm.count))
-        wav.append(pcm)
-
-        return EncodedAudio(
-            data: wav,
-            durationMS: Int(Double(samples.count) / Double(first.sampleRate) * 1_000)
-        )
+        var header = Data(capacity: 44)
+        header.appendASCII("RIFF")
+        header.appendLittleEndian(UInt32(36 + pcmByteCount))
+        header.appendASCII("WAVE")
+        header.appendASCII("fmt ")
+        header.appendLittleEndian(UInt32(16))
+        header.appendLittleEndian(UInt16(1))
+        header.appendLittleEndian(UInt16(1))
+        header.appendLittleEndian(sampleRate)
+        header.appendLittleEndian(byteRate)
+        header.appendLittleEndian(UInt16(2))
+        header.appendLittleEndian(UInt16(16))
+        header.appendASCII("data")
+        header.appendLittleEndian(UInt32(pcmByteCount))
+        try handle.write(contentsOf: header)
     }
 }
 

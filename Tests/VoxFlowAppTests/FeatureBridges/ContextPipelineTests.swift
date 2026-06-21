@@ -259,6 +259,61 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertLessThanOrEqual(snapshot.trimmedLength, ContextPipeline.maxTotalCharacters)
     }
 
+    func testTrimToLimitTrimsOversizedSelectedText() {
+        let selectedText = String(repeating: "选", count: 10_000)
+
+        let trimmed = ContextPipeline.trimToLimit(
+            visibleText: nil,
+            selectedText: selectedText,
+            inputAreaText: nil,
+            maxLength: 4_000
+        )
+
+        XCTAssertNil(trimmed.visibleText)
+        XCTAssertEqual(trimmed.selectedText?.count, 4_000)
+        XCTAssertNil(trimmed.inputAreaText)
+        XCTAssertLessThanOrEqual(Self.totalLength(trimmed), 4_000)
+    }
+
+    func testTrimToLimitCapsMixedFieldsAtTotalBudget() {
+        let trimmed = ContextPipeline.trimToLimit(
+            visibleText: String(repeating: "v", count: 3_000),
+            selectedText: String(repeating: "s", count: 3_000),
+            inputAreaText: String(repeating: "i", count: 3_000),
+            maxLength: 4_000
+        )
+
+        XCTAssertLessThanOrEqual(Self.totalLength(trimmed), 4_000)
+        XCTAssertEqual(trimmed.selectedText?.count, 3_000)
+        XCTAssertEqual(trimmed.inputAreaText?.count, 1_000)
+        XCTAssertEqual(trimmed.visibleText?.count, 0)
+    }
+
+    func testTrimToLimitWithZeroBudgetClearsAllText() {
+        let trimmed = ContextPipeline.trimToLimit(
+            visibleText: "visible",
+            selectedText: "selected",
+            inputAreaText: "input",
+            maxLength: 0
+        )
+
+        XCTAssertEqual(Self.totalLength(trimmed), 0)
+    }
+
+    func testTrimToLimitCountsCJKCharacters() {
+        let trimmed = ContextPipeline.trimToLimit(
+            visibleText: String(repeating: "可", count: 3),
+            selectedText: String(repeating: "选", count: 4),
+            inputAreaText: String(repeating: "输", count: 3),
+            maxLength: 6
+        )
+
+        XCTAssertLessThanOrEqual(Self.totalLength(trimmed), 6)
+        XCTAssertEqual(trimmed.selectedText?.count, 4)
+        XCTAssertEqual(trimmed.inputAreaText?.count, 2)
+        XCTAssertEqual(trimmed.visibleText?.count, 0)
+    }
+
     // MARK: - testTagsSourcesCorrectly
 
     func testTagsSourcesCorrectly() async {
@@ -310,7 +365,7 @@ final class ContextPipelineTests: XCTestCase {
 
     func testTimeoutReturnsPartialResults() async {
         // Simulate slow providers that exceed the timeout
-        let accessibility = SlowAccessibilityProvider(delayMilliseconds: 600)
+        let accessibility = SlowAccessibilityProvider(delayMilliseconds: 2_000)
         let pipeline = ContextPipeline(
             windowInfoProvider: StubWindowInfoProvider(title: "Window"),
             accessibilityProvider: accessibility,
@@ -321,6 +376,25 @@ final class ContextPipelineTests: XCTestCase {
         let snapshot = await pipeline.collect(target: target, visionSupported: false)
 
         // Should have window metadata (fast) but not accessibility data (slow)
+        XCTAssertTrue(snapshot.sources.contains(.windowMetadata))
+        XCTAssertTrue(snapshot.warnings.contains("context_collection_timeout"))
+    }
+
+    func testSlowAccessibilityProviderReturnsAtHardTimeout() async {
+        let accessibility = SlowAccessibilityProvider(delayMilliseconds: 2_000)
+        let pipeline = ContextPipeline(
+            windowInfoProvider: StubWindowInfoProvider(title: "Window"),
+            accessibilityProvider: accessibility,
+            screenshotProvider: StubScreenshotProvider(canCapture: false)
+        )
+        let target = DictationTarget(bundleID: "com.example.app", appName: "App", pid: 1)
+        let start = ContinuousClock.now
+
+        let snapshot = await pipeline.collect(target: target, visionSupported: false)
+
+        let elapsed = start.duration(to: ContinuousClock.now).components
+        let elapsedMilliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
+        XCTAssertLessThan(elapsedMilliseconds, 1_200)
         XCTAssertTrue(snapshot.sources.contains(.windowMetadata))
         XCTAssertTrue(snapshot.warnings.contains("context_collection_timeout"))
     }
@@ -469,6 +543,14 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertEqual(decoded.visualContentAvailable, true)
         // No actual image data in the snapshot
         XCTAssertNil(decoded.visibleText)
+    }
+
+    private static func totalLength(
+        _ fields: (visibleText: String?, selectedText: String?, inputAreaText: String?)
+    ) -> Int {
+        (fields.visibleText?.count ?? 0)
+            + (fields.selectedText?.count ?? 0)
+            + (fields.inputAreaText?.count ?? 0)
     }
 }
 

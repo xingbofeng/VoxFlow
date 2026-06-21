@@ -8,11 +8,22 @@ final class AliyunDashScopeASRProviderViewModelTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let manager = ASRManager(defaults: defaults, settingsRepository: environment.settingsRepository)
+        let credentials = AliyunDashScopeViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
         let viewModel = ASRProviderViewModel(
             environment: environment,
-            asrManager: manager
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
         )
 
         viewModel.aliyunDashScopeAPIKeyInput = " sk-example "
@@ -20,7 +31,8 @@ final class AliyunDashScopeASRProviderViewModelTests: XCTestCase {
 
         viewModel.saveAliyunDashScopeConfiguration()
 
-        XCTAssertTrue(try environment.settingsRepository.list().map(\.valueJSON).joined().contains("sk-example"))
+        XCTAssertEqual(try credentials.readCredential(account: ASRManager.aliyunDashScopeAPIKeyAccount), "sk-example")
+        XCTAssertFalse(try environment.settingsRepository.list().map(\.valueJSON).joined().contains("sk-example"))
         XCTAssertEqual(manager.aliyunDashScopeModel, "fun-asr-realtime")
         XCTAssertTrue(manager.canSelectEngine(.aliyunDashScope))
         XCTAssertEqual(viewModel.aliyunDashScopeAPIKeyInput, ASRProviderViewModel.storedAliyunDashScopeAPIKeyMask)
@@ -37,6 +49,14 @@ final class AliyunDashScopeASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(source.contains("阿里云百炼配置"))
         XCTAssertTrue(source.contains("DashScope 实时语音识别 WebSocket"))
         XCTAssertTrue(source.contains("fun-asr-realtime"))
-        XCTAssertTrue(source.contains("API Key 保存在本地数据库"))
+        XCTAssertTrue(source.contains("API Key 保存在系统钥匙串"))
     }
+}
+
+private final class AliyunDashScopeViewModelCredentialStore: CredentialStore {
+    private var values: [String: String] = [:]
+
+    func readCredential(account: String) throws -> String? { values[account] }
+    func saveCredential(_ value: String, account: String) throws { values[account] = value }
+    func deleteCredential(account: String) throws { values.removeValue(forKey: account) }
 }

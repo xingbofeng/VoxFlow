@@ -8,8 +8,18 @@ final class GroqASRProviderViewModelTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory(defaults: defaults))
-        let manager = ASRManager(defaults: defaults, settingsRepository: environment.settingsRepository)
+        let credentials = GroqViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
         let viewModel = ASRProviderViewModel(
             environment: environment,
             asrManager: manager,
@@ -23,7 +33,8 @@ final class GroqASRProviderViewModelTests: XCTestCase {
 
         XCTAssertTrue(viewModel.hasStoredGroqAPIKey)
         XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.groqWhisper })?.isAvailable == true)
-        XCTAssertTrue(try environment.settingsRepository.list().map(\.valueJSON).joined().contains("secret"))
+        XCTAssertEqual(try credentials.readCredential(account: ASRManager.groqAPIKeyAccount), "secret")
+        XCTAssertFalse(try environment.settingsRepository.list().map(\.valueJSON).joined().contains("secret"))
         XCTAssertFalse(defaults.dictionaryRepresentation().values.contains { String(describing: $0).contains("secret") })
         XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
     }

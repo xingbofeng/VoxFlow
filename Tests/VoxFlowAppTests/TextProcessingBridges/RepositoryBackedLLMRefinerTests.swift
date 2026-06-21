@@ -116,6 +116,46 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertFalse(refiner.lastTrace?.requestBodyJSON.contains("系统提示") == true)
     }
 
+    func testRefineWithTraceReturnsRequestLocalTrace() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("修正后")
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.localTrace")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.localTrace")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        let result = try await refiner.refineWithTrace(
+            TextRefinementRequest(
+                text: "原文",
+                systemPrompt: "系统提示",
+                model: "request-local-model",
+                temperature: 0.8
+            )
+        )
+
+        XCTAssertEqual(result.text, "修正后")
+        XCTAssertEqual(result.providerID, "global")
+        XCTAssertEqual(result.trace.providerID, "global")
+        XCTAssertEqual(result.trace.model, "request-local-model")
+        XCTAssertEqual(result.trace.temperature, 0.8)
+        XCTAssertEqual(result.trace.statusCode, 200)
+        XCTAssertNil(result.trace.errorMessage)
+        XCTAssertNotNil(result.trace.completedAt)
+    }
+
     func testRefineStreamUsesInjectedSessionAndRequestsStreaming() async throws {
         let credentials = TestCredentialStore()
         let environment = AppEnvironment(
@@ -169,6 +209,139 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: user content]") == true)
     }
 
+    func testRefineStreamWithTraceReturnsRequestLocalTrace() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("unused"),
+            streamChunks: [
+                #"data: {"choices":[{"delta":{"content":"修"}}]}"# + "\n\n",
+                #"data: {"choices":[{"delta":{"content":"正"}}]}"# + "\n\n",
+                "data: [DONE]\n\n",
+            ]
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.streamLocalTrace")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.streamLocalTrace")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        let result = refiner.refineStreamWithTrace(
+            TextRefinementRequest(
+                text: "原文",
+                systemPrompt: "系统提示",
+                model: "stream-model",
+                temperature: 0.8
+            )
+        )
+        var snapshots: [String] = []
+        for try await snapshot in result.stream {
+            snapshots.append(snapshot)
+        }
+        let trace = try await result.trace.value()
+
+        XCTAssertEqual(snapshots, ["修", "修正"])
+        XCTAssertEqual(trace.providerID, "global")
+        XCTAssertEqual(trace.model, "stream-model")
+        XCTAssertEqual(trace.temperature, 0.8)
+        XCTAssertEqual(trace.statusCode, 200)
+        XCTAssertNil(trace.errorMessage)
+        XCTAssertNotNil(trace.completedAt)
+    }
+
+    func testAgentComposeRequestUsesPromptDirectlyWithoutCorrectionWrapper() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("周三可以")
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.agentCompose")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.agentCompose")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+        let request = AgentPromptBuilder().build(
+            appName: "Messages",
+            stylePrompt: nil,
+            context: nil,
+            userDictation: "帮我回复：周三可以"
+        )
+
+        _ = try await refiner.refine(request)
+
+        let urlRequest = try XCTUnwrap(session.requests.first)
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(urlRequest.httpBody)) as? [String: Any]
+        )
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertEqual(userContent, request.text)
+        XCTAssertFalse(userContent.contains("不要回答原文里的问题"))
+        XCTAssertFalse(userContent.contains("待处理原文："))
+    }
+
+    func testAgentComposeStreamingRequestUsesPromptDirectlyWithoutCorrectionWrapper() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("unused"),
+            streamChunks: [
+                #"data: {"choices":[{"delta":{"content":"周三可以"}}]}"# + "\n\n",
+                "data: [DONE]\n\n",
+            ]
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.agentComposeStream")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.agentComposeStream")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+        let request = AgentPromptBuilder().build(
+            appName: "Messages",
+            stylePrompt: nil,
+            context: nil,
+            userDictation: "帮我回复：周三可以"
+        )
+
+        for try await _ in refiner.refineStream(request) {}
+
+        let urlRequest = try XCTUnwrap(session.streamRequests.first)
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(urlRequest.httpBody)) as? [String: Any]
+        )
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertEqual(userContent, request.text)
+        XCTAssertFalse(userContent.contains("不要回答原文里的问题"))
+        XCTAssertFalse(userContent.contains("待处理原文："))
+    }
+
     func testNoEnabledDefaultProviderIsNotConfigured() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.empty")!
@@ -181,6 +354,26 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         )
 
         XCTAssertFalse(refiner.isConfigured)
+    }
+
+    func testConfiguredProviderFallsBackToEnabledProviderWhenDefaultFlagIsMissing() throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: false)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.enabledFallback")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.enabledFallback")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults
+        )
+
+        XCTAssertTrue(refiner.isConfigured)
     }
 
     private func makeProvider(isDefault: Bool) -> LLMProviderRecord {

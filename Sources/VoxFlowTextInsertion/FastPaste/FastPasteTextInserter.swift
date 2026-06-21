@@ -31,7 +31,11 @@ public enum InputSourceClassifier {
 /// and simulates Cmd+V paste.
 @MainActor
 public final class FastPasteTextInserter: TextInserting {
-    public init() {}
+    private let shouldRestoreClipboard: @MainActor () -> Bool
+
+    public init(shouldRestoreClipboard: @escaping @MainActor () -> Bool = { true }) {
+        self.shouldRestoreClipboard = shouldRestoreClipboard
+    }
 
     public func insert(_ text: String) async -> TextInsertionResult {
         guard !text.isEmpty else { return .success }
@@ -60,7 +64,9 @@ public final class FastPasteTextInserter: TextInserting {
             if switchedInputSource, let savedSource = savedInputSource {
                 restoreInputSource(savedSource)
             }
-            pasteboardTransaction.restoreOriginalIfUnchanged(on: pasteboard)
+            if shouldRestoreClipboard() {
+                pasteboardTransaction.restoreOriginalIfUnchanged(on: pasteboard)
+            }
             return .eventCreationFailed
         }
         vDown.flags = .maskCommand
@@ -79,7 +85,9 @@ public final class FastPasteTextInserter: TextInserting {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
 
-        pasteboardTransaction.restoreOriginalIfUnchanged(on: pasteboard)
+        if shouldRestoreClipboard() {
+            pasteboardTransaction.restoreOriginalIfUnchanged(on: pasteboard)
+        }
 
         return .success
     }

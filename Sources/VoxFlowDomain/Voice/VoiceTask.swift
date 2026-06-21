@@ -3,6 +3,7 @@ import Foundation
 public enum VoiceTaskMode: String, Codable, Equatable, Sendable {
     case dictation
     case agentCompose
+    case agentDispatch
 }
 
 public enum VoiceTaskStage: String, Codable, CaseIterable, Equatable, Comparable, Sendable {

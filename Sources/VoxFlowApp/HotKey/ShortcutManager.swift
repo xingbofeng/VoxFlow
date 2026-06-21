@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 enum ShortPressBehavior: String, CaseIterable, Codable, Equatable {
@@ -12,9 +13,118 @@ final class ShortcutManager: @unchecked Sendable {
     static let defaultAgentComposeShortcutKeyCode: Int64 = 61
     static let defaultLongPressThreshold: TimeInterval = 0.5
     static let supportedModifierKeyCodes: Set<Int64> = [54, 55, 56, 60, 58, 61, 59, 62]
+    private static let modifierEncodingShift: Int64 = 16
+    private static let shortcutKeyCodeMask: Int64 = 0xFFFF
+    static let commandModifierMask: Int64 = 1 << 0
+    static let shiftModifierMask: Int64 = 1 << 1
+    static let optionModifierMask: Int64 = 1 << 2
+    static let controlModifierMask: Int64 = 1 << 3
+    static let supportedModifierMask: Int64 = commandModifierMask
+        | shiftModifierMask
+        | optionModifierMask
+        | controlModifierMask
 
-    static func isSupportedVoiceShortcutKeyCode(_ keyCode: Int64) -> Bool {
-        supportedModifierKeyCodes.contains(keyCode)
+    static func isSupportedVoiceShortcutKeyCode(_ shortcut: Int64) -> Bool {
+        let keyCode = baseKeyCode(for: shortcut)
+        let modifierMask = modifierMask(for: shortcut)
+        if supportedModifierKeyCodes.contains(keyCode) {
+            return modifierMask == 0
+        }
+        return modifierMask != 0 && !isReservedWorkflowShortcut(shortcut)
+    }
+
+    static func encodeShortcut(keyCode: Int64, flags: CGEventFlags) -> Int64 {
+        encodeShortcut(keyCode: keyCode, modifierMask: modifierMask(from: flags))
+    }
+
+    static func encodeShortcut(keyCode: Int64, modifierMask: Int64) -> Int64 {
+        let normalizedMask = modifierMask & supportedModifierMask
+        if supportedModifierKeyCodes.contains(keyCode),
+           normalizedMask == modifierMaskForPureModifierKeyCode(keyCode) {
+            return keyCode
+        }
+        guard normalizedMask != 0 else {
+            return keyCode
+        }
+        return (normalizedMask << modifierEncodingShift) | (keyCode & shortcutKeyCodeMask)
+    }
+
+    static func baseKeyCode(for shortcut: Int64) -> Int64 {
+        shortcut & shortcutKeyCodeMask
+    }
+
+    static func modifierMask(for shortcut: Int64) -> Int64 {
+        (shortcut >> modifierEncodingShift) & supportedModifierMask
+    }
+
+    static func modifierMask(
+        command: Bool,
+        shift: Bool,
+        option: Bool,
+        control: Bool
+    ) -> Int64 {
+        var mask: Int64 = 0
+        if command { mask |= commandModifierMask }
+        if shift { mask |= shiftModifierMask }
+        if option { mask |= optionModifierMask }
+        if control { mask |= controlModifierMask }
+        return mask
+    }
+
+    static func modifierMask(from flags: CGEventFlags) -> Int64 {
+        modifierMask(
+            command: flags.contains(.maskCommand),
+            shift: flags.contains(.maskShift),
+            option: flags.contains(.maskAlternate),
+            control: flags.contains(.maskControl)
+        )
+    }
+
+    static func flags(fromModifierMask mask: Int64) -> CGEventFlags {
+        var flags = CGEventFlags()
+        if mask & commandModifierMask != 0 { flags.insert(.maskCommand) }
+        if mask & shiftModifierMask != 0 { flags.insert(.maskShift) }
+        if mask & optionModifierMask != 0 { flags.insert(.maskAlternate) }
+        if mask & controlModifierMask != 0 { flags.insert(.maskControl) }
+        return flags
+    }
+
+    static func shortcutMatches(_ shortcut: Int64, keyCode: Int64, flags: CGEventFlags) -> Bool {
+        let baseKeyCode = baseKeyCode(for: shortcut)
+        guard baseKeyCode == keyCode else { return false }
+        let encodedModifierMask = modifierMask(for: shortcut)
+        if encodedModifierMask == 0 {
+            guard supportedModifierKeyCodes.contains(keyCode) else {
+                return modifierMask(from: flags) == 0
+            }
+            return ShortcutModifierRouting.isPureModifierShortcut(keyCode: keyCode, flags: flags)
+        }
+        return modifierMask(from: flags) == encodedModifierMask
+    }
+
+    static func isReservedWorkflowShortcut(_ shortcut: Int64) -> Bool {
+        let modifierMask = modifierMask(for: shortcut)
+        guard modifierMask != 0 else { return false }
+
+        return HotKeyShortcutRouting.workflowShortcut(
+            keyCode: baseKeyCode(for: shortcut),
+            flags: flags(fromModifierMask: modifierMask)
+        ) != nil
+    }
+
+    private static func modifierMaskForPureModifierKeyCode(_ keyCode: Int64) -> Int64 {
+        switch keyCode {
+        case 54, 55:
+            return commandModifierMask
+        case 56, 60:
+            return shiftModifierMask
+        case 58, 61:
+            return optionModifierMask
+        case 59, 62:
+            return controlModifierMask
+        default:
+            return 0
+        }
     }
 
     private let defaults: UserDefaults
@@ -129,6 +239,8 @@ final class ShortcutManager: @unchecked Sendable {
             return effectiveDictationKeyCode == Self.defaultAgentComposeShortcutKeyCode
                 ? nil
                 : Self.defaultAgentComposeShortcutKeyCode
+        case .agentDispatch:
+            return nil
         }
     }
 
@@ -138,7 +250,17 @@ final class ShortcutManager: @unchecked Sendable {
             dictationShortcutKeyCode = keyCode
         case .agentCompose:
             agentComposeShortcutKeyCode = keyCode
+        case .agentDispatch:
+            break
         }
+    }
+
+    func resetToDefaults() {
+        shortcutKeyCode = Self.defaultShortcutKeyCode
+        longPressThreshold = Self.defaultLongPressThreshold
+        shortPressBehavior = .toggleListening
+        defaults.removeObject(forKey: Keys.agentComposeShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.agentComposeShortcutDisabled)
     }
 
     /// Checks if two actions have conflicting (identical) key bindings.

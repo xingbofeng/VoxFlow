@@ -11,12 +11,26 @@ protocol ClipboardSetting: AnyObject {
 }
 
 @MainActor
-final class SystemClipboardService: ClipboardSetting {
+protocol ScreenshotImageClipboardWriting: AnyObject {
+    @discardableResult
+    func setImage(_ image: CGImage) -> Bool
+}
+
+@MainActor
+final class SystemClipboardService: ClipboardSetting, ScreenshotImageClipboardWriting {
     @discardableResult
     func setString(_ text: String) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         return pasteboard.setString(text, forType: .string)
+    }
+
+    @discardableResult
+    func setImage(_ image: CGImage) -> Bool {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let nsImage = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        return pasteboard.writeObjects([nsImage])
     }
 }
 
@@ -53,24 +67,68 @@ protocol NotesOutputDelivering: AnyObject {
     ) -> OutputResult
 }
 
+@MainActor
+struct SettingsBackedTextOutputConfiguration {
+    private let settingsRepository: any SettingsRepository
+
+    init(settingsRepository: any SettingsRepository) {
+        self.settingsRepository = settingsRepository
+    }
+
+    func textInputMode() -> TextInputMode {
+        if let rawValue = string(forKey: SettingsKey.outputTextInputMode),
+           let mode = TextInputMode(rawValue: rawValue) {
+            return mode
+        }
+        return bool(
+            forKey: SettingsSystemOption.avoidClipboard.rawValue,
+            defaultValue: SettingsSystemOption.avoidClipboard.defaultValue
+        ) ? .simulatedTyping : .automatic
+    }
+
+    func shouldRestoreClipboard() -> Bool {
+        bool(
+            forKey: SettingsSystemOption.restoreClipboard.rawValue,
+            defaultValue: SettingsSystemOption.restoreClipboard.defaultValue
+        )
+    }
+
+    private func string(forKey key: String) -> String? {
+        guard let jsonString = try? settingsRepository.value(forKey: key),
+              let data = jsonString.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(DecodedSettingValue<String>.self, from: data).value
+    }
+
+    private func bool(forKey key: String, defaultValue: Bool) -> Bool {
+        guard let jsonString = try? settingsRepository.value(forKey: key),
+              let data = jsonString.data(using: .utf8) else {
+            return defaultValue
+        }
+        return (try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data).value) ?? defaultValue
+    }
+}
+
 // MARK: - DefaultOutputService
 
 @MainActor
 final class DefaultOutputService: OutputService, NotesOutputDelivering {
     private let textInsertionCoordinator: any TextInsertionCoordinating
     private let clipboardService: any ClipboardSetting
-    private let defaultTextInputMode: TextInputMode
+    private let textInputModeProvider: () -> TextInputMode
     private let lastResultStore: (any LastResultStoring)?
 
     init(
         textInsertionCoordinator: any TextInsertionCoordinating,
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
+        textInputMode: (() -> TextInputMode)? = nil,
         lastResultStore: (any LastResultStoring)? = nil
     ) {
         self.textInsertionCoordinator = textInsertionCoordinator
         self.clipboardService = clipboardService
-        self.defaultTextInputMode = defaultTextInputMode
+        self.textInputModeProvider = textInputMode ?? { defaultTextInputMode }
         self.lastResultStore = lastResultStore
     }
 
@@ -78,12 +136,14 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         textInjector: any TextInserting,
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
+        textInputMode: (() -> TextInputMode)? = nil,
         lastResultStore: (any LastResultStoring)? = nil
     ) {
         self.init(
             textInsertionCoordinator: TextInsertionCoordinator(fastPasteInserter: textInjector),
             clipboardService: clipboardService,
             defaultTextInputMode: defaultTextInputMode,
+            textInputMode: textInputMode,
             lastResultStore: lastResultStore
         )
     }
@@ -99,7 +159,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             mode: mode,
             target: target,
             originalTarget: originalTarget,
-            textInputMode: defaultTextInputMode
+            textInputMode: textInputModeProvider()
         )
     }
 
@@ -110,13 +170,6 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         originalTarget: DictationTarget?,
         textInputMode: TextInputMode
     ) async -> OutputResult {
-        if mode == .agentCompose {
-            let result: OutputResult = clipboardService.setString(text)
-                ? .copied
-                : .copyFailed(reason: "Clipboard write failed")
-            return logged(result, mode: mode, textInputMode: textInputMode)
-        }
-
         if targetChanged(original: originalTarget, current: target) {
             guard clipboardService.setString(text) else {
                 let result = OutputResult.copyFailed(

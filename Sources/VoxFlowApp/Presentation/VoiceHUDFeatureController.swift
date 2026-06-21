@@ -13,6 +13,7 @@ protocol HUDOverlayControlling: AnyObject {
     func dismiss()
     func updateTranscription(_ text: String, isRefining: Bool)
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage)
+    func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation)
     func updateStreamingText(_ partialText: String)
     func updateRMS(_ rms: Float)
     func showTemporaryMessage(
@@ -37,6 +38,7 @@ final class VoiceHUDFeatureController {
         case completed(text: String)
         case failedMessage(String)
         case agentComposeStage(AgentComposeHUDStage)
+        case agentDispatch(AgentDispatchHUDPresentation)
         case transcription(text: String, isRefining: Bool)
         case streamingText(String)
         case audioLevel(Float)
@@ -125,6 +127,9 @@ final class VoiceHUDFeatureController {
         case let .agentComposeStage(stage):
             overlay.updateAgentComposeStatus(stage)
             overlay.showWithoutReset()
+        case let .agentDispatch(presentation):
+            overlay.updateAgentDispatch(presentation)
+            overlay.showWithoutReset()
         case let .transcription(text, isRefining):
             overlay.updateTranscription(text, isRefining: isRefining)
         case let .streamingText(partialText):
@@ -180,6 +185,20 @@ final class VoiceHUDFeatureController {
 
     func handleAgentComposeStage(_ stage: AgentComposeHUDStage) {
         render(.agentComposeStage(stage))
+    }
+
+    func handleAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
+        switch presentation {
+        case let .sent(agentName):
+            showTemporaryMessage("已发送给\(agentName)", duration: 2.2, tone: .success)
+        case let .failure(message, retainedText):
+            let detail = retainedText.isEmpty ? message : "\(message)，指令已保留"
+            showTemporaryMessage(detail, duration: 5.0)
+        case .listening:
+            render(.recording(action: .agentDispatch))
+        case .idle, .exact, .confirmation, .fallbackInput, .clipboardFallback:
+            render(.agentDispatch(presentation))
+        }
     }
 
     func updateStreamingText(_ partialText: String) {

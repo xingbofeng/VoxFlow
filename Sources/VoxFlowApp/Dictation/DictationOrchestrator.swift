@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import VoxFlowTextInsertion
+import VoxFlowVoiceCorrection
 
 protocol AudioRecording: AnyObject {
     var isRecording: Bool { get }
@@ -45,6 +46,7 @@ final class DictationOrchestrator {
     var onProcessingStarted: (String) -> Void = { _ in }
     var onHistorySaved: () -> Void = {}
     var onAgentComposeCompleted: (OutputResult) -> Void = { _ in }
+    var onAgentDispatchPresentation: (AgentDispatchHUDPresentation) -> Void = { _ in }
     var onError: (Error) -> Void = { _ in }
 
     private let asrEngineFactory: any ASREngineFactory
@@ -56,6 +58,8 @@ final class DictationOrchestrator {
     private let clock: any AppClock
     private let targetProvider: any DictationTargetProviding
     private let agentComposeHandler: (any AgentComposeHandling)?
+    private let agentDispatchHandler: (any AgentDispatchHandling)?
+    private let audioCaptureCoordinator: any AudioCaptureCoordinating
     private let finalTimeoutNanoseconds: UInt64
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
@@ -68,6 +72,7 @@ final class DictationOrchestrator {
     private var finalTimeoutTask: Task<Void, Never>?
     private var processingTask: Task<Void, Never>?
     private var recognizedTextAwaitingProcessing: String?
+    private var audioCaptureLease: AudioCaptureLease?
 
     var state: DictationState {
         stateMachine.state
@@ -85,6 +90,8 @@ final class DictationOrchestrator {
         clipboardService: any ClipboardSetting = SystemClipboardService(),
         outputService: (any OutputService)? = nil,
         agentComposeHandler: (any AgentComposeHandling)? = nil,
+        agentDispatchHandler: (any AgentDispatchHandling)? = nil,
+        audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000
     ) {
         self.asrEngineFactory = asrEngineFactory
@@ -99,6 +106,8 @@ final class DictationOrchestrator {
         self.clock = clock
         self.targetProvider = targetProvider
         self.agentComposeHandler = agentComposeHandler
+        self.agentDispatchHandler = agentDispatchHandler
+        self.audioCaptureCoordinator = audioCaptureCoordinator
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
     }
 
@@ -114,10 +123,16 @@ final class DictationOrchestrator {
         if mode == .agentCompose, agentComposeHandler == nil {
             throw DictationOrchestratorError.agentComposeUnavailable
         }
+        if mode == .agentDispatch, agentDispatchHandler == nil {
+            throw DictationOrchestratorError.agentDispatchUnavailable
+        }
 
+        let lease = try audioCaptureCoordinator.begin(kind: audioCaptureKind(for: mode))
         guard stateMachine.startRecording() else {
+            audioCaptureCoordinator.end(lease)
             throw DictationOrchestratorError.alreadyRunning
         }
+        audioCaptureLease = lease
 
         transcriptionSession = TranscriptionSession()
         let callbackSessionID = UUID().uuidString
@@ -140,6 +155,7 @@ final class DictationOrchestrator {
             guard let agentComposeHandler else {
                 stateMachine.reset()
                 currentMode = .dictation
+                endCurrentAudioCapture()
                 notifyStateChanged()
                 throw DictationOrchestratorError.agentComposeUnavailable
             }
@@ -151,6 +167,30 @@ final class DictationOrchestrator {
             } catch {
                 stateMachine.reset()
                 currentMode = .dictation
+                endCurrentAudioCapture()
+                notifyStateChanged()
+                throw error
+            }
+        } else if mode == .agentDispatch {
+            guard let agentDispatchHandler else {
+                stateMachine.reset()
+                currentMode = .dictation
+                endCurrentAudioCapture()
+                notifyStateChanged()
+                throw DictationOrchestratorError.agentDispatchUnavailable
+            }
+            do {
+                agentDispatchHandler.onPresentationChange = { [weak self] presentation in
+                    self?.onAgentDispatchPresentation(presentation)
+                }
+                try agentDispatchHandler.start(
+                    target: currentTarget,
+                    asrMetadata: asrMetadata(for: configuration)
+                )
+            } catch {
+                stateMachine.reset()
+                currentMode = .dictation
+                endCurrentAudioCapture()
                 notifyStateChanged()
                 throw error
             }
@@ -186,9 +226,12 @@ final class DictationOrchestrator {
             currentCallbackSessionID = nil
             if mode == .agentCompose {
                 agentComposeHandler?.cancel()
+            } else if mode == .agentDispatch {
+                agentDispatchHandler?.cancel()
             }
             currentMode = .dictation
             stateMachine.reset()
+            endCurrentAudioCapture()
             notifyStateChanged()
             throw error
         }
@@ -201,6 +244,7 @@ final class DictationOrchestrator {
 
         audioRecorder.stop()
         audioRecorder.drain()
+        endCurrentAudioCapture()
         audioBufferForwarder.finish()
         currentEngine?.endAudio()
 
@@ -230,10 +274,13 @@ final class DictationOrchestrator {
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
         audioRecorder.stop()
+        endCurrentAudioCapture()
         currentEngine?.cancel()
         audioBufferForwarder.detach()
         if currentMode == .agentCompose {
             agentComposeHandler?.cancel()
+        } else if currentMode == .agentDispatch {
+            agentDispatchHandler?.cancel()
         }
         currentEngine = nil
         currentCallbackSessionID = nil
@@ -387,12 +434,15 @@ final class DictationOrchestrator {
         finalTimeoutTask?.cancel()
         finalTimeoutTask = nil
         audioRecorder.stop()
+        endCurrentAudioCapture()
         currentEngine?.stop()
 
         let rawText = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawText.isEmpty else {
             if currentMode == .agentCompose {
                 agentComposeHandler?.cancel()
+            } else if currentMode == .agentDispatch {
+                agentDispatchHandler?.cancel()
             }
             audioBufferForwarder.detach()
             currentEngine = nil
@@ -414,11 +464,24 @@ final class DictationOrchestrator {
             await finishAgentCompose(rawText)
             return
         }
+        if currentMode == .agentDispatch {
+            await finishAgentDispatch(rawText)
+            return
+        }
 
         let target = currentTarget
         let processingResult = await textPipeline.process(
             rawText,
             target: target,
+            correctionContext: CorrectionContext(
+                mode: .dictation,
+                providerID: currentConfiguration?.asrProviderID ?? "unknown",
+                modelID: currentConfiguration?.modelID,
+                language: currentConfiguration?.languageIdentifier,
+                bundleIdentifier: target?.bundleID,
+                isFinalTranscript: true,
+                isSecureField: false
+            ),
             onRefinedTextUpdate: { [weak self] text in
                 guard let self,
                       self.isCurrentSession(sessionID),
@@ -509,6 +572,110 @@ final class DictationOrchestrator {
         }
     }
 
+    private func finishAgentDispatch(_ rawText: String) async {
+        guard let agentDispatchHandler else {
+            fail(DictationOrchestratorError.agentDispatchUnavailable)
+            return
+        }
+        guard let sessionID = currentCallbackSessionID else { return }
+
+        do {
+            updateAgentASRMetadataIfAvailable()
+            let presentation = try await agentDispatchHandler.finish(rawTranscript: rawText)
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
+                return
+            }
+            if case let .fallbackInput(text) = presentation {
+                await finishAgentDispatchFallbackInput(
+                    text: text,
+                    rawText: rawText,
+                    sessionID: sessionID
+                )
+                return
+            }
+            audioBufferForwarder.detach()
+            currentEngine = nil
+            currentCallbackSessionID = nil
+            currentTarget = nil
+            currentMode = .dictation
+            stateMachine.finish()
+            notifyStateChanged()
+            onAgentDispatchPresentation(presentation)
+        } catch {
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
+                return
+            }
+            fail(error)
+        }
+    }
+
+    private func finishAgentDispatchFallbackInput(
+        text: String,
+        rawText: String,
+        sessionID: String
+    ) async {
+        let target = currentTarget
+        let processingResult = await textPipeline.process(
+            text,
+            target: target,
+            onRefinedTextUpdate: { [weak self] refinedText in
+                guard let self,
+                      self.isCurrentSession(sessionID),
+                      self.state == .processing else {
+                    return
+                }
+                self.onTranscriptionUpdate(refinedText, true)
+            }
+        )
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state == .processing else {
+            return
+        }
+        let finalText = normalizedFinalText(from: processingResult, fallback: text)
+
+        guard stateMachine.startInjecting() else {
+            return
+        }
+        notifyStateChanged()
+        let outputResult = await deliverFinalText(
+            finalText,
+            originalTarget: target,
+            sessionID: sessionID
+        )
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state == .injecting else {
+            return
+        }
+        if case .cancelled = outputResult {
+            finishCurrentDictation()
+            return
+        }
+
+        saveHistory(
+            rawText: rawText,
+            finalText: finalText,
+            target: target,
+            processingResult: processingResult,
+            outputResult: outputResult
+        )
+        do {
+            try agentDispatchHandler?.completeFallbackInput(
+                finalText: finalText,
+                outputResult: outputResult
+            )
+        } catch {
+            AppLogger.general.error("Failed to complete Agent Dispatch fallback input: \(error.localizedDescription)")
+        }
+        onAgentDispatchPresentation(.fallbackInput(text: finalText))
+        finishCurrentDictation()
+    }
+
     private func normalizedFinalText(from result: TextProcessingResult, fallback: String) -> String {
         let trimmed = result.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
@@ -516,6 +683,7 @@ final class DictationOrchestrator {
 
     private func finishCurrentDictation() {
         audioBufferForwarder.detach()
+        endCurrentAudioCapture()
         currentEngine = nil
         currentCallbackSessionID = nil
         currentTarget = nil
@@ -659,6 +827,24 @@ final class DictationOrchestrator {
         }
     }
 
+    private func updateAgentASRMetadataIfAvailable() {
+        guard let configuration = currentConfiguration else { return }
+        let runtimeSnapshot = (currentEngine as? ASRRuntimeMetadataProviding)?.asrRuntimeMetadataSnapshot
+        let metadata = asrMetadata(for: configuration, runtimeSnapshot: runtimeSnapshot)
+        do {
+            switch currentMode {
+            case .agentCompose:
+                try agentComposeHandler?.updateASRMetadata(metadata)
+            case .agentDispatch:
+                try agentDispatchHandler?.updateASRMetadata(metadata)
+            case .dictation:
+                break
+            }
+        } catch {
+            AppLogger.general.error("Failed to update ASR metadata: \(error.localizedDescription)")
+        }
+    }
+
     private func fail(_ error: Error) {
         finalTimeoutTask?.cancel()
         finalTimeoutTask = nil
@@ -666,11 +852,14 @@ final class DictationOrchestrator {
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
         audioRecorder.stop()
+        endCurrentAudioCapture()
         updateAgentComposeASRMetadataIfAvailable()
         currentEngine?.cancel()
         audioBufferForwarder.detach()
         if currentMode == .agentCompose {
             agentComposeHandler?.fail(error)
+        } else if currentMode == .agentDispatch {
+            agentDispatchHandler?.fail(error)
         }
         currentEngine = nil
         currentCallbackSessionID = nil
@@ -706,11 +895,29 @@ final class DictationOrchestrator {
             return "failed"
         }
     }
+
+    private func audioCaptureKind(for mode: VoiceTaskMode) -> AudioCaptureKind {
+        switch mode {
+        case .dictation:
+            return .dictation
+        case .agentCompose:
+            return .agentCompose
+        case .agentDispatch:
+            return .agentCompose
+        }
+    }
+
+    private func endCurrentAudioCapture() {
+        guard let audioCaptureLease else { return }
+        audioCaptureCoordinator.end(audioCaptureLease)
+        self.audioCaptureLease = nil
+    }
 }
 
 enum DictationOrchestratorError: LocalizedError, Equatable {
     case alreadyRunning
     case agentComposeUnavailable
+    case agentDispatchUnavailable
     case finalResultTimedOut
     case unsupportedLanguage(String)
 
@@ -719,7 +926,9 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
         case .alreadyRunning:
             return "听写正在进行中。"
         case .agentComposeUnavailable:
-            return "帮我说尚未完成初始化，请重启随声写后重试。"
+            return "帮我说尚未完成初始化，请重启码上写后重试。"
+        case .agentDispatchUnavailable:
+            return "Vibe Coding 指挥中心尚未完成初始化，请重启码上写后重试。"
         case .finalResultTimedOut:
             return "语音识别超时，请重试。"
         case .unsupportedLanguage(let identifier):

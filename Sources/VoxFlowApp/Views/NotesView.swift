@@ -30,7 +30,7 @@ struct NotesView: View {
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
             registerNotesCapture()
         }
         .onDisappear {

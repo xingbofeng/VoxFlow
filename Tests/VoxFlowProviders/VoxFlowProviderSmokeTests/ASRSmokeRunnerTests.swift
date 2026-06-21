@@ -9,7 +9,7 @@ final class ASRSmokeRunnerTests: XCTestCase {
             sessionFactory: {
                 FakeSmokeSession(eventsToEmit: [
                     .partialText("今天我们测试"),
-                    .finalText("今天我们测试随声写"),
+                    .finalText("今天我们测试码上写"),
                 ])
             }
         )
@@ -29,7 +29,7 @@ final class ASRSmokeRunnerTests: XCTestCase {
         XCTAssertEqual(result.outcome, .passed)
         XCTAssertTrue(result.sawPartial)
         XCTAssertTrue(result.sawFinal)
-        XCTAssertEqual(result.finalText, "今天我们测试随声写")
+        XCTAssertEqual(result.finalText, "今天我们测试码上写")
     }
 
     func testRunnerWarnsWhenNonStreamingProviderDoesNotEmitPartial() async throws {
@@ -64,7 +64,7 @@ final class ASRSmokeRunnerTests: XCTestCase {
             streamingSemantics: .nativeStreaming,
             sessionFactory: {
                 FakeSmokeSession(eventsToEmit: [
-                    .finalText("今天我们测试随声写"),
+                    .finalText("今天我们测试码上写"),
                 ])
             }
         )

@@ -90,3 +90,18 @@ public protocol CloudASRProviderClient: Sendable {
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> CloudASRTranscriptionResult
 }
+
+public protocol CloudASRStreamingClient: Sendable {
+    associatedtype Configuration: Sendable
+    associatedtype Message: Sendable
+
+    func testConnection(
+        configuration: Configuration
+    ) async throws -> ASRProviderHealthResult
+
+    func transcribe(
+        configuration: Configuration,
+        audioChunks: AsyncStream<Data>,
+        onMessage: @escaping @Sendable (Message) -> Void
+    ) async throws
+}

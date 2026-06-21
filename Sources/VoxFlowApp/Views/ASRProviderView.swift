@@ -305,7 +305,7 @@ struct ASRProviderView: View {
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到 Groq。API Key 保存在本地数据库，可用眼睛按钮查看或隐藏。")
+            Text("录音会发送到 Groq。API Key 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -372,7 +372,7 @@ struct ASRProviderView: View {
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到腾讯云。AppID、SecretId 和 SecretKey 保存在本地数据库，可用眼睛按钮查看或隐藏。")
+            Text("录音会发送到腾讯云。AppID、SecretId 和 SecretKey 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -447,7 +447,7 @@ struct ASRProviderView: View {
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到阿里云百炼。API Key 保存在本地数据库，可用眼睛按钮查看或隐藏。默认模型为 fun-asr-realtime。")
+            Text("录音会发送到阿里云百炼。API Key 保存在系统钥匙串，可用眼睛按钮查看或隐藏。默认模型为 fun-asr-realtime。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }

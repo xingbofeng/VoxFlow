@@ -32,10 +32,41 @@ final class ShortcutManagerTests: XCTestCase {
         XCTAssertEqual(sut.shortcutKeyCode(for: .agentCompose), 61)
     }
 
-    func testSupportedVoiceShortcutKeyCodesAreModifierOnly() {
+    func testAgentDispatchDoesNotOwnASeparateShortcutKey() {
+        XCTAssertNil(sut.shortcutKeyCode(for: .agentDispatch))
+    }
+
+    func testSupportedVoiceShortcutKeyCodesIncludeModifierCombinations() {
         XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(54))
         XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(61))
         XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(0x09))
+
+        let commandShiftY = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+        XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(commandShiftY))
+    }
+
+    func testReservedWorkflowShortcutCombinationsAreNotSupportedVoiceShortcutKeyCodes() {
+        let screenshotOCR = ShortcutManager.encodeShortcut(
+            keyCode: HotKeyShortcutRouting.aKeyCode,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+        let clipboardImageOCR = ShortcutManager.encodeShortcut(
+            keyCode: HotKeyShortcutRouting.vKeyCode,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+
+        XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(screenshotOCR))
+        XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(clipboardImageOCR))
+    }
+
+    func testPureModifierShortcutEncodingPreservesLegacyKeyCode() {
+        XCTAssertEqual(
+            ShortcutManager.encodeShortcut(keyCode: 54, modifierMask: ShortcutManager.commandModifierMask),
+            54
+        )
     }
 
     func testSetAndGetCustomKeyCode() {

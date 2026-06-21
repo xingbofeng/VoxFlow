@@ -22,8 +22,7 @@ protocol ClipboardImageProviding: AnyObject {
     func currentImage() -> CGImage?
 }
 
-@MainActor
-protocol TextOCRRecognizing: AnyObject {
+protocol TextOCRRecognizing: AnyObject, Sendable {
     func recognizeText(in image: CGImage) async throws -> String
 }
 
@@ -69,7 +68,13 @@ final class PasteLastResultService {
               !text.isEmpty else {
             return .noTextAvailable
         }
-        return await pasteText(text, success: .pastedLastResult, shouldRemember: false)
+        do {
+            return try await pasteText(text, success: .pastedLastResult, shouldRemember: false)
+        } catch is CancellationError {
+            return .outputFailed(.cancelled)
+        } catch {
+            return .outputFailed(.injectionFailed(reason: error.localizedDescription))
+        }
     }
 
     func pasteClipboardImageOCR() async -> PasteLastResultOutcome {
@@ -79,18 +84,31 @@ final class PasteLastResultService {
         guard let image = clipboardImageProvider.currentImage() else {
             return .ocrFailed("剪贴板里没有可识别的图片")
         }
-        return await pasteOCRText(from: image)
+        let originalTarget = targetProvider.currentTarget()
+        return await pasteOCRText(from: image, originalTarget: originalTarget)
     }
 
-    private func pasteOCRText(from image: CGImage) async -> PasteLastResultOutcome {
+    private func pasteOCRText(
+        from image: CGImage,
+        originalTarget: DictationTarget?
+    ) async -> PasteLastResultOutcome {
         do {
+            try Task.checkCancellation()
             let text = try await ocrRecognizer
                 .recognizeText(in: image)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            try Task.checkCancellation()
             guard !text.isEmpty else {
                 return .ocrFailed("未识别到图片文字")
             }
-            return await pasteText(text, success: .pastedOCRText, shouldRemember: true)
+            return try await pasteText(
+                text,
+                success: .pastedOCRText,
+                shouldRemember: true,
+                originalTarget: originalTarget
+            )
+        } catch is CancellationError {
+            return .ocrFailed("已取消")
         } catch {
             return .ocrFailed(error.localizedDescription)
         }
@@ -99,15 +117,18 @@ final class PasteLastResultService {
     private func pasteText(
         _ text: String,
         success: PasteLastResultOutcome,
-        shouldRemember: Bool
-    ) async -> PasteLastResultOutcome {
+        shouldRemember: Bool,
+        originalTarget: DictationTarget? = nil
+    ) async throws -> PasteLastResultOutcome {
+        try Task.checkCancellation()
         let target = targetProvider.currentTarget()
         let result = await outputService.deliver(
             text: text,
             mode: .dictation,
             target: target,
-            originalTarget: target
+            originalTarget: originalTarget ?? target
         )
+        try Task.checkCancellation()
         guard result.isPasteLastResultSuccess else {
             return .outputFailed(result)
         }

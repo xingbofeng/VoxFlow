@@ -83,6 +83,7 @@ final class HotKeyFeatureController {
     private let currentShortPressBehavior: () -> ShortPressBehavior
     private let currentDictationState: () -> DictationState
     private let activeVoiceAction: () -> VoiceAction?
+    private let primaryVoiceAction: () -> VoiceAction
     private let currentNotesState: () -> HotKeyNotesState
     private let performDecision: (HotKeyRoutingDecision) -> Void
     private let performWorkflowShortcut: (HotKeyWorkflowShortcut) -> Bool
@@ -97,6 +98,7 @@ final class HotKeyFeatureController {
         currentShortPressBehavior: @escaping () -> ShortPressBehavior = { .none },
         currentDictationState: @escaping () -> DictationState,
         activeVoiceAction: @escaping () -> VoiceAction?,
+        primaryVoiceAction: @escaping () -> VoiceAction = { .dictation },
         currentNotesState: @escaping () -> HotKeyNotesState,
         performDecision: @escaping (HotKeyRoutingDecision) -> Void,
         performWorkflowShortcut: @escaping (HotKeyWorkflowShortcut) -> Bool = { _ in false },
@@ -109,6 +111,7 @@ final class HotKeyFeatureController {
         self.currentShortPressBehavior = currentShortPressBehavior
         self.currentDictationState = currentDictationState
         self.activeVoiceAction = activeVoiceAction
+        self.primaryVoiceAction = primaryVoiceAction
         self.currentNotesState = currentNotesState
         self.performDecision = performDecision
         self.performWorkflowShortcut = performWorkflowShortcut
@@ -144,14 +147,25 @@ final class HotKeyFeatureController {
     }
 
     private func handlePress(_ action: VoiceAction) {
+        let notesState = currentNotesState()
+        let action = resolvedAction(for: action, notesState: notesState)
         guard currentDictationState().isIdle else { return }
+        guard action == .dictation || !notesState.isActive || !notesState.isRecording else {
+            return
+        }
         if currentShortPressBehavior() == .toggleListening {
             actionStartedOnCurrentPress = action
             performPressDecision(action)
             return
         }
         actionStartedOnCurrentPress = nil
-        performPressDecision(action)
+        delayedPress.schedule(action, longPressThreshold()) { [weak self] action in
+            guard let self else { return }
+            guard self.currentDictationState().isIdle else { return }
+            guard self.actionStartedOnCurrentPress != action else { return }
+            self.actionStartedOnCurrentPress = action
+            self.performPressDecision(action)
+        }
     }
 
     private func performPressDecision(_ action: VoiceAction) {
@@ -159,12 +173,19 @@ final class HotKeyFeatureController {
     }
 
     private func handleRelease(_ action: VoiceAction) {
+        let action = resolvedAction(for: action, notesState: currentNotesState())
         delayedPress.cancel()
+        guard actionStartedOnCurrentPress == action || activeVoiceAction() == action else {
+            actionStartedOnCurrentPress = nil
+            return
+        }
         actionStartedOnCurrentPress = nil
         performLoggedDecision(for: .release, action: action)
     }
 
     private func handleShortPress(_ action: VoiceAction) {
+        let notesState = currentNotesState()
+        let action = resolvedAction(for: action, notesState: notesState)
         delayedPress.cancel()
         if actionStartedOnCurrentPress == action {
             actionStartedOnCurrentPress = nil
@@ -178,12 +199,21 @@ final class HotKeyFeatureController {
         performLoggedDecision(for: .shortPress, action: action)
     }
 
+    private func resolvedAction(for action: VoiceAction, notesState: HotKeyNotesState) -> VoiceAction {
+        guard action == .dictation, !notesState.shouldCaptureHotKey else {
+            return action
+        }
+        return primaryVoiceAction()
+    }
+
     private func handleWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
         let shouldConsume: Bool
         switch shortcut {
         case .cancel:
             shouldConsume = performWorkflowShortcut(shortcut)
         case .clipboardImageOCR:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .screenshotOCR:
             shouldConsume = performWorkflowShortcut(shortcut)
         }
         AppLogger.general.info(
@@ -252,6 +282,8 @@ private extension HotKeyWorkflowShortcut {
         switch self {
         case .clipboardImageOCR:
             return "clipboardImageOCR"
+        case .screenshotOCR:
+            return "screenshotOCR"
         case .cancel:
             return "cancel"
         }
@@ -265,6 +297,8 @@ private extension VoiceAction {
             return "dictation"
         case .agentCompose:
             return "agentCompose"
+        case .agentDispatch:
+            return "agentDispatch"
         }
     }
 }

@@ -1,12 +1,14 @@
 import Foundation
+import VoxFlowVoiceCorrection
 
-struct TextProcessingResult: Equatable {
+struct TextProcessingResult: Equatable, Sendable {
     let rawText: String
     let finalText: String
     let llmProviderID: String?
     let styleID: String?
     let warnings: [String]
     let trace: TextProcessingTrace?
+    let correctionEvents: [CorrectionEvent]
 
     init(
         rawText: String,
@@ -14,7 +16,8 @@ struct TextProcessingResult: Equatable {
         llmProviderID: String? = nil,
         styleID: String? = nil,
         warnings: [String] = [],
-        trace: TextProcessingTrace? = nil
+        trace: TextProcessingTrace? = nil,
+        correctionEvents: [CorrectionEvent] = []
     ) {
         self.rawText = rawText
         self.finalText = finalText
@@ -22,10 +25,11 @@ struct TextProcessingResult: Equatable {
         self.styleID = styleID
         self.warnings = warnings
         self.trace = trace
+        self.correctionEvents = correctionEvents
     }
 }
 
-struct TextProcessingTrace: Equatable, Codable {
+struct TextProcessingTrace: Equatable, Codable, Sendable {
     var llm: LLMRefinementTrace? = nil
     var output: OutputDeliveryTrace? = nil
 
@@ -37,11 +41,11 @@ struct TextProcessingTrace: Equatable, Codable {
     }
 }
 
-struct OutputDeliveryTrace: Equatable, Codable {
+struct OutputDeliveryTrace: Equatable, Codable, Sendable {
     let resultKind: String
 }
 
-struct LLMRefinementTrace: Equatable, Codable {
+struct LLMRefinementTrace: Equatable, Codable, Sendable {
     let providerID: String
     let providerName: String
     let endpoint: String
@@ -95,6 +99,69 @@ protocol RefinementTraceProviding: AnyObject {
     func clearLastTrace()
 }
 
+struct TextRefinementTraceResult: Equatable, Sendable {
+    let text: String
+    let providerID: String
+    let trace: LLMRefinementTrace
+}
+
+protocol TraceablePromptAwareTextRefining: PromptAwareTextRefining {
+    func refineWithTrace(_ request: TextRefinementRequest) async throws -> TextRefinementTraceResult
+}
+
+final class TextRefinementTraceHandle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var result: Result<LLMRefinementTrace, Error>?
+    private var continuations: [CheckedContinuation<LLMRefinementTrace, Error>] = []
+
+    func complete(_ trace: LLMRefinementTrace) {
+        resolve(.success(trace))
+    }
+
+    func fail(_ error: Error) {
+        resolve(.failure(error))
+    }
+
+    func value() async throws -> LLMRefinementTrace {
+        try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            if let result {
+                lock.unlock()
+                continuation.resume(with: result)
+                return
+            }
+            continuations.append(continuation)
+            lock.unlock()
+        }
+    }
+
+    private func resolve(_ result: Result<LLMRefinementTrace, Error>) {
+        lock.lock()
+        guard self.result == nil else {
+            lock.unlock()
+            return
+        }
+        self.result = result
+        let continuations = self.continuations
+        self.continuations.removeAll()
+        lock.unlock()
+
+        for continuation in continuations {
+            continuation.resume(with: result)
+        }
+    }
+}
+
+struct TextRefinementStreamTraceResult: Sendable {
+    let stream: AsyncThrowingStream<String, Error>
+    let providerID: String?
+    let trace: TextRefinementTraceHandle
+}
+
+protocol TraceableStreamingPromptAwareTextRefining: StreamingPromptAwareTextRefining {
+    func refineStreamWithTrace(_ request: TextRefinementRequest) -> TextRefinementStreamTraceResult
+}
+
 @MainActor
 protocol TextProcessing {
     func process(_ rawText: String) async -> TextProcessingResult
@@ -102,6 +169,12 @@ protocol TextProcessing {
     func process(
         _ rawText: String,
         target: DictationTarget?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
         onRefinedTextUpdate: @escaping @MainActor (String) -> Void
     ) async -> TextProcessingResult
 }
@@ -114,38 +187,54 @@ extension TextProcessing {
     func process(
         _ rawText: String,
         target: DictationTarget?,
+        correctionContext: CorrectionContext?
+    ) async -> TextProcessingResult {
+        await process(
+            rawText,
+            target: target,
+            correctionContext: correctionContext,
+            onRefinedTextUpdate: { _ in }
+        )
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
         onRefinedTextUpdate: @escaping @MainActor (String) -> Void
     ) async -> TextProcessingResult {
         await process(rawText)
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        await process(rawText, target: target, onRefinedTextUpdate: onRefinedTextUpdate)
     }
 }
 
 @MainActor
 final class DefaultTextProcessingPipeline: TextProcessing {
     private let refiner: any TextRefining
-    private let replacementRuleRepository: (any ReplacementRuleRepository)?
-    private let replacementRuleEngine: ReplacementRuleEngine
-    private let glossaryRepository: (any GlossaryRepository)?
     private let styleRepository: (any StyleRepository)?
     private let styleSelector: (any StyleSelecting)?
     private let promptBuilder: PromptBuilder
+    private let voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)?
 
     init(
         refiner: any TextRefining,
-        replacementRuleRepository: (any ReplacementRuleRepository)? = nil,
-        replacementRuleEngine: ReplacementRuleEngine = ReplacementRuleEngine(),
-        glossaryRepository: (any GlossaryRepository)? = nil,
         styleRepository: (any StyleRepository)? = nil,
         styleSelector: (any StyleSelecting)? = nil,
-        promptBuilder: PromptBuilder = PromptBuilder()
+        promptBuilder: PromptBuilder = PromptBuilder(),
+        voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)? = nil
     ) {
         self.refiner = refiner
-        self.replacementRuleRepository = replacementRuleRepository
-        self.replacementRuleEngine = replacementRuleEngine
-        self.glossaryRepository = glossaryRepository
         self.styleRepository = styleRepository
         self.styleSelector = styleSelector
         self.promptBuilder = promptBuilder
+        self.voiceCorrectionProcessor = voiceCorrectionProcessor
     }
 
     func process(_ rawText: String) async -> TextProcessingResult {
@@ -161,70 +250,122 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         target: DictationTarget?,
         onRefinedTextUpdate: @escaping @MainActor (String) -> Void
     ) async -> TextProcessingResult {
+        await process(
+            rawText,
+            target: target,
+            correctionContext: nil,
+            onRefinedTextUpdate: onRefinedTextUpdate
+        )
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?
+    ) async -> TextProcessingResult {
+        await process(
+            rawText,
+            target: target,
+            correctionContext: correctionContext,
+            onRefinedTextUpdate: { _ in }
+        )
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
         var text = rawText
         var warnings: [String] = []
+        var llmProviderID: String?
+        var styleID: String?
+        var trace: TextProcessingTrace?
+        var correctionEvents: [CorrectionEvent] = []
 
-        let beforeResult = applyReplacementRules(stage: .beforeLLM, to: text)
-        text = beforeResult.text
-        warnings.append(contentsOf: beforeResult.warnings)
-
-        guard refiner.isEnabled, refiner.isConfigured else {
-            let afterResult = applyReplacementRules(stage: .afterLLM, to: text)
-            warnings.append(contentsOf: afterResult.warnings)
-            return TextProcessingResult(rawText: rawText, finalText: afterResult.text, warnings: warnings)
-        }
-
-        do {
-            let prompt = await buildPrompt(target: target)
-            warnings.append(contentsOf: prompt.warnings)
-            var refinedText: String
-            let promptMetadata: PromptBuildResult?
-            if let promptAwareRefiner = refiner as? any PromptAwareTextRefining {
-                (refiner as? RefinementTraceProviding)?.clearLastTrace()
-                let request = TextRefinementRequest(
-                    text: text,
-                    systemPrompt: prompt.result.systemPrompt,
-                    model: prompt.result.model,
-                    temperature: prompt.result.temperature
-                )
-                if let streamingRefiner = refiner as? any StreamingPromptAwareTextRefining {
-                    refinedText = try await collectStream(
-                        streamingRefiner.refineStream(request),
-                        onUpdate: onRefinedTextUpdate
+        if refiner.isEnabled, refiner.isConfigured {
+            do {
+                let prompt = await buildPrompt(target: target)
+                warnings.append(contentsOf: prompt.warnings)
+                var refinedText: String
+                let promptMetadata: PromptBuildResult?
+                var localLLMProviderID: String?
+                var localLLMTrace: LLMRefinementTrace?
+                if let promptAwareRefiner = refiner as? any PromptAwareTextRefining {
+                    (refiner as? RefinementTraceProviding)?.clearLastTrace()
+                    let request = TextRefinementRequest(
+                        text: text,
+                        systemPrompt: prompt.result.systemPrompt,
+                        model: prompt.result.model,
+                        temperature: prompt.result.temperature
                     )
+                    if let traceableStreamingRefiner = refiner as? any TraceableStreamingPromptAwareTextRefining {
+                        let streamResult = traceableStreamingRefiner.refineStreamWithTrace(request)
+                        refinedText = try await collectStream(
+                            streamResult.stream,
+                            onUpdate: onRefinedTextUpdate
+                        )
+                        localLLMTrace = try await streamResult.trace.value()
+                        localLLMProviderID = streamResult.providerID ?? localLLMTrace?.providerID
+                    } else if let streamingRefiner = refiner as? any StreamingPromptAwareTextRefining {
+                        refinedText = try await collectStream(
+                            streamingRefiner.refineStream(request),
+                            onUpdate: onRefinedTextUpdate
+                        )
+                    } else if let traceableRefiner = refiner as? any TraceablePromptAwareTextRefining {
+                        let traceResult = try await traceableRefiner.refineWithTrace(request)
+                        refinedText = traceResult.text
+                        localLLMProviderID = traceResult.providerID
+                        localLLMTrace = traceResult.trace
+                    } else {
+                        refinedText = try await promptAwareRefiner.refine(request)
+                    }
+                    promptMetadata = prompt.result
                 } else {
-                    refinedText = try await promptAwareRefiner.refine(request)
+                    refinedText = try await refiner.refine(text)
+                    promptMetadata = nil
                 }
-                promptMetadata = prompt.result
-            } else {
-                refinedText = try await refiner.refine(text)
-                promptMetadata = nil
+                let trimmedRefinedText = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                text = trimmedRefinedText.isEmpty ? text : trimmedRefinedText
+                llmProviderID = localLLMProviderID ?? (refiner as? any ActiveLLMProviderIdentifying)?.activeProviderID
+                styleID = promptMetadata?.styleID
+                trace = TextProcessingTrace(llm: localLLMTrace ?? (refiner as? RefinementTraceProviding)?.lastTrace)
+            } catch {
+                AppLogger.general.error("LLM refinement failed: \(error.localizedDescription)")
+                warnings.append("llm_refinement_failed")
+                trace = TextProcessingTrace(llm: (refiner as? RefinementTraceProviding)?.lastTrace)
             }
-            let trimmedRefinedText = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
-            text = trimmedRefinedText.isEmpty ? text : trimmedRefinedText
-            let afterResult = applyReplacementRules(stage: .afterLLM, to: text)
-            text = afterResult.text
-            warnings.append(contentsOf: afterResult.warnings)
-            return TextProcessingResult(
-                rawText: rawText,
-                finalText: text,
-                llmProviderID: (refiner as? any ActiveLLMProviderIdentifying)?.activeProviderID,
-                styleID: promptMetadata?.styleID,
-                warnings: warnings,
-                trace: TextProcessingTrace(llm: (refiner as? RefinementTraceProviding)?.lastTrace)
-            )
-        } catch {
-            AppLogger.general.error("LLM refinement failed: \(error.localizedDescription)")
-            let afterResult = applyReplacementRules(stage: .afterLLM, to: text)
-            warnings.append(contentsOf: afterResult.warnings)
-            warnings.append("llm_refinement_failed")
-            return TextProcessingResult(
-                rawText: rawText,
-                finalText: afterResult.text,
-                warnings: warnings,
-                trace: TextProcessingTrace(llm: (refiner as? RefinementTraceProviding)?.lastTrace)
-            )
         }
+
+        if let correctionContext,
+           correctionContext.mode == .dictation,
+           correctionContext.isFinalTranscript,
+           !correctionContext.isSecureField,
+           let voiceCorrectionProcessor {
+            do {
+                let result = try voiceCorrectionProcessor.process(
+                    text,
+                    context: correctionContext
+                )
+                text = result.correctedText
+                correctionEvents = result.events
+                warnings.append(contentsOf: result.warnings.map(\.rawValue))
+            } catch {
+                AppLogger.general.error("Voice correction failed: \(error.localizedDescription)")
+                warnings.append("voice_correction_failed")
+            }
+        }
+
+        return TextProcessingResult(
+            rawText: rawText,
+            finalText: text,
+            llmProviderID: llmProviderID,
+            styleID: styleID,
+            warnings: warnings,
+            trace: trace,
+            correctionEvents: correctionEvents
+        )
     }
 
     private func buildPrompt(target: DictationTarget?) async -> (result: PromptBuildResult, warnings: [String]) {
@@ -235,8 +376,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             } else {
                 style = try styleRepository?.defaultProfile()
             }
-            let terms = try glossaryRepository?.list(category: nil) ?? []
-            return (promptBuilder.build(style: style, glossaryTerms: terms), [])
+            return (promptBuilder.build(style: style, glossaryTerms: []), [])
         } catch {
             return (promptBuilder.build(style: nil, glossaryTerms: []), ["prompt_context_failed"])
         }
@@ -252,18 +392,6 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             onUpdate(snapshot)
         }
         return refinedText
-    }
-
-    private func applyReplacementRules(
-        stage: ReplacementApplyStage,
-        to text: String
-    ) -> ReplacementRuleApplicationResult {
-        guard let replacementRuleRepository,
-              let rules = try? replacementRuleRepository.listEnabled(stage: stage),
-              !rules.isEmpty else {
-            return ReplacementRuleApplicationResult(text: text, warnings: [])
-        }
-        return replacementRuleEngine.apply(rules, to: text)
     }
 }
 

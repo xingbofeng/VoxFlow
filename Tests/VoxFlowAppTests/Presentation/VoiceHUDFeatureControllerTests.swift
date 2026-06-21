@@ -110,6 +110,34 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
+    func testAgentDispatchRecordingShowsDefaultHUDAndClearsText() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.handleState(
+            .recording,
+            activeVoiceAction: .agentDispatch,
+            shouldShowWaitingIndicator: false
+        )
+
+        XCTAssertEqual(overlay.events, [
+            .show,
+            .updateTranscription(text: "", isRefining: false),
+        ])
+    }
+
+    func testAgentDispatchListeningPresentationKeepsDefaultRecordingHUD() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.handleAgentDispatch(.listening(agentNames: ["voice-input-method-mac"]))
+
+        XCTAssertEqual(overlay.events, [
+            .show,
+            .updateTranscription(text: "", isRefining: false),
+        ])
+    }
+
     func testWaitingForFinalShowsIndicatorOnlyWhenRequested() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -262,6 +290,7 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
         case dismiss
         case updateTranscription(text: String, isRefining: Bool)
         case updateAgentComposeStatus(AgentComposeHUDStage)
+        case updateAgentDispatch(AgentDispatchHUDPresentation)
         case updateStreamingText(String)
         case updateRMS(Float)
         case showTemporaryMessage(
@@ -292,6 +321,10 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
 
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage) {
         events.append(.updateAgentComposeStatus(stage))
+    }
+
+    func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
+        events.append(.updateAgentDispatch(presentation))
     }
 
     func updateStreamingText(_ partialText: String) {

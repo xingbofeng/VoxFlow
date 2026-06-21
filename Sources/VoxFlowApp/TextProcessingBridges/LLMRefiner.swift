@@ -14,7 +14,7 @@ final class LLMRefiner: @unchecked Sendable {
 
     init(
         defaults: UserDefaults = .standard,
-        credentialStore: CredentialStore = KeychainCredentialStore()
+        credentialStore: CredentialStore = AppLocalCredentialStore.liveDefault()
     ) {
         self.defaults = defaults
         self.credentialStore = credentialStore

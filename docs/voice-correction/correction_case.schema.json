@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Voice Correction Benchmark Case",
+  "type": "object",
+  "required": [
+    "id",
+    "raw",
+    "expected",
+    "context",
+    "expectedEvents",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "raw": {
+      "type": "string"
+    },
+    "expected": {
+      "type": "string"
+    },
+    "context": {
+      "type": "object",
+      "required": [
+        "mode",
+        "providerID"
+      ],
+      "properties": {
+        "mode": {
+          "description": "Only dictation mode can apply correction. command and translation are regression/bypass contexts.",
+          "enum": [
+            "dictation",
+            "command",
+            "translation"
+          ]
+        },
+        "providerID": {
+          "type": "string"
+        },
+        "modelID": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bundleIdentifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "isFinalTranscript": {
+          "type": "boolean",
+          "default": true
+        },
+        "isSecureField": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "expectedEvents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ruleID",
+          "from",
+          "to",
+          "shouldApply"
+        ],
+        "properties": {
+          "ruleID": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "shouldApply": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

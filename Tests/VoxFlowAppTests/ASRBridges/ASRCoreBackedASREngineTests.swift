@@ -187,6 +187,68 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         XCTAssertEqual(session.acceptedSequenceNumbers(), [7])
     }
 
+    func testStopReleasesProviderSessionAfterFinalEvenWhenEventsRemainOpen() async throws {
+        let session = CapturingCoreSession(finishEventStreamOnFinish: false)
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session
+        )
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN")
+        )
+        let final = expectation(description: "final callback")
+        engine.onTranscription = { _, isFinal in
+            if isFinal {
+                final.fulfill()
+            }
+        }
+
+        try engine.start()
+        engine.appendAudioFrame(Self.frame(sequenceNumber: 7))
+        engine.endAudio()
+        await fulfillment(of: [final], timeout: 1.0)
+
+        engine.stop()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(session.cancelCallCount(), 1)
+    }
+
+    func testAudioFramesUseBoundedBufferWhenProviderIsBackPressured() async throws {
+        let session = CapturingCoreSession(acceptDelayNanoseconds: 500_000_000)
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session
+        )
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN")
+        )
+
+        try engine.start()
+        for sequenceNumber in 0..<220 {
+            engine.appendAudioFrame(Self.frame(sequenceNumber: UInt64(sequenceNumber)))
+        }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let metadata = engine.asrRuntimeMetadataSnapshot
+        engine.cancel()
+
+        XCTAssertGreaterThan(metadata.droppedFrameCount ?? 0, 0)
+    }
+
     private static func frame(sequenceNumber: UInt64) -> AudioFrame {
         AudioFrame(
             sequenceNumber: sequenceNumber,
@@ -226,9 +288,20 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
 
     private let eventStream = ASREventStream()
     private let lock = NSLock()
+    private let acceptDelayNanoseconds: UInt64
+    private let finishEventStreamOnFinish: Bool
     private var currentRevision: UInt64 = 0
     private var acceptedFrames: [AudioFrame] = []
     private var finishCount = 0
+    private var cancelCount = 0
+
+    init(
+        acceptDelayNanoseconds: UInt64 = 0,
+        finishEventStreamOnFinish: Bool = true
+    ) {
+        self.acceptDelayNanoseconds = acceptDelayNanoseconds
+        self.finishEventStreamOnFinish = finishEventStreamOnFinish
+    }
 
     func start() async throws {
         eventStream.yield(.preparing(sessionID: sessionID, revision: revision))
@@ -240,6 +313,9 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
     }
 
     func accept(_ frame: AudioFrame) async throws {
+        if acceptDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: acceptDelayNanoseconds)
+        }
         let partialRevision = lock.withLock {
             acceptedFrames.append(frame)
             currentRevision += 1
@@ -276,10 +352,15 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
             )
         )
         eventStream.yield(.final(sessionID: sessionID, revision: finalRevision, text: "最终文本"))
-        eventStream.finish()
+        if finishEventStreamOnFinish {
+            eventStream.finish()
+        }
     }
 
     func cancel() async {
+        lock.withLock {
+            cancelCount += 1
+        }
         eventStream.finish()
     }
 
@@ -291,5 +372,9 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
 
     func finishCallCount() -> Int {
         lock.withLock { finishCount }
+    }
+
+    func cancelCallCount() -> Int {
+        lock.withLock { cancelCount }
     }
 }

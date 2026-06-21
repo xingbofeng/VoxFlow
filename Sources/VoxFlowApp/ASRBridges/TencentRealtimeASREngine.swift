@@ -3,6 +3,8 @@ import VoxFlowAudio
 import VoxFlowProviderTencentCloud
 
 final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @unchecked Sendable {
+    private static let audioChunkBufferLimit = 96
+
     var onTranscription: ((String, Bool) -> Void)?
     var onError: ((Error) -> Void)?
 
@@ -41,7 +43,7 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
             throw TencentRealtimeASRError.missingCredential
         }
         let generation = UUID()
-        let stream = AsyncStream<Data> { continuation in
+        let stream = AsyncStream<Data>(bufferingPolicy: .bufferingNewest(Self.audioChunkBufferLimit)) { continuation in
             lock.withLock {
                 audioContinuation = continuation
             }
@@ -91,7 +93,12 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
             }
             return
         }
-        lock.withLock { audioContinuation }?.yield(encoded)
+        let yieldResult = lock.withLock { audioContinuation }?.yield(encoded)
+        if let yieldResult, case .dropped = yieldResult {
+            lock.withLock {
+                runtimeMetadata.droppedFrameCount = (runtimeMetadata.droppedFrameCount ?? 0) + 1
+            }
+        }
     }
 
     func endAudio() {

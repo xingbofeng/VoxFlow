@@ -45,12 +45,16 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
         asrManager: ASRManager = ASRManager(),
         locale: Locale = RecognitionLanguage.default.locale,
         effectiveEngineType: (() -> ASREngineType)? = nil,
-        makeEngine: ((ASREngineType) -> ASREngine)? = nil
+        makeEngine: ((ASREngineType) -> ASREngine)? = nil,
+        finalResultTimeoutNanoseconds: UInt64 = 15_000_000_000
     ) {
         self.locale = locale
+        self.finalResultTimeoutNanoseconds = finalResultTimeoutNanoseconds
         self.effectiveEngineType = effectiveEngineType ?? { asrManager.effectiveSelectedEngineType }
         self.makeEngine = makeEngine ?? { asrManager.makeEngine(type: $0) }
     }
+
+    private let finalResultTimeoutNanoseconds: UInt64
 
     func transcribe(
         fileURL: URL,
@@ -61,7 +65,7 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
             throw FileTranscriptionError.unsupportedRecognitionLanguage(locale.identifier)
         }
 
-        let engine = makeEngine(effectiveEngineType())
+        let engine = makeEngine(Self.engineType(forProviderID: asrProviderID) ?? effectiveEngineType())
         let finalText = FinalTextContinuation()
         engine.onTranscription = { text, isFinal in
             if isFinal {
@@ -75,6 +79,7 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
         do {
             engine.configure(locale: locale)
             try engine.start()
+            let cancellation = CancellableASREngineBox(engine)
             let audioFrameForwarder = ASREngineAudioFrameForwarder()
             audioFrameForwarder.attach(engine)
             defer { audioFrameForwarder.detach() }
@@ -83,7 +88,12 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
             try feed(audioFile: audioFile, to: audioFrameForwarder, progress: progress)
             audioFrameForwarder.finish()
             engine.endAudio()
-            let text = try await finalText.wait()
+            let text = try await withTaskCancellationHandler {
+                try await finalText.wait(timeoutNanoseconds: finalResultTimeoutNanoseconds)
+            } onCancel: {
+                cancellation.cancel()
+                finalText.resume(.failure(CancellationError()))
+            }
             progress(1)
             return FileTranscriptionResult(
                 text: text,
@@ -121,6 +131,36 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
         }
     }
 
+    private static func engineType(forProviderID providerID: String?) -> ASREngineType? {
+        switch providerID {
+        case ASRProviderID.appleSpeech:
+            return .apple
+        case ASRProviderID.funASR:
+            return .funASR
+        case ASRProviderID.whisper:
+            return .whisper
+        case ASRProviderID.qwen3:
+            return .qwen3
+        case ASRProviderID.senseVoice:
+            return .senseVoice
+        case ASRProviderID.paraformer:
+            return .paraformer
+        case ASRProviderID.nvidiaNemotron:
+            return .nvidiaNemotron
+        case ASRProviderID.parakeetStreaming:
+            return .parakeetStreaming
+        case ASRProviderID.omnilingualASR:
+            return .omnilingualASR
+        case ASRProviderID.groqWhisper:
+            return .groqWhisper
+        case ASRProviderID.tencentCloudASR:
+            return .tencentCloud
+        case ASRProviderID.qwenCloudASR:
+            return .aliyunDashScope
+        default:
+            return nil
+        }
+    }
 }
 
 private final class FinalTextContinuation: @unchecked Sendable {
@@ -128,7 +168,27 @@ private final class FinalTextContinuation: @unchecked Sendable {
     private var continuation: CheckedContinuation<String, Error>?
     private var result: Result<String, Error>?
 
-    func wait() async throws -> String {
+    func wait(timeoutNanoseconds: UInt64) async throws -> String {
+        try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask {
+                try await self.wait()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                let error = FileTranscriptionError.finalResultTimedOut
+                self.resume(.failure(error))
+                throw error
+            }
+
+            guard let text = try await group.next() else {
+                throw CancellationError()
+            }
+            group.cancelAll()
+            return text
+        }
+    }
+
+    private func wait() async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             lock.lock()
             if let result {
@@ -167,6 +227,22 @@ private final class FinalTextContinuation: @unchecked Sendable {
     }
 }
 
+private final class CancellableASREngineBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var engine: ASREngine?
+
+    init(_ engine: ASREngine) {
+        self.engine = engine
+    }
+
+    func cancel() {
+        lock.lock()
+        let engine = engine
+        lock.unlock()
+        engine?.cancel()
+    }
+}
+
 @MainActor
 final class FileTranscriptionViewModel: ObservableObject {
     @Published private(set) var jobs: [TranscriptionJobRecord] = []
@@ -178,9 +254,10 @@ final class FileTranscriptionViewModel: ObservableObject {
     var worker: any FileTranscriptionWorking
 
     private let environment: any AppServiceProviding
+    private let currentASRProviderID: () -> String
     private let clipboardWriter: ClipboardWriting
     private var segmentsByJobID: [String: [TranscriptionSegment]] = [:]
-    private var runningTasks: [String: Task<Void, Never>] = [:]
+    private var runningTasks: [String: RunningFileTranscriptionTask] = [:]
 
     static let supportedExtensions: Set<String> = ["m4a", "mp3", "wav", "aac", "mp4", "mov"]
 
@@ -188,11 +265,32 @@ final class FileTranscriptionViewModel: ObservableObject {
         environment: any AppServiceProviding,
         worker: (any FileTranscriptionWorking)? = nil,
         currentLanguage: @escaping () -> RecognitionLanguage = { LanguageManager.shared.currentLanguage },
+        currentASRProviderID: @escaping () -> String = { ASREngineType.apple.providerID },
         clipboardWriter: ClipboardWriting = GeneralPasteboardWriter()
     ) {
         self.environment = environment
+        self.currentASRProviderID = currentASRProviderID
         self.worker = worker ?? ASRFileTranscriptionWorker(locale: currentLanguage().locale)
         self.clipboardWriter = clipboardWriter
+        do {
+            try load()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func load() throws {
+        var restored: [TranscriptionJobRecord] = []
+        for job in try environment.transcriptionJobRepository.list() {
+            if job.status == TranscriptionJobStatus.running.rawValue {
+                let interrupted = job.markingInterrupted(updatedAt: environment.clock.now)
+                try environment.transcriptionJobRepository.save(interrupted)
+                restored.append(interrupted)
+            } else {
+                restored.append(job)
+            }
+        }
+        jobs = restored
     }
 
     @discardableResult
@@ -209,7 +307,7 @@ final class FileTranscriptionViewModel: ObservableObject {
                 progress: 0,
                 rawText: nil,
                 finalText: nil,
-                asrProviderID: ASRProviderID.appleSpeech,
+                asrProviderID: currentASRProviderID(),
                 styleID: nil,
                 errorMessage: nil,
                 durationMS: 0,
@@ -227,34 +325,67 @@ final class FileTranscriptionViewModel: ObservableObject {
     }
 
     func start(jobID: String) {
-        guard runningTasks[jobID] == nil else { return }
-        runningTasks[jobID] = Task { [weak self] in
+        startRegisteredRun(jobID: jobID, resetBeforeRun: false)
+    }
+
+    @discardableResult
+    private func startRegisteredRun(
+        jobID: String,
+        resetBeforeRun: Bool
+    ) -> Task<Void, Never>? {
+        guard runningTasks[jobID] == nil else { return nil }
+        let runID = UUID()
+        let task = Task { [weak self] in
             guard let self else { return }
-            await self.run(jobID: jobID)
+            await self.run(jobID: jobID, runID: runID, resetBeforeRun: resetBeforeRun)
             await MainActor.run {
-                self.runningTasks[jobID] = nil
+                if self.runningTasks[jobID]?.runID == runID {
+                    self.runningTasks[jobID] = nil
+                }
             }
         }
+        runningTasks[jobID] = RunningFileTranscriptionTask(runID: runID, task: task)
+        return task
     }
 
     func run(jobID: String) async {
-        guard let job = job(id: jobID) else { return }
+        guard let task = startRegisteredRun(jobID: jobID, resetBeforeRun: false) else {
+            return
+        }
+        await task.value
+    }
+
+    private func run(
+        jobID: String,
+        runID: UUID?,
+        resetBeforeRun: Bool
+    ) async {
+        guard var job = job(id: jobID) else { return }
         do {
+            if resetBeforeRun {
+                job = job.resettingForRetry(updatedAt: environment.clock.now)
+                try saveIfCurrent(job, runID: runID)
+            }
+            guard isCurrentRun(jobID: jobID, runID: runID) else { return }
+            job = job.with(
+                status: .running,
+                progress: 0,
+                errorMessage: nil,
+                updatedAt: environment.clock.now
+            )
             try save(
-                job.with(
-                    status: .running,
-                    progress: 0,
-                    errorMessage: nil,
-                    updatedAt: environment.clock.now
-                )
+                job
             )
             let result = try await worker.transcribe(
                 fileURL: URL(fileURLWithPath: job.sourceFilePath),
                 asrProviderID: job.asrProviderID
             ) { [weak self] progress in
                 Task { @MainActor in
-                    try? self?.updateProgress(jobID: jobID, progress: progress)
+                    try? self?.updateProgress(jobID: jobID, runID: runID, progress: progress)
                 }
+            }
+            guard isCurrentRun(jobID: jobID, runID: runID), !Task.isCancelled else {
+                return
             }
             segmentsByJobID[jobID] = result.segments
             try save(
@@ -273,6 +404,7 @@ final class FileTranscriptionViewModel: ObservableObject {
             lastActionMessage = "转写已完成"
             lastActionTone = .success
         } catch is CancellationError {
+            guard isCurrentRun(jobID: jobID, runID: runID) else { return }
             try? save(
                 job.with(
                     status: .cancelled,
@@ -282,6 +414,7 @@ final class FileTranscriptionViewModel: ObservableObject {
                 )
             )
         } catch {
+            guard isCurrentRun(jobID: jobID, runID: runID) else { return }
             try? save(
                 job.with(
                     status: .failed,
@@ -295,7 +428,7 @@ final class FileTranscriptionViewModel: ObservableObject {
     }
 
     func cancel(jobID: String) {
-        runningTasks[jobID]?.cancel()
+        runningTasks[jobID]?.task.cancel()
         runningTasks[jobID] = nil
         if let job = job(id: jobID) {
             try? save(
@@ -309,20 +442,10 @@ final class FileTranscriptionViewModel: ObservableObject {
     }
 
     func retry(jobID: String) async {
-        guard let job = job(id: jobID) else { return }
-        try? save(
-            job.with(
-                status: .queued,
-                progress: 0,
-                rawText: nil,
-                finalText: nil,
-                errorMessage: nil,
-                durationMS: 0,
-                completedAt: nil,
-                updatedAt: environment.clock.now
-            )
-        )
-        await run(jobID: jobID)
+        guard let task = startRegisteredRun(jobID: jobID, resetBeforeRun: true) else {
+            return
+        }
+        await task.value
     }
 
     func export(jobID: String, format: FileTranscriptionExportFormat) throws -> String {
@@ -415,7 +538,8 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
     }
 
-    private func updateProgress(jobID: String, progress: Double) throws {
+    private func updateProgress(jobID: String, runID: UUID?, progress: Double) throws {
+        guard isCurrentRun(jobID: jobID, runID: runID) else { return }
         guard let job = job(id: jobID),
               job.status == TranscriptionJobStatus.running.rawValue else {
             return
@@ -436,6 +560,16 @@ final class FileTranscriptionViewModel: ObservableObject {
         } else {
             jobs.append(job)
         }
+    }
+
+    private func saveIfCurrent(_ job: TranscriptionJobRecord, runID: UUID?) throws {
+        guard isCurrentRun(jobID: job.id, runID: runID) else { return }
+        try save(job)
+    }
+
+    private func isCurrentRun(jobID: String, runID: UUID?) -> Bool {
+        guard let runID else { return true }
+        return runningTasks[jobID]?.runID == runID
     }
 
     private func job(id: String) -> TranscriptionJobRecord? {
@@ -466,6 +600,11 @@ final class FileTranscriptionViewModel: ObservableObject {
     }
 }
 
+private struct RunningFileTranscriptionTask {
+    let runID: UUID
+    let task: Task<Void, Never>
+}
+
 private extension FileTranscriptionExportFormat {
     var title: String {
         switch self {
@@ -481,6 +620,7 @@ enum FileTranscriptionError: LocalizedError, Equatable {
     case unsupportedRecognitionLanguage(String)
     case resultUnavailable
     case invalidAudioBuffer
+    case finalResultTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -492,11 +632,51 @@ enum FileTranscriptionError: LocalizedError, Equatable {
             return "转写结果不可用。"
         case .invalidAudioBuffer:
             return "无法读取音频缓冲区。"
+        case .finalResultTimedOut:
+            return "等待最终转写结果超时。"
         }
     }
 }
 
 private extension TranscriptionJobRecord {
+    func markingInterrupted(updatedAt: Date) -> TranscriptionJobRecord {
+        TranscriptionJobRecord(
+            id: id,
+            sourceFilePath: sourceFilePath,
+            sourceFileName: sourceFileName,
+            status: TranscriptionJobStatus.failed.rawValue,
+            progress: 0,
+            rawText: rawText,
+            finalText: finalText,
+            asrProviderID: asrProviderID,
+            styleID: styleID,
+            errorMessage: "上次转写被中断，请重试。",
+            durationMS: durationMS,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            completedAt: nil
+        )
+    }
+
+    func resettingForRetry(updatedAt: Date) -> TranscriptionJobRecord {
+        TranscriptionJobRecord(
+            id: id,
+            sourceFilePath: sourceFilePath,
+            sourceFileName: sourceFileName,
+            status: TranscriptionJobStatus.queued.rawValue,
+            progress: 0,
+            rawText: nil,
+            finalText: nil,
+            asrProviderID: asrProviderID,
+            styleID: styleID,
+            errorMessage: nil,
+            durationMS: 0,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            completedAt: nil
+        )
+    }
+
     func with(
         status: TranscriptionJobStatus,
         progress: Double? = nil,

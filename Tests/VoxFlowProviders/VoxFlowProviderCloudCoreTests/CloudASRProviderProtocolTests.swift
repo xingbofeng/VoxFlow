@@ -54,6 +54,32 @@ final class CloudASRProviderProtocolTests: XCTestCase {
 
         XCTAssertEqual(cloudProviders.map(\.id), ["cloud-asr"])
     }
+
+    func testCloudASRStreamingClientProtocolCarriesConnectionAndMessageContract() async throws {
+        let client = StubCloudASRStreamingClient()
+        let configuration = CloudASRProviderConfiguration(
+            providerID: "streaming-asr",
+            displayName: "Streaming ASR",
+            baseURL: "https://asr.example.com/realtime",
+            model: "realtime-model",
+            apiKeyRef: "streaming-key",
+            timeoutSeconds: 30
+        )
+        let recorder = StreamingMessageRecorder()
+
+        let health = try await client.testConnection(configuration: configuration)
+        try await client.transcribe(
+            configuration: configuration,
+            audioChunks: AsyncStream { continuation in
+                continuation.yield(Data([0, 1, 2]))
+                continuation.finish()
+            },
+            onMessage: { recorder.append($0) }
+        )
+
+        XCTAssertEqual(health.status, .ok)
+        XCTAssertEqual(recorder.values(), ["streaming transcript"])
+    }
 }
 
 private final class StubCloudASRClient: CloudASRProviderClient {
@@ -77,5 +103,37 @@ private final class StubCloudASRClient: CloudASRProviderClient {
             providerID: providerID,
             warnings: []
         )
+    }
+}
+
+private final class StubCloudASRStreamingClient: CloudASRStreamingClient {
+    func testConnection(
+        configuration: CloudASRProviderConfiguration
+    ) async throws -> ASRProviderHealthResult {
+        ASRProviderHealthResult(status: .ok, message: configuration.displayName, latencyMS: 8)
+    }
+
+    func transcribe(
+        configuration: CloudASRProviderConfiguration,
+        audioChunks: AsyncStream<Data>,
+        onMessage: @escaping @Sendable (String) -> Void
+    ) async throws {
+        for await chunk in audioChunks where !chunk.isEmpty {
+            onMessage("streaming transcript")
+            return
+        }
+    }
+}
+
+private final class StreamingMessageRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+
+    func append(_ value: String) {
+        lock.withLock { storage.append(value) }
+    }
+
+    func values() -> [String] {
+        lock.withLock { storage }
     }
 }

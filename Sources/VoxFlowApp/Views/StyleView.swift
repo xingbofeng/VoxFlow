@@ -49,7 +49,7 @@ struct StyleView: View {
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
             prompt = viewModel.selectedProfile?.prompt ?? ""
             loadInstalledAppsIfNeeded()
         }

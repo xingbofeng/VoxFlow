@@ -9,6 +9,7 @@ public enum AliyunDashScopeRealtimeASRError: Error, LocalizedError, Equatable {
     case taskDidNotStart
     case unsupportedSampleRate(Int)
     case inconsistentSampleRate
+    case connectionTimedOut
 
     public var errorDescription: String? {
         switch self {
@@ -26,6 +27,8 @@ public enum AliyunDashScopeRealtimeASRError: Error, LocalizedError, Equatable {
             return "阿里云 DashScope 实时语音识别当前仅提交 16k PCM，收到 \(sampleRate)Hz 音频。"
         case .inconsistentSampleRate:
             return "录音采样率发生变化，无法提交阿里云 DashScope 实时识别。"
+        case .connectionTimedOut:
+            return "阿里云 DashScope 实时语音识别连接超时。"
         }
     }
 }
@@ -306,17 +309,8 @@ private final class URLSessionAliyunDashScopeWebSocketConnection: AliyunDashScop
     }
 }
 
-public protocol AliyunDashScopeRealtimeASRStreamingClient: Sendable {
-    func transcribe(
-        configuration: AliyunDashScopeRealtimeASRConfiguration,
-        audioChunks: AsyncStream<Data>,
-        onMessage: @escaping @Sendable (AliyunDashScopeRealtimeASRMessage) -> Void
-    ) async throws
-
-    func testConnection(
-        configuration: AliyunDashScopeRealtimeASRConfiguration
-    ) async throws -> ASRProviderHealthResult
-}
+public protocol AliyunDashScopeRealtimeASRStreamingClient: CloudASRStreamingClient
+where Configuration == AliyunDashScopeRealtimeASRConfiguration, Message == AliyunDashScopeRealtimeASRMessage {}
 
 public final class AliyunDashScopeRealtimeASRClient: AliyunDashScopeRealtimeASRStreamingClient, @unchecked Sendable {
     private let transport: any AliyunDashScopeWebSocketTransport
@@ -348,38 +342,23 @@ public final class AliyunDashScopeRealtimeASRClient: AliyunDashScopeRealtimeASRS
             sampleRate: 16_000
         )
         try await connection.sendText(runTask.encodedText())
-        let started = try await receiveDecodedMessage(from: connection)
+        let started = try await receiveDecodedMessage(
+            from: connection,
+            timeoutSeconds: configuration.timeoutSeconds
+        )
         onMessage(started)
         guard started.event == .taskStarted else {
             try validate(started)
             throw AliyunDashScopeRealtimeASRError.taskDidNotStart
         }
 
-        let receiver = Task {
-            while !Task.isCancelled {
-                let message = try await receiveDecodedMessage(from: connection)
-                onMessage(message)
-                try validate(message)
-                if message.event == .taskFinished {
-                    return
-                }
-            }
-        }
-
-        do {
-            for await chunk in audioChunks {
-                try Task.checkCancellation()
-                if !chunk.isEmpty {
-                    try await connection.sendData(chunk)
-                }
-            }
-            let finishTask = try AliyunDashScopeRealtimeASRRequest.finishTask(taskID: taskID)
-            try await connection.sendText(finishTask.encodedText())
-            try await receiver.value
-        } catch {
-            receiver.cancel()
-            throw error
-        }
+        try await runStreamingTasks(
+            audioChunks: audioChunks,
+            connection: connection,
+            taskID: taskID,
+            timeoutSeconds: configuration.timeoutSeconds,
+            onMessage: onMessage
+        )
     }
 
     public func testConnection(
@@ -390,7 +369,24 @@ public final class AliyunDashScopeRealtimeASRClient: AliyunDashScopeRealtimeASRS
         }
         let startedAt = Date()
         let connection = try await transport.connect(request: request(for: configuration))
-        connection.close()
+        defer { connection.close() }
+        let taskID = taskIDGenerator()
+        let runTask = try AliyunDashScopeRealtimeASRRequest.runTask(
+            configuration: configuration,
+            taskID: taskID,
+            sampleRate: 16_000
+        )
+        try await connection.sendText(runTask.encodedText())
+        let started = try await receiveDecodedMessage(
+            from: connection,
+            timeoutSeconds: configuration.timeoutSeconds
+        )
+        try validate(started)
+        guard started.event == .taskStarted else {
+            throw AliyunDashScopeRealtimeASRError.taskDidNotStart
+        }
+        let finishTask = try AliyunDashScopeRealtimeASRRequest.finishTask(taskID: taskID)
+        try await connection.sendText(finishTask.encodedText())
         return ASRProviderHealthResult(
             status: .ok,
             message: "阿里云百炼连接正常",
@@ -410,13 +406,94 @@ public final class AliyunDashScopeRealtimeASRClient: AliyunDashScopeRealtimeASRS
     }
 
     private func receiveDecodedMessage(
-        from connection: any AliyunDashScopeWebSocketConnection
+        from connection: any AliyunDashScopeWebSocketConnection,
+        timeoutSeconds: Double
     ) async throws -> AliyunDashScopeRealtimeASRMessage {
-        switch try await connection.receive() {
-        case .text(let text):
-            return try AliyunDashScopeRealtimeASRMessage.decode(text)
-        case .data(let data):
-            return try AliyunDashScopeRealtimeASRMessage.decode(data)
+        try await Self.withTimeout(
+            seconds: timeoutSeconds,
+            timeoutError: AliyunDashScopeRealtimeASRError.connectionTimedOut,
+            onTimeout: {
+                connection.close()
+            }
+        ) {
+            switch try await connection.receive() {
+            case .text(let text):
+                return try AliyunDashScopeRealtimeASRMessage.decode(text)
+            case .data(let data):
+                return try AliyunDashScopeRealtimeASRMessage.decode(data)
+            }
+        }
+    }
+
+    private func runStreamingTasks(
+        audioChunks: AsyncStream<Data>,
+        connection: any AliyunDashScopeWebSocketConnection,
+        taskID: UUID,
+        timeoutSeconds: Double,
+        onMessage: @escaping @Sendable (AliyunDashScopeRealtimeASRMessage) -> Void
+    ) async throws {
+        try await withThrowingTaskGroup(of: StreamingTaskResult.self) { group in
+            group.addTask {
+                try await self.sendAudioAndFinishTask(
+                    audioChunks: audioChunks,
+                    connection: connection,
+                    taskID: taskID
+                )
+                return .senderFinished
+            }
+            group.addTask {
+                try await self.receiveMessages(
+                    from: connection,
+                    timeoutSeconds: timeoutSeconds,
+                    onMessage: onMessage
+                )
+                return .receiverFinished
+            }
+            defer { group.cancelAll() }
+
+            while let result = try await group.next() {
+                switch result {
+                case .senderFinished:
+                    continue
+                case .receiverFinished:
+                    return
+                }
+            }
+        }
+    }
+
+    private func sendAudioAndFinishTask(
+        audioChunks: AsyncStream<Data>,
+        connection: any AliyunDashScopeWebSocketConnection,
+        taskID: UUID
+    ) async throws {
+        for await chunk in audioChunks {
+            try Task.checkCancellation()
+            if !chunk.isEmpty {
+                try await connection.sendData(chunk)
+            }
+        }
+        try Task.checkCancellation()
+        let finishTask = try AliyunDashScopeRealtimeASRRequest.finishTask(taskID: taskID)
+        try await connection.sendText(finishTask.encodedText())
+    }
+
+    private func receiveMessages(
+        from connection: any AliyunDashScopeWebSocketConnection,
+        timeoutSeconds: Double,
+        onMessage: @escaping @Sendable (AliyunDashScopeRealtimeASRMessage) -> Void
+    ) async throws {
+        while true {
+            try Task.checkCancellation()
+            let message = try await receiveDecodedMessage(
+                from: connection,
+                timeoutSeconds: timeoutSeconds
+            )
+            onMessage(message)
+            try validate(message)
+            if message.event == .taskFinished {
+                return
+            }
         }
     }
 
@@ -426,5 +503,101 @@ public final class AliyunDashScopeRealtimeASRClient: AliyunDashScopeRealtimeASRS
             code: message.errorCode ?? "UNKNOWN",
             message: message.errorMessage ?? "Unknown error"
         )
+    }
+
+    private enum StreamingTaskResult: Sendable {
+        case senderFinished
+        case receiverFinished
+    }
+
+    private static func withTimeout<T: Sendable>(
+        seconds: Double,
+        timeoutError: Error,
+        onTimeout: @escaping @Sendable () -> Void,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        let nanoseconds = UInt64(max(seconds, 0.001) * 1_000_000_000)
+        let race = TimeoutRace<T>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let operationTask = Task {
+                    do {
+                        let value = try await operation()
+                        await race.resume(.success(value), continuation: continuation)
+                    } catch {
+                        await race.resume(.failure(error), continuation: continuation)
+                    }
+                }
+                let timeoutTask = Task {
+                    do {
+                        try await Task.sleep(nanoseconds: nanoseconds)
+                    } catch {
+                        return
+                    }
+                    onTimeout()
+                    await race.resume(.failure(timeoutError), continuation: continuation)
+                }
+                Task {
+                    await race.register(
+                        continuation: continuation,
+                        operationTask: operationTask,
+                        timeoutTask: timeoutTask
+                    )
+                }
+            }
+        } onCancel: {
+            onTimeout()
+            Task {
+                await race.cancel()
+            }
+        }
+    }
+
+    private actor TimeoutRace<T: Sendable> {
+        private var didResume = false
+        private var continuation: CheckedContinuation<T, Error>?
+        private var operationTask: Task<Void, Never>?
+        private var timeoutTask: Task<Void, Never>?
+
+        func register(
+            continuation: CheckedContinuation<T, Error>,
+            operationTask: Task<Void, Never>,
+            timeoutTask: Task<Void, Never>
+        ) {
+            guard !didResume else {
+                operationTask.cancel()
+                timeoutTask.cancel()
+                return
+            }
+            self.continuation = continuation
+            self.operationTask = operationTask
+            self.timeoutTask = timeoutTask
+        }
+
+        func resume(
+            _ result: Result<T, Error>,
+            continuation fallbackContinuation: CheckedContinuation<T, Error>
+        ) {
+            guard !didResume else { return }
+            didResume = true
+            let continuation = continuation ?? fallbackContinuation
+            operationTask?.cancel()
+            timeoutTask?.cancel()
+            self.continuation = nil
+            operationTask = nil
+            timeoutTask = nil
+            continuation.resume(with: result)
+        }
+
+        func cancel() {
+            guard !didResume else { return }
+            didResume = true
+            operationTask?.cancel()
+            timeoutTask?.cancel()
+            continuation?.resume(throwing: CancellationError())
+            continuation = nil
+            operationTask = nil
+            timeoutTask = nil
+        }
     }
 }

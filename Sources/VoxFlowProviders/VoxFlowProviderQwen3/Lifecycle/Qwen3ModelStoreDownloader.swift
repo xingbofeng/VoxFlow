@@ -75,6 +75,8 @@ public final class Qwen3ModelStoreLiveInstaller: Qwen3ModelStoreInstalling, @unc
     private let storeRoot: URL
     private let fileManager: FileManager
     private let transport: any ModelDownloadTransport
+    private let downloader: ResumableModelDownloader
+    private let installCoordinator = ModelInstallCoordinator()
 
     public init(
         storeRoot: URL,
@@ -84,39 +86,60 @@ public final class Qwen3ModelStoreLiveInstaller: Qwen3ModelStoreInstalling, @unc
         self.storeRoot = storeRoot
         self.fileManager = fileManager
         self.transport = transport
+        self.downloader = ResumableModelDownloader(transport: transport)
     }
 
     public func install(
         manifest: ModelManifest,
         progress: ModelDownloadObserver?
     ) async throws -> URL {
-        let runtimeVersion = manifest.components.first?.runtimeVersion ?? "mlx-4bit"
-        if let installedRoot = try existingValidInstallationRoot(
-            manifest: manifest,
-            storeRoot: storeRoot,
-            runtimeVersion: runtimeVersion,
-            fileManager: fileManager
-        ) {
-            return installedRoot
+        guard let firstComponent = manifest.components.first else {
+            throw ModelInstallError.emptyManifest
         }
+        let key = ModelInstallKey(
+            modelID: firstComponent.modelID,
+            version: firstComponent.version
+        )
+        let runtimeVersion = manifest.components.first?.runtimeVersion ?? "mlx-4bit"
+        let context = Qwen3LiveInstallerContext(
+            downloader: downloader,
+            fileManager: fileManager,
+            storeRoot: storeRoot
+        )
+        let installation = try await installCoordinator.install(for: key) {
+            if let installedRoot = try existingValidInstallationRoot(
+                manifest: manifest,
+                storeRoot: context.storeRoot,
+                runtimeVersion: runtimeVersion,
+                fileManager: context.fileManager
+            ) {
+                return ModelInstallation(
+                    modelID: firstComponent.modelID,
+                    version: firstComponent.version,
+                    installedRoot: installedRoot
+                )
+            }
 
-        let downloader = ResumableModelDownloader(
-            transport: transport,
-            fileManager: fileManager
-        )
-        let stagingRoot = try await downloader.download(
-            manifest: manifest,
-            storeRoot: storeRoot,
-            progress: progress
-        )
-        let installation = try ModelAtomicInstaller(fileManager: fileManager).install(
-            manifest: manifest,
-            stagingRoot: stagingRoot,
-            storeRoot: storeRoot,
-            runtimeVersion: runtimeVersion
-        )
+            let stagingRoot = try await context.downloader.download(
+                manifest: manifest,
+                storeRoot: context.storeRoot,
+                progress: progress
+            )
+            return try ModelAtomicInstaller(fileManager: context.fileManager).install(
+                manifest: manifest,
+                stagingRoot: stagingRoot,
+                storeRoot: context.storeRoot,
+                runtimeVersion: runtimeVersion
+            )
+        }
         return installation.installedRoot
     }
+}
+
+private struct Qwen3LiveInstallerContext: @unchecked Sendable {
+    let downloader: ResumableModelDownloader
+    let fileManager: FileManager
+    let storeRoot: URL
 }
 
 private func existingValidInstallationRoot(
@@ -188,11 +211,17 @@ public struct Qwen3ModelStoreBackedDownloader: Sendable {
 
 public enum Qwen3ModelStoreDownloadError: LocalizedError, Equatable, Sendable {
     case downloadedFileUnavailable
+    case invalidResumeResponse(statusCode: Int)
+    case invalidContentRange(String?)
 
     public var errorDescription: String? {
         switch self {
         case .downloadedFileUnavailable:
             return "模型文件下载完成但临时文件不可用。"
+        case .invalidResumeResponse(let statusCode):
+            return "模型断点续传响应无效（HTTP \(statusCode)）。"
+        case .invalidContentRange:
+            return "模型断点续传 Content-Range 与本地偏移不匹配。"
         }
     }
 }
@@ -206,6 +235,7 @@ public final class Qwen3URLSessionModelDownloadTransport: NSObject, ModelDownloa
     private var activeComponent: ModelComponentManifest?
     private var activeProgress: ModelDownloadProgressSink?
     private var activeMoveResult: Result<Void, Error>?
+    private var activeDownloadTask: URLSessionDownloadTask?
 
     public init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
@@ -228,6 +258,7 @@ public final class Qwen3URLSessionModelDownloadTransport: NSObject, ModelDownloa
         activeComponent = component
         activeProgress = progress
         activeMoveResult = nil
+        defer { clearActiveDownloadState() }
 
         var request = URLRequest(url: component.downloadURL)
         if offset > 0 {
@@ -237,18 +268,23 @@ public final class Qwen3URLSessionModelDownloadTransport: NSObject, ModelDownloa
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 activeContinuation = continuation
-                session.downloadTask(with: request).resume()
+                let task = session.downloadTask(with: request)
+                activeDownloadTask = task
+                task.resume()
             }
         } onCancel: {
-            session.invalidateAndCancel()
+            activeDownloadTask?.cancel()
         }
+    }
 
+    private func clearActiveDownloadState() {
         activeContinuation = nil
         activeDestinationURL = nil
         activeResumeOffset = 0
         activeComponent = nil
         activeProgress = nil
         activeMoveResult = nil
+        activeDownloadTask = nil
     }
 
     public func urlSession(
@@ -283,27 +319,83 @@ public final class Qwen3URLSessionModelDownloadTransport: NSObject, ModelDownloa
         }
 
         do {
-            try fileManager.createDirectory(
-                at: destinationURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
+            try Self.moveDownloadedFile(
+                from: location,
+                to: destinationURL,
+                resumeOffset: activeResumeOffset,
+                response: downloadTask.response,
+                fileManager: fileManager
             )
-            if activeResumeOffset > 0, fileManager.fileExists(atPath: destinationURL.path) {
-                let readHandle = try FileHandle(forReadingFrom: location)
-                defer { try? readHandle.close() }
-                let writeHandle = try FileHandle(forWritingTo: destinationURL)
-                defer { try? writeHandle.close() }
-                try writeHandle.seekToEnd()
-                try writeHandle.write(contentsOf: readHandle.readDataToEndOfFile())
-            } else {
-                if fileManager.fileExists(atPath: destinationURL.path) {
-                    try fileManager.removeItem(at: destinationURL)
-                }
-                try fileManager.moveItem(at: location, to: destinationURL)
-            }
             activeMoveResult = .success(())
         } catch {
             activeMoveResult = .failure(error)
         }
+    }
+
+    static func moveDownloadedFile(
+        from location: URL,
+        to destinationURL: URL,
+        resumeOffset: Int64,
+        response: URLResponse?,
+        fileManager: FileManager
+    ) throws {
+        try fileManager.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        if resumeOffset > 0, fileManager.fileExists(atPath: destinationURL.path) {
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw Qwen3ModelStoreDownloadError.downloadedFileUnavailable
+            }
+            switch httpResponse.statusCode {
+            case 206:
+                let contentRange = httpResponse.value(forHTTPHeaderField: "Content-Range")
+                guard Self.contentRangeStart(contentRange) == resumeOffset else {
+                    throw Qwen3ModelStoreDownloadError.invalidContentRange(contentRange)
+                }
+                try appendDownloadedFile(from: location, to: destinationURL)
+            case 200:
+                try replaceDownloadedFile(from: location, to: destinationURL, fileManager: fileManager)
+            default:
+                throw Qwen3ModelStoreDownloadError.invalidResumeResponse(statusCode: httpResponse.statusCode)
+            }
+        } else {
+            try replaceDownloadedFile(from: location, to: destinationURL, fileManager: fileManager)
+        }
+    }
+
+    private static func appendDownloadedFile(from location: URL, to destinationURL: URL) throws {
+        let readHandle = try FileHandle(forReadingFrom: location)
+        defer { try? readHandle.close() }
+        let writeHandle = try FileHandle(forWritingTo: destinationURL)
+        defer { try? writeHandle.close() }
+        try writeHandle.seekToEnd()
+        while true {
+            let chunk = try readHandle.read(upToCount: 64 * 1024) ?? Data()
+            guard !chunk.isEmpty else { break }
+            try writeHandle.write(contentsOf: chunk)
+        }
+    }
+
+    private static func replaceDownloadedFile(
+        from location: URL,
+        to destinationURL: URL,
+        fileManager: FileManager
+    ) throws {
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.moveItem(at: location, to: destinationURL)
+    }
+
+    private static func contentRangeStart(_ value: String?) -> Int64? {
+        guard let value else { return nil }
+        let prefix = "bytes "
+        guard value.hasPrefix(prefix) else { return nil }
+        let range = value.dropFirst(prefix.count)
+        guard let dashIndex = range.firstIndex(of: "-") else { return nil }
+        return Int64(range[..<dashIndex])
     }
 
     public func urlSession(

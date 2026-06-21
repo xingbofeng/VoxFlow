@@ -8,6 +8,65 @@ protocol CredentialStore: AnyObject, CloudASRCredentialReading {
     func deleteCredential(account: String) throws
 }
 
+final class AppLocalCredentialStore: CredentialStore, @unchecked Sendable {
+    private let fileURL: URL
+    private let lock = NSLock()
+
+    static func liveDefault() -> CredentialStore {
+        if let paths = try? ApplicationSupportPaths.live() {
+            return AppLocalCredentialStore(fileURL: paths.credentialsURL)
+        }
+        let fallbackURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoxFlow", isDirectory: true)
+            .appendingPathComponent("credentials.json", isDirectory: false)
+        return AppLocalCredentialStore(fileURL: fallbackURL)
+    }
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
+
+    func readCredential(account: String) throws -> String? {
+        try lock.withLock {
+            try load()[account]
+        }
+    }
+
+    func saveCredential(_ value: String, account: String) throws {
+        try lock.withLock {
+            var credentials = try load()
+            credentials[account] = value
+            try save(credentials)
+        }
+    }
+
+    func deleteCredential(account: String) throws {
+        try lock.withLock {
+            var credentials = try load()
+            credentials.removeValue(forKey: account)
+            try save(credentials)
+        }
+    }
+
+    private func load() throws -> [String: String] {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return [:]
+        }
+        let data = try Data(contentsOf: fileURL)
+        guard !data.isEmpty else {
+            return [:]
+        }
+        return try JSONDecoder().decode([String: String].self, from: data)
+    }
+
+    private func save(_ credentials: [String: String]) throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(credentials)
+        try data.write(to: fileURL, options: [.atomic])
+    }
+}
+
 final class KeychainCredentialStore: CredentialStore {
     static let defaultService = "\(ProductBrand.bundleIdentifier).credentials"
 

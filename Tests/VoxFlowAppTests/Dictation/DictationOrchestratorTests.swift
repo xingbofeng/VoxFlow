@@ -60,6 +60,27 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertTrue(engine.didStart)
     }
 
+    func testAgentComposeStartIsRejectedWhileNotesRecordingOwnsAudioCapture() throws {
+        let audioCaptureCoordinator = AudioCaptureCoordinator()
+        let notesLease = try audioCaptureCoordinator.begin(kind: .notes)
+        defer { audioCaptureCoordinator.end(notesLease) }
+        let audioRecorder = FakeAudioRecorder()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let orchestrator = makeOrchestrator(
+            audioRecorder: audioRecorder,
+            agentComposeHandler: agentHandler,
+            audioCaptureCoordinator: audioCaptureCoordinator
+        )
+
+        XCTAssertThrowsError(try orchestrator.start(configuration: .appleChinese, mode: .agentCompose)) { error in
+            guard case AudioCaptureCoordinatorError.busy(active: .notes, requested: .agentCompose) = error else {
+                return XCTFail("Expected notes audio capture conflict, got \(error)")
+            }
+        }
+        XCTAssertFalse(audioRecorder.isRecording)
+        XCTAssertFalse(agentHandler.didCancel)
+    }
+
     func testStartNotifiesRecordingBeforeStartingSlowEngine() throws {
         let engine = FakeASREngine()
         var states: [DictationState] = []
@@ -531,6 +552,50 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(orchestrator.state, .idle)
     }
 
+    func testAgentDispatchFallbackInputDeliversThroughDictationOutput() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "检查一下按钮", finalText: "检查一下按钮。")
+        )
+        let outputService = CapturingOutputService(result: .injected)
+        let history = CapturingHistoryRepository()
+        let originalTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let currentTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let targetProvider = MutableTargetProvider(target: originalTarget)
+        let agentHandler = FakeAgentDispatchHandler(
+            presentation: .fallbackInput(text: "检查一下按钮")
+        )
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: pipeline,
+            textInjector: FakeTextInjector(),
+            historyRepository: history,
+            targetProvider: targetProvider,
+            outputService: outputService,
+            agentDispatchHandler: agentHandler
+        )
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentDispatch)
+        targetProvider.target = currentTarget
+        orchestrator.release()
+        engine.emit(text: "检查一下按钮", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(agentHandler.finishedTranscript, "检查一下按钮")
+        XCTAssertEqual(outputService.deliveries, [
+            CapturingOutputService.Delivery(
+                text: "检查一下按钮。",
+                mode: .dictation,
+                target: currentTarget,
+                originalTarget: originalTarget
+            ),
+        ])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "检查一下按钮")
+        XCTAssertEqual(history.savedEntries.first?.finalText, "检查一下按钮。")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     func testAgentComposeStartPassesASRMetadataToHandler() throws {
         let engine = FakeASREngine()
         let agentHandler = FakeAgentComposeHandler(result: .copied)
@@ -655,6 +720,8 @@ final class DictationOrchestratorTests: XCTestCase {
         injector: FakeTextInjector = FakeTextInjector(),
         history: CapturingHistoryRepository = CapturingHistoryRepository(),
         clock: any AppClock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000)),
+        agentComposeHandler: (any AgentComposeHandling)? = nil,
+        audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000
     ) -> DictationOrchestrator {
         DictationOrchestrator(
@@ -667,6 +734,8 @@ final class DictationOrchestratorTests: XCTestCase {
             targetProvider: StaticDictationTargetProvider(
                 target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
             ),
+            agentComposeHandler: agentComposeHandler,
+            audioCaptureCoordinator: audioCaptureCoordinator,
             finalTimeoutNanoseconds: finalTimeoutNanoseconds
         )
     }
@@ -1091,6 +1160,7 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
     private(set) var startedASRMetadata: VoiceTaskASRMetadata?
     private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
     private(set) var finishedTranscript: String?
+    private(set) var didCancel = false
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
     var onStreamingDelta: ((String) -> Void)?
     var lastFailedTaskID: String?
@@ -1117,8 +1187,48 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
         return result
     }
 
-    func cancel() {}
+    func cancel() {
+        didCancel = true
+    }
 
+    func fail(_ error: Error) {}
+}
+
+@MainActor
+private final class FakeAgentDispatchHandler: AgentDispatchHandling {
+    let presentation: AgentDispatchHUDPresentation
+    private(set) var startedTarget: DictationTarget?
+    private(set) var startedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var finishedTranscript: String?
+    private(set) var completedFallback: (finalText: String, outputResult: OutputResult)?
+    var onPresentationChange: ((AgentDispatchHUDPresentation) -> Void)?
+
+    init(presentation: AgentDispatchHUDPresentation) {
+        self.presentation = presentation
+    }
+
+    func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
+        startedTarget = target
+        startedASRMetadata = asrMetadata
+    }
+
+    func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
+        updatedASRMetadata = metadata
+    }
+
+    func finish(rawTranscript: String) async throws -> AgentDispatchHUDPresentation {
+        finishedTranscript = rawTranscript
+        onPresentationChange?(presentation)
+        return presentation
+    }
+
+    func completeFallbackInput(finalText: String, outputResult: OutputResult) throws {
+        completedFallback = (finalText, outputResult)
+    }
+
+    func confirm(agentID: String, utterance: String, message: String, alias: String?) async {}
+    func cancel() {}
     func fail(_ error: Error) {}
 }
 

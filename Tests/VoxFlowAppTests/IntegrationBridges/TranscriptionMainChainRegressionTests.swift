@@ -113,114 +113,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         XCTAssertEqual(result.finalText, "refined text")
     }
 
-    // MARK: - 4. Replacement rules ordering: before-LLM then after-LLM
-
-    func testBeforeLLMRulesApplyBeforeRefinerAndAfterLLMRulesApplyAfter() async throws {
-        let container = try DependencyContainer.inMemory()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-
-        // Before-LLM rule: "Type Script" -> "TypeScript"
-        try container.replacementRuleRepository.save(
-            replacementRule(
-                id: "before-1",
-                source: "Type Script",
-                target: "TypeScript",
-                mode: .contains,
-                stage: .beforeLLM,
-                priority: 1,
-                now: now
-            )
-        )
-        // After-LLM rule: "杰森" -> "JSON"
-        try container.replacementRuleRepository.save(
-            replacementRule(
-                id: "after-1",
-                source: "杰森",
-                target: "JSON",
-                mode: .contains,
-                stage: .afterLLM,
-                priority: 1,
-                now: now
-            )
-        )
-
-        // The refiner receives the before-LLM-applied text and returns it with extra content
-        let refiner = CapturingStubTextRefiner(result: .success("TypeScript and 杰森 data"))
-        let pipeline = DefaultTextProcessingPipeline(
-            refiner: refiner,
-            replacementRuleRepository: container.replacementRuleRepository
-        )
-
-        let result = await pipeline.process("Type Script and 杰森 data")
-
-        // Before-LLM replaced "Type Script" -> "TypeScript" before refiner was called
-        XCTAssertEqual(refiner.lastInputText, "TypeScript and 杰森 data")
-        // After-LLM replaced "杰森" -> "JSON" after refiner returned
-        XCTAssertEqual(result.finalText, "TypeScript and JSON data")
-    }
-
-    func testBeforeLLMRulesApplyEvenWhenRefinerIsDisabled() async throws {
-        let container = try DependencyContainer.inMemory()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-
-        try container.replacementRuleRepository.save(
-            replacementRule(
-                id: "before-only",
-                source: "hello",
-                target: "goodbye",
-                mode: .contains,
-                stage: .beforeLLM,
-                priority: 1,
-                now: now
-            )
-        )
-
-        let refiner = StubTextRefiner(isEnabled: false, isConfigured: true)
-        let pipeline = DefaultTextProcessingPipeline(
-            refiner: refiner,
-            replacementRuleRepository: container.replacementRuleRepository
-        )
-
-        let result = await pipeline.process("hello world")
-
-        // Before-LLM rule ran, LLM skipped, after-LLM has no rules
-        XCTAssertEqual(result.finalText, "goodbye world")
-    }
-
-    func testAfterLLMRulesApplyOnLLMFailureFallback() async throws {
-        let container = try DependencyContainer.inMemory()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-
-        try container.replacementRuleRepository.save(
-            replacementRule(
-                id: "after-fallback",
-                source: "bad",
-                target: "good",
-                mode: .contains,
-                stage: .afterLLM,
-                priority: 1,
-                now: now
-            )
-        )
-
-        let refiner = StubTextRefiner(
-            isEnabled: true,
-            isConfigured: true,
-            result: .failure(RefineError.networkTimeout)
-        )
-        let pipeline = DefaultTextProcessingPipeline(
-            refiner: refiner,
-            replacementRuleRepository: container.replacementRuleRepository
-        )
-
-        let result = await pipeline.process("this is bad")
-
-        // LLM failed, but after-LLM rules still apply to the raw text
-        XCTAssertEqual(result.finalText, "this is good")
-        XCTAssertTrue(result.warnings.contains("llm_refinement_failed"))
-    }
-
-    // MARK: - 5. PromptBuilder conservative prompt contains key instructions
+    // MARK: - 4. PromptBuilder conservative prompt contains key instructions
 
     func testConservativePromptContainsHomophoneCorrection() {
         let prompt = PromptBuilder.conservativeSystemPrompt
@@ -364,7 +257,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let migrationCount = try queue.read { connection in
             try countRows(in: "schema_migrations", on: connection)
         }
-        XCTAssertEqual(migrationCount, 5, "AppDatabase has 5 migrations; running twice must not create duplicates")
+        XCTAssertEqual(migrationCount, 7, "AppDatabase has 7 migrations; running twice must not create duplicates")
     }
 
     func testAppDatabaseMigratorCreatesAllExpectedTables() throws {
@@ -390,8 +283,6 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let expectedTables: Set<String> = [
             "schema_migrations",
             "dictation_history",
-            "glossary_terms",
-            "replacement_rules",
             "style_profiles",
             "asr_providers",
             "llm_providers",
@@ -404,6 +295,8 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
             tables.isSuperset(of: expectedTables),
             "Missing tables: \(expectedTables.subtracting(tables))"
         )
+        XCTAssertFalse(tables.contains("glossary_terms"))
+        XCTAssertFalse(tables.contains("replacement_rules"))
     }
 
     // MARK: - Helpers
@@ -455,47 +348,8 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         }
     }
 
-    private final class CapturingStubTextRefiner: TextRefining, @unchecked Sendable {
-        var isEnabled = true
-        var isConfigured = true
-        private(set) var lastInputText: String?
-        private let result: Result<String, Error>
-
-        init(result: Result<String, Error>) {
-            self.result = result
-        }
-
-        func refine(_ text: String) async throws -> String {
-            lastInputText = text
-            return try result.get()
-        }
-    }
-
     private final class MigrationCallCounter {
         var count = 0
-    }
-
-    private func replacementRule(
-        id: String,
-        source: String,
-        target: String,
-        mode: ReplacementMatchMode,
-        stage: ReplacementApplyStage,
-        priority: Int,
-        now: Date
-    ) -> ReplacementRule {
-        ReplacementRule(
-            id: id,
-            source: source,
-            target: target,
-            matchMode: mode,
-            applyStage: stage,
-            category: "general",
-            enabled: true,
-            priority: priority,
-            createdAt: now,
-            updatedAt: now
-        )
     }
 
     private func countRows(in table: String, on connection: SQLiteConnection) throws -> Int {

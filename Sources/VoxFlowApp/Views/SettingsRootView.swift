@@ -5,9 +5,16 @@ struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
+    @StateObject private var ttsCapabilityModelViewModel = CapabilityModelViewModel(kind: .tts)
+    @StateObject private var translationCapabilityModelViewModel = CapabilityModelViewModel(kind: .translation)
     @State private var recordingShortcutAction: VoiceAction?
     @State private var shortcutMonitor: Any?
     @State private var importedJSON = ""
+    @State private var newAgentAlias = ""
+    @State private var aliasTargetAgentID = ""
+    @State private var showDeleteAllLocalModelsConfirmation = false
+    @State private var showAgentCLIRegistrationConfirmation = false
+    @State private var showAgentCLIUnregistrationConfirmation = false
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
 
     var body: some View {
@@ -32,8 +39,46 @@ struct SettingsRootView: View {
             error: actionFeedbackError,
             onDismiss: clearActionFeedback
         )
+        .confirmationDialog(
+            "删除全部本地模型？",
+            isPresented: $showDeleteAllLocalModelsConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("删除全部本地模型", role: .destructive) {
+                perform { try viewModel.deleteAllLocalModels() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除 \(viewModel.localModelStorageDescription()) 的本地 ASR 模型文件，并把当前本地识别 Provider 回退到系统自带。")
+        }
+        .confirmationDialog(
+            "注册终端命令？",
+            isPresented: $showAgentCLIRegistrationConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("确认注册") {
+                viewModel.registerAgentCLI()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            let preview = viewModel.agentCLIRegistrationPreview()
+            Text("将安装 voxflow/vox 命令，并在 \(preview.profileURL.path) 追加：\n\n\(preview.shellBlock)")
+        }
+        .confirmationDialog(
+            "卸载终端命令？",
+            isPresented: $showAgentCLIUnregistrationConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("卸载命令", role: .destructive) {
+                viewModel.unregisterAgentCLI()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            let preview = viewModel.agentCLIRegistrationPreview()
+            Text("将移除 VoxFlow 管理的 voxflow/vox 命令链接，并从 \(preview.profileURL.path) 删除 VoxFlow PATH 配置。")
+        }
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
         }
         .onDisappear {
             stopShortcutRecording()
@@ -58,6 +103,15 @@ struct SettingsRootView: View {
         asrProviderViewModel.clearFeedback()
     }
 
+    private var unresolvedBehaviorHelpText: String {
+        """
+        询问确认：让你选择队员
+        取消发送：保留文本不发送
+        模型判断：用 LLM 排序候选
+        默认发送：写入当前输入框
+        """
+    }
+
     private var settingsSidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("应用设置")
@@ -67,8 +121,11 @@ struct SettingsRootView: View {
                 .padding(.bottom, 4)
 
             settingsSidebarButton(.general)
+            settingsSidebarButton(.vibeCoding)
             settingsSidebarButton(.dictationModels)
             settingsSidebarButton(.correctionModels)
+            settingsSidebarButton(.ttsModels)
+            settingsSidebarButton(.translationModels)
             settingsSidebarButton(.system)
 
             Text("数据与隐私")
@@ -95,10 +152,16 @@ struct SettingsRootView: View {
         switch viewModel.selectedSection {
         case .general:
             generalSection
+        case .vibeCoding:
+            vibeCodingSection
         case .dictationModels:
             dictationModelsSection
         case .correctionModels:
             correctionModelsSection
+        case .ttsModels:
+            ttsModelsSection
+        case .translationModels:
+            translationModelsSection
         case .system:
             systemSection
         case .dataPrivacy:
@@ -108,7 +171,7 @@ struct SettingsRootView: View {
 
     private var dictationModelsSection: some View {
         SettingsGroupCard(
-            title: "听写模型",
+            title: "ASR 模型",
             subtitle: "选择语音识别方式和本地模型大小",
             systemImage: "waveform",
             tint: AppTheme.ColorToken.accent
@@ -119,8 +182,8 @@ struct SettingsRootView: View {
 
     private var correctionModelsSection: some View {
         SettingsGroupCard(
-            title: "OpenAI 兼容模型",
-            subtitle: "配置用于文本修正的全局模型",
+            title: "LLM 模型",
+            subtitle: "配置用于纠错、翻译 fallback 和总结的 OpenAI 兼容模型",
             systemImage: "sparkles",
             tint: .blue
         ) {
@@ -132,6 +195,28 @@ struct SettingsRootView: View {
                 isOn: $llmCorrectionEnabled
             )
             LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
+        }
+    }
+
+    private var ttsModelsSection: some View {
+        SettingsGroupCard(
+            title: "TTS 模型",
+            subtitle: "选择 HUD 原文和译文朗读使用的本地语音合成模型",
+            systemImage: "speaker.wave.2",
+            tint: .green
+        ) {
+            CapabilityModelView(viewModel: ttsCapabilityModelViewModel)
+        }
+    }
+
+    private var translationModelsSection: some View {
+        SettingsGroupCard(
+            title: "翻译模型",
+            subtitle: "选择截图 OCR 翻译使用的本地模型和 fallback 路径",
+            systemImage: "globe.asia.australia",
+            tint: .teal
+        ) {
+            CapabilityModelView(viewModel: translationCapabilityModelViewModel)
         }
     }
 
@@ -189,6 +274,121 @@ struct SettingsRootView: View {
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
                 }
             }
+        }
+    }
+
+    private var vibeCodingSection: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsGroupCard(
+                title: "Vibe Coding 指挥中心",
+                subtitle: "用语音把指令发给正在工作的终端 Agent",
+                systemImage: "terminal",
+                tint: AppTheme.ColorToken.accent
+            ) {
+                SettingsToggleRow(
+                    title: "启用指挥中心",
+                    subtitle: "开启后，现有语音输入快捷键会进入 Vibe Coding 指挥 HUD",
+                    systemImage: "terminal",
+                    tint: AppTheme.ColorToken.accent,
+                    isOn: Binding(
+                        get: { viewModel.agentDispatchEnabled },
+                        set: { enabled in perform { try viewModel.setAgentDispatchEnabled(enabled) } }
+                    )
+                )
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("注册终端命令")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("在 Ghostty、iTerm2 或 Terminal 中用以下命令启动队员")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        }
+                        Spacer()
+                        Button("复制示例") { viewModel.copyAgentCLIExamples() }
+                            .buttonStyle(.bordered)
+                        Button("卸载命令", role: .destructive) {
+                            showAgentCLIUnregistrationConfirmation = true
+                        }
+                        .buttonStyle(.bordered)
+                        Button("注册命令") { showAgentCLIRegistrationConfirmation = true }
+                            .buttonStyle(.borderedProminent)
+                    }
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("vox flow codex")
+                        Text("vox flow --claude")
+                        Text("vox flow --codebuddy")
+                    }
+                    .font(.system(size: 13, design: .monospaced))
+                    .textSelection(.enabled)
+
+                    if let status = viewModel.agentCLIRegistrationStatus {
+                        Text(status.isOnCurrentPath
+                             ? "已注册，可在新终端中直接使用"
+                             : "已注册到 \(status.binDirectory.path)，请新开终端后使用")
+                            .font(.system(size: 12))
+                            .foregroundStyle(status.isOnCurrentPath ? Color.green : Color.orange)
+                    }
+                }
+                .settingsRow()
+
+                SettingsToggleRow(
+                    title: "准确命名时直接发送",
+                    subtitle: "唯一准确命中队员名或用户别名时，不调用模型、不二次确认",
+                    systemImage: "paperplane.fill",
+                    tint: .green,
+                    isOn: Binding(
+                        get: { viewModel.agentDispatchExactDirectEnabled },
+                        set: { enabled in perform { try viewModel.setAgentDispatchExactDirectEnabled(enabled) } }
+                    )
+                )
+
+                HStack(spacing: 14) {
+                    SettingsRowIcon(systemImage: "questionmark.bubble", tint: .orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("未命中队员名")
+                            .font(.system(size: 15, weight: .semibold))
+                        Text("低置信结果按所选方式处理")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    }
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Picker("未命中队员名", selection: Binding(
+                            get: { viewModel.agentDispatchUnresolvedBehavior },
+                            set: { value in perform { try viewModel.setAgentDispatchUnresolvedBehavior(value) } }
+                        )) {
+                            Text("询问确认").tag("confirm")
+                            Text("取消发送").tag("cancel")
+                            Text("模型判断").tag("model")
+                            Text("默认发送").tag("default")
+                        }
+                        .labelsHidden()
+                        .frame(width: 180, alignment: .trailing)
+
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .help(unresolvedBehaviorHelpText)
+                    }
+                    .frame(width: 248, alignment: .trailing)
+                }
+                .settingsRow()
+
+                SettingsToggleRow(
+                    title: "MCP 自报身份",
+                    subtitle: "不做心跳，仅在任务变化时低频更新队员摘要和会话引用",
+                    systemImage: "person.text.rectangle",
+                    tint: .teal,
+                    isOn: Binding(
+                        get: { viewModel.agentDispatchMCPEnabled },
+                        set: { enabled in perform { try viewModel.setAgentDispatchMCPEnabled(enabled) } }
+                    )
+                )
+            }
+
         }
     }
 
@@ -348,7 +548,7 @@ struct SettingsRootView: View {
                 tint: .pink
             ) {
                 systemToggle(.darkMode, "深色模式", "使用深色配色方案显示应用界面", "moon", tint: .pink)
-                systemToggle(.launchAtLogin, "开机自动启动", "登录系统时自动启动随声写", "power", tint: .pink)
+                systemToggle(.launchAtLogin, "开机自动启动", "登录系统时自动启动码上写", "power", tint: .pink)
                 systemToggle(.grayMenuBarIcon, "灰色菜单栏图标", "让菜单栏图标使用低对比灰色", "paintpalette", tint: .pink)
                 systemToggle(.capsLockIndicator, "CapsLock 指示灯", "使用 CapsLock LED 指示录音状态", "lightbulb", tint: .pink)
             }
@@ -477,7 +677,9 @@ struct SettingsRootView: View {
                     Button("打开数据目录") { viewModel.openApplicationSupportFolder() }
                     Button("导出数据") { perform { _ = try viewModel.exportDataJSON() } }
                     Button("清空历史", role: .destructive) { perform { try viewModel.clearHistory() } }
-                    Button("清空缓存", role: .destructive) { perform { try viewModel.clearCache() } }
+                    Button("删除全部本地模型", role: .destructive) {
+                        showDeleteAllLocalModelsConfirmation = true
+                    }
                     Button("重置设置", role: .destructive) {
                         perform {
                             try viewModel.resetSettings()
@@ -519,7 +721,7 @@ struct SettingsRootView: View {
                 }
                 .buttonStyle(.bordered)
 
-                Text("诊断信息仅保存在本机数据目录 Application Support/VoxFlow。随声写不会自动上传音频、转录文本或崩溃日志。")
+                Text("诊断信息仅保存在本机数据目录 Application Support/VoxFlow。码上写不会自动上传音频、转录文本或崩溃日志。")
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -599,6 +801,8 @@ struct SettingsRootView: View {
             return viewModel.dictationShortcutKeyCode ?? viewModel.shortcutKeyCode
         case .agentCompose:
             return viewModel.agentComposeShortcutKeyCode
+        case .agentDispatch:
+            return nil
         }
     }
 
@@ -839,7 +1043,15 @@ struct SettingsRootView: View {
     }
 
     private func recordShortcut(from event: NSEvent) {
-        let keyCode = Int64(event.keyCode)
+        let keyCode = ShortcutManager.encodeShortcut(
+            keyCode: Int64(event.keyCode),
+            modifierMask: ShortcutManager.modifierMask(
+                command: event.modifierFlags.contains(.command),
+                shift: event.modifierFlags.contains(.shift),
+                option: event.modifierFlags.contains(.option),
+                control: event.modifierFlags.contains(.control)
+            )
+        )
         let action = recordingShortcutAction ?? .dictation
         guard keyCode > 0 else {
             viewModel.report(error: SettingsViewModelError.invalidShortcutKeyCode)
@@ -962,8 +1174,11 @@ private extension SettingsSection {
     var pageTitle: String {
         switch self {
         case .general: return "通用"
-        case .dictationModels: return "听写模型"
-        case .correctionModels: return "纠错模型"
+        case .vibeCoding: return "Vibe Coding"
+        case .dictationModels: return "ASR 模型"
+        case .correctionModels: return "LLM 模型"
+        case .ttsModels: return "TTS 模型"
+        case .translationModels: return "翻译模型"
         case .system: return "系统设置"
         case .dataPrivacy: return "数据与隐私"
         }

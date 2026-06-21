@@ -73,4 +73,272 @@ final class TencentRealtimeASRClientTests: XCTestCase {
         XCTAssertFalse(stable.isFinal)
         XCTAssertTrue(final.isFinal)
     }
+
+    func testTranscribeCancelsSenderWhenFinalMessageArrivesBeforeAudioStreamEnds() async throws {
+        let transport = EarlyFinalTencentRealtimeWebSocketTransport()
+        let client = TencentRealtimeASRClient(
+            transport: transport,
+            clock: { Date(timeIntervalSince1970: 1_673_408_372) },
+            nonce: { 1_673_408_372 },
+            voiceID: { "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0" }
+        )
+        let chunks = Array(repeating: Data([0, 1, 2, 3]), count: 40)
+
+        try await client.transcribe(
+            configuration: TencentRealtimeASRConfiguration(
+                appID: "1259220000",
+                secretID: "AKIDEXAMPLE",
+                secretKey: "SECRETEXAMPLE"
+            ),
+            audioChunks: AsyncStream { continuation in
+                for chunk in chunks {
+                    continuation.yield(chunk)
+                }
+                continuation.finish()
+            },
+            onMessage: { _ in }
+        )
+
+        XCTAssertLessThan(transport.connection.sentDataCount, chunks.count)
+    }
+
+    func testConnectionUsesConfiguredTimeoutOnWebSocketRequest() async throws {
+        let transport = CapturingRequestTencentRealtimeWebSocketTransport(
+            connection: ScriptedTencentRealtimeWebSocketConnection(messages: [
+                .text(#"{"code":0,"message":"success","voice_id":"v"}"#)
+            ])
+        )
+        let client = TencentRealtimeASRClient(
+            transport: transport,
+            clock: { Date(timeIntervalSince1970: 1_673_408_372) },
+            nonce: { 1_673_408_372 },
+            voiceID: { "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0" }
+        )
+
+        _ = try await client.testConnection(
+            configuration: TencentRealtimeASRConfiguration(
+                appID: "1259220000",
+                secretID: "AKIDEXAMPLE",
+                secretKey: "SECRETEXAMPLE",
+                timeoutSeconds: 0.5
+            )
+        )
+
+        XCTAssertEqual(transport.requests.first?.timeoutInterval, 0.5)
+    }
+
+    func testConnectionTimesOutWhenHandshakeNeverArrives() async throws {
+        let connection = HangingTencentRealtimeWebSocketConnection()
+        let transport = CapturingRequestTencentRealtimeWebSocketTransport(
+            connection: connection
+        )
+        let client = TencentRealtimeASRClient(
+            transport: transport,
+            clock: { Date(timeIntervalSince1970: 1_673_408_372) },
+            nonce: { 1_673_408_372 },
+            voiceID: { "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0" }
+        )
+
+        do {
+            _ = try await client.testConnection(
+                configuration: TencentRealtimeASRConfiguration(
+                    appID: "1259220000",
+                    secretID: "AKIDEXAMPLE",
+                    secretKey: "SECRETEXAMPLE",
+                    timeoutSeconds: 0.01
+                )
+            )
+            XCTFail("Expected connection timeout")
+        } catch let error as TencentRealtimeASRError {
+            XCTAssertEqual(error, .connectionTimedOut)
+            XCTAssertTrue(connection.isClosed)
+        }
+    }
+
+    func testTranscribeTimesOutWhenHandshakeNeverArrives() async throws {
+        let connection = HangingTencentRealtimeWebSocketConnection()
+        let transport = CapturingRequestTencentRealtimeWebSocketTransport(
+            connection: connection
+        )
+        let client = TencentRealtimeASRClient(
+            transport: transport,
+            clock: { Date(timeIntervalSince1970: 1_673_408_372) },
+            nonce: { 1_673_408_372 },
+            voiceID: { "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0" }
+        )
+
+        do {
+            try await client.transcribe(
+                configuration: TencentRealtimeASRConfiguration(
+                    appID: "1259220000",
+                    secretID: "AKIDEXAMPLE",
+                    secretKey: "SECRETEXAMPLE",
+                    timeoutSeconds: 0.01
+                ),
+                audioChunks: AsyncStream { continuation in
+                    continuation.finish()
+                },
+                onMessage: { _ in }
+            )
+            XCTFail("Expected connection timeout")
+        } catch let error as TencentRealtimeASRError {
+            XCTAssertEqual(error, .connectionTimedOut)
+            XCTAssertTrue(connection.isClosed)
+        }
+    }
+
+    func testHandshakeTimeoutReturnsEvenWhenReceiveIgnoresCancellation() async throws {
+        let connection = CancellationIgnoringTencentRealtimeWebSocketConnection()
+        let transport = CapturingRequestTencentRealtimeWebSocketTransport(
+            connection: connection
+        )
+        let client = TencentRealtimeASRClient(
+            transport: transport,
+            clock: { Date(timeIntervalSince1970: 1_673_408_372) },
+            nonce: { 1_673_408_372 },
+            voiceID: { "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0" }
+        )
+
+        do {
+            _ = try await client.testConnection(
+                configuration: TencentRealtimeASRConfiguration(
+                    appID: "1259220000",
+                    secretID: "AKIDEXAMPLE",
+                    secretKey: "SECRETEXAMPLE",
+                    timeoutSeconds: 0.01
+                )
+            )
+            XCTFail("Expected connection timeout")
+        } catch let error as TencentRealtimeASRError {
+            XCTAssertEqual(error, .connectionTimedOut)
+            XCTAssertTrue(connection.isClosed)
+        }
+    }
+}
+
+private final class EarlyFinalTencentRealtimeWebSocketTransport: TencentRealtimeWebSocketTransport, @unchecked Sendable {
+    let connection = EarlyFinalTencentRealtimeWebSocketConnection()
+
+    func connect(request: URLRequest) async throws -> any TencentRealtimeWebSocketConnection {
+        connection
+    }
+}
+
+private final class EarlyFinalTencentRealtimeWebSocketConnection: TencentRealtimeWebSocketConnection, @unchecked Sendable {
+    private let lock = NSLock()
+    private var receiveIndex = 0
+    private var sentDataStorage: [Data] = []
+
+    var sentDataCount: Int {
+        lock.withLock { sentDataStorage.count }
+    }
+
+    func sendData(_ data: Data) async throws {
+        lock.withLock { sentDataStorage.append(data) }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+
+    func sendText(_ text: String) async throws {}
+
+    func receive() async throws -> TencentRealtimeWebSocketMessage {
+        let index = lock.withLock {
+            defer { receiveIndex += 1 }
+            return receiveIndex
+        }
+        if index == 0 {
+            return .text(#"{"code":0,"message":"success","voice_id":"v"}"#)
+        }
+        return .text(#"{"code":0,"message":"success","voice_id":"v","final":1}"#)
+    }
+
+    func close() {}
+}
+
+private final class CapturingRequestTencentRealtimeWebSocketTransport: TencentRealtimeWebSocketTransport, @unchecked Sendable {
+    let connection: any TencentRealtimeWebSocketConnection
+    private let lock = NSLock()
+    private var requestStorage: [URLRequest] = []
+
+    init(connection: any TencentRealtimeWebSocketConnection) {
+        self.connection = connection
+    }
+
+    var requests: [URLRequest] {
+        lock.withLock { requestStorage }
+    }
+
+    func connect(request: URLRequest) async throws -> any TencentRealtimeWebSocketConnection {
+        lock.withLock { requestStorage.append(request) }
+        return connection
+    }
+}
+
+private final class ScriptedTencentRealtimeWebSocketConnection: TencentRealtimeWebSocketConnection, @unchecked Sendable {
+    private let lock = NSLock()
+    private var messages: [TencentRealtimeWebSocketMessage]
+    private(set) var isClosed = false
+
+    init(messages: [TencentRealtimeWebSocketMessage]) {
+        self.messages = messages
+    }
+
+    func sendData(_ data: Data) async throws {}
+
+    func sendText(_ text: String) async throws {}
+
+    func receive() async throws -> TencentRealtimeWebSocketMessage {
+        try lock.withLock {
+            guard !messages.isEmpty else {
+                throw TencentRealtimeASRError.invalidMessage
+            }
+            return messages.removeFirst()
+        }
+    }
+
+    func close() {
+        lock.withLock { isClosed = true }
+    }
+}
+
+private final class HangingTencentRealtimeWebSocketConnection: TencentRealtimeWebSocketConnection, @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var isClosed = false
+
+    func sendData(_ data: Data) async throws {}
+
+    func sendText(_ text: String) async throws {}
+
+    func receive() async throws -> TencentRealtimeWebSocketMessage {
+        while !Task.isCancelled {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        throw CancellationError()
+    }
+
+    func close() {
+        lock.withLock { isClosed = true }
+    }
+}
+
+private final class CancellationIgnoringTencentRealtimeWebSocketConnection: TencentRealtimeWebSocketConnection, @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var isClosed = false
+
+    func sendData(_ data: Data) async throws {}
+
+    func sendText(_ text: String) async throws {}
+
+    func receive() async throws -> TencentRealtimeWebSocketMessage {
+        while true {
+            do {
+                try await Task.sleep(nanoseconds: 10_000_000)
+            } catch {
+                continue
+            }
+        }
+    }
+
+    func close() {
+        lock.withLock { isClosed = true }
+    }
 }

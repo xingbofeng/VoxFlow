@@ -7,13 +7,13 @@ enum AppMainMenuBuilder {
         let applicationMenuItem = NSMenuItem()
         let applicationMenu = NSMenu()
         applicationMenu.addItem(
-            withTitle: "关于随声写",
+            withTitle: "关于码上写",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(
-            withTitle: "隐藏随声写",
+            withTitle: "隐藏码上写",
             action: #selector(NSApplication.hide(_:)),
             keyEquivalent: "h"
         )
@@ -24,7 +24,7 @@ enum AppMainMenuBuilder {
         ).keyEquivalentModifierMask = [.command, .option]
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(
-            withTitle: "退出随声写",
+            withTitle: "退出码上写",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )

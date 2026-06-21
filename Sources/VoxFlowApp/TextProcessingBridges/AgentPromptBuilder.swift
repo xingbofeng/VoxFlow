@@ -101,7 +101,8 @@ struct AgentPromptBuilder {
             text: userSections.joined(separator: "\n\n"),
             systemPrompt: Self.agentSystemPrompt,
             model: nil,
-            temperature: 0.7
+            temperature: 0.7,
+            purpose: .agentCompose
         )
     }
 

@@ -186,6 +186,21 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isWorkflowLeaseActive(lease))
     }
 
+    func testCancellingEphemeralWorkflowCancelsRegisteredTask() throws {
+        let coordinator = makeCoordinator()
+        let lease = try coordinator.beginEphemeralWorkflow(kind: .clipboardImageOCR)
+        let task = Task { @MainActor in
+            while !Task.isCancelled {
+                await Task.yield()
+            }
+        }
+        coordinator.registerEphemeralWorkflowTask(task, for: lease)
+
+        coordinator.cancelEphemeralWorkflow(kind: .clipboardImageOCR)
+
+        XCTAssertTrue(task.isCancelled)
+    }
+
     func testCoordinatorRejectsEphemeralLeaseForPersistedVoiceModes() throws {
         let coordinator = makeCoordinator()
 
@@ -512,6 +527,92 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(outputService.lastText, "raw text")
     }
 
+    func testAgentComposePersistsRequestLocalStreamingTrace() async throws {
+        let localTrace = LLMRefinementTrace(
+            providerID: "stream-local-provider",
+            providerName: "Streaming Provider",
+            endpoint: "https://api.example.com/v1/chat/completions",
+            model: "stream-local-model",
+            temperature: 0.2,
+            timeoutSeconds: 13,
+            requestBodyJSON: "{}",
+            responseText: nil,
+            statusCode: 200,
+            durationMS: 10,
+            errorMessage: nil,
+            completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let poisonTrace = LLMRefinementTrace(
+            providerID: "poison-provider",
+            providerName: "Poison Provider",
+            endpoint: "https://api.example.com/v1/chat/completions",
+            model: "poison-model",
+            temperature: 0.2,
+            timeoutSeconds: 13,
+            requestBodyJSON: "{}",
+            responseText: nil,
+            statusCode: 200,
+            durationMS: 10,
+            errorMessage: nil,
+            completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let refiner = CoordinatorTraceableStreamingRefiner(
+            snapshots: ["周", "周三可以"],
+            trace: localTrace,
+            lastTrace: poisonTrace
+        )
+        let outputService = CoordinatorStubOutputService(result: .copied)
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner
+        )
+        let task = try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("帮我回复：周三可以", kind: .agentCompose)
+
+        let result = try await coordinator.processAgentComposeAndDeliver(context: nil, stylePrompt: nil)
+
+        XCTAssertEqual(result, .copied)
+        XCTAssertEqual(outputService.lastText, "周三可以")
+        let traceJSON = try XCTUnwrap(repository.fetch(id: task.id)?.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.llm?.providerID, "stream-local-provider")
+        XCTAssertEqual(trace.llm?.model, "stream-local-model")
+    }
+
+    func testAgentDispatchFallbackInputStaysInProgressUntilRealOutputCompletes() throws {
+        let coordinator = makeCoordinator()
+        let task = try coordinator.startTask(mode: .agentDispatch, target: nil)
+
+        try coordinator.completeAgentDispatch(
+            finalText: "原始指令",
+            presentation: .fallbackInput(text: "写入输入框")
+        )
+
+        let fetched = try XCTUnwrap(repository.fetch(id: task.id))
+        XCTAssertEqual(fetched.status, .inProgress)
+        XCTAssertEqual(fetched.stage, .processing)
+        XCTAssertEqual(coordinator.activeTaskID(for: .agentDispatch), task.id)
+    }
+
+    func testAgentDispatchFallbackInputCompletesWithRealOutputResult() throws {
+        let coordinator = makeCoordinator()
+        let task = try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.completeAgentDispatch(
+            finalText: "原始指令",
+            presentation: .fallbackInput(text: "写入输入框")
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "写入输入框",
+            outputResult: .targetChanged(reason: "App changed")
+        )
+
+        let fetched = try XCTUnwrap(repository.fetch(id: task.id))
+        XCTAssertEqual(fetched.status, .partiallyCompleted)
+        XCTAssertEqual(fetched.finalText, "写入输入框")
+        XCTAssertEqual(coordinator.activeTaskID(for: .agentDispatch), nil)
+    }
+
     // MARK: - Stage advancement
 
     func testCoordinatorAdvancesStagesInOrder() async throws {
@@ -668,7 +769,8 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         ),
         outputService: any OutputService = CoordinatorStubOutputService(result: .injected),
         targetProvider: CoordinatorMutableTargetProvider = CoordinatorMutableTargetProvider(target: nil),
-        contextPipeline: (any ContextCollecting)? = nil
+        contextPipeline: (any ContextCollecting)? = nil,
+        agentRefiner: (any PromptAwareTextRefining)? = nil
     ) -> VoiceTaskCoordinator {
         VoiceTaskCoordinator(
             taskRepository: repository,
@@ -676,7 +778,8 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
             textPipeline: pipeline,
             targetProvider: targetProvider,
             clock: clock,
-            contextPipeline: contextPipeline
+            contextPipeline: contextPipeline,
+            agentRefiner: agentRefiner
         )
     }
 }
@@ -804,6 +907,54 @@ private final class CoordinatorMutableTargetProvider: DictationTargetProviding {
     func currentTarget() -> DictationTarget? {
         target
     }
+}
+
+private final class CoordinatorTraceableStreamingRefiner: TextRefining, TraceableStreamingPromptAwareTextRefining, RefinementTraceProviding, @unchecked Sendable {
+    var isEnabled = true
+    var isConfigured = true
+    private let snapshots: [String]
+    private let trace: LLMRefinementTrace
+    private(set) var lastTrace: LLMRefinementTrace?
+
+    init(
+        snapshots: [String],
+        trace: LLMRefinementTrace,
+        lastTrace: LLMRefinementTrace?
+    ) {
+        self.snapshots = snapshots
+        self.trace = trace
+        self.lastTrace = lastTrace
+    }
+
+    func refine(_ text: String) async throws -> String {
+        "blocking path should not be used"
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        "blocking path should not be used"
+    }
+
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        refineStreamWithTrace(request).stream
+    }
+
+    func refineStreamWithTrace(_ request: TextRefinementRequest) -> TextRefinementStreamTraceResult {
+        let traceHandle = TextRefinementTraceHandle()
+        let stream = AsyncThrowingStream<String, Error> { continuation in
+            for snapshot in snapshots {
+                continuation.yield(snapshot)
+            }
+            traceHandle.complete(trace)
+            continuation.finish()
+        }
+        return TextRefinementStreamTraceResult(
+            stream: stream,
+            providerID: trace.providerID,
+            trace: traceHandle
+        )
+    }
+
+    func clearLastTrace() {}
 }
 
 private final class CoordinatorTestClock: AppClock, @unchecked Sendable {

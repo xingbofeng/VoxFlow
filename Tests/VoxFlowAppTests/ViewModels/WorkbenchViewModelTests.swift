@@ -8,32 +8,19 @@ final class WorkbenchViewModelTests: XCTestCase {
         let environment = AppEnvironment(container: container)
         try environment.historyRepository.save(historyEntry(id: "one"))
         try environment.noteRepository.save(note(id: "note"))
-        try environment.glossaryRepository.save(
-            GlossaryTerm(
-                id: "term",
-                term: "Python",
-                aliases: ["配森"],
-                category: "coding",
-                enabled: true,
-                priority: 10,
-                notes: nil,
-                createdAt: testDate,
-                updatedAt: testDate
-            )
-        )
 
         let viewModel = WorkbenchViewModel(environment: environment)
         viewModel.load()
 
         XCTAssertEqual(viewModel.snapshot.historyCount, 1)
         XCTAssertEqual(viewModel.snapshot.noteCount, 1)
-        XCTAssertEqual(viewModel.snapshot.glossaryCount, 1)
+        XCTAssertEqual(viewModel.snapshot.glossaryCount, 0)
     }
 
     func testNavigationRoutesCoverRequiredWorkbenchPages() {
         XCTAssertEqual(
             NavigationRoute.allCases.map(\.title),
-            ["首页", "词汇表", "风格", "文件转写", "笔记", "设置", "帮助"]
+            ["首页", "Vibe Coding", "词汇表", "易错词", "风格", "文件转写", "笔记", "设置", "帮助"]
         )
     }
 

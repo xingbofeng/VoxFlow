@@ -21,6 +21,18 @@ final class DictationFeatureControllerTests: XCTestCase {
         XCTAssertTrue(recorder.recognitionErrors.isEmpty)
     }
 
+    func testAgentDispatchPressStartsIndependentDispatchMode() {
+        let recorder = DictationFeatureRecorder()
+        let controller = recorder.makeController()
+
+        controller.handlePress(action: .agentDispatch)
+
+        XCTAssertEqual(controller.activeVoiceAction, .agentDispatch)
+        XCTAssertEqual(recorder.startCalls, [
+            .init(configuration: recorder.configuration, mode: .agentDispatch)
+        ])
+    }
+
     func testPressTracksActiveActionBeforeStartDictationPublishesStateChange() {
         let recorder = DictationFeatureRecorder()
         var controller: DictationFeatureController!

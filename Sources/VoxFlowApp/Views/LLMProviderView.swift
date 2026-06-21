@@ -46,7 +46,7 @@ struct LLMProviderView: View {
                     .background(AppTheme.ColorToken.panelBackground)
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
             } else {
-                VStack(spacing: AppTheme.Spacing.grid) {
+                LazyVStack(spacing: AppTheme.Spacing.grid) {
                     ForEach(viewModel.providers, id: \.id) { provider in
                         providerRow(provider)
                     }
@@ -65,7 +65,7 @@ struct LLMProviderView: View {
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
         }
         .sheet(item: $editorRequest) { request in
             LLMProviderEditorSheet(

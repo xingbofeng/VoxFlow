@@ -2,11 +2,11 @@
 
 ## 项目概览
 
-VoxFlow（随声写）是一款原生 macOS 菜单栏语音输入工具。按住快捷键说话，松开后文字回到当前光标所在位置。中文显示名"随声写"，英文品牌名"VoxFlow"。
+VoxFlow（码上写）是一款原生 macOS 菜单栏语音输入工具。按住快捷键说话，松开后文字回到当前光标所在位置。中文显示名"码上写"，英文品牌名"VoxFlow"。
 
 它的定位是"语音键盘"，不是语音助手：不接管窗口，不自动发送内容，不把用户带到另一个输入框。核心体验围绕全局听写、稳定文本插入、本地优先数据、可选 LLM 保守纠错，以及多 ASR Provider（Apple Speech、Qwen3-ASR、Whisper、FunASR、SenseVoice 等）展开。
 
-技术栈：Swift 6 + SwiftUI/AppKit + SwiftPM，最低支持 macOS 14。主要依赖包括 FluidAudio、WhisperKit/argmax-oss-swift、Sherpa-ONNX vendor runtime，以及 Qwen3 MLX worker/托管 Python runtime 相关脚本。
+技术栈：Swift 6 + SwiftUI/AppKit + SwiftPM，最低支持 macOS 14。主要依赖包括 FluidAudio、WhisperKit/argmax-oss-swift、Sherpa-ONNX vendor runtime、Qwen3 MLX worker/托管 Python runtime 相关脚本，以及 `agent-cli/` 下的 Rust Vibe Coding helper/router。
 
 ## 构建与运行
 
@@ -59,11 +59,16 @@ Sources/VoxFlowASRCore/         # Provider / Session / Event 协议
 Sources/VoxFlowModelStore/      # 模型 manifest、下载、校验、安装状态
 Sources/VoxFlowTextInsertion/   # 剪贴板事务、输入源切换、文本插入
 Sources/VoxFlowProviders/VoxFlowProvider*/ # 各 ASR Provider runtime / descriptor / session/client，保持独立 SwiftPM target
+Packages/VoxFlowVoiceCorrectionKit/ # 易错词纠错引擎、benchmark fixtures 和独立测试
+agent-cli/                      # Vibe Coding Rust helper/router 源码，构建产物为 bundled voxflow 与 vox shim
 Tests/VoxFlowAppTests/          # App target 测试
 Tests/VoxFlowProviders/VoxFlowProvider*Tests/ # Provider target 测试
 Tests/VoxFlow*Tests/            # 其他独立模块测试
 Resources/                      # AppIcon.icns + iconset
+Vendor/                         # 打包所需的本地 runtime/vendor 资源
 docs/                           # GitHub Pages 落地页、隐私政策、设计/资源文档
+scripts/                        # 构建、ASR benchmark、架构检查等开发脚本
+tools/                          # 辅助验证工具；不放 agent CLI
 .github/
   workflows/                    # ci.yml、pages.yml、release.yml
   release-notes/                # 当前版本 release notes
@@ -71,6 +76,8 @@ Makefile                        # 构建入口
 Package.swift                   # SwiftPM 定义（Swift 6.0）
 CONTEXT.md                      # 领域术语、模块边界表、ADR
 ```
+
+Vibe Coding 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 Python 版 `vf-agent` / `agent-cli` 参考 helper 已删除；仓库内剩余 Python 文件只用于 ASR benchmark、架构检查或易错词 JiWER 交叉验证，不参与 App 运行时，也不作为用户 CLI 分发。
 
 ## 架构规则
 

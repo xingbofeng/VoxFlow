@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowAudio
 import VoxFlowProviderAliyunDashScope
 import VoxFlowProviderCloudCore
 import VoxFlowProviderTencentCloud
@@ -6,6 +7,48 @@ import XCTest
 @testable import VoxFlowApp
 
 final class CloudStreamingEngineTranscriptTests: XCTestCase {
+    func testTencentStreamingDropsFramesWhenClientIsBackPressured() throws {
+        let client = StalledTencentStreamingClient()
+        let engine = TencentRealtimeASREngine(
+            client: client,
+            configurationProvider: {
+                TencentRealtimeASRConfiguration(
+                    appID: "1259220000",
+                    secretID: "AKID",
+                    secretKey: "SECRET"
+                )
+            }
+        )
+
+        try engine.start()
+        client.waitUntilReady()
+        for index in 0..<200 {
+            engine.appendAudioFrame(Self.audioFrame(sequenceNumber: UInt64(index)))
+        }
+
+        XCTAssertGreaterThan(engine.asrRuntimeMetadataSnapshot.droppedFrameCount ?? 0, 0)
+        engine.cancel()
+    }
+
+    func testAliyunStreamingDropsFramesWhenClientIsBackPressured() throws {
+        let client = StalledAliyunStreamingClient()
+        let engine = AliyunDashScopeRealtimeASREngine(
+            client: client,
+            configurationProvider: {
+                AliyunDashScopeRealtimeASRConfiguration(apiKey: "sk-test")
+            }
+        )
+
+        try engine.start()
+        client.waitUntilReady()
+        for index in 0..<200 {
+            engine.appendAudioFrame(Self.audioFrame(sequenceNumber: UInt64(index)))
+        }
+
+        XCTAssertGreaterThan(engine.asrRuntimeMetadataSnapshot.droppedFrameCount ?? 0, 0)
+        engine.cancel()
+    }
+
     func testTencentUnstablePartialKeepsStablePrefixFromEarlierSegments() throws {
         let client = CapturingTencentStreamingClient()
         let engine = TencentRealtimeASREngine(
@@ -64,6 +107,16 @@ final class CloudStreamingEngineTranscriptTests: XCTestCase {
         XCTAssertEqual(emissions.values.map(\.text), ["第一句。", "第一句。第二句"])
         XCTAssertEqual(emissions.values.map(\.isFinal), [false, false])
         engine.cancel()
+    }
+
+    private static func audioFrame(sequenceNumber: UInt64) -> AudioFrame {
+        AudioFrame(
+            sequenceNumber: sequenceNumber,
+            startSample: sequenceNumber * 160,
+            samples: ContiguousArray(repeating: 0, count: 160),
+            sampleRate: 16_000,
+            capturedAt: ContinuousClock().now
+        )
     }
 }
 
@@ -124,6 +177,60 @@ private final class CapturingAliyunStreamingClient: AliyunDashScopeRealtimeASRSt
 
     func waitUntilReady() {
         while lock.withLock({ callback == nil }) {
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.001))
+        }
+    }
+}
+
+private final class StalledTencentStreamingClient: TencentRealtimeASRStreamingClient, @unchecked Sendable {
+    private let lock = NSLock()
+    private var ready = false
+
+    func testConnection(configuration: TencentRealtimeASRConfiguration) async throws -> ASRProviderHealthResult {
+        ASRProviderHealthResult(status: .ok, message: "OK", latencyMS: 1)
+    }
+
+    func transcribe(
+        configuration: TencentRealtimeASRConfiguration,
+        audioChunks: AsyncStream<Data>,
+        onMessage: @escaping @Sendable (TencentRealtimeASRMessage) -> Void
+    ) async throws {
+        lock.withLock { ready = true }
+        while !Task.isCancelled {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    func waitUntilReady() {
+        while lock.withLock({ !ready }) {
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.001))
+        }
+    }
+}
+
+private final class StalledAliyunStreamingClient: AliyunDashScopeRealtimeASRStreamingClient, @unchecked Sendable {
+    private let lock = NSLock()
+    private var ready = false
+
+    func transcribe(
+        configuration: AliyunDashScopeRealtimeASRConfiguration,
+        audioChunks: AsyncStream<Data>,
+        onMessage: @escaping @Sendable (AliyunDashScopeRealtimeASRMessage) -> Void
+    ) async throws {
+        lock.withLock { ready = true }
+        while !Task.isCancelled {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    func testConnection(
+        configuration: AliyunDashScopeRealtimeASRConfiguration
+    ) async throws -> ASRProviderHealthResult {
+        ASRProviderHealthResult(status: .ok, message: "OK", latencyMS: 1)
+    }
+
+    func waitUntilReady() {
+        while lock.withLock({ !ready }) {
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.001))
         }
     }

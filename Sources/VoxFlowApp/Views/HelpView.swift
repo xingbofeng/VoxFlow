@@ -170,8 +170,8 @@ struct HelpView: View {
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
         .onAppear {
-            settingsViewModel.load()
-            asrProviderViewModel.load()
+            settingsViewModel.loadIfNeeded()
+            asrProviderViewModel.loadIfNeeded()
         }
         .overlay {
             if showingWeChatQRCode {

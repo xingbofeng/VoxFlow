@@ -41,7 +41,7 @@ struct HomeDashboardView: View {
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
-            viewModel.load()
+            viewModel.loadIfNeeded()
         }
     }
 }
@@ -289,7 +289,7 @@ private struct HomeHistorySection: View {
                     .frame(maxWidth: .infinity, minHeight: 120)
                     .appPanel()
             } else {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.grid) {
+                LazyVStack(alignment: .leading, spacing: AppTheme.Spacing.grid) {
                     ForEach(viewModel.historyGroups) { group in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(group.title)
@@ -335,6 +335,9 @@ private struct HomeHistoryRow: View {
                         }
                         if item.taskMode == .agentCompose {
                             Label("帮我说", systemImage: "sparkles")
+                                .foregroundStyle(AppTheme.ColorToken.accent)
+                        } else if item.taskMode == .agentDispatch {
+                            Label("Vibe Coding", systemImage: "terminal")
                                 .foregroundStyle(AppTheme.ColorToken.accent)
                         }
                         Text("\(item.charCount) 字")
@@ -434,7 +437,11 @@ private struct HomeHistoryDetailModal: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     textComparison
-                    traceSection
+                    if detail.taskMode == .agentDispatch {
+                        dispatchSection
+                    } else {
+                        traceSection
+                    }
                     metadataSection
                     warningsSection
                 }
@@ -464,7 +471,7 @@ private struct HomeHistoryDetailModal: View {
                 .background(AppTheme.ColorToken.accentSoft)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
-                Text(detail.taskMode == .agentCompose ? "帮我说详情" : "转写详情")
+                Text(detailTitle)
                     .font(.system(size: 24, weight: .semibold))
                 Text(traceSubtitle)
                     .font(.system(size: 12))
@@ -480,7 +487,7 @@ private struct HomeHistoryDetailModal: View {
                 }
                 .buttonStyle(.bordered)
             }
-            if detail.taskMode == .agentCompose {
+            if detail.taskMode == .agentCompose || detail.taskMode == .agentDispatch {
                 if !detail.finalText.isEmpty {
                     Button {
                         viewModel.copyDetailText()
@@ -523,6 +530,8 @@ private struct HomeHistoryDetailModal: View {
                     title: "处理后",
                     subtitle: detail.taskMode == .agentCompose
                         ? "生成并写入当前输入框的文本"
+                        : detail.taskMode == .agentDispatch
+                            ? "发送到终端 Agent 的语音指令"
                         : "最终注入到当前应用的文本",
                     text: detail.finalText,
                     highlighted: true
@@ -628,6 +637,20 @@ private struct HomeHistoryDetailModal: View {
         }
     }
 
+    private var dispatchSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("调度结果", systemImage: "paperplane")
+                .font(.system(size: 16, weight: .semibold))
+            Text(detail.outputResultRaw ?? "未记录调度结果")
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .textSelection(.enabled)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .historyDetailPanel()
+    }
+
     private var metadataSection: some View {
         LazyVGrid(
             columns: [
@@ -695,10 +718,21 @@ private struct HomeHistoryDetailModal: View {
         if detail.taskMode == .agentCompose {
             return "查看语音意图、生成结果和本次处理信息"
         }
+        if detail.taskMode == .agentDispatch {
+            return "查看语音指令、队员投递结果和失败信息"
+        }
         if detail.trace?.llm != nil {
             return "对比识别原文与最终文本，并查看本次文本纠错过程"
         }
         return "对比识别原文与最终文本；旧记录可重新处理查看纠错过程"
+    }
+
+    private var detailTitle: String {
+        switch detail.taskMode {
+        case .agentCompose: return "帮我说详情"
+        case .agentDispatch: return "Vibe Coding 指挥详情"
+        case .dictation, nil: return "转写详情"
+        }
     }
 
     private static func format(_ date: Date) -> String {
@@ -886,17 +920,26 @@ private struct SourceApplicationIcon: View {
     }
 }
 
+@MainActor
 private enum SourceApplicationIconResolver {
+    private static var imageCache: [String: NSImage] = [:]
+
     static func image(for appName: String, bundleID: String? = nil) -> NSImage? {
         let trimmedName = appName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
             return nil
         }
+        let cacheKey = "\(bundleID ?? "")|\(trimmedName.lowercased())"
+        if let cachedImage = imageCache[cacheKey] {
+            return cachedImage
+        }
 
         // Prefer bundleID-based lookup (most reliable)
         if let bundleID, !bundleID.isEmpty {
             if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-                return NSWorkspace.shared.icon(forFile: appURL.path)
+                let image = NSWorkspace.shared.icon(forFile: appURL.path)
+                imageCache[cacheKey] = image
+                return image
             }
         }
 
@@ -905,7 +948,9 @@ private enum SourceApplicationIconResolver {
               let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: resolvedBundleID) else {
             return nil
         }
-        return NSWorkspace.shared.icon(forFile: appURL.path)
+        let image = NSWorkspace.shared.icon(forFile: appURL.path)
+        imageCache[cacheKey] = image
+        return image
     }
 
     private static func bundleIDFromAppName(for appName: String) -> String? {

@@ -1,9 +1,15 @@
 import XCTest
+import VoxFlowModelStore
 @testable import VoxFlowApp
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
-    func testLoadBuildsThreeSectionsDevicesShortcutAndPermissions() throws {
+    func testSettingsSectionsExposeVibeCoding() {
+        XCTAssertTrue(SettingsSection.allCases.contains(.vibeCoding))
+        XCTAssertEqual(SettingsSection.vibeCoding.title, "Vibe Coding")
+    }
+
+    func testLoadBuildsSettingsSectionsDevicesShortcutAndPermissions() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = SettingsViewModel(
             environment: environment,
@@ -12,7 +18,10 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
-        XCTAssertEqual(SettingsSection.allCases.map(\.title), ["通用", "听写模型", "纠错模型", "系统", "数据与隐私"])
+        XCTAssertEqual(
+            SettingsSection.allCases.map(\.title),
+            ["通用", "Vibe Coding", "ASR 模型", "LLM 模型", "TTS 模型", "翻译模型", "系统", "数据与隐私"]
+        )
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
         XCTAssertEqual(viewModel.selectedInputDeviceID, "built-in")
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
@@ -320,6 +329,177 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已重置设置（仅当前会话生效，重启后可能丢失）")
     }
 
+    func testImportDisablesLLMTraceDiagnosticsRuntimeState() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputSettingsTests-\(UUID().uuidString)")
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: tempRoot)
+        addTeardownBlock {
+            LLMDiagnosticCapture.shared.configure(
+                enabled: false,
+                directory: paths.llmTraceDiagnosticsDirectory
+            )
+            try? FileManager.default.removeItem(at: tempRoot)
+        }
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            paths: paths
+        )
+
+        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: true)
+        LLMDiagnosticCapture.shared.capture(taskID: "before-import", trace: diagnosticTrace())
+        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
+
+        try viewModel.importSettingsJSON(
+            #"{"settings":{"settings.privacy.llmTraceDiagnostics":"{\"value\":false}"}}"#
+        )
+        LLMDiagnosticCapture.shared.capture(taskID: "after-import", trace: diagnosticTrace())
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
+        XCTAssertFalse(viewModel.systemOption(.llmTraceDiagnostics))
+    }
+
+    func testResetSettingsDisablesLLMTraceDiagnosticsRuntimeState() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputSettingsTests-\(UUID().uuidString)")
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: tempRoot)
+        let shortcutManager = makeShortcutManager()
+        let asrSuiteName = "test.SettingsViewModel.ASR.\(UUID().uuidString)"
+        let asrDefaults = UserDefaults(suiteName: asrSuiteName)!
+        asrDefaults.removePersistentDomain(forName: asrSuiteName)
+        let asrManager = ASRManager(defaults: asrDefaults)
+        addTeardownBlock {
+            LLMDiagnosticCapture.shared.configure(
+                enabled: false,
+                directory: paths.llmTraceDiagnosticsDirectory
+            )
+            asrDefaults.removePersistentDomain(forName: asrSuiteName)
+            try? FileManager.default.removeItem(at: tempRoot)
+        }
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            asrSettingsResetter: asrManager,
+            paths: paths
+        )
+
+        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: true)
+        try viewModel.updateShortcut(keyCode: 55, longPressThreshold: 0.8, shortPressBehavior: .none)
+        try viewModel.updateActionShortcut(action: .agentCompose, keyCode: nil)
+        try viewModel.updateActionShortcut(action: .agentDispatch, keyCode: nil)
+        asrManager.selectedEngineType = .whisper
+        asrManager.qwen3ModelSize = .size1_7B
+        asrManager.qwen3ModelPath = "/tmp/custom-qwen"
+        asrManager.funASRPrecision = .fp32
+        asrManager.whisperVariant = .largeV3
+        asrManager.groqBaseURL = "https://example.test/groq"
+        asrManager.groqModel = "custom-groq-model"
+        asrManager.tencentRealtimeEngineModelType = "16k_zh_video"
+        asrManager.aliyunDashScopeModel = "custom-aliyun-model"
+        LLMDiagnosticCapture.shared.capture(taskID: "before-reset", trace: diagnosticTrace())
+        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
+
+        try viewModel.resetSettings()
+        LLMDiagnosticCapture.shared.capture(taskID: "after-reset", trace: diagnosticTrace())
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
+        XCTAssertFalse(viewModel.systemOption(.llmTraceDiagnostics))
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, ShortcutManager.defaultShortcutKeyCode)
+        XCTAssertEqual(shortcutManager.longPressThreshold, ShortcutManager.defaultLongPressThreshold)
+        XCTAssertEqual(shortcutManager.shortPressBehavior, .toggleListening)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode(for: .agentCompose), ShortcutManager.defaultAgentComposeShortcutKeyCode)
+        XCTAssertNil(shortcutManager.shortcutKeyCode(for: .agentDispatch))
+        XCTAssertEqual(asrManager.selectedEngineType, .apple)
+        XCTAssertEqual(asrManager.qwen3ModelSize, .size0_6B)
+        XCTAssertNil(asrManager.qwen3ModelPath)
+        XCTAssertEqual(asrManager.funASRPrecision, .int8)
+        XCTAssertEqual(asrManager.whisperVariant, .turbo)
+        XCTAssertEqual(asrManager.groqBaseURL, "https://api.groq.com/openai/v1")
+        XCTAssertEqual(asrManager.groqModel, "whisper-large-v3-turbo")
+        XCTAssertEqual(asrManager.tencentRealtimeEngineModelType, "16k_zh")
+        XCTAssertEqual(asrManager.aliyunDashScopeModel, "fun-asr-realtime")
+    }
+
+    func testDeleteAllLocalModelsClearsFilesStateAndFallsBackToApple() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputSettingsTests-\(UUID().uuidString)")
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: tempRoot)
+        try paths.ensureDirectories()
+        let stateRepository = FileModelInstallationStateRepository(
+            fileURL: paths.modelsDirectory.appendingPathComponent("installation-states.json")
+        )
+        let asrManager = ASRManager(
+            defaults: isolatedDefaults(name: "delete-all-local-models"),
+            modelInstallationRepository: stateRepository
+        )
+        let funASRRoot = paths.modelsDirectory
+            .appendingPathComponent("funasr-nano", isDirectory: true)
+            .appendingPathComponent("int8", isDirectory: true)
+        try FileManager.default.createDirectory(at: funASRRoot, withIntermediateDirectories: true)
+        try Data("model".utf8).write(to: funASRRoot.appendingPathComponent("model.bin"))
+        asrManager.markFunASRModelReady(at: funASRRoot.path, precision: .int8)
+        asrManager.selectedEngineType = .funASR
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            localModelDeletionCoordinator: asrManager,
+            paths: paths
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: tempRoot) }
+
+        try viewModel.deleteAllLocalModels()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: funASRRoot.path))
+        XCTAssertEqual(asrManager.funASRModelInstallationState(for: .int8), .notInstalled)
+        XCTAssertEqual(asrManager.selectedEngineType, .apple)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除全部本地模型")
+    }
+
+    func testDeleteAllLocalModelsRejectsBusyModelOperations() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputSettingsTests-\(UUID().uuidString)")
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: tempRoot)
+        try paths.ensureDirectories()
+        let stateRepository = FileModelInstallationStateRepository(
+            fileURL: paths.modelsDirectory.appendingPathComponent("installation-states.json")
+        )
+        let asrManager = ASRManager(
+            defaults: isolatedDefaults(name: "delete-all-local-models-busy"),
+            modelInstallationRepository: stateRepository
+        )
+        let funASRRoot = paths.modelsDirectory
+            .appendingPathComponent("funasr-nano", isDirectory: true)
+            .appendingPathComponent("int8", isDirectory: true)
+        try FileManager.default.createDirectory(at: funASRRoot, withIntermediateDirectories: true)
+        try Data("model".utf8).write(to: funASRRoot.appendingPathComponent("model.bin"))
+        asrManager.markFunASRModelReady(at: funASRRoot.path, precision: .int8)
+        asrManager.markModelDeleting(for: .funASR)
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            localModelDeletionCoordinator: asrManager,
+            paths: paths
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: tempRoot) }
+
+        XCTAssertThrowsError(try viewModel.deleteAllLocalModels()) { error in
+            XCTAssertEqual(error as? LocalModelDeletionError, .modelOperationInProgress)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: funASRRoot.path))
+    }
+
     func testPersistentWriteWarningMentionsDegradedStorageState() throws {
         let environment = AppEnvironment(
             container: try DependencyContainer.inMemory(
@@ -359,7 +539,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastError, "快捷键录制失败，请按下一个有效按键。")
     }
 
-    func testVoiceShortcutRejectsNonModifierKeyCodes() throws {
+    func testVoiceShortcutSupportsModifierCombinationsAndRejectsBareNonModifierKeys() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let shortcutManager = makeShortcutManager()
         let viewModel = SettingsViewModel(
@@ -369,15 +549,22 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
+        let commandShiftY = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+        try viewModel.updateActionShortcut(action: .dictation, keyCode: commandShiftY)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, commandShiftY)
+
         XCTAssertThrowsError(
             try viewModel.updateActionShortcut(action: .dictation, keyCode: 0x09)
         ) { error in
             XCTAssertEqual(
                 error.localizedDescription,
-                "语音快捷键仅支持 Command、Option、Control 或 Shift 这类单独修饰键。"
+                "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键；Command+Shift+A/V 已保留给 OCR。"
             )
         }
-        XCTAssertEqual(shortcutManager.shortcutKeyCode, 54)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode, commandShiftY)
     }
 
     func testConflictingActionShortcutDoesNotPersistFailedBinding() throws {
@@ -396,6 +583,27 @@ final class SettingsViewModelTests: XCTestCase {
             XCTAssertEqual(error.localizedDescription, "两个操作不能使用相同的快捷键，请修改其中一个。")
         }
         XCTAssertNil(shortcutManager.agentComposeShortcutKeyCode)
+    }
+
+    func testAgentDispatchEnabledPersistsAsAFeatureToggle() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertFalse(viewModel.agentDispatchEnabled)
+
+        try viewModel.setAgentDispatchEnabled(true)
+
+        XCTAssertTrue(viewModel.agentDispatchEnabled)
+        XCTAssertEqual(viewModel.lastActionMessage, "已启用 Vibe Coding 指挥中心")
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsKey.agentDispatchEnabled),
+            #"{"value":true}"#
+        )
     }
 
     func testExtendedSystemAndPrivacyOptionsPersist() throws {
@@ -440,6 +648,35 @@ final class SettingsViewModelTests: XCTestCase {
             defaults.removePersistentDomain(forName: suiteName)
         }
         return ShortcutManager(defaults: defaults)
+    }
+
+    private func isolatedDefaults(name: String) -> UserDefaults {
+        let suiteName = "test.SettingsViewModel.\(name).\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        return defaults
+    }
+
+    private func diagnosticTrace() -> TextProcessingTrace {
+        TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "provider",
+                providerName: "Provider",
+                endpoint: "https://api.example.com/v1/chat/completions",
+                model: "model",
+                temperature: 0.2,
+                timeoutSeconds: 8,
+                requestBodyJSON: #"{"messages":[{"content":"prompt"}]}"#,
+                responseText: "response",
+                statusCode: 200,
+                durationMS: 123,
+                errorMessage: nil,
+                completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        )
     }
 }
 

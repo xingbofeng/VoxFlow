@@ -44,6 +44,13 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         )
     }
 
+    func testAgentDispatchMissingTraceMessagePointsToSavedDispatchResult() {
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.missingTraceMessage(for: .agentDispatch),
+            "这条 Vibe Coding 指挥记录不调用文本纠错模型；语音原文和调度结果已单独保留。"
+        )
+    }
+
     func testDictationRequestBodyPreviewExtractsOnlyUserMessageContent() {
         let requestBody = """
         {
@@ -129,6 +136,13 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
                 taskMode: .agentCompose
             ),
             "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "llm_refinement_failed",
+                taskMode: .dictation
+            ),
+            "LLM 模型调用失败，已保留原始识别文本。"
         )
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(

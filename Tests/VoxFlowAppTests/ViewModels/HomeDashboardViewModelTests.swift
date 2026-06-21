@@ -257,6 +257,35 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["new"])
     }
 
+    func testLoadIfNeededDoesNotReloadAlreadyLoadedDashboard() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "initial",
+                finalText: "已有记录",
+                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+            )
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+
+        viewModel.load()
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "later",
+                finalText: "切换后新增",
+                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+            )
+        )
+        viewModel.loadIfNeeded()
+
+        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["initial"])
+
+        viewModel.load()
+
+        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["later", "initial"])
+    }
+
     func testLoadIncludesAgentComposeTasksAndOpensTheirDetail() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
         let clock = MutableHomeClock(now: now)

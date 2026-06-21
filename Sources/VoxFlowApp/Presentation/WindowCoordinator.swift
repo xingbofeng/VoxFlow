@@ -3,16 +3,34 @@ import AppKit
 @MainActor
 final class WindowCoordinator {
     private let environment: AppEnvironment
+    private let asrRuntime: AppASRRuntime
+    private let textRuntime: AppTextRuntime
+    private let audioCaptureCoordinator: AudioCaptureCoordinator
+    private let navigationRouter = WorkbenchNavigationRouter()
     private var mainWindowController: MainWindowController?
 
-    init(environment: AppEnvironment) {
+    init(
+        environment: AppEnvironment,
+        asrRuntime: AppASRRuntime,
+        textRuntime: AppTextRuntime,
+        audioCaptureCoordinator: AudioCaptureCoordinator
+    ) {
         self.environment = environment
+        self.asrRuntime = asrRuntime
+        self.textRuntime = textRuntime
+        self.audioCaptureCoordinator = audioCaptureCoordinator
     }
 
     func showMainWindow() {
         let createdWindow = mainWindowController == nil
         if mainWindowController == nil {
-            mainWindowController = MainWindowController(environment: environment)
+            mainWindowController = MainWindowController(
+                environment: environment,
+                asrRuntime: asrRuntime,
+                textRuntime: textRuntime,
+                audioCaptureCoordinator: audioCaptureCoordinator,
+                navigationRouter: navigationRouter
+            )
         }
         guard let window = mainWindowController?.window else { return }
         let shouldCenterBeforeFirstReveal = createdWindow
@@ -39,5 +57,6 @@ final class WindowCoordinator {
 
     func showSettings(tab: SettingsTab = .asr) {
         showMainWindow()
+        navigationRouter.showSettings(tab: tab)
     }
 }

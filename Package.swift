@@ -10,7 +10,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.0.0"),
-        .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21")
+        .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21"),
+        .package(path: "Packages/VoxFlowVoiceCorrectionKit")
     ],
     targets: [
         .target(
@@ -207,7 +208,14 @@ let package = Package(
                 "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
                 "VoxFlowTextInsertion",
-                "CSherpaOnnx"
+                "CSherpaOnnx",
+                .product(name: "VoxFlowVoiceCorrection", package: "VoxFlowVoiceCorrectionKit"),
+                .product(name: "AudioCommon", package: "speech-swift"),
+                .product(name: "CosyVoiceTTS", package: "speech-swift"),
+                .product(name: "KokoroTTS", package: "speech-swift"),
+                .product(name: "MADLADTranslation", package: "speech-swift"),
+                .product(name: "Qwen3TTS", package: "speech-swift"),
+                .product(name: "Qwen3Chat", package: "speech-swift")
             ],
             path: "Sources/VoxFlowApp",
             exclude: ["Resources/Info.plist"],

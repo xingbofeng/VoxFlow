@@ -42,12 +42,13 @@ final class GroqCloudASRClientTests: XCTestCase {
             )
         ) { progress.append($0) }
 
-        let request = try XCTUnwrap(transport.requests.first)
-        let body = try XCTUnwrap(request.httpBody)
+        let request = try XCTUnwrap(transport.uploadRequests.first)
+        let body = try XCTUnwrap(transport.uploadBodies.first)
         let bodyText = String(decoding: body, as: UTF8.self)
         XCTAssertEqual(request.url?.absoluteString, "https://api.groq.com/openai/v1/audio/transcriptions")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertTrue(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data; boundary=") == true)
+        XCTAssertNil(request.httpBody)
         XCTAssertTrue(bodyText.contains(#"name="model""#))
         XCTAssertTrue(bodyText.contains("whisper-large-v3-turbo"))
         XCTAssertTrue(bodyText.contains(#"name="language""#))
@@ -57,6 +58,36 @@ final class GroqCloudASRClientTests: XCTestCase {
         XCTAssertEqual(result.text, "识别结果")
         XCTAssertEqual(result.durationSeconds, 1.25)
         XCTAssertEqual(result.providerID, GroqCloudASRClient.defaultProviderID)
+    }
+
+    func testTranscriptionUsesFileBackedMultipartUpload() async throws {
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("groq-\(UUID().uuidString).wav")
+        try Data("audio-bytes".utf8).write(to: audioURL)
+        addTeardownBlock { try? FileManager.default.removeItem(at: audioURL) }
+        let credentials = InMemoryGroqCredentialStore(values: ["groq-key": "secret"])
+        let transport = CapturingCloudASRTransport(
+            data: Data(#"{"text":"识别结果","duration":1.25}"#.utf8),
+            statusCode: 200
+        )
+        let client = GroqCloudASRClient(credentialStore: credentials, transport: transport)
+
+        _ = try await client.transcribeFile(
+            CloudASRFileRequest(
+                fileURL: audioURL,
+                locale: Locale(identifier: "zh_CN"),
+                configuration: configuration()
+            ),
+            progress: { _ in }
+        )
+
+        let request = try XCTUnwrap(transport.uploadRequests.first)
+        let body = try XCTUnwrap(transport.uploadBodies.first)
+        let bodyText = String(decoding: body, as: UTF8.self)
+        XCTAssertNil(request.httpBody)
+        XCTAssertTrue(bodyText.contains(#"name="model""#))
+        XCTAssertTrue(bodyText.contains("whisper-large-v3-turbo"))
+        XCTAssertTrue(bodyText.contains("audio-bytes"))
     }
 
     func testMissingCredentialFailsBeforeNetworkRequest() async {
@@ -143,6 +174,9 @@ private final class InMemoryGroqCredentialStore: CloudASRCredentialReading, @unc
 
 private final class CapturingCloudASRTransport: CloudASRHTTPTransport, @unchecked Sendable {
     private(set) var requests: [URLRequest] = []
+    private(set) var uploadRequests: [URLRequest] = []
+    private(set) var uploadFileURLs: [URL] = []
+    private(set) var uploadBodies: [Data] = []
     private let data: Data
     private let statusCode: Int
 
@@ -153,6 +187,19 @@ private final class CapturingCloudASRTransport: CloudASRHTTPTransport, @unchecke
 
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: nil
+        )!
+        return (data, response)
+    }
+
+    func upload(for request: URLRequest, fromFile fileURL: URL) async throws -> (Data, HTTPURLResponse) {
+        uploadRequests.append(request)
+        uploadFileURLs.append(fileURL)
+        uploadBodies.append(try Data(contentsOf: fileURL))
         let response = HTTPURLResponse(
             url: request.url!,
             statusCode: statusCode,

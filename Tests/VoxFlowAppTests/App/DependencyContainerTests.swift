@@ -54,4 +54,15 @@ final class DependencyContainerTests: XCTestCase {
             .volatile(reason: "Persistent storage failed to initialize: disk locked")
         )
     }
+
+    func testDefaultCredentialStoreUsesAppLocalApplicationSupportFile() throws {
+        let paths = ApplicationSupportPaths(
+            applicationSupportDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("DependencyContainerTests-\(UUID().uuidString)", isDirectory: true)
+        )
+
+        let credentialStore = DependencyContainer.defaultCredentialStore(paths: paths)
+
+        XCTAssertTrue(credentialStore is AppLocalCredentialStore)
+    }
 }

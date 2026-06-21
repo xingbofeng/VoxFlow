@@ -55,6 +55,33 @@ final class Qwen3ModelStoreDownloaderTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: installedRoot.appendingPathComponent("encoder.bin")), Data("hello".utf8))
     }
 
+    func testLiveInstallerDeduplicatesConcurrentInstallsForSameManifest() async throws {
+        let root = try makeTemporaryDirectory()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+        let transport = Qwen3FakeModelDownloadTransport(
+            data: Data("hello".utf8),
+            chunkSize: 5,
+            delayNanoseconds: 20_000_000
+        )
+        let installer = Qwen3ModelStoreLiveInstaller(
+            storeRoot: root.appendingPathComponent("models", isDirectory: true),
+            transport: transport
+        )
+        let manifest = modelStoreManifest()
+
+        async let first = installer.install(manifest: manifest, progress: nil)
+        async let second = installer.install(manifest: manifest, progress: nil)
+
+        let firstRoot = try await first
+        let secondRoot = try await second
+
+        XCTAssertEqual(firstRoot, secondRoot)
+        let attempts = await transport.attemptCount()
+        XCTAssertEqual(attempts, 1)
+    }
+
     func testLiveInstallerReturnsExistingValidInstallationWithoutDownloading() async throws {
         let root = try makeTemporaryDirectory()
         addTeardownBlock {
@@ -106,15 +133,106 @@ final class Qwen3ModelStoreDownloaderTests: XCTestCase {
         XCTAssertEqual(progressValues.last?.fileProgress, 0.5)
         XCTAssertEqual(progressValues.last?.fileCount, qwenManifest.files.count)
     }
+
+    func testURLSessionTransportCancelsOnlyActiveDownloadTask() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowProviders/VoxFlowProviderQwen3/Lifecycle/Qwen3ModelStoreDownloader.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("activeDownloadTask?.cancel()"))
+        XCTAssertFalse(source.contains("invalidateAndCancel()"))
+        XCTAssertTrue(source.contains("defer { clearActiveDownloadState() }"))
+    }
+
+    func testURLSessionTransportAppendsValidPartialContentResponse() throws {
+        let directory = try makeTemporaryDirectory()
+        let destination = directory.appendingPathComponent("encoder.bin")
+        let downloaded = directory.appendingPathComponent("download.tmp")
+        try Data("he".utf8).write(to: destination)
+        try Data("llo".utf8).write(to: downloaded)
+
+        try Qwen3URLSessionModelDownloadTransport.moveDownloadedFile(
+            from: downloaded,
+            to: destination,
+            resumeOffset: 2,
+            response: httpResponse(statusCode: 206, headers: ["Content-Range": "bytes 2-4/5"]),
+            fileManager: .default
+        )
+
+        XCTAssertEqual(try Data(contentsOf: destination), Data("hello".utf8))
+    }
+
+    func testURLSessionTransportOverwritesPartialWhenRangeRequestReturnsFullContent() throws {
+        let directory = try makeTemporaryDirectory()
+        let destination = directory.appendingPathComponent("encoder.bin")
+        let downloaded = directory.appendingPathComponent("download.tmp")
+        try Data("he".utf8).write(to: destination)
+        try Data("hello".utf8).write(to: downloaded)
+
+        try Qwen3URLSessionModelDownloadTransport.moveDownloadedFile(
+            from: downloaded,
+            to: destination,
+            resumeOffset: 2,
+            response: httpResponse(statusCode: 200),
+            fileManager: .default
+        )
+
+        XCTAssertEqual(try Data(contentsOf: destination), Data("hello".utf8))
+    }
+
+    func testURLSessionTransportRejectsMismatchedContentRange() throws {
+        let directory = try makeTemporaryDirectory()
+        let destination = directory.appendingPathComponent("encoder.bin")
+        let downloaded = directory.appendingPathComponent("download.tmp")
+        try Data("he".utf8).write(to: destination)
+        try Data("llo".utf8).write(to: downloaded)
+
+        XCTAssertThrowsError(
+            try Qwen3URLSessionModelDownloadTransport.moveDownloadedFile(
+                from: downloaded,
+                to: destination,
+                resumeOffset: 2,
+                response: httpResponse(statusCode: 206, headers: ["Content-Range": "bytes 0-4/5"]),
+                fileManager: .default
+            )
+        ) { error in
+            XCTAssertEqual(error as? Qwen3ModelStoreDownloadError, .invalidContentRange("bytes 0-4/5"))
+        }
+    }
+
+    private func httpResponse(statusCode: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
+        HTTPURLResponse(
+            url: URL(string: "https://example.com/encoder.bin")!,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        )!
+    }
+
+    private static func repositoryRoot() -> URL {
+        var directory = URL(fileURLWithPath: #filePath)
+        while directory.path != "/" {
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) {
+                return directory
+            }
+            directory.deleteLastPathComponent()
+        }
+        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    }
 }
 
 private actor Qwen3FakeModelDownloadTransport: ModelDownloadTransport {
     private let data: Data
     private let chunkSize: Int
+    private let delayNanoseconds: UInt64
+    private var attempts = 0
 
-    init(data: Data, chunkSize: Int) {
+    init(data: Data, chunkSize: Int, delayNanoseconds: UInt64 = 0) {
         self.data = data
         self.chunkSize = chunkSize
+        self.delayNanoseconds = delayNanoseconds
     }
 
     func download(
@@ -123,6 +241,7 @@ private actor Qwen3FakeModelDownloadTransport: ModelDownloadTransport {
         resumeFrom offset: Int64,
         progress: @escaping ModelDownloadProgressSink
     ) async throws {
+        attempts += 1
         try FileManager.default.createDirectory(
             at: destinationURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -136,6 +255,9 @@ private actor Qwen3FakeModelDownloadTransport: ModelDownloadTransport {
 
         var cursor = Int(offset)
         while cursor < data.count {
+            if delayNanoseconds > 0 {
+                try await Task.sleep(nanoseconds: delayNanoseconds)
+            }
             let end = min(cursor + chunkSize, data.count)
             try handle.write(contentsOf: data[cursor..<end])
             cursor = end
@@ -147,6 +269,10 @@ private actor Qwen3FakeModelDownloadTransport: ModelDownloadTransport {
                 )
             )
         }
+    }
+
+    func attemptCount() -> Int {
+        attempts
     }
 }
 

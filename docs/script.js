@@ -1,7 +1,7 @@
 const release = {
-  version: "1.3.0",
-  tag: "v1.3.0",
-  assetName: "VoxFlow-1.3.0-macOS.dmg"
+  version: "1.4.0",
+  tag: "v1.4.0",
+  assetName: "VoxFlow-1.4.0-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -9,10 +9,10 @@ const releaseDownloadURL =
 
 const copy = {
   zh: {
-    eyebrow: "原生 macOS 语音输入",
-    headlineA: "按住右 Command，",
-    headlineB: "把声音送到光标。",
-    heroCopy: "常驻菜单栏的语音输入工具。说完松手，中文、英文和技术词回到当前光标。",
+    eyebrow: "原生 macOS 语音工作流",
+    headlineA: "声音、截图、指令，",
+    headlineB: "回到当前现场。",
+    heroCopy: "常驻菜单栏的输入层。按住说话即可写入当前光标，框选截图即可提取文字，喊出队员即可把任务投递给本地 Agent。",
     download: "下载 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · 免费开源`,
@@ -35,25 +35,27 @@ const copy = {
     historyOne: "还有就是你删除进入那里啊我不知道是什么原因啊什么一直他就在显示啊我没办法让他一直在那里显示",
     historyTwo: "把这段发到备忘录，保留中文语气。",
     flowLabel: "工作流",
-    flowTitle: "没有录音按钮。<br>没有上下文切换。",
-    flowCopy: "随声写常驻菜单栏，却从不占据你的注意力。它只在你按住右 Command 时出现，松手后把文字送回原来的输入现场。",
-    featureNativeTitle: "HUD 有存在感，但不打断你",
-    featureNativeCopy: "按住右 Command 时出现底部胶囊，波形跟随声音起伏。松手后自动收起。",
-    featureLanguageTitle: "听写之外，也能整理成稿",
-    featureLanguageCopy: "历史、笔记、文件转写和剪贴板图片 OCR 都在工作台里，需要回看时再打开。",
-    featureRefineTitle: "本地优先，也保留云端选择",
-    featureRefineCopy: "Apple Speech 和多种本地模型可直接使用，也支持 Groq、腾讯云与阿里云；模型页清楚标注在线、离线与流式能力。",
+    flowTitle: "不切窗口，<br>也不打断思路。",
+    flowCopy: "语音输入、易错词修正、截图 OCR、帮我说和 Vibe Coding 指挥都贴着当前应用完成。码上写只在你需要它时出现，结束后把现场恢复原样。",
+    featureNativeTitle: "按住说话，松开写入",
+    featureNativeCopy: "底部 HUD 显示实时转写和声音状态；松手后文本回到当前光标，不抢焦点，不自动发送。",
+    featureCorrectionTitle: "易错词让技术词更稳",
+    featureCorrectionCopy: "ASR final 和可选 LLM 之后，本地规则会修正常见误识别；后续编辑还能沉淀成候选规则。",
+    featureLanguageTitle: "截图也能变成可用文本",
+    featureLanguageCopy: "剪贴板图片 OCR 直接粘贴识别结果；框选截图 OCR 打开结果面板，可继续翻译、总结或朗读。",
+    featureRefineTitle: "把任务说给本地 Agent",
+    featureRefineCopy: "Vibe Coding 指挥中心识别队员、展示确认状态，并把语音指令投递给已注册的 Codex、Claude、CodeBuddy 或终端 Agent。",
     trustLabel: "隐私",
     privacyTitle: "你的输入现场，<br>结束后恢复原样。",
-    privacyCopy: "输入法临时切换后自动恢复，剪贴板完整还原。无分析、无遥测；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。",
-    ctaTitle: "让下一句话，<br>直接成为文字。",
+    privacyCopy: "输入法临时切换后自动恢复，剪贴板完整还原。截图 OCR 和帮我说的视觉上下文不保存原图；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。",
+    ctaTitle: "让下一句话、下一张截图、<br>下一条指令直接进入工作流。",
     footer: "Swift & AppKit · 开源"
   },
   en: {
-    eyebrow: "Native voice input for macOS",
-    headlineA: "Hold Right Command.",
-    headlineB: "Speak into any app.",
-    heroCopy: "A native macOS menu-bar voice input tool. Speak, release, and send Chinese, English, and technical terms back to the current cursor.",
+    eyebrow: "Native voice workflow for macOS",
+    headlineA: "Voice, screenshots,",
+    headlineB: "and commands stay in flow.",
+    heroCopy: "A menu-bar input layer for macOS. Hold to dictate into the current cursor, select screenshots for OCR, and speak tasks directly to local agents.",
     download: "Download for macOS",
     downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · Free & open source`,
@@ -76,18 +78,20 @@ const copy = {
     historyOne: "Send this sentence back to Codex and keep the original Chinese tone.",
     historyTwo: "Turn the meeting note into a short reminder.",
     flowLabel: "Workflow",
-    flowTitle: "No record button.<br>No context switching.",
-    flowCopy: "VoxFlow lives in the menu bar without asking for your attention. It appears while you hold Right Command, then returns the words to the exact place you were working.",
-    featureNativeTitle: "A HUD you can feel, then forget",
-    featureNativeCopy: "The bottom capsule appears while you hold Right Command. The waveform breathes with your voice and leaves when you release.",
-    featureLanguageTitle: "From dictation to a useful draft",
-    featureLanguageCopy: "History, notes, file transcription, and clipboard image OCR stay in the workbench until you need them.",
-    featureRefineTitle: "Local first, with cloud when useful",
-    featureRefineCopy: "Use Apple Speech and multiple on-device models, or choose Groq, Tencent Cloud, and Alibaba Cloud. Models clearly show online, offline, and streaming capability.",
+    flowTitle: "No window switching.<br>No broken train of thought.",
+    flowCopy: "Dictation, Personal Corrections, Screenshot OCR, Agent Compose, and Vibe Coding stay attached to the app you are already using. VoxFlow appears only when needed and restores the workspace afterward.",
+    featureNativeTitle: "Hold to speak, release to insert",
+    featureNativeCopy: "The bottom HUD shows live transcription and voice activity; released text returns to the current cursor without stealing focus or auto-submitting.",
+    featureCorrectionTitle: "Personal Corrections stabilize technical terms",
+    featureCorrectionCopy: "After ASR final output and optional LLM correction, local rules fix common misrecognitions. Later edits can become candidate rules.",
+    featureLanguageTitle: "Screenshots become usable text",
+    featureLanguageCopy: "Clipboard image OCR pastes recognized text directly; screenshot OCR opens a result panel with translation, summary, and speech playback.",
+    featureRefineTitle: "Speak tasks to local agents",
+    featureRefineCopy: "Vibe Coding resolves the teammate, shows confirmation state, and dispatches spoken instructions to registered Codex, Claude, CodeBuddy, or terminal agents.",
     trustLabel: "Privacy",
     privacyTitle: "Your workspace returns<br>exactly as it was.",
-    privacyCopy: "Input sources switch back automatically and the clipboard is restored. No analytics or telemetry; local models keep audio on-device, and audio leaves the Mac only when you select a cloud ASR provider.",
-    ctaTitle: "Make your next sentence<br>appear as text.",
+    privacyCopy: "Input sources switch back automatically and the clipboard is restored. Screenshot OCR and Agent Compose do not persist source images; local models keep audio on-device, and audio leaves the Mac only when you select a cloud ASR provider.",
+    ctaTitle: "Send the next sentence,<br>screenshot, or command into flow.",
     footer: "Swift & AppKit · Open source"
   }
 };
@@ -115,8 +119,8 @@ function setLanguage(language) {
       ? "assets/voiceinput-hero-zh.png"
       : "assets/voiceinput-hero-en.png";
     heroPreview.alt = language === "zh"
-      ? "随声写 VoxFlow 首页、输入活跃度和听写 HUD 预览"
-      : "VoxFlow home dashboard, input activity, and dictation HUD preview";
+      ? "码上写 VoxFlow 工作台、输入活跃度和听写 HUD 预览"
+      : "VoxFlow workbench, input activity, and dictation HUD preview";
   }
   languageButton.dataset.language = language;
   localStorage.setItem("voiceinput-language", language);

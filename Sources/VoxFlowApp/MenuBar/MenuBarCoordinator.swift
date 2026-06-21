@@ -4,6 +4,8 @@ import AppKit
 struct MenuBarActions {
     let selectLanguage: (RecognitionLanguage) -> Void
     let selectASRMenuOption: (ASRMenuModel) -> Void
+    let selectLLMProvider: (String) -> Void
+    let selectCapabilityModel: (CapabilityModelKind, String) -> Void
     let openWorkbench: () -> Void
     let openSettings: () -> Void
     let openGitHub: () -> Void
@@ -14,6 +16,8 @@ struct MenuBarActions {
     static let noop = MenuBarActions(
         selectLanguage: { _ in },
         selectASRMenuOption: { _ in },
+        selectLLMProvider: { _ in },
+        selectCapabilityModel: { _, _ in },
         openWorkbench: {},
         openSettings: {},
         openGitHub: {},
@@ -21,6 +25,30 @@ struct MenuBarActions {
         quit: {},
         menuWillOpen: {}
     )
+
+    init(
+        selectLanguage: @escaping (RecognitionLanguage) -> Void,
+        selectASRMenuOption: @escaping (ASRMenuModel) -> Void,
+        selectLLMProvider: @escaping (String) -> Void = { _ in },
+        selectCapabilityModel: @escaping (CapabilityModelKind, String) -> Void = { _, _ in },
+        openWorkbench: @escaping () -> Void,
+        openSettings: @escaping () -> Void,
+        openGitHub: @escaping () -> Void,
+        checkPermissions: @escaping () -> Void,
+        quit: @escaping () -> Void,
+        menuWillOpen: @escaping () -> Void
+    ) {
+        self.selectLanguage = selectLanguage
+        self.selectASRMenuOption = selectASRMenuOption
+        self.selectLLMProvider = selectLLMProvider
+        self.selectCapabilityModel = selectCapabilityModel
+        self.openWorkbench = openWorkbench
+        self.openSettings = openSettings
+        self.openGitHub = openGitHub
+        self.checkPermissions = checkPermissions
+        self.quit = quit
+        self.menuWillOpen = menuWillOpen
+    }
 }
 
 @MainActor
@@ -29,25 +57,47 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
 
     private var languageMenuItems: [NSMenuItem] = []
     private var asrEngineMenuItems: [NSMenuItem] = []
+    private let llmProviderMenu = NSMenu()
+    private let ttsModelMenu = NSMenu()
+    private let translationModelMenu = NSMenu()
     private var refiningMenuItem: NSMenuItem!
     private let asrOptions: [ASRMenuModel]
     private let currentLanguage: () -> RecognitionLanguage
     private let isASRMenuOptionEnabled: (ASRMenuModel) -> Bool
     private let isASRMenuOptionSelected: (ASRMenuModel) -> Bool
     private let actions: MenuBarActions
+    private let llmProviders: () -> [LLMProviderRecord]
+    private let selectedLLMProviderID: () -> String?
+    private let capabilityModels: (CapabilityModelKind) -> [CapabilityModelDescriptor]
+    private let selectedCapabilityModelID: (CapabilityModelKind) -> String
+    private let isCapabilityModelEnabled: (CapabilityModelDescriptor) -> Bool
 
     init(
         asrOptions: [ASRMenuModel],
         currentLanguage: @escaping () -> RecognitionLanguage,
         isASRMenuOptionEnabled: @escaping (ASRMenuModel) -> Bool,
         isASRMenuOptionSelected: @escaping (ASRMenuModel) -> Bool,
-        actions: MenuBarActions
+        actions: MenuBarActions,
+        llmProviders: @escaping () -> [LLMProviderRecord] = { [] },
+        selectedLLMProviderID: @escaping () -> String? = { nil },
+        capabilityModels: @escaping (CapabilityModelKind) -> [CapabilityModelDescriptor] = {
+            CapabilityModelCatalog.models(for: $0)
+        },
+        selectedCapabilityModelID: @escaping (CapabilityModelKind) -> String = {
+            CapabilityModelViewModel.selectedModelID(kind: $0)
+        },
+        isCapabilityModelEnabled: @escaping (CapabilityModelDescriptor) -> Bool = { $0.isInstalled }
     ) {
         self.asrOptions = asrOptions
         self.currentLanguage = currentLanguage
         self.isASRMenuOptionEnabled = isASRMenuOptionEnabled
         self.isASRMenuOptionSelected = isASRMenuOptionSelected
         self.actions = actions
+        self.llmProviders = llmProviders
+        self.selectedLLMProviderID = selectedLLMProviderID
+        self.capabilityModels = capabilityModels
+        self.selectedCapabilityModelID = selectedCapabilityModelID
+        self.isCapabilityModelEnabled = isCapabilityModelEnabled
         super.init()
         buildMenu()
     }
@@ -74,6 +124,9 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         addLanguageMenu()
         menu.addItem(.separator())
         addASREngineMenu()
+        addLLMProviderMenu()
+        addCapabilityModelMenu(title: "TTS 模型", menu: ttsModelMenu, kind: .tts)
+        addCapabilityModelMenu(title: "翻译模型", menu: translationModelMenu, kind: .translation)
         menu.addItem(.separator())
         addCommandItems()
     }
@@ -119,9 +172,29 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         }
 
         let asrParentItem = NSMenuItem()
-        asrParentItem.title = "语音识别引擎"
+        asrParentItem.title = "ASR 模型"
         asrParentItem.submenu = asrMenu
         menu.addItem(asrParentItem)
+    }
+
+    private func addLLMProviderMenu() {
+        llmProviderMenu.autoenablesItems = false
+        rebuildLLMProviderMenu()
+
+        let llmParentItem = NSMenuItem()
+        llmParentItem.title = "LLM 模型"
+        llmParentItem.submenu = llmProviderMenu
+        menu.addItem(llmParentItem)
+    }
+
+    private func addCapabilityModelMenu(title: String, menu: NSMenu, kind: CapabilityModelKind) {
+        menu.autoenablesItems = false
+        rebuildCapabilityModelMenu(menu, kind: kind)
+
+        let parentItem = NSMenuItem()
+        parentItem.title = title
+        parentItem.submenu = menu
+        self.menu.addItem(parentItem)
     }
 
     private func addCommandItems() {
@@ -137,7 +210,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(makeItem(title: "检查权限", action: #selector(checkPermissions(_:))))
         menu.addItem(.separator())
-        menu.addItem(makeItem(title: "退出随声写", action: #selector(quit(_:)), keyEquivalent: "q"))
+        menu.addItem(makeItem(title: "退出码上写", action: #selector(quit(_:)), keyEquivalent: "q"))
     }
 
     private func makeItem(
@@ -155,11 +228,57 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         for item in languageMenuItems {
             item.state = (item.representedObject as? RecognitionLanguage) == language ? .on : .off
         }
-        guard includeASRState else { return }
-        for item in asrEngineMenuItems {
-            guard let option = item.representedObject as? ASRMenuModel else { continue }
-            item.isEnabled = isASRMenuOptionEnabled(option)
-            item.state = isASRMenuOptionSelected(option) ? .on : .off
+        if includeASRState {
+            for item in asrEngineMenuItems {
+                guard let option = item.representedObject as? ASRMenuModel else { continue }
+                item.isEnabled = isASRMenuOptionEnabled(option)
+                item.state = isASRMenuOptionSelected(option) ? .on : .off
+            }
+        }
+        rebuildLLMProviderMenu()
+        rebuildCapabilityModelMenu(ttsModelMenu, kind: .tts)
+        rebuildCapabilityModelMenu(translationModelMenu, kind: .translation)
+    }
+
+    private func rebuildLLMProviderMenu() {
+        llmProviderMenu.removeAllItems()
+        let providers = llmProviders()
+        guard !providers.isEmpty else {
+            let item = NSMenuItem(title: "未配置 LLM", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            llmProviderMenu.addItem(item)
+            return
+        }
+        let selectedID = selectedLLMProviderID()
+        for provider in providers {
+            let item = NSMenuItem(
+                title: "\(provider.displayName) · \(provider.defaultModel)",
+                action: #selector(selectLLMProvider(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = provider.id
+            item.target = self
+            item.isEnabled = provider.enabled
+            item.state = provider.id == selectedID ? .on : .off
+            llmProviderMenu.addItem(item)
+        }
+    }
+
+    private func rebuildCapabilityModelMenu(_ menu: NSMenu, kind: CapabilityModelKind) {
+        menu.removeAllItems()
+        let selectedID = selectedCapabilityModelID(kind)
+        for model in capabilityModels(kind) {
+            let enabled = isCapabilityModelEnabled(model)
+            let item = NSMenuItem(
+                title: enabled ? model.displayName : "\(model.displayName)（未下载）",
+                action: #selector(selectCapabilityModel(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = CapabilityMenuSelection(kind: kind, modelID: model.id)
+            item.target = self
+            item.isEnabled = enabled
+            item.state = model.id == selectedID ? .on : .off
+            menu.addItem(item)
         }
     }
 
@@ -172,6 +291,18 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     @objc private func selectASREngine(_ sender: NSMenuItem) {
         guard let option = sender.representedObject as? ASRMenuModel else { return }
         actions.selectASRMenuOption(option)
+        refreshDynamicState()
+    }
+
+    @objc private func selectLLMProvider(_ sender: NSMenuItem) {
+        guard let providerID = sender.representedObject as? String else { return }
+        actions.selectLLMProvider(providerID)
+        refreshDynamicState()
+    }
+
+    @objc private func selectCapabilityModel(_ sender: NSMenuItem) {
+        guard let selection = sender.representedObject as? CapabilityMenuSelection else { return }
+        actions.selectCapabilityModel(selection.kind, selection.modelID)
         refreshDynamicState()
     }
 
@@ -194,4 +325,9 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     @objc private func quit(_ sender: NSMenuItem) {
         actions.quit()
     }
+}
+
+private struct CapabilityMenuSelection {
+    let kind: CapabilityModelKind
+    let modelID: String
 }

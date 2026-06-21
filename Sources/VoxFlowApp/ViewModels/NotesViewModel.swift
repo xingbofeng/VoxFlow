@@ -27,6 +27,7 @@ final class NotesViewModel: ObservableObject {
     private let notesOutputService: any NotesOutputDelivering
     private var recordingBaseBody = ""
     private var recordingSelection = NSRange(location: 0, length: 0)
+    private var hasLoaded = false
 
     init(
         environment: any AppServiceProviding,
@@ -35,12 +36,18 @@ final class NotesViewModel: ObservableObject {
     ) {
         self.environment = environment
         self.transcriber = transcriber ?? NotesRecordingService()
+        let textOutputConfiguration = SettingsBackedTextOutputConfiguration(
+            settingsRepository: environment.settingsRepository
+        )
         self.notesOutputService = notesOutputService ?? DefaultOutputService(
             textInsertionCoordinator: TextInsertionCoordinator(
-                fastPasteInserter: FastPasteTextInserter(),
+                fastPasteInserter: FastPasteTextInserter(
+                    shouldRestoreClipboard: textOutputConfiguration.shouldRestoreClipboard
+                ),
                 simulatedTypingInserter: SimulatedTypingInserter()
             ),
-            clipboardService: SystemClipboardService()
+            clipboardService: SystemClipboardService(),
+            textInputMode: textOutputConfiguration.textInputMode
         )
         configureTranscriber()
         load()
@@ -84,10 +91,18 @@ final class NotesViewModel: ObservableObject {
     func load() {
         do {
             notes = try environment.noteRepository.list()
+            hasLoaded = true
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func loadIfNeeded() {
+        guard !hasLoaded else {
+            return
+        }
+        load()
     }
 
     func search(_ query: String) {

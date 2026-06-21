@@ -25,18 +25,19 @@ struct DependencyContainer {
     let databaseQueue: DatabaseQueue
     let credentialStore: CredentialStore
     let historyRepository: any HistoryRepository
-    let glossaryRepository: any GlossaryRepository
-    let replacementRuleRepository: any ReplacementRuleRepository
     let styleRepository: any StyleRepository
     let asrProviderRepository: any ASRProviderRepository
     let llmProviderRepository: any LLMProviderRepository
     let transcriptionJobRepository: any TranscriptionJobRepository
     let noteRepository: any NoteRepository
     let settingsRepository: any SettingsRepository
+    let correctionRuleRepository: any CorrectionRuleRepository
+    let correctionSnapshotProvider: CorrectionRuleSnapshotProvider
+    let voiceCorrectionProcessor: any VoiceCorrectionTextProcessing
 
     static func live(
         clock: any AppClock = SystemClock(),
-        credentialStore: CredentialStore = KeychainCredentialStore(),
+        credentialStore: CredentialStore? = nil,
         defaults: UserDefaults = .standard
     ) throws -> DependencyContainer {
         let paths = try ApplicationSupportPaths.live()
@@ -49,27 +50,35 @@ struct DependencyContainer {
             clock: clock,
             paths: paths,
             storageHealth: .persistent(databaseURL: paths.databaseURL),
-            credentialStore: credentialStore,
+            credentialStore: credentialStore ?? defaultCredentialStore(paths: paths),
             defaults: defaults
         )
     }
 
     static func inMemory(
         clock: any AppClock = SystemClock(),
-        credentialStore: CredentialStore = KeychainCredentialStore(),
+        credentialStore: CredentialStore? = nil,
         defaults: UserDefaults = UserDefaults(suiteName: "VoxFlowApp.inMemory.\(UUID().uuidString)")!,
         storageHealth: StorageHealthState = .volatile(reason: "Using in-memory storage.")
     ) throws -> DependencyContainer {
         let databaseQueue = try DatabaseQueue(connection: .inMemory())
         try AppDatabase.migrator(clock: clock).migrate(databaseQueue)
+        let volatilePaths = ApplicationSupportPaths(
+            applicationSupportDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("VoxFlowApp.inMemory.\(UUID().uuidString)", isDirectory: true)
+        )
         return try make(
             databaseQueue: databaseQueue,
             clock: clock,
             paths: nil,
             storageHealth: storageHealth,
-            credentialStore: credentialStore,
+            credentialStore: credentialStore ?? defaultCredentialStore(paths: volatilePaths),
             defaults: defaults
         )
+    }
+
+    static func defaultCredentialStore(paths: ApplicationSupportPaths) -> CredentialStore {
+        AppLocalCredentialStore(fileURL: paths.credentialsURL)
     }
 
     private static func make(
@@ -81,8 +90,6 @@ struct DependencyContainer {
         defaults: UserDefaults
     ) throws -> DependencyContainer {
         let historyRepository = SQLiteHistoryRepository(databaseQueue: databaseQueue)
-        let glossaryRepository = SQLiteGlossaryRepository(databaseQueue: databaseQueue)
-        let replacementRuleRepository = SQLiteReplacementRuleRepository(databaseQueue: databaseQueue)
         let styleRepository = SQLiteStyleRepository(databaseQueue: databaseQueue)
         try BuiltInStyleSeeder.seed(styleRepository: styleRepository, clock: clock)
         let asrProviderRepository = SQLiteASRProviderRepository(databaseQueue: databaseQueue)
@@ -90,6 +97,14 @@ struct DependencyContainer {
         let transcriptionJobRepository = SQLiteTranscriptionJobRepository(databaseQueue: databaseQueue)
         let noteRepository = SQLiteNoteRepository(databaseQueue: databaseQueue)
         let settingsRepository = SQLiteSettingsRepository(databaseQueue: databaseQueue, clock: clock)
+        let correctionRuleRepository = SQLiteCorrectionRuleRepository(databaseQueue: databaseQueue)
+        let correctionSnapshotProvider = CorrectionRuleSnapshotProvider(loader: correctionRuleRepository)
+        let voiceCorrectionProcessor = TranscriptPostProcessingCoordinator(
+            processor: VoiceCorrectionTextProcessor(
+                snapshotProvider: correctionSnapshotProvider,
+                settingsRepository: settingsRepository
+            )
+        )
 
         if let paths {
             LLMDiagnosticCapture.shared.configure(
@@ -109,14 +124,15 @@ struct DependencyContainer {
             databaseQueue: databaseQueue,
             credentialStore: credentialStore,
             historyRepository: historyRepository,
-            glossaryRepository: glossaryRepository,
-            replacementRuleRepository: replacementRuleRepository,
             styleRepository: styleRepository,
             asrProviderRepository: asrProviderRepository,
             llmProviderRepository: llmProviderRepository,
             transcriptionJobRepository: transcriptionJobRepository,
             noteRepository: noteRepository,
-            settingsRepository: settingsRepository
+            settingsRepository: settingsRepository,
+            correctionRuleRepository: correctionRuleRepository,
+            correctionSnapshotProvider: correctionSnapshotProvider,
+            voiceCorrectionProcessor: voiceCorrectionProcessor
         )
     }
 

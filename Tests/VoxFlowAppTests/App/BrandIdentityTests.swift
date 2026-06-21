@@ -5,7 +5,7 @@ import XCTest
 final class BrandIdentityTests: XCTestCase {
     func testProductBrandUsesVoxFlowAndChineseDisplayName() {
         XCTAssertEqual(ProductBrand.englishName, "VoxFlow")
-        XCTAssertEqual(ProductBrand.chineseDisplayName, "随声写")
+        XCTAssertEqual(ProductBrand.chineseDisplayName, "码上写")
         XCTAssertEqual(ProductBrand.bundleIdentifier, "com.voxflow.app")
         XCTAssertEqual(ProductBrand.legacyBundleIdentifier, "com.voiceinput.app")
     }
@@ -16,9 +16,9 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleIdentifier"] as? String, "com.voxflow.app")
         XCTAssertEqual(plist["CFBundleExecutable"] as? String, "VoxFlow")
         XCTAssertEqual(plist["CFBundleName"] as? String, "VoxFlow")
-        XCTAssertEqual(plist["CFBundleDisplayName"] as? String, "随声写")
-        XCTAssertTrue((plist["NSMicrophoneUsageDescription"] as? String)?.contains("随声写") == true)
-        XCTAssertTrue((plist["NSSpeechRecognitionUsageDescription"] as? String)?.contains("随声写") == true)
+        XCTAssertEqual(plist["CFBundleDisplayName"] as? String, "码上写")
+        XCTAssertTrue((plist["NSMicrophoneUsageDescription"] as? String)?.contains("码上写") == true)
+        XCTAssertTrue((plist["NSSpeechRecognitionUsageDescription"] as? String)?.contains("码上写") == true)
     }
 
     func testMakefileProducesVoxFlowBundleAndDMG() throws {
@@ -91,6 +91,39 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
     }
 
+    func testMakefileDetectsCargoWithoutAssumingSwiftArchitectureMatchesRustTriple() throws {
+        let makefile = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(makefile.contains("rustup which cargo"))
+        XCTAssertTrue(makefile.contains("rustup which rustc"))
+        XCTAssertTrue(makefile.contains("command -v cargo"))
+        XCTAssertTrue(makefile.contains("command -v rustc"))
+        XCTAssertFalse(makefile.contains("stable-$(SWIFT_NATIVE_ARCH)-apple-darwin/bin/cargo"))
+        XCTAssertTrue(makefile.contains("RUST_CARGO ?="))
+        XCTAssertTrue(makefile.contains("RUSTC ?="))
+        XCTAssertTrue(makefile.contains("RUSTC=\"$(RUSTC)\" \"$(RUST_CARGO)\" build"))
+        XCTAssertTrue(makefile.contains("prepare-agent-helper:"))
+    }
+
+    func testMakefileSignsBundledAgentHelperAndShim() throws {
+        let makefile = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+
+        XCTAssertEqual(
+            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/Helpers/voxflow\"").count - 1,
+            3
+        )
+        XCTAssertEqual(
+            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/Helpers/vox\"").count - 1,
+            3
+        )
+    }
+
     func testMakefileBundlesMLXMetallibForSpeechSwiftRuntime() throws {
         let root = Self.repositoryRoot()
         let makefile = try String(
@@ -143,6 +176,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("CURRENT_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
+        XCTAssertTrue(cleanupBody.contains("$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve"))
         XCTAssertTrue(makefile.contains("LEGACY_BUNDLE_ID := com.voiceinput.app"))
         XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
         XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
@@ -189,13 +223,13 @@ final class BrandIdentityTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(index.contains("<title>随声写 VoxFlow"))
+        XCTAssertTrue(index.contains("<title>码上写 VoxFlow"))
         XCTAssertTrue(index.contains("https://github.com/xingbofeng/VoxFlow"))
         XCTAssertFalse(index.contains("github.com/xingbofeng/VoiceInput"))
         XCTAssertTrue(readme.contains("VoxFlow"))
     }
 
-    func testCIAndReleaseWorkflowsVerifyVoxFlowArtifacts() throws {
+    func testCIKeepsFastChecksAndReleaseWorkflowVerifiesVoxFlowArtifacts() throws {
         let root = Self.repositoryRoot()
         let ci = try String(
             contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
@@ -206,11 +240,55 @@ final class BrandIdentityTests: XCTestCase {
             encoding: .utf8
         )
 
-        for workflow in [ci, release] {
-            XCTAssertTrue(workflow.contains(".build/VoxFlow.app"))
-            XCTAssertTrue(workflow.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
-            XCTAssertFalse(workflow.contains(".build/VoxFlowApp.app"))
-        }
+        XCTAssertTrue(ci.contains("swift test"))
+        XCTAssertTrue(ci.contains("make architecture-check"))
+        XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
+        XCTAssertTrue(ci.contains("cancel-in-progress: true"))
+        XCTAssertFalse(ci.contains("make dmg"))
+        XCTAssertFalse(ci.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
+        XCTAssertFalse(ci.contains(".build/VoxFlowApp.app"))
+
+        XCTAssertTrue(release.contains(".build/VoxFlow.app"))
+        XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
+        XCTAssertFalse(release.contains(".build/VoxFlowApp.app"))
+    }
+
+    func testReleaseWorkflowRunsSameQualityGatesAsCI() throws {
+        let root = Self.repositoryRoot()
+        let release = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(release.contains("swift test"))
+        XCTAssertTrue(release.contains("make architecture-check"))
+        XCTAssertTrue(release.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
+        XCTAssertLessThan(
+            try XCTUnwrap(release.range(of: "make architecture-check")?.lowerBound),
+            try XCTUnwrap(release.range(of: "make dmg")?.lowerBound),
+            "Release must fail architecture violations before packaging."
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(release.range(of: "swift build -c debug -Xswiftc -warnings-as-errors")?.lowerBound),
+            try XCTUnwrap(release.range(of: "make dmg")?.lowerBound),
+            "Release must fail warnings before packaging."
+        )
+    }
+
+    func testReleaseWorkflowVerifiesTagPlistVersionAndReleaseNotesMatch() throws {
+        let root = Self.repositoryRoot()
+        let release = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+        let plistVersion = try XCTUnwrap(Self.infoPlist()["CFBundleShortVersionString"] as? String)
+        let releaseNotesPath = root.appendingPathComponent(".github/release-notes/v\(plistVersion).md")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: releaseNotesPath.path))
+        XCTAssertTrue(release.contains("TAG_VERSION=\"${GITHUB_REF_NAME#v}\""))
+        XCTAssertTrue(release.contains("PLIST_VERSION="))
+        XCTAssertTrue(release.contains("test \"$TAG_VERSION\" = \"$PLIST_VERSION\""))
+        XCTAssertTrue(release.contains("test -f \".github/release-notes/v${PLIST_VERSION}.md\""))
     }
 
     private static func infoPlist() throws -> [String: Any] {

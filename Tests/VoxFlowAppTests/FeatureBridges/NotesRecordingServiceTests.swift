@@ -48,6 +48,32 @@ final class NotesRecordingServiceTests: XCTestCase {
         XCTAssertEqual(recorder.startCallCount, 1)
     }
 
+    func testStartIsRejectedWhileAgentComposeOwnsAudioCapture() async throws {
+        let audioCaptureCoordinator = AudioCaptureCoordinator()
+        let agentLease = try audioCaptureCoordinator.begin(kind: .agentCompose)
+        defer { audioCaptureCoordinator.end(agentLease) }
+        let recorder = NotesAudioRecorderSpy()
+        let service = NotesRecordingService(
+            recorder: recorder,
+            audioBufferForwarder: NotesAudioFrameForwarderSpy(),
+            currentLanguage: { .english },
+            selectedEngineType: { .apple },
+            makeEngine: { _ in CapturingNotesASREngine() },
+            microphonePermission: { true },
+            speechRecognitionPermission: { true },
+            audioCaptureCoordinator: audioCaptureCoordinator
+        )
+
+        do {
+            try await service.start()
+            XCTFail("Expected audio capture conflict")
+        } catch AudioCaptureCoordinatorError.busy(active: .agentCompose, requested: .notes) {
+            XCTAssertEqual(recorder.startCallCount, 0)
+        } catch {
+            XCTFail("Expected agent compose audio capture conflict, got \(error)")
+        }
+    }
+
     func testFinishFallsBackToLatestPartialWhenFinalTimesOut() async throws {
         let engine = CapturingNotesASREngine()
         let recorder = NotesAudioRecorderSpy()
@@ -129,9 +155,42 @@ final class NotesRecordingServiceTests: XCTestCase {
         try await service.start()
         engine.emit(text: "云端 partial", isFinal: false)
         service.finish()
+        let didScheduleTimeout = await waitUntil(timeout: 1) {
+            !clock.sleepDurations.isEmpty
+        }
+
+        XCTAssertTrue(didScheduleTimeout)
+        XCTAssertEqual(clock.sleepDurations, [1])
+    }
+
+    func testCancelledSessionDelayedFinalDoesNotPolluteNextSession() async throws {
+        let firstEngine = CapturingNotesASREngine()
+        let secondEngine = CapturingNotesASREngine()
+        var engines: [CapturingNotesASREngine] = [firstEngine, secondEngine]
+        let service = NotesRecordingService(
+            recorder: NotesAudioRecorderSpy(),
+            audioBufferForwarder: NotesAudioFrameForwarderSpy(),
+            currentLanguage: { .english },
+            selectedEngineType: { .apple },
+            makeEngine: { _ in engines.removeFirst() },
+            microphonePermission: { true },
+            speechRecognitionPermission: { true }
+        )
+        var events: [(String, Bool)] = []
+        service.onTranscription = { text, isFinal in
+            events.append((text, isFinal))
+        }
+
+        try await service.start()
+        service.cancel()
+        try await service.start()
+        firstEngine.emit(text: "stale final", isFinal: true)
+        await drainMainActorTasks()
+        secondEngine.emit(text: "fresh partial", isFinal: false)
         await drainMainActorTasks()
 
-        XCTAssertEqual(clock.sleepDurations, [1])
+        XCTAssertEqual(events.map(\.0), ["fresh partial"])
+        XCTAssertEqual(events.map(\.1), [false])
     }
 }
 
@@ -219,4 +278,21 @@ private final class CapturingNotesClock: AppClock, @unchecked Sendable {
 private func drainMainActorTasks() async {
     await Task.yield()
     await Task.yield()
+    await Task.yield()
+}
+
+@MainActor
+private func waitUntil(
+    timeout: TimeInterval,
+    pollInterval: UInt64 = 10_000_000,
+    condition: @escaping () -> Bool
+) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if condition() {
+            return true
+        }
+        try? await Task.sleep(nanoseconds: pollInterval)
+    }
+    return condition()
 }

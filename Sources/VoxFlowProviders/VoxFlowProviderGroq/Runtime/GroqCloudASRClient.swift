@@ -3,6 +3,15 @@ import VoxFlowProviderCloudCore
 
 public protocol CloudASRHTTPTransport: Sendable {
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse)
+    func upload(for request: URLRequest, fromFile fileURL: URL) async throws -> (Data, HTTPURLResponse)
+}
+
+public extension CloudASRHTTPTransport {
+    func upload(for request: URLRequest, fromFile fileURL: URL) async throws -> (Data, HTTPURLResponse) {
+        var request = request
+        request.httpBody = try Data(contentsOf: fileURL)
+        return try await data(for: request)
+    }
 }
 
 public struct URLSessionCloudASRHTTPTransport: CloudASRHTTPTransport {
@@ -10,6 +19,14 @@ public struct URLSessionCloudASRHTTPTransport: CloudASRHTTPTransport {
 
     public func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse else {
+            throw CloudASRClientError.invalidResponse
+        }
+        return (data, response)
+    }
+
+    public func upload(for request: URLRequest, fromFile fileURL: URL) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
         guard let response = response as? HTTPURLResponse else {
             throw CloudASRClientError.invalidResponse
         }
@@ -88,18 +105,28 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> CloudASRTranscriptionResult {
         let apiKey = try resolvedAPIKey(for: request.configuration)
-        let audioData: Data
-        do {
-            audioData = try Data(contentsOf: request.fileURL)
-        } catch {
-            throw CloudASRClientError.unreadableAudioFile
-        }
-
         let url = try endpointURL(
             configuration: request.configuration,
             component: "audio/transcriptions"
         )
         let boundary = "VoxFlow-\(UUID().uuidString)"
+        let multipartFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoxFlow-Groq-ASR-\(UUID().uuidString).multipart", isDirectory: false)
+        do {
+            try writeMultipartBody(
+                audioFileURL: request.fileURL,
+                to: multipartFileURL,
+                model: request.configuration.model.isEmpty
+                    ? Self.defaultModel
+                    : request.configuration.model,
+                language: request.locale.language.languageCode?.identifier,
+                boundary: boundary
+            )
+        } catch {
+            throw CloudASRClientError.unreadableAudioFile
+        }
+        defer { try? FileManager.default.removeItem(at: multipartFileURL) }
+
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.timeoutInterval = request.configuration.timeoutSeconds
@@ -108,18 +135,9 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
             "multipart/form-data; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"
         )
-        urlRequest.httpBody = multipartBody(
-            audioData: audioData,
-            fileURL: request.fileURL,
-            model: request.configuration.model.isEmpty
-                ? Self.defaultModel
-                : request.configuration.model,
-            language: request.locale.language.languageCode?.identifier,
-            boundary: boundary
-        )
 
         progress(0)
-        let (data, response) = try await transport.data(for: urlRequest)
+        let (data, response) = try await transport.upload(for: urlRequest, fromFile: multipartFileURL)
         try validate(response: response, data: data, redacting: apiKey)
         guard
             let payload = try? JSONDecoder().decode(TranscriptionResponse.self, from: data),
@@ -172,27 +190,29 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
         return url
     }
 
-    private func multipartBody(
-        audioData: Data,
-        fileURL: URL,
+    private func writeMultipartBody(
+        audioFileURL: URL,
+        to outputURL: URL,
         model: String,
         language: String?,
         boundary: String
-    ) -> Data {
-        var body = Data()
-        body.appendMultipartField(name: "model", value: model, boundary: boundary)
-        body.appendMultipartField(name: "response_format", value: "verbose_json", boundary: boundary)
+    ) throws {
+        FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        defer { try? outputHandle.close() }
+
+        try outputHandle.writeMultipartField(name: "model", value: model, boundary: boundary)
+        try outputHandle.writeMultipartField(name: "response_format", value: "verbose_json", boundary: boundary)
         if let language, !language.isEmpty {
-            body.appendMultipartField(name: "language", value: language, boundary: boundary)
+            try outputHandle.writeMultipartField(name: "language", value: language, boundary: boundary)
         }
-        body.append("--\(boundary)\r\n")
-        body.append(
-            "Content-Disposition: form-data; name=\"file\"; filename=\"\(safeFilename(fileURL.lastPathComponent))\"\r\n"
+        try outputHandle.writeUTF8("--\(boundary)\r\n")
+        try outputHandle.writeUTF8(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"\(safeFilename(audioFileURL.lastPathComponent))\"\r\n"
         )
-        body.append("Content-Type: \(mimeType(for: fileURL))\r\n\r\n")
-        body.append(audioData)
-        body.append("\r\n--\(boundary)--\r\n")
-        return body
+        try outputHandle.writeUTF8("Content-Type: \(mimeType(for: audioFileURL))\r\n\r\n")
+        try outputHandle.writeFileContents(from: audioFileURL)
+        try outputHandle.writeUTF8("\r\n--\(boundary)--\r\n")
     }
 
     private func safeFilename(_ filename: String) -> String {
@@ -245,15 +265,25 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
     }
 }
 
-private extension Data {
-    mutating func append(_ string: String) {
-        append(Data(string.utf8))
+private extension FileHandle {
+    func writeMultipartField(name: String, value: String, boundary: String) throws {
+        try writeUTF8("--\(boundary)\r\n")
+        try writeUTF8("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+        try writeUTF8(value)
+        try writeUTF8("\r\n")
     }
 
-    mutating func appendMultipartField(name: String, value: String, boundary: String) {
-        append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-        append(value)
-        append("\r\n")
+    func writeUTF8(_ string: String) throws {
+        try write(contentsOf: Data(string.utf8))
+    }
+
+    func writeFileContents(from fileURL: URL) throws {
+        let inputHandle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? inputHandle.close() }
+        while true {
+            let chunk = try inputHandle.read(upToCount: 64 * 1024) ?? Data()
+            guard !chunk.isEmpty else { break }
+            try write(contentsOf: chunk)
+        }
     }
 }

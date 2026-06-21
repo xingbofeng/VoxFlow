@@ -6,7 +6,7 @@ import XCTest
 final class StatusBarIconTests: XCTestCase {
     func testStatusItemUsesVisibleMenuBarPresentation() {
         XCTAssertEqual(StatusBarIcon.visibleTitle, "")
-        XCTAssertEqual(StatusBarIcon.accessibilityName, "随声写")
+        XCTAssertEqual(StatusBarIcon.accessibilityName, "码上写")
         XCTAssertEqual(StatusBarIcon.imagePosition, .imageOnly)
         XCTAssertNil(StatusBarIcon.tooltip)
         XCTAssertEqual(StatusBarIcon.autosaveName, "VoxFlowStatusItem")
@@ -39,13 +39,13 @@ final class StatusBarIconTests: XCTestCase {
         )
         XCTAssertEqual(button.title, "")
         XCTAssertNotNil(button.image)
-        XCTAssertEqual(button.image?.accessibilityDescription, "随声写")
+        XCTAssertEqual(button.image?.accessibilityDescription, "码上写")
         XCTAssertEqual(button.image?.size, NSSize(width: 18, height: 18))
         XCTAssertEqual(button.image?.isTemplate, true)
         XCTAssertEqual(button.imagePosition, .imageOnly)
         XCTAssertEqual(button.identifier, StatusBarIcon.buttonIdentifier)
         XCTAssertNil(button.contentTintColor)
-        XCTAssertEqual(button.accessibilityLabel(), "随声写")
+        XCTAssertEqual(button.accessibilityLabel(), "码上写")
         XCTAssertFalse(
             try statusBarIconSource().contains("highlightsBy = []"),
             "Status item should keep AppKit's natural menu bar highlight behavior."

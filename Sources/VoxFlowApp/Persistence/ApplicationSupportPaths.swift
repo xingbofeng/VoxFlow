@@ -42,12 +42,23 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("LLMTraceDiagnostics", isDirectory: true)
     }
 
+    var credentialsURL: URL {
+        rootDirectory.appendingPathComponent("credentials.json", isDirectory: false)
+    }
+
     func voiceTaskAudioURL(forTaskID taskID: String) -> URL {
         voiceTaskAudioDirectory.appendingPathComponent("\(taskID).m4a", isDirectory: false)
     }
 
     func ensureDirectories(fileManager: FileManager = .default) throws {
-        for directory in [rootDirectory, exportsDirectory, modelsDirectory, voiceTaskAudioDirectory] {
+        for directory in [
+            rootDirectory,
+            exportsDirectory,
+            modelsDirectory,
+            voiceTaskAudioDirectory,
+            agentRouterDirectory,
+            cliBinDirectory,
+        ] {
             try fileManager.createDirectory(
                 at: directory,
                 withIntermediateDirectories: true

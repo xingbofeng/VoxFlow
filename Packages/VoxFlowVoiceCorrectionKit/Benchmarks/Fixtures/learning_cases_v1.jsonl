@@ -1,0 +1,5 @@
+{"id":"learn-001-qwen","rawText":"q 问","insertedText":"q 问","observedFinalText":"Qwen","expectedCandidates":[{"original":"q 问","replacement":"Qwen"}],"expectedRevertedRuleIDs":[],"shouldLearn":true,"tags":["substitution","typewhisper-focused-observation","chinese-english"]}
+{"id":"learn-002-rewrite-reject","rawText":"这个方案不好","insertedText":"这个方案不好","observedFinalText":"我想换一个完整说法","expectedCandidates":[],"expectedRevertedRuleIDs":[],"shouldLearn":false,"tags":["rewrite","reject"]}
+{"id":"learn-003-insertion-reject","rawText":"VoxFlow","insertedText":"VoxFlow","observedFinalText":"VoxFlow 很好用","expectedCandidates":[],"expectedRevertedRuleIDs":[],"shouldLearn":false,"tags":["insertion","reject"]}
+{"id":"learn-004-deletion-reject","rawText":"please delete this","insertedText":"please delete this","observedFinalText":"please delete","expectedCandidates":[],"expectedRevertedRuleIDs":[],"shouldLearn":false,"tags":["deletion","reject"]}
+{"id":"learn-005-undo","rawText":"Qwen","insertedText":"Qwen","observedFinalText":"q 问","expectedCandidates":[],"expectedRevertedRuleIDs":["00000000-0000-0000-0000-000000000001"],"shouldLearn":false,"tags":["negative-feedback","undo"]}

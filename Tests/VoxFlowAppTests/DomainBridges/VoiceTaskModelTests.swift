@@ -8,6 +8,7 @@ final class VoiceTaskModelTests: XCTestCase {
     func testVoiceTaskModeRawValues() {
         XCTAssertEqual(VoiceTaskMode.dictation.rawValue, "dictation")
         XCTAssertEqual(VoiceTaskMode.agentCompose.rawValue, "agentCompose")
+        XCTAssertEqual(VoiceTaskMode.agentDispatch.rawValue, "agentDispatch")
     }
 
     // MARK: - VoiceTaskStage

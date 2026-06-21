@@ -481,9 +481,12 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
     }
 
-    func testSelectingQwen3WithoutModelFallsBackToApple() {
+    func testSelectingQwen3WithoutModelKeepsSelectionAndFallsBackAtRuntime() {
         XCTAssertFalse(manager.selectEngine(.qwen3))
-        XCTAssertEqual(manager.selectedEngineType, .apple)
+        XCTAssertEqual(manager.selectedEngineType, .qwen3)
+        XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
+        XCTAssertEqual(manager.selectionFallbackNotice?.selectedEngineType, .qwen3)
+        XCTAssertEqual(manager.selectionFallbackNotice?.effectiveEngineType, .apple)
     }
 
     func testQwen3DownloadURLsUseConfiguredHuggingFaceModels() {
