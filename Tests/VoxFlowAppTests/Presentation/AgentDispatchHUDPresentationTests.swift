@@ -13,12 +13,12 @@ final class AgentDispatchHUDPresentationTests: XCTestCase {
         )
         XCTAssertEqual(
             AgentDispatchHUDPresentation.confirmation(utterance: "看一下", candidates: []).title,
-            "选择要指挥的队员"
+            "选择发送目标"
         )
         XCTAssertEqual(AgentDispatchHUDPresentation.sent(agentName: "前端").title, "已发送给前端")
         XCTAssertEqual(
-            AgentDispatchHUDPresentation.failure(message: "队员已退出", retainedText: "检查按钮").detail,
-            "队员已退出\n指令已保留：检查按钮"
+            AgentDispatchHUDPresentation.failure(message: "任务助手已退出", retainedText: "检查按钮").detail,
+            "任务助手已退出\n指令已保留：检查按钮"
         )
     }
 

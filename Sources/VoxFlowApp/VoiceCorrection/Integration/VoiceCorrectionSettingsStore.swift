@@ -17,6 +17,8 @@ enum VoiceCorrectionSettingsKey: String, CaseIterable {
 }
 
 enum VoiceCorrectionSettingsStore {
+    private static let logger = AppLogger.general
+
     private struct StoredBool: Codable {
         let value: Bool
     }
@@ -25,6 +27,7 @@ enum VoiceCorrectionSettingsStore {
         _ key: VoiceCorrectionSettingsKey,
         repository: any SettingsRepository
     ) throws -> Bool {
+        Self.logger.debug("VoiceCorrectionSettingsStore bool read key=\(key.rawValue)")
         guard let value = try repository.value(forKey: key.rawValue),
               let data = value.data(using: .utf8)
         else {
@@ -38,10 +41,13 @@ enum VoiceCorrectionSettingsStore {
         value: Bool,
         repository: any SettingsRepository
     ) throws {
+        Self.logger.debug("VoiceCorrectionSettingsStore bool set key=\(key.rawValue) value=\(value)")
         let data = try JSONEncoder().encode(StoredBool(value: value))
         guard let json = String(data: data, encoding: .utf8) else {
+            Self.logger.warning("VoiceCorrectionSettingsStore setBool failed: serialize json failed key=\(key.rawValue)")
             return
         }
         try repository.set(key.rawValue, jsonValue: json)
+        Self.logger.debug("VoiceCorrectionSettingsStore bool set persisted key=\(key.rawValue)")
     }
 }

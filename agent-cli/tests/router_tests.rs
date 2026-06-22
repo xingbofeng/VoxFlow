@@ -275,6 +275,106 @@ fn resolver_uses_summary_topics_and_provider_refs_as_auxiliary_match_signals() {
 }
 
 #[test]
+fn session_start_hook_attaches_provider_refs_and_observed_title_without_transcript_body() {
+    let temp = tempdir().unwrap();
+    let router = Router::new(temp.path());
+    let transcript = temp.path().join("claude-session.jsonl");
+    fs::write(
+        &transcript,
+        r#"{"type":"user","message":{"content":"must not be copied"}}
+{"type":"ai-title","sessionId":"provider-1","aiTitle":"登录页修复"}
+"#,
+    )
+    .unwrap();
+    let agent = card(temp.path(), "agent", "claude", "web");
+    router.registry().upsert(&agent).unwrap();
+
+    router
+        .record_provider_session_start(
+            "agent",
+            "claude",
+            "provider-1",
+            Some(transcript.display().to_string()),
+            Some("resume"),
+        )
+        .unwrap();
+
+    let card = router
+        .registry()
+        .list(true, &Alive)
+        .unwrap()
+        .into_iter()
+        .find(|card| card.agent_id == "agent")
+        .unwrap();
+    assert_eq!(card.display_name(), "登录页修复");
+    assert!(card.provider_session_refs.iter().any(|reference| {
+        reference.provider == "claude"
+            && reference.kind == "session_id"
+            && reference.value == "provider-1"
+    }));
+    assert!(card.provider_session_refs.iter().any(|reference| {
+        reference.provider == "claude"
+            && reference.kind == "transcript_path"
+            && reference.value == transcript.display().to_string()
+    }));
+    let registry = fs::read_to_string(router.registry().path()).unwrap();
+    assert!(registry.contains("登录页修复"));
+    assert!(!registry.contains("must not be copied"));
+    assert!(matches!(
+        router.resolve_utterance("登录页修复，继续", &Alive).unwrap(),
+        ResolveOutcome::Direct { agent_id, message, .. }
+            if agent_id == "agent" && message == "继续"
+    ));
+}
+
+#[test]
+fn refresh_provider_titles_picks_up_later_rename_events_from_known_transcript() {
+    let temp = tempdir().unwrap();
+    let router = Router::new(temp.path());
+    let transcript = temp.path().join("codebuddy-session.jsonl");
+    fs::write(
+        &transcript,
+        r#"{"type":"ai-title","sessionId":"provider-2","aiTitle":"旧标题"}
+"#,
+    )
+    .unwrap();
+    let agent = card(temp.path(), "agent", "codebuddy", "web");
+    router.registry().upsert(&agent).unwrap();
+    router
+        .record_provider_session_start(
+            "agent",
+            "codebuddy",
+            "provider-2",
+            Some(transcript.display().to_string()),
+            Some("startup"),
+        )
+        .unwrap();
+
+    fs::write(
+        &transcript,
+        r#"{"type":"ai-title","sessionId":"provider-2","aiTitle":"旧标题"}
+{"type":"custom-title","sessionId":"provider-2","customTitle":"123","cwd":"/tmp/web"}
+{"type":"summary","summary":"hello","providerData":{"source":"initial-user-message"}}
+"#,
+    )
+    .unwrap();
+
+    router.refresh_provider_titles().unwrap();
+    let card = router
+        .registry()
+        .list(true, &Alive)
+        .unwrap()
+        .into_iter()
+        .find(|card| card.agent_id == "agent")
+        .unwrap();
+    assert_eq!(card.display_name(), "123");
+    assert_eq!(
+        card.observed_title.unwrap().source,
+        "codebuddy.custom-title"
+    );
+}
+
+#[test]
 fn dispatch_logs_summaries_and_provider_refs_persist_without_terminal_output() {
     let temp = tempdir().unwrap();
     let router = Router::new(temp.path());

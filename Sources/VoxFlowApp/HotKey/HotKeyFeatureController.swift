@@ -77,6 +77,7 @@ struct DelayedHotKeyPressClient {
 
 @MainActor
 final class HotKeyFeatureController {
+    private static let logger = AppLogger.general
     private let monitor: HotKeyMonitorClient
     private let delayedPress: DelayedHotKeyPressClient
     private let longPressThreshold: () -> TimeInterval
@@ -120,6 +121,7 @@ final class HotKeyFeatureController {
     }
 
     func start() {
+        Self.logger.debug("hotkey_feature_controller_start")
         monitor.setPressHandler { [weak self] action in
             self?.handlePress(action)
         }
@@ -134,26 +136,37 @@ final class HotKeyFeatureController {
         }
 
         guard monitor.start() else {
+            Self.logger.warning("hotkey_feature_controller_start_failed monitor.start returned false")
             scheduleAccessibilityAlert { [weak self] in
                 self?.showAccessibilityAlert()
             }
             return
         }
+        Self.logger.debug("hotkey_feature_controller_started")
     }
 
     func stop() {
+        Self.logger.debug("hotkey_feature_controller_stop")
         monitor.stop()
         delayedPress.cancel()
     }
 
     private func handlePress(_ action: VoiceAction) {
+        Self.logger.debug("hotkey_handle_press action=\(action.logName) state=\(currentDictationState())")
         let notesState = currentNotesState()
         let action = resolvedAction(for: action, notesState: notesState)
-        guard currentDictationState().isIdle else { return }
+        guard currentDictationState().isIdle else {
+            Self.logger.debug("hotkey_handle_press ignored state=\(currentDictationState())")
+            return
+        }
         guard action == .dictation || !notesState.isActive || !notesState.isRecording else {
+            Self.logger.debug(
+                "hotkey_handle_press ignored notesState.active=\(notesState.isActive) notesState.recording=\(notesState.isRecording)"
+            )
             return
         }
         if currentShortPressBehavior() == .toggleListening {
+            Self.logger.debug("hotkey_handle_press direct decision action=\(action.logName)")
             actionStartedOnCurrentPress = action
             performPressDecision(action)
             return
@@ -164,6 +177,7 @@ final class HotKeyFeatureController {
             guard self.currentDictationState().isIdle else { return }
             guard self.actionStartedOnCurrentPress != action else { return }
             self.actionStartedOnCurrentPress = action
+            Self.logger.debug("hotkey_handle_press delayed action=\(action.logName)")
             self.performPressDecision(action)
         }
     }
@@ -173,9 +187,13 @@ final class HotKeyFeatureController {
     }
 
     private func handleRelease(_ action: VoiceAction) {
+        Self.logger.debug("hotkey_handle_release action=\(action.logName)")
         let action = resolvedAction(for: action, notesState: currentNotesState())
         delayedPress.cancel()
         guard actionStartedOnCurrentPress == action || activeVoiceAction() == action else {
+            Self.logger.debug(
+                "hotkey_handle_release ignored started=\(actionStartedOnCurrentPress?.logName ?? "nil") active=\(activeVoiceAction()?.logName ?? "nil")"
+            )
             actionStartedOnCurrentPress = nil
             return
         }
@@ -184,18 +202,24 @@ final class HotKeyFeatureController {
     }
 
     private func handleShortPress(_ action: VoiceAction) {
+        Self.logger.debug("hotkey_handle_short_press action=\(action.logName)")
         let notesState = currentNotesState()
         let action = resolvedAction(for: action, notesState: notesState)
         delayedPress.cancel()
         if actionStartedOnCurrentPress == action {
+            Self.logger.debug("hotkey_handle_short_press ignored: action in progress")
             actionStartedOnCurrentPress = nil
             return
         }
         if action == .dictation, currentNotesState().shouldCaptureHotKey {
+            Self.logger.debug("hotkey_handle_short_press notes capture path action=\(action.logName)")
             performLoggedDecision(for: .shortPress, action: action)
             return
         }
-        guard currentShortPressBehavior() == .toggleListening else { return }
+        guard currentShortPressBehavior() == .toggleListening else {
+            Self.logger.debug("hotkey_handle_short_press ignored toggleListening disabled")
+            return
+        }
         performLoggedDecision(for: .shortPress, action: action)
     }
 
@@ -203,7 +227,9 @@ final class HotKeyFeatureController {
         guard action == .dictation, !notesState.shouldCaptureHotKey else {
             return action
         }
-        return primaryVoiceAction()
+        let resolved = primaryVoiceAction()
+        Self.logger.debug("hotkey_resolved_action input=\(action.logName) shouldCapture=\(notesState.shouldCaptureHotKey) resolved=\(resolved.logName)")
+        return resolved
     }
 
     private func handleWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {

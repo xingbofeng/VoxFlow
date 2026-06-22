@@ -39,7 +39,7 @@ struct ReplacementApplierTests {
         #expect(result.correctedText == "Como estas?")
     }
 
-    @Test("records event metadata against the original span")
+    @Test("records event metadata against the corrected span")
     func recordsEvent() throws {
         let raw = "use q 问 now"
         let match = makeMatch(
@@ -56,7 +56,7 @@ struct ReplacementApplierTests {
         #expect(event.ruleID == match.rule.id)
         #expect(event.original == "q 问")
         #expect(event.replacement == "Qwen")
-        #expect(event.range == match.range)
+        #expect(event.range == CorrectionTextRange(location: 4, length: 4))
         #expect(event.scope == match.rule.scope)
         #expect(event.source == .automaticLearning)
     }

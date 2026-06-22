@@ -40,6 +40,42 @@ final class PasteLastResultHotKeyTests: XCTestCase {
         XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: [.maskCommand]))
     }
 
+    func testCustomWorkflowShortcutOverridesDefaultCommandShiftV() {
+        let customClipboardOCR = ShortcutManager.encodeShortcut(
+            keyCode: 0x0B,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.shiftModifierMask
+        )
+
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x0B,
+                flags: [.maskAlternate, .maskShift],
+                clipboardImageOCRKeyCode: customClipboardOCR,
+                screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+            ),
+            .clipboardImageOCR
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x09,
+                flags: [.maskCommand, .maskShift],
+                clipboardImageOCRKeyCode: customClipboardOCR,
+                screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+            )
+        )
+    }
+
+    func testClearedWorkflowShortcutDoesNotRouteOCR() {
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: 0x09,
+                flags: [.maskCommand, .maskShift],
+                clipboardImageOCRKeyCode: nil,
+                screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+            )
+        )
+    }
+
     func testControlShiftVPassesThrough() {
         XCTAssertNil(
             HotKeyShortcutRouting.workflowShortcut(
@@ -107,7 +143,9 @@ final class PasteLastResultHotKeyTests: XCTestCase {
                 keyCode: 0x09,
                 flags: [.maskCommand, .maskShift],
                 dictationKeyCode: 54,
-                agentComposeKeyCode: 61
+                agentComposeKeyCode: 61,
+                clipboardImageOCRKeyCode: ShortcutManager.defaultClipboardImageOCRShortcutKeyCode,
+                screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
             ),
             .workflowShortcut(.clipboardImageOCR)
         )
@@ -116,7 +154,9 @@ final class PasteLastResultHotKeyTests: XCTestCase {
                 keyCode: 0x00,
                 flags: [.maskCommand, .maskShift],
                 dictationKeyCode: 54,
-                agentComposeKeyCode: 61
+                agentComposeKeyCode: 61,
+                clipboardImageOCRKeyCode: ShortcutManager.defaultClipboardImageOCRShortcutKeyCode,
+                screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
             ),
             .workflowShortcut(.screenshotOCR)
         )

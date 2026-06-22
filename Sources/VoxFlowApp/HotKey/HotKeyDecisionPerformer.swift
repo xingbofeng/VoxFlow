@@ -21,6 +21,7 @@ final class HotKeyDecisionPerformer {
     }
 
     func perform(_ decision: HotKeyRoutingDecision) {
+        AppLogger.general.debug("hotkey_decision_performer decision=\(decisionLogName(decision))")
         switch decision {
         case .ignore:
             break
@@ -32,6 +33,32 @@ final class HotKeyDecisionPerformer {
             startDictation(action)
         case .releaseDictation(let action):
             releaseDictation(action)
+        }
+    }
+
+    private func decisionLogName(_ decision: HotKeyRoutingDecision) -> String {
+        switch decision {
+        case .ignore:
+            return "ignore"
+        case .startNotesRecording:
+            return "startNotesRecording"
+        case .finishNotesRecording:
+            return "finishNotesRecording"
+        case .startDictation(let action):
+            return "startDictation(\(actionLogName(action)))"
+        case .releaseDictation(let action):
+            return "releaseDictation(\(actionLogName(action)))"
+        }
+    }
+
+    private func actionLogName(_ action: VoiceAction) -> String {
+        switch action {
+        case .dictation:
+            return "dictation"
+        case .agentCompose:
+            return "agentCompose"
+        case .agentDispatch:
+            return "agentDispatch"
         }
     }
 }

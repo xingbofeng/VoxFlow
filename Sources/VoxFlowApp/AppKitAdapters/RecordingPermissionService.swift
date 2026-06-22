@@ -50,6 +50,7 @@ final class RecordingPermissionService {
 
     func resolveRecordingPermissions() async -> RecordingPermissionSnapshot {
         let engineType = engineTypeProvider()
+        AppLogger.general.debug("解析录音权限：engine=\(engineType.rawValue)")
         var microphonePermission = microphonePermissionProvider()
 
         if microphonePermission == .notDetermined {
@@ -66,6 +67,7 @@ final class RecordingPermissionService {
         } else {
             speechPermission = .denied
         }
+        AppLogger.general.debug("权限解析结果：microphone=\(microphonePermission), speech=\(speechPermission), engine=\(engineType.rawValue)")
 
         return makeSnapshot(
             engineType: engineType,
@@ -75,7 +77,8 @@ final class RecordingPermissionService {
     }
 
     func refreshRecordingPermissions() -> RecordingPermissionSnapshot {
-        makeSnapshot(
+        AppLogger.general.debug("刷新录音权限快照")
+        return makeSnapshot(
             engineType: engineTypeProvider(),
             microphonePermission: microphonePermissionProvider(),
             speechPermission: speechPermissionProvider()

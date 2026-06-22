@@ -103,11 +103,11 @@ enum CapabilityModelCatalog {
                 CapabilityModelDescriptor(
                     id: CapabilityModelID.llmTranslation,
                     kind: .translation,
-                    displayName: "LLM配置",
-                    subtitle: "使用设置中配置的 LLM，将 OCR 原文翻译为简体中文",
+                    displayName: "智能模型配置",
+                    subtitle: "使用设置中配置的智能模型，将识别原文翻译为简体中文",
                     sizeDescription: "无需下载",
-                    memoryDescription: "由 LLM 服务管理",
-                    fallbackDescription: "需要先在设置中配置 LLM",
+                    memoryDescription: "由智能模型服务管理",
+                    fallbackDescription: "需要先在设置中配置智能模型服务",
                     isRecommended: true,
                     isInstalled: true
                 ),
@@ -126,10 +126,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.madladTranslation,
                     kind: .translation,
                     displayName: "Soniqo MADLAD",
-                    subtitle: "本地翻译模型，OCR 原文固定翻译为简体中文",
+                    subtitle: "本地翻译模型，识别原文固定翻译为简体中文",
                     sizeDescription: "约 1.7 GB",
                     memoryDescription: "本地 MLX 推理",
-                    fallbackDescription: "未下载时使用已配置的 LLM",
+                    fallbackDescription: "未下载时使用已配置的智能模型",
                     isRecommended: false,
                     isInstalled: false
                 ),
@@ -140,6 +140,8 @@ enum CapabilityModelCatalog {
 
 @MainActor
 final class CapabilityModelViewModel: ObservableObject {
+    private static let logger = AppLogger.general
+
     @Published private(set) var models: [CapabilityModelDescriptor]
     @Published private(set) var selectedModelID: String
     @Published private(set) var isDownloading = false
@@ -160,6 +162,7 @@ final class CapabilityModelViewModel: ObservableObject {
         self.kind = kind
         self.downloader = downloader
         self.defaults = defaults
+        Self.logger.debug("capability_model_vm_init_start kind=\(kind.rawValue)")
         let catalogModels = CapabilityModelCatalog.models(for: kind).map { model in
             var mutable = model
             mutable.isInstalled = CapabilityModelID.isBuiltInOption(model.id) || downloader.isInstalled(modelID: model.id)
@@ -172,31 +175,46 @@ final class CapabilityModelViewModel: ObservableObject {
         )
         self.models = Self.models(catalogModels, withSelectedFirst: selectedModelID)
         self.selectedModelID = selectedModelID
+        Self.logger.info("capability_model_vm_init_success kind=\(kind.rawValue) models=\(models.count) selected=\(selectedModelID)")
     }
 
     func selectModel(id: String) {
-        guard models.contains(where: { $0.id == id }) else { return }
+        Self.logger.debug("capability_model_vm_select_model_start kind=\(kind.rawValue) id=\(id)")
+        guard models.contains(where: { $0.id == id }) else {
+            Self.logger.warning("capability_model_vm_select_model_skipped kind=\(kind.rawValue) id=\(id)")
+            return
+        }
         selectedModelID = id
         models = Self.models(models, withSelectedFirst: id)
         defaults.set(id, forKey: Self.selectedModelDefaultsKey(kind: kind))
         lastError = nil
         lastActionMessage = "已切换模型配置"
+        Self.logger.info("capability_model_vm_select_model_success kind=\(kind.rawValue) id=\(id)")
     }
 
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
+        Self.logger.debug("capability_model_vm_clear_feedback kind=\(kind.rawValue)")
     }
 
     func downloadModel(id: String) async {
-        guard !isDownloading else { return }
-        guard models.contains(where: { $0.id == id }) else { return }
+        guard !isDownloading else {
+            Self.logger.debug("capability_model_vm_download_skipped kind=\(kind.rawValue) id=\(id) alreadyDownloading=true")
+            return
+        }
+        guard models.contains(where: { $0.id == id }) else {
+            Self.logger.warning("capability_model_vm_download_skipped kind=\(kind.rawValue) id=\(id) missingModel=true")
+            return
+        }
         guard !CapabilityModelID.isBuiltInOption(id) else {
             markInstalled(id: id, installed: true)
             lastError = nil
             lastActionMessage = "已切换内置模型"
+            Self.logger.info("capability_model_vm_download_builtin kind=\(kind.rawValue) id=\(id)")
             return
         }
+        Self.logger.info("capability_model_vm_download_start kind=\(kind.rawValue) id=\(id)")
         isDownloading = true
         downloadingModelID = id
         downloadProgress = nil
@@ -216,14 +234,20 @@ final class CapabilityModelViewModel: ObservableObject {
             markInstalled(id: id, installed: true)
             downloadProgress = 1.0
             lastActionMessage = "本地模型下载完成"
+            Self.logger.info("capability_model_vm_download_success kind=\(kind.rawValue) id=\(id)")
         } catch {
             lastError = error.localizedDescription
+            Self.logger.error("capability_model_vm_download_failed kind=\(kind.rawValue) id=\(id) error=\(error.localizedDescription)")
         }
     }
 
     private func markInstalled(id: String, installed: Bool) {
-        guard let index = models.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = models.firstIndex(where: { $0.id == id }) else {
+            Self.logger.warning("capability_model_vm_mark_installed_skipped kind=\(kind.rawValue) id=\(id)")
+            return
+        }
         models[index].isInstalled = installed
+        Self.logger.debug("capability_model_vm_mark_installed kind=\(kind.rawValue) id=\(id) installed=\(installed)")
     }
 
     nonisolated static func selectedModelID(kind: CapabilityModelKind, defaults: UserDefaults = .standard) -> String {

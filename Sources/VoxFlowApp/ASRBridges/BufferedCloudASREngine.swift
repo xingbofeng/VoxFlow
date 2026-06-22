@@ -62,12 +62,18 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
 
     func start() throws {
         guard configurationAvailable() else {
+            AppLogger.network.warning("BufferedCloudASREngine start blocked: provider not configured")
             throw BufferedCloudASREngineError.providerNotConfigured
         }
+        AppLogger.audio.debug("BufferedCloudASREngine start")
         let sessionID = "cloud-asr-\(UUID().uuidString)"
+        let generation = UUID()
         let fileURL = temporaryDirectory.appendingPathComponent(
             "VoxFlow-Cloud-ASR-\(UUID().uuidString).wav",
             isDirectory: false
+        )
+        AppLogger.audio.debug(
+            "BufferedCloudASREngine start session=\(generation.uuidString) file=\(fileURL.lastPathComponent)"
         )
         let writer = try StreamingWAVFileWriter(fileURL: fileURL)
         lock.withLock {
@@ -75,7 +81,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             transcriptionTask = nil
             audioWriter?.cancelAndDelete()
             audioWriter = writer
-            generation = UUID()
+            self.generation = generation
             runtimeMetadata = ASRRuntimeMetadataSnapshot(sessionID: sessionID)
         }
     }
@@ -83,11 +89,15 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     func appendAudioFrame(_ frame: AudioFrame) {
         do {
             try lock.withLock {
-                guard generation != nil else { return }
+                guard generation != nil else {
+                    AppLogger.audio.debug("BufferedCloudASREngine append dropped: no active session")
+                    return
+                }
                 try audioWriter?.append(frame)
                 runtimeMetadata.audioDurationMs = audioWriter?.durationMS
             }
         } catch {
+            AppLogger.audio.warning("BufferedCloudASREngine append failed: \(error.localizedDescription)")
             let currentGeneration = lock.withLock { generation }
             guard let currentGeneration else { return }
             DispatchQueue.main.async { [weak self] in
@@ -107,6 +117,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 return (generation, finished.fileURL, finished.durationMS, locale)
             }
         } catch {
+            AppLogger.audio.error("BufferedCloudASREngine endAudio failed: \(error.localizedDescription)")
             let currentGeneration = lock.withLock { generation }
             guard let currentGeneration else { return }
             DispatchQueue.main.async { [weak self] in
@@ -115,11 +126,17 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             }
             return
         }
-        guard let (generation, fileURL, durationMS, locale) = snapshot else { return }
+        guard let (generation, fileURL, durationMS, locale) = snapshot else {
+            AppLogger.audio.debug("BufferedCloudASREngine endAudio ignored: no active session")
+            return
+        }
 
         let task = Task { [weak self] in
             guard let self else { return }
             defer { try? FileManager.default.removeItem(at: fileURL) }
+            AppLogger.audio.debug(
+                "BufferedCloudASREngine transcribe start session=\(generation.uuidString) durationMs=\(durationMS)"
+            )
 
             do {
                 let request = CloudASRFileRequest(
@@ -130,6 +147,9 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 let startedAt = Date()
                 let result = try await client.transcribeFile(request) { _ in }
                 guard isCurrent(generation), !Task.isCancelled else { return }
+                AppLogger.audio.info(
+                    "BufferedCloudASREngine transcribed session=\(generation.uuidString) textLen=\(result.text.count)"
+                )
                 let latencyMS = max(0, Int(Date().timeIntervalSince(startedAt) * 1_000))
                 lock.withLock {
                     runtimeMetadata.audioDurationMs = durationMS
@@ -137,15 +157,24 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isCurrent(generation) else { return }
+                    AppLogger.audio.debug(
+                        "BufferedCloudASREngine emit final transcript session=\(generation.uuidString)"
+                    )
                     self.onTranscription?(result.text, true)
                 }
             } catch {
+                AppLogger.audio.warning(
+                    "BufferedCloudASREngine transcribe failed session=\(generation.uuidString) reason=\(error.localizedDescription)"
+                )
                 guard isCurrent(generation), !Task.isCancelled else { return }
                 lock.withLock {
                     runtimeMetadata.errorCode = String(describing: type(of: error))
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isCurrent(generation) else { return }
+                    AppLogger.audio.warning(
+                        "BufferedCloudASREngine callback onError session=\(generation.uuidString)"
+                    )
                     self.onError?(error)
                 }
             }
@@ -157,13 +186,16 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             }
             transcriptionTask = task
         }
+        AppLogger.audio.debug("BufferedCloudASREngine endAudio scheduled transcribe session=\(generation.uuidString)")
     }
 
     func stop() {
+        AppLogger.audio.debug("BufferedCloudASREngine stop session=\(generation?.uuidString ?? "nil")")
         cancel()
     }
 
     func cancel() {
+        AppLogger.audio.debug("BufferedCloudASREngine cancel session=\(generation?.uuidString ?? "nil")")
         lock.withLock {
             generation = nil
             audioWriter?.cancelAndDelete()

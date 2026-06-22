@@ -34,6 +34,8 @@ final class VoiceTaskCoordinator {
     private let clock: any AppClock
     private let contextPipeline: (any ContextCollecting)?
     private let agentRefiner: (any PromptAwareTextRefining)?
+    private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
+    private let isFocusedTextFieldSecure: @MainActor () -> Bool
 
     private let taskRuntime = VoiceTaskRuntimeStore()
     private var contextTask: ContextCollectionState?
@@ -89,7 +91,9 @@ final class VoiceTaskCoordinator {
         targetProvider: any DictationTargetProviding,
         clock: any AppClock = SystemClock(),
         contextPipeline: (any ContextCollecting)? = nil,
-        agentRefiner: (any PromptAwareTextRefining)? = nil
+        agentRefiner: (any PromptAwareTextRefining)? = nil,
+        correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
     ) {
         self.taskRepository = taskRepository
         self.outputService = outputService
@@ -98,6 +102,8 @@ final class VoiceTaskCoordinator {
         self.clock = clock
         self.contextPipeline = contextPipeline
         self.agentRefiner = agentRefiner
+        self.correctionObservationScheduler = correctionObservationScheduler
+        self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
     }
 
     // MARK: - Recording lifecycle
@@ -280,7 +286,7 @@ final class VoiceTaskCoordinator {
                 language: task.asrMetadata?.language,
                 bundleIdentifier: originalTarget?.bundleID,
                 isFinalTranscript: true,
-                isSecureField: false
+                isSecureField: isFocusedTextFieldSecure()
             )
             : nil
         let processingResult = await textPipeline.process(
@@ -350,8 +356,36 @@ final class VoiceTaskCoordinator {
         taskRuntime.clearCurrentTaskIfMatching(task)
         AppLogger.general.info("voice_workflow_completed kind=\(workflowKind.rawValue) taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
+        scheduleCorrectionObservationIfNeeded(
+            task: task,
+            finalText: finalText,
+            correctionContext: correctionContext,
+            processingResult: processingResult,
+            outputResult: outputResult
+        )
 
         return outputResult
+    }
+
+    private func scheduleCorrectionObservationIfNeeded(
+        task: VoiceTask,
+        finalText: String,
+        correctionContext: CorrectionContext?,
+        processingResult: TextProcessingResult,
+        outputResult: OutputResult
+    ) {
+        guard task.mode == .dictation,
+              case .injected = outputResult,
+              let correctionContext,
+              !correctionContext.isSecureField
+        else {
+            return
+        }
+        correctionObservationScheduler?.scheduleObservation(
+            insertedText: finalText,
+            context: correctionContext,
+            appliedEvents: processingResult.appliedCorrectionEvents
+        )
     }
 
     // MARK: - Agent compose
@@ -960,9 +994,9 @@ enum CoordinatorError: LocalizedError {
         case .invalidMode:
             return "任务模式不支持此操作。"
         case .llmNotConfigured:
-            return "未配置 LLM。请在设置中添加 LLM 提供方以使用帮我说功能。"
+            return "未配置模型服务。请在设置中先添加可用模型服务后再试。"
         case .llmCallFailed(let reason):
-            return "LLM 调用失败：\(reason)"
+            return "模型调用失败：\(reason)"
         case .workflowAlreadyRunning(let kind):
             return "已有进行中的 \(kind) 工作流。"
         }

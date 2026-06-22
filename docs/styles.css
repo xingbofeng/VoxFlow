@@ -587,6 +587,9 @@ html[lang="zh-CN"] h1 {
 }
 .feature {
   position: relative;
+  display: grid;
+  grid-template-rows: minmax(210px, 1fr) auto auto;
+  gap: 12px;
   min-height: 390px;
   padding: 30px;
   overflow: hidden;
@@ -596,24 +599,22 @@ html[lang="zh-CN"] h1 {
   box-shadow: 0 16px 60px rgba(85, 69, 45, .08);
 }
 .feature h3 {
-  position: absolute;
-  left: 30px;
-  right: 30px;
-  bottom: 82px;
+  position: relative;
+  grid-row: 2;
   margin: 0;
   font-size: 25px;
   line-height: 1.15;
   letter-spacing: -.035em;
+  overflow-wrap: anywhere;
 }
 .feature p {
-  position: absolute;
-  left: 30px;
-  right: 30px;
-  bottom: 28px;
+  position: relative;
+  grid-row: 3;
   max-width: 560px;
   margin: 0;
   color: var(--muted);
   line-height: 1.62;
+  overflow-wrap: anywhere;
 }
 .feature-hud {
   background:
@@ -905,7 +906,7 @@ html[lang="zh-CN"] h1 {
     overflow: hidden;
   }
   .product-visual-image {
-    width: 118vw;
+    width: 108vw;
     max-width: none;
   }
   .flow-section {
@@ -926,19 +927,12 @@ html[lang="zh-CN"] h1 {
   .feature,
   .feature-wide {
     grid-column: auto;
+    grid-template-rows: minmax(190px, 1fr) auto auto;
     min-height: 360px;
     padding: 24px;
   }
   .feature h3 {
-    left: 24px;
-    right: 24px;
-    bottom: 94px;
     font-size: 23px;
-  }
-  .feature p {
-    left: 24px;
-    right: 24px;
-    bottom: 24px;
   }
   .mini-window {
     left: 24px;
@@ -978,7 +972,7 @@ html[lang="zh-CN"] h1 {
     margin-inline: calc(50% - 50vw);
   }
   .product-visual-image {
-    width: 126vw;
+    width: 112vw;
   }
 }
 

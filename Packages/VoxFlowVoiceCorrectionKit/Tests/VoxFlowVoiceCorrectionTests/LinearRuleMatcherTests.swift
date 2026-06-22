@@ -49,6 +49,20 @@ struct LinearRuleMatcherTests {
         #expect(matches.count == 2)
     }
 
+    @Test("boundary matching treats whitespace inside mixed ASR tokens as optional")
+    func boundaryMatchAllowsMissingWhitespaceInsideASRTokens() {
+        let matches = matcher.matches(
+            in: "Q问。q  问。",
+            rules: [makeRule(original: "q 问", policy: .boundary)]
+        )
+
+        #expect(matches.map(\.matchedText) == ["Q问", "q  问"])
+        #expect(matches.map(\.range) == [
+            CorrectionTextRange(location: 0, length: 2),
+            CorrectionTextRange(location: 3, length: 4),
+        ])
+    }
+
     @Test("case sensitive manual rules preserve casing")
     func caseSensitiveRule() {
         let matches = matcher.matches(

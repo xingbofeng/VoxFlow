@@ -4,6 +4,7 @@ public struct CorrectionRule: Identifiable, Codable, Sendable, Equatable {
     public static let maximumTextLength = 256
 
     public let id: UUID
+    public var targetID: UUID?
     public var original: String
     public var replacement: String
     public var matchPolicy: MatchPolicy
@@ -26,6 +27,7 @@ public struct CorrectionRule: Identifiable, Codable, Sendable, Equatable {
 
     public init(
         id: UUID = UUID(),
+        targetID: UUID? = nil,
         original: String,
         replacement: String,
         matchPolicy: MatchPolicy = .boundary,
@@ -47,6 +49,7 @@ public struct CorrectionRule: Identifiable, Codable, Sendable, Equatable {
         lastAppliedAt: Date? = nil
     ) {
         self.id = id
+        self.targetID = targetID
         self.original = original
         self.replacement = replacement
         self.matchPolicy = matchPolicy

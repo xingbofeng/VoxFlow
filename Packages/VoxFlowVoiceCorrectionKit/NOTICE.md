@@ -1,14 +1,14 @@
-# VoxFlowVoiceCorrection Notice
+# VoxFlowVoiceCorrection 声明
 
-This package is the GPLv3 voice correction module for VoxFlow.
+本 package 是 VoxFlow 的 GPLv3 语音纠错模块。
 
-## Upstream Reference
+## 上游参考
 
-- Project: TypeWhisper / typewhisper-mac
-- License: GPLv3
-- Reference commit: `6c46bfc676539e2a1a245a01dca9a4afd6f2cb63`
-- Purpose: deterministic dictation correction, post-processing order, and focused text observation learning references.
+- 项目：TypeWhisper / typewhisper-mac
+- 许可证：GPLv3
+- 参考 commit：`6c46bfc676539e2a1a245a01dca9a4afd6f2cb63`
+- 用途：确定性听写纠错、后处理顺序以及 focused text observation 学习的参考。
 
-## Distribution Note
+## 分发说明
 
-Copied or adapted GPLv3 source must remain inside `Packages/VoxFlowVoiceCorrectionKit/` unless the project explicitly changes the licensing and distribution boundary.
+复制或改写的 GPLv3 源码必须保留在 `Packages/VoxFlowVoiceCorrectionKit/` 内，除非项目显式变更许可与分发边界。

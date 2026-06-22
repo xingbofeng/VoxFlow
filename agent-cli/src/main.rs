@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use std::io::Read;
 use voxflow::cli::{normalize_invocation_args, parse_from, VoxflowCommand};
 use voxflow::ipc::RouterServer;
 use voxflow::mcp::McpServer;
@@ -52,7 +53,7 @@ fn run() -> Result<()> {
             Router::new(&home).send_message(&card.agent_id, &message, submit)?;
         }
         VoxflowCommand::Help => println!(
-            "voxflow <agent-command> | run -- <command> | list [--all] | send [--no-enter] <target> <message> | resolve <target> | serve | mcp"
+            "voxflow <agent-command> | run -- <command> | list [--all] | send [--no-enter] <target> <message> | resolve <target> | serve | mcp | hook-session-start <provider>"
         ),
         VoxflowCommand::Resolve { target } => {
             let result = Router::new(&home).resolve_utterance(
@@ -68,6 +69,23 @@ fn run() -> Result<()> {
             let agent_id = std::env::var("VOXFLOW_AGENT_ID")
                 .map_err(|_| anyhow::anyhow!("VOXFLOW_AGENT_ID is required for MCP identity"))?;
             McpServer::new(Router::new(&home), agent_id).run_stdio()?;
+        }
+        VoxflowCommand::HookSessionStart { provider } => {
+            let agent_id = std::env::var("VOXFLOW_AGENT_ID").map_err(|_| {
+                anyhow::anyhow!("VOXFLOW_AGENT_ID is required for session hook reporting")
+            })?;
+            let mut input = String::new();
+            std::io::stdin().read_to_string(&mut input)?;
+            let payload: serde_json::Value = serde_json::from_str(&input)?;
+            Router::new(&home).record_provider_session_start(
+                &agent_id,
+                &provider,
+                payload["session_id"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("session_id is required"))?,
+                payload["transcript_path"].as_str().map(str::to_owned),
+                payload["source"].as_str(),
+            )?;
         }
     }
     Ok(())

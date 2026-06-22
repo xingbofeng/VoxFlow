@@ -7,6 +7,7 @@ struct ApplicationSupportPaths: Equatable {
         applicationSupportDirectory: URL,
         appDirectoryName: String = "VoxFlow"
     ) {
+        AppLogger.general.debug("ApplicationSupportPaths init dir=\(appDirectoryName)")
         rootDirectory = applicationSupportDirectory
             .appendingPathComponent(appDirectoryName, isDirectory: true)
     }
@@ -16,8 +17,10 @@ struct ApplicationSupportPaths: Equatable {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first else {
+            AppLogger.general.warning("ApplicationSupportPaths live failed: applicationSupportDirectory not found")
             throw ApplicationSupportPathsError.applicationSupportDirectoryUnavailable
         }
+        AppLogger.general.debug("ApplicationSupportPaths live path=\(applicationSupportDirectory.path)")
 
         return ApplicationSupportPaths(applicationSupportDirectory: applicationSupportDirectory)
     }
@@ -38,6 +41,10 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("voice-task-audio", isDirectory: true)
     }
 
+    var screenshotsDirectory: URL {
+        rootDirectory.appendingPathComponent("Screenshots", isDirectory: true)
+    }
+
     var llmTraceDiagnosticsDirectory: URL {
         rootDirectory.appendingPathComponent("LLMTraceDiagnostics", isDirectory: true)
     }
@@ -51,11 +58,13 @@ struct ApplicationSupportPaths: Equatable {
     }
 
     func ensureDirectories(fileManager: FileManager = .default) throws {
+        AppLogger.general.debug("Ensure app directories root=\(rootDirectory.path)")
         for directory in [
             rootDirectory,
             exportsDirectory,
             modelsDirectory,
             voiceTaskAudioDirectory,
+            screenshotsDirectory,
             agentRouterDirectory,
             cliBinDirectory,
         ] {

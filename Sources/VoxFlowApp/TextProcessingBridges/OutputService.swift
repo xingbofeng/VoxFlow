@@ -17,6 +17,9 @@ protocol ScreenshotImageClipboardWriting: AnyObject {
 }
 
 @MainActor
+protocol ScreenshotOCRResultClipboard: ClipboardSetting, ScreenshotImageClipboardWriting {}
+
+@MainActor
 final class SystemClipboardService: ClipboardSetting, ScreenshotImageClipboardWriting {
     @discardableResult
     func setString(_ text: String) -> Bool {
@@ -33,6 +36,8 @@ final class SystemClipboardService: ClipboardSetting, ScreenshotImageClipboardWr
         return pasteboard.writeObjects([nsImage])
     }
 }
+
+extension SystemClipboardService: ScreenshotOCRResultClipboard {}
 
 // MARK: - OutputService
 
@@ -176,12 +181,24 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                     reason: "Target changed and clipboard write failed"
                 )
                 rememberLastResult(text, mode: mode, result: result)
-                return logged(result, mode: mode, textInputMode: textInputMode)
+                return logged(
+                    result,
+                    mode: mode,
+                    textInputMode: textInputMode,
+                    originalTarget: originalTarget,
+                    currentTarget: target
+                )
             }
             let reason = buildChangeReason(original: originalTarget, current: target)
             let result = OutputResult.targetChanged(reason: reason)
             rememberLastResult(text, mode: mode, result: result)
-            return logged(result, mode: mode, textInputMode: textInputMode)
+            return logged(
+                result,
+                mode: mode,
+                textInputMode: textInputMode,
+                originalTarget: originalTarget,
+                currentTarget: target
+            )
         }
 
         let result = await textInsertionCoordinator.insert(text, mode: textInputMode)
@@ -204,7 +221,52 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                 : .copyFailed(reason: "\(reason) and clipboard write failed")
         }
         rememberLastResult(text, mode: mode, result: outputResult)
-        return logged(outputResult, mode: mode, textInputMode: textInputMode)
+        return logged(
+            outputResult,
+            mode: mode,
+            textInputMode: textInputMode,
+            originalTarget: originalTarget,
+            currentTarget: target
+        )
+    }
+
+    func deliverInputOnly(
+        text: String,
+        mode: VoiceTaskMode
+    ) async -> OutputResult {
+        await deliverInputOnly(
+            text: text,
+            mode: mode,
+            textInputMode: textInputModeProvider()
+        )
+    }
+
+    func deliverInputOnly(
+        text: String,
+        mode: VoiceTaskMode,
+        textInputMode: TextInputMode
+    ) async -> OutputResult {
+        let result = await textInsertionCoordinator.insert(text, mode: textInputMode)
+        let outputResult: OutputResult = switch result {
+        case .success:
+            .injected
+        case .permissionDenied:
+            .permissionDenied(reason: "Accessibility permission denied")
+        case .eventCreationFailed:
+            .injectionFailed(reason: "Failed to create paste event")
+        case .cancelled:
+            .cancelled
+        case .unavailable(let reason):
+            .injectionFailed(reason: reason)
+        }
+        rememberLastResult(text, mode: mode, result: outputResult)
+        return logged(
+            outputResult,
+            mode: mode,
+            textInputMode: textInputMode,
+            originalTarget: nil,
+            currentTarget: nil
+        )
     }
 
     func deliverToInAppTextTarget(
@@ -248,10 +310,12 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
     private func logged(
         _ result: OutputResult,
         mode: VoiceTaskMode,
-        textInputMode: TextInputMode
+        textInputMode: TextInputMode,
+        originalTarget: DictationTarget?,
+        currentTarget: DictationTarget?
     ) -> OutputResult {
         AppLogger.general.info(
-            "text_output_delivered mode=\(mode.rawValue) textInputMode=\(textInputMode.rawValue) result=\(outputResultLabel(result))"
+            "text_output_delivered mode=\(mode.rawValue) textInputMode=\(textInputMode.rawValue) result=\(outputResultLabel(result)) outputKind=\(result.kind.rawValue) originalTarget=\(Self.logDescription(for: originalTarget)) currentTarget=\(Self.logDescription(for: currentTarget)) fallbackReason=\(fallbackReason(for: result))"
         )
         return result
     }
@@ -273,5 +337,23 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         case .cancelled:
             return "cancelled"
         }
+    }
+
+    private func fallbackReason(for result: OutputResult) -> String {
+        switch result {
+        case .injected, .copied, .cancelled:
+            return "none"
+        case let .targetChanged(reason),
+             let .permissionDenied(reason),
+             let .injectionFailed(reason),
+             let .copyFailed(reason):
+            return reason
+        }
+    }
+
+    private static func logDescription(for target: DictationTarget?) -> String {
+        guard let target else { return "nil" }
+        let hasWindowTitle = target.windowTitle?.isEmpty == false
+        return "{bundleID=\(target.bundleID ?? "nil"),appName=\(target.appName ?? "nil"),pid=\(target.pid.map { String($0) } ?? "nil"),windowID=\(target.windowID ?? "nil"),hasWindowTitle=\(hasWindowTitle)}"
     }
 }

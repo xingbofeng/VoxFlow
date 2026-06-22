@@ -3,6 +3,7 @@ import VoxFlowVoiceCorrection
 @MainActor
 final class FakeFocusedTextObserver: FocusedTextObserving {
     var captureResult: FocusedTextObservation?
+    var captureResults: [FocusedTextObservation?] = []
     var recaptureResult: FocusedTextObservation?
     var recaptureResults: [FocusedTextObservation] = []
     private(set) var captureCallCount = 0
@@ -10,6 +11,9 @@ final class FakeFocusedTextObserver: FocusedTextObserving {
 
     func capture() -> FocusedTextObservation? {
         captureCallCount += 1
+        if !captureResults.isEmpty {
+            return captureResults.removeFirst()
+        }
         return captureResult
     }
 

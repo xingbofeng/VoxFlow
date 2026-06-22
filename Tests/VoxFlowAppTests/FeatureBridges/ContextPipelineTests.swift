@@ -35,6 +35,14 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertEqual(request.recognitionLanguages, ["zh-Hans", "zh-Hant", "en-US"])
     }
 
+    func testContextBoostFallbackUsesFastChineseRecognitionConfiguration() {
+        let request = SystemScreenshotProvider.makeRecognitionRequest(quality: .fast)
+
+        XCTAssertEqual(request.recognitionLevel, .fast)
+        XCTAssertTrue(request.usesLanguageCorrection)
+        XCTAssertEqual(request.recognitionLanguages, ["zh-Hans", "zh-Hant", "en-US"])
+    }
+
     func testScreenshotPermissionCheckDoesNotRequestAccessFromWorkflowPath() throws {
         var repositoryRoot = URL(fileURLWithPath: #filePath)
         for _ in 0..<4 {

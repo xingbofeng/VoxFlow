@@ -9,8 +9,13 @@ protocol CorrectionRuleRepository: CorrectionRuleLoading {
     func save(_ rule: CorrectionRule) throws
     func rule(id: UUID) throws -> CorrectionRule?
     func setEnabled(_ isEnabled: Bool, id: UUID, updatedAt: Date) throws
+    func recordApplications(ruleIDs: [UUID], at date: Date) throws
     func delete(id: UUID) throws
     func clearAll() throws
+}
+
+extension CorrectionRuleRepository {
+    func recordApplications(ruleIDs: [UUID], at date: Date) throws {}
 }
 
 final class CorrectionRuleSnapshotProvider {

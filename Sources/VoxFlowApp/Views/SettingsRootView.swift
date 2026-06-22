@@ -1,13 +1,18 @@
 import AppKit
 import SwiftUI
 
+private enum ShortcutBinding: Equatable {
+    case voice(VoiceAction)
+    case workflow(HotKeyWorkflowShortcut)
+}
+
 struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
     @StateObject private var ttsCapabilityModelViewModel = CapabilityModelViewModel(kind: .tts)
     @StateObject private var translationCapabilityModelViewModel = CapabilityModelViewModel(kind: .translation)
-    @State private var recordingShortcutAction: VoiceAction?
+    @State private var recordingShortcutBinding: ShortcutBinding?
     @State private var shortcutMonitor: Any?
     @State private var importedJSON = ""
     @State private var newAgentAlias = ""
@@ -16,6 +21,7 @@ struct SettingsRootView: View {
     @State private var showAgentCLIRegistrationConfirmation = false
     @State private var showAgentCLIUnregistrationConfirmation = false
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
+    @AppStorage(ContextBoostSettings.enabledDefaultsKey) private var contextBoostEnabled = ContextBoostSettings.defaultEnabled
 
     var body: some View {
         HStack(spacing: 0) {
@@ -49,7 +55,7 @@ struct SettingsRootView: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("将删除 \(viewModel.localModelStorageDescription()) 的本地 ASR 模型文件，并把当前本地识别 Provider 回退到系统自带。")
+            Text("将删除 \(viewModel.localModelStorageDescription()) 的本地语音识别模型文件，并把当前本地识别模型回退到系统自带。")
         }
         .confirmationDialog(
             "注册终端命令？",
@@ -105,35 +111,31 @@ struct SettingsRootView: View {
 
     private var unresolvedBehaviorHelpText: String {
         """
-        询问确认：让你选择队员
-        取消发送：保留文本不发送
-        模型判断：用 LLM 排序候选
-        默认发送：写入当前输入框
+        询问确认：先让你选择目标任务助手
+        取消发送：保留文本，不发送给任务助手
+        智能排序：按模型置信度排序候选
+        默认发送：直接写入当前输入框
         """
     }
 
     private var settingsSidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("应用设置")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 4)
+            sidebarGroupTitle("模型配置")
 
-            settingsSidebarButton(.general)
-            settingsSidebarButton(.vibeCoding)
             settingsSidebarButton(.dictationModels)
             settingsSidebarButton(.correctionModels)
             settingsSidebarButton(.ttsModels)
             settingsSidebarButton(.translationModels)
+
+            sidebarGroupTitle("应用设置")
+                .padding(.top, 16)
+
+            settingsSidebarButton(.general)
+            settingsSidebarButton(.vibeCoding)
             settingsSidebarButton(.system)
 
-            Text("数据与隐私")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                .padding(.horizontal, 12)
+            sidebarGroupTitle("数据与隐私")
                 .padding(.top, 16)
-                .padding(.bottom, 4)
 
             settingsSidebarButton(.dataPrivacy)
             Spacer()
@@ -171,7 +173,7 @@ struct SettingsRootView: View {
 
     private var dictationModelsSection: some View {
         SettingsGroupCard(
-            title: "ASR 模型",
+            title: "语音识别",
             subtitle: "选择语音识别方式和本地模型大小",
             systemImage: "waveform",
             tint: AppTheme.ColorToken.accent
@@ -181,27 +183,72 @@ struct SettingsRootView: View {
     }
 
     private var correctionModelsSection: some View {
-        SettingsGroupCard(
-            title: "LLM 模型",
-            subtitle: "配置用于纠错、翻译 fallback 和总结的 OpenAI 兼容模型",
-            systemImage: "sparkles",
-            tint: .blue
-        ) {
-            SettingsToggleRow(
-                title: "启用 LLM 纠错",
-                subtitle: "听写完成后使用默认 OpenAI 兼容模型润色文本",
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsGroupCard(
+                title: "纠错与上下文",
+                subtitle: "配置用于纠错、翻译和总结的智能模型服务",
                 systemImage: "sparkles",
-                tint: .blue,
-                isOn: $llmCorrectionEnabled
-            )
-            LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
+                tint: .blue
+            ) {
+                SettingsToggleRow(
+                    title: "启用 AI 纠错",
+                    subtitle: "听写完成后，使用默认智能模型润色文本",
+                    systemImage: "sparkles",
+                    tint: .blue,
+                    isOn: $llmCorrectionEnabled
+                )
+                SettingsToggleRow(
+                    title: "当前窗口图片文字识别上下文增强",
+                    subtitle: "仅将当前窗口提取的前 K 条候选词临时加入模型纠错提示词",
+                    systemImage: "text.viewfinder",
+                    tint: .indigo,
+                    isOn: $contextBoostEnabled
+                )
+                LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
+            }
+
+            SettingsGroupCard(
+                title: "易错词修正",
+                subtitle: "控制本地确定性替换和自动学习策略",
+                systemImage: "text.badge.checkmark",
+                tint: AppTheme.ColorToken.accent
+            ) {
+                SettingsToggleRow(
+                    title: "启用易错词修正",
+                    subtitle: "在 AI 优化后、插入前应用本地规则",
+                    systemImage: "checkmark.shield",
+                    tint: AppTheme.ColorToken.accent,
+                    isOn: voiceCorrectionEnabledBinding
+                )
+                SettingsToggleRow(
+                    title: "自动学习候选词",
+                    subtitle: "插入后观察同一个输入框的手动修改，提取高置信替换",
+                    systemImage: "sparkle.magnifyingglass",
+                    tint: .orange,
+                    isOn: voiceCorrectionAutoLearningBinding
+                )
+                SettingsToggleRow(
+                    title: "自动学习直接生效",
+                    subtitle: "关闭后，学习结果先进入易错词页的候选规则",
+                    systemImage: "bolt.badge.checkmark",
+                    tint: .green,
+                    isOn: voiceCorrectionAutoLearningImmediateBinding
+                )
+                SettingsToggleRow(
+                    title: "影子模式",
+                    subtitle: "只记录会命中的规则，不真正修改输入文本",
+                    systemImage: "shield.lefthalf.filled",
+                    tint: .orange,
+                    isOn: voiceCorrectionShadowModeBinding
+                )
+            }
         }
     }
 
     private var ttsModelsSection: some View {
         SettingsGroupCard(
-            title: "TTS 模型",
-            subtitle: "选择 HUD 原文和译文朗读使用的本地语音合成模型",
+            title: "朗读",
+            subtitle: "选择原文与译文朗读使用的本地语音模型",
             systemImage: "speaker.wave.2",
             tint: .green
         ) {
@@ -211,8 +258,8 @@ struct SettingsRootView: View {
 
     private var translationModelsSection: some View {
         SettingsGroupCard(
-            title: "翻译模型",
-            subtitle: "选择截图 OCR 翻译使用的本地模型和 fallback 路径",
+            title: "翻译",
+            subtitle: "选择截图文字识别与翻译使用的本地模型和后备路径",
             systemImage: "globe.asia.australia",
             tint: .teal
         ) {
@@ -231,7 +278,12 @@ struct SettingsRootView: View {
                 systemImage: "keyboard",
                 tint: .purple
             ) {
-                VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    shortcutGroupHeader(
+                        title: "语音快捷键",
+                        subtitle: "控制语音输入与AI 编程的全局入口"
+                    )
+
                     actionShortcutRow(
                         action: .dictation,
                         title: "语音转录",
@@ -244,12 +296,42 @@ struct SettingsRootView: View {
 
                     actionShortcutRow(
                         action: .agentCompose,
-                        title: "帮我说",
-                        subtitle: "结合当前窗口和口述生成文本，完成后写入当前输入框",
+                        title: "任务助手",
+                        subtitle: "结合当前窗口上下文与口述生成文本，完成后直接写入当前输入框",
                         buttonTitle: "设置快捷键",
                         badge: "不自动发送",
                         prominentWhenUnbound: true
                     )
+
+                    Divider()
+                        .padding(.leading, 2)
+
+                    shortcutGroupHeader(
+                        title: "工作流快捷键",
+                        subtitle: "图片文字识别相关操作可单独改键，清空后不会响应快捷键"
+                    )
+
+                    workflowShortcutRow(
+                        shortcut: .clipboardImageOCR,
+                        title: "剪贴板图片文字识别",
+                        subtitle: "识别剪贴板图片文字并粘贴到当前输入位置",
+                        systemImage: "doc.viewfinder",
+                        tint: .indigo
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    workflowShortcutRow(
+                        shortcut: .screenshotOCR,
+                        title: "截图文字识别",
+                        subtitle: "框选截图后识别、翻译或总结文字",
+                        systemImage: "text.viewfinder",
+                        tint: .orange
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 14) {
@@ -280,14 +362,14 @@ struct SettingsRootView: View {
     private var vibeCodingSection: some View {
         VStack(alignment: .leading, spacing: 22) {
             SettingsGroupCard(
-                title: "Vibe Coding 指挥中心",
-                subtitle: "用语音把指令发给正在工作的终端 Agent",
+                title: "AI 编程控制台",
+                subtitle: "用语音把指令发给正在工作的终端助手",
                 systemImage: "terminal",
                 tint: AppTheme.ColorToken.accent
             ) {
                 SettingsToggleRow(
-                    title: "启用指挥中心",
-                    subtitle: "开启后，现有语音输入快捷键会进入 Vibe Coding 指挥 HUD",
+                    title: "启用AI 编程控制台",
+                    subtitle: "开启后，现有语音输入快捷键会进入AI 编程控制台",
                     systemImage: "terminal",
                     tint: AppTheme.ColorToken.accent,
                     isOn: Binding(
@@ -301,7 +383,7 @@ struct SettingsRootView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("注册终端命令")
                                 .font(.system(size: 15, weight: .semibold))
-                            Text("在 Ghostty、iTerm2 或 Terminal 中用以下命令启动队员")
+                            Text("在 Ghostty、iTerm2 或 Terminal 中用以下命令启动任务助手")
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
                         }
@@ -336,7 +418,7 @@ struct SettingsRootView: View {
 
                 SettingsToggleRow(
                     title: "准确命名时直接发送",
-                    subtitle: "唯一准确命中队员名或用户别名时，不调用模型、不二次确认",
+                    subtitle: "命中明确的任务助手名称或别名时，不调用模型、无需二次确认",
                     systemImage: "paperplane.fill",
                     tint: .green,
                     isOn: Binding(
@@ -348,7 +430,7 @@ struct SettingsRootView: View {
                 HStack(spacing: 14) {
                     SettingsRowIcon(systemImage: "questionmark.bubble", tint: .orange)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("未命中队员名")
+                        Text("未识别任务助手名称")
                             .font(.system(size: 15, weight: .semibold))
                         Text("低置信结果按所选方式处理")
                             .font(.system(size: 12))
@@ -356,13 +438,13 @@ struct SettingsRootView: View {
                     }
                     Spacer()
                     HStack(spacing: 10) {
-                        Picker("未命中队员名", selection: Binding(
+                        Picker("未识别任务助手名称", selection: Binding(
                             get: { viewModel.agentDispatchUnresolvedBehavior },
                             set: { value in perform { try viewModel.setAgentDispatchUnresolvedBehavior(value) } }
                         )) {
                             Text("询问确认").tag("confirm")
                             Text("取消发送").tag("cancel")
-                            Text("模型判断").tag("model")
+                            Text("智能判断").tag("model")
                             Text("默认发送").tag("default")
                         }
                         .labelsHidden()
@@ -378,8 +460,8 @@ struct SettingsRootView: View {
                 .settingsRow()
 
                 SettingsToggleRow(
-                    title: "MCP 自报身份",
-                    subtitle: "不做心跳，仅在任务变化时低频更新队员摘要和会话引用",
+                    title: "协作通道状态上报",
+                    subtitle: "不使用心跳，仅在任务变化时低频同步任务助手摘要与会话引用",
                     systemImage: "person.text.rectangle",
                     tint: .teal,
                     isOn: Binding(
@@ -538,7 +620,7 @@ struct SettingsRootView: View {
             ) {
                 systemToggle(.avoidClipboard, "不使用剪贴板", "使用键盘输入代替剪贴板粘贴", "clipboard", tint: .indigo)
                 systemToggle(.restoreClipboard, "还原剪贴板内容", "输出完成后恢复之前的剪贴板内容", "clipboard.fill", tint: .indigo)
-                systemToggle(.clipboardImageOCR, "剪贴板图片 OCR", "剪贴板里是图片时，Command+Shift+V 先识别图片文字再粘贴", "doc.viewfinder", tint: .indigo)
+                systemToggle(.clipboardImageOCR, "剪贴板图片文字识别", "剪贴板里是图片时，Command+Shift+V 先识别图片文字再粘贴", "doc.viewfinder", tint: .indigo)
             }
 
             SettingsGroupCard(
@@ -589,7 +671,7 @@ struct SettingsRootView: View {
                 )
                 permissionRow(
                     title: "屏幕录制",
-                    subtitle: "用于“帮我说”的当前窗口 OCR，上下文截图不会保存",
+                    subtitle: "用于“任务助手”的当前窗口文字识别，上下文截图不会保存",
                     systemImage: "rectangle.inset.filled.and.person.filled",
                     status: PermissionSummary.statusText(viewModel.screenRecordingGranted),
                     granted: viewModel.screenRecordingGranted,
@@ -625,17 +707,17 @@ struct SettingsRootView: View {
                 systemToggle(.crashLogs, "崩溃日志", "仅在本地保存崩溃信息和堆栈，用于排查问题", "ladybug", tint: .purple)
                 systemToggle(
                     .llmTraceDiagnostics,
-                    "LLM 诊断采集",
+                    "AI 诊断采集",
                     "默认关闭；开启后单独保存原始调用内容，保留 7 天且最多 100 份",
                     "doc.text.magnifyingglass",
                     tint: .orange
                 )
-                Button("立即删除 LLM 诊断内容", role: .destructive) {
+                Button("立即删除 AI 诊断内容", role: .destructive) {
                     viewModel.clearLLMTraceDiagnostics()
                 }
                 .buttonStyle(.bordered)
 
-                Text("LLM 诊断文件不会写入主数据库或自动上传。关闭诊断采集会立即删除全部诊断文件。")
+                Text("AI 诊断文件不会写入主数据库或自动上传。关闭 AI 诊断采集会立即删除全部诊断文件。")
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -772,6 +854,14 @@ struct SettingsRootView: View {
         .buttonStyle(.plain)
     }
 
+    private func sidebarGroupTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
+    }
+
     private var selectedInputDeviceName: String {
         viewModel.inputDevices.first(where: { $0.id == viewModel.selectedInputDeviceID })?.name
             ?? "系统默认麦克风"
@@ -781,16 +871,19 @@ struct SettingsRootView: View {
         viewModel.selectedRecognitionLanguage.displayName
     }
 
-    private func shortcutDisplayName(for action: VoiceAction) -> String {
-        guard let keyCode = shortcutKeyCode(for: action) else {
-            return "未设置"
-        }
-        return KeyCodeMapping.displayName(for: keyCode)
-    }
-
     private func shortcutKeyIcon(for action: VoiceAction) -> String {
         guard let keyCode = shortcutKeyCode(for: action) else {
             return action.systemImage
+        }
+        return KeyCodeMapping.iconName(for: keyCode)
+    }
+
+    private func shortcutKeyIcon(
+        for workflowShortcut: HotKeyWorkflowShortcut,
+        fallback: String
+    ) -> String {
+        guard let keyCode = shortcutKeyCode(for: workflowShortcut) else {
+            return fallback
         }
         return KeyCodeMapping.iconName(for: keyCode)
     }
@@ -803,6 +896,17 @@ struct SettingsRootView: View {
             return viewModel.agentComposeShortcutKeyCode
         case .agentDispatch:
             return nil
+        }
+    }
+
+    private func shortcutKeyCode(for workflowShortcut: HotKeyWorkflowShortcut) -> Int64? {
+        switch workflowShortcut {
+        case .clipboardImageOCR:
+            return viewModel.clipboardImageOCRShortcutKeyCode
+        case .screenshotOCR:
+            return viewModel.screenshotOCRShortcutKeyCode
+        case .cancel:
+            return HotKeyShortcutRouting.escapeKeyCode
         }
     }
 
@@ -953,6 +1057,34 @@ struct SettingsRootView: View {
         )
     }
 
+    private var voiceCorrectionEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.voiceCorrectionEnabled },
+            set: { value in perform { try viewModel.setVoiceCorrectionEnabled(value) } }
+        )
+    }
+
+    private var voiceCorrectionAutoLearningBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.voiceCorrectionAutoLearningEnabled },
+            set: { value in perform { try viewModel.setVoiceCorrectionAutoLearningEnabled(value) } }
+        )
+    }
+
+    private var voiceCorrectionAutoLearningImmediateBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.voiceCorrectionAutoLearningAppliesImmediately },
+            set: { value in perform { try viewModel.setVoiceCorrectionAutoLearningAppliesImmediately(value) } }
+        )
+    }
+
+    private var voiceCorrectionShadowModeBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.voiceCorrectionShadowMode },
+            set: { value in perform { try viewModel.setVoiceCorrectionShadowMode(value) } }
+        )
+    }
+
     private func perform(_ action: () throws -> Void) {
         do {
             try action()
@@ -969,9 +1101,10 @@ struct SettingsRootView: View {
         badge: String? = nil,
         prominentWhenUnbound: Bool = false
     ) -> some View {
-        let isRecording = recordingShortcutAction == action
-        let displayName = shortcutDisplayName(for: action)
-        let isUnbound = shortcutKeyCode(for: action) == nil
+        let binding = ShortcutBinding.voice(action)
+        let isRecording = recordingShortcutBinding == binding
+        let keyCode = shortcutKeyCode(for: action)
+        let isUnbound = keyCode == nil
         return HStack(spacing: 14) {
             SettingsRowIcon(systemImage: shortcutKeyIcon(for: action), tint: action == .agentCompose ? .green : AppTheme.ColorToken.accent)
             VStack(alignment: .leading, spacing: 5) {
@@ -991,41 +1124,113 @@ struct SettingsRootView: View {
                 Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                Text(isRecording ? "按下想用于\(title)的按键" : displayName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isRecording ? AppTheme.ColorToken.accent : (isUnbound ? AppTheme.ColorToken.secondaryText : AppTheme.ColorToken.primaryText))
             }
-            Spacer()
+            Spacer(minLength: 16)
+            ShortcutKeycapsView(
+                keyCode: keyCode,
+                isRecording: isRecording,
+                recordingTitle: "按下新快捷键"
+            )
             shortcutActionButton(
-                title: isRecording ? "正在录制..." : buttonTitle,
+                title: isRecording ? "取消" : buttonTitle,
                 prominent: prominentWhenUnbound && isUnbound,
-                action: action
+                binding: binding
             )
         }
         .settingsRow()
     }
 
+    private func workflowShortcutRow(
+        shortcut: HotKeyWorkflowShortcut,
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color
+    ) -> some View {
+        let binding = ShortcutBinding.workflow(shortcut)
+        let isRecording = recordingShortcutBinding == binding
+        let keyCode = shortcutKeyCode(for: shortcut)
+        let isUnbound = keyCode == nil
+        return HStack(spacing: 14) {
+            SettingsRowIcon(
+                systemImage: shortcutKeyIcon(for: shortcut, fallback: systemImage),
+                tint: tint
+            )
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            Spacer(minLength: 16)
+            ShortcutKeycapsView(
+                keyCode: keyCode,
+                isRecording: isRecording,
+                recordingTitle: "按下新快捷键"
+            )
+            if !isUnbound {
+                Button {
+                    perform { try viewModel.updateWorkflowShortcut(shortcut, keyCode: nil) }
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 30, height: 30)
+                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .background(AppTheme.ColorToken.panelBackground.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .help("清空快捷键")
+            }
+            shortcutActionButton(
+                title: isRecording ? "取消" : "修改",
+                prominent: isUnbound,
+                binding: binding
+            )
+        }
+        .settingsRow()
+    }
+
+    private func shortcutGroupHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .padding(.horizontal, 2)
+        .padding(.top, 2)
+    }
+
     @ViewBuilder
-    private func shortcutActionButton(title: String, prominent: Bool, action: VoiceAction) -> some View {
+    private func shortcutActionButton(title: String, prominent: Bool, binding: ShortcutBinding) -> some View {
         if prominent {
             Button(title) {
-                toggleShortcutRecording(for: action)
+                toggleShortcutRecording(for: binding)
             }
             .buttonStyle(.borderedProminent)
         } else {
             Button(title) {
-                toggleShortcutRecording(for: action)
+                toggleShortcutRecording(for: binding)
             }
             .buttonStyle(.bordered)
         }
     }
 
-    private func toggleShortcutRecording(for action: VoiceAction = .dictation) {
-        if recordingShortcutAction == action {
+    private func toggleShortcutRecording(for binding: ShortcutBinding = .voice(.dictation)) {
+        if recordingShortcutBinding == binding {
             stopShortcutRecording()
             return
         }
-        recordingShortcutAction = action
+        recordingShortcutBinding = binding
         ShortcutCaptureState.shared.isCapturing = true
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             recordShortcut(from: event)
@@ -1038,7 +1243,7 @@ struct SettingsRootView: View {
             NSEvent.removeMonitor(shortcutMonitor)
             self.shortcutMonitor = nil
         }
-        recordingShortcutAction = nil
+        recordingShortcutBinding = nil
         ShortcutCaptureState.shared.isCapturing = false
     }
 
@@ -1052,14 +1257,19 @@ struct SettingsRootView: View {
                 control: event.modifierFlags.contains(.control)
             )
         )
-        let action = recordingShortcutAction ?? .dictation
+        let binding = recordingShortcutBinding ?? .voice(.dictation)
         guard keyCode > 0 else {
             viewModel.report(error: SettingsViewModelError.invalidShortcutKeyCode)
             stopShortcutRecording()
             return
         }
         perform {
-            try viewModel.updateActionShortcut(action: action, keyCode: keyCode)
+            switch binding {
+            case let .voice(action):
+                try viewModel.updateActionShortcut(action: action, keyCode: keyCode)
+            case let .workflow(shortcut):
+                try viewModel.updateWorkflowShortcut(shortcut, keyCode: keyCode)
+            }
         }
         stopShortcutRecording()
     }
@@ -1112,6 +1322,72 @@ private struct SettingsGroupCard<Content: View>: View {
         }
         .padding(20)
         .appPanel(cornerRadius: 14)
+    }
+}
+
+private struct ShortcutKeycapsView: View {
+    let keyCode: Int64?
+    let isRecording: Bool
+    let recordingTitle: String
+
+    var body: some View {
+        if isRecording {
+            HStack(spacing: 6) {
+                Image(systemName: "record.circle")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(recordingTitle)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(AppTheme.ColorToken.accent)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(AppTheme.ColorToken.selectionBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AppTheme.ColorToken.selectionBorder, lineWidth: AppTheme.Border.panelLineWidth)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else if let keyCode {
+            HStack(spacing: 4) {
+                ForEach(KeyCodeMapping.keycapLabels(for: keyCode), id: \.self) { label in
+                    ShortcutKeycap(label: label)
+                }
+            }
+            .accessibilityLabel(KeyCodeMapping.displayName(for: keyCode))
+        } else {
+            Text("未设置")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+}
+
+private struct ShortcutKeycap: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .foregroundStyle(AppTheme.ColorToken.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, 8)
+            .frame(minWidth: 28)
+            .frame(height: 28)
+            .background(AppTheme.ColorToken.panelBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
 
@@ -1174,11 +1450,11 @@ private extension SettingsSection {
     var pageTitle: String {
         switch self {
         case .general: return "通用"
-        case .vibeCoding: return "Vibe Coding"
-        case .dictationModels: return "ASR 模型"
-        case .correctionModels: return "LLM 模型"
-        case .ttsModels: return "TTS 模型"
-        case .translationModels: return "翻译模型"
+        case .vibeCoding: return "AI 编程"
+        case .dictationModels: return "语音识别"
+        case .correctionModels: return "纠错与上下文"
+        case .ttsModels: return "朗读"
+        case .translationModels: return "翻译"
         case .system: return "系统设置"
         case .dataPrivacy: return "数据与隐私"
         }

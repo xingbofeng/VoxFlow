@@ -287,6 +287,39 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         XCTAssertNil(saved.finalText)
     }
 
+    func testDeleteJobRemovesItFromListAndStorage() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = FileTranscriptionViewModel(
+            environment: environment,
+            worker: StubFileTranscriptionWorker()
+        )
+        let job = try viewModel.enqueueFiles([URL(fileURLWithPath: "/tmp/audio.wav")]).first!
+
+        viewModel.delete(jobID: job.id)
+
+        XCTAssertTrue(viewModel.jobs.isEmpty)
+        XCTAssertNil(try environment.transcriptionJobRepository.job(id: job.id))
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除转写任务")
+        XCTAssertEqual(viewModel.lastActionTone, .destructive)
+    }
+
+    func testDeleteRunningJobCancelsAndRemovesIt() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let worker = ControllableFileTranscriptionWorker(
+            result: FileTranscriptionResult(text: "transcribed", durationMS: 1_000, segments: [])
+        )
+        let viewModel = FileTranscriptionViewModel(environment: environment, worker: worker)
+        let job = try viewModel.enqueueFiles([URL(fileURLWithPath: "/tmp/audio.wav")]).first!
+
+        viewModel.start(jobID: job.id)
+        await worker.waitUntilStarted()
+        viewModel.delete(jobID: job.id)
+
+        XCTAssertNil(try environment.transcriptionJobRepository.job(id: job.id))
+        XCTAssertTrue(viewModel.jobs.isEmpty)
+        worker.finish()
+    }
+
     func testCancelledRunProgressCannotOverwriteRetryProgress() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let firstWorker = ManualProgressFileTranscriptionWorker(

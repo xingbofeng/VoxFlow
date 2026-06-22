@@ -40,6 +40,13 @@ pub struct ProviderReference {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ObservedTitle {
+    pub title: String,
+    pub source: String,
+    pub updated_at: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionCard {
     pub schema_version: u32,
     pub agent_id: String,
@@ -61,7 +68,27 @@ pub struct SessionCard {
     #[serde(default)]
     pub provider_session_refs: Vec<ProviderReference>,
     #[serde(default)]
+    pub observed_title: Option<ObservedTitle>,
+    #[serde(default)]
     pub last_dispatched_at: Option<f64>,
+    #[serde(default)]
+    pub mcp_injected: bool,
+    #[serde(default)]
+    pub mcp_seen_at: Option<f64>,
+    #[serde(default)]
+    pub mcp_reported_at: Option<f64>,
+    #[serde(default)]
+    pub mcp_config_path: Option<PathBuf>,
+    #[serde(default)]
+    pub mcp_command: Option<String>,
+    #[serde(default)]
+    pub mcp_args: Vec<String>,
+    #[serde(default)]
+    pub mcp_log_path: Option<PathBuf>,
+    #[serde(default)]
+    pub mcp_last_request: Option<String>,
+    #[serde(default)]
+    pub mcp_last_error: Option<String>,
     pub started_at: f64,
     pub updated_at: f64,
 }
@@ -104,19 +131,48 @@ impl SessionCard {
             exit_code: None,
             self_summary: None,
             provider_session_refs: Vec::new(),
+            observed_title: None,
             last_dispatched_at: None,
+            mcp_injected: false,
+            mcp_seen_at: None,
+            mcp_reported_at: None,
+            mcp_config_path: None,
+            mcp_command: None,
+            mcp_args: Vec::new(),
+            mcp_log_path: None,
+            mcp_last_request: None,
+            mcp_last_error: None,
             started_at: now,
             updated_at: now,
         }
     }
 
     pub fn display_name(&self) -> &str {
-        self.self_summary
+        self.observed_title
             .as_ref()
-            .filter(|summary| summary.is_current())
-            .map(|summary| summary.label.as_str())
+            .map(|title| title.title.as_str())
+            .or_else(|| {
+                self.self_summary
+                    .as_ref()
+                    .filter(|summary| summary.is_current())
+                    .map(|summary| summary.label.as_str())
+            })
             .or(self.repo_name.as_deref())
             .unwrap_or(&self.cli)
+    }
+
+    pub fn set_observed_title(&mut self, title: &str, source: &str) {
+        let title = sanitize_short_text(title, 80);
+        let source = sanitize_short_text(source, 80);
+        if title.is_empty() || source.is_empty() {
+            return;
+        }
+        self.observed_title = Some(ObservedTitle {
+            title,
+            source,
+            updated_at: now(),
+        });
+        self.updated_at = now();
     }
 
     pub fn set_summary(
@@ -152,6 +208,32 @@ impl SessionCard {
         self.updated_at = now();
         Ok(())
     }
+
+    pub fn mark_mcp_seen(&mut self) {
+        self.mcp_seen_at = Some(now());
+        self.updated_at = now();
+    }
+
+    pub fn mark_mcp_request(&mut self, method: &str, error: Option<&str>, reported: bool) {
+        let timestamp = now();
+        self.mcp_seen_at = Some(timestamp);
+        if reported && error.is_none() {
+            self.mcp_reported_at = Some(timestamp);
+        }
+        self.mcp_last_request = Some(method.to_owned());
+        self.mcp_last_error = error.map(str::to_owned);
+        self.updated_at = timestamp;
+    }
+}
+
+fn sanitize_short_text(value: &str, max_chars: usize) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(max_chars)
+        .collect::<String>()
+        .trim()
+        .to_owned()
 }
 
 pub trait ProcessInspector {
@@ -265,6 +347,20 @@ impl SessionRegistry {
         })
     }
 
+    pub fn remove_inactive(&self, inspector: &dyn ProcessInspector) -> Result<usize> {
+        self.with_lock(|cards| {
+            for card in cards.iter_mut() {
+                if card.status == SessionStatus::Active && !inspector.is_alive(card.wrapper_pid) {
+                    card.status = SessionStatus::Stale;
+                    card.updated_at = now();
+                }
+            }
+            let before = cards.len();
+            cards.retain(|card| card.status == SessionStatus::Active);
+            Ok(before - cards.len())
+        })
+    }
+
     fn with_lock<T>(
         &self,
         operation: impl FnOnce(&mut Vec<SessionCard>) -> Result<T>,
@@ -328,7 +424,7 @@ pub(crate) fn secure_private_file(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn now() -> f64 {
+pub(crate) fn now() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

@@ -14,6 +14,9 @@ pub enum VoxflowCommand {
     },
     Serve,
     Mcp,
+    HookSessionStart {
+        provider: String,
+    },
     Help,
 }
 
@@ -96,6 +99,12 @@ where
         }),
         "serve" => Ok(VoxflowCommand::Serve),
         "mcp" => Ok(VoxflowCommand::Mcp),
+        "hook-session-start" => Ok(VoxflowCommand::HookSessionStart {
+            provider: values
+                .get(1)
+                .cloned()
+                .ok_or("hook-session-start requires a provider")?,
+        }),
         "help" | "--help" | "-h" => Ok(VoxflowCommand::Help),
         _ => run_command(values),
     }

@@ -5,12 +5,12 @@ import Foundation
 import ApplicationServices
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general
-    case vibeCoding
     case dictationModels
     case correctionModels
     case ttsModels
     case translationModels
+    case general
+    case vibeCoding
     case system
     case dataPrivacy
 
@@ -19,12 +19,12 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "通用"
-        case .vibeCoding: return "Vibe Coding"
-        case .dictationModels: return "ASR 模型"
-        case .correctionModels: return "LLM 模型"
-        case .ttsModels: return "TTS 模型"
-        case .translationModels: return "翻译模型"
+        case .vibeCoding: return "AI 编程"
         case .system: return "系统"
+        case .dictationModels: return "语音识别"
+        case .correctionModels: return "纠错与上下文"
+        case .ttsModels: return "朗读"
+        case .translationModels: return "翻译"
         case .dataPrivacy: return "数据与隐私"
         }
     }
@@ -138,6 +138,11 @@ struct SettingsStorageStatus: Equatable, Sendable {
     }
 }
 
+struct AgentMCPLogSnapshot: Equatable {
+    let text: String
+    let fileExists: Bool
+}
+
 protocol AudioInputDeviceProviding: Sendable {
     func inputDevices() -> [AudioInputDevice]
 }
@@ -233,7 +238,9 @@ enum SystemSettingsPane {
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    @Published var selectedSection: SettingsSection = .general
+    private static let logger = AppLogger.general
+
+    @Published var selectedSection: SettingsSection = .dictationModels
     @Published private(set) var inputDevices: [AudioInputDevice] = []
     @Published private(set) var selectedInputDeviceID = ""
     @Published private(set) var shortcutKeyCode: Int64 = ShortcutManager.defaultShortcutKeyCode
@@ -241,10 +248,16 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var shortPressBehavior: ShortPressBehavior = .toggleListening
     @Published private(set) var dictationShortcutKeyCode: Int64? = nil
     @Published private(set) var agentComposeShortcutKeyCode: Int64? = nil
+    @Published private(set) var clipboardImageOCRShortcutKeyCode: Int64? = nil
+    @Published private(set) var screenshotOCRShortcutKeyCode: Int64? = nil
     @Published private(set) var agentDispatchEnabled = false
     @Published private(set) var agentDispatchExactDirectEnabled = true
     @Published private(set) var agentDispatchMCPEnabled = true
     @Published private(set) var agentDispatchUnresolvedBehavior = "confirm"
+    @Published private(set) var voiceCorrectionEnabled = VoiceCorrectionSettingsKey.enabled.defaultValue
+    @Published private(set) var voiceCorrectionAutoLearningEnabled = VoiceCorrectionSettingsKey.autoLearningEnabled.defaultValue
+    @Published private(set) var voiceCorrectionAutoLearningAppliesImmediately = VoiceCorrectionSettingsKey.autoLearningAppliesImmediately.defaultValue
+    @Published private(set) var voiceCorrectionShadowMode = VoiceCorrectionSettingsKey.shadowMode.defaultValue
     @Published private(set) var agentSessions: [AgentSessionCard] = []
     @Published private(set) var agentAliases: [String: String] = [:]
     @Published private(set) var agentDispatchLogs: [AgentDispatchLogEntry] = []
@@ -272,6 +285,10 @@ final class SettingsViewModel: ObservableObject {
         agentSessions.currentDispatchableAgents
     }
 
+    var inactiveAgentSessions: [AgentSessionCard] {
+        agentSessions.filter { !$0.status.isDispatchable }
+    }
+
     func preferredAlias(for agentID: String) -> String? {
         agentAliases
             .filter { $0.value == agentID }
@@ -287,6 +304,7 @@ final class SettingsViewModel: ObservableObject {
     private let languageManager: LanguageManager
     private let asrSettingsResetter: (any ASRSettingsResetting)?
     private let localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)?
+    private let launchAtLoginManager: any LaunchAtLoginManaging
     private let paths: ApplicationSupportPaths?
     private let fileManager: FileManager
     private var languageObserverID: UUID?
@@ -300,6 +318,7 @@ final class SettingsViewModel: ObservableObject {
         languageManager: LanguageManager = .shared,
         asrSettingsResetter: (any ASRSettingsResetting)? = nil,
         localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)? = nil,
+        launchAtLoginManager: any LaunchAtLoginManaging = SystemLaunchAtLoginManager(),
         paths: ApplicationSupportPaths? = nil,
         fileManager: FileManager = .default
     ) {
@@ -310,6 +329,7 @@ final class SettingsViewModel: ObservableObject {
         self.languageManager = languageManager
         self.asrSettingsResetter = asrSettingsResetter
         self.localModelDeletionCoordinator = localModelDeletionCoordinator
+        self.launchAtLoginManager = launchAtLoginManager
         self.paths = paths ?? environment.paths
         self.fileManager = fileManager
         self.storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
@@ -320,6 +340,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func load() {
+        Self.logger.debug("settings_vm_load_start hasLoaded=\(hasLoaded)")
         do {
             inputDevices = audioDeviceProvider.inputDevices()
             let storedInputDeviceID = try readString(
@@ -335,6 +356,8 @@ final class SettingsViewModel: ObservableObject {
             shortPressBehavior = shortcutManager.shortPressBehavior
             dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
             agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+            clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
+            screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
             agentDispatchEnabled = try readBool(
                 SettingsKey.agentDispatchEnabled,
                 defaultValue: false
@@ -350,6 +373,22 @@ final class SettingsViewModel: ObservableObject {
             agentDispatchUnresolvedBehavior = try readString(
                 SettingsKey.agentDispatchUnresolvedBehavior,
                 defaultValue: "confirm"
+            )
+            voiceCorrectionEnabled = try VoiceCorrectionSettingsStore.bool(
+                .enabled,
+                repository: environment.settingsRepository
+            )
+            voiceCorrectionAutoLearningEnabled = try VoiceCorrectionSettingsStore.bool(
+                .autoLearningEnabled,
+                repository: environment.settingsRepository
+            )
+            voiceCorrectionAutoLearningAppliesImmediately = try VoiceCorrectionSettingsStore.bool(
+                .autoLearningAppliesImmediately,
+                repository: environment.settingsRepository
+            )
+            voiceCorrectionShadowMode = try VoiceCorrectionSettingsStore.bool(
+                .shadowMode,
+                repository: environment.settingsRepository
             )
             shortcutConflict = shortcutManager.hasConflict()
             soundFeedbackEnabled = try readBool(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true)
@@ -367,6 +406,7 @@ final class SettingsViewModel: ObservableObject {
                     )
                 }
             )
+            try syncLaunchAtLoginOptionWithSystem()
             textInputMode = try readTextInputMode()
             microphonePermission = permissionProvider.microphonePermission()
             speechPermission = permissionProvider.speechPermission()
@@ -376,15 +416,21 @@ final class SettingsViewModel: ObservableObject {
             applyRuntimeSettingsSnapshot()
             hasLoaded = true
             lastError = nil
+            Self.logger.info(
+                "settings_vm_load_success inputDevices=\(inputDevices.count) agentDispatch=\(agentDispatchEnabled) voiceCorrection=\(voiceCorrectionEnabled) systemOptions=\(systemOptions.count) shortcutConflict=\(shortcutConflict) storageHealthy=\(storageStatus.isHealthy)"
+            )
         } catch {
             lastError = error.localizedDescription
+            Self.logger.error("settings_vm_load_failed error=\(error.localizedDescription)")
         }
     }
 
     func loadIfNeeded() {
         guard !hasLoaded else {
+            Self.logger.debug("settings_vm_load_if_needed_skip")
             return
         }
+        Self.logger.debug("settings_vm_load_if_needed_execute")
         load()
     }
 
@@ -400,7 +446,9 @@ final class SettingsViewModel: ObservableObject {
         longPressThreshold: TimeInterval,
         shortPressBehavior: ShortPressBehavior
     ) throws {
+        Self.logger.debug("settings_vm_update_shortcut_start keyCode=\(keyCode) threshold=\(longPressThreshold) behavior=\(shortPressBehavior.rawValue)")
         guard ShortcutManager.isSupportedVoiceShortcutKeyCode(keyCode) else {
+            Self.logger.warning("settings_vm_update_shortcut_rejected unsupportedKeyCode=\(keyCode)")
             throw SettingsViewModelError.unsupportedShortcutKeyCode
         }
         shortcutManager.shortcutKeyCode = keyCode
@@ -411,52 +459,90 @@ final class SettingsViewModel: ObservableObject {
         self.shortPressBehavior = shortPressBehavior
         self.dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         self.agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        self.clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
+        self.screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
         self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新快捷键设置"
+        Self.logger.info("settings_vm_update_shortcut_success keyCode=\(keyCode) conflict=\(shortcutConflict)")
     }
 
     func updateActionShortcut(
         action: VoiceAction,
         keyCode: Int64?
     ) throws {
+        Self.logger.debug("settings_vm_update_action_shortcut_start action=\(action.rawValue) keyCode=\(keyCode.map(String.init) ?? "nil")")
         if let keyCode, !ShortcutManager.isSupportedVoiceShortcutKeyCode(keyCode) {
+            Self.logger.warning("settings_vm_update_action_shortcut_rejected action=\(action.rawValue) reason=unsupported keyCode=\(keyCode)")
             throw SettingsViewModelError.unsupportedShortcutKeyCode
         }
         if wouldConflict(action: action, keyCode: keyCode) {
+            Self.logger.warning("settings_vm_update_action_shortcut_rejected action=\(action.rawValue) reason=conflict keyCode=\(keyCode.map(String.init) ?? "nil")")
             throw SettingsViewModelError.conflictingBindings
         }
         shortcutManager.setShortcutKeyCode(keyCode, for: action)
         shortcutKeyCode = shortcutManager.shortcutKeyCode
         dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
+        screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
         shortcutConflict = false
         lastError = nil
         lastActionMessage = "已更新\(action.displayName)快捷键"
+        Self.logger.info("settings_vm_update_action_shortcut_success action=\(action.rawValue) keyCode=\(keyCode.map(String.init) ?? "nil")")
+    }
+
+    func updateWorkflowShortcut(
+        _ shortcut: HotKeyWorkflowShortcut,
+        keyCode: Int64?
+    ) throws {
+        Self.logger.debug("settings_vm_update_workflow_shortcut_start shortcut=\(shortcut.displayName) keyCode=\(keyCode.map(String.init) ?? "nil")")
+        if let keyCode, !ShortcutManager.isSupportedWorkflowShortcutKeyCode(keyCode) {
+            Self.logger.warning("settings_vm_update_workflow_shortcut_rejected shortcut=\(shortcut.displayName) reason=unsupported keyCode=\(keyCode)")
+            throw SettingsViewModelError.unsupportedWorkflowShortcutKeyCode
+        }
+        if wouldConflict(workflowShortcut: shortcut, keyCode: keyCode) {
+            Self.logger.warning("settings_vm_update_workflow_shortcut_rejected shortcut=\(shortcut.displayName) reason=conflict keyCode=\(keyCode.map(String.init) ?? "nil")")
+            throw SettingsViewModelError.conflictingBindings
+        }
+        shortcutManager.setShortcutKeyCode(keyCode, for: shortcut)
+        clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
+        screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+        shortcutConflict = shortcutManager.hasConflict()
+        lastError = nil
+        lastActionMessage = "已更新\(shortcut.displayName) 快捷键"
+        Self.logger.info("settings_vm_update_workflow_shortcut_success shortcut=\(shortcut.displayName) keyCode=\(keyCode.map(String.init) ?? "nil") conflict=\(shortcutConflict)")
     }
 
     func setAgentDispatchEnabled(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_agent_dispatch_enabled enabled=\(enabled)")
         agentDispatchEnabled = enabled
         try setBool(SettingsKey.agentDispatchEnabled, value: enabled)
         lastActionMessage = enabled
-            ? "已启用 Vibe Coding 指挥中心"
-            : "已关闭 Vibe Coding 指挥中心"
+            ? "已启用AI 编程"
+            : "已关闭AI 编程"
     }
 
     func setAgentDispatchExactDirectEnabled(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_agent_dispatch_exact_direct enabled=\(enabled)")
         agentDispatchExactDirectEnabled = enabled
         try setBool(SettingsKey.agentDispatchExactDirectEnabled, value: enabled)
         lastActionMessage = "已更新准确命名发送策略"
     }
 
     func setAgentDispatchUnresolvedBehavior(_ behavior: String) throws {
-        guard ["confirm", "cancel", "model", "default"].contains(behavior) else { return }
+        guard ["confirm", "cancel", "model", "default"].contains(behavior) else {
+            Self.logger.warning("settings_vm_set_agent_dispatch_unresolved_rejected behavior=\(behavior)")
+            return
+        }
+        Self.logger.debug("settings_vm_set_agent_dispatch_unresolved behavior=\(behavior)")
         agentDispatchUnresolvedBehavior = behavior
         try setString(SettingsKey.agentDispatchUnresolvedBehavior, value: behavior)
         lastActionMessage = "已更新未命中处理方式"
     }
 
     func setAgentDispatchMCPEnabled(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_agent_dispatch_mcp enabled=\(enabled) hasPaths=\(paths != nil)")
         agentDispatchMCPEnabled = enabled
         try setBool(SettingsKey.agentDispatchMCPEnabled, value: enabled)
         if let paths {
@@ -470,56 +556,115 @@ final class SettingsViewModel: ObservableObject {
                 options: .atomic
             )
         }
-        lastActionMessage = "已更新 MCP 自报身份设置"
+        lastActionMessage = "已更新协作通道身份上报设置"
+    }
+
+    func setVoiceCorrectionEnabled(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_voice_correction_enabled enabled=\(enabled)")
+        voiceCorrectionEnabled = enabled
+        try VoiceCorrectionSettingsStore.setBool(.enabled, value: enabled, repository: environment.settingsRepository)
+        lastError = nil
+        lastActionMessage = enabled ? "已启用易错词修正" : "已关闭易错词修正"
+    }
+
+    func setVoiceCorrectionAutoLearningEnabled(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_voice_correction_auto_learning enabled=\(enabled)")
+        voiceCorrectionAutoLearningEnabled = enabled
+        try VoiceCorrectionSettingsStore.setBool(.autoLearningEnabled, value: enabled, repository: environment.settingsRepository)
+        lastError = nil
+        lastActionMessage = enabled ? "已启用自动学习" : "已关闭自动学习"
+    }
+
+    func setVoiceCorrectionAutoLearningAppliesImmediately(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_voice_correction_auto_learning_immediate enabled=\(enabled)")
+        voiceCorrectionAutoLearningAppliesImmediately = enabled
+        try VoiceCorrectionSettingsStore.setBool(
+            .autoLearningAppliesImmediately,
+            value: enabled,
+            repository: environment.settingsRepository
+        )
+        lastError = nil
+        lastActionMessage = enabled ? "自动学习会直接生效" : "自动学习会先进入候选"
+    }
+
+    func setVoiceCorrectionShadowMode(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_voice_correction_shadow enabled=\(enabled)")
+        voiceCorrectionShadowMode = enabled
+        try VoiceCorrectionSettingsStore.setBool(.shadowMode, value: enabled, repository: environment.settingsRepository)
+        lastError = nil
+        lastActionMessage = enabled ? "已开启影子模式" : "已关闭影子模式"
     }
 
     func refreshAgentSessions(reportFailures: Bool = true) async {
-        guard let paths else { return }
+        guard let paths else {
+            Self.logger.warning("settings_vm_refresh_agent_sessions_skipped missingPaths=true")
+            return
+        }
+        Self.logger.debug("settings_vm_refresh_agent_sessions_start reportFailures=\(reportFailures)")
         do {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             agentSessions = try await client.listAllAgents()
             agentAliases = try await client.listAliases()
             agentDispatchLogs = try await client.listDispatchLog()
             lastError = nil
+            Self.logger.info("settings_vm_refresh_agent_sessions_success sessions=\(agentSessions.count) aliases=\(agentAliases.count) logs=\(agentDispatchLogs.count)")
         } catch {
             agentSessions = []
             if reportFailures {
                 lastError = error.localizedDescription
             }
+            Self.logger.error("settings_vm_refresh_agent_sessions_failed reportFailures=\(reportFailures) error=\(error.localizedDescription)")
         }
     }
 
     func addAgentAlias(_ alias: String, agentID: String) async {
-        guard let paths else { return }
+        guard let paths else {
+            Self.logger.warning("settings_vm_add_agent_alias_skipped missingPaths=true agentID=\(agentID)")
+            return
+        }
         let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else {
+            Self.logger.warning("settings_vm_add_agent_alias_skipped emptyAlias=true agentID=\(agentID)")
+            return
+        }
+        Self.logger.debug("settings_vm_add_agent_alias_start aliasLen=\(trimmed.count) agentID=\(agentID)")
         do {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             try await client.learnAlias(trimmed, agentID: agentID, userConfirmed: true)
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = "已保存队员别名"
+            lastActionMessage = "已保存任务助手别名"
+            Self.logger.info("settings_vm_add_agent_alias_success aliases=\(agentAliases.count) agentID=\(agentID)")
         } catch {
             report(error: error)
         }
     }
 
     func removeAgentAlias(_ alias: String) async {
-        guard let paths else { return }
+        guard let paths else {
+            Self.logger.warning("settings_vm_remove_agent_alias_skipped missingPaths=true aliasLen=\(alias.count)")
+            return
+        }
+        Self.logger.debug("settings_vm_remove_agent_alias_start aliasLen=\(alias.count)")
         do {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             try await client.removeAlias(alias)
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = "已删除队员别名"
+            lastActionMessage = "已删除任务助手别名"
+            Self.logger.info("settings_vm_remove_agent_alias_success aliases=\(agentAliases.count)")
         } catch {
             report(error: error)
         }
     }
 
     func setAgentAlias(_ alias: String, for agentID: String) async {
-        guard let paths else { return }
+        guard let paths else {
+            Self.logger.warning("settings_vm_set_agent_alias_skipped missingPaths=true agentID=\(agentID)")
+            return
+        }
         let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        Self.logger.debug("settings_vm_set_agent_alias_start aliasLen=\(trimmed.count) agentID=\(agentID)")
         do {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             if let existingAlias = preferredAlias(for: agentID), existingAlias != trimmed {
@@ -530,19 +675,42 @@ final class SettingsViewModel: ObservableObject {
             }
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = trimmed.isEmpty ? "已清空队员别名" : "已更新队员别名"
+            lastActionMessage = trimmed.isEmpty ? "已清空任务助手别名" : "已更新任务助手别名"
+            Self.logger.info("settings_vm_set_agent_alias_success aliases=\(agentAliases.count) agentID=\(agentID) cleared=\(trimmed.isEmpty)")
         } catch {
             report(error: error)
         }
     }
 
     func cleanStaleAgentSessions() async {
-        guard let paths else { return }
+        guard let paths else {
+            Self.logger.warning("settings_vm_clean_stale_agent_sessions_skipped missingPaths=true")
+            return
+        }
+        Self.logger.debug("settings_vm_clean_stale_agent_sessions_start")
         do {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
-            try await client.cleanStaleSessions()
+            try await client.cleanInactiveSessions()
             await refreshAgentSessions()
-            lastActionMessage = "已清理失效队员"
+            lastActionMessage = "已清理已退出/失效任务助手"
+            Self.logger.info("settings_vm_clean_stale_agent_sessions_success sessions=\(agentSessions.count)")
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func terminateAgentSession(_ agent: AgentSessionCard) async {
+        guard let paths else {
+            Self.logger.warning("settings_vm_terminate_agent_session_skipped missingPaths=true agentID=\(agent.agentID)")
+            return
+        }
+        Self.logger.debug("settings_vm_terminate_agent_session_start agentID=\(agent.agentID)")
+        do {
+            let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
+            try await client.terminateAgent(agentID: agent.agentID)
+            await refreshAgentSessions()
+            lastActionMessage = "已停止任务助手进程"
+            Self.logger.info("settings_vm_terminate_agent_session_success agentID=\(agent.agentID) sessions=\(agentSessions.count)")
         } catch {
             report(error: error)
         }
@@ -562,15 +730,87 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func copyAgentLaunchCommand(_ agent: AgentSessionCard) {
+        Self.logger.info("settings_vm_copy_agent_launch_command agentID=\(agent.agentID) argCount=\(agent.command.count)")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(
             "voxflow run -- \(agent.command.joined(separator: " "))",
             forType: .string
         )
-        lastActionMessage = "已复制队员启动命令"
+        lastActionMessage = "已复制任务助手启动命令"
+    }
+
+    func mcpLogSnapshot(for agent: AgentSessionCard) -> AgentMCPLogSnapshot {
+        guard let path = agent.mcpLogPath, !path.isEmpty else {
+            return AgentMCPLogSnapshot(
+                text: "暂无协作通道日志文件路径。请重启对应任务助手后再试。",
+                fileExists: false
+            )
+        }
+        let url = URL(fileURLWithPath: path)
+        guard fileManager.fileExists(atPath: url.path) else {
+            return AgentMCPLogSnapshot(
+            text: "日志文件暂未生成。任务助手首次连接协作通道后会写入这里。",
+                fileExists: false
+            )
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            let text = String(data: data, encoding: .utf8) ?? "<日志不是 UTF-8 文本>"
+            return AgentMCPLogSnapshot(
+                text: text.isEmpty ? "日志文件已创建，但暂时没有内容。" : text,
+                fileExists: true
+            )
+        } catch {
+            return AgentMCPLogSnapshot(
+                text: "读取日志失败：\(error.localizedDescription)",
+                fileExists: false
+            )
+        }
+    }
+
+    func copyMCPDiagnostics(for agent: AgentSessionCard, logText: String) {
+        Self.logger.info("settings_vm_copy_mcp_diagnostics agentID=\(agent.agentID) logLen=\(logText.count)")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(
+            mcpDiagnosticsText(for: agent, logText: logText),
+            forType: .string
+        )
+        lastError = nil
+        lastActionMessage = "已复制协作通道诊断信息"
+    }
+
+    func openMCPLogFile(for agent: AgentSessionCard) {
+        Self.logger.debug("settings_vm_open_mcp_log_file_start agentID=\(agent.agentID) hasPath=\(!(agent.mcpLogPath ?? "").isEmpty)")
+        guard let path = agent.mcpLogPath, !path.isEmpty else {
+            lastError = "暂无协作通道日志文件路径。请重启对应任务助手后再试。"
+            lastActionMessage = nil
+            return
+        }
+        let url = URL(fileURLWithPath: path)
+        do {
+            try fileManager.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if !fileManager.fileExists(atPath: url.path) {
+                _ = fileManager.createFile(atPath: url.path, contents: Data())
+            }
+            guard NSWorkspace.shared.open(url) else {
+                lastError = "无法打开协作通道日志文件"
+                lastActionMessage = nil
+                Self.logger.warning("settings_vm_open_mcp_log_file_failed agentID=\(agent.agentID) reason=workspaceOpen")
+                return
+            }
+            lastError = nil
+            lastActionMessage = "已打开协作通道日志文件"
+            Self.logger.info("settings_vm_open_mcp_log_file_success agentID=\(agent.agentID)")
+        } catch {
+            report(error: error)
+        }
     }
 
     func registerAgentCLI() {
+        Self.logger.debug("settings_vm_register_agent_cli_start hasPaths=\(paths != nil)")
         guard let paths else {
             report(error: ApplicationSupportPathsError.applicationSupportDirectoryUnavailable)
             return
@@ -581,12 +821,14 @@ final class SettingsViewModel: ObservableObject {
             lastActionMessage = agentCLIRegistrationStatus?.isOnCurrentPath == true
                 ? "终端命令已注册"
                 : "终端命令已注册；请新开终端后使用"
+            Self.logger.info("settings_vm_register_agent_cli_success onPath=\(agentCLIRegistrationStatus?.isOnCurrentPath == true)")
         } catch {
             report(error: error)
         }
     }
 
     func unregisterAgentCLI() {
+        Self.logger.debug("settings_vm_unregister_agent_cli_start hasPaths=\(paths != nil)")
         guard let paths else {
             report(error: ApplicationSupportPathsError.applicationSupportDirectoryUnavailable)
             return
@@ -596,6 +838,7 @@ final class SettingsViewModel: ObservableObject {
             agentCLIRegistrationStatus = nil
             lastError = nil
             lastActionMessage = "终端命令已卸载"
+            Self.logger.info("settings_vm_unregister_agent_cli_success")
         } catch {
             report(error: error)
         }
@@ -665,6 +908,11 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func setSystemOption(_ option: SettingsSystemOption, enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_system_option option=\(option.rawValue) enabled=\(enabled)")
+        if option == .launchAtLogin {
+            try setLaunchAtLoginOption(enabled)
+            return
+        }
         systemOptions[option] = enabled
         try setBool(option.rawValue, value: enabled)
         if option == .avoidClipboard {
@@ -675,13 +923,35 @@ final class SettingsViewModel: ObservableObject {
         lastActionMessage = persistentWriteMessage("已更新系统设置")
     }
 
+    private func setLaunchAtLoginOption(_ enabled: Bool) throws {
+        Self.logger.debug("settings_vm_set_launch_at_login_start enabled=\(enabled)")
+        do {
+            try launchAtLoginManager.setEnabled(enabled)
+            try syncLaunchAtLoginOptionWithSystem()
+            applyRuntimeSettingsSnapshot()
+            lastError = nil
+            lastActionMessage = persistentWriteMessage("已更新系统设置")
+            Self.logger.info("settings_vm_set_launch_at_login_success enabled=\(systemOption(.launchAtLogin))")
+        } catch {
+            let actualValue = launchAtLoginManager.isEnabled
+            systemOptions[.launchAtLogin] = actualValue
+            try? setBool(SettingsSystemOption.launchAtLogin.rawValue, value: actualValue)
+            applyRuntimeSettingsSnapshot()
+            lastError = "开机自动启动设置失败：\(error.localizedDescription)"
+            lastActionMessage = nil
+            Self.logger.error("settings_vm_set_launch_at_login_failed requested=\(enabled) actual=\(actualValue) error=\(error.localizedDescription)")
+            throw error
+        }
+    }
+
     func clearLLMTraceDiagnostics() {
         LLMDiagnosticCapture.shared.clear()
         lastError = nil
-        lastActionMessage = "已删除 LLM 诊断内容"
+        lastActionMessage = "已删除模型诊断内容"
     }
 
     func setTextInputMode(_ mode: TextInputMode) throws {
+        Self.logger.debug("settings_vm_set_text_input_mode mode=\(mode.rawValue)")
         textInputMode = mode
         try setString(SettingsKey.outputTextInputMode, value: mode.rawValue)
         systemOptions[.avoidClipboard] = mode == .simulatedTyping
@@ -691,6 +961,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func setRecognitionLanguage(_ language: RecognitionLanguage) throws {
+        Self.logger.debug("settings_vm_set_recognition_language language=\(language.rawValue)")
         languageManager.setLanguage(language)
         selectedRecognitionLanguage = languageManager.currentLanguage
         lastError = nil
@@ -717,22 +988,27 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func clearHistory() throws {
+        Self.logger.debug("settings_vm_clear_history_start")
         let entries = try environment.historyRepository.listRecent(limit: 100_000)
         for entry in entries {
             try environment.historyRepository.softDelete(id: entry.id, deletedAt: environment.clock.now)
         }
         lastError = nil
         lastActionMessage = persistentWriteMessage("已清空历史")
+        Self.logger.info("settings_vm_clear_history_success count=\(entries.count)")
     }
 
     func clearCache() throws {
+        Self.logger.debug("settings_vm_clear_cache_start")
         try deleteAllLocalModels()
     }
 
     func deleteAllLocalModels() throws {
+        Self.logger.debug("settings_vm_delete_all_local_models_start hasPaths=\(paths != nil) usesCoordinator=\(localModelDeletionCoordinator != nil)")
         guard let paths else {
             lastError = "没有可用的数据目录，本地模型未删除。"
             lastActionMessage = nil
+            Self.logger.warning("settings_vm_delete_all_local_models_skipped missingPaths=true")
             return
         }
         if let localModelDeletionCoordinator {
@@ -745,6 +1021,7 @@ final class SettingsViewModel: ObservableObject {
         }
         lastError = nil
         lastActionMessage = "已删除全部本地模型"
+        Self.logger.info("settings_vm_delete_all_local_models_success")
     }
 
     func localModelStorageDescription() -> String {
@@ -758,6 +1035,7 @@ final class SettingsViewModel: ObservableObject {
 
     @discardableResult
     func exportDataJSON() throws -> String {
+        Self.logger.debug("settings_vm_export_data_json_start")
         let history = try environment.historyRepository.listRecent(limit: 100_000).map { entry in
             [
                 "id": entry.id,
@@ -779,10 +1057,12 @@ final class SettingsViewModel: ObservableObject {
         exportedDataJSON = string
         lastError = nil
         lastActionMessage = "已生成导出数据"
+        Self.logger.info("settings_vm_export_data_json_success history=\(history.count) settings=\(settings.count) bytes=\(data.count)")
         return string
     }
 
     func importSettingsJSON(_ json: String) throws {
+        Self.logger.debug("settings_vm_import_settings_json_start bytes=\(Data(json.utf8).count)")
         let data = Data(json.utf8)
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let settings = object["settings"] as? [String: String] else {
@@ -794,9 +1074,11 @@ final class SettingsViewModel: ObservableObject {
         load()
         lastError = nil
         lastActionMessage = persistentWriteMessage("已导入设置")
+        Self.logger.info("settings_vm_import_settings_json_success settings=\(settings.count)")
     }
 
     func resetSettings() throws {
+        Self.logger.debug("settings_vm_reset_settings_start")
         let records = try environment.settingsRepository.list()
         for record in records {
             try environment.settingsRepository.deleteValue(forKey: record.key)
@@ -807,16 +1089,39 @@ final class SettingsViewModel: ObservableObject {
         load()
         lastError = nil
         lastActionMessage = persistentWriteMessage("已重置设置")
+        Self.logger.info("settings_vm_reset_settings_success deletedSettings=\(records.count)")
     }
 
     func report(error: Error) {
         lastError = error.localizedDescription
         lastActionMessage = nil
+        Self.logger.error("settings_vm_error error=\(error.localizedDescription)")
     }
 
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
+    }
+
+    private func mcpDiagnosticsText(for agent: AgentSessionCard, logText: String) -> String {
+        """
+        协作命令: \(agent.mcpCommand ?? "-")
+        参数: \(agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "))
+        配置路径: \(agent.mcpConfigPath ?? "-")
+        日志路径: \(agent.mcpLogPath ?? "-")
+        最近连接: \(timestampText(agent.mcpSeenAt))
+        上报时间: \(timestampText(agent.mcpReportedAt))
+        最近请求: \(agent.mcpLastRequest ?? "-")
+        最近错误: \(agent.mcpLastError ?? "-")
+
+        --- Logs ---
+        \(logText)
+        """
+    }
+
+    private func timestampText(_ timestamp: TimeInterval?) -> String {
+        guard let timestamp else { return "-" }
+        return ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: timestamp))
     }
 
     private func readBool(_ key: String, defaultValue: Bool) throws -> Bool {
@@ -832,6 +1137,12 @@ final class SettingsViewModel: ObservableObject {
             return explicitMode
         }
         return systemOptions[.avoidClipboard] == true ? .simulatedTyping : .automatic
+    }
+
+    private func syncLaunchAtLoginOptionWithSystem() throws {
+        let isEnabled = launchAtLoginManager.isEnabled
+        systemOptions[.launchAtLogin] = isEnabled
+        try setBool(SettingsSystemOption.launchAtLogin.rawValue, value: isEnabled)
     }
 
     private func readOptionalTextInputMode() throws -> TextInputMode? {
@@ -859,13 +1170,33 @@ final class SettingsViewModel: ObservableObject {
         case .dictation:
             return [.agentCompose].contains {
                 shortcutManager.shortcutKeyCode(for: $0) == keyCode
-            }
+            } || currentWorkflowShortcutKeyCodes(excluding: nil).contains(keyCode)
         case .agentCompose:
             return [.dictation].contains {
                 shortcutManager.shortcutKeyCode(for: $0) == keyCode
-            }
+            } || currentWorkflowShortcutKeyCodes(excluding: nil).contains(keyCode)
         case .agentDispatch:
             return false
+        }
+    }
+
+    private func wouldConflict(workflowShortcut: HotKeyWorkflowShortcut, keyCode: Int64?) -> Bool {
+        guard let keyCode else { return false }
+        let voiceShortcutKeyCodes = [
+            shortcutManager.shortcutKeyCode(for: .dictation),
+            shortcutManager.shortcutKeyCode(for: .agentCompose),
+        ]
+        if voiceShortcutKeyCodes.contains(keyCode) {
+            return true
+        }
+        return currentWorkflowShortcutKeyCodes(excluding: workflowShortcut).contains(keyCode)
+    }
+
+    private func currentWorkflowShortcutKeyCodes(excluding workflowShortcut: HotKeyWorkflowShortcut?) -> [Int64] {
+        let shortcuts: [HotKeyWorkflowShortcut] = [.clipboardImageOCR, .screenshotOCR]
+        return shortcuts.compactMap { shortcut in
+            guard shortcut != workflowShortcut else { return nil }
+            return shortcutManager.shortcutKeyCode(for: shortcut)
         }
     }
 
@@ -950,6 +1281,7 @@ enum SettingsViewModelError: LocalizedError {
     case invalidImport
     case invalidShortcutKeyCode
     case unsupportedShortcutKeyCode
+    case unsupportedWorkflowShortcutKeyCode
     case conflictingBindings
 
     var errorDescription: String? {
@@ -959,9 +1291,24 @@ enum SettingsViewModelError: LocalizedError {
         case .invalidShortcutKeyCode:
             return "快捷键录制失败，请按下一个有效按键。"
         case .unsupportedShortcutKeyCode:
-            return "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键；Command+Shift+A/V 已保留给 OCR。"
+            return "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键。"
+        case .unsupportedWorkflowShortcutKeyCode:
+            return "图片识别快捷键需要使用带修饰键的普通按键组合，不能使用单键或系统编辑快捷键。"
         case .conflictingBindings:
             return "两个操作不能使用相同的快捷键，请修改其中一个。"
+        }
+    }
+}
+
+private extension HotKeyWorkflowShortcut {
+    var displayName: String {
+        switch self {
+        case .clipboardImageOCR:
+            return "剪贴板图片识别"
+        case .screenshotOCR:
+            return "截图文字识别"
+        case .cancel:
+            return "取消"
         }
     }
 }

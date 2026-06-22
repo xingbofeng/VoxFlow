@@ -39,8 +39,10 @@ final class ASRMenuStateResolver {
     }
 
     func isEnabled(_ option: ASRMenuModel) -> Bool {
+        AppLogger.dictation.debug("ASRMenuStateResolver isEnabled option=\(option.title)")
         if option.engineType == .qwen3, let size = option.modelSize {
             guard asrManager.isQwen3RuntimeSupported(size: size) else {
+                AppLogger.dictation.debug("ASRMenuStateResolver qwen unsupported size=\(size)")
                 return false
             }
             return qwenAvailableOnDisk(size)
@@ -50,10 +52,12 @@ final class ASRMenuStateResolver {
         }
         if option.engineType == .whisper, let variant = option.whisperVariant {
             guard ASRManager.isWhisperRuntimeSupported(variant: variant) else {
+                AppLogger.dictation.debug("ASRMenuStateResolver whisper unsupported variant=\(variant)")
                 return false
             }
             return whisperAvailable(variant)
         }
+        AppLogger.dictation.debug("ASRMenuStateResolver fallback canSelectEngine=\(asrManager.canSelectEngine(option.engineType))")
         return asrManager.canSelectEngine(option.engineType)
     }
 
@@ -74,6 +78,7 @@ final class ASRMenuStateResolver {
     private func effectiveSelectedEngineTypeForMenu() -> ASREngineType {
         let selectedEngineType = asrManager.selectedEngineType
         guard isCurrentSelectionAvailableForMenu() else {
+            AppLogger.dictation.warning("ASRMenuStateResolver selected engine unavailable, fallback apple")
             return .apple
         }
         return selectedEngineType
@@ -85,11 +90,14 @@ final class ASRMenuStateResolver {
             return true
         case .qwen3:
             let size = asrManager.qwen3ModelSize
+            AppLogger.dictation.debug("ASRMenuStateResolver current qwen size=\(size)")
             return asrManager.isQwen3RuntimeSupported(size: size) && qwenAvailableOnDisk(size)
         case .funASR:
+            AppLogger.dictation.debug("ASRMenuStateResolver current funASR precision")
             return funASRAvailable(asrManager.funASRPrecision)
         case .whisper:
             let variant = asrManager.whisperVariant
+            AppLogger.dictation.debug("ASRMenuStateResolver current whisper variant=\(variant)")
             return ASRManager.isWhisperRuntimeSupported(variant: variant) && whisperAvailable(variant)
         case .senseVoice, .paraformer, .nvidiaNemotron, .parakeetStreaming, .omnilingualASR,
              .groqWhisper, .tencentCloud, .aliyunDashScope:
@@ -110,6 +118,7 @@ final class ASRMenuStateResolver {
             asrManager.whisperVariant = variant
         }
         asrManager.selectedEngineType = option.engineType
+        AppLogger.dictation.info("ASRMenuStateResolver select engine=\(option.engineType.rawValue)")
         return true
     }
 }

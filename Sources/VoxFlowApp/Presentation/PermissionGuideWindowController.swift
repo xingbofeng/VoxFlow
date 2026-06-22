@@ -46,12 +46,17 @@ enum PermissionGuideDestination {
 
 @MainActor
 final class PermissionGuideWindowController: NSWindowController {
+    private static let logger = AppLogger.general
+
     init(
         title: String,
         subtitle: String,
         items: [PermissionStatusItem],
         settingsURL: URL?
     ) {
+        Self.logger.debug(
+            "permission_guide_init itemCount=\(items.count) hasDefaultURL=\(settingsURL != nil)"
+        )
         let windowHeight = PermissionGuideLayout.windowHeight(itemCount: items.count)
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: windowHeight),
@@ -73,18 +78,23 @@ final class PermissionGuideWindowController: NSWindowController {
             subtitle: subtitle,
             items: items,
             windowHeight: windowHeight,
-            onDone: { [weak panel] in panel?.close() },
+            onDone: { [weak panel] in
+                Self.logger.debug("permission_guide_done pressed")
+                panel?.close()
+            },
             onOpenSettings: PermissionGuideDestination.primarySettingsURL(
                 items: items,
                 fallback: settingsURL
             ).map { url in
                 { [weak panel] in
+                    Self.logger.info("permission_guide_open_settings url=\(url)")
                     NSWorkspace.shared.open(url)
                     panel?.close()
                 }
             },
             onOpenItemSettings: { [weak panel] item in
                 guard let url = item.settingsURL else { return }
+                Self.logger.info("permission_guide_open_item_settings title=\(item.title) url=\(url)")
                 NSWorkspace.shared.open(url)
                 panel?.close()
             }
@@ -97,6 +107,7 @@ final class PermissionGuideWindowController: NSWindowController {
     }
 
     func present() {
+        Self.logger.debug("permission_guide_present")
         NSApplication.shared.activate(ignoringOtherApps: true)
         window?.center()
         showWindow(nil)

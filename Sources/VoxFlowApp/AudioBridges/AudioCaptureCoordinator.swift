@@ -34,16 +34,22 @@ final class AudioCaptureCoordinator: AudioCaptureCoordinating {
 
     func begin(kind: AudioCaptureKind) throws -> AudioCaptureLease {
         if let activeLease {
+            AppLogger.audio.warning("音频采集启动失败：已有活动租约 active=\(activeLease.kind.rawValue) request=\(kind.rawValue)")
             throw AudioCaptureCoordinatorError.busy(active: activeLease.kind, requested: kind)
         }
         let lease = AudioCaptureLease(id: UUID(), kind: kind)
         activeLease = lease
+        AppLogger.audio.debug("音频采集租约建立：\(lease.kind.rawValue), id=\(lease.id.uuidString)")
         return lease
     }
 
     func end(_ lease: AudioCaptureLease) {
-        guard activeLease == lease else { return }
+        guard activeLease == lease else {
+            AppLogger.audio.debug("音频采集租约忽略结束：非当前租约, id=\(lease.id.uuidString)")
+            return
+        }
         activeLease = nil
+        AppLogger.audio.debug("音频采集租约结束：\(lease.kind.rawValue), id=\(lease.id.uuidString)")
     }
 }
 
@@ -53,7 +59,7 @@ private extension AudioCaptureKind {
         case .dictation:
             return "听写"
         case .agentCompose:
-            return "帮我说"
+            return "任务助手"
         case .notes:
             return "笔记录音"
         }

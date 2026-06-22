@@ -56,11 +56,36 @@ struct DictationStateMachine {
         state = .idle
     }
 
+    mutating func noteTransition(from source: DictationState, to destination: DictationState) {
+        AppLogger.dictation.debug("state_transition from=\(stateLogName(source)) to=\(stateLogName(destination))")
+    }
+
     private mutating func transition(from allowedStates: [DictationState], to nextState: DictationState) -> Bool {
         guard allowedStates.contains(state) else {
+            AppLogger.dictation.warning(
+                "state_transition_blocked current=\(stateLogName(state)) target=\(stateLogName(nextState))"
+            )
             return false
         }
+        noteTransition(from: state, to: nextState)
         state = nextState
         return true
+    }
+
+    private func stateLogName(_ state: DictationState) -> String {
+        switch state {
+        case .idle:
+            return "idle"
+        case .recording:
+            return "recording"
+        case .waitingForFinal:
+            return "waitingForFinal"
+        case .processing:
+            return "processing"
+        case .injecting:
+            return "injecting"
+        case .failed:
+            return "failed"
+        }
     }
 }

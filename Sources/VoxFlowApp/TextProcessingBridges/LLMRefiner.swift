@@ -155,6 +155,7 @@ final class LLMRefiner: @unchecked Sendable {
               let baseURL = baseURL,
               let apiKey = apiKey,
               let configuredModel = model else {
+            AppLogger.network.warning("LLMRefiner 未配置，拒绝 refine 请求")
             throw Error.notConfigured
         }
 
@@ -162,6 +163,7 @@ final class LLMRefiner: @unchecked Sendable {
             ? request.model!
             : configuredModel
         let chatURL = try Self.chatCompletionsURL(baseURL: baseURL)
+        AppLogger.network.debug("发起 LLMRefiner 纠错请求：model=\(selectedModel), payloadLen=\(request.text.count)")
 
         var urlRequest = URLRequest(url: chatURL)
         urlRequest.httpMethod = "POST"
@@ -182,13 +184,16 @@ final class LLMRefiner: @unchecked Sendable {
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        AppLogger.network.debug("LLMRefiner 响应收到：bytes=\(data.count), status=\((response as? HTTPURLResponse)?.statusCode ?? -1)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            AppLogger.network.error("LLMRefiner 响应类型无效")
             throw Error.invalidResponse
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             // Try to extract error message
+            AppLogger.network.warning("LLMRefiner 返回失败状态：code=\(httpResponse.statusCode)")
             if let errorJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let error = errorJSON["error"] as? [String: Any],
                let message = error["message"] as? String {
@@ -198,9 +203,11 @@ final class LLMRefiner: @unchecked Sendable {
         }
 
         let refined = try Self.parseChatCompletion(data)
+        AppLogger.network.debug("LLMRefiner 解析后文本长度：len=\(refined.count)")
 
         // If LLM returned empty or almost empty, fall back to original
         guard !refined.isEmpty else {
+            AppLogger.network.warning("LLMRefiner 返回空文本，回退原文")
             return request.text
         }
 
@@ -236,17 +243,21 @@ final class LLMRefiner: @unchecked Sendable {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         } catch {
+            AppLogger.network.error("LLMRefiner 测试连接构造请求体失败")
             return .failure(Error.invalidRequestBody)
         }
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
+            AppLogger.network.debug("LLMRefiner 测试连接响应：status=\((response as? HTTPURLResponse)?.statusCode ?? -1), bytes=\(data.count)")
 
             guard let httpResponse = response as? HTTPURLResponse else {
+                AppLogger.network.error("LLMRefiner 测试连接响应不是 HTTP")
                 return .failure(Error.invalidResponse)
             }
 
             guard (200...299).contains(httpResponse.statusCode) else {
+                AppLogger.network.warning("LLMRefiner 测试连接失败：code=\(httpResponse.statusCode)")
                 if let errorJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let error = errorJSON["error"] as? [String: Any],
                    let message = error["message"] as? String {
@@ -256,10 +267,13 @@ final class LLMRefiner: @unchecked Sendable {
             }
 
             _ = try Self.parseChatCompletion(data)
+            AppLogger.network.info("LLMRefiner 测试连接成功")
             return .success("连接成功！API 正常工作。")
         } catch let error as Error {
+            AppLogger.network.error("LLMRefiner 测试连接异常：\(error.localizedDescription)")
             return .failure(error)
         } catch {
+            AppLogger.network.error("LLMRefiner 测试连接未知异常：\(error.localizedDescription)")
             return .failure(Error.networkError(error))
         }
     }
@@ -278,7 +292,7 @@ final class LLMRefiner: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .notConfigured:
-                return "LLM 未配置，请先设置 API 参数。"
+                return "模型服务未配置，请先设置相关参数。"
             case .invalidURL:
                 return "API Base URL 无效。"
             case .invalidRequestBody:

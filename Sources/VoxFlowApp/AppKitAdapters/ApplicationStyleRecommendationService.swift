@@ -40,6 +40,8 @@ protocol ApplicationStyleRecommending: Sendable {
 // MARK: - ApplicationStyleRecommendationService
 
 struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
+    private static let logger = AppLogger.general
+
     private let registry: KnownApplicationRegistry
 
     init(registry: KnownApplicationRegistry = .builtIn()) {
@@ -50,6 +52,7 @@ struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
         apps: [InstalledApplication],
         existingRules: [AppStyleRule]
     ) -> [ApplicationStyleRecommendation] {
+        Self.logger.debug("ApplicationStyleRecommendationService recommend apps=\(apps.count) rules=\(existingRules.count)")
         let userRuleBundleIDs: Set<String> = Set(
             existingRules.map { $0.bundleID.lowercased() }
         )
@@ -63,6 +66,7 @@ struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
 
             // Registry hit
             if let entry = registry.lookup(bundleID: bundleID) {
+                Self.logger.debug("ApplicationStyleRecommendationService registry hit bundleID=\(bundleID)")
                 return ApplicationStyleRecommendation(
                     bundleID: bundleID,
                     appName: app.name,
@@ -71,6 +75,8 @@ struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
                     confidence: 1.0
                 )
             }
+
+            Self.logger.debug("ApplicationStyleRecommendationService no preset for bundleID=\(bundleID)")
 
             // Unknown — no recommendation (Phase 4 LLM will handle these)
             return nil
@@ -85,6 +91,7 @@ struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
         defaultStyleID: String?,
         enabledStyleIDs: Set<String>
     ) -> [ApplicationStyleRecommendation] {
+        Self.logger.debug("ApplicationStyleRecommendationService merge start registry=\(registryRecommendations.count) ai=\(aiResults.count)")
         let userRuleBundleIDs: Set<String> = Set(
             existingRules.map { $0.bundleID.lowercased() }
         )
@@ -116,6 +123,7 @@ struct ApplicationStyleRecommendationService: ApplicationStyleRecommending {
             guard !userRuleBundleIDs.contains(key),
                   !registryBundleIDs.contains(key),
                   let app = appsByID[key] else { continue }
+            Self.logger.debug("ApplicationStyleRecommendationService add AI recommendation bundleID=\(key) styleID=\(styleID)")
             results.append(
                 ApplicationStyleRecommendation(
                     bundleID: app.bundleID ?? key,

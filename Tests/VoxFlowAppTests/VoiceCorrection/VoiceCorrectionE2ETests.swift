@@ -81,6 +81,30 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         XCTAssertEqual(result.correctionEvents.map(\.replacement), ["Qwen"])
     }
 
+    func testManualRuleMatchesASRTokenWhenWhitespaceIsMissing() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.correctionRuleRepository.save(
+            CorrectionRule(original: "q 问", replacement: "Qwen")
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: E2ERefiner(isEnabled: false, result: .success("unused")),
+            voiceCorrectionProcessor: VoiceCorrectionTextProcessor(
+                snapshotProvider: environment.correctionSnapshotProvider,
+                settingsRepository: environment.settingsRepository
+            )
+        )
+
+        let result = await pipeline.process(
+            "Q问。",
+            target: nil,
+            correctionContext: context(mode: .dictation)
+        )
+
+        XCTAssertEqual(result.finalText, "Qwen。")
+        XCTAssertEqual(result.correctionEvents.map(\.original), ["Q问"])
+        XCTAssertEqual(result.correctionEvents.map(\.replacement), ["Qwen"])
+    }
+
     func testObservationE2ELearnsActiveRuleAfterTwoFiveTenSecondPolling() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let observer = FakeFocusedTextObserver()
@@ -95,6 +119,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             observer: observer,
             clock: clock,
             repository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { true }
         )
@@ -106,7 +131,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         )
 
         let sleeps = await clock.recordedSleeps()
-        XCTAssertEqual(sleeps, [.seconds(2), .seconds(3), .seconds(5)])
+        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(2), .seconds(3), .seconds(5)])
         let learned = try XCTUnwrap(try environment.correctionRuleRepository.list().first)
         XCTAssertEqual(learned.original, "q 问")
         XCTAssertEqual(learned.replacement, "Qwen")
@@ -129,6 +154,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             observer: focusChangedObserver,
             clock: FakeCorrectionObservationClock(),
             repository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { true }
         )
@@ -151,6 +177,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             observer: candidateObserver,
             clock: FakeCorrectionObservationClock(),
             repository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { false }
         )

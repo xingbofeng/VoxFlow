@@ -51,12 +51,12 @@ final class AgentRouterClientTests: XCTestCase {
 
     func testClientSurfacesStructuredRouterError() async {
         let transport = CapturingAgentRouterTransport(responses: [
-            #"{"id":1,"error":{"code":"router_error","message":"队员已退出"}}"#,
+            #"{"id":1,"error":{"code":"router_error","message":"任务助手已退出"}}"#,
         ])
         let client = AgentRouterClient(transport: transport)
 
         await XCTAssertThrowsErrorAsync(try await client.listAgents()) { error in
-            XCTAssertEqual(error as? AgentRouterClientError, .router("队员已退出"))
+            XCTAssertEqual(error as? AgentRouterClientError, .router("任务助手已退出"))
         }
     }
 

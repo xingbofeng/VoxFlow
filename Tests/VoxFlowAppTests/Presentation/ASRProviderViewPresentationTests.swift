@@ -97,9 +97,9 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("TextField(\"Base URL\""))
         XCTAssertFalse(source.contains("TextField(\"识别引擎"))
         XCTAssertFalse(source.contains("TextField(\"识别模型"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"AppID\", text: $viewModel.tencentAppIDInput, isSecret: false)"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"SecretId\", text: $viewModel.tencentSecretIDInput, isSecret: false)"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"SecretKey\", text: $viewModel.tencentSecretKeyInput, isSecret: true)"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"应用 ID\", text: $viewModel.tencentAppIDInput, isSecret: false)"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"密钥 ID\", text: $viewModel.tencentSecretIDInput, isSecret: false)"))
+        XCTAssertTrue(source.contains("tencentCredentialField(\"密钥\", text: $viewModel.tencentSecretKeyInput, isSecret: true)"))
     }
 
     func testProviderCardInteractionDisablesSelectionForUnavailableOrCurrentProvider() {

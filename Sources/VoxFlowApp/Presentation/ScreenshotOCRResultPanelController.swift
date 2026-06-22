@@ -3,20 +3,41 @@ import SwiftUI
 
 @MainActor
 final class ScreenshotOCRResultPanelController {
-    private let service: ScreenshotOCRService
-    private let clipboard: any ClipboardSetting
-    private var window: ScreenshotOCRResultPanel?
+    private static let logger = AppLogger.general
 
-    init(service: ScreenshotOCRService, clipboard: any ClipboardSetting) {
+    private let service: ScreenshotOCRService
+    private let clipboard: any ScreenshotOCRResultClipboard
+    private let autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling
+    private var window: ScreenshotOCRResultPanel?
+    private var autoDismissToken: (any ScreenshotOCRResultAutoDismissCancellable)?
+
+    init(
+        service: ScreenshotOCRService,
+        clipboard: any ScreenshotOCRResultClipboard,
+        autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling = TaskScreenshotOCRResultAutoDismissScheduler()
+    ) {
         self.service = service
         self.clipboard = clipboard
+        self.autoDismissScheduler = autoDismissScheduler
     }
 
-    func present(result: ScreenshotOCRResult) {
+    func present(
+        result: ScreenshotOCRResult,
+        initialTab: ScreenshotOCRResultTab = .originalImage,
+        autoDismiss: Bool = true,
+        overlayImage: CGImage? = nil
+    ) {
+        Self.logger.debug(
+            "ScreenshotOCRResultPanelController present requested initialTab=\(initialTab) autoDismiss=\(autoDismiss) image=\(result.originalImage != nil)"
+        )
+        ContextBoostSuppression.setSuppressed(true, reason: Self.contextBoostSuppressionReason)
+
         let viewModel = ScreenshotOCRResultViewModel(
             result: result,
             service: service,
-            clipboard: clipboard
+            clipboard: clipboard,
+            initialTab: initialTab,
+            translatedOverlayImage: overlayImage
         )
         let rootView = ScreenshotOCRResultView(
             viewModel: viewModel,
@@ -30,16 +51,40 @@ final class ScreenshotOCRResultPanelController {
             window = makeWindow()
         }
         guard let window else { return }
+        Self.logger.debug("ScreenshotOCRResultPanelController using window")
         window.contentView = NSHostingView(rootView: rootView)
         position(window)
         window.orderFrontRegardless()
-        window.makeKeyAndOrderFront(nil)
+        window.makeKey()
+        if autoDismiss {
+            scheduleAutoDismiss()
+        } else {
+            cancelAutoDismissForInteraction()
+        }
     }
 
     func close() {
+        Self.logger.debug("ScreenshotOCRResultPanelController close")
+        autoDismissToken?.cancel()
+        autoDismissToken = nil
+        ContextBoostSuppression.setSuppressed(false, reason: Self.contextBoostSuppressionReason)
         service.stopSpeaking()
         window?.close()
         window = nil
+    }
+
+    private func scheduleAutoDismiss() {
+        autoDismissToken?.cancel()
+        Self.logger.debug("ScreenshotOCRResultPanelController scheduleAutoDismiss")
+        autoDismissToken = autoDismissScheduler.schedule(after: 5) { [weak self] in
+            self?.close()
+        }
+    }
+
+    private func cancelAutoDismissForInteraction() {
+        Self.logger.debug("ScreenshotOCRResultPanelController cancelAutoDismissForInteraction")
+        autoDismissToken?.cancel()
+        autoDismissToken = nil
     }
 
     private func makeWindow() -> ScreenshotOCRResultPanel {
@@ -62,9 +107,11 @@ final class ScreenshotOCRResultPanelController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
+        panel.sharingType = .readOnly
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.onCancel = { [weak self] in self?.close() }
+        panel.onInteraction = { [weak self] in self?.cancelAutoDismissForInteraction() }
         return panel
     }
 
@@ -87,10 +134,54 @@ final class ScreenshotOCRResultPanelController {
         }
         return NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 440, height: 560)
     }
+
+    private static let contextBoostSuppressionReason = "screenshot_ocr_result_panel"
+}
+
+@MainActor
+protocol ScreenshotOCRResultAutoDismissCancellable: AnyObject {
+    func cancel()
+}
+
+@MainActor
+protocol ScreenshotOCRResultAutoDismissScheduling: AnyObject {
+    func schedule(
+        after delay: TimeInterval,
+        action: @escaping @MainActor () -> Void
+    ) -> any ScreenshotOCRResultAutoDismissCancellable
+}
+
+@MainActor
+private final class TaskScreenshotOCRResultAutoDismissScheduler: ScreenshotOCRResultAutoDismissScheduling {
+    func schedule(
+        after delay: TimeInterval,
+        action: @escaping @MainActor () -> Void
+    ) -> any ScreenshotOCRResultAutoDismissCancellable {
+        let task = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            action()
+        }
+        return TaskScreenshotOCRResultAutoDismissToken(task: task)
+    }
+}
+
+@MainActor
+private final class TaskScreenshotOCRResultAutoDismissToken: ScreenshotOCRResultAutoDismissCancellable {
+    private let task: Task<Void, Never>
+
+    init(task: Task<Void, Never>) {
+        self.task = task
+    }
+
+    func cancel() {
+        task.cancel()
+    }
 }
 
 private final class ScreenshotOCRResultPanel: NSPanel {
     var onCancel: (() -> Void)?
+    var onInteraction: (() -> Void)?
 
     override var canBecomeKey: Bool {
         true
@@ -109,6 +200,31 @@ private final class ScreenshotOCRResultPanel: NSPanel {
             onCancel?()
         } else {
             super.keyDown(with: event)
+        }
+    }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.isScreenshotResultPanelInteraction {
+            onInteraction?()
+        }
+        super.sendEvent(event)
+    }
+}
+
+private extension NSEvent {
+    var isScreenshotResultPanelInteraction: Bool {
+        switch type {
+        case .leftMouseDown,
+             .rightMouseDown,
+             .otherMouseDown,
+             .leftMouseDragged,
+             .rightMouseDragged,
+             .otherMouseDragged,
+             .scrollWheel,
+             .keyDown:
+            return true
+        default:
+            return false
         }
     }
 }
@@ -140,7 +256,7 @@ private struct ScreenshotOCRResultView: View {
             header
             Picker("", selection: $viewModel.selectedTab) {
                 Text("原图").tag(ScreenshotOCRResultTab.originalImage)
-                Text("OCR").tag(ScreenshotOCRResultTab.ocr)
+                Text("识别").tag(ScreenshotOCRResultTab.ocr)
                 Text("翻译").tag(ScreenshotOCRResultTab.translation)
                 Text("总结").tag(ScreenshotOCRResultTab.summary)
             }
@@ -169,6 +285,7 @@ private struct ScreenshotOCRResultView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.primary.opacity(0.12), lineWidth: 1)
         )
+        .onExitCommand(perform: onClose)
     }
 
     private var header: some View {
@@ -176,8 +293,8 @@ private struct ScreenshotOCRResultView: View {
             HStack(spacing: 10) {
                 Image(systemName: "viewfinder")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.blue)
-                Text("识别完成")
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                Text(completionTitle)
                     .font(.system(size: 15, weight: .semibold))
                 Spacer()
                 if let message = viewModel.statusMessage {
@@ -196,8 +313,13 @@ private struct ScreenshotOCRResultView: View {
                     .font(.system(size: 12, weight: .semibold))
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
             .help("关闭")
         }
+    }
+
+    private var completionTitle: String {
+        viewModel.result.captureCompletionKind == .scrollingScreenshot ? "截图完成" : "识别完成"
     }
 
     @ViewBuilder
@@ -205,11 +327,7 @@ private struct ScreenshotOCRResultView: View {
         switch viewModel.selectedTab {
         case .originalImage:
             if let image = viewModel.result.originalImage {
-                Image(nsImage: NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height)))
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(12)
+                screenshotImagePreview(image)
             } else {
                 placeholderText("暂无截图")
             }
@@ -242,6 +360,31 @@ private struct ScreenshotOCRResultView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
+        case .translatedOverlay:
+            if let image = viewModel.translatedOverlayImage {
+                screenshotImagePreview(image)
+            } else {
+                placeholderText("暂无翻译覆盖图")
+            }
+        }
+    }
+
+    private func screenshotImagePreview(_ image: CGImage) -> some View {
+        GeometryReader { geometry in
+            ScrollView(.vertical) {
+                Image(nsImage: NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height)))
+                    .resizable()
+                    .aspectRatio(CGFloat(image.width) / max(CGFloat(image.height), 1), contentMode: .fit)
+                    .frame(width: max(1, geometry.size.width - 24))
+                    .padding(12)
+                    .contextMenu {
+                        Button {
+                            viewModel.copySelectedImage()
+                        } label: {
+                            Label("复制图片", systemImage: "photo.on.rectangle")
+                        }
+                    }
+            }
         }
     }
 
@@ -256,10 +399,10 @@ private struct ScreenshotOCRResultView: View {
         HStack(spacing: 10) {
             Text("正在朗读")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(AppTheme.ColorToken.accent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.green.opacity(0.12))
+                .background(AppTheme.ColorToken.accentSoft)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             Text(playback.text)
                 .font(.system(size: 12))
@@ -299,8 +442,15 @@ private struct ScreenshotOCRResultView: View {
             Button {
                 viewModel.copySelectedText()
             } label: {
-                Label("复制", systemImage: "doc.on.doc")
+                Label("复制文字", systemImage: "doc.on.doc")
             }
+
+            Button {
+                viewModel.copySelectedImage()
+            } label: {
+                Label("复制图片", systemImage: "photo.on.rectangle")
+            }
+            .disabled(viewModel.selectedImage == nil)
 
             Spacer()
         }

@@ -2,6 +2,8 @@ import Foundation
 
 @MainActor
 final class RecordingAudioFeedbackController {
+    private static let logger = AppLogger.audio
+
     enum SoundEvent: String {
         case start
         case complete
@@ -28,25 +30,31 @@ final class RecordingAudioFeedbackController {
     }
 
     func handle(_ state: DictationState) {
+        Self.logger.debug("RecordingAudioFeedbackController handle state=\(state)")
         switch state {
         case .recording:
             hasActiveSession = true
             if soundFeedbackEnabled() {
+                Self.logger.debug("RecordingAudioFeedbackController playing start feedback")
                 playSound(.start)
             }
             if muteWhileRecordingEnabled() {
+                Self.logger.debug("RecordingAudioFeedbackController muting during recording")
                 setMuted(true)
                 mutedForSession = true
             }
         case .waitingForFinal, .processing, .injecting:
+            Self.logger.debug("RecordingAudioFeedbackController restoring audio while state=\(state)")
             restoreAudioIfNeeded()
         case .idle:
+            Self.logger.debug("RecordingAudioFeedbackController handle idle hasActiveSession=\(hasActiveSession)")
             restoreAudioIfNeeded()
             if hasActiveSession, soundFeedbackEnabled() {
                 playSound(.complete)
             }
             hasActiveSession = false
         case .failed:
+            Self.logger.debug("RecordingAudioFeedbackController handle failed hasActiveSession=\(hasActiveSession)")
             restoreAudioIfNeeded()
             if hasActiveSession, soundFeedbackEnabled() {
                 playSound(.error)
@@ -57,6 +65,7 @@ final class RecordingAudioFeedbackController {
 
     private func restoreAudioIfNeeded() {
         guard mutedForSession else { return }
+        Self.logger.debug("RecordingAudioFeedbackController restoreAudioIfNeeded")
         setMuted(false)
         mutedForSession = false
     }

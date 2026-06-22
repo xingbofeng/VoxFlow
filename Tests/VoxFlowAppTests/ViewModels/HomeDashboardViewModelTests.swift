@@ -213,6 +213,48 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(item.text(for: .raw), "转换前文本")
     }
 
+    func testSelectingHistoryItemUsesRawLLMDiagnosticTraceWhenAvailable() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HomeDashboardLLMDiagnostics-\(UUID().uuidString)", isDirectory: true)
+        LLMDiagnosticCapture.shared.configure(enabled: true, directory: directory)
+        addTeardownBlock {
+            LLMDiagnosticCapture.shared.configure(enabled: false, directory: directory)
+        }
+        let rawTrace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "provider",
+                providerName: "OpenAI",
+                endpoint: "https://api.example.com/v1/chat/completions",
+                model: "gpt-test",
+                temperature: 0.2,
+                timeoutSeconds: 8,
+                requestBodyJSON: #"{"messages":[{"role":"system","content":"完整系统提示"},{"role":"user","content":"完整用户请求"}]}"#,
+                responseText: "完整模型返回",
+                statusCode: 200,
+                durationMS: 123,
+                errorMessage: nil,
+                completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        )
+        LLMDiagnosticCapture.shared.capture(taskID: "entry", trace: rawTrace)
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        let safeTraceData = try JSONEncoder().encode(rawTrace.safeForPersistence())
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "entry",
+                processingTraceJSON: String(data: safeTraceData, encoding: .utf8)
+            )
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+
+        viewModel.selectHistoryItem(id: "entry")
+
+        XCTAssertEqual(viewModel.selectedDetail?.trace?.llm?.responseText, "完整模型返回")
+        XCTAssertTrue(viewModel.selectedDetail?.trace?.llm?.requestBodyJSON.contains("完整用户请求") == true)
+        XCTAssertTrue(viewModel.selectedDetail?.trace?.llm?.requestBodyJSON.contains("完整系统提示") == true)
+    }
+
     func testSearchFiltersHistoryThroughRepository() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -372,7 +414,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 mode: .agentCompose,
                 stage: .outputting,
                 status: .completed,
-                rawTranscript: "帮我说",
+                rawTranscript: "任务助手",
                 finalText: "生成结果",
                 createdAt: clock.now,
                 updatedAt: clock.now,
@@ -655,6 +697,137 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
+    func testPaginationPageSizeFilterResetDeleteFallbackAndClear() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        for index in 0..<41 {
+            try environment.historyRepository.save(
+                historyEntry(
+                    id: "entry-\(index)",
+                    rawText: index == 0 ? "needle" : "raw \(index)",
+                    finalText: index == 0 ? "needle" : "final \(index)",
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index))
+                )
+            )
+        }
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            calendar: testCalendar,
+            historyPageSize: 20
+        )
+
+        viewModel.load()
+        XCTAssertEqual(viewModel.totalHistoryCount, 41)
+        XCTAssertEqual(viewModel.totalPages, 3)
+        XCTAssertEqual(viewModel.currentPage, 1)
+        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).count, 20)
+
+        viewModel.goToPage(3)
+        XCTAssertEqual(viewModel.currentPage, 3)
+        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).count, 1)
+        viewModel.deleteHistoryItem(id: "entry-0")
+        XCTAssertEqual(viewModel.currentPage, 2)
+        XCTAssertEqual(viewModel.totalHistoryCount, 40)
+
+        viewModel.updateHistoryPageSize(50)
+        XCTAssertEqual(viewModel.currentPage, 1)
+        XCTAssertEqual(viewModel.pageSize, 50)
+        viewModel.goToPage(2)
+        viewModel.updateSearch("final 1")
+        XCTAssertEqual(viewModel.currentPage, 1)
+
+        viewModel.clearAllHistory()
+        XCTAssertEqual(viewModel.currentPage, 1)
+        XCTAssertEqual(viewModel.totalHistoryCount, 0)
+        XCTAssertTrue(viewModel.historyGroups.isEmpty)
+    }
+
+    func testLoadUsesDatabaseAggregateWithoutCallingHistoryListRecent() throws {
+        let base = try DependencyContainer.inMemory()
+        let historyRepository = CapturingListHistoryRepository(base: base.historyRepository)
+        let container = DependencyContainer(
+            clock: base.clock,
+            paths: base.paths,
+            storageHealth: base.storageHealth,
+            databaseQueue: base.databaseQueue,
+            credentialStore: base.credentialStore,
+            historyRepository: historyRepository,
+            styleRepository: base.styleRepository,
+            asrProviderRepository: base.asrProviderRepository,
+            llmProviderRepository: base.llmProviderRepository,
+            transcriptionJobRepository: base.transcriptionJobRepository,
+            noteRepository: base.noteRepository,
+            screenshotRecordRepository: base.screenshotRecordRepository,
+            settingsRepository: base.settingsRepository,
+            correctionTargetRepository: base.correctionTargetRepository,
+            correctionRuleRepository: base.correctionRuleRepository,
+            correctionSnapshotProvider: base.correctionSnapshotProvider,
+            voiceCorrectionProcessor: base.voiceCorrectionProcessor
+        )
+        let viewModel = HomeDashboardViewModel(
+            environment: AppEnvironment(container: container),
+            calendar: testCalendar
+        )
+
+        viewModel.load()
+
+        XCTAssertEqual(historyRepository.listRecentLimits, [])
+    }
+
+    func testPreviousNextAndInvalidPageNumbersStayWithinAvailablePages() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        for index in 0..<41 {
+            try environment.historyRepository.save(historyEntry(id: "page-entry-\(index)"))
+        }
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            calendar: testCalendar,
+            historyPageSize: 20
+        )
+        viewModel.load()
+
+        viewModel.previousPage()
+        XCTAssertEqual(viewModel.currentPage, 1)
+        viewModel.nextPage()
+        XCTAssertEqual(viewModel.currentPage, 2)
+        viewModel.previousPage()
+        XCTAssertEqual(viewModel.currentPage, 1)
+        viewModel.goToPage(-10)
+        XCTAssertEqual(viewModel.currentPage, 1)
+        viewModel.goToPage(999)
+        XCTAssertEqual(viewModel.currentPage, 3)
+        viewModel.nextPage()
+        XCTAssertEqual(viewModel.currentPage, 3)
+    }
+
+    func testSearchAndPaginationDoNotReloadDashboardAggregate() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        for index in 0..<25 {
+            try environment.historyRepository.save(historyEntry(id: "query-entry-\(index)"))
+        }
+        let queryRepository = CountingHomeHistoryRepository(
+            base: HomeHistoryRepository(databaseQueue: environment.databaseQueue)
+        )
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            calendar: testCalendar,
+            historyPageSize: 20,
+            homeHistoryRepository: queryRepository
+        )
+
+        viewModel.load()
+        XCTAssertEqual(queryRepository.aggregateCallCount, 1)
+
+        viewModel.updateSearch("q")
+        viewModel.updateSearch("qu")
+        viewModel.nextPage()
+        viewModel.updateHistoryPageSize(50)
+
+        XCTAssertEqual(queryRepository.aggregateCallCount, 1)
+    }
+
     private func historyEntry(
         id: String,
         rawText: String = "raw",
@@ -768,4 +941,71 @@ private final class MutableHomeClock: AppClock, @unchecked Sendable {
     }
 
     func sleep(nanoseconds: UInt64) async throws {}
+}
+
+private final class CapturingListHistoryRepository: HistoryRepository {
+    private let base: any HistoryRepository
+    private(set) var listRecentLimits: [Int] = []
+
+    init(base: any HistoryRepository) {
+        self.base = base
+    }
+
+    func save(_ entry: DictationHistoryEntry) throws { try base.save(entry) }
+    func entry(id: String) throws -> DictationHistoryEntry? { try base.entry(id: id) }
+    func listRecent(limit: Int) throws -> [DictationHistoryEntry] {
+        listRecentLimits.append(limit)
+        return try base.listRecent(limit: limit)
+    }
+    func listRecent(limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        listRecentLimits.append(limit)
+        return try base.listRecent(limit: limit, offset: offset)
+    }
+    func search(_ query: String, limit: Int) throws -> [DictationHistoryEntry] {
+        try base.search(query, limit: limit)
+    }
+    func search(_ query: String, limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        try base.search(query, limit: limit, offset: offset)
+    }
+    func softDelete(id: String, deletedAt: Date) throws {
+        try base.softDelete(id: id, deletedAt: deletedAt)
+    }
+}
+
+private final class CountingHomeHistoryRepository: HomeHistoryQuerying {
+    private let base: HomeHistoryRepository
+    private(set) var aggregateCallCount = 0
+
+    init(base: HomeHistoryRepository) {
+        self.base = base
+    }
+
+    func page(query: HomeHistoryQuery) throws -> HomeHistoryPage {
+        try base.page(query: query)
+    }
+
+    func dashboardAggregate(
+        statsStartDate: Date?,
+        statsEndDate: Date?,
+        focusStartDate: Date,
+        focusEndDate: Date,
+        activityStartDate: Date,
+        activityEndDate: Date,
+        activityTimeZoneOffsetSeconds: Int
+    ) throws -> HomeDashboardAggregate {
+        aggregateCallCount += 1
+        return try base.dashboardAggregate(
+            statsStartDate: statsStartDate,
+            statsEndDate: statsEndDate,
+            focusStartDate: focusStartDate,
+            focusEndDate: focusEndDate,
+            activityStartDate: activityStartDate,
+            activityEndDate: activityEndDate,
+            activityTimeZoneOffsetSeconds: activityTimeZoneOffsetSeconds
+        )
+    }
+
+    func clearAll(deletedAt: Date) throws {
+        try base.clearAll(deletedAt: deletedAt)
+    }
 }

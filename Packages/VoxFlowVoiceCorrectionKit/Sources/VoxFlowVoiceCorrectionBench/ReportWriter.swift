@@ -25,6 +25,7 @@ enum ReportWriter {
             "",
             "- Total cases: \(report.summary.totalCases)",
             "- Passed cases: \(report.summary.passedCases)",
+            "- Learning cases: \(report.learningResults.filter(\.passed).count)/\(report.learningResults.count)",
             "- Sentence exact match: \(report.summary.sentenceExactMatchRate)",
             "- Correction precision: \(report.summary.correctionPrecision)",
             "- Supported correction recall: \(report.summary.supportedCorrectionRecall)",
@@ -43,6 +44,19 @@ enum ReportWriter {
         } else {
             for failure in report.failedCases {
                 lines.append("- \(failure.id): raw=`\(failure.case.raw)`, expected=`\(failure.case.expected)`, actual=`\(failure.actual)`, reason=`\(failure.failureReason ?? "unknown")`, next=`\(failure.nextStep ?? "triage")`")
+            }
+        }
+
+        lines += [
+            "",
+            "## Failed Learning Cases",
+            "",
+        ]
+        if report.failedLearningCases.isEmpty {
+            lines.append("None.")
+        } else {
+            for failure in report.failedLearningCases {
+                lines.append("- \(failure.id): inserted=`\(failure.case.insertedText)`, observed=`\(failure.case.observedFinalText)`, actualCandidates=`\(failure.actualCandidates)`, actualRevertedRuleIDs=`\(failure.actualRevertedRuleIDs)`, reason=`\(failure.failureReason ?? "unknown")`, next=`\(failure.nextStep ?? "triage")`")
             }
         }
 

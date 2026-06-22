@@ -180,6 +180,7 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
     enum Event: Equatable {
         case show
         case showWithoutReset
+        case dismissAfterDefaultHUDTimeout
         case dismiss
         case updateTranscription(text: String, isRefining: Bool)
         case updateAgentComposeStatus(AgentComposeHUDStage)
@@ -201,6 +202,10 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
 
     func showWithoutReset() {
         events.append(.showWithoutReset)
+    }
+
+    func dismissAfterDefaultHUDTimeout() {
+        events.append(.dismissAfterDefaultHUDTimeout)
     }
 
     func dismiss() {

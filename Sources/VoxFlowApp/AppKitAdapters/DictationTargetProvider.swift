@@ -31,8 +31,10 @@ protocol DictationTargetProviding {
 struct WorkspaceDictationTargetProvider: DictationTargetProviding {
     func currentTarget() -> DictationTarget? {
         guard let application = NSWorkspace.shared.frontmostApplication else {
+            AppLogger.dictation.warning("WorkspaceDictationTargetProvider no frontmost app")
             return nil
         }
+        AppLogger.dictation.debug("WorkspaceDictationTargetProvider app bundle=\(application.bundleIdentifier ?? "nil") name=\(application.localizedName ?? "nil")")
         return DictationTarget(
             bundleID: application.bundleIdentifier,
             appName: application.localizedName,
@@ -45,7 +47,12 @@ struct StaticDictationTargetProvider: DictationTargetProviding {
     let target: DictationTarget?
 
     func currentTarget() -> DictationTarget? {
-        target
+        if let target {
+            AppLogger.dictation.debug("StaticDictationTargetProvider target bundle=\(target.bundleID ?? "nil")")
+        } else {
+            AppLogger.dictation.debug("StaticDictationTargetProvider target nil")
+        }
+        return target
     }
 }
 
@@ -59,5 +66,22 @@ enum DictationTargetChangePolicy {
         if original.bundleID != current.bundleID { return true }
         if original.windowID != nil && original.windowID != current.windowID { return true }
         return false
+    }
+}
+
+enum DictationTargetActivation {
+    @discardableResult
+    static func activate(_ target: DictationTarget?) async -> Bool {
+        guard let pid = target?.pid,
+              let application = NSRunningApplication(processIdentifier: pid_t(pid)),
+              !application.isTerminated else {
+            return false
+        }
+
+        let activated = application.activate()
+        if activated {
+            try? await Task.sleep(nanoseconds: 120_000_000)
+        }
+        return activated
     }
 }

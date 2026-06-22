@@ -102,6 +102,46 @@ enum ShortcutEventRouting {
     }
 }
 
+enum WorkflowShortcutEventRouting {
+    static func shouldPassThrough(isCapturingShortcut: Bool) -> Bool {
+        isCapturingShortcut
+    }
+}
+
+enum WorkflowShortcutEventDecision: Equatable {
+    case consume
+    case passThrough
+}
+
+struct WorkflowShortcutKeyState {
+    private var consumedKeyCode: Int64?
+
+    mutating func transition(
+        keyCode: Int64,
+        routedEvent: HotKeyRouterResult,
+        isPressed: Bool,
+        consumed: Bool
+    ) -> WorkflowShortcutEventDecision {
+        if isPressed {
+            guard case .workflowShortcut = routedEvent, consumed else {
+                return .passThrough
+            }
+            consumedKeyCode = keyCode
+            return .consume
+        }
+
+        guard consumedKeyCode == keyCode else {
+            return .passThrough
+        }
+        consumedKeyCode = nil
+        return .consume
+    }
+
+    mutating func reset() {
+        consumedKeyCode = nil
+    }
+}
+
 @MainActor
 final class ShortcutCaptureState {
     static let shared = ShortcutCaptureState()
@@ -170,6 +210,7 @@ final class KeyMonitor: @unchecked Sendable {
     // MARK: - State
 
     private let hotKeyStateMachine = HotKeyStateMachine()
+    private var workflowShortcutState = WorkflowShortcutKeyState()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
@@ -182,12 +223,15 @@ final class KeyMonitor: @unchecked Sendable {
 
     @MainActor
     func start() -> Bool {
+        AppLogger.general.debug("KeyMonitor start requested existingTap=\(eventTap != nil)")
         guard eventTap == nil else { return true }
 
         hotKeyStateMachine.reset()
+        workflowShortcutState.reset()
 
         let options = [_kAXPrompt: true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
+            AppLogger.general.warning("KeyMonitor start blocked: accessibility trust unavailable")
             return false
         }
 
@@ -208,6 +252,7 @@ final class KeyMonitor: @unchecked Sendable {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
+            AppLogger.general.error("KeyMonitor start failed: CGEvent.tapCreate returned nil")
             return false
         }
 
@@ -215,10 +260,12 @@ final class KeyMonitor: @unchecked Sendable {
         self.runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        AppLogger.general.debug("KeyMonitor started")
         return true
     }
 
     func stop() {
+        AppLogger.general.debug("KeyMonitor stop")
         guard let tap = eventTap else { return }
         CGEvent.tapEnable(tap: tap, enable: false)
         if let source = runLoopSource {
@@ -227,6 +274,7 @@ final class KeyMonitor: @unchecked Sendable {
         eventTap = nil
         runLoopSource = nil
         hotKeyStateMachine.reset()
+        workflowShortcutState.reset()
     }
 
     // MARK: - Event Handling
@@ -237,6 +285,7 @@ final class KeyMonitor: @unchecked Sendable {
         event: CGEvent
     ) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            AppLogger.general.warning("KeyMonitor tap disabled event")
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
@@ -262,8 +311,21 @@ final class KeyMonitor: @unchecked Sendable {
             flags: event.flags,
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
-            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch)
+            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
+            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR)
         )
+
+        if !isPressed,
+           workflowShortcutState.transition(
+               keyCode: keyCode,
+               routedEvent: routedEvent,
+               isPressed: false,
+               consumed: false
+           ) == .consume {
+            return nil
+        }
+
         switch routedEvent {
         case let .workflowShortcut(shortcut):
             guard isPressed else {
@@ -278,29 +340,34 @@ final class KeyMonitor: @unchecked Sendable {
     }
 
     private func handleWorkflowShortcut(event: CGEvent, shortcut: HotKeyWorkflowShortcut) -> Unmanaged<CGEvent>? {
-        let shouldPassThrough = MainActor.assumeIsolated {
-            if ShortcutCaptureState.shared.isCapturing {
-                return true
-            }
-            guard shortcut != .cancel else {
-                return false
-            }
-            let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
-            let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-            return ShortcutEventRouting.shouldPassThrough(
-                appIsActive: NSApp.isActive,
-                appIsFrontmost: frontmostBundleID == appBundleID,
-                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+        if shouldPassThroughWorkflowShortcut() {
+            _ = workflowShortcutState.transition(
+                keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+                routedEvent: .workflowShortcut(shortcut),
+                isPressed: true,
+                consumed: false
             )
-        }
-        if shouldPassThrough {
             return Unmanaged.passUnretained(event)
         }
 
         let shouldConsume = MainActor.assumeIsolated {
             onWorkflowShortcut?(shortcut) ?? false
         }
+        _ = workflowShortcutState.transition(
+            keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            routedEvent: .workflowShortcut(shortcut),
+            isPressed: true,
+            consumed: shouldConsume
+        )
         return shouldConsume ? nil : Unmanaged.passUnretained(event)
+    }
+
+    private func shouldPassThroughWorkflowShortcut() -> Bool {
+        MainActor.assumeIsolated {
+            WorkflowShortcutEventRouting.shouldPassThrough(
+                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+            )
+        }
     }
 
     private func handleFlagsChanged(event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -312,7 +379,9 @@ final class KeyMonitor: @unchecked Sendable {
             flags: event.flags,
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
-            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch)
+            agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
+            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR)
         )
         guard case let .voiceAction(action) = routedEvent else {
             return Unmanaged.passUnretained(event)

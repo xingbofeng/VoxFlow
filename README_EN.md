@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
-  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - Hold. Speak. Done." width="100%">
+  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - dictation, screenshot text, and agent command workflow" width="100%">
 
   <h1>VoxFlow</h1>
   <p><strong>Send spoken thoughts, screenshot text, and coding-agent instructions back into your current workspace.</strong></p>
@@ -11,7 +11,7 @@
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 15+">
     <a href="https://github.com/xingbofeng/VoxFlow/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoxFlow?style=flat-square&label=release" alt="Latest release"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-open%20source-10B981?style=flat-square" alt="License"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-10B981?style=flat-square" alt="License"></a>
   </p>
   <p>
     🌐 <a href="https://xingbofeng.github.io/VoxFlow/">Website</a>
@@ -22,41 +22,39 @@
   </p>
 </div>
 
-> **Version note**: This documentation targets VoxFlow 1.4.0. Before the v1.4.0 release is published, download links may still point to the previous stable package; build from source to verify the newest capabilities.
 
-## What Is VoxFlow?
+## At A Glance
 
-VoxFlow is a voice keyboard for your current workflow, not a voice assistant.
+VoxFlow is a voice keyboard and lightweight workflow layer for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns speech, image text, and agent commands into output that returns to your current workspace.
 
-It lives in the menu bar and appears only when you want to dictate, read text from a screenshot, or command a local coding agent. Put the cursor where text should appear, hold the shortcut, speak, and release; VoxFlow writes the result back into the app you were already using. Copy an image or select part of the screen, and it turns visible text into editable text. Enable Vibe Coding, and spoken instructions can be dispatched to registered Codex, Claude, CodeBuddy, or other terminal sessions.
-
-It is designed for people who want speech to become text without breaking flow:
-
-- **Faster input**: Say the thoughts you already have instead of typing every word.
-- **Less interruption**: No focus stealing, no large modal workflow, no extra copy-paste step.
-- **More reliable results**: Dictation, personal correction rules, LLM correction, glossary, styles, notes, history, and text insertion all support the same goal: getting useful text into the right place.
-- **Local-first control**: Keep data on your Mac by default, then choose between system ASR, local ASR, and optional LLM correction as needed.
+| What You Want To Do | Trigger | Output | Boundary |
+| --- | --- | --- | --- |
+| Dictate text | Hold the shortcut, speak, release | Current cursor position | No focus stealing, no auto-submit |
+| Fix misrecognized terms | Runs after ASR final output and optional LLM correction | Text before insertion | Local deterministic rules; learned candidates stay user-controlled |
+| OCR a clipboard image | Copy an image, press `Command + Shift + V` | Current cursor position | Image-only workflow; does not start normal dictation |
+| Capture and process a screenshot | Press `Command + Shift + A`, select a region | OCR result panel | Translation, summary, and speech playback are optional |
+| Review screenshot records | Open Workbench → Screenshot | Local screenshot history and OCR text | Stored locally; records can be searched, favorited, copied, and deleted |
+| Compose an AI prompt | Combine current-window context with spoken intent | Copyable prompt | Copy only, no injection, no auto-submit |
+| Command local coding agents | Speak a task assistant name and task | Codex / Claude / CodeBuddy / terminal agent session | Dispatches only to registered sessions |
 
 ## Who It Is For
 
-VoxFlow is especially useful if you:
+- You often talk to ChatGPT, Claude, Codex, Cursor, or other AI tools and need to describe intent, context, or revision requests quickly.
+- You run Codex, Claude, CodeBuddy, or other terminal agents and want to dispatch spoken instructions to the right local session.
+- You write code and frequently explain bugs, add notes, draft commit messages, or document investigation steps.
+- You extract text from screenshots, web pages, error dialogs, or images, then translate or summarize it.
+- You speak mixed Chinese and English, where technical terms and product names are easy to misrecognize.
 
-- Talk to ChatGPT, Claude, Codex, Cursor, or other AI tools and often need to describe intent, context, or revision requests.
-- Run Codex, Claude, CodeBuddy, or other terminal agents and want to dispatch spoken instructions to the right local session.
-- Write code and frequently explain bugs, add notes, draft commit messages, or document investigation steps.
-- Capture meeting notes, ideas, tasks, long replies, or article drafts.
-- Extract text from screenshots, web pages, error dialogs, or images, then translate or summarize it.
-- Speak mixed Chinese and English, where technical terms and product names are easy to misrecognize.
-- Prefer quiet, native macOS utilities that live in the menu bar and stay out of the way.
+## Reading Map
 
-## Four Core Workflows
-
-| Workflow | What It Does | Boundary |
-| --- | --- | --- |
-| Dictation | Hold a shortcut, speak, and insert the final text into the current cursor position | Does not steal focus or auto-submit |
-| Corrections | Runs deterministic local fixes after ASR final output and optional LLM correction; can learn candidates from later edits | Local by default, with user-controlled candidate activation |
-| Screenshot OCR | Paste OCR from clipboard images, or select a screen region and review OCR, translation, summary, and speech playback | Source images are not persisted as long-term data |
-| AI Workflows | Agent Compose creates copy-only prompts; Vibe Coding dispatches spoken tasks to registered local terminal agents | Agent Compose never injects or submits; Vibe Coding targets registered sessions only |
+| If You Want To... | Start Here |
+| --- | --- |
+| Install and try it | [Quick Start](#quick-start) |
+| Understand speech models | [Dictation And Speech Models](#dictation-and-speech-models) |
+| Understand OCR, translation, summary, and agents | [Corrections, OCR, And Agent Workflows](#corrections-ocr-and-agent-workflows) |
+| Check where data goes | [Privacy](#privacy) |
+| Understand the stack and open-source dependencies | [Tech Stack And Open-Source Dependencies](#tech-stack-and-open-source-dependencies) |
+| Build from source | [Run From Source](#run-from-source) |
 
 ## Dictation And Speech Models
 
@@ -107,17 +105,17 @@ Speech recognition can struggle with technical terms such as Python, JSON, TypeS
 
 The new **Personal Corrections** page runs deterministic local fixes after ASR final output and optional LLM correction. It can also learn candidate rules from edits you make after insertion. The LLM pass remains intentionally restrained: it fixes obvious recognition mistakes instead of rewriting your tone or polishing your content.
 
-### Screenshot OCR, Translation, And Summary
+### Clipboard OCR, Screenshot Capture, Translation, And Summary
 
 Copy a screenshot and press `Command + Shift + V` to OCR the clipboard image and paste the recognized text into the current cursor position. Press `Command + Shift + A` to select a screen region and open a result panel with **Original Image**, **OCR**, **Translation**, and **Summary** tabs.
 
 This is useful for web pages, error dialogs, screenshots, design mockups, and chat history. OCR text can be copied, spoken, translated, or summarized, but it does not feed the permanent Personal Corrections learning loop.
 
-### Agent Compose And Vibe Coding Command Center
+### Agent Compose And AI Coding 助手 Command Center
 
 **Agent Compose** combines visible window context, OCR text, and your spoken intent into a prompt you can paste into an AI tool. It only copies the result; it does not inject, submit, or press Enter for you.
 
-**Vibe Coding Command Center** is for local coding-agent terminals. After you enable it, speak a teammate name and instruction, and VoxFlow resolves the target agent, shows confirmation state, and dispatches the instruction to the matching Codex, Claude, CodeBuddy, or other registered terminal session.
+**AI Coding 助手 Command Center** is for local coding-agent terminals. After you enable it, speak a task assistant name and instruction, and VoxFlow resolves the target agent, shows confirmation state, and dispatches the instruction to the matching Codex, Claude, CodeBuddy, or other registered terminal session.
 
 ### Workbench
 
@@ -127,11 +125,11 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 | --- | --- |
 | Home | Review stats, daily goals, and dictation history; copy or delete entries |
 | Personal Corrections | Manage deterministic correction rules, learned candidates, enablement, and recent events |
-| Glossary | Manage frequent terms, names, technical words, and prompt vocabulary |
 | Styles | Choose output styles such as original, formal, email, or coding notes |
 | File Transcription | Import audio or video files, transcribe them, export txt/md/srt, or save as notes |
 | Notes | Record voice notes, edit Markdown, search, and review recent notes |
-| Vibe Coding | Review registered agents, aliases, working directories, branches, and dispatch logs |
+| Screenshot | Browse captured screenshots with OCR text, favorites, search, and paging |
+| AI Coding 助手 | Review registered agents, aliases, working directories, branches, and dispatch logs |
 | Settings | Manage input devices, shortcuts, models, translation models, permissions, privacy, and data |
 | Help | Find permission guidance, version information, and project links |
 
@@ -145,13 +143,15 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 - **Shortcut recording**: Record the key you want to use and configure short-press behavior.
 - **Clipboard image OCR**: Copy a screenshot or image, press `Command + Shift + V`, and VoxFlow recognizes the image text and pastes it into the current field.
 - **Screenshot OCR**: Press `Command + Shift + A`, select a screen region, then review the original image, OCR text, translation, and summary in a result panel.
-- **Vibe Coding Command Center**: Dispatch spoken instructions to Codex, Claude, CodeBuddy, or other registered local terminal agents.
+- **Screenshot record library**: Captured screenshots are kept in the Screenshot page with OCR text, favorites, search, and one-click copy/delete actions.
+- **Inline screenshot annotation**: Region capture supports pen/shape/text/mosaic/scroll tools, undo/redo, and quick translate/summary flow before final insert/output.
+- **AI Coding 助手 Command Center**: Dispatch spoken instructions to Codex, Claude, CodeBuddy, or other registered local terminal agents.
 - **Agent Compose**: Turn current-window OCR context plus spoken intent into a prompt; it only copies the result and never auto-submits.
 - **OpenAI-compatible providers**: Add, test, edit, and delete providers; LLM API keys are stored in macOS Keychain.
-- **Personal corrections and glossary**: Teach VoxFlow your own misrecognitions, aliases, and technical vocabulary.
+- **Personal corrections and context hotwords**: Fix repeated misrecognitions with local rules, and use current-window OCR to extract temporary context terms.
 - **History and notes**: Search, copy, edit, and reuse previous dictation results.
 - **File transcription**: Turn recordings, videos, or meeting audio into text.
-- **Local-first data**: History, glossary, settings, notes, and jobs live locally; LLM correction is opt-in.
+- **Local-first data**: History, personal corrections, settings, notes, and jobs live locally; LLM correction is opt-in.
 
 ## Quick Start
 
@@ -159,15 +159,17 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.4.0-macOS.dmg`
+1. Open `VoxFlow-1.5.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
-> To try the latest main-branch implementations of Personal Corrections, Vibe Coding, or Screenshot OCR, run from source; these capabilities may be newer than the latest stable Release.
+After installation, open Workbench -> Screenshot to verify your screenshot records and OCR history at first use.
+
+> To try the latest main-branch implementations of Personal Corrections, AI Coding 助手, or Screenshot OCR, run from source; these capabilities may be newer than the latest stable Release.
 
 ### Requirements
 
-- macOS 15 Sequoia or later (Apple Silicon)
+- macOS 15 Sequoia or later
 - A Mac with a microphone
 
 ### First Permissions
@@ -179,7 +181,7 @@ VoxFlow needs a few macOS permissions:
 | Accessibility | Listen for the global shortcut and insert text into the current app | System Settings -> Privacy & Security -> Accessibility |
 | Microphone | Record your voice | System Settings -> Privacy & Security -> Microphone |
 | Speech Recognition | Use the system speech recognizer | System Settings -> Privacy & Security -> Speech Recognition |
-| Screen Recording | OCR the current window for Agent Compose and screenshot OCR; context screenshots are not persisted | System Settings -> Privacy & Security -> Screen Recording |
+| Screen Recording | OCR the current window for Agent Compose and screenshot OCR | System Settings -> Privacy & Security -> Screen Recording |
 
 If you use a local Qwen3-ASR model, Speech Recognition permission is not required. Microphone permission is still required.
 
@@ -214,17 +216,23 @@ Press `Command + Shift + A`, then select a region of the screen. VoxFlow capture
 
 Translation can use Apple system translation, a configured LLM, or a local translation model. Summary can use a configured LLM or a local summarizer. If no translation or summary model is available, the OCR text still remains usable.
 
+### Screenshot Record Library
+
+Every screenshot captured with `Command + Shift + A` is saved as a local screenshot record so you can review it later in **Workbench → Screenshot**.
+You can search, filter by favorites, switch page size, copy recognized text, and delete entries.
+Image previews are loaded from local files and are not synced or uploaded.
+
 ### Agent Compose
 
 Agent Compose reads visible text and optional OCR context from the current window, combines it with your spoken intent, and produces a prompt for AI tools such as ChatGPT, Claude, Codex, or Cursor. It preserves the safety boundary: copy only, no injection, no auto-submit.
 
-### Vibe Coding Command Center
+### AI Coding 助手 Command Center
 
-Enable Vibe Coding Command Center in Settings, then use the existing voice shortcut to enter the command HUD. Say an agent name and task, such as “frontend, check the button state,” and VoxFlow resolves the target, asks for confirmation when needed, and dispatches the instruction to that terminal agent session.
+Enable AI Coding 助手 Command Center in Settings, then use the existing voice shortcut to enter the command HUD. Say an agent name and task, such as “frontend, check the button state,” and VoxFlow resolves the target, asks for confirmation when needed, and dispatches the instruction to that terminal agent session.
 
 ### Improve Names And Terms
 
-Use **Personal Corrections** for deterministic fixes, or **Glossary** for project names, people names, product names, and technical terms. These entries help future dictation and correction feel closer to your own vocabulary.
+Use **Personal Corrections** for deterministic fixes, or enable current-window OCR context boost so project names, people names, product names, and technical terms can become temporary hotwords for the current task.
 
 ### Enable LLM Correction
 
@@ -236,12 +244,15 @@ LLM API keys are stored in macOS Keychain. Cloud ASR credentials for Groq, Tence
 
 VoxFlow is local-first by default.
 
-- History, glossary, notes, transcription jobs, and non-secret settings are stored locally.
+- History, personal correction rules, notes, transcription jobs, and non-secret settings are stored locally.
 - LLM API keys are stored in macOS Keychain; cloud ASR credentials are stored in the local SQLite settings database.
 - Apple Speech may process audio according to macOS system behavior.
 - Local Qwen3-ASR runs on-device after the model is downloaded.
 - LLM correction is disabled by default. When enabled, only recognized text is sent to your configured API provider.
-- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device. VoxFlow does not automatically upload notes, history, or clipboard content.
+- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device.
+- Clipboard images are used only for the active OCR workflow and are not written to persistent screenshot records or history.
+- Screenshot records (OCR text + screenshot files captured via `Command + Shift + A`) are stored locally and are never uploaded.
+- VoxFlow does not automatically upload notes, history, or clipboard content.
 
 See [Privacy](docs/PRIVACY.md) for more details.
 
@@ -251,6 +262,8 @@ See [Privacy](docs/PRIVACY.md) for more details.
 | --- | --- |
 | The shortcut does nothing | Check Accessibility permission, then quit and reopen VoxFlow |
 | The overlay appears but no text shows up | Check Microphone, Speech Recognition, or the selected model state |
+| Screenshot records are missing | Go to Settings → Data & Privacy → Data Management, then check storage health and open the data folder to confirm `Application Support/VoxFlow/Screenshots/` has image records. Also verify Screen Recording permission. |
+| How do I disable a default screenshot annotation tool? | The current version does not expose a persistent "default annotation tool" setting; switch to the Select/Cursor tool in each capture panel to avoid entering annotation mode by default. |
 | LLM correction does not run | Make sure it is enabled in Settings and the default provider passes the connection test |
 | Why is my API key hidden? | That is expected. Use the reveal button while editing if you need to inspect it |
 | Can I use it offline? | Download and select a local Qwen3-ASR model |
@@ -276,12 +289,30 @@ make install      # Install into /Applications
 swift test        # Run tests
 ```
 
+## Tech Stack And Open-Source Dependencies
+
+VoxFlow is a native macOS app, not an Electron wrapper. The codebase is split into SwiftPM targets, keeps local-first paths local by default, and only uses cloud providers that the user explicitly configures.
+
+| Area | Stack / Open-Source Dependency | Used For |
+| --- | --- | --- |
+| App shell | Swift 6, SwiftUI, AppKit, SwiftPM | Menu-bar app, Workbench, Settings, HUD, and macOS window lifecycle |
+| System APIs | AVFoundation, Speech, Vision, Accessibility, Pasteboard | Recording, Apple Speech, screenshot/clipboard OCR, text insertion, and current-window context |
+| Screenshot capture & annotation | VoxFlowScreenshotKit, ScreenCaptureKit, CoreGraphics, Vision | Region capture, annotation tools, scroll capture, and screenshot rendering |
+| Local ASR | speech-swift Qwen3ASR / Nemotron, WhisperKit, FluidAudio, Sherpa-ONNX vendor runtime | Qwen3-ASR, NVIDIA Nemotron, Whisper, SenseVoice, Paraformer, and FunASR routes |
+| Cloud ASR / LLM | OpenAI-compatible HTTP, Groq, Tencent Cloud realtime ASR, Alibaba DashScope | Online transcription, LLM correction, translation fallback, summary, and Agent Compose |
+| Personal Corrections | `Packages/VoxFlowVoiceCorrectionKit`, inspired by TypeWhisper deterministic post-processing and focused text observation | Local rule matching, conflict resolution, learned candidates, and benchmark fixtures |
+| Context hotwords | `Packages/VoxFlowContextBoostKit`, Vision OCR, NaturalLanguage | Extract temporary Top-K hotwords from current-window OCR text for the current prompt only |
+| AI Coding 助手 | Rust `agent-cli/` helper/router, JSON IPC, MCP self-reporting | Dispatch spoken instructions to local Codex, Claude, CodeBuddy, or terminal agents |
+| Verification | XCTest, Makefile, GitHub Actions, JiWER cross-check scripts | Unit tests, release builds, ASR/correction benchmarks, and metric validation |
+
+Attribution and licensing notes live next to the relevant modules: `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md`, `SOURCE_ATTRIBUTION.md`, and `MODIFICATIONS.md` document TypeWhisper references and adaptation boundaries; `Vendor/` contains packaged local runtime/vendor assets; AI Coding 助手 keeps only the Rust helper and no longer ships the old Python CLI.
+
 ### Source Layout
 
 ```
 Sources/                         # Swift app code, domain modules, ASR providers, text insertion, and other SwiftPM targets
 Packages/VoxFlowVoiceCorrectionKit/ # Personal Corrections engine, benchmark fixtures, and package tests
-agent-cli/                       # Rust helper/router source for Vibe Coding; builds the bundled `voxflow` binary and `vox` shim
+agent-cli/                       # Rust helper/router source for AI Coding 助手; builds the bundled `voxflow` binary and `vox` shim
 Tests/                           # Swift unit tests plus Python tests for ASR benchmark tooling
 Resources/                       # App icon and bundled resources
 Vendor/                          # Local runtime/vendor assets required by packaged builds
@@ -291,8 +322,42 @@ tools/                           # Auxiliary verification tools; currently JiWER
 .github/                         # CI, Pages, Release workflows, and release notes
 ```
 
-Vibe Coding has a single maintained CLI implementation: the Rust source in root-level `agent-cli/`. The old Python `vf-agent` / `agent-cli` reference helper has been removed. Remaining Python files are for benchmarks, architecture checks, or Personal Corrections metric cross-checks; they are not part of the app runtime and are not distributed as the user-facing CLI.
+AI Coding 助手 has a single maintained CLI implementation: the Rust source in root-level `agent-cli/`. The old Python `vf-agent` / `agent-cli` reference helper has been removed. Remaining Python files are for benchmarks, architecture checks, or Personal Corrections metric cross-checks; they are not part of the app runtime and are not distributed as the user-facing CLI.
 
-## Inspiration
+## Third-Party Modules And Open-Source Licenses
 
-This project is inspired by [yetone/voice-input-src](https://github.com/yetone/voice-input-src). Thanks for their pioneering work.
+### License
+
+VoxFlow is distributed under GPLv3. Third-party components keep their original
+license notices and attribution. See `docs/third-party-licenses.md`.
+
+### Third-Party Modules
+
+### Unified Modules and References
+
+| Type | Module / Source | Link | What It Is Used For |
+| --- | --- | --- | --- |
+| Third-party dependency | `speech-swift` (`Qwen3ASR`, `NemotronStreamingASR`, `ParakeetStreamingASR`, `OmnilingualASR`, `Qwen3TTS`, `Qwen3Chat`, `KokoroTTS`, `MADLADTranslation`) | [GitHub](https://github.com/soniqo/speech-swift.git) | Local ASR/TTS/translation/chat runtime |
+| Third-party dependency | `WhisperKit` | [GitHub](https://github.com/argmaxinc/WhisperKit.git) | Local Whisper transcription |
+| Third-party dependency | `FluidAudio` | [GitHub](https://github.com/FluidInference/FluidAudio.git) | Local ASR pipeline for Paraformer/SenseVoice |
+| Third-party dependency | `Sherpa-ONNX` | [GitHub](https://github.com/k2-fsa/sherpa-onnx.git) | FunASR local inference runtime |
+| Third-party dependency | `onnxruntime` (`Vendor/CSherpaOnnx`) | [GitHub](https://github.com/microsoft/onnxruntime) | Inference runtime bundled with Sherpa-ONNX |
+| In-repo module | `VoxFlowContextBoostKit` | [Repo path](Packages/VoxFlowContextBoostKit) | OCR context hotword extraction |
+| In-repo module | `VoxFlowVoiceCorrectionKit` | [Repo path](Packages/VoxFlowVoiceCorrectionKit) | Deterministic correction engine and benchmarks |
+| In-repo module | `agent-cli` (Rust) | [Repo path](agent-cli) | Local terminal AI agent dispatching helper |
+| Reference source | TypeWhisper | [GitHub](https://github.com/TypeWhisper/typewhisper-mac) | Deterministic correction flow + focused observation learning (conceptual only; no source copy) |
+| Reference source | FlashText | [GitHub](https://github.com/vi3k6i5/flashtext) | Matching/replacement approach inspiration (no runtime reuse) |
+| Reference source | JiWER | [GitHub](https://github.com/jitsi/jiwer) | Evaluation and benchmark cross-check reference |
+| Reference source | OpenAI Evals | [GitHub](https://github.com/openai/evals) | Benchmark/test-case organization style reference |
+| Reference source | LanguageTool | [GitHub](https://github.com/languagetool-org/languagetool) | Error-correction fixture and testing style reference |
+
+### License and Attribution References
+
+| Path | What It Covers |
+| --- | --- |
+| `LICENSE` | Project-level license |
+| `SOURCE_ATTRIBUTION.md` | Third-party source references and adaptation scope |
+| `MODIFICATIONS.md` | Upstream adaptation notes |
+| `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md` | TypeWhisper-derived source licensing |
+| `Vendor/` | Vendored runtime license declarations |
+| `Package.swift` + `NOTICE/LICENSE` in `Sources/` and `Packages/` | Component dependency and license declarations |

@@ -1,3 +1,5 @@
+import VoxFlowContextBoost
+import VoxFlowVoiceCorrection
 import XCTest
 @testable import VoxFlowApp
 
@@ -31,6 +33,66 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertNil(safe.llm?.responseText)
         XCTAssertEqual(safe.llm?.errorMessage, "[redacted: error message]")
         XCTAssertFalse(safe.llm?.requestBodyJSON.contains("敏感 prompt") == true)
+    }
+
+    func testTextProcessingTraceSafeForPersistenceKeepsOnlyContextBoostTopK() {
+        let trace = TextProcessingTrace(
+            contextBoost: ContextBoostTrace(
+                appName: "Claude Code",
+                bundleID: "com.anthropic.claudefordesktop",
+                hotwords: ["Qwen3-ASR", "Project Apollo"],
+                hotwordDetails: [
+                    ContextBoostHotwordTrace(
+                        text: "Qwen3-ASR",
+                        score: 7,
+                        source: "ocrShape",
+                        evidenceReasons: ["shape_candidate"]
+                    ),
+                ],
+                source: "current_window_ocr",
+                ttlSeconds: 120,
+                ocrCharacterCount: 256,
+                candidateCount: 14,
+                appliedToLLMPrompt: true,
+                failureReason: "no_ocr_context"
+            )
+        )
+
+        let safe = trace.safeForPersistence()
+
+        XCTAssertEqual(safe.contextBoost?.appName, "Claude Code")
+        XCTAssertEqual(safe.contextBoost?.hotwords, ["Qwen3-ASR", "Project Apollo"])
+        XCTAssertEqual(safe.contextBoost?.hotwordDetails.first?.text, "Qwen3-ASR")
+        XCTAssertEqual(safe.contextBoost?.hotwordDetails.first?.evidenceReasons, ["shape_candidate"])
+        XCTAssertEqual(safe.contextBoost?.ocrCharacterCount, 256)
+        XCTAssertEqual(safe.contextBoost?.candidateCount, 14)
+        XCTAssertEqual(safe.contextBoost?.failureReason, "no_ocr_context")
+    }
+
+    func testTextProcessingTraceSafeForPersistenceKeepsVoiceCorrectionEvidence() {
+        let event = CorrectionEvent(
+            ruleID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            original: "Q问",
+            replacement: "Qwen",
+            range: CorrectionTextRange(location: 0, length: 2),
+            scope: .global,
+            source: .manual
+        )
+        let trace = TextProcessingTrace(
+            voiceCorrection: VoiceCorrectionTrace(
+                candidateEvents: [event],
+                appliedEvents: [event],
+                warnings: ["snapshotUnavailable"],
+                failureReason: "敏感错误"
+            )
+        )
+
+        let safe = trace.safeForPersistence()
+
+        XCTAssertEqual(safe.voiceCorrection?.candidateEvents, [event])
+        XCTAssertEqual(safe.voiceCorrection?.appliedEvents, [event])
+        XCTAssertEqual(safe.voiceCorrection?.warnings, ["snapshotUnavailable"])
+        XCTAssertEqual(safe.voiceCorrection?.failureReason, "[redacted: failure reason]")
     }
 
     func testRedactedSuccessfulTraceStillReportsSucceededFromStatusCode() {
@@ -108,12 +170,63 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertEqual(refiner.lastTrace?.model, "style-model")
         XCTAssertEqual(refiner.lastTrace?.temperature, 0.9)
         XCTAssertEqual(refiner.lastTrace?.statusCode, 200)
-        XCTAssertNil(refiner.lastTrace?.responseText)
+        XCTAssertEqual(refiner.lastTrace?.responseText, "修正后")
         XCTAssertEqual(refiner.lastTrace?.errorMessage, nil)
-        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: system prompt]") == true)
-        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: user content]") == true)
-        XCTAssertFalse(refiner.lastTrace?.requestBodyJSON.contains("原文") == true)
-        XCTAssertFalse(refiner.lastTrace?.requestBodyJSON.contains("系统提示") == true)
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("系统提示") == true)
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("原文") == true)
+        XCTAssertFalse(refiner.lastTrace?.safeForPersistence().requestBodyJSON.contains("原文") == true)
+        XCTAssertNil(refiner.lastTrace?.safeForPersistence().responseText)
+    }
+
+    func testRefineRequestBodyIncludesContextBoostTopKInSystemPrompt() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("Qwen3-ASR 支持这个流程")
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.contextBoostRequest")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.contextBoostRequest")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+        let prompt = PromptBuilder().build(
+            style: nil,
+            temporaryHotwords: [
+                Self.hotword("Qwen3-ASR", score: 12),
+                Self.hotword("Hyperframe", score: 10),
+                Self.hotword("speech-swift", score: 8),
+            ]
+        )
+
+        _ = try await refiner.refine(
+            TextRefinementRequest(
+                text: "去问这个模型支持吗",
+                systemPrompt: prompt.systemPrompt,
+                model: nil,
+                temperature: nil
+            )
+        )
+
+        let request = try XCTUnwrap(session.requests.first)
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
+        )
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let systemContent = try XCTUnwrap(messages.first?["content"] as? String)
+        XCTAssertTrue(systemContent.contains("临时屏幕上下文词，仅本次有效"))
+        XCTAssertTrue(systemContent.contains("- Qwen3-ASR"))
+        XCTAssertTrue(systemContent.contains("- Hyperframe"))
+        XCTAssertTrue(systemContent.contains("- speech-swift"))
+        XCTAssertFalse(systemContent.contains("完整 OCR 文本"))
     }
 
     func testRefineWithTraceReturnsRequestLocalTrace() async throws {
@@ -205,8 +318,8 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         let userContent = try XCTUnwrap(messages.last?["content"] as? String)
         XCTAssertTrue(userContent.contains("待处理原文："))
         XCTAssertFalse(userContent == "原文")
-        XCTAssertNil(refiner.lastTrace?.responseText)
-        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("[redacted: user content]") == true)
+        XCTAssertEqual(refiner.lastTrace?.responseText, "修正")
+        XCTAssertTrue(refiner.lastTrace?.requestBodyJSON.contains("原文") == true)
     }
 
     func testRefineStreamWithTraceReturnsRequestLocalTrace() async throws {
@@ -401,6 +514,17 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         try! JSONSerialization.data(withJSONObject: [
             "choices": [["message": ["content": text]]]
         ])
+    }
+
+    private static func hotword(_ text: String, score: Double) -> TemporaryHotword {
+        TemporaryHotword(
+            text: text,
+            normalizedText: text.lowercased(),
+            score: score,
+            source: .ocrShape,
+            evidence: [HotwordEvidence(reason: "test", weight: score)],
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
+        )
     }
 }
 

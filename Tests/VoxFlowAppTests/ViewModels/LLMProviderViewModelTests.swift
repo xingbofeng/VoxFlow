@@ -22,7 +22,7 @@ final class LLMProviderViewModelTests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? LLMProviderViewModelError,
-                .requiredFields(["名称", "Base URL", "Model", "API Key"])
+                .requiredFields(["名称", "Base URL", "Model", "访问密钥"])
             )
         }
         XCTAssertEqual(viewModel.providers, [])
@@ -155,7 +155,7 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertEqual(errors["displayName"], "请输入名称")
         XCTAssertEqual(errors["baseURL"], "请输入有效的 HTTP 或 HTTPS 地址")
         XCTAssertEqual(errors["model"], "请输入模型名称")
-        XCTAssertEqual(errors["apiKey"], "请输入 API Key")
+        XCTAssertEqual(errors["apiKey"], "请输入访问密钥")
     }
 
     func testSaveProviderStoresAPIKeyInCredentialStoreOnly() throws {
@@ -181,7 +181,7 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertEqual(provider.baseURL, "https://api.example.com/v1")
         XCTAssertEqual(provider.apiKeyRef, "llm-provider-\(provider.id)")
         XCTAssertEqual(store.value(for: provider.apiKeyRef), "secret")
-        XCTAssertEqual(viewModel.lastActionMessage, "已保存 Provider")
+        XCTAssertEqual(viewModel.lastActionMessage, "已保存模型服务")
     }
 
     func testEditingMigratedProviderWithoutNewKeyPreservesCredentialReference() throws {

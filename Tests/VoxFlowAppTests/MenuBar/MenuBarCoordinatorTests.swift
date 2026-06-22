@@ -65,10 +65,10 @@ final class MenuBarCoordinatorTests: XCTestCase {
             coordinator.menu.item(withTitle: "语言 / Language")?.submenu?.item(withTitle: "English")
         )
         let asrItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "ASR 模型")?.submenu?.item(withTitle: "系统自带")
+            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "系统自带")
         )
         let llmItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "LLM 模型")?.submenu?.item(withTitle: "OpenAI · gpt-4.1")
+            coordinator.menu.item(withTitle: "智能模型服务")?.submenu?.item(withTitle: "OpenAI · gpt-4.1")
         )
         let ttsItem = try XCTUnwrap(
             coordinator.menu.item(withTitle: "TTS 模型")?.submenu?.item(withTitle: "系统默认")
@@ -124,7 +124,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
             isCapabilityModelEnabled: { $0.isInstalled }
         )
 
-        var llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "LLM 模型")?.submenu)
+        var llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "智能模型服务")?.submenu)
         var ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "TTS 模型")?.submenu)
         var translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
         let disabledLLMItem = try XCTUnwrap(llmMenu.item(withTitle: "Disabled · gpt-disabled") as NSMenuItem?)
@@ -140,7 +140,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         kokoroInstalled = true
         coordinator.menuWillOpen(coordinator.menu)
 
-        llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "LLM 模型")?.submenu)
+        llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "智能模型服务")?.submenu)
         ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "TTS 模型")?.submenu)
         translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
         let enabledKokoroItem = try XCTUnwrap(ttsMenu.item(withTitle: "Kokoro TTS") as NSMenuItem?)
@@ -198,10 +198,10 @@ final class MenuBarCoordinatorTests: XCTestCase {
             languageMenu.item(withTitle: "简体中文")
         )
         let appleItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "ASR 模型")?.submenu?.item(withTitle: "系统自带")
+            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "系统自带")
         )
         let qwenItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "ASR 模型")?.submenu?.item(withTitle: "Qwen3-ASR 0.6B")
+            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "Qwen3-ASR 0.6B")
         )
 
         XCTAssertEqual(englishItem.state, .off)
@@ -213,7 +213,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertTrue(appleItem.isEnabled)
         XCTAssertEqual(qwenItem.state, .off)
         XCTAssertFalse(qwenItem.isEnabled)
-        XCTAssertFalse(try XCTUnwrap(coordinator.menu.item(withTitle: "正在 LLM 纠错")).isHidden)
+        XCTAssertFalse(try XCTUnwrap(coordinator.menu.item(withTitle: "正在进行智能纠错")).isHidden)
         XCTAssertEqual(enabledChecks, 2)
         XCTAssertEqual(selectedChecks, 2)
         XCTAssertEqual(menuWillOpenCount, 1)

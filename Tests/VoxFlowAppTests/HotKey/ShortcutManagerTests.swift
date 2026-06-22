@@ -32,6 +32,17 @@ final class ShortcutManagerTests: XCTestCase {
         XCTAssertEqual(sut.shortcutKeyCode(for: .agentCompose), 61)
     }
 
+    func testDefaultWorkflowShortcutsPreserveExistingOCRBindings() {
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .clipboardImageOCR),
+            ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        )
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .screenshotOCR),
+            ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        )
+    }
+
     func testAgentDispatchDoesNotOwnASeparateShortcutKey() {
         XCTAssertNil(sut.shortcutKeyCode(for: .agentDispatch))
     }
@@ -48,18 +59,43 @@ final class ShortcutManagerTests: XCTestCase {
         XCTAssertTrue(ShortcutManager.isSupportedVoiceShortcutKeyCode(commandShiftY))
     }
 
-    func testReservedWorkflowShortcutCombinationsAreNotSupportedVoiceShortcutKeyCodes() {
+    func testWorkflowShortcutBindingsCanBeChangedAndCleared() {
         let screenshotOCR = ShortcutManager.encodeShortcut(
-            keyCode: HotKeyShortcutRouting.aKeyCode,
-            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+            keyCode: 0x0B,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.shiftModifierMask
         )
         let clipboardImageOCR = ShortcutManager.encodeShortcut(
+            keyCode: 0x2D,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.shiftModifierMask
+        )
+
+        sut.setShortcutKeyCode(clipboardImageOCR, for: .clipboardImageOCR)
+        sut.setShortcutKeyCode(screenshotOCR, for: .screenshotOCR)
+
+        XCTAssertEqual(sut.shortcutKeyCode(for: .clipboardImageOCR), clipboardImageOCR)
+        XCTAssertEqual(sut.shortcutKeyCode(for: .screenshotOCR), screenshotOCR)
+
+        sut.setShortcutKeyCode(nil, for: .clipboardImageOCR)
+
+        XCTAssertNil(sut.shortcutKeyCode(for: .clipboardImageOCR))
+        XCTAssertEqual(sut.shortcutKeyCode(for: .screenshotOCR), screenshotOCR)
+    }
+
+    func testOCRWorkflowShortcutsRequireModifiedNonSystemKeys() {
+        XCTAssertFalse(ShortcutManager.isSupportedWorkflowShortcutKeyCode(0x09))
+        XCTAssertFalse(ShortcutManager.isSupportedWorkflowShortcutKeyCode(54))
+
+        let commandV = ShortcutManager.encodeShortcut(
+            keyCode: HotKeyShortcutRouting.vKeyCode,
+            modifierMask: ShortcutManager.commandModifierMask
+        )
+        XCTAssertFalse(ShortcutManager.isSupportedWorkflowShortcutKeyCode(commandV))
+
+        let commandShiftV = ShortcutManager.encodeShortcut(
             keyCode: HotKeyShortcutRouting.vKeyCode,
             modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
         )
-
-        XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(screenshotOCR))
-        XCTAssertFalse(ShortcutManager.isSupportedVoiceShortcutKeyCode(clipboardImageOCR))
+        XCTAssertTrue(ShortcutManager.isSupportedWorkflowShortcutKeyCode(commandShiftV))
     }
 
     func testPureModifierShortcutEncodingPreservesLegacyKeyCode() {

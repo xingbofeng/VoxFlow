@@ -252,7 +252,7 @@ struct ASRProviderView: View {
                 Text("Groq 配置")
                     .font(.system(size: 13, weight: .semibold))
                 if viewModel.hasStoredGroqAPIKey {
-                    Text("API Key 已保存")
+                    Text("访问密钥已保存")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.green)
                 }
@@ -260,9 +260,9 @@ struct ASRProviderView: View {
             HStack(spacing: 8) {
                 Group {
                     if showGroqAPIKey {
-                        TextField("Groq API Key", text: $viewModel.groqAPIKeyInput)
+                        TextField("Groq 访问密钥", text: $viewModel.groqAPIKeyInput)
                     } else {
-                        SecureField("Groq API Key", text: $viewModel.groqAPIKeyInput)
+                        SecureField("Groq 访问密钥", text: $viewModel.groqAPIKeyInput)
                     }
                 }
                 .textFieldStyle(.roundedBorder)
@@ -282,7 +282,7 @@ struct ASRProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(showGroqAPIKey ? "隐藏 API Key" : "显示 API Key")
+                .help(showGroqAPIKey ? "隐藏访问密钥" : "显示访问密钥")
             }
             Picker("模型", selection: $viewModel.groqModelInput) {
                 ForEach(viewModel.supportedGroqModels) { model in
@@ -299,13 +299,13 @@ struct ASRProviderView: View {
                 }
                 .disabled(viewModel.isTestingGroq)
                 if viewModel.hasStoredGroqAPIKey {
-                    Button("删除 API Key", role: .destructive) {
+                    Button("删除访问密钥", role: .destructive) {
                         viewModel.deleteGroqAPIKey()
                     }
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到 Groq。API Key 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
+            Text("录音会发送到 Groq。访问密钥保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -324,14 +324,14 @@ struct ASRProviderView: View {
                         .foregroundStyle(Color.green)
                 }
             }
-            Text("使用腾讯云实时流式语音识别 WebSocket。需要在腾讯云控制台获取 AppID、SecretId 和 SecretKey。")
+            Text("使用腾讯云实时流式语音识别 WebSocket。请在腾讯云控制台获取应用 ID、密钥 ID 和密钥。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             VStack(alignment: .leading, spacing: 8) {
-                tencentCredentialField("AppID", text: $viewModel.tencentAppIDInput, isSecret: false)
-                tencentCredentialField("SecretId", text: $viewModel.tencentSecretIDInput, isSecret: false)
+                tencentCredentialField("应用 ID", text: $viewModel.tencentAppIDInput, isSecret: false)
+                tencentCredentialField("密钥 ID", text: $viewModel.tencentSecretIDInput, isSecret: false)
                 HStack(spacing: 8) {
-                    tencentCredentialField("SecretKey", text: $viewModel.tencentSecretKeyInput, isSecret: true)
+                    tencentCredentialField("密钥", text: $viewModel.tencentSecretKeyInput, isSecret: true)
                     Button {
                         if showTencentCloudCredentials {
                             let stored = viewModel.storedTencentCloudCredentialsForEditing()
@@ -372,7 +372,7 @@ struct ASRProviderView: View {
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到腾讯云。AppID、SecretId 和 SecretKey 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
+            Text("录音会发送到腾讯云。应用 ID、密钥 ID 和 密钥 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -397,20 +397,20 @@ struct ASRProviderView: View {
                 Text("阿里云百炼配置")
                     .font(.system(size: 13, weight: .semibold))
                 if viewModel.hasStoredAliyunDashScopeAPIKey {
-                    Text("API Key 已保存")
+                    Text("访问密钥已保存")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.green)
                 }
             }
-            Text("使用 DashScope 实时语音识别 WebSocket。Endpoint 固定为 wss://dashscope.aliyuncs.com/api-ws/v1/inference，鉴权使用 Authorization: Bearer API Key。")
+            Text("使用 DashScope 实时语音识别 WebSocket。接入地址固定为 wss://dashscope.aliyuncs.com/api-ws/v1/inference，鉴权使用 Authorization: Bearer 访问密钥。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             HStack(spacing: 8) {
                 Group {
                     if showAliyunDashScopeAPIKey {
-                        TextField("百炼 API Key", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                        TextField("百炼访问密钥", text: $viewModel.aliyunDashScopeAPIKeyInput)
                     } else {
-                        SecureField("百炼 API Key", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                        SecureField("百炼访问密钥", text: $viewModel.aliyunDashScopeAPIKeyInput)
                     }
                 }
                 .textFieldStyle(.roundedBorder)
@@ -430,7 +430,7 @@ struct ASRProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(showAliyunDashScopeAPIKey ? "隐藏 API Key" : "显示 API Key")
+                .help(showAliyunDashScopeAPIKey ? "隐藏访问密钥" : "显示访问密钥")
             }
             HStack(spacing: 8) {
                 Button("保存配置") {
@@ -441,13 +441,13 @@ struct ASRProviderView: View {
                 }
                 .disabled(viewModel.isTestingAliyunDashScope)
                 if viewModel.hasStoredAliyunDashScopeAPIKey {
-                    Button("删除 API Key", role: .destructive) {
+                    Button("删除访问密钥", role: .destructive) {
                         viewModel.deleteAliyunDashScopeAPIKey()
                     }
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到阿里云百炼。API Key 保存在系统钥匙串，可用眼睛按钮查看或隐藏。默认模型为 fun-asr-realtime。")
+            Text("录音会发送到阿里云百炼。访问密钥保存在系统钥匙串，可用眼睛按钮查看或隐藏。默认使用官方推荐语音识别模型。")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }

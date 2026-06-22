@@ -129,7 +129,7 @@ final class PasteLastResultServiceTests: XCTestCase {
 
         let outcome = await recorder.service.pasteClipboardImageOCR()
 
-        XCTAssertEqual(outcome, .ocrFailed("剪贴板图片 OCR 未启用"))
+        XCTAssertEqual(outcome, .ocrFailed("剪贴板图片识别未启用"))
         XCTAssertTrue(recorder.output.deliveredTexts.isEmpty)
         XCTAssertEqual(recorder.ocr.requestCount, 0)
     }
@@ -225,6 +225,22 @@ private final class StubOCRRecognizer: TextOCRRecognizing, @unchecked Sendable {
         }
         return text
     }
+
+    func recognizeTextLines(in image: CGImage) async throws -> [OCRLine] {
+        requestCount += 1
+        if let error {
+            throw error
+        }
+        return text
+            .split(separator: "\n")
+            .enumerated()
+            .map { index, line in
+                OCRLine(
+                    text: String(line),
+                    boundingBox: CGRect(x: 0, y: CGFloat(index) * 20, width: CGFloat(image.width), height: 20)
+                )
+            }
+    }
 }
 
 @MainActor
@@ -250,6 +266,19 @@ private final class SuspendingOCRRecognizer: TextOCRRecognizing, @unchecked Send
                 self.wasCancelled = true
             }
         }
+    }
+
+    func recognizeTextLines(in image: CGImage) async throws -> [OCRLine] {
+        let text = try await recognizeText(in: image)
+        return text
+            .split(separator: "\n")
+            .enumerated()
+            .map { index, line in
+                OCRLine(
+                    text: String(line),
+                    boundingBox: CGRect(x: 0, y: CGFloat(index) * 20, width: CGFloat(image.width), height: 20)
+                )
+            }
     }
 
     func waitUntilStarted() async {

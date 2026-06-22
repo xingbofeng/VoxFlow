@@ -83,11 +83,14 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
     }
 
     func refineWithTrace(_ request: TextRefinementRequest) async throws -> TextRefinementTraceResult {
+        AppLogger.network.debug("RepositoryBackedLLMRefiner 开始纠错：purpose=\(request.purpose), textLen=\(request.text.count)")
         let provider = try configuredProvider()
         guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
               !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            AppLogger.network.warning("LLM provider 无可用 API Key：providerId=\(provider.id)")
             throw LLMRefiner.Error.notConfigured
         }
+        AppLogger.network.debug("LLM provider 就绪：id=\(provider.id), model=\(provider.defaultModel)")
 
         let url = try OpenAICompatibleClient.chatCompletionsURL(baseURL: provider.baseURL)
         var urlRequest = URLRequest(url: url)
@@ -117,11 +120,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
             model: selectedModel,
             temperature: selectedTemperature,
             timeoutSeconds: provider.timeoutSeconds,
-            requestBodyJSON: Self.traceRequestMetadataJSON(
-                model: selectedModel,
-                temperature: selectedTemperature,
-                stream: false
-            ),
+            requestBodyJSON: Self.prettyJSONString(from: body),
             responseText: nil,
             statusCode: nil,
             durationMS: nil,
@@ -135,6 +134,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         do {
             (data, response) = try await session.data(for: urlRequest)
         } catch {
+            AppLogger.network.error("LLM 修正请求失败：provider=\(provider.id), error=\(error.localizedDescription)")
             trace = finishedTrace(
                 trace,
                 durationMS: Self.durationMS(since: startedAt),
@@ -144,6 +144,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
             throw error
         }
         guard let httpResponse = response as? HTTPURLResponse else {
+            AppLogger.network.error("LLM 响应类型无效：provider=\(provider.id)")
             trace = finishedTrace(
                 trace,
                 durationMS: Self.durationMS(since: startedAt),
@@ -153,6 +154,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
             throw LLMRefiner.Error.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            AppLogger.network.warning("LLM 返回失败码：provider=\(provider.id), code=\(httpResponse.statusCode)")
             trace = finishedTrace(
                 trace,
                 statusCode: httpResponse.statusCode,
@@ -164,9 +166,11 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         }
         activeProviderID = provider.id
         let refined = try LLMRefiner.parseChatCompletion(data)
+        AppLogger.network.debug("LLM 返回文本长度：provider=\(provider.id), len=\(refined.count)")
         let finalText = refined.isEmpty ? request.text : refined
         trace = finishedTrace(
             trace,
+            responseText: refined,
             statusCode: httpResponse.statusCode,
             durationMS: Self.durationMS(since: startedAt),
             errorMessage: nil
@@ -192,9 +196,11 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
                 var trace: LLMRefinementTrace?
                 let startedAt = Date()
                 do {
+                    AppLogger.network.debug("RepositoryBackedLLMRefiner 开始流式纠错：textLen=\(request.text.count)")
                     let provider = try configuredProvider()
                     guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
                           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        AppLogger.network.warning("流式 LLM 无可用 API Key：provider=\(provider.id)")
                         throw LLMRefiner.Error.notConfigured
                     }
 
@@ -226,11 +232,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
                         model: selectedModel,
                         temperature: selectedTemperature,
                         timeoutSeconds: provider.timeoutSeconds,
-                        requestBodyJSON: Self.traceRequestMetadataJSON(
-                            model: selectedModel,
-                            temperature: selectedTemperature,
-                            stream: true
-                        ),
+                        requestBodyJSON: Self.prettyJSONString(from: body),
                         responseText: nil,
                         statusCode: nil,
                         durationMS: nil,
@@ -241,23 +243,29 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
 
                     let (asyncBytes, response) = try await session.byteStream(for: urlRequest)
                     guard let httpResponse = response as? HTTPURLResponse else {
+                        AppLogger.network.error("流式 LLM 响应类型无效：provider=\(provider.id)")
                         throw LLMRefiner.Error.invalidResponse
                     }
                     guard (200...299).contains(httpResponse.statusCode) else {
+                        AppLogger.network.warning("流式 LLM 返回失败码：provider=\(provider.id), code=\(httpResponse.statusCode)")
                         throw LLMRefiner.Error.httpError(code: httpResponse.statusCode)
                     }
                     let parsedStream = SSEParser.parse(byteStream: asyncBytes)
 
+                    var latestAccumulatedText = ""
                     for try await accumulatedText in parsedStream {
+                        latestAccumulatedText = accumulatedText
                         continuation.yield(accumulatedText)
                     }
 
                     activeProviderID = provider.id
                     guard let trace else {
+                        AppLogger.network.error("流式 LLM trace 丢失：provider=\(provider.id)")
                         throw LLMRefiner.Error.invalidResponse
                     }
                     let finishedTrace = finishedTrace(
                         trace,
+                        responseText: latestAccumulatedText,
                         statusCode: httpResponse.statusCode,
                         durationMS: Self.durationMS(since: startedAt),
                         errorMessage: nil
@@ -265,7 +273,10 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
                     lastTrace = finishedTrace
                     traceHandle.complete(finishedTrace)
                     continuation.finish()
+                    AppLogger.network.info("流式 LLM 完成：provider=\(provider.id), bytes=\(latestAccumulatedText.count)")
                 } catch {
+                    let providerID = trace?.providerID ?? "unknown"
+                    AppLogger.network.error("流式 LLM 失败：provider=\(providerID), error=\(error.localizedDescription)")
                     if let trace {
                         let finishedTrace = finishedTrace(
                             trace,
@@ -290,11 +301,14 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
 
     private func configuredProvider() throws -> LLMProviderRecord {
         let providers = try providerRepository.list()
+        AppLogger.network.debug("读取 provider 列表：count=\(providers.count)")
         let provider = providers.first(where: { $0.enabled && $0.isDefault && Self.isUsableProvider($0) }) ??
             providers.first(where: { $0.enabled && Self.isUsableProvider($0) })
         guard let provider else {
+            AppLogger.network.warning("未找到可用 LLM provider（未启用或缺少配置）")
             throw LLMRefiner.Error.notConfigured
         }
+        AppLogger.network.debug("选中 provider：id=\(provider.id), name=\(provider.displayName), model=\(provider.defaultModel)")
         return provider
     }
 
@@ -365,25 +379,4 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         """
     }
 
-    private static func traceRequestMetadataJSON(
-        model: String,
-        temperature: Double,
-        stream: Bool
-    ) -> String {
-        prettyJSONString(from: [
-            "model": model,
-            "temperature": temperature,
-            "stream": stream,
-            "messages": [
-                [
-                    "role": "system",
-                    "content": "[redacted: system prompt]",
-                ],
-                [
-                    "role": "user",
-                    "content": "[redacted: user content]",
-                ],
-            ],
-        ] as [String: Any])
-    }
 }

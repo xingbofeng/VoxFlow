@@ -22,6 +22,8 @@ protocol SmartConfigInvitationManaging: Sendable {
 // MARK: - SmartConfigInvitationManager
 
 final class SmartConfigInvitationManager: SmartConfigInvitationManaging, @unchecked Sendable {
+    private static let logger = AppLogger.general
+
     static let defaultsKey = "smartConfigInvitationState"
 
     private let defaults: UserDefaults
@@ -58,6 +60,12 @@ final class SmartConfigInvitationManager: SmartConfigInvitationManaging, @unchec
     }
 
     private func set(_ newState: SmartConfigInvitationState) {
+        let current = state
+        guard current != newState else {
+            Self.logger.debug("SmartConfigInvitation state set skipped: already \(current.rawValue)")
+            return
+        }
+        Self.logger.info("SmartConfigInvitation state \(current.rawValue) -> \(newState.rawValue)")
         defaults.set(newState.rawValue, forKey: Self.defaultsKey)
     }
 }

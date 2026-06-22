@@ -39,10 +39,15 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
 
     func start() throws {
         let configuration = try configurationProvider()
+        AppLogger.audio.debug(
+            "AliyunDashScopeRealtimeASREngine start attempt sessionID=\(UUID().uuidString) localeComplete=\(configuration.isComplete)"
+        )
         guard configuration.isComplete else {
+            AppLogger.audio.warning("AliyunDashScopeRealtimeASREngine start blocked: configuration incomplete")
             throw AliyunDashScopeRealtimeASRError.missingCredential
         }
         let generation = UUID()
+        AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine start generation=\(generation.uuidString)")
         let stream = AsyncStream<Data>(bufferingPolicy: .bufferingNewest(Self.audioChunkBufferLimit)) { continuation in
             lock.withLock {
                 audioContinuation = continuation
@@ -64,16 +69,21 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
                     self?.handle(message, generation: generation)
                 }
                 guard isCurrent(generation), !Task.isCancelled else { return }
+                AppLogger.audio.info("AliyunDashScopeRealtimeASREngine completed generation=\(generation.uuidString)")
                 lock.withLock {
                     runtimeMetadata.finalLatencyMs = max(0, Int(Date().timeIntervalSince(startedAt) * 1_000))
                 }
             } catch {
+                AppLogger.audio.warning(
+                    "AliyunDashScopeRealtimeASREngine transcribe failed generation=\(generation.uuidString) reason=\(error.localizedDescription)"
+                )
                 guard isCurrent(generation), !Task.isCancelled else { return }
                 lock.withLock {
                     runtimeMetadata.errorCode = String(describing: type(of: error))
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isCurrent(generation) else { return }
+                    AppLogger.audio.warning("AliyunDashScopeRealtimeASREngine onError generation=\(generation.uuidString)")
                     self.onError?(error)
                 }
             }
@@ -85,6 +95,7 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
         do {
             encoded = try encode(frame)
         } catch {
+            AppLogger.audio.warning("AliyunDashScopeRealtimeASREngine encode failed: \(error.localizedDescription)")
             let currentGeneration = lock.withLock { generation }
             guard let currentGeneration else { return }
             DispatchQueue.main.async { [weak self] in
@@ -98,10 +109,19 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
             lock.withLock {
                 runtimeMetadata.droppedFrameCount = (runtimeMetadata.droppedFrameCount ?? 0) + 1
             }
+            AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine dropped frame")
         }
+        if lock.withLock({ audioContinuation == nil }) {
+            AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine append ignored: stream not started")
+            return
+        }
+        AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine appended frame sampleRate=\(frame.sampleRate)")
     }
 
     func endAudio() {
+        AppLogger.audio.debug(
+            "AliyunDashScopeRealtimeASREngine endAudio generation=\(lock.withLock { generation?.uuidString ?? "nil" })"
+        )
         lock.withLock {
             audioContinuation?.finish()
             audioContinuation = nil
@@ -109,10 +129,14 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
     }
 
     func stop() {
+        AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine stop generation=\(generation?.uuidString ?? "nil")")
         cancel()
     }
 
     func cancel() {
+        AppLogger.audio.debug(
+            "AliyunDashScopeRealtimeASREngine cancel generation=\(generation?.uuidString ?? "nil") latestTextLen=\(latestText.count)"
+        )
         lock.withLock {
             generation = nil
             audioContinuation?.finish()
@@ -144,6 +168,7 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
     private func handle(_ message: AliyunDashScopeRealtimeASRMessage, generation: UUID) {
         let emission = lock.withLock { () -> (String, Bool)? in
             guard self.generation == generation else { return nil }
+            AppLogger.audio.debug("AliyunDashScopeRealtimeASREngine handle event=\(message.event.rawValue) final=\(message.isFinalResult)")
             if message.event == .taskFinished {
                 return latestText.isEmpty ? nil : (latestText, true)
             }
@@ -160,6 +185,9 @@ final class AliyunDashScopeRealtimeASREngine: ASREngine, ASRRuntimeMetadataProvi
         guard let emission else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isCurrent(generation) else { return }
+            AppLogger.audio.debug(
+                "AliyunDashScopeRealtimeASREngine emit textLen=\(emission.0.count) final=\(emission.1) generation=\(generation.uuidString)"
+            )
             self.onTranscription?(emission.0, emission.1)
         }
     }

@@ -276,7 +276,7 @@ final class ASRProviderRegistry {
     }
 
     func descriptors(matching filter: ASRProviderFilter = ASRProviderFilter()) -> [ASRProviderDescriptor] {
-        builtInDescriptors()
+        let result = builtInDescriptors()
             .merging(customDescriptors) { _, custom in custom }
             .values
             .sorted { lhs, rhs in
@@ -288,6 +288,10 @@ final class ASRProviderRegistry {
                 return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
             }
             .filter(filter.matches)
+        AppLogger.general.debug(
+            "ASR descriptors prepared: total=\(result.count), filterAvailableOnly=\(filter.availableOnly)"
+        )
+        return result
     }
 
     func offlineDescriptors() -> [ASRProviderDescriptor] {
@@ -301,41 +305,54 @@ final class ASRProviderRegistry {
     }
 
     func makeEngine(providerID: String) throws -> ASREngine {
+        AppLogger.general.info("Create ASR engine from provider: \(providerID)")
         guard let descriptor = descriptor(id: providerID),
               let engineType = descriptor.engineType else {
+            AppLogger.general.warning("Provider not found for engine creation: \(providerID)")
             throw ASRProviderRegistryError.providerNotFound
         }
         guard descriptor.isAvailable else {
+            AppLogger.general.warning("Provider unavailable for engine creation: \(providerID)")
             throw ASRProviderRegistryError.providerUnavailable(descriptor.displayName)
         }
+        AppLogger.general.info("Provider available for engine creation: \(providerID)")
         return asrManager.makeEngine(type: engineType)
     }
 
     func defaultProvider() throws -> ASRProviderDescriptor {
         let preferredID = asrManager.effectiveSelectedEngineType.providerID
         if let descriptor = descriptor(id: preferredID), descriptor.isAvailable {
+            AppLogger.general.debug("Default provider resolved to selected: \(preferredID)")
             return descriptor
         }
         guard let apple = descriptor(id: ASRProviderID.appleSpeech) else {
+            AppLogger.general.error("Default provider fallback failed: apple speech descriptor missing")
             throw ASRProviderRegistryError.providerNotFound
         }
+        AppLogger.general.info("Default provider fallback to apple speech")
         return apple
     }
 
     func selectDefaultProvider(id: String) throws {
+        AppLogger.general.info("selectDefaultProvider requested: \(id)")
         guard let descriptor = descriptor(id: id),
               let engineType = descriptor.engineType else {
             if let descriptor = descriptor(id: id) {
+                AppLogger.general.warning("Default provider unavailable: \(id)")
                 throw ASRProviderRegistryError.providerUnavailable(descriptor.displayName)
             }
+            AppLogger.general.warning("Default provider not found: \(id)")
             throw ASRProviderRegistryError.providerNotFound
         }
         guard descriptor.isAvailable else {
+            AppLogger.general.warning("Default provider not available for selection: \(descriptor.displayName)")
             throw ASRProviderRegistryError.providerUnavailable(descriptor.displayName)
         }
         guard asrManager.selectEngine(engineType) else {
+            AppLogger.general.warning("Failed to select default provider engine type: \(engineType.rawValue)")
             throw ASRProviderRegistryError.providerUnavailable(descriptor.displayName)
         }
+        AppLogger.general.info("Default provider selected: \(descriptor.displayName)")
     }
 
     func fallbackChain(startingAt providerID: String) -> [ASRProviderDescriptor] {
@@ -348,6 +365,9 @@ final class ASRProviderRegistry {
            apple.isAvailable {
             chain.append(apple)
         }
+        AppLogger.general.debug(
+            "ASR fallback chain: \(chain.map(\.displayName).joined(separator: ","))"
+        )
         return chain
     }
 
@@ -649,7 +669,7 @@ final class ASRProviderRegistry {
                 engineType: aliyunAvailable ? .aliyunDashScope : nil,
                 statusMessage: aliyunAvailable
                     ? "已配置，可用于实时云端听写"
-                    : "需要配置百炼 API Key",
+                    : "请先配置百炼访问密钥",
                 privacySummary: "阿里云百炼 DashScope 实时语音识别会把录音流式发送到阿里云，适合中文和多语言实时听写。",
                 links: ASRProviderExternalLinks(
                     apiKeyURL: URL(string: "https://bailian.console.aliyun.com/?tab=model#/api-key")!,
@@ -1220,7 +1240,7 @@ enum ASRProviderRegistryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .providerNotFound:
-            return "ASR Provider 不存在。"
+            return "该语音模型服务不存在。"
         case .providerUnavailable(let name):
             return "\(name) 当前不可用。"
         }

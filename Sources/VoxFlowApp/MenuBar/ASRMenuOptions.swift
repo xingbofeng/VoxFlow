@@ -24,8 +24,11 @@ import Foundation
 }
 
 enum ASRMenuOptions {
+    private static let logger = AppLogger.general
+
     static func makeOptions() -> [ASRMenuModel] {
-        [
+        Self.logger.debug("ASRMenuOptions makeOptions")
+        return [
             ASRMenuModel(engineType: .apple, title: "系统自带"),
             ASRMenuModel(engineType: .groqWhisper, title: "Groq"),
             ASRMenuModel(engineType: .tencentCloud, title: "腾讯云"),

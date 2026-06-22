@@ -31,6 +31,12 @@ fn cli_keeps_agent_arguments_verbatim_and_supports_documented_forms() {
             submit: true
         }
     );
+    assert_eq!(
+        parse_from(["voxflow", "hook-session-start", "claude"]).unwrap(),
+        VoxflowCommand::HookSessionStart {
+            provider: "claude".into()
+        }
+    );
 }
 
 #[test]

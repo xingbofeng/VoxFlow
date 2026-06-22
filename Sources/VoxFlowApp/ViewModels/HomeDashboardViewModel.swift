@@ -95,6 +95,10 @@ final class HomeDashboardViewModel: ObservableObject {
     @Published private(set) var historyGroups: [HomeHistoryGroup] = []
     @Published private(set) var selectedDetail: HomeHistoryDetail?
     @Published private(set) var isReprocessing = false
+    @Published private(set) var canLoadMoreHistory = false
+    @Published private(set) var currentPage = 1
+    @Published private(set) var pageSize: Int
+    @Published private(set) var totalHistoryCount = 0
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var lastActionTone = ActionFeedbackTone.success
@@ -107,9 +111,12 @@ final class HomeDashboardViewModel: ObservableObject {
     private let textPipeline: (any TextProcessing)?
     private let calendar: Calendar
     private let historyLimit: Int
+    private let historyPageSize: Int
     private let voiceTaskRepository: VoiceTaskRepository
+    private let homeHistoryRepository: any HomeHistoryQuerying
     private var recentEntries: [DictationHistoryEntry] = []
     private var recentAgentTasks: [VoiceTask] = []
+    private var visibleHistoryItemLimit: Int
     private var cancellables: Set<AnyCancellable> = []
     private var hasLoaded = false
 
@@ -124,7 +131,9 @@ final class HomeDashboardViewModel: ObservableObject {
         targetProvider: (any DictationTargetProviding)? = nil,
         textPipeline: (any TextProcessing)? = nil,
         calendar: Calendar = .current,
-        historyLimit: Int = 1_000
+        historyLimit: Int = 1_000,
+        historyPageSize: Int = 20,
+        homeHistoryRepository: (any HomeHistoryQuerying)? = nil
     ) {
         self.environment = environment
         self.clipboardWriter = clipboardWriter
@@ -133,10 +142,15 @@ final class HomeDashboardViewModel: ObservableObject {
         self.textPipeline = textPipeline ?? Self.makeDefaultTextPipeline(environment: environment)
         self.calendar = calendar
         self.historyLimit = historyLimit
+        self.historyPageSize = max(1, historyPageSize)
+        self.pageSize = max(1, historyPageSize)
+        self.visibleHistoryItemLimit = max(1, historyPageSize)
         self.voiceTaskRepository = VoiceTaskRepository(
             databaseQueue: environment.databaseQueue,
             clock: environment.clock
         )
+        self.homeHistoryRepository = homeHistoryRepository
+            ?? HomeHistoryRepository(databaseQueue: environment.databaseQueue)
         environment.historyDidChangePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
@@ -147,21 +161,8 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func load() {
         do {
-            let entries = try environment.historyRepository.listRecent(limit: historyLimit)
-            recentAgentTasks = try ([VoiceTaskMode.agentCompose, .agentDispatch]
-                .flatMap { mode in
-                    try voiceTaskRepository.listRecent(mode: mode, limit: historyLimit)
-                }
-                .sorted { $0.createdAt > $1.createdAt }
-                .prefix(historyLimit))
-                .map { $0 }
-            recentEntries = entries
-            activity = makeActivity(from: entries)
-            stats = makeStats(from: scopedEntries(entries), focusDay: selectedActivityDate)
-            historyGroups = try makeHistoryGroups(
-                entries: historyEntriesForGroups(query: searchText, fallback: entries),
-                query: searchText
-            )
+            try reloadDashboardAggregate()
+            try reloadHistoryPage()
             hasLoaded = true
             lastError = nil
         } catch {
@@ -178,24 +179,19 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func updateSearch(_ query: String) {
         searchText = query
-        do {
-            historyGroups = try makeHistoryGroups(
-                entries: historyEntriesForGroups(query: query, fallback: recentEntries),
-                query: query
-            )
-            lastError = nil
-        } catch {
-            lastError = error.localizedDescription
-        }
+        currentPage = 1
+        refreshHistoryPage()
     }
 
     func selectActivityDay(_ date: Date) {
         selectedActivityDate = calendar.startOfDay(for: date)
+        currentPage = 1
         refreshScopedDashboardState()
     }
 
     func clearActivityDaySelection() {
         selectedActivityDate = nil
+        currentPage = 1
         refreshScopedDashboardState()
     }
 
@@ -240,11 +236,13 @@ final class HomeDashboardViewModel: ObservableObject {
         do {
             if let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil {
                 selectedDetail = HomeHistoryDetail(entry: entry)
+                    .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
                 lastError = nil
                 return
             }
             if let task = try voiceTaskRepository.fetch(id: id) {
                 selectedDetail = HomeHistoryDetail(task: task)
+                    .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
                 lastError = nil
                 return
             }
@@ -266,6 +264,52 @@ final class HomeDashboardViewModel: ObservableObject {
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
+    }
+
+    func loadMoreHistory() {
+        nextPage()
+    }
+
+    var totalPages: Int {
+        max(1, Int(ceil(Double(totalHistoryCount) / Double(pageSize))))
+    }
+
+    var canGoToPreviousPage: Bool { currentPage > 1 }
+    var canGoToNextPage: Bool { currentPage < totalPages }
+
+    func goToPage(_ page: Int) {
+        let target = min(max(1, page), totalPages)
+        guard target != currentPage else { return }
+        currentPage = target
+        refreshHistoryPage()
+    }
+
+    func previousPage() {
+        goToPage(currentPage - 1)
+    }
+
+    func nextPage() {
+        goToPage(currentPage + 1)
+    }
+
+    func updateHistoryPageSize(_ size: Int) {
+        guard size > 0, size != pageSize else { return }
+        pageSize = size
+        currentPage = 1
+        refreshHistoryPage()
+    }
+
+    func clearAllHistory() {
+        do {
+            try homeHistoryRepository.clearAll(deletedAt: environment.clock.now)
+            currentPage = 1
+            selectedDetail = nil
+            load()
+            lastActionMessage = "已清空历史数据"
+            lastActionTone = .destructive
+        } catch {
+            lastError = error.localizedDescription
+        }
     }
 
     // MARK: - Recovery actions
@@ -395,14 +439,150 @@ final class HomeDashboardViewModel: ObservableObject {
 
     private func refreshScopedDashboardState() {
         do {
-            stats = makeStats(from: scopedEntries(recentEntries), focusDay: selectedActivityDate)
-            historyGroups = try makeHistoryGroups(
-                entries: historyEntriesForGroups(query: searchText, fallback: recentEntries),
-                query: searchText
-            )
+            try reloadDashboardAggregate()
+            try reloadHistoryPage()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    private func refreshHistoryPage() {
+        do {
+            try reloadHistoryPage()
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func reloadDashboardAggregate() throws {
+        let today = calendar.startOfDay(for: environment.clock.now)
+        let focusDay = selectedActivityDate.map(calendar.startOfDay(for:)) ?? today
+        let focusEnd = calendar.date(byAdding: .day, value: 1, to: focusDay) ?? focusDay
+        let currentWeekStart = startOfWeek(containing: today)
+        let activityStart = calendar.date(byAdding: .day, value: -51 * 7, to: currentWeekStart)
+            ?? currentWeekStart
+        let activityEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let aggregate = try homeHistoryRepository.dashboardAggregate(
+            statsStartDate: selectedActivityDate == nil ? nil : focusDay,
+            statsEndDate: selectedActivityDate == nil ? nil : focusEnd,
+            focusStartDate: focusDay,
+            focusEndDate: focusEnd,
+            activityStartDate: activityStart,
+            activityEndDate: activityEnd,
+            activityTimeZoneOffsetSeconds: calendar.timeZone.secondsFromGMT(for: today)
+        )
+
+        let totalMinutes = max(Double(aggregate.totalDurationMS) / 60_000.0, 1.0 / 60_000.0)
+        let averageCPM = aggregate.totalCharacters == 0
+            ? 0
+            : Int((Double(aggregate.totalCharacters) / totalMinutes).rounded())
+        let activeDays = Set(aggregate.activityDays.map { calendar.startOfDay(for: $0.date) })
+        stats = HomeDashboardStats(
+            totalCharacters: aggregate.totalCharacters,
+            todayCharacters: aggregate.focusedCharacters,
+            averageCPM: averageCPM,
+            streakDays: streakDays(from: activeDays, referenceDay: focusDay)
+        )
+
+        let charactersByDay = Dictionary(
+            uniqueKeysWithValues: aggregate.activityDays.map {
+                (calendar.startOfDay(for: $0.date), $0.characters)
+            }
+        )
+        let maxDailyCharacters = charactersByDay.values.max() ?? 0
+        let endOfWeek = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) ?? today
+        let dayCount = calendar.dateComponents([.day], from: activityStart, to: endOfWeek).day.map { $0 + 1 } ?? 0
+        let days = (0..<dayCount).compactMap { offset -> HomeActivityDay? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: activityStart) else {
+                return nil
+            }
+            let characters = charactersByDay[day, default: 0]
+            return HomeActivityDay(
+                date: day,
+                characters: characters,
+                level: activityLevel(for: characters, maxDailyCharacters: maxDailyCharacters)
+            )
+        }
+        let thisWeekCharacters = charactersByDay
+            .filter { day, _ in day >= currentWeekStart && day <= today }
+            .reduce(0) { $0 + $1.value }
+        activity = HomeActivitySummary(
+            days: days,
+            thisWeekCharacters: thisWeekCharacters,
+            maxDailyCharacters: maxDailyCharacters
+        )
+    }
+
+    private func streakDays(from activeDays: Set<Date>, referenceDay: Date) -> Int {
+        var cursor = referenceDay
+        var streak = 0
+        while activeDays.contains(cursor) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
+            }
+            cursor = previousDay
+        }
+        return streak
+    }
+
+    private func reloadHistoryPage() throws {
+        let dateRange = selectedActivityDate.map { day -> (Date, Date?) in
+            let start = calendar.startOfDay(for: day)
+            return (start, calendar.date(byAdding: .day, value: 1, to: start))
+        }
+        var page = try homeHistoryRepository.page(
+            query: HomeHistoryQuery(
+                searchText: searchText,
+                startDate: dateRange?.0,
+                endDate: dateRange?.1,
+                limit: pageSize,
+                offset: (currentPage - 1) * pageSize
+            )
+        )
+        totalHistoryCount = page.totalCount
+        let lastPage = totalPages
+        if currentPage > lastPage {
+            currentPage = lastPage
+            page = try homeHistoryRepository.page(
+                query: HomeHistoryQuery(
+                    searchText: searchText,
+                    startDate: dateRange?.0,
+                    endDate: dateRange?.1,
+                    limit: pageSize,
+                    offset: (currentPage - 1) * pageSize
+                )
+            )
+        }
+        canLoadMoreHistory = canGoToNextPage
+        historyGroups = makeHistoryGroups(records: page.records)
+    }
+
+    private func makeHistoryGroups(records: [HomeHistoryRecord]) -> [HomeHistoryGroup] {
+        let items = records.map { record in
+            HomeHistoryItem(
+                id: record.id,
+                finalText: record.finalText,
+                rawText: record.rawText,
+                appName: record.appName,
+                appBundleID: record.appBundleID,
+                charCount: record.charCount,
+                cpm: record.cpm,
+                createdAt: record.createdAt,
+                taskMode: record.taskMode,
+                taskStatus: record.taskStatus
+            )
+        }
+        let grouped = Dictionary(grouping: items) { calendar.startOfDay(for: $0.createdAt) }
+        return grouped.keys.sorted(by: >).map { day in
+            HomeHistoryGroup(
+                id: Self.dayIDFormatter.string(from: day),
+                title: title(for: day, preferExplicitDate: selectedActivityDate != nil),
+                date: day,
+                items: grouped[day] ?? []
+            )
         }
     }
 
@@ -563,11 +743,11 @@ final class HomeDashboardViewModel: ObservableObject {
             }
             .map(HomeHistoryItem.init(task:))
         let historyItems = scopedEntries(entries).map(HomeHistoryItem.init(entry:))
-        let allItems = Array(
-            (historyItems + taskItems)
-                .sorted { $0.createdAt > $1.createdAt }
-                .prefix(historyLimit)
-        )
+        let sortedItems = (historyItems + taskItems)
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(historyLimit)
+        canLoadMoreHistory = sortedItems.count > visibleHistoryItemLimit
+        let allItems = Array(sortedItems.prefix(visibleHistoryItemLimit))
         let grouped = Dictionary(grouping: allItems) { item in
             calendar.startOfDay(for: item.createdAt)
         }
@@ -714,6 +894,35 @@ extension HomeHistoryItem {
 }
 
 private extension HomeHistoryDetail {
+    func replacingTrace(_ diagnosticTrace: TextProcessingTrace?) -> HomeHistoryDetail {
+        guard let diagnosticTrace else {
+            return self
+        }
+        return HomeHistoryDetail(
+            id: id,
+            rawText: rawText,
+            finalText: finalText,
+            language: language,
+            asrProviderID: asrProviderID,
+            llmProviderID: llmProviderID,
+            styleID: styleID,
+            appName: appName,
+            appBundleID: appBundleID,
+            durationMS: durationMS,
+            charCount: charCount,
+            cpm: cpm,
+            warnings: warnings,
+            trace: diagnosticTrace,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            taskMode: taskMode,
+            taskStatus: taskStatus,
+            windowTitle: windowTitle,
+            contextPreview: contextPreview,
+            outputResultRaw: outputResultRaw
+        )
+    }
+
     var recoverableTextForCopy: String? {
         if !finalText.isEmpty {
             return finalText

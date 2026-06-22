@@ -35,4 +35,27 @@ final class WindowPlacementPolicyTests: XCTestCase {
 
         XCTAssertTrue(WindowPlacementPolicy.isFullyVisible(window, in: screens))
     }
+
+    func testInteractionVisibleFramePrefersFocusedWindowScreenOverMouseScreen() {
+        let screenFrames = [
+            NSRect(x: 0, y: 0, width: 1_000, height: 800),
+            NSRect(x: 1_000, y: 0, width: 1_000, height: 800),
+        ]
+        let visibleFrames = [
+            NSRect(x: 0, y: 40, width: 1_000, height: 720),
+            NSRect(x: 1_000, y: 20, width: 1_000, height: 760),
+        ]
+        let focusedWindowFrame = NSRect(x: 1_100, y: 120, width: 500, height: 400)
+        let mouseLocation = NSPoint(x: 200, y: 200)
+
+        XCTAssertEqual(
+            WindowPlacementPolicy.interactionVisibleFrame(
+                focusedWindowFrame: focusedWindowFrame,
+                mouseLocation: mouseLocation,
+                screenFrames: screenFrames,
+                visibleFrames: visibleFrames
+            ),
+            visibleFrames[1]
+        )
+    }
 }

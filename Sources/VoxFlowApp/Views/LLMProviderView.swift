@@ -15,7 +15,7 @@ struct LLMProviderView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
             HStack {
                 if !embedded {
-                    Label("OpenAI 兼容模型", systemImage: "network")
+                    Label("智能模型服务", systemImage: "network")
                         .font(.system(size: 24, weight: .semibold))
                 }
                 Spacer()
@@ -36,11 +36,11 @@ struct LLMProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("添加 Provider")
+                .help("添加模型服务")
             }
 
             if viewModel.providers.isEmpty {
-                Text("暂无 Provider")
+                Text("暂无模型服务")
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 180)
                     .background(AppTheme.ColorToken.panelBackground)
@@ -88,7 +88,7 @@ struct LLMProviderView: View {
             } label: {
                 HStack(alignment: .top, spacing: 14) {
                     LLMProviderIcon(
-                        systemImage: "sparkles",
+                        displayName: provider.displayName,
                         tint: AppTheme.ColorToken.accent,
                         isDefault: provider.isDefault
                     )
@@ -225,19 +225,17 @@ struct LLMProviderView: View {
 }
 
 private struct LLMProviderIcon: View {
-    let systemImage: String
+    let displayName: String
     let tint: Color
     let isDefault: Bool
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
-            .frame(width: 46, height: 46)
-            .overlay {
-                Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(tint)
-            }
+        ProviderInitialBadge(
+            text: displayName,
+            tint: tint,
+            background: isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground,
+            size: 46
+        )
     }
 }
 
@@ -281,27 +279,27 @@ private struct LLMProviderEditorSheet: View {
                     error: validationErrors["displayName"]
                 )
                 providerField(
-                    title: "Base URL",
+                    title: "服务地址",
                     placeholder: "https://api.example.com/v1",
                     text: $baseURL,
                     error: validationErrors["baseURL"]
                 )
                 providerField(
-                    title: "Model",
+                    title: "模型",
                     placeholder: "模型名称",
                     text: $model,
                     error: validationErrors["model"]
                 )
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("API Key *")
+                    Text("访问密钥 *")
                         .font(.system(size: 13, weight: .medium))
                     HStack(spacing: 8) {
                         Group {
                             if showAPIKey {
-                                TextField("API Key", text: $apiKey)
+                                TextField("访问密钥", text: $apiKey)
                             } else {
-                                SecureField("API Key", text: $apiKey)
+                                SecureField("访问密钥", text: $apiKey)
                             }
                         }
                         .textFieldStyle(.roundedBorder)
@@ -321,7 +319,7 @@ private struct LLMProviderEditorSheet: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .help(showAPIKey ? "隐藏 API Key" : "显示 API Key")
+                        .help(showAPIKey ? "隐藏访问密钥" : "显示访问密钥")
                     }
                     if let error = validationErrors["apiKey"] {
                         fieldError(error)

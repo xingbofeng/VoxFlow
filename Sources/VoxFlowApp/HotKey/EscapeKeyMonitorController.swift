@@ -49,16 +49,19 @@ final class EscapeKeyMonitorController {
     }
 
     func start(onCancel: @escaping @MainActor () -> Void) {
+        AppLogger.general.debug("EscapeKeyMonitorController start")
         stop()
         localMonitor = addLocalMonitor { keyCode in
             guard Self.routesToCancel(keyCode: keyCode) else {
                 return true
             }
+            AppLogger.general.debug("EscapeKeyMonitorController local cancel route keyCode=\(keyCode)")
             onCancel()
             return false
         }
         globalMonitor = addGlobalMonitor { [scheduleOnMain] keyCode in
             guard Self.routesToCancel(keyCode: keyCode) else { return }
+            AppLogger.general.debug("EscapeKeyMonitorController global cancel route keyCode=\(keyCode)")
             scheduleOnMain {
                 onCancel()
             }
@@ -66,6 +69,7 @@ final class EscapeKeyMonitorController {
     }
 
     func stop() {
+        AppLogger.general.debug("EscapeKeyMonitorController stop")
         if let monitor = globalMonitor {
             removeMonitor(monitor)
             globalMonitor = nil

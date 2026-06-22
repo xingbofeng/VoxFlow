@@ -6,8 +6,8 @@ extension VoiceAction {
     var displayName: String {
         switch self {
         case .dictation: return "听写"
-        case .agentCompose: return "帮我说"
-        case .agentDispatch: return "Vibe Coding 指挥中心"
+        case .agentCompose: return "任务助手"
+        case .agentDispatch: return "AI 编程"
         }
     }
 

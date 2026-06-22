@@ -99,6 +99,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         self.selectedCapabilityModelID = selectedCapabilityModelID
         self.isCapabilityModelEnabled = isCapabilityModelEnabled
         super.init()
+        AppLogger.general.debug("MenuBarCoordinator init with \(asrOptions.count) ASR options")
         buildMenu()
     }
 
@@ -109,6 +110,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        AppLogger.general.debug("MenuBarCoordinator menuWillOpen")
         refreshDynamicState()
         actions.menuWillOpen()
     }
@@ -118,6 +120,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func buildMenu() {
+        AppLogger.general.debug("MenuBarCoordinator buildMenu")
         menu.autoenablesItems = false
         menu.delegate = self
 
@@ -132,6 +135,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func addLanguageMenu() {
+        AppLogger.general.debug("MenuBarCoordinator addLanguageMenu")
         let languageMenu = NSMenu()
         languageMenu.autoenablesItems = false
         for language in RecognitionLanguage.allCases {
@@ -154,6 +158,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func addASREngineMenu() {
+        AppLogger.general.debug("MenuBarCoordinator addASREngineMenu")
         let asrMenu = NSMenu()
         asrMenu.autoenablesItems = false
 
@@ -172,22 +177,24 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         }
 
         let asrParentItem = NSMenuItem()
-        asrParentItem.title = "ASR 模型"
+        asrParentItem.title = "语音识别模型"
         asrParentItem.submenu = asrMenu
         menu.addItem(asrParentItem)
     }
 
     private func addLLMProviderMenu() {
+        AppLogger.general.debug("MenuBarCoordinator addLLMProviderMenu")
         llmProviderMenu.autoenablesItems = false
         rebuildLLMProviderMenu()
 
         let llmParentItem = NSMenuItem()
-        llmParentItem.title = "LLM 模型"
+        llmParentItem.title = "智能模型服务"
         llmParentItem.submenu = llmProviderMenu
         menu.addItem(llmParentItem)
     }
 
     private func addCapabilityModelMenu(title: String, menu: NSMenu, kind: CapabilityModelKind) {
+        AppLogger.general.debug("MenuBarCoordinator addCapabilityModelMenu title=\(title)")
         menu.autoenablesItems = false
         rebuildCapabilityModelMenu(menu, kind: kind)
 
@@ -198,12 +205,13 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func addCommandItems() {
+        AppLogger.general.debug("MenuBarCoordinator addCommandItems")
         menu.addItem(makeItem(title: "打开工作台", action: #selector(openWorkbench(_:))))
         menu.addItem(makeItem(title: "设置", action: #selector(openSettings(_:))))
         menu.addItem(makeItem(title: "GitHub", action: #selector(openGitHub(_:))))
         menu.addItem(.separator())
 
-        refiningMenuItem = NSMenuItem(title: "正在 LLM 纠错", action: nil, keyEquivalent: "")
+        refiningMenuItem = NSMenuItem(title: "正在进行智能纠错", action: nil, keyEquivalent: "")
         refiningMenuItem.isHidden = true
         menu.addItem(refiningMenuItem)
 
@@ -224,6 +232,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func refreshDynamicState(includeASRState: Bool = true) {
+        AppLogger.general.debug("MenuBarCoordinator refreshDynamicState includeASRState=\(includeASRState)")
         let language = currentLanguage()
         for item in languageMenuItems {
             item.state = (item.representedObject as? RecognitionLanguage) == language ? .on : .off
@@ -241,10 +250,11 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func rebuildLLMProviderMenu() {
+        AppLogger.general.debug("MenuBarCoordinator rebuildLLMProviderMenu")
         llmProviderMenu.removeAllItems()
         let providers = llmProviders()
         guard !providers.isEmpty else {
-            let item = NSMenuItem(title: "未配置 LLM", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: "未配置智能模型服务", action: nil, keyEquivalent: "")
             item.isEnabled = false
             llmProviderMenu.addItem(item)
             return
@@ -265,6 +275,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func rebuildCapabilityModelMenu(_ menu: NSMenu, kind: CapabilityModelKind) {
+        AppLogger.general.debug("MenuBarCoordinator rebuildCapabilityModelMenu kind=\(kind)")
         menu.removeAllItems()
         let selectedID = selectedCapabilityModelID(kind)
         for model in capabilityModels(kind) {
@@ -284,45 +295,54 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
 
     @objc private func selectLanguage(_ sender: NSMenuItem) {
         guard let language = sender.representedObject as? RecognitionLanguage else { return }
+        AppLogger.general.info("MenuBarCoordinator selectLanguage=\(language.rawValue)")
         actions.selectLanguage(language)
         refreshDynamicState()
     }
 
     @objc private func selectASREngine(_ sender: NSMenuItem) {
         guard let option = sender.representedObject as? ASRMenuModel else { return }
+        AppLogger.general.info("MenuBarCoordinator selectASREngine=\(option.title)")
         actions.selectASRMenuOption(option)
         refreshDynamicState()
     }
 
     @objc private func selectLLMProvider(_ sender: NSMenuItem) {
         guard let providerID = sender.representedObject as? String else { return }
+        AppLogger.general.info("MenuBarCoordinator selectLLMProvider id=\(providerID)")
         actions.selectLLMProvider(providerID)
         refreshDynamicState()
     }
 
     @objc private func selectCapabilityModel(_ sender: NSMenuItem) {
         guard let selection = sender.representedObject as? CapabilityMenuSelection else { return }
+        AppLogger.general.info("MenuBarCoordinator selectCapabilityModel kind=\(selection.kind) id=\(selection.modelID)")
         actions.selectCapabilityModel(selection.kind, selection.modelID)
         refreshDynamicState()
     }
 
     @objc private func openWorkbench(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator openWorkbench")
         actions.openWorkbench()
     }
 
     @objc private func openSettings(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator openSettings")
         actions.openSettings()
     }
 
     @objc private func openGitHub(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator openGitHub")
         actions.openGitHub()
     }
 
     @objc private func checkPermissions(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator checkPermissions")
         actions.checkPermissions()
     }
 
     @objc private func quit(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator quit")
         actions.quit()
     }
 }

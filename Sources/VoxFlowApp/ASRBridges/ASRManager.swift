@@ -512,6 +512,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
               case let .ready(installation) = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled else {
             return
         }
+        AppLogger.general.info("Marking model deleting: \(engineType.rawValue)")
         try? modelInstallationRepository.save(.deleting(installation), for: key)
     }
 
@@ -520,6 +521,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
               let modelInstallationRepository else {
             return
         }
+        AppLogger.general.error("Model deletion failed: \(engineType.rawValue), reason=\(message)")
         try? modelInstallationRepository.save(.failed(message: message), for: key)
     }
 
@@ -622,6 +624,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         if canSelectEngine(type) {
             return type
         }
+        AppLogger.general.warning("Effective ASR engine fallback triggered; selected=\(type.rawValue), fallback=apple")
         return .apple
     }
 
@@ -683,32 +686,65 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     func canSelectEngine(_ type: ASREngineType) -> Bool {
+        let available: Bool
+        let reason: String?
         switch type {
         case .apple:
-            return true
+            available = true
+            reason = nil
         case .funASR:
-            return isFunASRModelAvailable
+            available = isFunASRModelAvailable
+            reason = available ? nil : "FunASR model unavailable"
         case .whisper:
-            return Self.isWhisperRuntimeSupported(variant: whisperVariant) && isWhisperModelAvailable
+            if !Self.isWhisperRuntimeSupported(variant: whisperVariant) {
+                reason = Self.whisperRuntimeUnsupportedMessage(for: whisperVariant)
+                available = false
+            } else {
+                available = isWhisperModelAvailable
+                reason = available ? nil : "Whisper model unavailable"
+            }
         case .qwen3:
-            return isQwen3RuntimeSupported(size: qwen3ModelSize) && isQwen3ModelAvailable
+            if !isQwen3RuntimeSupported(size: qwen3ModelSize) {
+                reason = qwen3RuntimeUnsupportedMessage(for: qwen3ModelSize)
+                available = false
+            } else {
+                available = isQwen3ModelAvailable
+                reason = available ? nil : "Qwen3 model unavailable"
+            }
         case .senseVoice:
-            return isSenseVoiceModelAvailable
+            available = isSenseVoiceModelAvailable
+            reason = available ? nil : "SenseVoice model unavailable"
         case .paraformer:
-            return isParaformerModelAvailable
+            available = isParaformerModelAvailable
+            reason = available ? nil : "Paraformer model unavailable"
         case .nvidiaNemotron:
-            return isNVIDIANemotronRuntimeSupported && isNVIDIANemotronModelAvailable
+            if !isNVIDIANemotronRuntimeSupported {
+                reason = Self.nvidiaNemotronRuntimeUnsupportedMessage()
+                available = false
+            } else {
+                available = isNVIDIANemotronModelAvailable
+                reason = available ? nil : "NVIDIA Nemotron model unavailable"
+            }
         case .parakeetStreaming:
-            return isParakeetModelAvailable
+            available = isParakeetModelAvailable
+            reason = available ? nil : "Parakeet model unavailable"
         case .omnilingualASR:
-            return isOmnilingualModelAvailable
+            available = isOmnilingualModelAvailable
+            reason = available ? nil : "Omnilingual model unavailable"
         case .groqWhisper:
-            return isGroqConfigured
+            available = isGroqConfigured
+            reason = available ? nil : "Groq API key missing"
         case .tencentCloud:
-            return isTencentCloudConfigured
+            available = isTencentCloudConfigured
+            reason = available ? nil : "Tencent credentials incomplete"
         case .aliyunDashScope:
-            return isAliyunDashScopeConfigured
+            available = isAliyunDashScopeConfigured
+            reason = available ? nil : "Aliyun DashScope key missing"
         }
+        if !available, let reason {
+            AppLogger.general.info("ASR engine unavailable: type=\(type.rawValue), reason=\(reason)")
+        }
+        return available
     }
 
     func isQwen3RuntimeSupported(size: ModelSize) -> Bool {
@@ -721,10 +757,13 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     @discardableResult
     func selectEngine(_ type: ASREngineType) -> Bool {
+        AppLogger.general.info("Request selecting ASR engine: \(type.rawValue)")
         selectedEngineType = type
         guard canSelectEngine(type) else {
+            AppLogger.general.warning("Reject ASR engine selection: \(type.rawValue)")
             return false
         }
+        AppLogger.general.info("ASR engine selected: \(type.rawValue)")
         return true
     }
 
@@ -744,6 +783,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         in modelsDirectory: URL,
         fileManager: FileManager = .default
     ) throws {
+        AppLogger.general.info("Delete all local models requested: targetDirectory=\(modelsDirectory.path)")
         try throwIfLocalModelOperationInProgress()
 
         for key in Self.allLocalModelInstallKeys() {
@@ -771,6 +811,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         if selectedEngineType.isLocalModelProvider {
             selectedEngineType = .apple
         }
+        AppLogger.general.info("Delete all local models completed")
     }
 
     func localModelStorageBytes(
@@ -813,55 +854,86 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     // MARK: - ASREngineFactory
 
     func makeEngine(type: ASREngineType) -> ASREngine {
+        let available = canSelectEngine(type)
+        AppLogger.dictation.info(
+            "Creating ASR engine instance: \(type.rawValue), selectedAvailable=\(available)"
+        )
+        if !available {
+            AppLogger.general.warning("ASR engine not available during creation: \(type.rawValue), runtime check result: unavailable")
+        }
         switch type {
         case .apple:
+            AppLogger.general.debug("ASR engine branch: apple")
             return SpeechRecognizer()
         case .funASR:
+            AppLogger.general.debug("ASR engine branch: funASR")
             return makeFunASRProviderBackedEngine()
         case .whisper:
+            AppLogger.general.debug("ASR engine branch: whisper")
             return makeWhisperProviderBackedEngine()
         case .qwen3:
+            AppLogger.general.debug("ASR engine branch: qwen3")
             return makeQwen3ProviderBackedEngine()
         case .senseVoice:
+            AppLogger.general.debug("ASR engine branch: senseVoice")
             return makeSenseVoiceProviderBackedEngine()
         case .paraformer:
+            AppLogger.general.debug("ASR engine branch: paraformer")
             return makeParaformerProviderBackedEngine()
         case .nvidiaNemotron:
+            AppLogger.general.debug("ASR engine branch: nvidiaNemotron")
             return makeNVIDIANemotronProviderBackedEngine()
         case .parakeetStreaming:
+            AppLogger.general.debug("ASR engine branch: parakeetStreaming")
             return makeParakeetProviderBackedEngine()
         case .omnilingualASR:
+            AppLogger.general.debug("ASR engine branch: omnilingualASR")
             return makeOmnilingualProviderBackedEngine()
         case .groqWhisper:
             let client = GroqCloudASRClient(credentialStore: cloudCredentialStore())
+            AppLogger.general.debug(
+                "ASR engine branch: groqWhisper, baseURL=\(groqConfiguration.baseURL), model=\(groqModel)"
+            )
             return BufferedCloudASREngine(
                 client: client,
                 configuration: groqConfiguration,
                 configurationAvailable: { [weak self] in
-                    self?.isGroqConfigured ?? false
+                    guard let self else {
+                        AppLogger.general.warning("Groq ASR config unavailable while closure executes: manager released")
+                        return false
+                    }
+                    AppLogger.general.debug("Groq ASR config check result=\(self.isGroqConfigured)")
+                    return self.isGroqConfigured
                 }
             )
         case .tencentCloud:
             return TencentRealtimeASREngine { [weak self] in
                 guard let self else {
+                    AppLogger.general.warning("Tencent ASR config unavailable while closure executes: manager released")
                     throw TencentRealtimeASRError.missingCredential
                 }
+                AppLogger.general.debug(
+                    "Tencent ASR config check passed=\(self.isTencentCloudConfigured), runtimeModel=\(self.tencentRealtimeEngineModelType)"
+                )
                 return try self.tencentCloudConfiguration()
             }
         case .aliyunDashScope:
             return AliyunDashScopeRealtimeASREngine { [weak self] in
                 guard let self else {
+                    AppLogger.general.warning("Aliyun DashScope ASR config unavailable while closure executes: manager released")
                     throw AliyunDashScopeRealtimeASRError.missingCredential
                 }
+                AppLogger.general.debug("Aliyun DashScope config check passed=\(self.isAliyunDashScopeConfigured)")
                 return try self.aliyunDashScopeConfiguration()
             }
         }
     }
 
     private func makeQwen3ProviderBackedEngine() -> ASREngine {
-        let providerState = Self.asrModelInstallationState(
-            from: qwen3ModelInstallationState(for: qwen3ModelSize)
-        )
+        let installState = qwen3ModelInstallationState(for: qwen3ModelSize)
+        let providerState = Self.asrModelInstallationState(from: installState)
+        let modelPath = qwen3ReadyInstallation(for: qwen3ModelSize)?.installedRoot.path
+        AppLogger.general.debug("Qwen3 provider state=\(installState), modelPath=\(modelPath ?? "<nil>")")
         let provider = Qwen3ASRProvider(
             descriptor: Qwen3ProviderDescriptor.descriptor(modelInstallationState: providerState),
             modelURL: qwen3ReadyInstallation(for: qwen3ModelSize)?.installedRoot,
@@ -883,6 +955,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         } else {
             state = .runtimeUnsupported(reason: Self.whisperRuntimeUnsupportedMessage(for: whisperVariant))
         }
+        let modelPath = whisperReadyInstallation(for: whisperVariant)?.installedRoot.path
+        AppLogger.general.debug("Whisper provider state=\(state), modelPath=\(modelPath ?? "<nil>")")
         let providerState = Self.asrModelInstallationState(from: state)
         let provider = WhisperASRProvider(
             descriptor: WhisperProviderDescriptor.descriptor(
@@ -901,6 +975,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     private func makeFunASRProviderBackedEngine() -> ASREngine {
         let providerVariant = FunASRModelVariant(precision: funASRPrecision)
+        let modelPath = funASRReadyInstallation(for: funASRPrecision)?.installedRoot.path
+        AppLogger.general.debug(
+            "FunASR provider precision=\(funASRPrecision.rawValue), modelPath=\(modelPath ?? "<nil>")"
+        )
         let providerState = Self.asrModelInstallationState(
             from: funASRModelInstallationState(for: funASRPrecision)
         )
@@ -923,6 +1001,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let providerState = Self.asrModelInstallationState(
             from: senseVoiceModelInstallationState()
         )
+        AppLogger.general.debug(
+            "SenseVoice provider state=\(providerState), modelPath=\(senseVoiceReadyInstallation()?.installedRoot.path ?? "<nil>")"
+        )
         let provider = SenseVoiceASRProvider(
             descriptor: SenseVoiceProviderDescriptor.descriptor(
                 modelInstallationState: providerState
@@ -939,6 +1020,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private func makeParaformerProviderBackedEngine() -> ASREngine {
         let providerState = Self.asrModelInstallationState(
             from: paraformerModelInstallationState()
+        )
+        AppLogger.general.debug(
+            "Paraformer provider state=\(providerState), modelPath=\(paraformerReadyInstallation()?.installedRoot.path ?? "<nil>")"
         )
         let provider = ParaformerASRProvider(
             descriptor: ParaformerProviderDescriptor.descriptor(
@@ -960,6 +1044,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         } else {
             state = .runtimeUnsupported(reason: Self.nvidiaNemotronRuntimeUnsupportedMessage())
         }
+        AppLogger.general.debug(
+            "NVIDIA Nemotron provider state=\(state), modelPath=\(nvidiaNemotronReadyInstallation()?.installedRoot.path ?? "<nil>")"
+        )
         let providerState = Self.asrModelInstallationState(from: state)
         let provider = NVIDIANemotronASRProvider.live(
             descriptor: NVIDIANemotronProviderDescriptor.descriptor(
@@ -978,6 +1065,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let providerState = Self.asrModelInstallationState(
             from: parakeetModelInstallationState()
         )
+        AppLogger.general.debug(
+            "Parakeet provider state=\(providerState), modelPath=\(parakeetReadyInstallation()?.installedRoot.path ?? "<nil>")"
+        )
         let provider = ParakeetASRProvider(
             descriptor: ParakeetProviderDescriptor.descriptor(
                 modelInstallationState: providerState
@@ -994,6 +1084,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private func makeOmnilingualProviderBackedEngine() -> ASREngine {
         let providerState = Self.asrModelInstallationState(
             from: omnilingualModelInstallationState()
+        )
+        AppLogger.general.debug(
+            "Omnilingual provider state=\(providerState), modelPath=\(omnilingualReadyInstallation()?.installedRoot.path ?? "<nil>")"
         )
         let provider = OmnilingualASRProvider(
             descriptor: OmnilingualProviderDescriptor.descriptor(
@@ -1360,6 +1453,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         guard let modelInstallationRepository else { return }
         for key in Self.allLocalModelInstallKeys() {
             if try modelInstallationRepository.state(for: key).isOperationInProgress {
+                AppLogger.general.warning("Local model operation in progress: \(key.modelID.rawValue)#\(key.version)")
                 throw LocalModelDeletionError.modelOperationInProgress
             }
         }

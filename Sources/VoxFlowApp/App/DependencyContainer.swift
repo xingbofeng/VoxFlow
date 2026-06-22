@@ -30,7 +30,9 @@ struct DependencyContainer {
     let llmProviderRepository: any LLMProviderRepository
     let transcriptionJobRepository: any TranscriptionJobRepository
     let noteRepository: any NoteRepository
+    let screenshotRecordRepository: any ScreenshotRecordRepository
     let settingsRepository: any SettingsRepository
+    let correctionTargetRepository: any CorrectionTargetRepository
     let correctionRuleRepository: any CorrectionRuleRepository
     let correctionSnapshotProvider: CorrectionRuleSnapshotProvider
     let voiceCorrectionProcessor: any VoiceCorrectionTextProcessing
@@ -40,10 +42,16 @@ struct DependencyContainer {
         credentialStore: CredentialStore? = nil,
         defaults: UserDefaults = .standard
     ) throws -> DependencyContainer {
+        AppLogger.general.info("DependencyContainer.live start")
         let paths = try ApplicationSupportPaths.live()
+        AppLogger.general.debug("DependencyContainer paths ready: \(paths.rootDirectory.path)")
         try paths.ensureDirectories()
         let databaseQueue = try DatabaseQueue(connection: SQLiteConnection(url: paths.databaseURL))
+        AppLogger.general.debug("DependencyContainer databaseQueue created")
         try AppDatabase.migrator(clock: clock).migrate(databaseQueue)
+        AppLogger.general.debug("DependencyContainer migration completed")
+        try AppDatabase.ensureRequiredRuntimeTables(databaseQueue)
+        AppLogger.general.debug("DependencyContainer runtime tables verified")
 
         return try make(
             databaseQueue: databaseQueue,
@@ -61,8 +69,13 @@ struct DependencyContainer {
         defaults: UserDefaults = UserDefaults(suiteName: "VoxFlowApp.inMemory.\(UUID().uuidString)")!,
         storageHealth: StorageHealthState = .volatile(reason: "Using in-memory storage.")
     ) throws -> DependencyContainer {
+        AppLogger.general.info("DependencyContainer.inMemory start")
         let databaseQueue = try DatabaseQueue(connection: .inMemory())
+        AppLogger.general.debug("DependencyContainer in-memory DB queue created")
         try AppDatabase.migrator(clock: clock).migrate(databaseQueue)
+        AppLogger.general.debug("DependencyContainer in-memory migration completed")
+        try AppDatabase.ensureRequiredRuntimeTables(databaseQueue)
+        AppLogger.general.debug("DependencyContainer in-memory runtime tables verified")
         let volatilePaths = ApplicationSupportPaths(
             applicationSupportDirectory: FileManager.default.temporaryDirectory
                 .appendingPathComponent("VoxFlowApp.inMemory.\(UUID().uuidString)", isDirectory: true)
@@ -89,6 +102,7 @@ struct DependencyContainer {
         credentialStore: CredentialStore,
         defaults: UserDefaults
     ) throws -> DependencyContainer {
+        AppLogger.general.debug("DependencyContainer.make initialize repositories")
         let historyRepository = SQLiteHistoryRepository(databaseQueue: databaseQueue)
         let styleRepository = SQLiteStyleRepository(databaseQueue: databaseQueue)
         try BuiltInStyleSeeder.seed(styleRepository: styleRepository, clock: clock)
@@ -96,17 +110,21 @@ struct DependencyContainer {
         let llmProviderRepository = SQLiteLLMProviderRepository(databaseQueue: databaseQueue)
         let transcriptionJobRepository = SQLiteTranscriptionJobRepository(databaseQueue: databaseQueue)
         let noteRepository = SQLiteNoteRepository(databaseQueue: databaseQueue)
+        let screenshotRecordRepository = SQLiteScreenshotRecordRepository(databaseQueue: databaseQueue)
         let settingsRepository = SQLiteSettingsRepository(databaseQueue: databaseQueue, clock: clock)
+        let correctionTargetRepository = SQLiteCorrectionTargetRepository(databaseQueue: databaseQueue)
         let correctionRuleRepository = SQLiteCorrectionRuleRepository(databaseQueue: databaseQueue)
         let correctionSnapshotProvider = CorrectionRuleSnapshotProvider(loader: correctionRuleRepository)
         let voiceCorrectionProcessor = TranscriptPostProcessingCoordinator(
             processor: VoiceCorrectionTextProcessor(
                 snapshotProvider: correctionSnapshotProvider,
-                settingsRepository: settingsRepository
+                settingsRepository: settingsRepository,
+                usageRecorder: correctionRuleRepository
             )
         )
 
         if let paths {
+            AppLogger.general.debug("DependencyContainer.make enabling llm diagnostics")
             LLMDiagnosticCapture.shared.configure(
                 enabled: storedBool(
                     forKey: SettingsSystemOption.llmTraceDiagnostics.rawValue,
@@ -129,7 +147,9 @@ struct DependencyContainer {
             llmProviderRepository: llmProviderRepository,
             transcriptionJobRepository: transcriptionJobRepository,
             noteRepository: noteRepository,
+            screenshotRecordRepository: screenshotRecordRepository,
             settingsRepository: settingsRepository,
+            correctionTargetRepository: correctionTargetRepository,
             correctionRuleRepository: correctionRuleRepository,
             correctionSnapshotProvider: correctionSnapshotProvider,
             voiceCorrectionProcessor: voiceCorrectionProcessor

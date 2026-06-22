@@ -528,6 +528,61 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertEqual(clipboard.copiedTexts, ["fallback text"])
     }
 
+    func testInputOnlyDeliveryDoesNotCopyWhenInjectionFails() async {
+        let injector = StubTextInjector(result: .eventCreationFailed)
+        let clipboard = StubClipboardService()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard
+        )
+
+        let result = await service.deliverInputOnly(
+            text: "input only text",
+            mode: .dictation
+        )
+
+        XCTAssertEqual(result, .injectionFailed(reason: "Failed to create paste event"))
+        XCTAssertEqual(injector.injectedTexts, ["input only text"])
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+    }
+
+    func testInputOnlyDeliveryDoesNotCopyWhenPermissionIsDenied() async {
+        let injector = StubTextInjector(result: .permissionDenied)
+        let clipboard = StubClipboardService()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard
+        )
+
+        let result = await service.deliverInputOnly(
+            text: "input only text",
+            mode: .dictation
+        )
+
+        XCTAssertEqual(result, .permissionDenied(reason: "Accessibility permission denied"))
+        XCTAssertEqual(injector.injectedTexts, ["input only text"])
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+    }
+
+    func testInputOnlyDeliveryDoesNotCopyWhenTextInputModeIsUnavailable() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            defaultTextInputMode: .simulatedTyping
+        )
+
+        let result = await service.deliverInputOnly(
+            text: "input only text",
+            mode: .dictation
+        )
+
+        XCTAssertEqual(result, .injectionFailed(reason: "Simulated typing is not available yet"))
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+    }
+
     func testInjectionCancelledReturnsCancelled() async {
         let injector = StubTextInjector(result: .cancelled)
         let clipboard = StubClipboardService()
@@ -569,6 +624,30 @@ final class OutputServiceTests: XCTestCase {
 
         XCTAssertEqual(result, .cancelled)
         XCTAssertEqual(lastResultStore.lastResultText, "previous text")
+    }
+
+    func testOutputDeliveryLogIncludesTargetsOutputKindAndFallbackReason() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/TextProcessingBridges/OutputService.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("text_output_delivered"))
+        XCTAssertTrue(source.contains("outputKind="))
+        XCTAssertTrue(source.contains("originalTarget="))
+        XCTAssertTrue(source.contains("currentTarget="))
+        XCTAssertTrue(source.contains("fallbackReason="))
+    }
+
+    private static func repositoryRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.path != "/" {
+            let candidate = url.appendingPathComponent("Package.swift")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return url
+            }
+            url.deleteLastPathComponent()
+        }
+        throw NSError(domain: "OutputServiceTests", code: 1)
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowVoiceCorrection
 import XCTest
 @testable import VoxFlowApp
 
@@ -368,6 +369,133 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.currentTaskID)
     }
 
+    func testCoordinatorPassesFocusedSecureStateToCorrectionContext() async throws {
+        let pipeline = CoordinatorCapturingContextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "final")
+        )
+        let coordinator = makeCoordinator(
+            pipeline: pipeline,
+            isFocusedTextFieldSecure: { true }
+        )
+        try coordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.secure", appName: "Secure")
+        )
+        try coordinator.updateASRMetadata(
+            VoiceTaskASRMetadata(providerID: "apple", modelID: "local", language: "en"),
+            kind: .dictation
+        )
+        try coordinator.recordRawTranscript("raw", kind: .dictation)
+
+        _ = try await coordinator.processAndDeliver(kind: .dictation)
+
+        XCTAssertEqual(pipeline.capturedContexts.map(\.isSecureField), [true])
+    }
+
+    func testCoordinatorSchedulesCorrectionObservationOnlyAfterInjectedOutput() async throws {
+        let event = CorrectionEvent(
+            ruleID: UUID(),
+            original: "q 问",
+            replacement: "Qwen",
+            range: CorrectionTextRange(location: 0, length: 4),
+            scope: .global,
+            source: .manual
+        )
+        let pipeline = CoordinatorStubTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "Qwen",
+                correctionEvents: [event]
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let coordinator = makeCoordinator(
+            pipeline: pipeline,
+            outputService: CoordinatorStubOutputService(result: .injected),
+            targetProvider: CoordinatorMutableTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+        try coordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        try coordinator.updateASRMetadata(
+            VoiceTaskASRMetadata(providerID: "apple", modelID: "local", language: "en"),
+            kind: .dictation
+        )
+        try coordinator.recordRawTranscript("raw", kind: .dictation)
+
+        _ = try await coordinator.processAndDeliver(kind: .dictation)
+
+        XCTAssertEqual(observer.observations.map(\.insertedText), ["Qwen"])
+        XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
+        XCTAssertEqual(observer.observations.first?.appliedEvents, [event])
+
+        let skippedObserver = CapturingCorrectionObservationScheduler()
+        let skippedCoordinator = makeCoordinator(
+            pipeline: pipeline,
+            outputService: CoordinatorStubOutputService(result: .targetChanged(reason: "App changed")),
+            targetProvider: CoordinatorMutableTargetProvider(
+                target: DictationTarget(bundleID: "com.example.other", appName: "Other")
+            ),
+            correctionObservationScheduler: skippedObserver
+        )
+        try skippedCoordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        try skippedCoordinator.recordRawTranscript("raw", kind: .dictation)
+
+        _ = try await skippedCoordinator.processAndDeliver(kind: .dictation)
+
+        XCTAssertTrue(skippedObserver.observations.isEmpty)
+    }
+
+    func testCoordinatorDoesNotSkipCorrectionObservationWhenOCRContextBoostWasApplied() async throws {
+        let pipeline = CoordinatorStubTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "Qwen3-ASR",
+                trace: TextProcessingTrace(
+                    contextBoost: ContextBoostTrace(
+                        appName: "Editor",
+                        bundleID: "com.example.editor",
+                        hotwords: ["Qwen3-ASR"],
+                        source: "current_window_ocr",
+                        ttlSeconds: 120,
+                        appliedToLLMPrompt: true,
+                        failureReason: nil
+                    )
+                )
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let coordinator = makeCoordinator(
+            pipeline: pipeline,
+            outputService: CoordinatorStubOutputService(result: .injected),
+            targetProvider: CoordinatorMutableTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+        try coordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        try coordinator.updateASRMetadata(
+            VoiceTaskASRMetadata(providerID: "apple", modelID: "local", language: "en"),
+            kind: .dictation
+        )
+        try coordinator.recordRawTranscript("raw", kind: .dictation)
+
+        _ = try await coordinator.processAndDeliver(kind: .dictation)
+
+        XCTAssertEqual(observer.observations.map(\.insertedText), ["Qwen3-ASR"])
+        XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
+    }
+
     func testCoordinatorCompletesTaskOnCopiedOutput() async throws {
         let pipeline = CoordinatorStubTextPipeline(
             result: TextProcessingResult(rawText: "raw", finalText: "final")
@@ -613,6 +741,170 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.activeTaskID(for: .agentDispatch), nil)
     }
 
+    func testAgentDispatchHandlerStoresActualSentMessageAsFinalText() async throws {
+        let taskCoordinator = makeCoordinator()
+        let dispatchCoordinator = AgentDispatchCoordinator(
+            router: HandlerDirectAgentRouter(
+                agent: AgentSessionCard(
+                    schemaVersion: 1,
+                    agentID: "codex",
+                    cli: "codex",
+                    command: ["codex"],
+                    cwd: "/tmp",
+                    status: .active,
+                    displayName: "Codex"
+                ),
+                message: "帮我修 bug"
+            )
+        )
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: dispatchCoordinator,
+            clipboardService: HandlerClipboardService(),
+            confirmationTimeoutNanoseconds: 1
+        )
+
+        try handler.start(target: nil as DictationTarget?, asrMetadata: nil as VoiceTaskASRMetadata?)
+        await drainVoiceTaskMainActorTasks()
+        _ = try await handler.finish(rawTranscript: "Codex 帮我修 bug")
+
+        let task = try XCTUnwrap(repository.listRecent(mode: .agentDispatch, limit: 1).first)
+        XCTAssertEqual(task.rawTranscript, "Codex 帮我修 bug")
+        XCTAssertEqual(task.finalText, "帮我修 bug")
+    }
+
+    func testAgentDispatchHandlerKeepsNoAgentFallbackAsInput() async throws {
+        let taskCoordinator = makeCoordinator()
+        let dispatchCoordinator = AgentDispatchCoordinator(router: HandlerNoAgentRouter())
+        let clipboard = HandlerClipboardService()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: dispatchCoordinator,
+            clipboardService: clipboard,
+            confirmationTimeoutNanoseconds: 1
+        )
+        var presentations: [AgentDispatchHUDPresentation] = []
+        handler.onPresentationChange = { presentations.append($0) }
+
+        try handler.start(target: nil as DictationTarget?, asrMetadata: nil as VoiceTaskASRMetadata?)
+        await drainVoiceTaskMainActorTasks()
+        let presentation = try await handler.finish(rawTranscript: "Voice input.")
+
+        XCTAssertEqual(presentation, .fallbackInput(text: "Voice input."))
+        XCTAssertFalse(presentations.contains(.fallbackInput(text: "Voice input.")))
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        let task = try XCTUnwrap(repository.listRecent(mode: .agentDispatch, limit: 1).first)
+        XCTAssertEqual(task.status, .inProgress)
+        XCTAssertEqual(task.stage, .processing)
+        XCTAssertEqual(task.finalText, "Voice input.")
+    }
+
+    func testAgentDispatchHandlerBeginDefaultOutputCancelsConfirmationTimeout() async throws {
+        let taskCoordinator = makeCoordinator()
+        let clipboard = HandlerClipboardService()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: HandlerAmbiguousAgentRouter()),
+            clipboardService: clipboard,
+            confirmationTimeoutNanoseconds: 1_000_000
+        )
+
+        try handler.start(target: nil, asrMetadata: nil)
+        await drainVoiceTaskMainActorTasks()
+        let presentation = try await handler.finish(rawTranscript: "检查一下")
+        XCTAssertTrue(presentation.isConfirmationForTest)
+
+        handler.beginDefaultOutput()
+        try await Task.sleep(nanoseconds: 5_000_000)
+
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertNotNil(taskCoordinator.activeTaskID(for: .agentDispatch))
+    }
+
+    func testAgentDispatchHandlerClearsActiveStateWhenFallbackAccountingFails() throws {
+        let taskCoordinator = makeCoordinator()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: HandlerNoAgentRouter()),
+            clipboardService: HandlerClipboardService()
+        )
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        try handler.start(target: target, asrMetadata: nil)
+        try taskCoordinator.cancelTask(kind: .agentDispatch)
+
+        XCTAssertThrowsError(
+            try handler.completeFallbackInput(finalText: "保留文本", outputResult: .injected)
+        )
+        XCTAssertNil(handler.activeTarget)
+    }
+
+    func testAgentDispatchHandlerDiscardsLateFinishAfterCancelAndRestart() async throws {
+        let taskCoordinator = makeCoordinator()
+        let router = HandlerDelayedResolveRouter()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: router),
+            clipboardService: HandlerClipboardService()
+        )
+        try handler.start(target: nil, asrMetadata: nil)
+        await drainVoiceTaskMainActorTasks()
+
+        let oldFinish = Task { try await handler.finish(rawTranscript: "旧任务") }
+        await router.waitUntilResolveStarts()
+        handler.cancel()
+        try handler.start(target: nil, asrMetadata: nil)
+        let newTaskID = try XCTUnwrap(taskCoordinator.activeTaskID(for: .agentDispatch))
+
+        await router.resumeResolve()
+        do {
+            _ = try await oldFinish.value
+            XCTFail("Late finish should be discarded after the workflow is replaced")
+        } catch is CancellationError {
+        }
+
+        let newTask = try XCTUnwrap(repository.fetch(id: newTaskID))
+        XCTAssertEqual(newTask.status, .inProgress)
+        XCTAssertEqual(newTask.stage, .recording)
+        XCTAssertNil(newTask.rawTranscript)
+        XCTAssertNil(newTask.finalText)
+    }
+
+    func testAgentDispatchHandlerDiscardsLateConfirmAfterCancelAndRestart() async throws {
+        let taskCoordinator = makeCoordinator()
+        let router = HandlerDelayedConfirmRouter()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: router),
+            clipboardService: HandlerClipboardService(),
+            confirmationTimeoutNanoseconds: 10_000_000_000
+        )
+        try handler.start(target: nil, asrMetadata: nil)
+        await drainVoiceTaskMainActorTasks()
+        _ = try await handler.finish(rawTranscript: "检查一下")
+
+        let oldConfirm = Task {
+            await handler.confirm(
+                agentID: "codex",
+                utterance: "检查一下",
+                message: "旧确认消息",
+                alias: nil
+            )
+        }
+        await router.waitUntilSendStarts()
+        handler.cancel()
+        try handler.start(target: nil, asrMetadata: nil)
+        let newTaskID = try XCTUnwrap(taskCoordinator.activeTaskID(for: .agentDispatch))
+
+        await router.resumeSend()
+        await oldConfirm.value
+
+        let newTask = try XCTUnwrap(repository.fetch(id: newTaskID))
+        XCTAssertEqual(newTask.status, .inProgress)
+        XCTAssertEqual(newTask.stage, .recording)
+        XCTAssertNil(newTask.rawTranscript)
+        XCTAssertNil(newTask.finalText)
+    }
+
     // MARK: - Stage advancement
 
     func testCoordinatorAdvancesStagesInOrder() async throws {
@@ -770,7 +1062,9 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         outputService: any OutputService = CoordinatorStubOutputService(result: .injected),
         targetProvider: CoordinatorMutableTargetProvider = CoordinatorMutableTargetProvider(target: nil),
         contextPipeline: (any ContextCollecting)? = nil,
-        agentRefiner: (any PromptAwareTextRefining)? = nil
+        agentRefiner: (any PromptAwareTextRefining)? = nil,
+        correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
     ) -> VoiceTaskCoordinator {
         VoiceTaskCoordinator(
             taskRepository: repository,
@@ -779,7 +1073,9 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
             targetProvider: targetProvider,
             clock: clock,
             contextPipeline: contextPipeline,
-            agentRefiner: agentRefiner
+            agentRefiner: agentRefiner,
+            correctionObservationScheduler: correctionObservationScheduler,
+            isFocusedTextFieldSecure: isFocusedTextFieldSecure
         )
     }
 }
@@ -805,8 +1101,62 @@ private final class CoordinatorStubTextPipeline: TextProcessing {
             llmProviderID: result.llmProviderID,
             styleID: result.styleID,
             warnings: result.warnings,
-            trace: result.trace
+            trace: result.trace,
+            correctionEvents: result.correctionEvents,
+            appliedCorrectionEvents: result.appliedCorrectionEvents
         )
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        await process(rawText, target: target)
+    }
+}
+
+@MainActor
+private final class CoordinatorCapturingContextPipeline: TextProcessing {
+    let result: TextProcessingResult
+    private(set) var capturedContexts: [CorrectionContext] = []
+
+    init(result: TextProcessingResult) {
+        self.result = result
+    }
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        result
+    }
+
+    func process(_ rawText: String, target: DictationTarget?) async -> TextProcessingResult {
+        result
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        if let correctionContext {
+            capturedContexts.append(correctionContext)
+        }
+        return result
+    }
+}
+
+@MainActor
+private final class CapturingCorrectionObservationScheduler: CorrectionObservationScheduling {
+    private(set) var observations: [(insertedText: String, context: CorrectionContext, appliedEvents: [CorrectionEvent])] = []
+
+    func scheduleObservation(
+        insertedText: String,
+        context: CorrectionContext,
+        appliedEvents: [CorrectionEvent]
+    ) {
+        observations.append((insertedText, context, appliedEvents))
     }
 }
 
@@ -836,7 +1186,9 @@ private final class CoordinatorCancellingTextPipeline: TextProcessing {
             llmProviderID: result.llmProviderID,
             styleID: result.styleID,
             warnings: result.warnings,
-            trace: result.trace
+            trace: result.trace,
+            correctionEvents: result.correctionEvents,
+            appliedCorrectionEvents: result.appliedCorrectionEvents
         )
     }
 }
@@ -866,6 +1218,165 @@ private final class CoordinatorStubOutputService: OutputService {
         lastOriginalTarget = originalTarget
         lastCurrentTarget = target
         return result
+    }
+}
+
+private final class HandlerClipboardService: ClipboardSetting {
+    private(set) var copiedTexts: [String] = []
+
+    func setString(_ text: String) -> Bool {
+        copiedTexts.append(text)
+        return true
+    }
+}
+
+private final class HandlerDirectAgentRouter: AgentRouting, @unchecked Sendable {
+    let agent: AgentSessionCard
+    let message: String
+
+    init(agent: AgentSessionCard, message: String) {
+        self.agent = agent
+        self.message = message
+    }
+
+    func listAgents() async throws -> [AgentSessionCard] {
+        [agent]
+    }
+
+    func resolve(utterance: String) async throws -> AgentResolveOutcome {
+        .direct(agentID: agent.agentID, message: message, matchedBy: "exact_name")
+    }
+
+    func send(_ request: AgentDispatchRequest) async throws {}
+
+    func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
+}
+
+private final class HandlerNoAgentRouter: AgentRouting, @unchecked Sendable {
+    func listAgents() async throws -> [AgentSessionCard] {
+        []
+    }
+
+    func resolve(utterance: String) async throws -> AgentResolveOutcome {
+        .notFound
+    }
+
+    func send(_ request: AgentDispatchRequest) async throws {}
+
+    func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
+}
+
+private final class HandlerAmbiguousAgentRouter: AgentRouting, @unchecked Sendable {
+    private let agent = AgentSessionCard(
+        schemaVersion: 1,
+        agentID: "codex",
+        cli: "codex",
+        command: ["codex"],
+        cwd: "/tmp",
+        status: .active,
+        displayName: "Codex"
+    )
+
+    func listAgents() async throws -> [AgentSessionCard] {
+        [agent]
+    }
+
+    func resolve(utterance: String) async throws -> AgentResolveOutcome {
+        .ambiguous(candidates: [agent.agentID])
+    }
+
+    func send(_ request: AgentDispatchRequest) async throws {}
+
+    func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
+}
+
+private actor HandlerAsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        guard !isOpen else { return }
+        isOpen = true
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        pendingWaiters.forEach { $0.resume() }
+    }
+}
+
+private final class HandlerDelayedResolveRouter: AgentRouting, @unchecked Sendable {
+    private let resolveStarted = HandlerAsyncGate()
+    private let resolveRelease = HandlerAsyncGate()
+    private let agent = AgentSessionCard(
+        schemaVersion: 1,
+        agentID: "codex",
+        cli: "codex",
+        command: ["codex"],
+        cwd: "/tmp",
+        status: .active,
+        displayName: "Codex"
+    )
+
+    func listAgents() async throws -> [AgentSessionCard] { [agent] }
+
+    func resolve(utterance: String) async throws -> AgentResolveOutcome {
+        await resolveStarted.open()
+        await resolveRelease.wait()
+        return .direct(agentID: agent.agentID, message: utterance, matchedBy: "exact_name")
+    }
+
+    func send(_ request: AgentDispatchRequest) async throws {}
+    func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
+
+    func waitUntilResolveStarts() async { await resolveStarted.wait() }
+    func resumeResolve() async { await resolveRelease.open() }
+}
+
+private final class HandlerDelayedConfirmRouter: AgentRouting, @unchecked Sendable {
+    private let sendStarted = HandlerAsyncGate()
+    private let sendRelease = HandlerAsyncGate()
+    private let agent = AgentSessionCard(
+        schemaVersion: 1,
+        agentID: "codex",
+        cli: "codex",
+        command: ["codex"],
+        cwd: "/tmp",
+        status: .active,
+        displayName: "Codex"
+    )
+
+    func listAgents() async throws -> [AgentSessionCard] { [agent] }
+    func resolve(utterance: String) async throws -> AgentResolveOutcome {
+        .ambiguous(candidates: [agent.agentID])
+    }
+
+    func send(_ request: AgentDispatchRequest) async throws {
+        await sendStarted.open()
+        await sendRelease.wait()
+    }
+
+    func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
+
+    func waitUntilSendStarts() async { await sendStarted.wait() }
+    func resumeSend() async { await sendRelease.open() }
+}
+
+private extension AgentDispatchHUDPresentation {
+    var isConfirmationForTest: Bool {
+        if case .confirmation = self { return true }
+        return false
+    }
+}
+
+private func drainVoiceTaskMainActorTasks() async {
+    for _ in 0..<10 {
+        await Task.yield()
     }
 }
 

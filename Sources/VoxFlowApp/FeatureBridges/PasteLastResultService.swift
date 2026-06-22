@@ -24,6 +24,19 @@ protocol ClipboardImageProviding: AnyObject {
 
 protocol TextOCRRecognizing: AnyObject, Sendable {
     func recognizeText(in image: CGImage) async throws -> String
+    /// 识别图像中的文字，返回每行的文本和 bounding box（image 坐标，top-left origin，points）。
+    func recognizeTextLines(in image: CGImage) async throws -> [OCRLine]
+}
+
+/// 一行 OCR 识别结果。boundingBox 使用 image 像素坐标，原点在左上角（top-left）。
+public struct OCRLine: Equatable, Sendable {
+    public let text: String
+    public let boundingBox: CGRect
+
+    public init(text: String, boundingBox: CGRect) {
+        self.text = text
+        self.boundingBox = boundingBox
+    }
 }
 
 enum PasteLastResultOutcome: Equatable {
@@ -66,22 +79,28 @@ final class PasteLastResultService {
     func pasteLastResult() async -> PasteLastResultOutcome {
         guard let text = lastResultStore.lastResultText?.trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
+            AppLogger.dictation.debug("paste_last_result no cached text")
             return .noTextAvailable
         }
+        AppLogger.dictation.debug("paste_last_result using cached text length=\(text.count)")
         do {
             return try await pasteText(text, success: .pastedLastResult, shouldRemember: false)
         } catch is CancellationError {
+            AppLogger.general.debug("paste_last_result cancelled")
             return .outputFailed(.cancelled)
         } catch {
+            AppLogger.general.error("paste_last_result failed: \(error.localizedDescription)")
             return .outputFailed(.injectionFailed(reason: error.localizedDescription))
         }
     }
 
     func pasteClipboardImageOCR() async -> PasteLastResultOutcome {
         guard isImageOCREnabled() else {
-            return .ocrFailed("剪贴板图片 OCR 未启用")
+            AppLogger.dictation.warning("paste_clipboard_image_ocr disabled")
+            return .ocrFailed("剪贴板图片识别未启用")
         }
         guard let image = clipboardImageProvider.currentImage() else {
+            AppLogger.dictation.warning("paste_clipboard_image_ocr no image")
             return .ocrFailed("剪贴板里没有可识别的图片")
         }
         let originalTarget = targetProvider.currentTarget()
@@ -93,14 +112,17 @@ final class PasteLastResultService {
         originalTarget: DictationTarget?
     ) async -> PasteLastResultOutcome {
         do {
+            AppLogger.dictation.debug("paste_clipboard_image_ocr start")
             try Task.checkCancellation()
             let text = try await ocrRecognizer
                 .recognizeText(in: image)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             try Task.checkCancellation()
             guard !text.isEmpty else {
+                AppLogger.dictation.warning("paste_clipboard_image_ocr empty text")
                 return .ocrFailed("未识别到图片文字")
             }
+            AppLogger.general.debug("paste_clipboard_image_ocr recognized length=\(text.count)")
             return try await pasteText(
                 text,
                 success: .pastedOCRText,
@@ -108,8 +130,10 @@ final class PasteLastResultService {
                 originalTarget: originalTarget
             )
         } catch is CancellationError {
+            AppLogger.general.debug("paste_clipboard_image_ocr cancelled")
             return .ocrFailed("已取消")
         } catch {
+            AppLogger.general.error("paste_clipboard_image_ocr failed: \(error.localizedDescription)")
             return .ocrFailed(error.localizedDescription)
         }
     }
@@ -122,6 +146,7 @@ final class PasteLastResultService {
     ) async throws -> PasteLastResultOutcome {
         try Task.checkCancellation()
         let target = targetProvider.currentTarget()
+        AppLogger.dictation.debug("paste_text start len=\(text.count) target=\(target?.bundleID ?? "nil")")
         let result = await outputService.deliver(
             text: text,
             mode: .dictation,
@@ -130,11 +155,13 @@ final class PasteLastResultService {
         )
         try Task.checkCancellation()
         guard result.isPasteLastResultSuccess else {
+            AppLogger.general.warning("paste_text failed kind=\(result.kind.rawValue)")
             return .outputFailed(result)
         }
         if shouldRemember {
             lastResultStore.setLastResultText(text)
         }
+        AppLogger.dictation.info("paste_text success outcome=\(success)")
         return success
     }
 }

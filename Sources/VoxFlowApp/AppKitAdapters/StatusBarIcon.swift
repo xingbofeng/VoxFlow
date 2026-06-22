@@ -1,6 +1,8 @@
 import AppKit
 
 enum StatusBarIcon {
+    private static let logger = AppLogger.general
+
     static let accessibilityName = ProductBrand.chineseDisplayName
     static let visibleTitle = ""
     static let imagePosition: NSControl.ImagePosition = .imageOnly
@@ -25,14 +27,18 @@ enum StatusBarIcon {
 
     @MainActor
     static func restoreVisibility(of statusItem: NSStatusItem) {
+        let title = statusItem.button?.title ?? "nil"
+        logger.debug("StatusBarIcon restoreVisibility title=\(title) visible=\(statusItem.isVisible)")
         statusItem.autosaveName = NSStatusItem.AutosaveName(autosaveName)
         statusItem.isVisible = true
+        logger.debug("StatusBarIcon restoreVisibility done")
     }
 
     @MainActor
     @discardableResult
     static func configure(_ statusItem: NSStatusItem, usesGrayIcon: Bool = false) -> Bool {
         restoreVisibility(of: statusItem)
+        logger.debug("StatusBarIcon configure start usesGrayIcon=\(usesGrayIcon)")
         statusItem.length = preferredLength
         guard let button = statusItem.button else { return false }
         button.identifier = buttonIdentifier
@@ -42,6 +48,7 @@ enum StatusBarIcon {
         button.toolTip = tooltip
         button.contentTintColor = usesGrayIcon ? .secondaryLabelColor : nil
         button.setAccessibilityLabel(accessibilityName)
+        logger.debug("StatusBarIcon configured")
         return true
     }
 
@@ -69,6 +76,7 @@ enum StatusBarIcon {
         bundleIdentifiers: [String] = persistedBundleIdentifiers,
         defaultsFactory: (String) -> UserDefaults? = { UserDefaults(suiteName: $0) }
     ) {
+        logger.debug("StatusBarIcon clearPersistedVisibilityState bundleCount=\(bundleIdentifiers.count)")
         for bundleIdentifier in bundleIdentifiers {
             let defaults: UserDefaults?
             if bundleIdentifier == ProductBrand.bundleIdentifier {
@@ -77,11 +85,13 @@ enum StatusBarIcon {
                 defaults = defaultsFactory(bundleIdentifier)
             }
             guard let defaults else { continue }
+            logger.debug("StatusBarIcon clear persisted for bundle=\(bundleIdentifier)")
             clearPersistedVisibilityState(from: defaults)
         }
     }
 
     private static func clearPersistedVisibilityState(from defaults: UserDefaults) {
+        logger.debug("StatusBarIcon clearPersistedVisibilityState from defaults")
         for autosaveName in persistedAutosaveNames {
             defaults.removeObject(forKey: "NSStatusItem Preferred Position \(autosaveName)")
             defaults.removeObject(forKey: "NSStatusItem Visible \(autosaveName)")

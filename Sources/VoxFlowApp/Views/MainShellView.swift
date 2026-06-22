@@ -7,7 +7,6 @@ struct MainShellView: View {
     @State private var applicationPointerMonitor: Any?
     @ObservedObject var viewModel: WorkbenchViewModel
     @ObservedObject var homeViewModel: HomeDashboardViewModel
-    @ObservedObject var glossaryViewModel: GlossaryViewModel
     @ObservedObject var voiceCorrectionViewModel: VoiceCorrectionViewModel
     @ObservedObject var styleViewModel: StyleViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
@@ -15,32 +14,40 @@ struct MainShellView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject var fileTranscriptionViewModel: FileTranscriptionViewModel
     @ObservedObject var notesViewModel: NotesViewModel
+    @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
     @ObservedObject var navigationRouter: WorkbenchNavigationRouter
 
     var body: some View {
-        HStack(spacing: 0) {
-            if isSidebarVisible {
-                VStack(spacing: 0) {
-                    sidebarToggle(alignment: .leading)
-                    Divider()
-                    SidebarView(selectedRoute: $selectedRoute)
-                }
-                    .frame(width: 220)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                Divider()
-                detailView
-            } else {
-                HStack(alignment: .top, spacing: 0) {
+        ZStack {
+            HStack(spacing: 0) {
+                if isSidebarVisible {
                     VStack(spacing: 0) {
                         sidebarToggle(alignment: .leading)
-                        Spacer(minLength: 0)
+                        Divider()
+                        SidebarView(selectedRoute: $selectedRoute)
                     }
-                    .frame(width: 56)
-                    .frame(maxHeight: .infinity)
-                    .background(AppTheme.ColorToken.sidebarBackground)
+                        .frame(minWidth: 220, idealWidth: 220, maxWidth: 220)
+                        .layoutPriority(1)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                     Divider()
                     detailView
+                } else {
+                    HStack(alignment: .top, spacing: 0) {
+                        VStack(spacing: 0) {
+                            sidebarToggle(alignment: .leading)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minWidth: 56, idealWidth: 56, maxWidth: 56)
+                        .frame(maxHeight: .infinity)
+                        .background(AppTheme.ColorToken.sidebarBackground)
+                        Divider()
+                        detailView
+                    }
                 }
+            }
+
+            if let detail = homeViewModel.selectedDetail {
+                HomeHistoryDetailOverlay(viewModel: homeViewModel, detail: detail)
             }
         }
         .frame(minWidth: 1_260, minHeight: 720)
@@ -89,14 +96,14 @@ struct MainShellView: View {
             route: $selectedRoute,
             snapshot: viewModel.snapshot,
             homeViewModel: homeViewModel,
-            glossaryViewModel: glossaryViewModel,
             voiceCorrectionViewModel: voiceCorrectionViewModel,
             styleViewModel: styleViewModel,
             llmProviderViewModel: llmProviderViewModel,
             asrProviderViewModel: asrProviderViewModel,
             settingsViewModel: settingsViewModel,
             fileTranscriptionViewModel: fileTranscriptionViewModel,
-            notesViewModel: notesViewModel
+            notesViewModel: notesViewModel,
+            screenshotRecordViewModel: screenshotRecordViewModel
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.ColorToken.pageBackground)
@@ -130,7 +137,6 @@ private struct WorkbenchDetailView: View {
     @Binding var route: NavigationRoute
     let snapshot: WorkbenchSnapshot
     @ObservedObject var homeViewModel: HomeDashboardViewModel
-    @ObservedObject var glossaryViewModel: GlossaryViewModel
     @ObservedObject var voiceCorrectionViewModel: VoiceCorrectionViewModel
     @ObservedObject var styleViewModel: StyleViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
@@ -138,6 +144,7 @@ private struct WorkbenchDetailView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject var fileTranscriptionViewModel: FileTranscriptionViewModel
     @ObservedObject var notesViewModel: NotesViewModel
+    @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
 
     var body: some View {
         switch route {
@@ -149,8 +156,8 @@ private struct WorkbenchDetailView: View {
             FileTranscriptionView(viewModel: fileTranscriptionViewModel)
         case .notes:
             NotesView(viewModel: notesViewModel)
-        case .glossary:
-            GlossaryView(viewModel: glossaryViewModel)
+        case .screenshotRecord:
+            ScreenshotRecordView(viewModel: screenshotRecordViewModel)
         case .voiceCorrection:
             VoiceCorrectionView(viewModel: voiceCorrectionViewModel)
         case .styles:

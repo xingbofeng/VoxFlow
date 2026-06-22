@@ -49,7 +49,7 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         let buffer: AVAudioPCMBuffer
     }
 
-    enum PermissionStatus: Equatable {
+    enum PermissionStatus: String, Equatable {
         case granted
         case denied
         case notDetermined
@@ -107,9 +107,13 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
     // MARK: - Lifecycle
 
     func start() throws {
-        guard !isRecording else { return }
+        guard !isRecording else {
+            AppLogger.audio.debug("AudioRecorder start skipped: already recording")
+            return
+        }
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        AppLogger.audio.debug("AudioRecorder start sampleRate=\(inputFormat.sampleRate) channels=\(inputFormat.channelCount)")
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             self?.processCapturedBuffer(buffer)
@@ -122,8 +126,10 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         } catch {
             inputNode.removeTap(onBus: 0)
             engine.stop()
+            AppLogger.audio.error("AudioRecorder start failed: microphoneUnavailable")
             throw AudioRecorderError.microphoneUnavailable
         }
+        AppLogger.audio.info("AudioRecorder started")
     }
 
     func stop() {
@@ -132,9 +138,11 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         engine.stop()
         engine.reset()
         isRecording = false
+        AppLogger.audio.debug("AudioRecorder stopped")
     }
 
     func drain() {
+        AppLogger.audio.debug("AudioRecorder drain")
         eventDispatcher.drain()
     }
 

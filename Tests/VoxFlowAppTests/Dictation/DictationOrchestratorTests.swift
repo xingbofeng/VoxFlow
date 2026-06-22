@@ -1,11 +1,81 @@
 import AVFoundation
 import VoxFlowAudio
 import VoxFlowTextInsertion
+import VoxFlowVoiceCorrection
 import XCTest
 @testable import VoxFlowApp
 
 @MainActor
 final class DictationOrchestratorTests: XCTestCase {
+    func testOrdinaryDictationPreparesContextBoostAndCancellationCleansItUp() throws {
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        )
+        let target = DictationTarget(
+            bundleID: "com.example.editor",
+            appName: "Editor",
+            pid: 42
+        )
+        let orchestrator = makeOrchestrator(
+            pipeline: pipeline,
+            targetProvider: StaticDictationTargetProvider(target: target)
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+
+        XCTAssertEqual(pipeline.preparedTargets, [target])
+
+        orchestrator.cancel()
+
+        XCTAssertEqual(pipeline.cancelContextBoostCallCount, 1)
+    }
+
+    func testOrdinaryDictationStartFailureCancelsPreparedContextBoost() {
+        let audioRecorder = FakeAudioRecorder()
+        audioRecorder.startError = TestError.expected
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        )
+        let orchestrator = makeOrchestrator(
+            audioRecorder: audioRecorder,
+            pipeline: pipeline
+        )
+
+        XCTAssertThrowsError(try orchestrator.start(configuration: .appleChinese))
+
+        XCTAssertEqual(pipeline.preparedTargets.count, 1)
+        XCTAssertEqual(pipeline.cancelContextBoostCallCount, 1)
+    }
+
+    func testEmptyFinalTranscriptCancelsPreparedContextBoost() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        )
+        let orchestrator = makeOrchestrator(engine: engine, pipeline: pipeline)
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "  ", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(pipeline.cancelContextBoostCallCount, 1)
+    }
+
+    func testRecognitionFailureCancelsPreparedContextBoost() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "", finalText: "")
+        )
+        let orchestrator = makeOrchestrator(engine: engine, pipeline: pipeline)
+
+        try orchestrator.start(configuration: .appleChinese)
+        engine.fail(TestError.expected)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(pipeline.cancelContextBoostCallCount, 1)
+    }
+
     func testFinalTranscriptIsProcessedInjectedAndSavedToHistory() async throws {
         let engine = FakeASREngine()
         let audioRecorder = FakeAudioRecorder()
@@ -381,6 +451,86 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(injector.injectedTexts, ["ASR 原文"])
     }
 
+    func testEscapeDuringTextCorrectionInjectsRawTextInsteadOfCancelling() async throws {
+        let engine = FakeASREngine()
+        let pipeline = SuspendedTextPipeline()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "纠错前原文", isFinal: true)
+        await drainMainActorTasks()
+        XCTAssertEqual(orchestrator.state, .processing)
+
+        XCTAssertTrue(orchestrator.handleEscapeKey())
+        await drainMainActorTasks()
+
+        XCTAssertFalse(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, ["纠错前原文"])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "纠错前原文")
+        XCTAssertEqual(history.savedEntries.first?.finalText, "纠错前原文")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testEscapeWhileWaitingForFinalWithVisibleTranscriptInjectsRawTextInsteadOfCancelling() async throws {
+        let engine = FakeASREngine()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let clock = CapturingSleepClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            injector: injector,
+            history: history,
+            clock: clock,
+            finalTimeoutNanoseconds: 1
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        engine.emit(text: "截图里看到的原文", isFinal: false)
+        orchestrator.release()
+        let scheduledTimeout = await waitUntil(timeout: 1.0) {
+            clock.requestedNanoseconds != nil
+        }
+        XCTAssertTrue(scheduledTimeout)
+        XCTAssertEqual(orchestrator.state, .waitingForFinal)
+
+        XCTAssertTrue(orchestrator.handleEscapeKey())
+        await drainMainActorTasks()
+
+        XCTAssertFalse(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, ["截图里看到的原文"])
+        XCTAssertEqual(history.savedEntries.first?.rawText, "截图里看到的原文")
+        XCTAssertEqual(history.savedEntries.first?.finalText, "截图里看到的原文")
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testEscapeBeforeTextCorrectionStillCancelsWithoutInjection() throws {
+        let engine = FakeASREngine()
+        let injector = FakeTextInjector()
+        let history = CapturingHistoryRepository()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            injector: injector,
+            history: history
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+
+        XCTAssertFalse(orchestrator.handleEscapeKey())
+
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(injector.injectedTexts, [])
+        XCTAssertEqual(history.savedEntries, [])
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     func testTargetApplicationIsCapturedWhenDictationStarts() async throws {
         let engine = FakeASREngine()
         let pipeline = FakeTextPipeline(
@@ -514,6 +664,103 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(orchestrator.state, .idle)
     }
 
+    func testSuccessfulInjectedDictationSchedulesCorrectionObservation() async throws {
+        let engine = FakeASREngine()
+        let event = CorrectionEvent(
+            ruleID: UUID(),
+            original: "q 问",
+            replacement: "Qwen",
+            range: CorrectionTextRange(location: 0, length: 4),
+            scope: .global,
+            source: .manual
+        )
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "Qwen",
+                correctionEvents: [event]
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            targetProvider: StaticDictationTargetProvider(target: target),
+            correctionObservationScheduler: observer
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(observer.observations.map(\.insertedText), ["Qwen"])
+        XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
+        XCTAssertEqual(observer.observations.first?.context.isSecureField, false)
+        XCTAssertEqual(observer.observations.first?.appliedEvents, [event])
+    }
+
+    func testOCRContextBoostDoesNotSkipCorrectionObservation() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "Qwen3-ASR",
+                trace: TextProcessingTrace(
+                    contextBoost: ContextBoostTrace(
+                        appName: "Editor",
+                        bundleID: "com.example.editor",
+                        hotwords: ["Qwen3-ASR"],
+                        source: "current_window_ocr",
+                        ttlSeconds: 120,
+                        appliedToLLMPrompt: true,
+                        failureReason: nil
+                    )
+                )
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            targetProvider: StaticDictationTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(observer.observations.map(\.insertedText), ["Qwen3-ASR"])
+        XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
+    }
+
+    func testSecureDictationSkipsCorrectionObservationAndMarksCorrectionContextSecure() async throws {
+        let engine = FakeASREngine()
+        let pipeline = CapturingDictationContextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "raw")
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            correctionObservationScheduler: observer,
+            isFocusedTextFieldSecure: { true }
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(pipeline.capturedContexts.map(\.isSecureField), [true])
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
     func testAgentComposeUsesRecordingStateAndDelegatesFinalTranscript() async throws {
         let engine = FakeASREngine()
         let audioRecorder = FakeAudioRecorder()
@@ -565,6 +812,7 @@ final class DictationOrchestratorTests: XCTestCase {
         let agentHandler = FakeAgentDispatchHandler(
             presentation: .fallbackInput(text: "检查一下按钮")
         )
+        agentHandler.emitsPresentationOnFinish = false
         let orchestrator = DictationOrchestrator(
             asrEngineFactory: FakeASREngineFactory(engine: engine),
             audioRecorder: FakeAudioRecorder(),
@@ -575,6 +823,10 @@ final class DictationOrchestratorTests: XCTestCase {
             outputService: outputService,
             agentDispatchHandler: agentHandler
         )
+        var agentDispatchPresentations: [AgentDispatchHUDPresentation] = []
+        orchestrator.onAgentDispatchPresentation = {
+            agentDispatchPresentations.append($0)
+        }
 
         try orchestrator.start(configuration: .appleChinese, mode: .agentDispatch)
         targetProvider.target = currentTarget
@@ -591,9 +843,64 @@ final class DictationOrchestratorTests: XCTestCase {
                 originalTarget: originalTarget
             ),
         ])
-        XCTAssertEqual(history.savedEntries.first?.rawText, "检查一下按钮")
-        XCTAssertEqual(history.savedEntries.first?.finalText, "检查一下按钮。")
+        XCTAssertTrue(history.savedEntries.isEmpty)
         XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertEqual(agentDispatchPresentations, [.fallbackInput(text: "检查一下按钮。")])
+    }
+
+    func testEscapeDuringAgentDispatchFallbackCorrectionInjectsFallbackRawText() async throws {
+        let engine = FakeASREngine()
+        let pipeline = SuspendedTextPipeline()
+        let outputService = CapturingOutputService(result: .injected)
+        let history = CapturingHistoryRepository()
+        let originalTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let currentTarget = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let targetProvider = MutableTargetProvider(target: originalTarget)
+        let agentHandler = FakeAgentDispatchHandler(
+            presentation: .fallbackInput(text: "检查一下按钮")
+        )
+        agentHandler.emitsPresentationOnFinish = false
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: pipeline,
+            textInjector: FakeTextInjector(),
+            historyRepository: history,
+            targetProvider: targetProvider,
+            outputService: outputService,
+            agentDispatchHandler: agentHandler
+        )
+        var agentDispatchPresentations: [AgentDispatchHUDPresentation] = []
+        orchestrator.onAgentDispatchPresentation = {
+            agentDispatchPresentations.append($0)
+        }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentDispatch)
+        targetProvider.target = currentTarget
+        orchestrator.release()
+        engine.emit(text: "检查一下按钮", isFinal: true)
+        let startedCorrection = await waitUntil(timeout: 1.0) {
+            pipeline.hasStarted && orchestrator.state == .processing
+        }
+        XCTAssertTrue(startedCorrection)
+
+        XCTAssertTrue(orchestrator.handleEscapeKey())
+        await drainMainActorTasks()
+
+        XCTAssertFalse(engine.didCancel)
+        XCTAssertEqual(outputService.deliveries, [
+            CapturingOutputService.Delivery(
+                text: "检查一下按钮",
+                mode: .dictation,
+                target: currentTarget,
+                originalTarget: originalTarget
+            ),
+        ])
+        XCTAssertEqual(agentHandler.completedFallback?.finalText, "检查一下按钮")
+        XCTAssertEqual(agentHandler.completedFallback?.outputResult, .injected)
+        XCTAssertEqual(history.savedEntries, [])
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertEqual(agentDispatchPresentations, [.fallbackInput(text: "检查一下按钮")])
     }
 
     func testAgentComposeStartPassesASRMetadataToHandler() throws {
@@ -722,7 +1029,12 @@ final class DictationOrchestratorTests: XCTestCase {
         clock: any AppClock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000)),
         agentComposeHandler: (any AgentComposeHandling)? = nil,
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
-        finalTimeoutNanoseconds: UInt64 = 15_000_000_000
+        finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
+        targetProvider: any DictationTargetProviding = StaticDictationTargetProvider(
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        ),
+        correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
     ) -> DictationOrchestrator {
         DictationOrchestrator(
             asrEngineFactory: FakeASREngineFactory(engine: engine),
@@ -731,11 +1043,11 @@ final class DictationOrchestratorTests: XCTestCase {
             textInjector: injector,
             historyRepository: history,
             clock: clock,
-            targetProvider: StaticDictationTargetProvider(
-                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
-            ),
+            targetProvider: targetProvider,
             agentComposeHandler: agentComposeHandler,
             audioCaptureCoordinator: audioCaptureCoordinator,
+            correctionObservationScheduler: correctionObservationScheduler,
+            isFocusedTextFieldSecure: isFocusedTextFieldSecure,
             finalTimeoutNanoseconds: finalTimeoutNanoseconds
         )
     }
@@ -1015,9 +1327,19 @@ private final class SuspendedTextPipeline: TextProcessing {
 private final class FakeTextPipeline: TextProcessing {
     let result: TextProcessingResult
     private(set) var targets: [DictationTarget?] = []
+    private(set) var preparedTargets: [DictationTarget?] = []
+    private(set) var cancelContextBoostCallCount = 0
 
     init(result: TextProcessingResult) {
         self.result = result
+    }
+
+    func prepareContextBoost(target: DictationTarget?) {
+        preparedTargets.append(target)
+    }
+
+    func cancelContextBoost() {
+        cancelContextBoostCallCount += 1
     }
 
     func process(_ rawText: String) async -> TextProcessingResult {
@@ -1026,7 +1348,9 @@ private final class FakeTextPipeline: TextProcessing {
             finalText: result.finalText,
             llmProviderID: result.llmProviderID,
             styleID: result.styleID,
-            warnings: result.warnings
+            warnings: result.warnings,
+            correctionEvents: result.correctionEvents,
+            appliedCorrectionEvents: result.appliedCorrectionEvents
         )
     }
 
@@ -1043,6 +1367,69 @@ private final class FakeTextPipeline: TextProcessing {
         targets.append(target)
         onRefinedTextUpdate(result.finalText)
         return await process(rawText)
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        targets.append(target)
+        onRefinedTextUpdate(result.finalText)
+        return TextProcessingResult(
+            rawText: rawText,
+            finalText: result.finalText,
+            llmProviderID: result.llmProviderID,
+            styleID: result.styleID,
+            warnings: result.warnings,
+            trace: result.trace,
+            correctionEvents: result.correctionEvents,
+            appliedCorrectionEvents: result.appliedCorrectionEvents
+        )
+    }
+}
+
+@MainActor
+private final class CapturingDictationContextPipeline: TextProcessing {
+    let result: TextProcessingResult
+    private(set) var capturedContexts: [CorrectionContext] = []
+
+    init(result: TextProcessingResult) {
+        self.result = result
+    }
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        result
+    }
+
+    func process(_ rawText: String, target: DictationTarget?) async -> TextProcessingResult {
+        result
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        if let correctionContext {
+            capturedContexts.append(correctionContext)
+        }
+        return result
+    }
+}
+
+@MainActor
+private final class CapturingCorrectionObservationScheduler: CorrectionObservationScheduling {
+    private(set) var observations: [(insertedText: String, context: CorrectionContext, appliedEvents: [CorrectionEvent])] = []
+
+    func scheduleObservation(
+        insertedText: String,
+        context: CorrectionContext,
+        appliedEvents: [CorrectionEvent]
+    ) {
+        observations.append((insertedText, context, appliedEvents))
     }
 }
 
@@ -1202,6 +1589,8 @@ private final class FakeAgentDispatchHandler: AgentDispatchHandling {
     private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
     private(set) var finishedTranscript: String?
     private(set) var completedFallback: (finalText: String, outputResult: OutputResult)?
+    private(set) var didBeginDefaultOutput = false
+    var emitsPresentationOnFinish = true
     var onPresentationChange: ((AgentDispatchHUDPresentation) -> Void)?
 
     init(presentation: AgentDispatchHUDPresentation) {
@@ -1219,12 +1608,18 @@ private final class FakeAgentDispatchHandler: AgentDispatchHandling {
 
     func finish(rawTranscript: String) async throws -> AgentDispatchHUDPresentation {
         finishedTranscript = rawTranscript
-        onPresentationChange?(presentation)
+        if emitsPresentationOnFinish {
+            onPresentationChange?(presentation)
+        }
         return presentation
     }
 
     func completeFallbackInput(finalText: String, outputResult: OutputResult) throws {
         completedFallback = (finalText, outputResult)
+    }
+
+    func beginDefaultOutput() {
+        didBeginDefaultOutput = true
     }
 
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async {}

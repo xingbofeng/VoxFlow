@@ -34,6 +34,7 @@ final class SQLiteTranscriptionJobRepository: TranscriptionJobRepository {
     }
 
     func save(_ job: TranscriptionJobRecord) throws {
+        AppLogger.database.debug("保存转录任务：id=\(job.id), status=\(job.status)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -74,10 +75,12 @@ final class SQLiteTranscriptionJobRepository: TranscriptionJobRepository {
             try statement.bind(job.completedAt.map(formatter.string(from:)), at: 14)
             _ = try statement.step()
         }
+        AppLogger.database.info("转录任务已保存：id=\(job.id)")
     }
 
     func job(id: String) throws -> TranscriptionJobRecord? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询转录任务：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, source_file_path, source_file_name, status, progress,
@@ -89,6 +92,7 @@ final class SQLiteTranscriptionJobRepository: TranscriptionJobRepository {
             )
             try statement.bind(id, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("转录任务不存在：id=\(id)")
                 return nil
             }
             return try row(from: statement)
@@ -96,6 +100,9 @@ final class SQLiteTranscriptionJobRepository: TranscriptionJobRepository {
     }
 
     func updateStatus(id: String, status: String, progress: Double, updatedAt: Date) throws {
+        AppLogger.database.debug(
+            "更新转录任务状态：id=\(id), status=\(status), progress=\(progress)"
+        )
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -113,15 +120,18 @@ final class SQLiteTranscriptionJobRepository: TranscriptionJobRepository {
     }
 
     func list() throws -> [TranscriptionJobRecord] {
+        AppLogger.database.debug("列出转录任务")
         return try databaseQueue.read { connection in
             let stmt = try connection.prepare("SELECT id, source_file_path, source_file_name, status, progress, raw_text, final_text, asr_provider_id, style_id, error_message, duration_ms, created_at, updated_at, completed_at FROM transcription_jobs ORDER BY created_at DESC")
             var records: [TranscriptionJobRecord] = []
             while try stmt.step() { records.append(try row(from: stmt)) }
+            AppLogger.database.debug("转录任务列表返回 count=\(records.count)")
             return records
         }
     }
 
     func delete(id: String) throws {
+        AppLogger.database.warning("删除转录任务：id=\(id)")
         try databaseQueue.write { connection in
             let stmt = try connection.prepare("DELETE FROM transcription_jobs WHERE id = ?")
             try stmt.bind(id, at: 1); _ = try stmt.step()

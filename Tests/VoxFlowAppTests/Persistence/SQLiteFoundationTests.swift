@@ -97,38 +97,6 @@ final class SQLiteFoundationTests: XCTestCase {
         XCTAssertFalse(tables.contains("replacement_rules"))
     }
 
-    func testAppDatabaseMigrationDropsLegacyGlossaryAndReplacementTables() throws {
-        let queue = try DatabaseQueue(connection: .inMemory())
-        try queue.write { connection in
-            try connection.execute(
-                """
-                CREATE TABLE schema_migrations (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    applied_at TEXT NOT NULL
-                );
-                CREATE TABLE glossary_terms (id TEXT PRIMARY KEY);
-                CREATE TABLE replacement_rules (id TEXT PRIMARY KEY);
-                INSERT INTO schema_migrations (id, name, applied_at)
-                VALUES
-                    (1, 'initial_schema', '2026-01-01T00:00:00Z'),
-                    (2, 'dictation_history_processing_trace', '2026-01-01T00:00:00Z'),
-                    (3, 'voice_tasks', '2026-01-01T00:00:00Z'),
-                    (4, 'llm_provider_timeout_30s', '2026-01-01T00:00:00Z'),
-                    (5, 'voice_task_asr_metadata', '2026-01-01T00:00:00Z');
-                """
-            )
-        }
-
-        try AppDatabase.migrator().migrate(queue)
-
-        let tables = try queue.read { connection in
-            try tableNames(on: connection)
-        }
-        XCTAssertFalse(tables.contains("glossary_terms"))
-        XCTAssertFalse(tables.contains("replacement_rules"))
-    }
-
     func testLLMProvidersStoreOnlyKeychainReference() throws {
         let queue = try DatabaseQueue(connection: .inMemory())
 

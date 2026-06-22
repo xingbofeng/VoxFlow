@@ -13,6 +13,7 @@ struct ASRProviderEvaluationRegistry {
     private let candidates: [ASRProviderEvaluationCandidate]
 
     init(candidates: [ASRProviderEvaluationCandidate]? = nil) {
+        AppLogger.general.debug("ASRProviderEvaluationRegistry init candidates=\(candidates?.count ?? 0)")
         self.candidates = candidates ?? [
             ASRProviderEvaluationCandidate(
                 descriptor: NVIDIANemotronProviderDescriptor.current,
@@ -24,10 +25,12 @@ struct ASRProviderEvaluationRegistry {
     }
 
     func allCandidates() -> [ASRProviderEvaluationCandidate] {
-        candidates
+        AppLogger.general.debug("ASRProviderEvaluationRegistry allCandidates count=\(candidates.count)")
+        return candidates
     }
 
     func candidate(id: String) -> ASRProviderEvaluationCandidate? {
-        candidates.first { $0.descriptor.id.rawValue == id }
+        AppLogger.general.debug("ASRProviderEvaluationRegistry candidate lookup id=\(id)")
+        return candidates.first { $0.descriptor.id.rawValue == id }
     }
 }

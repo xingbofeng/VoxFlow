@@ -16,7 +16,11 @@ struct KnownApplicationRegistry: Sendable {
 
     func lookup(bundleID: String) -> KnownApplicationEntry? {
         let key = bundleID.lowercased()
-        return entries.first { $0.bundleID.lowercased() == key }
+        let result = entries.first { $0.bundleID.lowercased() == key }
+        if result == nil {
+            AppLogger.general.debug("KnownApplicationRegistry miss bundleID=\(bundleID)")
+        }
+        return result
     }
 
     static func builtIn() -> KnownApplicationRegistry {

@@ -1,7 +1,7 @@
 const release = {
-  version: "1.4.0",
-  tag: "v1.4.0",
-  assetName: "VoxFlow-1.4.0-macOS.dmg"
+  version: "1.5.0",
+  tag: "v1.5.0",
+  assetName: "VoxFlow-1.5.0-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -12,13 +12,12 @@ const copy = {
     eyebrow: "原生 macOS 语音工作流",
     headlineA: "声音、截图、指令，",
     headlineB: "回到当前现场。",
-    heroCopy: "常驻菜单栏的输入层。按住说话即可写入当前光标，框选截图即可提取文字，喊出队员即可把任务投递给本地 Agent。",
+    heroCopy: "常驻菜单栏的输入层。按住说话即可写入当前光标，框选截图即可提取文字，喊出任务助手即可把任务投递给本地 Agent。",
     download: "下载 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · 免费开源`,
     transcript: "让声音越过键盘，直接抵达光标。",
     navHome: "首页",
-    navGlossary: "词汇表",
     navStyle: "风格",
     navFile: "文件转写",
     navNotes: "笔记",
@@ -36,7 +35,7 @@ const copy = {
     historyTwo: "把这段发到备忘录，保留中文语气。",
     flowLabel: "工作流",
     flowTitle: "不切窗口，<br>也不打断思路。",
-    flowCopy: "语音输入、易错词修正、截图 OCR、帮我说和 Vibe Coding 指挥都贴着当前应用完成。码上写只在你需要它时出现，结束后把现场恢复原样。",
+    flowCopy: "语音输入、易错词修正、截图 OCR、任务助手和 AI Coding 助手 调度都贴着当前应用完成。码上写只在你需要它时出现，结束后把现场恢复原样。",
     featureNativeTitle: "按住说话，松开写入",
     featureNativeCopy: "底部 HUD 显示实时转写和声音状态；松手后文本回到当前光标，不抢焦点，不自动发送。",
     featureCorrectionTitle: "易错词让技术词更稳",
@@ -44,10 +43,10 @@ const copy = {
     featureLanguageTitle: "截图也能变成可用文本",
     featureLanguageCopy: "剪贴板图片 OCR 直接粘贴识别结果；框选截图 OCR 打开结果面板，可继续翻译、总结或朗读。",
     featureRefineTitle: "把任务说给本地 Agent",
-    featureRefineCopy: "Vibe Coding 指挥中心识别队员、展示确认状态，并把语音指令投递给已注册的 Codex、Claude、CodeBuddy 或终端 Agent。",
+    featureRefineCopy: "AI Coding 助手 HUD 控制台识别任务助手、展示确认状态，并把语音指令投递给已注册的 Codex、Claude、CodeBuddy 或终端 Agent。",
     trustLabel: "隐私",
     privacyTitle: "你的输入现场，<br>结束后恢复原样。",
-    privacyCopy: "输入法临时切换后自动恢复，剪贴板完整还原。截图 OCR 和帮我说的视觉上下文不保存原图；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。",
+    privacyCopy: "输入法临时切换后自动恢复，剪贴板完整还原。截图 OCR 和任务助手的视觉上下文不保存原图；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。",
     ctaTitle: "让下一句话、下一张截图、<br>下一条指令直接进入工作流。",
     footer: "Swift & AppKit · 开源"
   },
@@ -61,7 +60,6 @@ const copy = {
     releaseNote: `${release.tag} · Free & open source`,
     transcript: "Let your voice skip the keyboard and meet the cursor.",
     navHome: "Home",
-    navGlossary: "Glossary",
     navStyle: "Style",
     navFile: "Files",
     navNotes: "Notes",
@@ -79,7 +77,7 @@ const copy = {
     historyTwo: "Turn the meeting note into a short reminder.",
     flowLabel: "Workflow",
     flowTitle: "No window switching.<br>No broken train of thought.",
-    flowCopy: "Dictation, Personal Corrections, Screenshot OCR, Agent Compose, and Vibe Coding stay attached to the app you are already using. VoxFlow appears only when needed and restores the workspace afterward.",
+    flowCopy: "Dictation, Personal Corrections, Screenshot OCR, Agent Compose, and AI Coding 助手 stay attached to the app you are already using. VoxFlow appears only when needed and restores the workspace afterward.",
     featureNativeTitle: "Hold to speak, release to insert",
     featureNativeCopy: "The bottom HUD shows live transcription and voice activity; released text returns to the current cursor without stealing focus or auto-submitting.",
     featureCorrectionTitle: "Personal Corrections stabilize technical terms",
@@ -87,7 +85,7 @@ const copy = {
     featureLanguageTitle: "Screenshots become usable text",
     featureLanguageCopy: "Clipboard image OCR pastes recognized text directly; screenshot OCR opens a result panel with translation, summary, and speech playback.",
     featureRefineTitle: "Speak tasks to local agents",
-    featureRefineCopy: "Vibe Coding resolves the teammate, shows confirmation state, and dispatches spoken instructions to registered Codex, Claude, CodeBuddy, or terminal agents.",
+    featureRefineCopy: "AI Coding 助手 resolves the task assistant, shows confirmation state, and dispatches spoken instructions to registered Codex, Claude, CodeBuddy, or terminal agents.",
     trustLabel: "Privacy",
     privacyTitle: "Your workspace returns<br>exactly as it was.",
     privacyCopy: "Input sources switch back automatically and the clipboard is restored. Screenshot OCR and Agent Compose do not persist source images; local models keep audio on-device, and audio leaves the Mac only when you select a cloud ASR provider.",
@@ -115,12 +113,9 @@ function setLanguage(language) {
   });
   languageLabel.textContent = language === "zh" ? "EN" : "中";
   if (heroPreview) {
-    heroPreview.src = language === "zh"
-      ? "assets/voiceinput-hero-zh.png"
-      : "assets/voiceinput-hero-en.png";
     heroPreview.alt = language === "zh"
-      ? "码上写 VoxFlow 工作台、输入活跃度和听写 HUD 预览"
-      : "VoxFlow workbench, input activity, and dictation HUD preview";
+      ? "码上写 VoxFlow 语音、OCR、易错词和 AI Coding 助手 工作流预览"
+      : "VoxFlow workflow preview for dictation, OCR, personal corrections, and AI Coding 助手";
   }
   languageButton.dataset.language = language;
   localStorage.setItem("voiceinput-language", language);

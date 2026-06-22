@@ -2,7 +2,8 @@ import Foundation
 
 enum AppDatabase {
     static func migrator(clock: any AppClock = SystemClock()) -> DatabaseMigrator {
-        DatabaseMigrator(
+        AppLogger.database.info("AppDatabase.migrator 创建")
+        return DatabaseMigrator(
             migrations: [
                 DatabaseMigration(id: 1, name: "initial_schema") { connection in
                     try connection.execute(initialSchemaSQL)
@@ -39,10 +40,34 @@ enum AppDatabase {
                 },
                 DatabaseMigration(id: 7, name: "voice_correction") { connection in
                     try connection.execute(voiceCorrectionSQL)
+                },
+                DatabaseMigration(id: 8, name: "voice_correction_scope_specific_unique_index") { connection in
+                    try connection.execute(voiceCorrectionUniqueIndexSQL)
+                },
+                DatabaseMigration(id: 9, name: "voice_correction_targets") { connection in
+                    try connection.execute(voiceCorrectionTargetsSQL)
+                    try connection.addColumnIfNeeded(
+                        table: "voice_correction_rules",
+                        column: "target_id",
+                        definition: "TEXT"
+                    )
+                    try connection.execute(voiceCorrectionTargetBackfillSQL)
+                },
+                DatabaseMigration(id: 10, name: "home_dashboard_query_indexes") { connection in
+                    try connection.execute(homeDashboardQueryIndexesSQL)
+                },
+                DatabaseMigration(id: 11, name: "screenshot_records_table") { connection in
+                    try connection.execute(screenshotRecordsSQL)
                 }
             ],
             clock: clock
         )
+    }
+
+    static func ensureRequiredRuntimeTables(_ databaseQueue: DatabaseQueue) throws {
+        try databaseQueue.write { connection in
+            try connection.execute(screenshotRecordsSQL)
+        }
     }
 
     static let voiceTasksSQL = """
@@ -71,6 +96,37 @@ enum AppDatabase {
     );
     CREATE INDEX IF NOT EXISTS idx_voice_tasks_status ON voice_tasks(status);
     CREATE INDEX IF NOT EXISTS idx_voice_tasks_created_at ON voice_tasks(created_at);
+    CREATE INDEX IF NOT EXISTS idx_voice_tasks_mode_created_at
+    ON voice_tasks(mode, created_at DESC);
+    """
+
+    static let homeDashboardQueryIndexesSQL = """
+    CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_created_at
+    ON dictation_history(deleted_at, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_voice_tasks_mode_created_at
+    ON voice_tasks(mode, created_at DESC);
+    """
+
+    static let screenshotRecordsSQL = """
+    CREATE TABLE IF NOT EXISTS screenshot_records (
+        id TEXT PRIMARY KEY,
+        ocr_text TEXT NOT NULL DEFAULT '',
+        translated_text TEXT,
+        summary_text TEXT,
+        image_path TEXT,
+        char_count INTEGER NOT NULL DEFAULT 0,
+        is_favorited INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_screenshot_records_created_at
+    ON screenshot_records(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_screenshot_records_deleted_created
+    ON screenshot_records(deleted_at, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_screenshot_records_favorited
+    ON screenshot_records(is_favorited, deleted_at);
     """
 
     static let voiceCorrectionSQL = """
@@ -97,9 +153,7 @@ enum AppDatabase {
         updated_at TEXT NOT NULL,
         last_applied_at TEXT
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_active_scope_original
-    ON voice_correction_rules(scope_type, IFNULL(scope_value, ''), original COLLATE NOCASE)
-    WHERE lifecycle = 'active';
+    \(voiceCorrectionUniqueIndexSQL)
     CREATE INDEX IF NOT EXISTS idx_voice_correction_rules_lifecycle
     ON voice_correction_rules(lifecycle, enabled);
 
@@ -135,6 +189,97 @@ enum AppDatabase {
     );
     """
 
+    static let voiceCorrectionUniqueIndexSQL = """
+    DROP INDEX IF EXISTS idx_voice_correction_active_scope_original;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_active_scope_original
+    ON voice_correction_rules(
+        scope_type,
+        IFNULL(scope_value, ''),
+        original COLLATE NOCASE,
+        IFNULL(provider_id, ''),
+        IFNULL(model_id, ''),
+        IFNULL(language, '')
+    )
+    WHERE lifecycle = 'active';
+    """
+
+    static let voiceCorrectionTargetsSQL = """
+    CREATE TABLE IF NOT EXISTS voice_correction_targets (
+        id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        normalized_text TEXT NOT NULL,
+        scope_type TEXT NOT NULL,
+        scope_value TEXT,
+        lifecycle TEXT NOT NULL,
+        source TEXT NOT NULL,
+        observed_count INTEGER NOT NULL DEFAULT 0,
+        applied_count INTEGER NOT NULL DEFAULT 0,
+        reverted_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_applied_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_targets_scope_text
+    ON voice_correction_targets(
+        scope_type,
+        IFNULL(scope_value, ''),
+        normalized_text COLLATE NOCASE
+    );
+    CREATE INDEX IF NOT EXISTS idx_voice_correction_targets_updated_at
+    ON voice_correction_targets(updated_at DESC);
+    """
+
+    static let voiceCorrectionTargetBackfillSQL = """
+    INSERT OR IGNORE INTO voice_correction_targets (
+        id, text, normalized_text, scope_type, scope_value,
+        lifecycle, source, observed_count, applied_count, reverted_count,
+        created_at, updated_at, last_applied_at
+    )
+    SELECT
+        lower(hex(randomblob(4))) || '-' ||
+            lower(hex(randomblob(2))) || '-4' ||
+            substr(lower(hex(randomblob(2))), 2) || '-' ||
+            substr('89ab', abs(random()) % 4 + 1, 1) ||
+            substr(lower(hex(randomblob(2))), 2) || '-' ||
+            lower(hex(randomblob(6))),
+        trim(replacement),
+        lower(trim(replacement)),
+        scope_type,
+        scope_value,
+        CASE
+            WHEN SUM(CASE WHEN lifecycle = 'active' AND enabled = 1 THEN 1 ELSE 0 END) > 0 THEN 'active'
+            WHEN SUM(CASE WHEN lifecycle = 'candidate' THEN 1 ELSE 0 END) > 0 THEN 'candidate'
+            ELSE 'suspended'
+        END,
+        CASE
+            WHEN SUM(CASE WHEN source = 'manual' THEN 1 ELSE 0 END) > 0 THEN 'manual'
+            WHEN SUM(CASE WHEN source = 'automaticLearning' THEN 1 ELSE 0 END) > 0 THEN 'automaticLearning'
+            ELSE 'imported'
+        END,
+        SUM(observed_count),
+        SUM(applied_count),
+        SUM(reverted_count),
+        MIN(created_at),
+        MAX(updated_at),
+        MAX(last_applied_at)
+    FROM voice_correction_rules
+    WHERE target_id IS NULL
+      AND trim(replacement) != ''
+    GROUP BY scope_type, IFNULL(scope_value, ''), lower(trim(replacement));
+
+    UPDATE voice_correction_rules
+    SET target_id = (
+        SELECT target.id
+        FROM voice_correction_targets AS target
+        WHERE target.scope_type = voice_correction_rules.scope_type
+          AND IFNULL(target.scope_value, '') = IFNULL(voice_correction_rules.scope_value, '')
+          AND target.normalized_text = lower(trim(voice_correction_rules.replacement))
+        LIMIT 1
+    )
+    WHERE target_id IS NULL
+      AND trim(replacement) != '';
+    """
+
     static let initialSchemaSQL = """
     CREATE TABLE IF NOT EXISTS dictation_history (
         id TEXT PRIMARY KEY,
@@ -161,6 +306,9 @@ enum AppDatabase {
 
     CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_at
     ON dictation_history(deleted_at);
+
+    CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_created_at
+    ON dictation_history(deleted_at, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS style_profiles (
         id TEXT PRIMARY KEY,

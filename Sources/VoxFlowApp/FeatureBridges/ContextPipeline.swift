@@ -37,6 +37,7 @@ struct ContextPipeline: ContextCollecting {
         target: DictationTarget?,
         visionSupported: Bool
     ) async -> ContextSnapshot {
+        AppLogger.dictation.debug("开始收集上下文：targetApp=\(target?.appName ?? "-"), pid=\(target?.pid?.description ?? "-"), visionSupported=\(visionSupported)")
         let deadline = ContinuousClock.now.advanced(by: .milliseconds(Self.timeoutMilliseconds))
 
         var windowTitle: String?
@@ -51,6 +52,7 @@ struct ContextPipeline: ContextCollecting {
 
         // 1. Window metadata
         if let target {
+            AppLogger.dictation.debug("使用目标窗口元数据 seed：appName=\(target.appName ?? "-"), bundleID=\(target.bundleID ?? "-"), title=\(target.windowTitle ?? "-")")
             windowTitle = target.windowTitle ?? windowInfoProvider.windowTitle(pid: target.pid)
             if bundleID == nil { bundleID = target.bundleID }
             if appName == nil { appName = target.appName }
@@ -62,6 +64,7 @@ struct ContextPipeline: ContextCollecting {
         // 2. Accessibility collection. Race synchronous AX work against a hard timeout.
         guard let accessibilityResult = await collectAccessibility(pid: target?.pid) else {
             warnings.append("context_collection_timeout")
+            AppLogger.dictation.warning("上下文收集超时（无障碍采集未返回）")
             return ContextSnapshot(
                 windowTitle: windowTitle,
                 targetAppBundleID: bundleID,
@@ -79,6 +82,7 @@ struct ContextPipeline: ContextCollecting {
         // 3. Security gate: block all accessibility collection for secure fields.
         if accessibilityResult.isSecure {
             warnings.append("secure_text_field_detected")
+            AppLogger.dictation.warning("命中文本安全字段，跳过上下文回填")
             let snapshot = ContextSnapshot(
                 windowTitle: windowTitle,
                 targetAppBundleID: bundleID,
@@ -98,18 +102,21 @@ struct ContextPipeline: ContextCollecting {
            !Self.isNoise(visible) {
             visibleText = visible
             sources.append(.accessibilityVisibleText)
+            AppLogger.dictation.debug("可访问性可见文本命中: len=\(visible.count)")
         }
 
         if let selected = accessibilityResult.selectedText.flatMap(ContextTextSanitizer.sanitize),
            !Self.isNoise(selected) {
             selectedText = selected
             sources.append(.accessibilitySelectedText)
+            AppLogger.dictation.debug("可访问性选中文本命中: len=\(selected.count)")
         }
 
         if let inputArea = accessibilityResult.inputAreaText.flatMap(ContextTextSanitizer.sanitize),
            !Self.isNoise(inputArea) {
             inputAreaText = inputArea
             sources.append(.accessibilityInputArea)
+            AppLogger.dictation.debug("可访问性输入区文本命中: len=\(inputArea.count)")
         }
 
         // 6. Deduplicate
@@ -161,19 +168,28 @@ struct ContextPipeline: ContextCollecting {
                             trimmedLength = (visibleText?.count ?? 0)
                                 + (selectedText?.count ?? 0)
                                 + (inputAreaText?.count ?? 0)
+                            AppLogger.dictation.debug("可视化后置文本命中: len=\(trimmedLength)")
+                        } else {
+                            AppLogger.dictation.debug("OCR 未返回可用文本")
                         }
                     } else {
                         warnings.append("screen_recording_not_authorized")
+                        AppLogger.dictation.warning("未授权屏幕采集，无法进行视觉兜底")
                     }
                     // Screenshot is transient; only OCR text is retained in the context snapshot.
                 } else {
                     warnings.append("visual_fallback_timeout")
+                    AppLogger.dictation.warning("视觉兜底超时（已超过 \(Self.timeoutMilliseconds)ms）")
                 }
             } else {
                 warnings.append("vision_not_supported")
+                AppLogger.dictation.debug("视觉能力不支持，跳过 OCR 兜底")
             }
+        } else {
+            AppLogger.dictation.debug("可访问性文本已满足最小阈值：\(accessibilityTotal)")
         }
 
+        AppLogger.dictation.info("上下文收集完成：windowTitle=\(windowTitle ?? "-"), sources=\(sources.map(\.rawValue).joined(separator: ",")), warnings=\(warnings.count), trimmedLength=\(trimmedLength)")
         return ContextSnapshot(
             windowTitle: windowTitle,
             targetAppBundleID: bundleID,
@@ -618,9 +634,11 @@ struct SystemScreenshotProvider: ScreenshotProviding {
         return AccessibilityVisibleTextSummary.make(from: candidates)
     }
 
-    static func makeRecognitionRequest() -> VNRecognizeTextRequest {
+    static func makeRecognitionRequest(
+        quality: ContextBoostOCRQuality = .accurate
+    ) -> VNRecognizeTextRequest {
         let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
+        request.recognitionLevel = quality == .accurate ? .accurate : .fast
         request.usesLanguageCorrection = true
         request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
         return request
@@ -650,7 +668,7 @@ struct SystemScreenshotProvider: ScreenshotProviding {
         return eligible.max { $0.frame.area < $1.frame.area }
     }
 
-    private func captureWindowImage(target: DictationTarget?) async -> CGImage? {
+    func captureWindowImage(target: DictationTarget?) async -> CGImage? {
         guard let target else {
             return nil
         }

@@ -57,6 +57,7 @@ final class SQLiteASRProviderRepository: ASRProviderRepository {
     }
 
     func save(_ provider: ASRProviderRecord) throws {
+        AppLogger.database.debug("保存 ASR 提供商：id=\(provider.id), default=\(provider.isDefault)")
         try databaseQueue.write { connection in
             if provider.isDefault {
                 try connection.execute("UPDATE asr_providers SET is_default = 0")
@@ -98,10 +99,12 @@ final class SQLiteASRProviderRepository: ASRProviderRepository {
             try statement.bind(formatter.string(from: provider.updatedAt), at: 13)
             _ = try statement.step()
         }
+        AppLogger.database.info("ASR 提供商已保存：id=\(provider.id)")
     }
 
     func list() throws -> [ASRProviderRecord] {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("列出 ASR 提供商")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, display_name, provider_type, capabilities_json, tags_json,
@@ -115,20 +118,24 @@ final class SQLiteASRProviderRepository: ASRProviderRepository {
             while try statement.step() {
                 records.append(try row(from: statement))
             }
+            AppLogger.database.debug("ASR 提供商列表返回 count=\(records.count)")
             return records
         }
     }
 
     func provider(id: String) throws -> ASRProviderRecord? {
+        AppLogger.database.debug("查询 ASR 提供商：id=\(id)")
         return try databaseQueue.read { connection in
             let stmt = try connection.prepare("SELECT id, display_name, provider_type, capabilities_json, tags_json, config_json, enabled, is_default, last_health_status, last_health_message, last_checked_at, created_at, updated_at FROM asr_providers WHERE id = ?")
             try stmt.bind(id, at: 1)
             guard try stmt.step() else { return nil }
+            AppLogger.database.warning("ASR 提供商不存在：id=\(id)")
             return try row(from: stmt)
         }
     }
 
     func delete(id: String) throws {
+        AppLogger.database.warning("删除 ASR 提供商：id=\(id)")
         try databaseQueue.write { connection in
             let stmt = try connection.prepare("DELETE FROM asr_providers WHERE id = ?")
             try stmt.bind(id, at: 1); _ = try stmt.step()
@@ -176,6 +183,7 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
     }
 
     func save(_ provider: LLMProviderRecord) throws {
+        AppLogger.database.debug("保存 LLM 提供商：id=\(provider.id), default=\(provider.isDefault)")
         try databaseQueue.write { connection in
             if provider.isDefault {
                 try connection.execute("UPDATE llm_providers SET is_default = 0")
@@ -222,13 +230,16 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
             try statement.bind(formatter.string(from: provider.updatedAt), at: 15)
             _ = try statement.step()
         }
+        AppLogger.database.info("LLM 提供商已保存：id=\(provider.id)")
     }
 
     func provider(id: String) throws -> LLMProviderRecord? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询 LLM 提供商：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(selectSQL + " WHERE id = ?")
             try statement.bind(id, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("LLM 提供商不存在：id=\(id)")
                 return nil
             }
             return try row(from: statement)
@@ -236,17 +247,20 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
     }
 
     func list() throws -> [LLMProviderRecord] {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("列出 LLM 提供商")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(selectSQL + " ORDER BY created_at ASC, display_name ASC")
             var records: [LLMProviderRecord] = []
             while try statement.step() {
                 records.append(try row(from: statement))
             }
+            AppLogger.database.debug("LLM 提供商列表返回 count=\(records.count)")
             return records
         }
     }
 
     func delete(id: String) throws {
+        AppLogger.database.warning("删除 LLM 提供商：id=\(id)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare("DELETE FROM llm_providers WHERE id = ?")
             try statement.bind(id, at: 1)

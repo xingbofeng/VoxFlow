@@ -75,7 +75,9 @@ final class SherpaBatchASREngine: ASREngine, @unchecked Sendable {
     func configure(locale: Locale) {}
 
     func start() throws {
+        AppLogger.audio.debug("SherpaBatchASREngine start variant=\(variant.rawValue)")
         guard isAvailable else {
+            AppLogger.audio.warning("SherpaBatchASREngine start blocked: model not loaded variant=\(variant.rawValue)")
             throw ASREngineError.modelNotLoaded
         }
         audioSamples = []
@@ -90,18 +92,22 @@ final class SherpaBatchASREngine: ASREngine, @unchecked Sendable {
 
     func appendAudioFrame(_ frame: AudioFrame) {
         guard isAcceptingAudio else {
+            AppLogger.audio.debug("SherpaBatchASREngine append dropped: not accepting audio")
             return
         }
+        AppLogger.audio.debug("SherpaBatchASREngine append frameCount=\(frame.samples.count)")
         audioSamples.append(contentsOf: frame.samples)
     }
 
     func endAudio() {
+        AppLogger.audio.debug("SherpaBatchASREngine endAudio sampleCount=\(audioSamples.count)")
         isAcceptingAudio = false
         let samples = audioSamples
         let task = transcriberTask
         let callbacks = callbacks
 
         guard !samples.isEmpty else {
+            AppLogger.audio.info("SherpaBatchASREngine empty input, emit empty transcript")
             callbacks.onTranscription?("", true)
             return
         }
@@ -109,14 +115,20 @@ final class SherpaBatchASREngine: ASREngine, @unchecked Sendable {
         Task {
             do {
                 guard let task else {
+                    AppLogger.audio.error("SherpaBatchASREngine endAudio missing transcriber task")
                     throw ASREngineError.modelNotLoaded
                 }
                 let transcriber = try await task.value
+                AppLogger.audio.debug("SherpaBatchASREngine transcriber ready variant=\(variant.rawValue)")
                 let text = try await transcriber.transcribe(audio: samples)
+                AppLogger.audio.info("SherpaBatchASREngine transcribed variant=\(variant.rawValue) len=\(text.count)")
                 await MainActor.run {
                     callbacks.onTranscription?(text, true)
                 }
             } catch {
+                AppLogger.audio.warning(
+                    "SherpaBatchASREngine transcribe failed variant=\(variant.rawValue), reason=\(error.localizedDescription)"
+                )
                 await MainActor.run {
                     callbacks.onError?(error)
                 }
@@ -125,11 +137,13 @@ final class SherpaBatchASREngine: ASREngine, @unchecked Sendable {
     }
 
     func stop() {
+        AppLogger.audio.debug("SherpaBatchASREngine stop")
         isAcceptingAudio = false
         audioSamples = []
     }
 
     func cancel() {
+        AppLogger.audio.debug("SherpaBatchASREngine cancel")
         isAcceptingAudio = false
         audioSamples = []
         transcriberTask?.cancel()

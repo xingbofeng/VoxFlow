@@ -104,7 +104,9 @@ struct ASRSessionPresentationReducer {
     }
 
     mutating func apply(_ event: ASREvent) -> ASRSessionPresentationPhase? {
+        AppLogger.general.debug("ASR session apply event=\(event)")
         guard let state = assembler.apply(event) else {
+            AppLogger.general.debug("ASR session apply ignored event=\(event)")
             return nil
         }
 
@@ -129,6 +131,7 @@ struct ASRSessionPresentationReducer {
     }
 
     mutating func waitForFinal() -> ASRSessionPresentationPhase {
+        AppLogger.general.debug("ASR session waitForFinal sessionID=\(sessionID)")
         phase = .waitingForFinal(text: phase.visibleText)
         return phase
     }
@@ -145,12 +148,14 @@ struct ASRSessionPresentationRouter {
     private var reducer: ASRSessionPresentationReducer?
 
     mutating func beginSession(_ sessionID: ASRSessionID) {
+        AppLogger.general.debug("ASR session begin sessionID=\(sessionID)")
         activeSessionID = sessionID
         phase = .idle
         reducer = ASRSessionPresentationReducer(sessionID: sessionID)
     }
 
     mutating func apply(_ event: ASREvent) -> ASRSessionPresentationPhase? {
+        AppLogger.general.debug("ASR router apply event session=\(event.sessionID)")
         guard event.sessionID == activeSessionID,
               var activeReducer = reducer,
               let nextPhase = activeReducer.apply(event) else {

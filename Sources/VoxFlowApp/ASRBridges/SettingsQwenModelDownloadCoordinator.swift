@@ -35,6 +35,7 @@ struct SettingsQwenModelDownloadCoordinator {
         size: ASRManager.ModelSize,
         progress: @escaping Qwen3ModelDownloader.ProgressHandler
     ) async throws -> URL {
+        AppLogger.general.info("Settings Qwen3 download requested: size=\(size.rawValue)")
         let modelURL = try await downloader.download(
             manifest: Qwen3ModelManifest.manifest(for: size),
             progress: progress
@@ -45,11 +46,13 @@ struct SettingsQwenModelDownloadCoordinator {
             fileManager: fileManager
         )
         guard missingPaths.isEmpty else {
+            AppLogger.general.error("Settings Qwen3 model missing required files: \(missingPaths.joined(separator: ","))")
             throw SettingsQwenModelDownloadError.missingRequiredFiles(missingPaths)
         }
 
         try await readinessPreparer.prepare(modelURL: modelURL, size: size)
         asrManager.markQwen3ModelReady(at: modelURL.path, size: size)
+        AppLogger.general.info("Settings Qwen3 model ready: size=\(size.rawValue), path=\(modelURL.path)")
         return modelURL
     }
 }

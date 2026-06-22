@@ -38,6 +38,17 @@ struct AgentProviderReference: Codable, Equatable, Sendable {
     let description: String?
 }
 
+struct AgentObservedTitle: Codable, Equatable, Sendable {
+    let title: String
+    let source: String
+    let updatedAt: TimeInterval
+
+    private enum CodingKeys: String, CodingKey {
+        case title, source
+        case updatedAt = "updated_at"
+    }
+}
+
 struct AgentDispatchLogEntry: Codable, Equatable, Identifiable, Sendable {
     let agentID: String
     let message: String
@@ -75,7 +86,17 @@ struct AgentSessionCard: Codable, Equatable, Identifiable, Sendable {
     let exitCode: Int?
     let selfSummary: AgentSelfSummary?
     let providerSessionRefs: [AgentProviderReference]
+    let observedTitle: AgentObservedTitle?
     let lastDispatchedAt: TimeInterval?
+    let mcpInjected: Bool
+    let mcpSeenAt: TimeInterval?
+    let mcpReportedAt: TimeInterval?
+    let mcpConfigPath: String?
+    let mcpCommand: String?
+    let mcpArgs: [String]
+    let mcpLogPath: String?
+    let mcpLastRequest: String?
+    let mcpLastError: String?
     let startedAt: TimeInterval?
     let updatedAt: TimeInterval?
     private let explicitDisplayName: String?
@@ -86,6 +107,7 @@ struct AgentSessionCard: Codable, Equatable, Identifiable, Sendable {
     }
     var displayName: String {
         explicitDisplayName
+            ?? observedTitle?.title
             ?? currentSelfSummary?.label
             ?? repoName
             ?? cli
@@ -119,7 +141,17 @@ struct AgentSessionCard: Codable, Equatable, Identifiable, Sendable {
         exitCode = nil
         selfSummary = nil
         providerSessionRefs = []
+        observedTitle = nil
         lastDispatchedAt = nil
+        mcpInjected = false
+        mcpSeenAt = nil
+        mcpReportedAt = nil
+        mcpConfigPath = nil
+        mcpCommand = nil
+        mcpArgs = []
+        mcpLogPath = nil
+        mcpLastRequest = nil
+        mcpLastError = nil
         startedAt = nil
         updatedAt = nil
         explicitDisplayName = displayName
@@ -139,7 +171,17 @@ struct AgentSessionCard: Codable, Equatable, Identifiable, Sendable {
         case exitCode = "exit_code"
         case selfSummary = "self_summary"
         case providerSessionRefs = "provider_session_refs"
+        case observedTitle = "observed_title"
         case lastDispatchedAt = "last_dispatched_at"
+        case mcpInjected = "mcp_injected"
+        case mcpSeenAt = "mcp_seen_at"
+        case mcpReportedAt = "mcp_reported_at"
+        case mcpConfigPath = "mcp_config_path"
+        case mcpCommand = "mcp_command"
+        case mcpArgs = "mcp_args"
+        case mcpLogPath = "mcp_log_path"
+        case mcpLastRequest = "mcp_last_request"
+        case mcpLastError = "mcp_last_error"
         case startedAt = "started_at"
         case updatedAt = "updated_at"
     }
@@ -166,7 +208,17 @@ struct AgentSessionCard: Codable, Equatable, Identifiable, Sendable {
             [AgentProviderReference].self,
             forKey: .providerSessionRefs
         ) ?? []
+        observedTitle = try container.decodeIfPresent(AgentObservedTitle.self, forKey: .observedTitle)
         lastDispatchedAt = try container.decodeIfPresent(TimeInterval.self, forKey: .lastDispatchedAt)
+        mcpInjected = try container.decodeIfPresent(Bool.self, forKey: .mcpInjected) ?? false
+        mcpSeenAt = try container.decodeIfPresent(TimeInterval.self, forKey: .mcpSeenAt)
+        mcpReportedAt = try container.decodeIfPresent(TimeInterval.self, forKey: .mcpReportedAt)
+        mcpConfigPath = try container.decodeIfPresent(String.self, forKey: .mcpConfigPath)
+        mcpCommand = try container.decodeIfPresent(String.self, forKey: .mcpCommand)
+        mcpArgs = try container.decodeIfPresent([String].self, forKey: .mcpArgs) ?? []
+        mcpLogPath = try container.decodeIfPresent(String.self, forKey: .mcpLogPath)
+        mcpLastRequest = try container.decodeIfPresent(String.self, forKey: .mcpLastRequest)
+        mcpLastError = try container.decodeIfPresent(String.self, forKey: .mcpLastError)
         startedAt = try container.decodeIfPresent(TimeInterval.self, forKey: .startedAt)
         updatedAt = try container.decodeIfPresent(TimeInterval.self, forKey: .updatedAt)
         explicitDisplayName = nil

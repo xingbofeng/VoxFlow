@@ -15,7 +15,7 @@ enum AgentDispatchHUDPresentation: Equatable {
         case .idle: return ""
         case .listening: return "正在听你说"
         case let .exact(agentName, _): return "准备发送给\(agentName)"
-        case .confirmation: return "选择要指挥的队员"
+        case .confirmation: return "选择发送目标"
         case .fallbackInput: return "写入当前输入框"
         case .clipboardFallback: return "已复制到剪切板"
         case let .sent(agentName): return "已发送给\(agentName)"

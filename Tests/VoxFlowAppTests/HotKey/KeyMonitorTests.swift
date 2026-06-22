@@ -193,6 +193,61 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testWorkflowShortcutEventsPassThroughOnlyWhileCapturingShortcut() {
+        XCTAssertFalse(
+            WorkflowShortcutEventRouting.shouldPassThrough(isCapturingShortcut: false)
+        )
+        XCTAssertTrue(
+            WorkflowShortcutEventRouting.shouldPassThrough(isCapturingShortcut: true)
+        )
+    }
+
+    func testConsumedWorkflowShortcutConsumesReleaseEvenWhenReleaseFlagsDoNotMatch() {
+        var state = WorkflowShortcutKeyState()
+
+        XCTAssertEqual(
+            state.transition(
+                keyCode: 0x09,
+                routedEvent: .workflowShortcut(.clipboardImageOCR),
+                isPressed: true,
+                consumed: true
+            ),
+            .consume
+        )
+        XCTAssertEqual(
+            state.transition(
+                keyCode: 0x09,
+                routedEvent: .passThrough,
+                isPressed: false,
+                consumed: false
+            ),
+            .consume
+        )
+    }
+
+    func testUnconsumedWorkflowShortcutReleasePassesThrough() {
+        var state = WorkflowShortcutKeyState()
+
+        XCTAssertEqual(
+            state.transition(
+                keyCode: 0x09,
+                routedEvent: .workflowShortcut(.clipboardImageOCR),
+                isPressed: true,
+                consumed: false
+            ),
+            .passThrough
+        )
+        XCTAssertEqual(
+            state.transition(
+                keyCode: 0x09,
+                routedEvent: .passThrough,
+                isPressed: false,
+                consumed: false
+            ),
+            .passThrough
+        )
+    }
+
     func testAgentComposeShortcutRoutesToAgentComposeAction() {
         XCTAssertEqual(
             ShortcutActionRouting.action(

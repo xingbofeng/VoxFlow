@@ -11,6 +11,7 @@ let package = Package(
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.0.0"),
         .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21"),
+        .package(path: "Packages/VoxFlowContextBoostKit"),
         .package(path: "Packages/VoxFlowVoiceCorrectionKit")
     ],
     targets: [
@@ -184,6 +185,13 @@ let package = Package(
             path: "Sources/VoxFlowInfrastructure"
         ),
         .target(
+            name: "VoxFlowScreenshotKit",
+            dependencies: [
+                "VoxFlowDomain"
+            ],
+            path: "Sources/VoxFlowScreenshotKit"
+        ),
+        .target(
             name: "VoxFlowASRWorker",
             path: "Sources/VoxFlowASRWorker"
         ),
@@ -207,8 +215,10 @@ let package = Package(
                 "VoxFlowProviderSenseVoice",
                 "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
+                "VoxFlowScreenshotKit",
                 "VoxFlowTextInsertion",
                 "CSherpaOnnx",
+                .product(name: "VoxFlowContextBoost", package: "VoxFlowContextBoostKit"),
                 .product(name: "VoxFlowVoiceCorrection", package: "VoxFlowVoiceCorrectionKit"),
                 .product(name: "AudioCommon", package: "speech-swift"),
                 .product(name: "CosyVoiceTTS", package: "speech-swift"),
@@ -270,6 +280,12 @@ let package = Package(
             name: "VoxFlowInfrastructureTests",
             dependencies: [
                 "VoxFlowInfrastructure"
+            ]
+        ),
+        .testTarget(
+            name: "VoxFlowScreenshotKitTests",
+            dependencies: [
+                "VoxFlowScreenshotKit"
             ]
         ),
         .testTarget(
@@ -419,7 +435,8 @@ let package = Package(
                 "VoxFlowProviderSenseVoice",
                 "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
-                "VoxFlowTextInsertion"
+                "VoxFlowTextInsertion",
+                .product(name: "VoxFlowContextBoost", package: "VoxFlowContextBoostKit")
             ]
         )
     ]

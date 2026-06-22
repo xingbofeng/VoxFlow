@@ -62,8 +62,10 @@ final class DictationFeatureController {
 
     func handlePress(action: VoiceAction = .dictation) {
         guard currentState().isIdle else { return }
+        AppLogger.dictation.debug("handlePress action=\(action.rawValue)")
 
         if action == .agentCompose && !isAgentComposeConfigured() {
+            AppLogger.dictation.warning("handlePress blocked: agentCompose not configured")
             showAgentComposeSetupRequired()
             return
         }
@@ -71,8 +73,10 @@ final class DictationFeatureController {
         let permissionSnapshot = refreshRecordingPermissionSnapshot()
         guard permissionSnapshot.isResolved, permissionSnapshot.hasRequiredPermissions else {
             if permissionSnapshot.isResolved {
+                AppLogger.dictation.warning("handlePress permission denied: show alert")
                 showRecordingPermissionsAlert()
             }
+            AppLogger.dictation.debug("handlePress permission snapshot unresolved")
             return
         }
 
@@ -83,11 +87,14 @@ final class DictationFeatureController {
                 currentConfiguration(),
                 taskMode(for: action)
             )
+            AppLogger.dictation.info("handlePress started dictation action=\(action.rawValue)")
         } catch {
             activeVoiceAction = nil
             if isRecordingPermissionError(error) {
+                AppLogger.dictation.error("handlePress failed permission error")
                 showRecordingPermissionsAlert()
             } else {
+                AppLogger.dictation.error("handlePress failed: \(error.localizedDescription)")
                 showRecognitionError(error)
             }
         }
@@ -95,12 +102,15 @@ final class DictationFeatureController {
 
     func handleRelease(action: VoiceAction = .dictation) {
         guard activeVoiceAction == action else {
+            AppLogger.dictation.debug("handleRelease ignored active=\(activeVoiceAction?.rawValue ?? "nil") expected=\(action.rawValue)")
             return
         }
+        AppLogger.dictation.info("handleRelease action=\(action.rawValue)")
         releaseDictation()
     }
 
     func handleStateChange(_ state: DictationState) {
+        AppLogger.dictation.debug("handleStateChange state=\(state)")
         let result = presentState(state, activeVoiceAction)
         if result.shouldClearActiveVoiceAction {
             activeVoiceAction = nil
@@ -108,6 +118,7 @@ final class DictationFeatureController {
     }
 
     func handleRecognitionError(_ error: Error) {
+        AppLogger.dictation.error("handleRecognitionError \(error.localizedDescription)")
         showRecognitionError(error)
     }
 

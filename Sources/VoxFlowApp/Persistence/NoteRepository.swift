@@ -29,6 +29,7 @@ final class SQLiteNoteRepository: NoteRepository {
     }
 
     func save(_ note: NoteRecord) throws {
+        AppLogger.database.debug("保存笔记：id=\(note.id), titleLen=\(note.title.count)")
         let tagsJSON = try String(data: JSONEncoder().encode(note.tags), encoding: .utf8) ?? "[]"
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
@@ -59,10 +60,12 @@ final class SQLiteNoteRepository: NoteRepository {
             try statement.bind(note.deletedAt.map(formatter.string(from:)), at: 9)
             _ = try statement.step()
         }
+        AppLogger.database.info("笔记已保存：id=\(note.id)")
     }
 
     func note(id: String) throws -> NoteRecord? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询笔记：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, title, body_markdown, source_type, source_id,
@@ -73,6 +76,7 @@ final class SQLiteNoteRepository: NoteRepository {
             )
             try statement.bind(id, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("笔记不存在：id=\(id)")
                 return nil
             }
             return try row(from: statement)
@@ -80,20 +84,22 @@ final class SQLiteNoteRepository: NoteRepository {
     }
 
     func list() throws -> [NoteRecord] {
-        try query(
+        AppLogger.database.debug("列出全部笔记")
+        return try query(
             """
             SELECT id, title, body_markdown, source_type, source_id,
                    tags_json, created_at, updated_at, deleted_at
-            FROM notes
-            WHERE deleted_at IS NULL
-            ORDER BY updated_at DESC
+                FROM notes
+                WHERE deleted_at IS NULL
+                ORDER BY updated_at DESC
             """,
             bindings: { _ in }
         )
     }
 
     func search(_ queryText: String) throws -> [NoteRecord] {
-        try query(
+        AppLogger.database.debug("搜索笔记：queryLen=\(queryText.count)")
+        return try query(
             """
             SELECT id, title, body_markdown, source_type, source_id,
                    tags_json, created_at, updated_at, deleted_at
@@ -112,6 +118,7 @@ final class SQLiteNoteRepository: NoteRepository {
     }
 
     func softDelete(id: String, deletedAt: Date) throws {
+        AppLogger.database.warning("软删笔记：id=\(id)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 "UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?"
@@ -122,13 +129,14 @@ final class SQLiteNoteRepository: NoteRepository {
             try statement.bind(id, at: 3)
             _ = try statement.step()
         }
+        AppLogger.database.info("笔记软删除完成：id=\(id)")
     }
 
     private func query(
         _ sql: String,
         bindings: (SQLiteStatement) throws -> Void
     ) throws -> [NoteRecord] {
-        try databaseQueue.read { connection in
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(sql)
             try bindings(statement)
             var notes: [NoteRecord] = []

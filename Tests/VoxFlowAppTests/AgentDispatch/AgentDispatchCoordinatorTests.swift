@@ -51,13 +51,13 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
         let router = FakeAgentRouter(
             agents: [.fixture(id: "front", name: "前端")],
             resolution: .direct(agentID: "front", message: "检查按钮", matchedBy: "exact_name"),
-            sendError: AgentRouterClientError.router("队员已退出")
+            sendError: AgentRouterClientError.router("任务助手已退出")
         )
         let coordinator = AgentDispatchCoordinator(router: router)
 
         await coordinator.dispatch(utterance: "前端，检查按钮")
 
-        XCTAssertEqual(coordinator.presentation, .failure(message: "队员已退出", retainedText: "检查按钮"))
+        XCTAssertEqual(coordinator.presentation, .failure(message: "任务助手已退出", retainedText: "检查按钮"))
     }
 
     func testLateListeningResultCannotOverwriteCompletedDispatch() async {
@@ -152,7 +152,7 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(
             coordinator.presentation,
-            .failure(message: "找不到明确队员", retainedText: "检查一下接口")
+            .failure(message: "找不到明确任务助手", retainedText: "检查一下接口")
         )
         XCTAssertTrue(router.sent.isEmpty)
     }
@@ -178,17 +178,14 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.presentation.detail, "检查一下按钮")
     }
 
-    func testConfirmUnresolvedBehaviorWithoutAgentsShowsFailureInsteadOfEmptyConfirmation() async {
+    func testConfirmUnresolvedBehaviorWithoutAgentsFallsBackToCurrentInput() async {
         let router = FakeAgentRouter(agents: [], resolution: .notFound)
         let coordinator = AgentDispatchCoordinator(router: router)
 
         await coordinator.dispatch(utterance: "检查一下按钮")
 
         XCTAssertTrue(router.sent.isEmpty)
-        XCTAssertEqual(
-            coordinator.presentation,
-            .failure(message: "没有可用队员", retainedText: "检查一下按钮")
-        )
+        XCTAssertEqual(coordinator.presentation, .fallbackInput(text: "检查一下按钮"))
     }
 
     func testDefaultUnresolvedBehaviorFallsBackToCurrentInputEvenWhenNoAgentIsAvailable() async {

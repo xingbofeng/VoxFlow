@@ -5,11 +5,13 @@ import CoreGraphics
 import Foundation
 @preconcurrency import KokoroTTS
 @preconcurrency import Qwen3TTS
+import VoxFlowScreenshotKit
 
 struct ScreenshotOCRResult: Equatable {
     let originalText: String
     let originalImage: CGImage?
     let ocrStatusMessage: String?
+    let captureCompletionKind: ScreenshotCaptureCompletionKind
     var translatedText: String?
     var summaryText: String?
 
@@ -17,12 +19,14 @@ struct ScreenshotOCRResult: Equatable {
         originalText: String,
         originalImage: CGImage? = nil,
         ocrStatusMessage: String? = nil,
+        captureCompletionKind: ScreenshotCaptureCompletionKind = .complete,
         translatedText: String? = nil,
         summaryText: String? = nil
     ) {
         self.originalText = originalText
         self.originalImage = originalImage
         self.ocrStatusMessage = ocrStatusMessage
+        self.captureCompletionKind = captureCompletionKind
         self.translatedText = translatedText
         self.summaryText = summaryText
     }
@@ -30,6 +34,7 @@ struct ScreenshotOCRResult: Equatable {
     static func == (lhs: ScreenshotOCRResult, rhs: ScreenshotOCRResult) -> Bool {
         lhs.originalText == rhs.originalText &&
             lhs.ocrStatusMessage == rhs.ocrStatusMessage &&
+            lhs.captureCompletionKind == rhs.captureCompletionKind &&
             lhs.translatedText == rhs.translatedText &&
             lhs.summaryText == rhs.summaryText &&
             lhs.originalImage?.width == rhs.originalImage?.width &&
@@ -48,6 +53,16 @@ enum ScreenshotOCRServiceOutcome: Equatable {
     case ocrFailed(String)
     case translationFailed(ScreenshotOCRResult, String)
     case summaryFailed(ScreenshotOCRResult, String)
+    case translatedOverlay(originalResult: ScreenshotOCRResult, overlayImage: TranslatedOverlayImage)
+}
+
+/// 译文覆盖图：原图 + 译文按行覆盖后的结果。Equatable 只比 width/height，跟 ScreenshotOCRResult 一致。
+struct TranslatedOverlayImage: Equatable {
+    let image: CGImage
+
+    static func == (lhs: TranslatedOverlayImage, rhs: TranslatedOverlayImage) -> Bool {
+        lhs.image.width == rhs.image.width && lhs.image.height == rhs.image.height
+    }
 }
 
 enum ScreenshotOCRServiceError: LocalizedError, Equatable {
@@ -61,6 +76,35 @@ enum ScreenshotOCRServiceError: LocalizedError, Equatable {
         case .captureFailed(let reason):
             return reason
         }
+    }
+}
+
+enum ScreenshotCaptureCompletionKind: Equatable {
+    case complete
+    case scrollingScreenshot
+    case textRecognition
+    case translate
+}
+
+struct ScreenshotImageCaptureResult: Equatable {
+    let image: CGImage
+    let completionKind: ScreenshotCaptureCompletionKind
+
+    init(
+        image: CGImage,
+        completionKind: ScreenshotCaptureCompletionKind = .complete
+    ) {
+        self.image = image
+        self.completionKind = completionKind
+    }
+
+    static func == (
+        lhs: ScreenshotImageCaptureResult,
+        rhs: ScreenshotImageCaptureResult
+    ) -> Bool {
+        lhs.image.width == rhs.image.width &&
+            lhs.image.height == rhs.image.height &&
+            lhs.completionKind == rhs.completionKind
     }
 }
 
@@ -84,6 +128,14 @@ enum ScreenshotOCRSpeechTarget {
 @MainActor
 protocol ScreenshotImageProviding: AnyObject {
     func captureImage() async throws -> CGImage
+    func capture() async throws -> ScreenshotImageCaptureResult
+}
+
+extension ScreenshotImageProviding {
+    func capture() async throws -> ScreenshotImageCaptureResult {
+        let image = try await captureImage()
+        return ScreenshotImageCaptureResult(image: image)
+    }
 }
 
 @MainActor
@@ -151,49 +203,286 @@ final class ScreenshotOCRService {
 
     func captureAndRecognize() async -> ScreenshotOCRServiceOutcome {
         guard !isCancelled() else { return .captureCancelled }
-        let image: CGImage
+        let capture: ScreenshotImageCaptureResult
         do {
-            image = try await imageProvider.captureImage()
+            capture = try await imageProvider.capture()
+            AppLogger.general.debug("Screenshot capture completed kind=\(capture.completionKind) size=\(capture.image.width)x\(capture.image.height)")
         } catch ScreenshotOCRServiceError.captureCancelled {
+            AppLogger.general.info("Screenshot capture cancelled by user")
             return .captureCancelled
         } catch ScreenshotOCRServiceError.captureFailed(let reason) {
+            AppLogger.general.warning("Screenshot capture failed: \(reason)")
             return .captureFailed(reason)
         } catch {
+            AppLogger.general.warning("Screenshot capture unknown error: \(error.localizedDescription)")
             return .captureFailed(error.localizedDescription)
         }
 
         guard !isCancelled() else { return .captureCancelled }
+        let image = capture.image
+        AppLogger.general.debug("Screenshot capture image copied to clipboard for recognize")
         clipboard.setImage(image)
+
+        // 兼容旧截图翻译完成模式；新工具栏翻译优先在选区内原位完成。
+        if capture.completionKind == .translate {
+            AppLogger.general.info("Screenshot completion mode translate, starting translate flow")
+            return await translateCaptured(image: image)
+        }
 
         do {
             let text = try await ocrRecognizer
                 .recognizeText(in: image)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            AppLogger.general.debug("Screenshot OCR completed. textLength=\(text.count), cancelled=\(isCancelled())")
             guard !isCancelled() else { return .captureCancelled }
             guard !text.isEmpty else {
+                AppLogger.general.warning("Screenshot OCR returned empty text")
                 return .recognized(
                     ScreenshotOCRResult(
                         originalText: "",
                         originalImage: image,
-                        ocrStatusMessage: "未识别到截图文字"
+                        ocrStatusMessage: "未识别到截图文字",
+                        captureCompletionKind: capture.completionKind
                     )
                 )
             }
             lastResultStore.setLastResultText(text)
-            return .recognized(ScreenshotOCRResult(originalText: text, originalImage: image))
+            AppLogger.general.debug("Screenshot OCR result saved to last result cache")
+            return .recognized(
+                ScreenshotOCRResult(
+                    originalText: text,
+                    originalImage: image,
+                    captureCompletionKind: capture.completionKind
+                )
+            )
         } catch {
+            AppLogger.general.warning("Screenshot OCR failed: \(error.localizedDescription)")
             return .ocrFailed(error.localizedDescription)
         }
+    }
+
+    /// 微信截图式一键翻译：OCR（保留每行 bbox）→ 按行翻译 → 译文覆盖原图。
+    /// 返回 .translatedOverlay(originalResult, overlayImage)。
+    func captureAndTranslate() async -> ScreenshotOCRServiceOutcome {
+        guard !isCancelled() else { return .captureCancelled }
+        let capture: ScreenshotImageCaptureResult
+        do {
+            capture = try await imageProvider.capture()
+            AppLogger.general.debug("Screenshot translate capture completed kind=\(capture.completionKind) size=\(capture.image.width)x\(capture.image.height)")
+        } catch ScreenshotOCRServiceError.captureCancelled {
+            AppLogger.general.info("Screenshot translate capture cancelled by user")
+            return .captureCancelled
+        } catch ScreenshotOCRServiceError.captureFailed(let reason) {
+            AppLogger.general.warning("Screenshot translate capture failed: \(reason)")
+            return .captureFailed(reason)
+        } catch {
+            AppLogger.general.warning("Screenshot translate capture error: \(error.localizedDescription)")
+            return .captureFailed(error.localizedDescription)
+        }
+
+        guard !isCancelled() else { return .captureCancelled }
+        clipboard.setImage(capture.image)
+        AppLogger.general.debug("Screenshot translate capture image copied to clipboard")
+        return await translateCaptured(image: capture.image)
+    }
+
+    /// 对已捕获的图片做 OCR + 翻译 + 覆盖渲染。供 captureAndRecognize 在 completionKind == .translate 时复用。
+    private func translateCaptured(image: CGImage) async -> ScreenshotOCRServiceOutcome {
+        // 1. OCR 保留每行 bbox
+        let ocrLines: [OCRLine]
+        do {
+            ocrLines = try await ocrRecognizer.recognizeTextLines(in: image)
+            AppLogger.general.debug("Screenshot line OCR completed lines=\(ocrLines.count)")
+            guard !isCancelled() else { return .captureCancelled }
+        } catch {
+            AppLogger.general.warning("Screenshot line OCR failed: \(error.localizedDescription)")
+            return .ocrFailed(error.localizedDescription)
+        }
+
+        guard !ocrLines.isEmpty else {
+            AppLogger.general.warning("Screenshot line OCR returned empty lines")
+            let original = ScreenshotOCRResult(
+                originalText: "",
+                originalImage: image,
+                ocrStatusMessage: "未识别到截图文字",
+                captureCompletionKind: .translate
+            )
+            return .recognized(original)
+        }
+
+        let originalText = ocrLines.map(\.text).joined(separator: "\n")
+        lastResultStore.setLastResultText(originalText)
+
+        let originalResult = ScreenshotOCRResult(
+            originalText: originalText,
+            originalImage: image,
+            captureCompletionKind: .translate
+        )
+
+        // 2. 翻译（需要 translator 配置好）
+        guard let translator,
+              translator.isEnabled,
+              Self.translationIsConfigured(translator) else {
+            AppLogger.general.warning("Screenshot translation unavailable: missing translator")
+            return .translationUnavailable(originalResult)
+        }
+
+        AppLogger.general.info("Screenshot translate flow using translator: \(type(of: translator))")
+        let translatedLines = await Self.translateLines(ocrLines, translator: translator)
+        guard !isCancelled() else { return .captureCancelled }
+
+        guard !translatedLines.isEmpty else {
+            AppLogger.general.warning("Screenshot line translation produced no results")
+            return .translationFailed(originalResult, "翻译未返回结果")
+        }
+
+        // 3. 构建 TranslatedOverlayAnnotationElement 并渲染
+        let lines = zip(ocrLines, translatedLines).map { ocrLine, translated in
+            TranslatedOverlayAnnotationElement.Line(bounds: ocrLine.boundingBox, text: translated)
+        }
+        var document = AnnotationDocument()
+        document.add(.translatedOverlay(TranslatedOverlayAnnotationElement(lines: lines)))
+        let renderer = AnnotationRenderer()
+        do {
+            let renderedImage = try renderer.render(image: image, document: document)
+            AppLogger.general.info("Screenshot translated overlay rendered lines=\(lines.count)")
+            return .translatedOverlay(
+                originalResult: originalResult,
+                overlayImage: TranslatedOverlayImage(image: renderedImage)
+            )
+        } catch {
+            AppLogger.general.warning("Screenshot overlay render failed: \(error.localizedDescription)")
+            return .translationFailed(originalResult, error.localizedDescription)
+        }
+    }
+
+    /// 按行翻译：优先走 JSON 模式（云 LLM），失败后逐行翻译，保证译文能回到对应 OCR bbox。
+    static func translateLines(
+        _ lines: [OCRLine],
+        translator: any PromptAwareTextRefining
+    ) async -> [String] {
+        AppLogger.general.debug("Screenshot line translation request count=\(lines.count)")
+        let supportsStructuredLineTranslation = (translator as? StructuredLineTranslationSupporting)?
+            .supportsStructuredLineTranslation ?? true
+
+        if supportsStructuredLineTranslation {
+            // JSON 模式：构造 [{index, text}] 输入。只给真正理解 prompt 的翻译器使用；
+            // 本地直译模型会把 JSON 当普通文本翻译，耗时且通常无法解析。
+            let inputItems = lines.enumerated().map { index, line in
+                "{\"index\":\(index),\"text\":\(Self.escapeJSON(line.text))}"
+            }.joined(separator: ",")
+            let inputJSON = "[\(inputItems)]"
+
+            do {
+                AppLogger.general.debug("Screenshot line translation try JSON mode")
+                let raw = try await translator.refine(
+                    TextRefinementRequest(
+                        text: inputJSON,
+                        systemPrompt: Self.lineTranslationSystemPrompt,
+                        model: nil,
+                        temperature: 0.2
+                    )
+                )
+                if let parsed = Self.parseLineTranslationResponse(raw, expectedCount: lines.count) {
+                    AppLogger.general.debug("Screenshot line translation JSON mode success count=\(parsed.count)")
+                    return parsed
+                }
+                AppLogger.general.warning("Screenshot line translation JSON parse failed, fallback to individual line mode")
+            } catch {
+                AppLogger.general.warning("Screenshot line translation JSON mode error: \(error.localizedDescription)")
+            }
+        } else {
+            AppLogger.general.debug("Screenshot line translation skip JSON mode: translator does not support structured prompts")
+            return await translateLinesIndividually(lines, translator: translator)
+        }
+
+        return await translateLinesIndividually(lines, translator: translator)
+    }
+
+    private static func translateLinesIndividually(
+        _ lines: [OCRLine],
+        translator: any PromptAwareTextRefining
+    ) async -> [String] {
+        var translatedLines: [String] = []
+        translatedLines.reserveCapacity(lines.count)
+        for line in lines {
+            do {
+                let translated = try await translator.refine(
+                    TextRefinementRequest(
+                        text: line.text,
+                        systemPrompt: Self.translationSystemPrompt,
+                        model: nil,
+                        temperature: 0.2
+                    )
+                )
+                translatedLines.append(translated.trimmingCharacters(in: .whitespacesAndNewlines))
+            } catch {
+                AppLogger.general.warning("Screenshot individual line translation failed: \(error.localizedDescription)")
+                translatedLines.append("")
+            }
+        }
+        AppLogger.general.debug("Screenshot individual line translation completed count=\(translatedLines.count)")
+        return translatedLines
+    }
+
+    private static func escapeJSON(_ string: String) -> String {
+        // 简易 JSON 字符串转义，足够处理 OCR 文本
+        var escaped = string
+        escaped = escaped.replacingOccurrences(of: "\\", with: "\\\\")
+        escaped = escaped.replacingOccurrences(of: "\"", with: "\\\"")
+        escaped = escaped.replacingOccurrences(of: "\n", with: "\\n")
+        escaped = escaped.replacingOccurrences(of: "\r", with: "\\r")
+        escaped = escaped.replacingOccurrences(of: "\t", with: "\\t")
+        return "\"\(escaped)\""
+    }
+
+    /// 解析 LLM 返回的 JSON 数组 [{index, translated}]，要求行数匹配。
+    static func parseLineTranslationResponse(_ raw: String, expectedCount: Int) -> [String]? {
+        // 尝试解析为 [{index, translated}]
+        struct TranslationItem: Decodable {
+            let index: Int?
+            let translated: String?
+        }
+        // 容忍 LLM 在 JSON 前后加了无关字符，先抽出第一个 JSON 数组片段
+        guard let arrayStart = raw.firstIndex(of: "["),
+              let arrayEnd = raw.lastIndex(of: "]"),
+              arrayStart < arrayEnd else {
+            return nil
+        }
+        let jsonSubstring = String(raw[arrayStart...arrayEnd])
+        guard let jsonData = jsonSubstring.data(using: .utf8),
+              let items = try? JSONDecoder().decode([TranslationItem].self, from: jsonData) else {
+            return nil
+        }
+        guard items.count == expectedCount else { return nil }
+        // 按 index 排序，index 缺失就按数组顺序
+        var result = [String?](repeating: nil, count: expectedCount)
+        var fallbackOrder = 0
+        for item in items {
+            if let index = item.index, index >= 0 && index < expectedCount {
+                result[index] = item.translated ?? ""
+            } else {
+                while fallbackOrder < expectedCount && result[fallbackOrder] != nil {
+                    fallbackOrder += 1
+                }
+                if fallbackOrder < expectedCount {
+                    result[fallbackOrder] = item.translated ?? ""
+                }
+            }
+        }
+        return result.compactMap { $0 }
     }
 
     func translate(_ result: ScreenshotOCRResult) async -> ScreenshotOCRServiceOutcome {
         guard let translator,
               translator.isEnabled,
-              translationIsConfigured(translator) else {
+              Self.translationIsConfigured(translator) else {
+            AppLogger.general.warning("Manual translation unavailable: translator not ready")
             return .translationUnavailable(result)
         }
 
         do {
+            AppLogger.general.info("Manual screenshot translate started")
             let translated = try await translator.refine(
                 TextRefinementRequest(
                     text: result.originalText,
@@ -205,25 +494,31 @@ final class ScreenshotOCRService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard !translated.isEmpty else {
+                AppLogger.general.warning("Manual translation produced empty result")
                 return .translationUnavailable(result)
             }
 
             var updated = result
             updated.translatedText = translated
             lastResultStore.setLastResultText(translated)
+            AppLogger.general.info("Manual screenshot translation completed length=\(translated.count)")
             return .translated(updated)
         } catch {
+            AppLogger.general.warning("Manual screenshot translation failed: \(error.localizedDescription)")
             return .translationFailed(result, error.localizedDescription)
         }
     }
 
     func summarize(_ result: ScreenshotOCRResult) async -> ScreenshotOCRServiceOutcome {
         guard let translator,
+              translator.isEnabled,
               summaryIsConfigured(translator) else {
+            AppLogger.general.warning("Summary unavailable: translator not ready")
             return .summaryUnavailable(result)
         }
 
         do {
+            AppLogger.general.info("Screenshot summary started")
             let summary = try await translator.refine(
                 TextRefinementRequest(
                     text: result.originalText,
@@ -235,14 +530,17 @@ final class ScreenshotOCRService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard !summary.isEmpty else {
+                AppLogger.general.warning("Screenshot summary produced empty result")
                 return .summaryUnavailable(result)
             }
 
             var updated = result
             updated.summaryText = summary
             lastResultStore.setLastResultText(summary)
+            AppLogger.general.info("Screenshot summary completed length=\(summary.count)")
             return .summarized(updated)
         } catch {
+            AppLogger.general.warning("Screenshot summary failed: \(error.localizedDescription)")
             return .summaryFailed(result, error.localizedDescription)
         }
     }
@@ -274,7 +572,7 @@ final class ScreenshotOCRService {
         speechService.stop()
     }
 
-    private func translationIsConfigured(_ refiner: any PromptAwareTextRefining) -> Bool {
+    static func translationIsConfigured(_ refiner: any PromptAwareTextRefining) -> Bool {
         if let capabilities = refiner as? ScreenshotTextRefiningCapabilities {
             return capabilities.isTranslationConfigured
         }
@@ -294,11 +592,98 @@ final class ScreenshotOCRService {
         中英混合时保留专名、代码、URL、命令和数字。尽量保留原文段落和换行结构。只输出译文，不要解释、标题、引号或额外说明。
         """
 
+    /// 按行翻译的 prompt：输入 [{index, text}] JSON，要求输出 [{index, translated}] JSON。
+    /// index 必须一一对应，禁止合并/拆分/重排。这样译文能按 index 回填到 OCR bbox。
+    nonisolated static let lineTranslationSystemPrompt = """
+        你是截图文字翻译助手。输入是 JSON 数组，每项 {index, text}。把每行 text 翻译成简体中文。
+        原文已是中文时保持中文，做必要自然化整理。保留专名、代码、URL、命令、数字。
+        输出必须是 JSON 数组，每项 {index, translated}，index 与输入一一对应，禁止合并、拆分、重排、增删。
+        只输出 JSON 数组，不要任何解释、标题、引号或额外说明。
+        """
+
     nonisolated static let summarySystemPrompt = """
         你是截图文字总结助手。请根据截图 OCR 原文提炼关键信息。
         输出 3 条以内的简短要点；保留重要名称、数字、URL、错误码和操作建议。
         只输出总结内容，不要添加标题、引号或额外说明。
         """
+}
+
+@MainActor
+final class ScreenshotInlineSelectionTranslator: InlineSelectionTranslating {
+    private let ocrRecognizer: any TextOCRRecognizing
+    private let translator: (any PromptAwareTextRefining)?
+    private let lastResultStore: any LastResultStoring
+
+    init(
+        ocrRecognizer: any TextOCRRecognizing,
+        translator: (any PromptAwareTextRefining)?,
+        lastResultStore: any LastResultStoring
+    ) {
+        self.ocrRecognizer = ocrRecognizer
+        self.translator = translator
+        self.lastResultStore = lastResultStore
+    }
+
+    func translatedOverlay(for image: CGImage) async throws -> TranslatedOverlayAnnotationElement {
+        let startedAt = Date()
+        AppLogger.general.info("screenshot_inline_translation_started imageWidth=\(image.width) imageHeight=\(image.height)")
+        let ocrLines: [OCRLine]
+        do {
+            ocrLines = try await ocrRecognizer.recognizeTextLines(in: image)
+            AppLogger.general.info("screenshot_inline_translation_ocr_completed lineCount=\(ocrLines.count)")
+        } catch {
+            AppLogger.general.error("screenshot_inline_translation_ocr_failed error=\(error.localizedDescription)")
+            throw error
+        }
+        guard !ocrLines.isEmpty else {
+            AppLogger.general.warning("screenshot_inline_translation_no_text")
+            throw ScreenshotInlineTranslationError.noRecognizedText
+        }
+
+        let originalText = ocrLines.map(\.text).joined(separator: "\n")
+        lastResultStore.setLastResultText(originalText)
+
+        guard let translator,
+              translator.isEnabled,
+              ScreenshotOCRService.translationIsConfigured(translator) else {
+            AppLogger.general.warning("screenshot_inline_translation_unavailable translatorPresent=\(translator != nil)")
+            throw ScreenshotInlineTranslationError.translationUnavailable
+        }
+
+        AppLogger.general.info("screenshot_inline_translation_refine_started lineCount=\(ocrLines.count)")
+        let translatedLines = await ScreenshotOCRService.translateLines(ocrLines, translator: translator)
+        guard !translatedLines.isEmpty else {
+            AppLogger.general.error("screenshot_inline_translation_empty_result lineCount=\(ocrLines.count)")
+            throw ScreenshotInlineTranslationError.emptyTranslation
+        }
+
+        let lines = zip(ocrLines, translatedLines).map { ocrLine, translated in
+            TranslatedOverlayAnnotationElement.Line(
+                bounds: ocrLine.boundingBox,
+                text: translated
+            )
+        }
+        let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
+        AppLogger.general.info("screenshot_inline_translation_completed lineCount=\(lines.count) durationMs=\(durationMs)")
+        return TranslatedOverlayAnnotationElement(lines: lines)
+    }
+}
+
+private enum ScreenshotInlineTranslationError: LocalizedError {
+    case noRecognizedText
+    case translationUnavailable
+    case emptyTranslation
+
+    var errorDescription: String? {
+        switch self {
+        case .noRecognizedText:
+            return "未识别到截图文字"
+        case .translationUnavailable:
+            return "翻译前请先配置模型"
+        case .emptyTranslation:
+            return "翻译未返回结果"
+        }
+    }
 }
 
 @MainActor
@@ -515,16 +900,16 @@ actor SoniqoScreenshotLocalTTSSynthesizer: ScreenshotLocalTTSSynthesizing {
 final class AVAudioScreenshotPlayer: ScreenshotAudioPlaying {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    private(set) var connectedSampleRate: Double?
 
     init() {
         engine.attach(player)
-        if let format = AVAudioFormat(standardFormatWithSampleRate: 24_000, channels: 1) {
-            engine.connect(player, to: engine.mainMixerNode, format: format)
-        }
+        reconnectForPlayback(sampleRate: 24_000)
     }
 
     func play(_ audio: ScreenshotTTSAudio, completion: @escaping ScreenshotSpeechCompletion) throws {
         stop()
+        reconnectForPlayback(sampleRate: audio.sampleRate)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: audio.sampleRate, channels: 1),
               let buffer = AVAudioPCMBuffer(
                 pcmFormat: format,
@@ -553,6 +938,17 @@ final class AVAudioScreenshotPlayer: ScreenshotAudioPlaying {
         if player.isPlaying {
             player.stop()
         }
+    }
+
+    func reconnectForPlayback(sampleRate: Double) {
+        guard connectedSampleRate != sampleRate,
+              let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)
+        else {
+            return
+        }
+        engine.disconnectNodeOutput(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        connectedSampleRate = sampleRate
     }
 }
 

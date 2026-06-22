@@ -1,5 +1,5 @@
 use crate::input::InputChannel;
-use crate::mcp_config::{prepare_agent_command, McpPreference};
+use crate::mcp_config::{prepare_agent_command, McpIdentityEnv, McpPreference};
 use crate::pty::{terminal_size_from_tty, PtyProcess};
 use crate::session::{SessionCard, SessionRegistry};
 use anyhow::{Context, Result};
@@ -20,6 +20,11 @@ pub fn run(command: Vec<String>, registry: &SessionRegistry) -> Result<i32> {
         &helper_path,
         &registry.home().join("mcp"),
         McpPreference::load(registry.home()),
+        &McpIdentityEnv {
+            agent_id: agent_id.clone(),
+            router_home: router_home.clone(),
+            identity_hint: crate::mcp::identity_hint().into(),
+        },
     )?;
     let mut process = PtyProcess::spawn_with_env(
         &prepared.command,
@@ -41,6 +46,19 @@ pub fn run(command: Vec<String>, registry: &SessionRegistry) -> Result<i32> {
         child_pid,
     );
     card.agent_id = agent_id;
+    card.mcp_injected = prepared.mcp_injected;
+    card.mcp_config_path = prepared.mcp_config_path.clone();
+    card.mcp_command = prepared.mcp_command.clone();
+    card.mcp_args = prepared.mcp_args.clone();
+    if prepared.mcp_injected {
+        card.mcp_log_path = Some(
+            registry
+                .home()
+                .join("logs")
+                .join("mcp")
+                .join(format!("{}.log", card.agent_id)),
+        );
+    }
     registry.upsert(&card)?;
     eprintln!(
         "[VoxFlow] agent_id={} command={} cwd={} call-name={}",

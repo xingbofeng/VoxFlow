@@ -441,6 +441,21 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
     }
 
+    func delete(jobID: String) {
+        cancel(jobID: jobID)
+        segmentsByJobID.removeValue(forKey: jobID)
+        do {
+            try environment.transcriptionJobRepository.delete(id: jobID)
+            jobs.removeAll { $0.id == jobID }
+            lastError = nil
+            lastActionMessage = "已删除转写任务"
+            lastActionTone = .destructive
+        } catch {
+            lastError = error.localizedDescription
+            lastActionTone = .destructive
+        }
+    }
+
     func retry(jobID: String) async {
         guard let task = startRegisteredRun(jobID: jobID, resetBeforeRun: true) else {
             return

@@ -29,7 +29,9 @@ final class SherpaOnnxRecognizer: @unchecked Sendable {
 
     init(variant: SherpaASRModelVariant, directoryURL: URL? = nil) throws {
         let root = directoryURL ?? variant.defaultDirectoryURL
+        AppLogger.general.debug("SherpaOnnxRecognizer init variant=\(variant.rawValue) root=\(root.path)")
         guard variant.modelsExist(at: root) else {
+            AppLogger.general.warning("SherpaOnnxRecognizer init failed: model files missing variant=\(variant.rawValue)")
             throw SherpaOnnxRuntimeError.modelFilesMissing
         }
 
@@ -61,9 +63,11 @@ final class SherpaOnnxRecognizer: @unchecked Sendable {
             num_threads: 2
         )
         guard let recognizer = VoxSherpaCreateRecognizer(&config) else {
+            AppLogger.general.warning("SherpaOnnxRecognizer recognizer create failed variant=\(variant.rawValue)")
             throw SherpaOnnxRuntimeError.recognizerCreationFailed
         }
         self.recognizer = recognizer
+        AppLogger.general.info("SherpaOnnxRecognizer init success variant=\(variant.rawValue)")
     }
 
     deinit {
@@ -71,13 +75,17 @@ final class SherpaOnnxRecognizer: @unchecked Sendable {
     }
 
     func transcribe(samples: [Float], sampleRate: Int32 = 16_000) throws -> String {
+        AppLogger.general.debug("SherpaOnnxRecognizer transcribe sampleCount=\(samples.count) sampleRate=\(sampleRate)")
         guard !samples.isEmpty else { return "" }
         guard let result = samples.withUnsafeBufferPointer({
             VoxSherpaTranscribe(recognizer, $0.baseAddress, Int32($0.count), sampleRate)
         }) else {
+            AppLogger.general.warning("SherpaOnnxRecognizer transcribe failed variant=\(String(describing: self.recognizer))")
             throw SherpaOnnxRuntimeError.transcriptionFailed
         }
         defer { VoxSherpaFreeText(result) }
-        return String(cString: result)
+        let text = String(cString: result)
+        AppLogger.general.info("SherpaOnnxRecognizer transcribe completed len=\(text.count)")
+        return text
     }
 }

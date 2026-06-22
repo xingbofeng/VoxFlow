@@ -5,12 +5,19 @@ import VoxFlowVoiceCorrection
 
 @MainActor
 final class AccessibilityFocusedTextObserver: FocusedTextObserving {
+    private let logger = AppLogger.dictation
+
+    private let maximumCachedElements = 32
     private var elementsByIdentity: [String: AXUIElement] = [:]
+    private var elementIdentityOrder: [String] = []
 
     func capture() -> FocusedTextObservation? {
-        guard AXIsProcessTrusted(),
-              let element = focusedTextElement()
-        else {
+        guard AXIsProcessTrusted() else {
+            logger.warning("AccessibilityFocusedTextObserver capture skipped: not trusted")
+            return nil
+        }
+        guard let element = focusedTextElement() else {
+            logger.debug("AccessibilityFocusedTextObserver capture failed: no focused text element")
             return nil
         }
         return observation(for: element)
@@ -19,12 +26,25 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
     func recapture(
         matching baseline: FocusedTextObservation
     ) -> FocusedTextObservation? {
-        guard AXIsProcessTrusted(),
-              let element = elementsByIdentity[baseline.elementIdentity]
-        else {
+        guard AXIsProcessTrusted() else {
+            logger.debug("AccessibilityFocusedTextObserver recapture skipped: not trusted")
+            return nil
+        }
+        guard let element = elementsByIdentity[baseline.elementIdentity] else {
+            logger.debug("AccessibilityFocusedTextObserver recapture miss: identity=\(baseline.elementIdentity)")
             return nil
         }
         return observation(for: element)
+    }
+
+    func focusedInputIsSecure() -> Bool {
+        guard AXIsProcessTrusted(),
+              let element = focusedTextElement()
+        else {
+            logger.debug("AccessibilityFocusedTextObserver focusedInputIsSecure fallback false")
+            return false
+        }
+        return isSecureField(element)
     }
 
     private func focusedTextElement() -> AXUIElement? {
@@ -35,11 +55,13 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
             kAXFocusedUIElementAttribute as CFString,
             &focusedElement
         ) == .success else {
+            logger.debug("AccessibilityFocusedTextObserver focusedTextElement failed: no focused element attribute")
             return nil
         }
 
         let element = focusedElement as! AXUIElement
         guard isTextElement(element) else {
+            logger.debug("AccessibilityFocusedTextObserver focusedTextElement not text element")
             return nil
         }
         return element
@@ -48,10 +70,12 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
     private func observation(for element: AXUIElement) -> FocusedTextObservation? {
         let identity = String(CFHash(element))
         elementsByIdentity[identity] = element
+        rememberElementIdentity(identity)
         let secure = isSecureField(element)
         let bundleIdentifier = bundleIdentifier(for: element)
 
         if secure {
+            logger.debug("AccessibilityFocusedTextObserver observation secure field identity=\(identity)")
             return FocusedTextObservation(
                 elementIdentity: identity,
                 value: "",
@@ -62,9 +86,11 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
         }
 
         guard let value = stringAttribute(kAXValueAttribute, from: element) else {
+            logger.warning("AccessibilityFocusedTextObserver observation missing value identity=\(identity)")
             return nil
         }
 
+        logger.debug("AccessibilityFocusedTextObserver observation captured identity=\(identity) length=\(value.count)")
         return FocusedTextObservation(
             elementIdentity: identity,
             value: value,
@@ -72,6 +98,19 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
             bundleIdentifier: bundleIdentifier,
             isSecureField: false
         )
+    }
+
+    private func rememberElementIdentity(_ identity: String) {
+        elementIdentityOrder.removeAll { $0 == identity }
+        elementIdentityOrder.append(identity)
+        pruneElementCacheIfNeeded()
+    }
+
+    private func pruneElementCacheIfNeeded() {
+        while elementIdentityOrder.count > maximumCachedElements {
+            let expired = elementIdentityOrder.removeFirst()
+            elementsByIdentity.removeValue(forKey: expired)
+        }
     }
 
     private func isTextElement(_ element: AXUIElement) -> Bool {

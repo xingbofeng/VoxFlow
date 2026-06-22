@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 final class LLMProviderViewModel: ObservableObject {
+    private static let logger = AppLogger.general
+
     @Published private(set) var providers: [LLMProviderRecord] = []
     @Published private(set) var modelIDsByProviderID: [String: [String]] = [:]
     @Published private(set) var lastConnectionResult: LLMProviderConnectionResult?
@@ -25,23 +27,29 @@ final class LLMProviderViewModel: ObservableObject {
     ) {
         self.environment = environment
         self.client = client
+        Self.logger.debug("llm_provider_vm_init")
         load()
     }
 
     func load() {
+        Self.logger.debug("llm_provider_vm_load_start")
         do {
             providers = try environment.llmProviderRepository.list()
             hasLoaded = true
             lastError = nil
+            Self.logger.info("llm_provider_vm_load_success providers=\(providers.count) defaultCount=\(providers.filter(\.isDefault).count)")
         } catch {
             lastError = error.localizedDescription
+            Self.logger.error("llm_provider_vm_load_failed error=\(error.localizedDescription)")
         }
     }
 
     func loadIfNeeded() {
         guard !hasLoaded else {
+            Self.logger.debug("llm_provider_vm_load_if_needed_skip")
             return
         }
+        Self.logger.debug("llm_provider_vm_load_if_needed_execute")
         load()
     }
 
@@ -56,6 +64,7 @@ final class LLMProviderViewModel: ObservableObject {
         enabled: Bool,
         isDefault: Bool
     ) throws {
+        Self.logger.debug("llm_provider_vm_save_provider_start isNew=\(id == nil) nameLen=\(displayName.count) modelLen=\(model.count) enabled=\(enabled) requestedDefault=\(isDefault)")
         let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -70,8 +79,9 @@ final class LLMProviderViewModel: ObservableObject {
         if trimmedName.isEmpty { missingFields.append("名称") }
         if trimmedURL.isEmpty { missingFields.append("Base URL") }
         if trimmedModel.isEmpty { missingFields.append("Model") }
-        if trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append("API Key") }
+        if trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append("访问密钥") }
         guard missingFields.isEmpty else {
+            Self.logger.warning("llm_provider_vm_save_provider_rejected missingFields=\(missingFields.count)")
             throw LLMProviderViewModelError.requiredFields(missingFields)
         }
         let hasDefault = try environment.llmProviderRepository.list().contains {
@@ -102,7 +112,8 @@ final class LLMProviderViewModel: ObservableObject {
         try environment.llmProviderRepository.save(provider)
         load()
         lastError = nil
-        lastActionMessage = "已保存 Provider"
+        lastActionMessage = "已保存模型服务"
+        Self.logger.info("llm_provider_vm_save_provider_success id=\(providerID) isDefault=\(provider.isDefault) enabled=\(provider.enabled)")
     }
 
     func hasStoredAPIKey(providerID: String?) -> Bool {
@@ -141,6 +152,7 @@ final class LLMProviderViewModel: ObservableObject {
         model: String,
         apiKey: String
     ) -> [String: String] {
+        Self.logger.debug("llm_provider_vm_validation_errors_start providerID=\(providerID ?? "nil") nameLen=\(displayName.count) modelLen=\(model.count)")
         var errors: [String: String] = [:]
         if displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             errors["displayName"] = "请输入名称"
@@ -154,10 +166,11 @@ final class LLMProviderViewModel: ObservableObject {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         let isMasked = isMaskedAPIKey(providerID: providerID, text: trimmedKey)
         if trimmedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
-            errors["apiKey"] = "请输入 API Key"
+            errors["apiKey"] = "请输入访问密钥"
         } else if !trimmedKey.isEmpty && !isMasked && trimmedKey.count < 8 {
-            errors["apiKey"] = "API Key 长度不足"
+            errors["apiKey"] = "访问密钥长度不足"
         }
+        Self.logger.debug("llm_provider_vm_validation_errors_done count=\(errors.count)")
         return errors
     }
 
@@ -168,6 +181,7 @@ final class LLMProviderViewModel: ObservableObject {
         model: String,
         apiKey: String
     ) async {
+        Self.logger.debug("llm_provider_vm_test_draft_connection_start providerID=\(providerID ?? "nil") nameLen=\(displayName.count) modelLen=\(model.count)")
         isTestingDraftConnection = true
         lastError = nil
         lastActionMessage = nil
@@ -181,7 +195,7 @@ final class LLMProviderViewModel: ObservableObject {
             var missingFields: [String] = []
             if trimmedName.isEmpty { missingFields.append("名称") }
             if trimmedModel.isEmpty { missingFields.append("Model") }
-            if resolvedKey.isEmpty { missingFields.append("API Key") }
+            if resolvedKey.isEmpty { missingFields.append("访问密钥") }
             guard missingFields.isEmpty else {
                 throw LLMProviderViewModelError.requiredFields(missingFields)
             }
@@ -194,12 +208,14 @@ final class LLMProviderViewModel: ObservableObject {
             lastConnectionResult = result
             lastError = nil
             lastActionMessage = "连接测试成功"
+            Self.logger.info("llm_provider_vm_test_draft_connection_success latencyMS=\(result.latencyMS)")
         } catch {
             report(error: error)
         }
     }
 
     func testConnection(id: String) async {
+        Self.logger.debug("llm_provider_vm_test_connection_start id=\(id)")
         testingProviderID = id
         lastError = nil
         lastActionMessage = nil
@@ -222,15 +238,18 @@ final class LLMProviderViewModel: ObservableObject {
             try saveHealth(provider: provider, status: "ok", message: result.message, latencyMS: result.latencyMS)
             lastError = nil
             lastActionMessage = "连接测试成功"
+            Self.logger.info("llm_provider_vm_test_connection_success id=\(id) latencyMS=\(result.latencyMS)")
         } catch {
             lastError = error.localizedDescription
             if let provider = try? environment.llmProviderRepository.provider(id: id) {
                 try? saveHealth(provider: provider, status: "error", message: error.localizedDescription, latencyMS: nil)
             }
+            Self.logger.error("llm_provider_vm_test_connection_failed id=\(id) error=\(error.localizedDescription)")
         }
     }
 
     func refreshModelsAndMeasure(id: String) async {
+        Self.logger.debug("llm_provider_vm_refresh_models_start id=\(id)")
         do {
             let provider = try requireProvider(id: id)
             let apiKey = try environment.credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
@@ -254,18 +273,22 @@ final class LLMProviderViewModel: ObservableObject {
             try saveHealth(provider: provider, status: "ok", message: message, latencyMS: result.latencyMS)
             lastError = nil
             lastActionMessage = "已刷新模型并完成测速"
+            Self.logger.info("llm_provider_vm_refresh_models_success id=\(id) models=\(models.count) latencyMS=\(result.latencyMS)")
         } catch {
             lastError = error.localizedDescription
             if let provider = try? environment.llmProviderRepository.provider(id: id) {
                 try? saveHealth(provider: provider, status: "error", message: error.localizedDescription, latencyMS: nil)
             }
+            Self.logger.error("llm_provider_vm_refresh_models_failed id=\(id) error=\(error.localizedDescription)")
         }
     }
 
     func selectModel(providerID: String, model: String) throws {
+        Self.logger.debug("llm_provider_vm_select_model_start providerID=\(providerID) modelLen=\(model.count)")
         let provider = try requireProvider(id: providerID)
         let selectedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !selectedModel.isEmpty else {
+            Self.logger.warning("llm_provider_vm_select_model_rejected providerID=\(providerID) emptyModel=true")
             throw LLMProviderViewModelError.modelRequired
         }
         try environment.llmProviderRepository.save(
@@ -290,11 +313,14 @@ final class LLMProviderViewModel: ObservableObject {
         load()
         lastError = nil
         lastActionMessage = "已选择全局模型 \(selectedModel)"
+        Self.logger.info("llm_provider_vm_select_model_success providerID=\(providerID) modelLen=\(selectedModel.count)")
     }
 
     func setDefaultProvider(id: String) throws {
+        Self.logger.debug("llm_provider_vm_set_default_provider_start id=\(id)")
         let selectedProvider = try requireProvider(id: id)
         guard selectedProvider.enabled else {
+            Self.logger.warning("llm_provider_vm_set_default_provider_rejected id=\(id) disabled=true")
             throw LLMProviderViewModelError.providerDisabled
         }
         let now = environment.clock.now
@@ -323,9 +349,11 @@ final class LLMProviderViewModel: ObservableObject {
         load()
         lastError = nil
         lastActionMessage = "已设为全局默认模型"
+        Self.logger.info("llm_provider_vm_set_default_provider_success id=\(id)")
     }
 
     func deleteProvider(id: String) {
+        Self.logger.debug("llm_provider_vm_delete_provider_start id=\(id)")
         do {
             if let provider = try environment.llmProviderRepository.provider(id: id) {
                 try environment.credentialStore.deleteCredential(account: provider.apiKeyRef)
@@ -357,7 +385,8 @@ final class LLMProviderViewModel: ObservableObject {
             }
             load()
             lastError = nil
-            lastActionMessage = "已删除 Provider"
+            lastActionMessage = "已删除模型服务"
+            Self.logger.info("llm_provider_vm_delete_provider_success id=\(id) remaining=\(providers.count)")
         } catch {
             report(error: error)
         }
@@ -366,6 +395,7 @@ final class LLMProviderViewModel: ObservableObject {
     func report(error: Error) {
         lastError = error.localizedDescription
         lastActionMessage = nil
+        Self.logger.error("llm_provider_vm_error error=\(error.localizedDescription)")
     }
 
     func clearFeedback() {
@@ -427,11 +457,11 @@ enum LLMProviderViewModelError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .providerNotFound:
-            return "LLM Provider 不存在。"
+            return "智能模型服务不存在。"
         case .modelRequired:
             return "模型名称不能为空。"
         case .providerDisabled:
-            return "请先启用该 Provider。"
+            return "请先启用该模型服务。"
         case let .requiredFields(fields):
             return "请填写必填字段：\(fields.joined(separator: "、"))。"
         }

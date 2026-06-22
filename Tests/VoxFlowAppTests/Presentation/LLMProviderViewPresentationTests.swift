@@ -16,6 +16,16 @@ final class LLMProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains(".disabled(provider.isDefault || !provider.enabled)"))
     }
 
+    func testProviderRowsUseDisplayNameInitialBadges() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/LLMProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("displayName: provider.displayName"))
+        XCTAssertTrue(source.contains("ProviderInitialBadge("))
+        XCTAssertFalse(source.contains("systemImage: \"sparkles\""))
+    }
+
     private static func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath)
         while directory.path != "/" {

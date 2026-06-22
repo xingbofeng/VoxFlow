@@ -31,7 +31,7 @@ final class CapabilityModelViewModelTests: XCTestCase {
                 CapabilityModelID.madladTranslation,
             ]
         )
-        XCTAssertEqual(viewModel.models.first?.displayName, "LLM配置")
+        XCTAssertEqual(viewModel.models.first?.displayName, "智能模型配置")
         XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.llmTranslation)
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.systemDefaultTranslation })?.fallbackDescription,
@@ -39,7 +39,7 @@ final class CapabilityModelViewModelTests: XCTestCase {
         )
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.llmTranslation })?.displayName,
-            "LLM配置"
+            "智能模型配置"
         )
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.llmTranslation })?.isInstalled,

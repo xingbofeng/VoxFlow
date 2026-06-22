@@ -4,6 +4,57 @@ import SwiftUI
 import VoxFlowTextInsertion
 
 @MainActor
+struct AgentDefaultOutputOperation {
+    struct Result {
+        let finalText: String
+        let activatedOriginalTarget: Bool
+        let currentTarget: DictationTarget?
+        let outputResult: OutputResult
+    }
+
+    let process: (String, DictationTarget?) async -> TextProcessingResult
+    let activate: (DictationTarget?) async -> Bool
+    let currentTarget: () -> DictationTarget?
+    let deliver: (String, DictationTarget?, DictationTarget?) async -> OutputResult
+    let isCancelled: () -> Bool
+
+    func run(utterance: String, originalTarget: DictationTarget?) async -> Result? {
+        let processingResult = await process(utterance, originalTarget)
+        guard !isCancelled() else { return nil }
+
+        let trimmedFinalText = processingResult.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalText = trimmedFinalText.isEmpty ? utterance : trimmedFinalText
+        let activatedOriginalTarget = await activate(originalTarget)
+        guard !isCancelled() else { return nil }
+
+        let target = currentTarget()
+        let outputResult = await deliver(finalText, target, originalTarget)
+        guard !isCancelled() else { return nil }
+
+        return Result(
+            finalText: finalText,
+            activatedOriginalTarget: activatedOriginalTarget,
+            currentTarget: target,
+            outputResult: outputResult
+        )
+    }
+}
+
+enum AgentDefaultOutputHUDCompletion: Equatable {
+    case hidden
+    case failure(message: String, retainedText: String)
+
+    init(outputResult: OutputResult, finalText: String) {
+        switch outputResult.kind {
+        case .permissionDenied, .failed:
+            self = .failure(message: "写入当前输入框失败", retainedText: finalText)
+        case .inserted, .copied, .targetChanged, .cancelled:
+            self = .hidden
+        }
+    }
+}
+
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - UI
 
@@ -135,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.llmRefiner.isConfigured ?? false
         },
         showAgentComposeSetupRequired: { [weak self] in
-            self?.hudFeatureController.showTemporaryMessage("请先在设置中配置 LLM", duration: 3.0)
+            self?.hudFeatureController.showTemporaryMessage("请先在设置中配置智能模型", duration: 3.0)
         },
         refreshRecordingPermissionSnapshot: { [weak self] in
             guard let self else {
@@ -202,6 +253,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dictationOrchestrator: DictationOrchestrator!
     private var agentComposeHandler: DefaultAgentComposeHandler!
     private var agentDispatchHandler: DefaultAgentDispatchHandler?
+    private let logger = AppLogger.general
+    private let pendingCorrectionFallback = PendingCorrectionFallbackController()
+    private var agentDefaultOutputTask: Task<Void, Never>?
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
         HotKeyFeatureController(
@@ -255,8 +309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
         recordingFeedbackController = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true) ?? true },
@@ -282,6 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AppPresentationPolicy.opensWorkbenchOnLaunch {
             windowCoordinator.showMainWindow()
         }
+        logger.debug("application_launch_completed")
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -292,6 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
+        logger.debug("application_should_handle_reopen hasVisibleWindows=\(flag)")
         guard AppPresentationPolicy.restoresWorkbenchOnReopen else {
             return true
         }
@@ -300,14 +358,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        logger.info("application_will_terminate")
         hotKeyFeatureController.stop()
         audioRecorder.stop()
         dictationOrchestrator.cancel()
+        agentDefaultOutputTask?.cancel()
         agentDispatchHandler?.cancel()
         agentHelperManager?.stopRouter()
     }
 
     private func setupDictationOrchestrator() {
+        logger.debug("setup_dictation_orchestrator")
         let targetProvider = runtime!.dictationTargetProvider
         agentComposeHandler = DefaultAgentComposeHandler(
             coordinator: voiceTaskCoordinator,
@@ -324,7 +385,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 do {
                     try await helperManager.startRouter()
+                    logger.info("agent_router_started")
                 } catch {
+                    logger.error("agent_router_start_failed \(error.localizedDescription)")
                     AppLogger.general.error("Failed to start Agent Router: \(error.localizedDescription)")
                 }
             }
@@ -373,6 +436,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
             }
+            overlayController.onAgentDefaultOutputSelected = { [weak self, weak handler] utterance in
+                handler?.beginDefaultOutput()
+                self?.agentDefaultOutputTask?.cancel()
+                self?.agentDefaultOutputTask = Task { @MainActor in
+                    await self?.handleAgentDefaultOutputSelected(
+                        utterance: utterance,
+                        handler: handler
+                    )
+                }
+            }
             agentDispatchHandler = handler
         }
         dictationOrchestrator = DictationOrchestrator(
@@ -387,7 +460,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             outputService: outputService,
             agentComposeHandler: agentComposeHandler,
             agentDispatchHandler: agentDispatchHandler,
-            audioCaptureCoordinator: runtime!.audioCaptureCoordinator
+            audioCaptureCoordinator: runtime!.audioCaptureCoordinator,
+            correctionObservationScheduler: runtime!.correctionObservationScheduler,
+            isFocusedTextFieldSecure: { [weak self] in
+                self?.runtime?.focusedTextObserver.focusedInputIsSecure() ?? false
+            }
         )
         dictationOrchestrator.onStateChange = { [weak self] state in
             self?.handleDictationStateChange(state)
@@ -412,6 +489,96 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dictationOrchestrator.onError = { [weak self] error in
             self?.dictationFeatureController.handleRecognitionError(error)
         }
+        logger.debug("setup_dictation_orchestrator_completed")
+    }
+
+    private func handleAgentDefaultOutputSelected(
+        utterance: String,
+        handler: DefaultAgentDispatchHandler?
+    ) async {
+        let originalTarget = handler?.activeTarget ?? runtime?.dictationTargetProvider.currentTarget()
+        let currentTargetBeforeCorrection = runtime?.dictationTargetProvider.currentTarget()
+        let enteredCorrection = true
+        AppLogger.general.info(
+            "agent_default_output_started originalTarget=\(Self.logDescription(for: originalTarget)) currentTarget=\(Self.logDescription(for: currentTargetBeforeCorrection)) activatedOriginalTarget=false enteredCorrection=\(enteredCorrection) outputKind=pending fallbackReason=none"
+        )
+        hudFeatureController.render(.processing)
+        hudFeatureController.processingStarted(utterance)
+        let fallbackToken = pendingCorrectionFallback.begin(rawText: utterance)
+        var hudCompletion = AgentDefaultOutputHUDCompletion.hidden
+        defer {
+            pendingCorrectionFallback.finish(fallbackToken)
+            switch hudCompletion {
+            case .hidden:
+                hudFeatureController.render(.hidden)
+            case let .failure(message, retainedText):
+                hudFeatureController.handleAgentDispatch(.failure(
+                    message: message,
+                    retainedText: retainedText
+                ))
+            }
+        }
+        let operation = AgentDefaultOutputOperation(
+            process: { [textPipeline] text, target in
+                await textPipeline.process(
+                    text,
+                    target: target,
+                    onRefinedTextUpdate: { _ in }
+                )
+            },
+            activate: { target in
+                await DictationTargetActivation.activate(target)
+            },
+            currentTarget: { [weak self] in
+                self?.runtime?.dictationTargetProvider.currentTarget()
+            },
+            deliver: { [outputService] text, target, originalTarget in
+                await outputService.deliver(
+                    text: text,
+                    mode: .dictation,
+                    target: target,
+                    originalTarget: originalTarget
+                )
+            },
+            isCancelled: { Task.isCancelled }
+        )
+        guard let result = await operation.run(
+            utterance: utterance,
+            originalTarget: originalTarget
+        ) else { return }
+        hudCompletion = AgentDefaultOutputHUDCompletion(
+            outputResult: result.outputResult,
+            finalText: result.finalText
+        )
+        AppLogger.general.info(
+            "agent_default_output_completed originalTarget=\(Self.logDescription(for: originalTarget)) currentTarget=\(Self.logDescription(for: result.currentTarget)) activatedOriginalTarget=\(result.activatedOriginalTarget) enteredCorrection=\(enteredCorrection) outputKind=\(result.outputResult.kind.rawValue) fallbackReason=\(Self.fallbackReason(for: result.outputResult))"
+        )
+        do {
+            try handler?.completeFallbackInput(
+                finalText: result.finalText,
+                outputResult: result.outputResult
+            )
+        } catch {
+            AppLogger.general.error("Failed to complete Agent Dispatch default output: \(error.localizedDescription)")
+        }
+    }
+
+    private static func logDescription(for target: DictationTarget?) -> String {
+        guard let target else { return "nil" }
+        let hasWindowTitle = target.windowTitle?.isEmpty == false
+        return "{bundleID=\(target.bundleID ?? "nil"),appName=\(target.appName ?? "nil"),pid=\(target.pid.map { String($0) } ?? "nil"),windowID=\(target.windowID ?? "nil"),hasWindowTitle=\(hasWindowTitle)}"
+    }
+
+    private static func fallbackReason(for result: OutputResult) -> String {
+        switch result {
+        case .injected, .copied, .cancelled:
+            return "none"
+        case let .targetChanged(reason),
+             let .permissionDenied(reason),
+             let .injectionFailed(reason),
+             let .copyFailed(reason):
+            return reason
+        }
     }
 
     private func handleDictationStateChange(_ state: DictationState) {
@@ -421,6 +588,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Status Item
 
     private func setupStatusItem() {
+        logger.debug("setup_status_item")
         statusItem = NSStatusBar.system.statusItem(withLength: StatusBarIcon.preferredLength)
         if !StatusBarIcon.configure(statusItem) {
             AppLogger.general.error("Status item button unavailable during menu bar setup.")
@@ -430,24 +598,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu
 
     private func setupMainMenu() {
+        logger.debug("setup_main_menu")
         NSApplication.shared.mainMenu = AppMainMenuBuilder.makeMainMenu()
     }
 
     private func setupMenu() {
+        logger.debug("setup_menu")
         menuBarCoordinator.attach(to: statusItem)
     }
 
     // MARK: - Menu Actions
 
     private func selectLanguage(_ language: RecognitionLanguage) {
+        logger.debug("menu_select_language language=\(language)")
         LanguageManager.shared.setLanguage(language)
     }
 
     private func openSettings() {
+        logger.debug("menu_open_settings")
         windowCoordinator.showSettings(tab: .asr)
     }
 
     private func selectLLMProvider(_ providerID: String) {
+        logger.debug("menu_select_llm_provider providerID=\(providerID)")
         do {
             let viewModel = LLMProviderViewModel(environment: appEnvironment)
             try viewModel.setDefaultProvider(id: providerID)
@@ -457,14 +630,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func selectCapabilityModel(kind: CapabilityModelKind, modelID: String) {
+        logger.debug("menu_select_capability_model kind=\(kind) modelID=\(modelID)")
         CapabilityModelViewModel.setSelectedModelID(modelID, kind: kind)
     }
 
     private func openWorkbench() {
+        logger.debug("menu_open_workbench")
         windowCoordinator.showMainWindow()
     }
 
     private func openGitHub() {
+        logger.debug("menu_open_github")
         guard let url = URL(string: HelpExternalLinks.githubRepository) else { return }
         NSWorkspace.shared.open(url)
     }
@@ -476,12 +652,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func selectASREngine(_ option: ASRMenuModel) {
+        logger.debug("menu_select_asr_engine title=\(option.title) value=\(option.engineType.rawValue)")
         asrCoordinator.selectMenuOption(option)
     }
 
     // MARK: - Quit
 
     private func quitApp() {
+        logger.info("menu_quit_app")
         NSApplication.shared.terminate(nil)
     }
 
@@ -512,12 +690,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hot Key Handling
 
     private func startNotesRecording() {
+        logger.debug("hotkey_start_notes_recording")
         Task { @MainActor in
             await NotesCaptureCoordinator.shared.startRecording?()
         }
     }
 
     private func finishNotesRecording() {
+        logger.debug("hotkey_finish_notes_recording")
         NotesCaptureCoordinator.shared.finishRecording?()
     }
 
@@ -536,6 +716,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Error Handling
 
     private func resolveRecordingPermissions() async {
+        logger.debug("resolve_recording_permissions")
         _ = await recordingPermissionService.resolveRecordingPermissions()
     }
 
@@ -543,6 +724,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let recordingPermissions = recordingPermissionService.refreshRecordingPermissions()
         let accessibility = AXIsProcessTrusted()
         let screenRecording = CGPreflightScreenCaptureAccess()
+        logger.debug(
+            "permission_snapshot microphone=\(recordingPermissions.microphonePermission) speech=\(recordingPermissions.speechPermission) accessibility=\(accessibility) screenRecording=\(screenRecording) engine=\(recordingPermissions.engineType)"
+        )
 
         presentPermissionGuide(
             title: "权限检查",
@@ -559,10 +743,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func checkPermissions() {
+        logger.debug("check_permissions_requested")
         checkAllPermissions()
     }
 
     private func showRecordingPermissionsAlert() {
+        logger.debug("show_recording_permissions_alert engineType=\(asrCoordinator.effectiveSelectedEngineType)")
         let message = PermissionSummary.recordingPermissionAlertText(
             engineType: asrCoordinator.effectiveSelectedEngineType
         )
@@ -648,19 +834,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func handleEscapeKey() {
-        if dictationOrchestrator.state == .processing {
-            dictationOrchestrator.finishWithoutTextCorrection()
-        } else {
-            dictationOrchestrator.cancel()
-            agentDispatchHandler?.cancel()
-            hudFeatureController.render(.hidden)
+    private func handleEscapeKey() -> Bool {
+        if let rawText = pendingCorrectionFallback.consumeRawText() {
+            agentDefaultOutputTask?.cancel()
+            agentDefaultOutputTask = nil
+            Task { @MainActor [weak self] in
+                await self?.deliverPendingCorrectionFallback(rawText)
+            }
+            return true
+        }
+
+        let didOutputRawText = dictationOrchestrator.handleEscapeKey()
+        guard !didOutputRawText else { return true }
+        agentDispatchHandler?.cancel()
+        hudFeatureController.render(.hidden)
+        return false
+    }
+
+    private func deliverPendingCorrectionFallback(_ rawText: String) async {
+        let originalTarget = agentDispatchHandler?.activeTarget ?? runtime?.dictationTargetProvider.currentTarget()
+        await DictationTargetActivation.activate(originalTarget)
+        let outputResult = await outputService.deliver(
+            text: rawText,
+            mode: .dictation,
+            target: runtime?.dictationTargetProvider.currentTarget(),
+            originalTarget: originalTarget
+        )
+        do {
+            try agentDispatchHandler?.completeFallbackInput(
+                finalText: rawText,
+                outputResult: outputResult
+            )
+        } catch {
+            AppLogger.general.error(
+                "Failed to complete pending correction fallback input: \(error.localizedDescription)"
+            )
+        }
+
+        switch outputResult.kind {
+        case .permissionDenied, .failed:
+            hudFeatureController.handleAgentDispatch(.failure(
+                message: "写入当前输入框失败",
+                retainedText: rawText
+            ))
+        case .inserted, .copied, .targetChanged, .cancelled:
+            break
         }
     }
 
+    @objc func performScreenshotOCRFromMenu(_ sender: Any?) {
+        _ = performWorkflowShortcut(.screenshotOCR)
+    }
+
     private func performWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
+        logger.debug("workflow_shortcut_requested shortcut=\(shortcut)")
         switch shortcut {
         case .clipboardImageOCR:
+            logger.debug("workflow_shortcut_clipboard_image_ocr")
             guard shouldStartEphemeralWorkflow(shortcut) else {
                 return true
             }
@@ -678,6 +908,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceTaskCoordinator.registerEphemeralWorkflowTask(task, for: lease)
             return true
         case .screenshotOCR:
+            logger.debug("workflow_shortcut_screenshot_ocr")
             guard shouldStartEphemeralWorkflow(shortcut) else {
                 return true
             }
@@ -701,6 +932,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceTaskCoordinator.registerEphemeralWorkflowTask(task, for: lease)
             return true
         case .cancel:
+            logger.debug("workflow_shortcut_cancel")
+            if pendingCorrectionFallback.hasPending {
+                _ = handleEscapeKey()
+                return true
+            }
             if voiceTaskCoordinator.activeTaskID(for: .clipboardImageOCR) != nil {
                 voiceTaskCoordinator.cancelEphemeralWorkflow(kind: .clipboardImageOCR)
                 return true
@@ -710,13 +946,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return true
             }
             if voiceTaskCoordinator.activeTaskID(for: .agentDispatch) != nil {
-                handleEscapeKey()
+                _ = handleEscapeKey()
                 return true
             }
             guard !dictationOrchestrator.state.isIdle else {
                 return false
             }
-            handleEscapeKey()
+            _ = handleEscapeKey()
             return true
         }
     }
@@ -727,6 +963,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dictationState: dictationOrchestrator.state
         )
         if !shouldStart {
+            logger.debug("workflow_shortcut_blocked dictationState=\(dictationOrchestrator.state)")
             hudFeatureController.showTemporaryMessage("语音输入进行中，请先结束当前任务", duration: 2.2)
         }
         return shouldStart
@@ -789,9 +1026,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceTaskCoordinator.completeEphemeralWorkflow(lease)
         }
 
-        if shouldPresentHUD {
-            hudFeatureController.showTemporaryMessage("框选截图区域以识别文字", duration: 1.8)
-        }
         let outcome = await screenshotOCRService.captureAndRecognize()
         guard !Task.isCancelled else { return }
         guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {
@@ -800,10 +1034,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         switch outcome {
         case .recognized(let result):
-            screenshotOCRResultPanelController.present(result: result)
+            let opensFromTextRecognitionCommand = result.captureCompletionKind == .textRecognition
+            let completionMessage = result.captureCompletionKind == .scrollingScreenshot
+                ? "截图完成"
+                : "屏幕文字识别完成"
+            screenshotOCRResultPanelController.present(
+                result: result,
+                initialTab: opensFromTextRecognitionCommand ? .ocr : .originalImage,
+                autoDismiss: !opensFromTextRecognitionCommand
+            )
             if shouldPresentHUD {
-                hudFeatureController.showTemporaryMessage("屏幕文字识别完成", duration: 1.8, tone: .success)
+                hudFeatureController.showTemporaryMessage(completionMessage, duration: 1.8, tone: .success)
             }
+            saveScreenshotRecord(result: result)
+        case .translatedOverlay(let originalResult, let overlayImage):
+            // 翻译覆盖图：把 overlayImage 放进剪贴板 + 弹结果面板显示覆盖图
+            clipboardService.setImage(overlayImage.image)
+            var resultWithOverlay = originalResult
+            resultWithOverlay.translatedText = originalResult.originalText  // 保留原文供参考
+            screenshotOCRResultPanelController.present(
+                result: resultWithOverlay,
+                initialTab: .translatedOverlay,
+                autoDismiss: false,
+                overlayImage: overlayImage.image
+            )
+            if shouldPresentHUD {
+                hudFeatureController.showTemporaryMessage("翻译完成", duration: 1.8, tone: .success)
+            }
+            saveScreenshotRecord(result: originalResult)
         case .captureCancelled:
             if shouldPresentHUD {
                 hudFeatureController.showTemporaryMessage("已取消截图", duration: 1.6)
@@ -819,6 +1077,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .translated, .summarized, .translationUnavailable, .summaryUnavailable,
              .translationFailed, .summaryFailed:
             break
+        }
+    }
+
+    private func saveScreenshotRecord(result: ScreenshotOCRResult) {
+        guard let image = result.originalImage else { return }
+        let recordID = UUID().uuidString
+        let directory = appEnvironment.paths?.screenshotsDirectory
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("VoxFlowScreenshots", isDirectory: true)
+
+        let imagePath: String?
+        do {
+            imagePath = try ScreenshotImageStorage.save(image: image, id: recordID, directory: directory)
+        } catch {
+            AppLogger.general.error("Failed to save screenshot image: \(error.localizedDescription)")
+            imagePath = nil
+        }
+
+        let now = appEnvironment.clock.now
+        let record = ScreenshotRecord(
+            id: recordID,
+            ocrText: result.originalText,
+            translatedText: nil,
+            summaryText: nil,
+            imagePath: imagePath,
+            charCount: result.originalText.count,
+            isFavorited: false,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        do {
+            try appEnvironment.screenshotRecordRepository.save(record)
+            windowCoordinator.refreshScreenshotRecords()
+        } catch {
+            AppLogger.general.error("Failed to save screenshot record: \(error.localizedDescription)")
         }
     }
 

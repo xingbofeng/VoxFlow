@@ -17,6 +17,7 @@ final class AgentDispatchCoordinator {
     private var listeningRevision = 0
     private(set) var agents: [AgentSessionCard] = []
     private(set) var presentation: AgentDispatchHUDPresentation = .idle
+    private(set) var lastDispatchedMessage: String?
     var onPresentationChange: ((AgentDispatchHUDPresentation) -> Void)?
 
     init(
@@ -35,14 +36,18 @@ final class AgentDispatchCoordinator {
 
     func startListening() async {
         listeningRevision &+= 1
+        lastDispatchedMessage = nil
         let revision = listeningRevision
+        AppLogger.dictation.debug("AgentDispatchCoordinator startListening revision=\(revision)")
         do {
             let currentAgents = try await router.listAgents()
             guard revision == listeningRevision else { return }
             agents = currentAgents.currentDispatchableAgents
             present(.listening(agentNames: agents.map(\.displayName)))
+            AppLogger.dictation.debug("AgentDispatchCoordinator startListening agents=\(agents.count)")
         } catch {
             guard revision == listeningRevision else { return }
+            AppLogger.dictation.warning("AgentDispatchCoordinator startListening failed: \(error.localizedDescription)")
             present(.failure(message: error.localizedDescription, retainedText: ""))
         }
     }
@@ -50,6 +55,7 @@ final class AgentDispatchCoordinator {
     func dispatch(utterance: String) async {
         invalidatePendingListening()
         let revision = listeningRevision
+        AppLogger.dictation.debug("AgentDispatchCoordinator dispatch revision=\(revision) utteranceLen=\(utterance.count)")
         do {
             agents = try await router.listAgents().currentDispatchableAgents
             guard revision == listeningRevision else { return }
@@ -58,10 +64,12 @@ final class AgentDispatchCoordinator {
             switch outcome {
             case let .direct(agentID, message, _):
                 guard let agent = agents.first(where: { $0.agentID == agentID }) else {
-                    present(.failure(message: "目标队员已不可用", retainedText: message))
+                    AppLogger.dictation.warning("AgentDispatchCoordinator direct resolution failed missing agent=\(agentID)")
+                    present(.failure(message: "目标任务助手已不可用", retainedText: message))
                     return
                 }
                 guard directSendEnabled() else {
+                    AppLogger.dictation.debug("AgentDispatchCoordinator direct resolution requires confirmation")
                     present(.confirmation(utterance: utterance, candidates: [agent]))
                     return
                 }
@@ -69,9 +77,11 @@ final class AgentDispatchCoordinator {
                 do {
                     try await router.send(.init(agentID: agentID, message: message, submit: true))
                     guard revision == listeningRevision else { return }
+                    lastDispatchedMessage = message
                     present(.sent(agentName: agent.displayName))
                 } catch {
                     guard revision == listeningRevision else { return }
+                    AppLogger.dictation.warning("AgentDispatchCoordinator direct send failed: \(error.localizedDescription)")
                     present(.failure(
                         message: error.localizedDescription,
                         retainedText: message
@@ -79,6 +89,7 @@ final class AgentDispatchCoordinator {
                 }
             case let .ambiguous(candidateIDs):
                 let behavior = unresolvedBehavior()
+                AppLogger.dictation.debug("AgentDispatchCoordinator outcome ambiguous behavior=\(behavior) candidates=\(candidateIDs.count)")
                 guard behavior != "cancel" else {
                     present(.failure(message: "已取消发送", retainedText: utterance))
                     return
@@ -93,6 +104,7 @@ final class AgentDispatchCoordinator {
                 )
             case .notFound:
                 let behavior = unresolvedBehavior()
+                AppLogger.dictation.debug("AgentDispatchCoordinator outcome notFound behavior=\(behavior)")
                 guard behavior != "cancel" else {
                     present(.failure(message: "已取消发送", retainedText: utterance))
                     return
@@ -111,6 +123,7 @@ final class AgentDispatchCoordinator {
                 present(.failure(message: reason.userMessage, retainedText: utterance))
             }
         } catch {
+            AppLogger.dictation.warning("AgentDispatchCoordinator dispatch failed: \(error.localizedDescription)")
             present(.failure(message: error.localizedDescription, retainedText: utterance))
         }
     }
@@ -118,6 +131,7 @@ final class AgentDispatchCoordinator {
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async {
         invalidatePendingListening()
         let revision = listeningRevision
+        AppLogger.dictation.debug("AgentDispatchCoordinator confirm revision=\(revision) agent=\(agentID)")
         do {
             if let alias, !alias.isEmpty {
                 try await router.learnAlias(alias, agentID: agentID, userConfirmed: true)
@@ -125,33 +139,38 @@ final class AgentDispatchCoordinator {
             }
             try await router.send(.init(agentID: agentID, message: message, submit: true))
             guard revision == listeningRevision else { return }
+            lastDispatchedMessage = message
             present(.sent(
                 agentName: agents.first(where: { $0.agentID == agentID })?.displayName ?? agentID
             ))
         } catch {
             guard revision == listeningRevision else { return }
+            AppLogger.dictation.warning("AgentDispatchCoordinator confirm failed: \(error.localizedDescription)")
             present(.failure(message: error.localizedDescription, retainedText: message))
         }
     }
 
     func fallbackToClipboard(text: String) {
         invalidatePendingListening()
+        AppLogger.dictation.debug("AgentDispatchCoordinator fallbackToClipboard textLen=\(text.count)")
         present(.clipboardFallback(text: text))
     }
 
     func fail(message: String, retainedText: String) {
         invalidatePendingListening()
+        AppLogger.dictation.warning("AgentDispatchCoordinator fail message=\(message)")
         present(.failure(message: message, retainedText: retainedText))
     }
 
     func invalidatePendingListening() {
         listeningRevision &+= 1
+        AppLogger.dictation.debug("AgentDispatchCoordinator invalidatePendingListening revision=\(listeningRevision)")
     }
 
     private func presentCandidates(utterance: String, candidateIDs: [String]) async {
         var candidates = agents.filter { candidateIDs.contains($0.agentID) }
         guard !candidates.isEmpty else {
-            present(.failure(message: "没有可用队员", retainedText: utterance))
+            present(.fallbackInput(text: utterance))
             return
         }
         if let modelResolver,
@@ -160,7 +179,7 @@ final class AgentDispatchCoordinator {
                candidates: candidates
            ) {
             guard resolution.confidence >= 0.60 else {
-                present(.failure(message: "找不到明确队员", retainedText: utterance))
+                present(.failure(message: "找不到明确任务助手", retainedText: utterance))
                 return
             }
             if let preferred = candidates.first(where: { $0.agentID == resolution.agentID }) {
@@ -177,13 +196,16 @@ final class AgentDispatchCoordinator {
                     }
                     guard revision == listeningRevision else { return }
                     do {
+                        AppLogger.dictation.debug("AgentDispatchCoordinator high-confidence auto-send agent=\(preferred.displayName)")
                         try await router.send(.init(
                             agentID: preferred.agentID,
                             message: dispatchMessage,
                             submit: true
                         ))
+                        lastDispatchedMessage = dispatchMessage
                         present(.sent(agentName: preferred.displayName))
                     } catch {
+                        AppLogger.dictation.warning("AgentDispatchCoordinator auto-send failed: \(error.localizedDescription)")
                         present(.failure(
                             message: error.localizedDescription,
                             retainedText: dispatchMessage
@@ -193,11 +215,38 @@ final class AgentDispatchCoordinator {
                 }
             }
         }
+        AppLogger.dictation.debug("AgentDispatchCoordinator present confirmation for \(candidates.count) candidates")
         present(.confirmation(utterance: utterance, candidates: candidates))
     }
 
     private func present(_ next: AgentDispatchHUDPresentation) {
+        switch next {
+        case .sent:
+            break
+        default:
+            lastDispatchedMessage = nil
+        }
         presentation = next
+        let presentationName: String
+        switch next {
+        case .idle:
+            presentationName = "idle"
+        case .listening:
+            presentationName = "listening"
+        case .exact:
+            presentationName = "exact"
+        case .confirmation:
+            presentationName = "confirmation"
+        case .fallbackInput:
+            presentationName = "fallbackInput"
+        case .clipboardFallback:
+            presentationName = "clipboardFallback"
+        case .sent:
+            presentationName = "sent"
+        case .failure:
+            presentationName = "failure"
+        }
+        AppLogger.dictation.debug("AgentDispatchCoordinator presentation set=\(presentationName)")
         onPresentationChange?(next)
     }
 }
@@ -205,11 +254,11 @@ final class AgentDispatchCoordinator {
 extension AgentDispatchFailureReason {
     var userMessage: String {
         switch self {
-        case .exited: return "队员已退出"
-        case .stale: return "队员连接已失效"
-        case .inputChannelMissing: return "队员输入通道不可用"
-        case .ambiguous: return "匹配到多个队员"
-        case .notFound: return "找不到对应队员"
+        case .exited: return "任务助手已退出"
+        case .stale: return "任务助手连接已失效"
+        case .inputChannelMissing: return "任务助手输入通道不可用"
+        case .ambiguous: return "匹配到多个任务助手"
+        case .notFound: return "找不到对应任务助手"
         case .writeFailed: return "发送失败"
         }
     }

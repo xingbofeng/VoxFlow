@@ -58,6 +58,7 @@ final class AgentHelperManager {
         let helpers = bundleURL.appendingPathComponent("Contents/Helpers", isDirectory: true)
         helperURL = helpers.appendingPathComponent("voxflow", isDirectory: false)
         shimURL = helpers.appendingPathComponent("vox", isDirectory: false)
+        AppLogger.general.debug("AgentHelperManager initialized helperPath=\(helpers.path)")
     }
 
     static func healthDecision(
@@ -102,14 +103,17 @@ final class AgentHelperManager {
     var socketURL: URL { paths.agentRouterSocketURL }
 
     func startRouter() async throws {
+        AppLogger.general.debug("AgentHelperManager startRouter invoked")
         shouldMaintainRouter = true
         try paths.ensureDirectories()
         try secureExistingRouterPaths()
         guard FileManager.default.isExecutableFile(atPath: helperURL.path) else {
+            AppLogger.general.warning("AgentHelperManager helper missing helperPath=\(helperURL.path)")
             throw AgentHelperManagerError.helperMissing(helperURL.path)
         }
         if routerProcess?.isRunning == true { return }
         if await socketIsReachable() {
+            AppLogger.general.debug("AgentHelperManager socket reachable; keep existing router")
             startHealthMonitoring()
             return
         }
@@ -132,6 +136,7 @@ final class AgentHelperManager {
         try process.run()
         routerProcess = process
         routerStartedAt = Date()
+        AppLogger.general.info("AgentHelperManager router started pid=\(process.processIdentifier)")
         startHealthMonitoring()
     }
 
@@ -151,6 +156,7 @@ final class AgentHelperManager {
     }
 
     func stopRouter() {
+        AppLogger.general.debug("AgentHelperManager stopRouter invoked")
         shouldMaintainRouter = false
         healthTimer?.invalidate()
         healthTimer = nil
@@ -160,6 +166,7 @@ final class AgentHelperManager {
     }
 
     private func startHealthMonitoring() {
+        AppLogger.general.debug("AgentHelperManager startHealthMonitoring")
         guard healthTimer == nil else { return }
         healthTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -172,6 +179,7 @@ final class AgentHelperManager {
         guard shouldMaintainRouter else { return }
         let running = routerProcess?.isRunning == true
         let socketReachable = await socketIsReachable()
+        AppLogger.general.debug("AgentHelperManager health state running=\(running) socketReachable=\(socketReachable)")
         if running,
            !socketReachable,
            Date().timeIntervalSince(routerStartedAt ?? .distantPast) < 2 {
@@ -181,10 +189,12 @@ final class AgentHelperManager {
         case .keep:
             return
         case .restart:
+            AppLogger.general.debug("AgentHelperManager health decision: restart")
             routerProcess?.terminate()
             routerProcess = nil
             try? await startRouter()
         case .start:
+            AppLogger.general.debug("AgentHelperManager health decision: start")
             try? await startRouter()
         }
     }
@@ -367,8 +377,8 @@ enum AgentHelperManagerError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case let .helperMissing(path): return "找不到 Vibe Coding helper：\(path)"
-        case let .shimMissing(path): return "找不到 vox 命令 shim：\(path)"
+        case let .helperMissing(path): return "未找到AI 编程组件：\(path)"
+        case let .shimMissing(path): return "未找到 vox 命令组件：\(path)"
         case let .commandConflict(path): return "命令已存在，未覆盖：\(path)"
         }
     }
@@ -383,9 +393,9 @@ enum AgentRouterClientError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case let .router(message): return message
-        case .invalidResponse: return "指挥中心返回了无效响应"
-        case .requestTooLarge: return "指挥内容过长，请缩短后重试"
-        case .timeout: return "指挥中心响应超时"
+        case .invalidResponse: return "AI 编程返回了无效响应"
+        case .requestTooLarge: return "请求内容过长，请缩短后重试"
+        case .timeout: return "AI 编程响应超时"
         }
     }
 }

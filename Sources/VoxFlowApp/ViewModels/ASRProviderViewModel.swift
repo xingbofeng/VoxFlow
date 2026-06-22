@@ -115,7 +115,7 @@ enum AliyunDashScopeASRConfigurationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyAPIKey:
-            return "阿里云百炼 API Key 不能为空。"
+            return "阿里云百炼访问密钥不能为空。"
         case .emptyModel:
             return "阿里云百炼识别模型不能为空。"
         }
@@ -129,6 +129,8 @@ struct GroqASRModelOption: Identifiable, Equatable {
 
 @MainActor
 final class ASRProviderViewModel: ObservableObject {
+    private static let logger = AppLogger.general
+
     static let storedGroqAPIKeyMask = String(repeating: "•", count: 12)
     static let storedTencentSecretMask = String(repeating: "•", count: 12)
     static let storedAliyunDashScopeAPIKeyMask = String(repeating: "•", count: 12)
@@ -209,6 +211,7 @@ final class ASRProviderViewModel: ObservableObject {
         self.omnilingualModelDownloader = omnilingualModelDownloader
         self.qwenReadinessPreparer = qwenReadinessPreparer
         self.fileManager = fileManager
+        Self.logger.debug("asr_provider_vm_init")
         groqBaseURLInput = resolvedASRManager.groqBaseURL
         groqModelInput = Self.supportedGroqModels.contains { $0.id == resolvedASRManager.groqModel }
             ? resolvedASRManager.groqModel
@@ -308,6 +311,7 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func saveGroqConfiguration() {
+        Self.logger.debug("asr_provider_vm_save_groq_start model=\(groqModelInput) baseURLLen=\(groqBaseURLInput.count) keyMasked=\(isMaskedGroqAPIKey(text: groqAPIKeyInput))")
         do {
             apply(
                 try configurationService.saveGroqConfiguration(
@@ -322,14 +326,20 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = "已保存 Groq 配置"
+            Self.logger.info("asr_provider_vm_save_groq_success configured=\(hasStoredGroqAPIKey)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_save_groq_failed error=\(error.localizedDescription)")
         }
     }
 
     func testGroqConnection() async {
-        guard !isTestingGroq else { return }
+        guard !isTestingGroq else {
+            Self.logger.debug("asr_provider_vm_test_groq_skipped alreadyTesting=true")
+            return
+        }
+        Self.logger.debug("asr_provider_vm_test_groq_start model=\(groqModelInput)")
         isTestingGroq = true
         defer { isTestingGroq = false }
         do {
@@ -347,27 +357,33 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = result.message
+            Self.logger.info("asr_provider_vm_test_groq_success messageLen=\(result.message.count)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_test_groq_failed error=\(error.localizedDescription)")
         }
     }
 
     func deleteGroqAPIKey() {
+        Self.logger.debug("asr_provider_vm_delete_groq_key_start")
         do {
             try configurationService.deleteGroqAPIKey()
             groqAPIKeyInput = ""
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
-            lastActionMessage = "已删除 Groq API Key"
+            lastActionMessage = "已删除 Groq 访问密钥"
+            Self.logger.info("asr_provider_vm_delete_groq_key_success")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_delete_groq_key_failed error=\(error.localizedDescription)")
         }
     }
 
     func saveTencentCloudConfiguration() {
+        Self.logger.debug("asr_provider_vm_save_tencent_start appIDLen=\(tencentAppIDInput.count) secretIDLen=\(tencentSecretIDInput.count) secretMasked=\(isMaskedTencentSecret(text: tencentSecretKeyInput))")
         do {
             apply(
                 try configurationService.saveTencentCloudConfiguration(
@@ -381,14 +397,20 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = "已保存腾讯云配置"
+            Self.logger.info("asr_provider_vm_save_tencent_success configured=\(hasStoredTencentCloudCredentials)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_save_tencent_failed error=\(error.localizedDescription)")
         }
     }
 
     func testTencentCloudConnection() async {
-        guard !isTestingTencentCloud else { return }
+        guard !isTestingTencentCloud else {
+            Self.logger.debug("asr_provider_vm_test_tencent_skipped alreadyTesting=true")
+            return
+        }
+        Self.logger.debug("asr_provider_vm_test_tencent_start engine=\(tencentEngineModelTypeInput)")
         isTestingTencentCloud = true
         defer { isTestingTencentCloud = false }
         do {
@@ -405,13 +427,16 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = result.message
+            Self.logger.info("asr_provider_vm_test_tencent_success messageLen=\(result.message.count)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_test_tencent_failed error=\(error.localizedDescription)")
         }
     }
 
     func deleteTencentCloudCredentials() {
+        Self.logger.debug("asr_provider_vm_delete_tencent_credentials_start")
         do {
             try configurationService.deleteTencentCloudCredentials()
             tencentAppIDInput = ""
@@ -421,13 +446,16 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = "已删除腾讯云凭据"
+            Self.logger.info("asr_provider_vm_delete_tencent_credentials_success")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_delete_tencent_credentials_failed error=\(error.localizedDescription)")
         }
     }
 
     func saveAliyunDashScopeConfiguration() {
+        Self.logger.debug("asr_provider_vm_save_aliyun_start model=\(aliyunDashScopeModelInput) keyMasked=\(isMaskedAliyunDashScopeAPIKey(text: aliyunDashScopeAPIKeyInput))")
         do {
             apply(
                 try configurationService.saveAliyunDashScopeConfiguration(
@@ -439,14 +467,20 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = "已保存阿里云百炼配置"
+            Self.logger.info("asr_provider_vm_save_aliyun_success configured=\(hasStoredAliyunDashScopeAPIKey)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_save_aliyun_failed error=\(error.localizedDescription)")
         }
     }
 
     func testAliyunDashScopeConnection() async {
-        guard !isTestingAliyunDashScope else { return }
+        guard !isTestingAliyunDashScope else {
+            Self.logger.debug("asr_provider_vm_test_aliyun_skipped alreadyTesting=true")
+            return
+        }
+        Self.logger.debug("asr_provider_vm_test_aliyun_start model=\(aliyunDashScopeModelInput)")
         isTestingAliyunDashScope = true
         defer { isTestingAliyunDashScope = false }
         do {
@@ -461,23 +495,28 @@ final class ASRProviderViewModel: ObservableObject {
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = result.message
+            Self.logger.info("asr_provider_vm_test_aliyun_success messageLen=\(result.message.count)")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_test_aliyun_failed error=\(error.localizedDescription)")
         }
     }
 
     func deleteAliyunDashScopeAPIKey() {
+        Self.logger.debug("asr_provider_vm_delete_aliyun_key_start")
         do {
             try configurationService.deleteAliyunDashScopeAPIKey()
             aliyunDashScopeAPIKeyInput = ""
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
-            lastActionMessage = "已删除阿里云百炼 API Key"
+            lastActionMessage = "已删除阿里云百炼访问密钥"
+            Self.logger.info("asr_provider_vm_delete_aliyun_key_success")
         } catch {
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_delete_aliyun_key_failed error=\(error.localizedDescription)")
         }
     }
 
@@ -513,6 +552,7 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func selectFunASRPrecision(_ precision: ASRManager.FunASRPrecision, selectingProvider: Bool = false) {
+        Self.logger.debug("asr_provider_vm_select_funasr_precision precision=\(precision.rawValue) selectingProvider=\(selectingProvider)")
         if selectingProvider {
             selectProviderForConfiguration(id: ASRProviderID.funASR)
         }
@@ -521,12 +561,14 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func selectWhisperVariant(_ variant: ASRManager.WhisperVariant, selectingProvider: Bool = false) {
+        Self.logger.debug("asr_provider_vm_select_whisper_variant variant=\(variant.rawValue) selectingProvider=\(selectingProvider)")
         if selectingProvider {
             selectProviderForConfiguration(id: ASRProviderID.whisper)
         }
         guard ASRManager.isWhisperRuntimeSupported(variant: variant) else {
             lastActionMessage = nil
             lastError = ASRManager.whisperRuntimeUnsupportedMessage(for: variant)
+            Self.logger.warning("asr_provider_vm_select_whisper_variant_rejected variant=\(variant.rawValue)")
             return
         }
         asrManager.whisperVariant = variant
@@ -534,6 +576,7 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func selectQwenModelSize(_ size: ASRManager.ModelSize, selectingProvider: Bool = false) {
+        Self.logger.debug("asr_provider_vm_select_qwen_model_size size=\(size.rawValue) selectingProvider=\(selectingProvider)")
         if selectingProvider {
             selectProviderForConfiguration(id: ASRProviderID.qwen3)
         }
@@ -542,7 +585,11 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func selectProviderForConfiguration(id: String) {
-        guard let fallbackEngine = fallbackEngine(for: id) else { return }
+        guard let fallbackEngine = fallbackEngine(for: id) else {
+            Self.logger.warning("asr_provider_vm_select_provider_for_configuration_skipped id=\(id)")
+            return
+        }
+        Self.logger.info("asr_provider_vm_select_provider_for_configuration id=\(id) engine=\(fallbackEngine.rawValue)")
         asrManager.selectedEngineType = fallbackEngine
     }
 
@@ -554,26 +601,33 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func load() {
+        Self.logger.debug("asr_provider_vm_load_start")
         refreshProviders(persistRecords: true)
         hasLoaded = lastError == nil
+        Self.logger.debug("asr_provider_vm_load_done hasLoaded=\(hasLoaded) providers=\(providers.count)")
     }
 
     func loadIfNeeded() {
         guard !hasLoaded else {
+            Self.logger.debug("asr_provider_vm_load_if_needed_skip")
             return
         }
+        Self.logger.debug("asr_provider_vm_load_if_needed_execute")
         load()
     }
 
     private func refreshProviders(persistRecords: Bool) {
+        Self.logger.debug("asr_provider_vm_refresh_providers_start persistRecords=\(persistRecords)")
         do {
             providers = registry.descriptors()
             if persistRecords {
                 try persistProviderRecords()
             }
             lastError = nil
+            Self.logger.info("asr_provider_vm_refresh_providers_success providers=\(providers.count) persistRecords=\(persistRecords)")
         } catch {
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_refresh_providers_failed persistRecords=\(persistRecords) error=\(error.localizedDescription)")
         }
     }
 
@@ -584,9 +638,11 @@ final class ASRProviderViewModel: ObservableObject {
                 try await Task.sleep(nanoseconds: 150_000_000)
                 guard let self, !Task.isCancelled else { return }
                 try self.persistProviderRecords()
+                Self.logger.debug("asr_provider_vm_scheduled_persist_success")
             } catch is CancellationError {
             } catch {
                 self?.lastError = error.localizedDescription
+                Self.logger.error("asr_provider_vm_scheduled_persist_failed error=\(error.localizedDescription)")
             }
         }
     }
@@ -594,6 +650,7 @@ final class ASRProviderViewModel: ObservableObject {
     func toggleTag(_ tag: String) {
         guard availableTags.contains(tag) else {
             selectedTags.remove(tag)
+            Self.logger.warning("asr_provider_vm_toggle_tag_removed_unavailable tag=\(tag)")
             return
         }
         if selectedTags.contains(tag) {
@@ -601,11 +658,13 @@ final class ASRProviderViewModel: ObservableObject {
         } else {
             selectedTags.insert(tag)
         }
+        Self.logger.debug("asr_provider_vm_toggle_tag tag=\(tag) selectedCount=\(selectedTags.count)")
     }
 
     func selectProviderScope(_ scope: ASRProviderScope) {
         providerScope = scope
         selectedTags.formIntersection(availableTags)
+        Self.logger.info("asr_provider_vm_select_provider_scope scope=\(scope.rawValue) selectedTags=\(selectedTags.count)")
     }
 
     private func pinCurrentProviderFirst(_ descriptors: [ASRProviderDescriptor]) -> [ASRProviderDescriptor] {
@@ -620,29 +679,35 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func selectDefaultProvider(id: String) {
+        Self.logger.debug("asr_provider_vm_select_default_provider_start id=\(id)")
         do {
             try registry.selectDefaultProvider(id: id)
             refreshProviders(persistRecords: false)
             scheduleProviderRecordPersistence()
             lastError = nil
             lastActionMessage = nil
+            Self.logger.info("asr_provider_vm_select_default_provider_success id=\(id)")
         } catch {
             let message = error.localizedDescription
             load()
             lastError = message
+            Self.logger.error("asr_provider_vm_select_default_provider_failed id=\(id) error=\(message)")
         }
     }
 
     func setQwenModelPath(_ path: String) {
+        Self.logger.debug("asr_provider_vm_set_qwen_model_path_start pathLen=\(path.count)")
         let url = URL(fileURLWithPath: path, isDirectory: true)
         guard Qwen3ModelManifest.supportedModelExists(at: url, fileManager: fileManager) else {
             lastError = "所选目录不是可用的 Qwen3-ASR 模型。"
+            Self.logger.warning("asr_provider_vm_set_qwen_model_path_rejected")
             return
         }
         asrManager.qwen3ModelPath = path
         load()
         lastError = nil
         lastActionMessage = "已设置本地模型目录"
+        Self.logger.info("asr_provider_vm_set_qwen_model_path_success")
     }
 
     func downloadQwenModel() async {
@@ -715,7 +780,11 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func downloadModel(id: String) async {
-        guard !isDownloading else { return }
+        guard !isDownloading else {
+            Self.logger.debug("asr_provider_vm_download_model_skipped alreadyDownloading=true id=\(id)")
+            return
+        }
+        Self.logger.info("asr_provider_vm_download_model_start id=\(id)")
         isDownloading = true
         downloadingProviderID = id
         downloadProgress = nil
@@ -860,10 +929,13 @@ final class ASRProviderViewModel: ObservableObject {
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
             } else {
+                Self.logger.warning("asr_provider_vm_download_model_skipped unsupported id=\(id)")
                 return
             }
+            Self.logger.info("asr_provider_vm_download_model_success id=\(id)")
         } catch {
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_download_model_failed id=\(id) error=\(error.localizedDescription)")
         }
     }
 
@@ -872,7 +944,11 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     func deleteLocalModel(id: String) {
-        guard let fallbackEngine = self.fallbackEngine(for: id) else { return }
+        guard let fallbackEngine = self.fallbackEngine(for: id) else {
+            Self.logger.warning("asr_provider_vm_delete_local_model_skipped id=\(id)")
+            return
+        }
+        Self.logger.info("asr_provider_vm_delete_local_model_start id=\(id) engine=\(fallbackEngine.rawValue)")
         let pathToDelete = modelPath(id: id)
         asrManager.markModelDeleting(for: fallbackEngine)
         load()
@@ -892,11 +968,13 @@ final class ASRProviderViewModel: ObservableObject {
             load()
             lastError = nil
             lastActionMessage = "已删除本地模型"
+            Self.logger.info("asr_provider_vm_delete_local_model_success id=\(id) hadPath=\(pathToDelete != nil)")
         } catch {
             asrManager.markModelDeletionFailed(for: fallbackEngine, message: error.localizedDescription)
             load()
             lastActionMessage = nil
             lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_delete_local_model_failed id=\(id) error=\(error.localizedDescription)")
         }
     }
 
@@ -906,6 +984,7 @@ final class ASRProviderViewModel: ObservableObject {
     }
 
     private func persistProviderRecords() throws {
+        Self.logger.debug("asr_provider_vm_persist_provider_records_start providers=\(providers.count)")
         let existing = try environment.asrProviderRepository.list()
             .reduce(into: [String: ASRProviderRecord]()) { partial, record in
                 partial[record.id] = record
@@ -932,6 +1011,7 @@ final class ASRProviderViewModel: ObservableObject {
             )
             try environment.asrProviderRepository.save(record)
         }
+        Self.logger.info("asr_provider_vm_persist_provider_records_success providers=\(providers.count)")
     }
 
     private func healthStatus(for descriptor: ASRProviderDescriptor) -> String {

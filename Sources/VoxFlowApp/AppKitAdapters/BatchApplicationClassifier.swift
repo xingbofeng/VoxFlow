@@ -19,6 +19,7 @@ protocol BatchApplicationClassifying: Sendable {
 // MARK: - LLMBatchApplicationClassifier
 
 final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @unchecked Sendable {
+    private static let logger = AppLogger.general
     private let refiner: any PromptAwareTextRefining
     private let timeoutSeconds: TimeInterval
 
@@ -35,10 +36,12 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
         enabledStyles: [StyleProfileRecord]
     ) async throws -> [BatchClassificationResult] {
         guard refiner.isConfigured else {
+            Self.logger.debug("LLMBatchApplicationClassifier skip: refiner not configured")
             return []
         }
         let validStyles = enabledStyles.filter(\.enabled)
         guard !validStyles.isEmpty, !apps.isEmpty else {
+            Self.logger.debug("LLMBatchApplicationClassifier skip empty styles or apps")
             return []
         }
 
@@ -54,6 +57,8 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
             ])
         }
         guard !appRows.isEmpty else { return [] }
+
+        Self.logger.debug("LLMBatchApplicationClassifier start batch count=\(appRows.count) styles=\(validStyles.count)")
 
         let styleList = validStyles
             .map { "\($0.id): \($0.name) - \($0.subtitle ?? $0.category)" }
@@ -91,6 +96,7 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
 
         let response: String
         do {
+            Self.logger.debug("LLMBatchApplicationClassifier send request")
             response = try await withThrowingTaskGroup(of: String.self) { group in
                 group.addTask {
                     try await self.refiner.refine(
@@ -113,14 +119,18 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
                 return result
             }
         } catch is CancellationError {
+            Self.logger.warning("LLMBatchApplicationClassifier timeout")
             throw BatchClassificationError.timeout
         } catch let error as BatchClassificationError {
             throw error
         } catch {
+            Self.logger.error("LLMBatchApplicationClassifier failed: \(error.localizedDescription)")
             throw BatchClassificationError.classificationFailed(error.localizedDescription)
         }
 
-        return Self.parseResults(from: response, validStyleIDs: validStyleIDs)
+        let results = Self.parseResults(from: response, validStyleIDs: validStyleIDs)
+        Self.logger.debug("LLMBatchApplicationClassifier success count=\(results.count)")
+        return results
     }
 
     private func markdownRow(_ columns: [String]) -> String {
@@ -141,13 +151,17 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
         from response: String,
         validStyleIDs: Set<String>
     ) -> [BatchClassificationResult] {
+        logger.debug("LLMBatchApplicationClassifier parse response length=\(response.count)")
         let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
         let jsonString = extractJSON(from: trimmed)
 
         guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            logger.warning("LLMBatchApplicationClassifier parse invalid json")
             return []
         }
+
+        logger.debug("LLMBatchApplicationClassifier parsed entries=\(json.count)")
 
         return json.compactMap { bundleID, styleID -> BatchClassificationResult? in
             guard validStyleIDs.contains(styleID) else { return nil }
@@ -156,10 +170,12 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
     }
 
     private static func extractJSON(from text: String) -> String {
+        logger.debug("LLMBatchApplicationClassifier extractJSON len=\(text.count)")
         if let start = text.firstIndex(of: "{"),
            let end = text.lastIndex(of: "}") {
             return String(text[start...end])
         }
+        logger.debug("LLMBatchApplicationClassifier extractJSON fallback raw response")
         return text
     }
 }

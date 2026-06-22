@@ -66,7 +66,7 @@ struct HelpView: View {
                     )
                     HelpFeatureCard(
                         title: "本地隐私",
-                        subtitle: "API Key 仅保存在系统 Keychain",
+                        subtitle: "访问密钥仅保存在系统 Keychain",
                         systemImage: "lock.shield",
                         tint: AppTheme.ColorToken.accent
                     )
@@ -147,7 +147,7 @@ struct HelpView: View {
                     )
                     HelpPermissionRow(
                         title: "屏幕录制",
-                        subtitle: "用于当前窗口 OCR，不保存截图",
+                        subtitle: "用于当前窗口文字识别，不保存截图",
                         systemImage: "rectangle.inset.filled.and.person.filled",
                         status: PermissionSummary.statusText(settingsViewModel.screenRecordingGranted),
                         satisfied: settingsViewModel.screenRecordingGranted

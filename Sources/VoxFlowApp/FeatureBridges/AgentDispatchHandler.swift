@@ -6,6 +6,7 @@ protocol AgentDispatchHandling: AnyObject {
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws
     func finish(rawTranscript: String) async throws -> AgentDispatchHUDPresentation
+    func beginDefaultOutput()
     func completeFallbackInput(finalText: String, outputResult: OutputResult) throws
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async
     func cancel()
@@ -21,6 +22,7 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
     private var activeTaskID: String?
     private var confirmationTimeoutTask: Task<Void, Never>?
 
+    private(set) var activeTarget: DictationTarget?
     var onPresentationChange: ((AgentDispatchHUDPresentation) -> Void)?
 
     init(
@@ -36,10 +38,13 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
     }
 
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
+        AppLogger.dictation.debug("AgentDispatchHandler start target=\(target?.bundleID ?? "nil") provider=\(asrMetadata?.providerID ?? "nil")")
         cancelConfirmationTimeout()
         if activeTaskID != nil {
+            AppLogger.dictation.warning("AgentDispatchHandler replacing existing task: \(activeTaskID ?? "nil")")
             try taskCoordinator.cancelTask(kind: .agentDispatch)
             activeTaskID = nil
+            activeTarget = nil
         }
         let task = try taskCoordinator.startTask(
             mode: .agentDispatch,
@@ -47,7 +52,10 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
             asrMetadata: asrMetadata
         )
         activeTaskID = task.id
+        activeTarget = target
+        AppLogger.dictation.info("AgentDispatchHandler task started id=\(task.id)")
         dispatchCoordinator.onPresentationChange = { [weak self] presentation in
+            guard !presentation.isFallbackInput else { return }
             self?.onPresentationChange?(presentation)
         }
         Task { [weak self] in
@@ -58,41 +66,63 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
     }
 
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
+        let providerID = metadata.providerID ?? "nil"
+        AppLogger.dictation.debug("AgentDispatchHandler updateASRMetadata provider=\(providerID)")
         try taskCoordinator.updateASRMetadata(metadata, kind: .agentDispatch)
     }
 
     func finish(rawTranscript: String) async throws -> AgentDispatchHUDPresentation {
-        guard activeTaskID != nil else {
+        guard let workflowTaskID = activeTaskID else {
+            AppLogger.dictation.warning("AgentDispatchHandler finish rejected: no active task")
             throw CoordinatorError.noActiveTask
         }
+        AppLogger.dictation.debug("AgentDispatchHandler finish task=\(workflowTaskID) transcriptLen=\(rawTranscript.count)")
         try taskCoordinator.recordRawTranscript(rawTranscript, kind: .agentDispatch)
         await dispatchCoordinator.dispatch(utterance: rawTranscript)
-        emitCurrentPresentation()
+        guard activeTaskID == workflowTaskID else {
+            throw CancellationError()
+        }
+        if !dispatchCoordinator.presentation.isFallbackInput {
+            emitCurrentPresentation()
+        }
         try taskCoordinator.completeAgentDispatch(
-            finalText: rawTranscript,
+            finalText: dispatchCoordinator.lastDispatchedMessage ?? rawTranscript,
             presentation: dispatchCoordinator.presentation
         )
+        AppLogger.dictation.debug("AgentDispatchHandler complete presentation=\(dispatchCoordinator.presentation)")
         if dispatchCoordinator.presentation.isConfirmation {
-            scheduleConfirmationTimeout(utterance: rawTranscript, taskID: activeTaskID)
+            scheduleConfirmationTimeout(utterance: rawTranscript, taskID: workflowTaskID)
         } else {
             cancelConfirmationTimeout()
         }
         if dispatchCoordinator.presentation.isTerminalBeforeFallbackOutput {
             activeTaskID = nil
+            activeTarget = nil
         }
         return dispatchCoordinator.presentation
     }
 
     func completeFallbackInput(finalText: String, outputResult: OutputResult) throws {
+        AppLogger.dictation.debug("AgentDispatchHandler completeFallbackInput finalLen=\(finalText.count) resultKind=\(outputResult.kind.rawValue)")
+        cancelConfirmationTimeout()
+        defer {
+            activeTaskID = nil
+            activeTarget = nil
+        }
         try taskCoordinator.completeAgentDispatchFallbackInput(
             finalText: finalText,
             outputResult: outputResult
         )
-        activeTaskID = nil
+    }
+
+    func beginDefaultOutput() {
+        AppLogger.dictation.debug("AgentDispatchHandler beginDefaultOutput")
+        cancelConfirmationTimeout()
     }
 
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async {
-        guard activeTaskID != nil else { return }
+        guard let workflowTaskID = activeTaskID else { return }
+        AppLogger.dictation.debug("AgentDispatchHandler confirm task=\(workflowTaskID) agent=\(agentID)")
         cancelConfirmationTimeout()
         await dispatchCoordinator.confirm(
             agentID: agentID,
@@ -100,6 +130,7 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
             message: message,
             alias: alias
         )
+        guard activeTaskID == workflowTaskID else { return }
         emitCurrentPresentation()
         try? taskCoordinator.completeAgentDispatch(
             finalText: message,
@@ -107,17 +138,21 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         )
         if dispatchCoordinator.presentation.isTerminalBeforeFallbackOutput {
             activeTaskID = nil
+            activeTarget = nil
         }
     }
 
     func cancel() {
+        AppLogger.dictation.warning("AgentDispatchHandler cancel task=\(activeTaskID ?? "nil")")
         cancelConfirmationTimeout()
         dispatchCoordinator.invalidatePendingListening()
         try? taskCoordinator.cancelTask(kind: .agentDispatch)
         activeTaskID = nil
+        activeTarget = nil
     }
 
     func fail(_ error: Error) {
+        AppLogger.dictation.error("AgentDispatchHandler fail \(error.localizedDescription)")
         cancelConfirmationTimeout()
         dispatchCoordinator.invalidatePendingListening()
         try? taskCoordinator.recordFailure(
@@ -128,15 +163,18 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
             kind: .agentDispatch
         )
         activeTaskID = nil
+        activeTarget = nil
     }
 
     private func emitCurrentPresentation() {
+        AppLogger.dictation.debug("AgentDispatchHandler emit presentation=\(dispatchCoordinator.presentation)")
         onPresentationChange?(dispatchCoordinator.presentation)
     }
 
     private func scheduleConfirmationTimeout(utterance: String, taskID: String?) {
         cancelConfirmationTimeout()
         let timeoutNanoseconds = confirmationTimeoutNanoseconds
+        AppLogger.dictation.debug("AgentDispatchHandler scheduleConfirmationTimeout isTimeoutSet=\(timeoutNanoseconds > 0)")
         confirmationTimeoutTask = Task { [weak self] in
             if timeoutNanoseconds > 0 {
                 try? await Task.sleep(nanoseconds: timeoutNanoseconds)
@@ -151,6 +189,7 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
               dispatchCoordinator.presentation.isConfirmation else {
             return
         }
+        AppLogger.dictation.debug("AgentDispatchHandler confirmation timeout for task=\(taskID ?? "nil")")
         copyConfirmationToClipboardAndFinish(utterance)
     }
 
@@ -161,8 +200,10 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
 
     private func copyConfirmationToClipboardAndFinish(_ text: String) {
         if clipboardService.setString(text) {
+            AppLogger.dictation.debug("AgentDispatchHandler copy confirmation to clipboard success")
             dispatchCoordinator.fallbackToClipboard(text: text)
         } else {
+            AppLogger.dictation.warning("AgentDispatchHandler copy confirmation failed")
             dispatchCoordinator.fail(message: "复制到剪切板失败", retainedText: text)
         }
         emitCurrentPresentation()
@@ -172,12 +213,18 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         )
         if dispatchCoordinator.presentation.isTerminalBeforeFallbackOutput {
             activeTaskID = nil
+            activeTarget = nil
         }
         confirmationTimeoutTask = nil
     }
 }
 
 private extension AgentDispatchHUDPresentation {
+    var isFallbackInput: Bool {
+        if case .fallbackInput = self { return true }
+        return false
+    }
+
     var isConfirmation: Bool {
         if case .confirmation = self { return true }
         return false

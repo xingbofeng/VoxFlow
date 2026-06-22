@@ -114,7 +114,7 @@ fn summary_validation_and_expiry_prevent_invalid_identity_signals() {
         &server,
         "update_self_summary",
         serde_json::json!({
-            "label":"这是一个超过二十个字符限制的非常非常非常长的队员名称",
+            "label":"这是一个超过二十个字符限制的非常非常非常长的任务助手名称",
             "summary":"短摘要", "topics":[], "phase":"editing"
         }),
     );
@@ -171,6 +171,26 @@ fn identity_hint_is_low_frequency_and_cannot_change_user_work() {
     assert!(hint.contains("不要修改用户任务"));
     assert!(hint.contains("不要自动批准权限"));
     assert!(hint.contains("不要向其他 Agent 派发任务"));
+}
+
+#[test]
+fn initialize_declares_prompts_capability_and_list_returns_empty() {
+    let (_temp, server) = setup();
+    let initialized = server.handle_value(serde_json::json!({
+        "jsonrpc":"2.0", "id":1, "method":"initialize", "params":{}
+    }));
+    assert_eq!(
+        initialized["result"]["capabilities"]["prompts"],
+        serde_json::json!({})
+    );
+
+    // CodeBuddy Code 的 MCP 客户端即便 capabilities 已声明，仍会周期性轮询
+    // prompts/list。返回空列表（而非 method not found）以避免日志噪音。
+    let listed = server.handle_value(serde_json::json!({
+        "jsonrpc":"2.0", "id":2, "method":"prompts/list", "params":{}
+    }));
+    assert!(listed.get("error").is_none());
+    assert_eq!(listed["result"]["prompts"], serde_json::json!([]));
 }
 
 fn call(server: &McpServer, name: &str, arguments: serde_json::Value) -> serde_json::Value {

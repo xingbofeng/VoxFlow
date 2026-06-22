@@ -119,11 +119,11 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupASRTab() {
         let item = NSTabViewItem(identifier: "asr")
-        item.label = "ASR"
+        item.label = "语音识别"
         let view = NSView()
 
         // --- Engine Selection ---
-        let engineLabel = makeTitleLabel("ASR 模型")
+        let engineLabel = makeTitleLabel("语音识别模型")
 
         appleRadio.translatesAutoresizingMaskIntoConstraints = false
         appleRadio.target = self
@@ -243,12 +243,12 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupLLMTab() {
         let item = NSTabViewItem(identifier: "llm")
-        item.label = "LLM"
+        item.label = "智能模型服务"
         let view = NSView()
 
-        let baseURLLabel = makeLabel("API Base URL:")
-        let apiKeyLabel = makeLabel("API Key:")
-        let modelLabel = makeLabel("Model:")
+        let baseURLLabel = makeLabel("服务地址：")
+        let apiKeyLabel = makeLabel("访问密钥：")
+        let modelLabel = makeLabel("默认模型：")
 
         baseURLField.placeholderString = "https://api.openai.com"
         baseURLField.translatesAutoresizingMaskIntoConstraints = false
@@ -588,7 +588,7 @@ final class SettingsWindowController: NSWindowController {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "选择包含 Qwen3-ASR encoder、decoder、embedding 和词表的模型目录"
+        panel.message = "选择包含 Qwen3-ASR 本地模型文件（含词表等必需文件）的目录"
         panel.prompt = "选择"
 
         panel.beginSheetModal(for: window!) { [weak self] response in
@@ -663,7 +663,7 @@ final class SettingsWindowController: NSWindowController {
         do {
             try refiner.setAPIKey(apiKey.isEmpty ? nil : apiKey)
         } catch {
-            setLLMStatus("API Key 保存失败：\(error.localizedDescription)", color: .systemRed)
+            setLLMStatus("访问密钥保存失败：\(error.localizedDescription)", color: .systemRed)
             return
         }
 

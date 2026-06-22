@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowContextBoost
 @testable import VoxFlowApp
 
 final class PromptBuilderTests: XCTestCase {
@@ -8,15 +9,9 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("不要添加信息"))
     }
 
-    func testBuildIncludesStylePromptAndEnabledGlossaryTerms() throws {
+    func testBuildIncludesStylePrompt() throws {
         let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.coding"))
-        let prompt = PromptBuilder().build(
-            style: style,
-            glossaryTerms: [
-                glossaryTerm(term: "Python", aliases: ["配森", "派森"], enabled: true, priority: 1),
-                glossaryTerm(term: "Go", aliases: ["够"], enabled: false, priority: 2),
-            ]
-        )
+        let prompt = PromptBuilder().build(style: style)
 
         XCTAssertEqual(prompt.styleID, "builtin.coding")
         XCTAssertNil(prompt.model)
@@ -24,9 +19,6 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertNil(prompt.llmProviderID)
         XCTAssertTrue(prompt.systemPrompt.contains(style.prompt))
         XCTAssertTrue(prompt.systemPrompt.contains("所选风格优先"))
-        XCTAssertTrue(prompt.systemPrompt.contains("Python"))
-        XCTAssertTrue(prompt.systemPrompt.contains("配森"))
-        XCTAssertFalse(prompt.systemPrompt.contains("Go"))
     }
 
     func testBuildUsesEnabledStyleModelAndTemperatureOverrides() throws {
@@ -50,7 +42,7 @@ final class PromptBuilderTests: XCTestCase {
             updatedAt: style.updatedAt
         )
 
-        let prompt = PromptBuilder().build(style: customStyle, glossaryTerms: [])
+        let prompt = PromptBuilder().build(style: customStyle)
 
         XCTAssertEqual(prompt.llmProviderID, "style-provider")
         XCTAssertEqual(prompt.model, "style-model")
@@ -76,7 +68,7 @@ final class PromptBuilderTests: XCTestCase {
 
     func testChinesePromptRequiresReadableTransformationAndStylePriority() throws {
         let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.energetic"))
-        let result = PromptBuilder().build(style: style, glossaryTerms: [])
+        let result = PromptBuilder().build(style: style)
 
         XCTAssertFalse(result.systemPrompt.contains("You are"))
         XCTAssertFalse(result.systemPrompt.contains("Selected style"))
@@ -84,7 +76,7 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertFalse(result.systemPrompt.contains("强制检查"))
         XCTAssertFalse(result.systemPrompt.contains("输出不得与输入完全相同"))
         XCTAssertTrue(result.systemPrompt.contains("如果原文已经自然、准确、可直接使用，可以保持原文"))
-        XCTAssertTrue(result.systemPrompt.contains("小兔子乖乖，把门开开"))
+        XCTAssertFalse(result.systemPrompt.contains("小兔子乖乖"))
         XCTAssertTrue(result.systemPrompt.contains("所选风格优先"))
         XCTAssertEqual(result.temperature, 0.6)
     }
@@ -99,22 +91,30 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("不要改写"))
     }
 
-    private func glossaryTerm(
-        term: String,
-        aliases: [String],
-        enabled: Bool,
-        priority: Int
-    ) -> GlossaryTerm {
-        GlossaryTerm(
-            id: UUID().uuidString,
-            term: term,
-            aliases: aliases,
-            category: "coding",
-            enabled: enabled,
-            priority: priority,
-            notes: nil,
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+    func testBuildIncludesTemporaryContextHotwordsWithoutOCRRawText() {
+        let prompt = PromptBuilder().build(
+            style: nil,
+            temporaryHotwords: [
+                temporaryHotword("Qwen3-ASR"),
+                temporaryHotword("Project Apollo"),
+            ]
+        )
+
+        XCTAssertTrue(prompt.systemPrompt.contains("临时屏幕上下文词"))
+        XCTAssertTrue(prompt.systemPrompt.contains("- Qwen3-ASR"))
+        XCTAssertTrue(prompt.systemPrompt.contains("- Project Apollo"))
+        XCTAssertTrue(prompt.systemPrompt.contains("不要添加上下文里有但用户没有说的信息"))
+        XCTAssertFalse(prompt.systemPrompt.contains("完整 OCR 文本"))
+    }
+
+    private func temporaryHotword(_ text: String) -> TemporaryHotword {
+        TemporaryHotword(
+            text: text,
+            normalizedText: text.lowercased(),
+            score: 5,
+            source: .ocrKeyphrase,
+            evidence: [HotwordEvidence(reason: "test", weight: 5)],
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
         )
     }
 }

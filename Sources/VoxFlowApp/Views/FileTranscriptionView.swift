@@ -6,6 +6,7 @@ struct FileTranscriptionView: View {
     @ObservedObject var viewModel: FileTranscriptionViewModel
     @StateObject private var playback = FilePlaybackController()
     @State private var isImporterPresented = false
+    @State private var deletingJobID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
@@ -31,6 +32,22 @@ struct FileTranscriptionView: View {
             tone: viewModel.lastActionTone,
             onDismiss: viewModel.clearFeedback
         )
+        .confirmationDialog(
+            "确定要删除这个文件转写任务吗？",
+            isPresented: Binding(
+                get: { deletingJobID != nil },
+                set: { if !$0 { deletingJobID = nil } }
+            )
+        ) {
+            Button("删除", role: .destructive) {
+                deleteCurrentJob()
+            }
+            Button("取消", role: .cancel) {
+                deletingJobID = nil
+            }
+        } message: {
+            Text("删除后将移除该任务及其转写结果记录。")
+        }
         .fileImporter(
             isPresented: $isImporterPresented,
             allowedContentTypes: [.audio, .movie, .mpeg4Movie, .quickTimeMovie],
@@ -186,8 +203,25 @@ struct FileTranscriptionView: View {
                 Label("复制", systemImage: "doc.on.doc")
             }
             .disabled(job.finalText?.isEmpty != false)
+
+            Button(role: .destructive) {
+                deletingJobID = job.id
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
         }
         .buttonStyle(.bordered)
+    }
+
+    private func deleteCurrentJob() {
+        guard let deletingJobID else {
+            return
+        }
+        if playback.isPlaying(jobID: deletingJobID) {
+            playback.stop()
+        }
+        viewModel.delete(jobID: deletingJobID)
+        self.deletingJobID = nil
     }
 
     private func start(_ job: TranscriptionJobRecord) {

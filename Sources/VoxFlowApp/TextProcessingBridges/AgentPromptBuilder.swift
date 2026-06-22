@@ -29,6 +29,7 @@ struct AgentPromptBuilder {
         context: ContextSnapshot?,
         userDictation: String
     ) -> TextRefinementRequest {
+        AppLogger.dictation.debug("构建 Agent prompt：appName=\(appName ?? "-"), hasStyle=\(stylePrompt != nil), hasContext=\(context != nil), dictationLen=\(userDictation.count)")
         var userSections: [String] = []
 
         // App context

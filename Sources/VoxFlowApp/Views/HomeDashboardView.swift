@@ -1,36 +1,31 @@
 import AppKit
 import SwiftUI
+import VoxFlowVoiceCorrection
 
 struct HomeDashboardView: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
-                    HStack {
-                        Label("首页", systemImage: "house.fill")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Spacer()
-                    }
-
-                    HomeStatsGrid(stats: viewModel.stats, focusedCharactersTitle: viewModel.focusedCharactersTitle)
-                    HomeActivityCard(
-                        activity: viewModel.activity,
-                        selectedDate: viewModel.selectedActivityDate,
-                        selectAction: viewModel.selectActivityDay,
-                        clearAction: viewModel.restoreDefaultDashboardFocusFromActivityBlankTap
-                    )
-                    HomeHistorySection(viewModel: viewModel)
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
+                HStack {
+                    Label("首页", systemImage: "house.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Spacer()
                 }
-                .padding(AppTheme.Spacing.page)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
 
-            if let detail = viewModel.selectedDetail {
-                HomeHistoryDetailOverlay(viewModel: viewModel, detail: detail)
+                HomeStatsGrid(stats: viewModel.stats, focusedCharactersTitle: viewModel.focusedCharactersTitle)
+                HomeActivityCard(
+                    activity: viewModel.activity,
+                    selectedDate: viewModel.selectedActivityDate,
+                    selectAction: viewModel.selectActivityDay,
+                    clearAction: viewModel.restoreDefaultDashboardFocusFromActivityBlankTap
+                )
+                HomeHistorySection(viewModel: viewModel)
             }
+            .padding(AppTheme.Spacing.page)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
@@ -265,12 +260,45 @@ private struct HomeStatCard: View {
 
 private struct HomeHistorySection: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
+    @State private var isShowingClearConfirmation = false
+
+    /// antd 表格风格分页槽位：`nil` 表示省略号 "…"，非 nil 表示可点击的页号。
+    /// 总页数 ≤ 7 时全部显示；否则始终显示首末页 + 当前页 ± 1 + 必要的省略号。
+    private var visiblePageSlots: [Int?] {
+        let total = viewModel.totalPages
+        let current = viewModel.currentPage
+        guard total > 0 else { return [] }
+        if total <= 7 {
+            return (1...total).map { Optional($0) }
+        }
+        var slots: [Int?] = [1]
+        let left = max(2, current - 1)
+        let right = min(total - 1, current + 1)
+        if left > 2 {
+            slots.append(nil)
+        }
+        for p in left...right {
+            slots.append(p)
+        }
+        if right < total - 1 {
+            slots.append(nil)
+        }
+        slots.append(total)
+        return slots
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Label("历史", systemImage: "clock.arrow.circlepath")
                     .font(.system(size: 18, weight: .semibold))
+                Button(role: .destructive) {
+                    isShowingClearConfirmation = true
+                } label: {
+                    Label("清空数据", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.totalHistoryCount == 0)
                 Spacer()
                 TextField(
                     "搜索历史",
@@ -282,6 +310,43 @@ private struct HomeHistorySection: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 240)
             }
+
+            HStack(spacing: 8) {
+                Text("共 \(viewModel.totalHistoryCount) 条")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Picker("每页", selection: Binding(
+                    get: { viewModel.pageSize },
+                    set: { viewModel.updateHistoryPageSize($0) }
+                )) {
+                    ForEach([20, 50, 100], id: \.self) { size in
+                        Text("\(size) 条/页").tag(size)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 110)
+                Spacer()
+                Button("上一页", action: viewModel.previousPage)
+                    .disabled(!viewModel.canGoToPreviousPage)
+                ForEach(visiblePageSlots, id: \.self) { slot in
+                    if let page = slot {
+                        Button("\(page)") { viewModel.goToPage(page) }
+                            .buttonStyle(.bordered)
+                            .background(
+                                page == viewModel.currentPage
+                                    ? AppTheme.ColorToken.accentSoft
+                                    : Color.clear
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    } else {
+                        Text("…")
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .frame(width: 24)
+                    }
+                }
+                Button("下一页", action: viewModel.nextPage)
+                    .disabled(!viewModel.canGoToNextPage)
+            }
+            .font(.system(size: 12, weight: .medium))
 
             if viewModel.historyGroups.isEmpty {
                 Text("暂无记录")
@@ -309,6 +374,16 @@ private struct HomeHistorySection: View {
                 }
             }
         }
+        .confirmationDialog(
+            "确认清空全部历史数据？",
+            isPresented: $isShowingClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("清空数据", role: .destructive, action: viewModel.clearAllHistory)
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("听写历史将被移除，已结束的任务助手与 AI 编程历史将被删除。进行中的任务不会受影响。")
+        }
     }
 }
 
@@ -334,10 +409,10 @@ private struct HomeHistoryRow: View {
                             SourceApplicationIcon(appName: appName, bundleID: item.appBundleID, size: 28)
                         }
                         if item.taskMode == .agentCompose {
-                            Label("帮我说", systemImage: "sparkles")
+                            Label("任务助手", systemImage: "sparkles")
                                 .foregroundStyle(AppTheme.ColorToken.accent)
                         } else if item.taskMode == .agentDispatch {
-                            Label("Vibe Coding", systemImage: "terminal")
+                            Label("AI 编程", systemImage: "terminal")
                                 .foregroundStyle(AppTheme.ColorToken.accent)
                         }
                         Text("\(item.charCount) 字")
@@ -393,7 +468,7 @@ private struct HomeHistoryRow: View {
     }
 }
 
-private struct HomeHistoryDetailOverlay: View {
+struct HomeHistoryDetailOverlay: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
     let detail: HomeHistoryDetail
 
@@ -531,7 +606,7 @@ private struct HomeHistoryDetailModal: View {
                     subtitle: detail.taskMode == .agentCompose
                         ? "生成并写入当前输入框的文本"
                         : detail.taskMode == .agentDispatch
-                            ? "发送到终端 Agent 的语音指令"
+                            ? "发送到终端助手的语音指令"
                         : "最终注入到当前应用的文本",
                     text: detail.finalText,
                     highlighted: true
@@ -582,7 +657,13 @@ private struct HomeHistoryDetailModal: View {
                             ? "成功\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
                             : "失败\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
                     )
-                    DetailMetaItem(title: "请求地址", value: llmTrace.endpoint)
+                    DetailMetaItem(title: "服务地址", value: llmTrace.endpoint)
+                }
+                if let contextBoostTrace = detail.trace?.contextBoost {
+                    ContextBoostTraceBlock(trace: contextBoostTrace)
+                }
+                if let voiceCorrectionTrace = detail.trace?.voiceCorrection {
+                    VoiceCorrectionTraceBlock(trace: voiceCorrectionTrace)
                 }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -622,6 +703,25 @@ private struct HomeHistoryDetailModal: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .historyDetailPanel()
+        } else if let voiceCorrectionTrace = detail.trace?.voiceCorrection {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("文本纠错过程", systemImage: "sparkles")
+                        .font(.system(size: 16, weight: .semibold))
+                    Spacer()
+                    Text("本地后处理")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .background(AppTheme.ColorToken.accent.opacity(0.10))
+                        .clipShape(Capsule())
+                }
+                VoiceCorrectionTraceBlock(trace: voiceCorrectionTrace)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .historyDetailPanel()
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 Label(detail.taskMode == .agentCompose ? "生成过程" : "文本纠错过程", systemImage: "sparkles")
@@ -652,7 +752,11 @@ private struct HomeHistoryDetailModal: View {
     }
 
     private var metadataSection: some View {
-        LazyVGrid(
+        let textCorrectionValue = HomeHistoryDetailPresentation.textCorrectionName(
+            providerID: detail.llmProviderID,
+            traceProviderName: detail.trace?.llm?.providerName
+        )
+        return LazyVGrid(
             columns: [
                 GridItem(
                     .adaptive(minimum: 170),
@@ -668,16 +772,15 @@ private struct HomeHistoryDetailModal: View {
                 value: HomeHistoryDetailPresentation.languageName(for: detail.language)
             )
             DetailApplicationMetaItem(title: "使用应用", appName: detail.appName, appBundleID: detail.appBundleID)
-            DetailMetaItem(
+            DetailProviderMetaItem(
                 title: "语音识别",
-                value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID)
+                value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID),
+                providerIcon: .asrProvider(detail.asrProviderID)
             )
-            DetailMetaItem(
+            DetailProviderMetaItem(
                 title: detail.taskMode == .agentCompose ? "生成模型" : "文本纠错",
-                value: HomeHistoryDetailPresentation.textCorrectionName(
-                    providerID: detail.llmProviderID,
-                    traceProviderName: detail.trace?.llm?.providerName
-                )
+                value: textCorrectionValue,
+                providerIcon: .llmProvider
             )
             DetailMetaItem(
                 title: "表达风格",
@@ -719,7 +822,7 @@ private struct HomeHistoryDetailModal: View {
             return "查看语音意图、生成结果和本次处理信息"
         }
         if detail.taskMode == .agentDispatch {
-            return "查看语音指令、队员投递结果和失败信息"
+            return "查看语音指令、任务助手投递结果和失败信息"
         }
         if detail.trace?.llm != nil {
             return "对比识别原文与最终文本，并查看本次文本纠错过程"
@@ -729,8 +832,8 @@ private struct HomeHistoryDetailModal: View {
 
     private var detailTitle: String {
         switch detail.taskMode {
-        case .agentCompose: return "帮我说详情"
-        case .agentDispatch: return "Vibe Coding 指挥详情"
+        case .agentCompose: return "任务助手详情"
+        case .agentDispatch: return "AI 编程详情"
         case .dictation, nil: return "转写详情"
         }
     }
@@ -739,6 +842,195 @@ private struct HomeHistoryDetailModal: View {
         DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 
+}
+
+private struct ContextBoostTraceBlock: View {
+    let trace: ContextBoostTrace
+
+    private var sourceApplication: String {
+        trace.appName ?? trace.bundleID ?? "未知应用"
+    }
+
+    private var statusColor: Color {
+        trace.appliedToLLMPrompt ? AppTheme.ColorToken.accent : Color.orange
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label("本次图片文字识别上下文", systemImage: "text.viewfinder")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Spacer(minLength: 8)
+                Text(HomeHistoryDetailPresentation.contextBoostStatusText(
+                    appliedToPrompt: trace.appliedToLLMPrompt
+                ))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .background(statusColor.opacity(0.10))
+                    .clipShape(Capsule())
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                DetailMetaItem(title: "来源应用", value: sourceApplication)
+                DetailMetaItem(
+                    title: "上下文来源",
+                    value: HomeHistoryDetailPresentation.contextBoostSourceName(for: trace.source)
+                )
+                DetailMetaItem(title: "有效期", value: "\(trace.ttlSeconds) 秒")
+                if let ocrCharacterCount = trace.ocrCharacterCount {
+                    DetailMetaItem(title: "图片文字识别字符数", value: "\(ocrCharacterCount)")
+                }
+                if let candidateCount = trace.candidateCount {
+                    DetailMetaItem(title: "候选数", value: "\(candidateCount)")
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("前 K 条候选词")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Text(HomeHistoryDetailPresentation.contextBoostHotwordsText(trace.hotwords))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if !trace.hotwordDetails.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("候选词证据")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    ForEach(trace.hotwordDetails.prefix(8), id: \.text) { detail in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(detail.text)  ·  \(String(format: "%.1f", detail.score))  ·  \(detail.source)")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                                .textSelection(.enabled)
+                            if !detail.evidenceReasons.isEmpty {
+                                Text(detail.evidenceReasons.joined(separator: "、"))
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let failureReason = trace.failureReason, !failureReason.isEmpty {
+                Text("原因：\(HomeHistoryDetailPresentation.contextBoostFailureReasonText(failureReason))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct VoiceCorrectionTraceBlock: View {
+    let trace: VoiceCorrectionTrace
+
+    private var displayedEvents: [CorrectionEvent] {
+        trace.appliedEvents.isEmpty ? trace.candidateEvents : trace.appliedEvents
+    }
+
+    private var statusColor: Color {
+        trace.failureReason == nil ? AppTheme.ColorToken.accent : Color.orange
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label("本地后处理", systemImage: "wand.and.stars")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Spacer(minLength: 8)
+                Text(HomeHistoryDetailPresentation.voiceCorrectionStatusText(
+                    candidateCount: trace.candidateEvents.count,
+                    appliedCount: trace.appliedEvents.count,
+                    failed: trace.failureReason != nil
+                ))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .background(statusColor.opacity(0.10))
+                    .clipShape(Capsule())
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                DetailMetaItem(title: "候选命中", value: "\(trace.candidateEvents.count) 条")
+                DetailMetaItem(title: "实际替换", value: "\(trace.appliedEvents.count) 处")
+                DetailMetaItem(title: "处理方式", value: "易错词规则")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(trace.appliedEvents.isEmpty ? "命中证据" : "替换明细")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                if displayedEvents.isEmpty {
+                    Text("未命中任何易错词规则")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(displayedEvents.prefix(6), id: \.id) { event in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(event.original) -> \(event.replacement)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                                    .textSelection(.enabled)
+                                Text("\(HomeHistoryDetailPresentation.voiceCorrectionScopeText(event.scope)) · \(event.source.rawValue)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        if displayedEvents.count > 6 {
+                            Text("另有 \(displayedEvents.count - 6) 条未展开")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        }
+                    }
+                }
+            }
+
+            if !trace.warnings.isEmpty {
+                Text("提示：\(trace.warnings.joined(separator: "、"))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let failureReason = trace.failureReason, !failureReason.isEmpty {
+                Text("原因：\(failureReason)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
 }
 
 private struct DetailTextBlock: View {
@@ -791,7 +1083,7 @@ private struct RequestJSONDisclosure: View {
                         .font(.system(size: 10, weight: .semibold))
                         .frame(width: 12)
                     Image(systemName: "curlybraces")
-                    Text("查看完整请求 JSON")
+                    Text("查看完整请求内容")
                     Spacer(minLength: 0)
                 }
                 .font(.system(size: 12, weight: .medium))
@@ -861,6 +1153,71 @@ private struct DetailMetaItem: View {
     }
 }
 
+private struct DetailProviderMetaItem: View {
+    enum ProviderIcon {
+        case asrProvider(String?)
+        case llmProvider
+    }
+
+    let title: String
+    let value: String
+    let providerIcon: ProviderIcon
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            HStack(alignment: .center, spacing: 7) {
+                providerBadge
+                Text(value)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var providerBadge: some View {
+        switch providerIcon {
+        case .asrProvider(let providerID):
+            ASRProviderImageBadge(providerID: providerID)
+        case .llmProvider:
+            ProviderInitialBadge(text: value)
+        }
+    }
+}
+
+private struct ASRProviderImageBadge: View {
+    let providerID: String?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: ProviderInitialBadge.metadataSize * 0.28, style: .continuous)
+            .fill(AppTheme.ColorToken.controlBackground)
+            .frame(width: ProviderInitialBadge.metadataSize, height: ProviderInitialBadge.metadataSize)
+            .overlay(
+                RoundedRectangle(cornerRadius: ProviderInitialBadge.metadataSize * 0.28, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+            )
+            .overlay {
+                if let providerID, let image = ASRProviderIcon.load(providerID: providerID) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                } else {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                }
+            }
+    }
+}
+
 private struct DetailApplicationMetaItem: View {
     let title: String
     let appName: String?
@@ -873,7 +1230,11 @@ private struct DetailApplicationMetaItem: View {
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             if let appName {
                 HStack(alignment: .center, spacing: 6) {
-                    SourceApplicationIcon(appName: appName, bundleID: appBundleID, size: 32)
+                    SourceApplicationIcon(
+                        appName: appName,
+                        bundleID: appBundleID,
+                        size: ProviderInitialBadge.metadataSize
+                    )
                     Text(appName)
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.primaryText)

@@ -45,7 +45,7 @@ enum PermissionGuideContent {
             ),
             PermissionStatusItem(
                 title: "屏幕录制",
-                subtitle: "用于“帮我说”的当前窗口 OCR，不保存截图",
+                subtitle: "用于“任务助手”的当前窗口文字识别，不保存截图",
                 systemImage: "rectangle.inset.filled.and.person.filled",
                 status: PermissionSummary.statusText(screenRecordingGranted),
                 granted: screenRecordingGranted,

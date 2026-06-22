@@ -60,6 +60,8 @@ final class DictationOrchestrator {
     private let agentComposeHandler: (any AgentComposeHandling)?
     private let agentDispatchHandler: (any AgentDispatchHandling)?
     private let audioCaptureCoordinator: any AudioCaptureCoordinating
+    private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
+    private let isFocusedTextFieldSecure: @MainActor () -> Bool
     private let finalTimeoutNanoseconds: UInt64
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
@@ -72,6 +74,7 @@ final class DictationOrchestrator {
     private var finalTimeoutTask: Task<Void, Never>?
     private var processingTask: Task<Void, Never>?
     private var recognizedTextAwaitingProcessing: String?
+    private var agentDispatchFallbackInputAwaitingCorrection: String?
     private var audioCaptureLease: AudioCaptureLease?
 
     var state: DictationState {
@@ -87,11 +90,13 @@ final class DictationOrchestrator {
         historyRepository: any HistoryRepository,
         clock: any AppClock = SystemClock(),
         targetProvider: any DictationTargetProviding = WorkspaceDictationTargetProvider(),
-        clipboardService: any ClipboardSetting = SystemClipboardService(),
+        clipboardService: any ClipboardSetting = DictationOrchestrator.defaultClipboardService,
         outputService: (any OutputService)? = nil,
         agentComposeHandler: (any AgentComposeHandling)? = nil,
         agentDispatchHandler: (any AgentDispatchHandling)? = nil,
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
+        correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000
     ) {
         self.asrEngineFactory = asrEngineFactory
@@ -108,34 +113,52 @@ final class DictationOrchestrator {
         self.agentComposeHandler = agentComposeHandler
         self.agentDispatchHandler = agentDispatchHandler
         self.audioCaptureCoordinator = audioCaptureCoordinator
+        self.correctionObservationScheduler = correctionObservationScheduler
+        self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
+    }
+
+    private static var defaultClipboardService: any ClipboardSetting {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return TestClipboardService()
+        }
+        return SystemClipboardService()
     }
 
     func start(
         configuration: DictationConfiguration,
         mode: VoiceTaskMode = .dictation
     ) throws {
+        AppLogger.dictation.info(
+            "Dictation start requested: mode=\(mode.rawValue), engine=\(configuration.engineType.rawValue), lang=\(configuration.languageIdentifier), hasModelID=\(configuration.modelID != nil)"
+        )
         guard RecognitionLanguage.supportsIdentifier(configuration.languageIdentifier),
               RecognitionLanguage.supportsIdentifier(configuration.locale.identifier) else {
+            AppLogger.dictation.warning("Dictation start rejected: unsupported language \(configuration.languageIdentifier)")
             throw DictationOrchestratorError.unsupportedLanguage(configuration.languageIdentifier)
         }
 
         if mode == .agentCompose, agentComposeHandler == nil {
+            AppLogger.dictation.warning("Dictation start rejected: agentCompose handler unavailable")
             throw DictationOrchestratorError.agentComposeUnavailable
         }
         if mode == .agentDispatch, agentDispatchHandler == nil {
+            AppLogger.dictation.warning("Dictation start rejected: agentDispatch handler unavailable")
             throw DictationOrchestratorError.agentDispatchUnavailable
         }
 
         let lease = try audioCaptureCoordinator.begin(kind: audioCaptureKind(for: mode))
         guard stateMachine.startRecording() else {
             audioCaptureCoordinator.end(lease)
+            AppLogger.dictation.warning("Dictation start rejected: state=\(stateLogName(stateMachine.state))")
             throw DictationOrchestratorError.alreadyRunning
         }
         audioCaptureLease = lease
+        AppLogger.dictation.debug("Dictation session lease acquired: kind=\(audioCaptureKind(for: mode).rawValue)")
 
         transcriptionSession = TranscriptionSession()
         let callbackSessionID = UUID().uuidString
+        AppLogger.dictation.debug("Dictation session initialized id=\(callbackSessionID)")
         currentCallbackSessionID = callbackSessionID
         currentConfiguration = configuration
         currentTarget = nil
@@ -151,6 +174,11 @@ final class DictationOrchestrator {
 
         currentTarget = targetProvider.currentTarget()
 
+        if mode == .dictation {
+            textPipeline.prepareContextBoost(target: currentTarget)
+        }
+        AppLogger.dictation.debug("Dictation target resolved: \(currentTarget?.bundleID ?? "nil")")
+
         if mode == .agentCompose {
             guard let agentComposeHandler else {
                 stateMachine.reset()
@@ -160,11 +188,13 @@ final class DictationOrchestrator {
                 throw DictationOrchestratorError.agentComposeUnavailable
             }
             do {
+                AppLogger.dictation.debug("Dictation start: preparing agentCompose handler")
                 try agentComposeHandler.start(
                     target: currentTarget,
                     asrMetadata: asrMetadata(for: configuration)
                 )
             } catch {
+                AppLogger.dictation.error("Start agentCompose handler failed: \(error.localizedDescription)")
                 stateMachine.reset()
                 currentMode = .dictation
                 endCurrentAudioCapture()
@@ -180,6 +210,7 @@ final class DictationOrchestrator {
                 throw DictationOrchestratorError.agentDispatchUnavailable
             }
             do {
+                AppLogger.dictation.debug("Dictation start: preparing agentDispatch handler")
                 agentDispatchHandler.onPresentationChange = { [weak self] presentation in
                     self?.onAgentDispatchPresentation(presentation)
                 }
@@ -188,6 +219,7 @@ final class DictationOrchestrator {
                     asrMetadata: asrMetadata(for: configuration)
                 )
             } catch {
+                AppLogger.dictation.error("Start agentDispatch handler failed: \(error.localizedDescription)")
                 stateMachine.reset()
                 currentMode = .dictation
                 endCurrentAudioCapture()
@@ -218,7 +250,9 @@ final class DictationOrchestrator {
         do {
             try engine.start()
             try audioRecorder.start()
+            AppLogger.dictation.info("Dictation engine started: \(configuration.engineType.rawValue)")
         } catch {
+            textPipeline.cancelContextBoost()
             audioRecorder.stop()
             engine.cancel()
             audioBufferForwarder.detach()
@@ -233,14 +267,17 @@ final class DictationOrchestrator {
             stateMachine.reset()
             endCurrentAudioCapture()
             notifyStateChanged()
+            AppLogger.dictation.error("Dictation startup failed: \(error.localizedDescription)")
             throw error
         }
     }
 
     func release() {
         guard state == .recording else {
+            AppLogger.dictation.debug("release ignored: state=\(stateLogName(state))")
             return
         }
+        AppLogger.dictation.debug("release called in state=\(stateLogName(state))")
 
         audioRecorder.stop()
         audioRecorder.drain()
@@ -257,6 +294,7 @@ final class DictationOrchestrator {
             return
         }
         notifyStateChanged()
+        AppLogger.dictation.debug("release entered waitingForFinal and scheduled timeout")
         scheduleFinalTimeout()
     }
 
@@ -265,6 +303,7 @@ final class DictationOrchestrator {
     }
 
     func cancel() {
+        AppLogger.dictation.info("cancel called state=\(stateLogName(state)) mode=\(currentMode.rawValue)")
         guard state.isCancellable else {
             return
         }
@@ -273,6 +312,8 @@ final class DictationOrchestrator {
         processingTask?.cancel()
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
+        agentDispatchFallbackInputAwaitingCorrection = nil
+        textPipeline.cancelContextBoost()
         audioRecorder.stop()
         endCurrentAudioCapture()
         currentEngine?.cancel()
@@ -291,13 +332,60 @@ final class DictationOrchestrator {
         notifyStateChanged()
     }
 
-    func finishWithoutTextCorrection() {
+    @discardableResult
+    func handleEscapeKey() -> Bool {
+        AppLogger.dictation.debug("handleEscapeKey pressed state=\(stateLogName(state))")
+        switch state {
+        case .processing:
+            if agentDispatchFallbackInputAwaitingCorrection != nil {
+                return finishAgentDispatchFallbackInputWithoutTextCorrection()
+            }
+            return finishWithoutTextCorrection()
+        case .waitingForFinal:
+            return finishWaitingForFinalWithoutTextCorrection()
+        default:
+            cancel()
+            return false
+        }
+    }
+
+    private func finishWaitingForFinalWithoutTextCorrection() -> Bool {
+        guard currentMode == .dictation,
+              let rawText = transcriptionSession.fallbackToLatestText()?.trimmingCharacters(
+                  in: .whitespacesAndNewlines
+              ),
+              !rawText.isEmpty else {
+            AppLogger.dictation.warning("finishWaitingForFinalWithoutTextCorrection aborted: no fallback text")
+            cancel()
+            return false
+        }
+
+        finalTimeoutTask?.cancel()
+        finalTimeoutTask = nil
+        audioRecorder.stop()
+        endCurrentAudioCapture()
+        currentEngine?.stop()
+        recognizedTextAwaitingProcessing = rawText
+
+        guard stateMachine.startProcessing() else {
+            AppLogger.dictation.warning("finishWaitingForFinalWithoutTextCorrection blocked: stateMachine startProcessing failed")
+            cancel()
+            return false
+        }
+        notifyStateChanged()
+        onProcessingStarted(rawText)
+        return finishWithoutTextCorrection()
+    }
+
+    @discardableResult
+    func finishWithoutTextCorrection() -> Bool {
         guard state == .processing,
               currentMode == .dictation,
               let rawText = recognizedTextAwaitingProcessing,
               !rawText.isEmpty else {
+            AppLogger.dictation.warning("finishWithoutTextCorrection aborted: invalid state or empty text")
             cancel()
-            return
+            return false
         }
 
         processingTask?.cancel()
@@ -310,7 +398,8 @@ final class DictationOrchestrator {
         )
 
         guard stateMachine.startInjecting() else {
-            return
+            AppLogger.dictation.warning("finishWithoutTextCorrection blocked: startInjecting failed")
+            return false
         }
         notifyStateChanged()
         let sessionID = currentCallbackSessionID
@@ -337,6 +426,61 @@ final class DictationOrchestrator {
             )
             finishCurrentDictation()
         }
+        return true
+    }
+
+    private func finishAgentDispatchFallbackInputWithoutTextCorrection() -> Bool {
+        guard state == .processing,
+              currentMode == .agentDispatch,
+              let rawText = agentDispatchFallbackInputAwaitingCorrection,
+              !rawText.isEmpty else {
+            AppLogger.dictation.warning("finishAgentDispatchFallbackInputWithoutTextCorrection aborted: invalid state/text")
+            cancel()
+            return false
+        }
+
+        processingTask?.cancel()
+        processingTask = nil
+        agentDispatchFallbackInputAwaitingCorrection = nil
+        let target = currentTarget
+
+        guard stateMachine.startInjecting() else {
+            AppLogger.dictation.warning("finishAgentDispatchFallbackInputWithoutTextCorrection blocked: startInjecting failed")
+            return false
+        }
+        notifyStateChanged()
+        let sessionID = currentCallbackSessionID
+        processingTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outputResult = await deliverFinalText(
+                rawText,
+                originalTarget: target,
+                sessionID: sessionID
+            )
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .injecting else {
+                return
+            }
+            if case .cancelled = outputResult {
+                finishCurrentDictation()
+                return
+            }
+
+            do {
+                try agentDispatchHandler?.completeFallbackInput(
+                    finalText: rawText,
+                    outputResult: outputResult
+                )
+                onAgentDispatchPresentation(.fallbackInput(text: rawText))
+            } catch {
+                AppLogger.general.error(
+                    "Failed to complete Agent Dispatch fallback input: \(error.localizedDescription)"
+                )
+            }
+            finishCurrentDictation()
+        }
+        return true
     }
 
     private func handleTranscription(
@@ -348,8 +492,14 @@ final class DictationOrchestrator {
               state.isRecordingActive else {
             return
         }
+        if isFinal {
+            AppLogger.dictation.debug("received final transcription chunk chars=\(text.count)")
+        } else if text.count < 40 {
+            AppLogger.dictation.debug("received transient transcription=\(text)")
+        }
         onTranscriptionUpdate(text, false)
         if let completedText = transcriptionSession.update(text: text, isFinal: isFinal) {
+            AppLogger.dictation.debug("transcription session completed text length=\(completedText.count)")
             scheduleProcessing(for: completedText)
         }
     }
@@ -357,6 +507,7 @@ final class DictationOrchestrator {
     private func scheduleProcessing(for recognizedText: String) {
         processingTask?.cancel()
         let sessionID = currentCallbackSessionID
+        AppLogger.dictation.debug("scheduleProcessing state=\(stateLogName(state)) chars=\(recognizedText.count)")
         recognizedTextAwaitingProcessing = recognizedText.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
@@ -402,10 +553,12 @@ final class DictationOrchestrator {
 
         if let partialText = transcriptionSession.timeout(),
            !partialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            AppLogger.dictation.debug("handleFinalTimeout fallback to partial text length=\(partialText.count)")
             scheduleProcessing(for: partialText)
             return
         }
 
+        AppLogger.dictation.warning("handleFinalTimeout reached without text")
         fail(DictationOrchestratorError.finalResultTimedOut)
     }
 
@@ -417,14 +570,17 @@ final class DictationOrchestrator {
 
         if let partialText = transcriptionSession.fallbackToLatestText(),
            !partialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            AppLogger.dictation.debug("handleRecognitionError fallback to partial text length=\(partialText.count)")
             scheduleProcessing(for: partialText)
             return
         }
 
+        AppLogger.dictation.error("handleRecognitionError no fallback text: \(error.localizedDescription)")
         fail(error)
     }
 
     private func finishRecognizedText(_ recognizedText: String, sessionID: String?) async {
+        AppLogger.dictation.debug("finishRecognizedText entered session=\(sessionID ?? "nil") mode=\(currentMode.rawValue) chars=\(recognizedText.count)")
         guard !Task.isCancelled,
               isCurrentSession(sessionID),
               state.isRecordingActive else {
@@ -439,6 +595,8 @@ final class DictationOrchestrator {
 
         let rawText = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawText.isEmpty else {
+            AppLogger.dictation.warning("finishRecognizedText aborted: empty recognized text")
+            textPipeline.cancelContextBoost()
             if currentMode == .agentCompose {
                 agentComposeHandler?.cancel()
             } else if currentMode == .agentDispatch {
@@ -455,33 +613,39 @@ final class DictationOrchestrator {
         }
 
         guard stateMachine.startProcessing() else {
+            AppLogger.dictation.warning("finishRecognizedText blocked: stateMachine startProcessing failed")
             return
         }
         notifyStateChanged()
         onProcessingStarted(rawText)
+        AppLogger.dictation.debug("finishRecognizedText start processing mode=\(currentMode.rawValue)")
 
         if currentMode == .agentCompose {
+            AppLogger.dictation.debug("finishRecognizedText route to agent compose")
             await finishAgentCompose(rawText)
             return
         }
         if currentMode == .agentDispatch {
+            AppLogger.dictation.debug("finishRecognizedText route to agent dispatch")
             await finishAgentDispatch(rawText)
             return
         }
 
         let target = currentTarget
+        AppLogger.dictation.debug("finishRecognizedText dictation target=\(target?.bundleID ?? "nil")")
+        let correctionContext = CorrectionContext(
+            mode: .dictation,
+            providerID: currentConfiguration?.asrProviderID ?? "unknown",
+            modelID: currentConfiguration?.modelID,
+            language: currentConfiguration?.languageIdentifier,
+            bundleIdentifier: target?.bundleID,
+            isFinalTranscript: true,
+            isSecureField: isFocusedTextFieldSecure()
+        )
         let processingResult = await textPipeline.process(
             rawText,
             target: target,
-            correctionContext: CorrectionContext(
-                mode: .dictation,
-                providerID: currentConfiguration?.asrProviderID ?? "unknown",
-                modelID: currentConfiguration?.modelID,
-                language: currentConfiguration?.languageIdentifier,
-                bundleIdentifier: target?.bundleID,
-                isFinalTranscript: true,
-                isSecureField: false
-            ),
+            correctionContext: correctionContext,
             onRefinedTextUpdate: { [weak self] text in
                 guard let self,
                       self.isCurrentSession(sessionID),
@@ -499,6 +663,7 @@ final class DictationOrchestrator {
         let finalText = normalizedFinalText(from: processingResult, fallback: rawText)
 
         guard stateMachine.startInjecting() else {
+            AppLogger.dictation.warning("finishRecognizedText blocked: stateMachine startInjecting failed")
             return
         }
         notifyStateChanged()
@@ -524,6 +689,12 @@ final class DictationOrchestrator {
             processingResult: processingResult,
             outputResult: outputResult
         )
+        scheduleCorrectionObservationIfNeeded(
+            insertedText: finalText,
+            context: correctionContext,
+            processingResult: processingResult,
+            outputResult: outputResult
+        )
 
         finishCurrentDictation()
     }
@@ -537,6 +708,7 @@ final class DictationOrchestrator {
             return
         }
 
+        AppLogger.dictation.debug("finishAgentCompose invoked rawLen=\(rawText.count)")
         onTranscriptionUpdate("正在结合上下文生成...", true)
         do {
             updateAgentComposeASRMetadataIfAvailable()
@@ -550,6 +722,7 @@ final class DictationOrchestrator {
                 finishCurrentDictation()
                 return
             }
+            AppLogger.dictation.debug("finishAgentCompose completed, preparing inject state")
             guard stateMachine.startInjecting() else {
                 return
             }
@@ -568,6 +741,7 @@ final class DictationOrchestrator {
                   state == .processing else {
                 return
             }
+            AppLogger.dictation.error("finishAgentCompose failed: \(error.localizedDescription)")
             fail(error)
         }
     }
@@ -582,12 +756,14 @@ final class DictationOrchestrator {
         do {
             updateAgentASRMetadataIfAvailable()
             let presentation = try await agentDispatchHandler.finish(rawTranscript: rawText)
+            AppLogger.dictation.debug("finishAgentDispatch completed presentation=\(presentation)")
             guard !Task.isCancelled,
                   isCurrentSession(sessionID),
                   state == .processing else {
                 return
             }
             if case let .fallbackInput(text) = presentation {
+                AppLogger.dictation.debug("finishAgentDispatch requires fallbackInput path")
                 await finishAgentDispatchFallbackInput(
                     text: text,
                     rawText: rawText,
@@ -609,6 +785,7 @@ final class DictationOrchestrator {
                   state == .processing else {
                 return
             }
+            AppLogger.dictation.error("finishAgentDispatch failed: \(error.localizedDescription)")
             fail(error)
         }
     }
@@ -618,7 +795,11 @@ final class DictationOrchestrator {
         rawText: String,
         sessionID: String
     ) async {
+        AppLogger.dictation.debug("finishAgentDispatchFallbackInput start textLen=\(text.count) rawLen=\(rawText.count)")
         let target = currentTarget
+        agentDispatchFallbackInputAwaitingCorrection = text.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         let processingResult = await textPipeline.process(
             text,
             target: target,
@@ -636,9 +817,11 @@ final class DictationOrchestrator {
               state == .processing else {
             return
         }
+        agentDispatchFallbackInputAwaitingCorrection = nil
         let finalText = normalizedFinalText(from: processingResult, fallback: text)
 
         guard stateMachine.startInjecting() else {
+            AppLogger.dictation.warning("finishAgentDispatchFallbackInput blocked: stateMachine startInjecting failed")
             return
         }
         notifyStateChanged()
@@ -657,22 +840,15 @@ final class DictationOrchestrator {
             return
         }
 
-        saveHistory(
-            rawText: rawText,
-            finalText: finalText,
-            target: target,
-            processingResult: processingResult,
-            outputResult: outputResult
-        )
         do {
             try agentDispatchHandler?.completeFallbackInput(
                 finalText: finalText,
                 outputResult: outputResult
             )
+            onAgentDispatchPresentation(.fallbackInput(text: finalText))
         } catch {
             AppLogger.general.error("Failed to complete Agent Dispatch fallback input: \(error.localizedDescription)")
         }
-        onAgentDispatchPresentation(.fallbackInput(text: finalText))
         finishCurrentDictation()
     }
 
@@ -689,6 +865,7 @@ final class DictationOrchestrator {
         currentTarget = nil
         currentMode = .dictation
         recognizedTextAwaitingProcessing = nil
+        agentDispatchFallbackInputAwaitingCorrection = nil
         processingTask = nil
         stateMachine.finish()
         notifyStateChanged()
@@ -701,15 +878,19 @@ final class DictationOrchestrator {
     ) async -> OutputResult {
         guard isCurrentSession(sessionID),
               state == .injecting else {
+            AppLogger.dictation.debug("deliverFinalText blocked for session=\(sessionID ?? "nil") state=\(stateLogName(state))")
             return .cancelled
         }
         let currentTarget = targetProvider.currentTarget()
-        return await outputService.deliver(
+        AppLogger.dictation.debug("deliverFinalText target=\(currentTarget?.bundleID ?? "nil"), originalTarget=\(originalTarget?.bundleID ?? "nil"), textLen=\(text.count)")
+        let outputResult = await outputService.deliver(
             text: text,
             mode: .dictation,
             target: currentTarget,
             originalTarget: originalTarget
         )
+        AppLogger.dictation.debug("deliverFinalText completed kind=\(outputResult.kind.rawValue)")
+        return outputResult
     }
 
     private func isCurrentSession(_ sessionID: String?) -> Bool {
@@ -725,6 +906,7 @@ final class DictationOrchestrator {
         outputResult: OutputResult
     ) {
         guard let configuration = currentConfiguration else {
+            AppLogger.dictation.warning("saveHistory skipped: missing currentConfiguration")
             return
         }
 
@@ -762,9 +944,27 @@ final class DictationOrchestrator {
         do {
             try historyRepository.save(entry)
             onHistorySaved()
+            AppLogger.dictation.debug("saveHistory success id=\(historyID)")
         } catch {
             AppLogger.general.error("Failed to save dictation history: \(error.localizedDescription)")
         }
+    }
+
+    private func scheduleCorrectionObservationIfNeeded(
+        insertedText: String,
+        context: CorrectionContext,
+        processingResult: TextProcessingResult,
+        outputResult: OutputResult
+    ) {
+        guard case .injected = outputResult,
+              !context.isSecureField else {
+            return
+        }
+        correctionObservationScheduler?.scheduleObservation(
+            insertedText: insertedText,
+            context: context,
+            appliedEvents: processingResult.appliedCorrectionEvents
+        )
     }
 
     private func warningsJSON(_ warnings: [String]) -> String? {
@@ -846,11 +1046,14 @@ final class DictationOrchestrator {
     }
 
     private func fail(_ error: Error) {
+        AppLogger.dictation.error("dictation failed mode=\(currentMode.rawValue) state=\(stateLogName(state)) reason=\(error.localizedDescription)")
         finalTimeoutTask?.cancel()
         finalTimeoutTask = nil
         processingTask?.cancel()
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
+        agentDispatchFallbackInputAwaitingCorrection = nil
+        textPipeline.cancelContextBoost()
         audioRecorder.stop()
         endCurrentAudioCapture()
         updateAgentComposeASRMetadataIfAvailable()
@@ -909,8 +1112,15 @@ final class DictationOrchestrator {
 
     private func endCurrentAudioCapture() {
         guard let audioCaptureLease else { return }
+        AppLogger.dictation.debug("endCurrentAudioCapture end lease")
         audioCaptureCoordinator.end(audioCaptureLease)
         self.audioCaptureLease = nil
+    }
+}
+
+private final class TestClipboardService: ClipboardSetting {
+    func setString(_ text: String) -> Bool {
+        true
     }
 }
 
@@ -926,9 +1136,9 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
         case .alreadyRunning:
             return "听写正在进行中。"
         case .agentComposeUnavailable:
-            return "帮我说尚未完成初始化，请重启码上写后重试。"
+            return "任务助手尚未完成初始化，请重启码上写后重试。"
         case .agentDispatchUnavailable:
-            return "Vibe Coding 指挥中心尚未完成初始化，请重启码上写后重试。"
+            return "AI 编程控制台尚未完成初始化，请重启码上写后重试。"
         case .finalResultTimedOut:
             return "语音识别超时，请重试。"
         case .unsupportedLanguage(let identifier):

@@ -149,7 +149,7 @@ Packages/VoxFlowVoiceCorrectionKit/
 
 GPLv3 来源代码必须集中在 `VoxFlowVoiceCorrection` package 内，不散落到 App 壳层、ASR Provider、通用 persistence、通用 UI。
 
-## Project Decisions 复核
+## 项目决策复核
 
 `docs/voice-correction/project-decisions.md` 与当前任务清单一致：
 

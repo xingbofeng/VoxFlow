@@ -16,7 +16,11 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
         utterance: String,
         candidates: [AgentSessionCard]
     ) async throws -> AgentModelResolution? {
-        guard await isEnabled(), !candidates.isEmpty else { return nil }
+        AppLogger.dictation.debug("LLMAgentTargetResolver resolve utteranceLen=\(utterance.count) candidates=\(candidates.count)")
+        guard await isEnabled(), !candidates.isEmpty else {
+            AppLogger.dictation.debug("LLMAgentTargetResolver skipped: disabled or empty candidates")
+            return nil
+        }
         let candidatePayload = candidates.map { candidate in
             [
                 "agent_id": candidate.agentID,
@@ -36,7 +40,7 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
             TextRefinementRequest(
                 text: input,
                 systemPrompt: """
-                你只负责从 candidate_agents 中重排语音指令的目标队员，不得发送消息或创造新队员。
+                你只负责从 candidate_agents 中重排语音指令的目标任务助手，不得发送消息或创建新任务助手。
                 只返回单行 JSON：{"target_agent_id":"候选ID","message":"原指令内容","confidence":0.0}。
                 不确定时 confidence 必须低于 0.60；target_agent_id 必须来自候选列表。
                 """,
@@ -52,8 +56,12 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
               let decoded = try? JSONDecoder().decode(Response.self, from: data),
               candidates.contains(where: { $0.agentID == decoded.targetAgentID }),
               (0...1).contains(decoded.confidence) else {
+            AppLogger.dictation.warning("LLMAgentTargetResolver parse/validate failed utteranceLen=\(utterance.count)")
             return nil
         }
+        AppLogger.dictation.debug(
+            "LLMAgentTargetResolver resolved target=\(decoded.targetAgentID) confidence=\(decoded.confidence) messageLen=\(decoded.message.count)"
+        )
         return AgentModelResolution(
             agentID: decoded.targetAgentID,
             message: decoded.message,

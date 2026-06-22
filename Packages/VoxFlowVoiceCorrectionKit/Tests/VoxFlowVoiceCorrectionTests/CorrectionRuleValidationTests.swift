@@ -68,6 +68,31 @@ struct CorrectionRuleValidationTests {
         requireSendable(RuleSnapshot(version: 1, rules: [makeRule()]))
     }
 
+    @Test("target identifier survives Codable round trip")
+    func targetIDSurvivesCodableRoundTrip() throws {
+        let targetID = UUID(uuidString: "00000000-0000-0000-0000-000000000111")!
+        var rule = makeRule()
+        rule.targetID = targetID
+
+        let data = try JSONEncoder().encode(rule)
+        let decoded = try JSONDecoder().decode(CorrectionRule.self, from: data)
+
+        #expect(decoded.targetID == targetID)
+    }
+
+    @Test("legacy JSON without target identifier remains decodable")
+    func legacyJSONWithoutTargetIDRemainsDecodable() throws {
+        let data = try JSONEncoder().encode(makeRule())
+        let json = String(decoding: data, as: UTF8.self)
+
+        #expect(json.contains("targetID") == false)
+
+        let decoded = try JSONDecoder().decode(CorrectionRule.self, from: data)
+
+        #expect(decoded.targetID == nil)
+        #expect(decoded.original == "q 问")
+    }
+
     private func makeRule(
         original: String = "q 问",
         replacement: String = "Qwen",

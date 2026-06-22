@@ -77,16 +77,20 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
 
     func start() async throws {
         let language = currentLanguage()
+        AppLogger.audio.debug("笔记录制开始：language=\(language.rawValue)")
         guard RecognitionLanguage.supportsIdentifier(language.rawValue),
               RecognitionLanguage.supportsIdentifier(language.locale.identifier) else {
+            AppLogger.audio.warning("笔记录制失败：不支持语言 \(language.rawValue)")
             throw NotesRecordingError.unsupportedLanguage(language.rawValue)
         }
 
         guard await microphonePermission() else {
+            AppLogger.audio.warning("笔记录制失败：麦克风权限缺失")
             throw NotesRecordingError.microphonePermissionDenied
         }
 
         let engineType = selectedEngineType()
+        AppLogger.audio.debug("笔记录制引擎：\(engineType.rawValue)")
         latestPartialText = nil
         awaitingFinalResult = false
         timeoutTask?.cancel()
@@ -94,6 +98,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         currentEngineType = engineType
         if engineType == .apple {
             guard await speechRecognitionPermission() else {
+                AppLogger.audio.warning("笔记录制失败：语音识别权限缺失（Apple 引擎）")
                 throw NotesRecordingError.speechRecognitionPermissionDenied
             }
         }
@@ -121,6 +126,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
             audioBufferForwarder.attach(engine)
             try recorder.start()
         } catch {
+            AppLogger.audio.error("笔记录制启动失败：\(error.localizedDescription)")
             audioCaptureCoordinator.end(lease)
             audioCaptureLease = nil
             engine.cancel()
@@ -133,6 +139,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     }
 
     func finish() {
+        AppLogger.audio.debug("笔记录制结束：触发 finalization")
         recorder.stop()
         recorder.drain()
         endCurrentAudioCapture()
@@ -144,6 +151,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     }
 
     func cancel() {
+        AppLogger.audio.debug("笔记录制取消")
         timeoutTask?.cancel()
         timeoutTask = nil
         sessionGeneration = nil
@@ -181,6 +189,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
 
     private func handleTranscription(text: String, isFinal: Bool, generation: UUID) {
         guard generation == sessionGeneration else { return }
+        AppLogger.audio.debug("笔记转写回调：isFinal=\(isFinal), length=\(text.count)")
         if isFinal {
             complete(with: text, isFinal: true)
             return
@@ -192,6 +201,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
 
     private func handleRecognitionError(_ error: Error, generation: UUID) {
         guard generation == sessionGeneration else { return }
+        AppLogger.audio.warning("笔记识别错误：\(error.localizedDescription)")
         if awaitingFinalResult,
            let latestPartialText,
            !latestPartialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -205,6 +215,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     private func scheduleFinalTimeout(generation: UUID) {
         timeoutTask?.cancel()
         let timeoutNanoseconds = activeFinalTimeoutNanoseconds()
+        AppLogger.audio.debug("安排笔记 final 超时：\(timeoutNanoseconds) ns")
         timeoutTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -219,6 +230,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
 
     private func handleFinalTimeout(generation: UUID) {
         guard generation == sessionGeneration else { return }
+        AppLogger.audio.warning("笔记 final 超时：generation=\(generation)")
         if let latestPartialText,
            !latestPartialText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             complete(with: latestPartialText, isFinal: true)
@@ -229,6 +241,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     }
 
     private func complete(with text: String, isFinal: Bool) {
+        AppLogger.audio.info("笔记录制完成：isFinal=\(isFinal), length=\(text.count)")
         timeoutTask?.cancel()
         timeoutTask = nil
         sessionGeneration = nil
@@ -242,6 +255,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
     }
 
     private func fail(with error: Error) {
+        AppLogger.audio.error("笔记录制失败：\(error.localizedDescription)")
         timeoutTask?.cancel()
         timeoutTask = nil
         sessionGeneration = nil

@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowContextBoost
 @testable import VoxFlowApp
 
 @MainActor
@@ -167,6 +168,263 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(result.finalText, "小兔子乖乖把门开开快点开开我要进来")
         XCTAssertEqual(refiner.requests.count, 1)
         XCTAssertFalse(result.warnings.contains("llm_echo_retry"))
+    }
+
+    func testPipelineInjectsCurrentWindowContextHotwordsIntoLLMPrompt() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("Qwen3-ASR"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                windowTitle: "Release Notes",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [
+                    temporaryHotword("Qwen3-ASR"),
+                    temporaryHotword("Project Apollo"),
+                ],
+                ocrCharacterCount: 120,
+                candidateCount: 18
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true }
+        )
+
+        let result = await pipeline.process(
+            "去问三 ASR",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.finalText, "Qwen3-ASR")
+        XCTAssertEqual(contextProvider.requestedTargets.map { $0?.bundleID }, ["com.example.editor"])
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("- Qwen3-ASR") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("- Project Apollo") == true)
+        XCTAssertEqual(result.trace?.contextBoost?.ocrCharacterCount, 120)
+        XCTAssertEqual(result.trace?.contextBoost?.candidateCount, 18)
+        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.text, "Qwen3-ASR")
+        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.score, 5)
+        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.source, "ocrKeyphrase")
+        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.evidenceReasons, ["test"])
+    }
+
+    func testPipelineDoesNotCaptureContextWhenContextBoostToggleIsDisabled() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                windowTitle: "Release Notes",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [temporaryHotword("Qwen3-ASR")]
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { false }
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.finalText, "原始文本")
+        XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+        XCTAssertNil(result.trace?.contextBoost)
+    }
+
+    func testPipelineRecordsContextBoostTraceWhenEnabledButNoOCRContextIsAvailable() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(snapshot: nil)
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true }
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.trace?.contextBoost?.appName, "Editor")
+        XCTAssertEqual(result.trace?.contextBoost?.bundleID, "com.example.editor")
+        XCTAssertEqual(result.trace?.contextBoost?.hotwords, [])
+        XCTAssertEqual(result.trace?.contextBoost?.failureReason, "no_ocr_context")
+        XCTAssertFalse(result.trace?.contextBoost?.appliedToLLMPrompt == true)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+    }
+
+    func testPipelineRecordsContextBoostTimeoutWhenOCRContextIsSlow() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                windowTitle: "Release Notes",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [temporaryHotword("Qwen3-ASR")]
+            ),
+            delayNanoseconds: 50_000_000
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true },
+            contextBoostTimeoutNanoseconds: 1
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.trace?.contextBoost?.failureReason, "context_boost_timeout")
+        XCTAssertEqual(result.trace?.contextBoost?.hotwords, [])
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("Qwen3-ASR") == true)
+    }
+
+    func testPipelineUsesPrefetchedContextWithoutStartingPostFinalCapture() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let legacyProvider = StubCurrentWindowOCRContextProvider(snapshot: nil)
+        let snapshot = OCRContextSnapshot(
+            bundleID: "com.example.editor",
+            appName: "Editor",
+            windowTitle: "Release Notes",
+            capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            hotwords: [temporaryHotword("Qwen3-ASR")]
+        )
+        let coordinator = ContextBoostPrefetchCoordinator(
+            sessionProvider: PipelinePrefetchSessionProvider(
+                session: PipelinePrefetchSession(outcome: .captured(snapshot))
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: legacyProvider,
+            contextBoostCoordinator: coordinator,
+            contextBoostEnabled: { true }
+        )
+        let target = DictationTarget(
+            bundleID: "com.example.editor",
+            appName: "Editor",
+            pid: 42
+        )
+
+        pipeline.prepareContextBoost(target: target)
+        await Task.yield()
+        let result = await pipeline.process("原始文本", target: target)
+
+        XCTAssertEqual(result.trace?.contextBoost?.hotwords, ["Qwen3-ASR"])
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Qwen3-ASR") == true)
+        XCTAssertTrue(legacyProvider.requestedTargets.isEmpty)
+    }
+
+    func testPipelineCancelsPrefetchWhenRefinerBecomesDisabledBeforeProcessing() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let session = PipelinePrefetchSession(outcome: .noContext)
+        let coordinator = ContextBoostPrefetchCoordinator(
+            sessionProvider: PipelinePrefetchSessionProvider(session: session)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostCoordinator: coordinator,
+            contextBoostEnabled: { true }
+        )
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+
+        pipeline.prepareContextBoost(target: target)
+        await Task.yield()
+        refiner.isEnabled = false
+        _ = await pipeline.process("原始文本", target: target)
+
+        XCTAssertEqual(session.cancelCallCount, 1)
+    }
+
+    func testPipelineSkipsContextBoostForVoxFlowWindows() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: ProductBrand.bundleIdentifier,
+                appName: ProductBrand.englishName,
+                windowTitle: "识别完成",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [temporaryHotword("context_boost_timeout")]
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true },
+            contextBoostTimeoutNanoseconds: 1
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(
+                bundleID: ProductBrand.bundleIdentifier,
+                appName: ProductBrand.englishName,
+                pid: 42,
+                windowTitle: "识别完成"
+            )
+        )
+
+        XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
+        XCTAssertNil(result.trace?.contextBoost)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("context_boost_timeout") == true)
+    }
+
+    func testPipelineSkipsContextBoostWhenSuppressedByVisibleOCRPanel() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                windowTitle: "Notes",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [temporaryHotword("static func contextBoostFailureReasonText")]
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true },
+            contextBoostSuppressed: { true }
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
+        XCTAssertNil(result.trace?.contextBoost)
+        XCTAssertFalse(
+            refiner.requests.first?.systemPrompt.contains("static func contextBoostFailureReasonText") == true
+        )
+    }
+
+    func testPipelineDoesNotCaptureContextWhenLLMRefinerIsDisabled() async {
+        let refiner = StubTextRefiner(isEnabled: false, isConfigured: true)
+        let contextProvider = StubCurrentWindowOCRContextProvider(snapshot: nil)
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true }
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.finalText, "原始文本")
+        XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
     }
 
     private enum TestError: Error {
@@ -359,5 +617,64 @@ final class TextProcessingPipelineTests: XCTestCase {
             requests.append(request)
             return results.removeFirst()
         }
+    }
+
+    private final class StubCurrentWindowOCRContextProvider: CurrentWindowOCRContextProviding, @unchecked Sendable {
+        let snapshot: OCRContextSnapshot?
+        let delayNanoseconds: UInt64
+        private(set) var requestedTargets: [DictationTarget?] = []
+
+        init(snapshot: OCRContextSnapshot?, delayNanoseconds: UInt64 = 0) {
+            self.snapshot = snapshot
+            self.delayNanoseconds = delayNanoseconds
+        }
+
+        func captureContext(for target: DictationTarget?) async -> OCRContextSnapshot? {
+            requestedTargets.append(target)
+            if delayNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
+            return snapshot
+        }
+    }
+
+    private final class PipelinePrefetchSessionProvider: ContextBoostOCRCaptureSessionProviding, @unchecked Sendable {
+        let session: any ContextBoostOCRCaptureSession
+
+        init(session: any ContextBoostOCRCaptureSession) {
+            self.session = session
+        }
+
+        func makeCaptureSession(for target: DictationTarget) -> (any ContextBoostOCRCaptureSession)? {
+            session
+        }
+    }
+
+    private final class PipelinePrefetchSession: ContextBoostOCRCaptureSession, @unchecked Sendable {
+        let outcome: ContextBoostOCRRecognitionOutcome
+        private(set) var cancelCallCount = 0
+
+        init(outcome: ContextBoostOCRRecognitionOutcome) {
+            self.outcome = outcome
+        }
+
+        func recognize(quality: ContextBoostOCRQuality) async -> ContextBoostOCRRecognitionOutcome {
+            outcome
+        }
+
+        func cancelCurrentRecognition() {
+            cancelCallCount += 1
+        }
+    }
+
+    private func temporaryHotword(_ text: String) -> TemporaryHotword {
+        TemporaryHotword(
+            text: text,
+            normalizedText: text.lowercased(),
+            score: 5,
+            source: .ocrKeyphrase,
+            evidence: [HotwordEvidence(reason: "test", weight: 5)],
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
+        )
     }
 }

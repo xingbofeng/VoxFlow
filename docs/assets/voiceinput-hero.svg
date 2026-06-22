@@ -50,11 +50,11 @@
     </g>
   </g>
 
-  <text x="108" y="354" fill="#0E6B58" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="18" font-weight="750" letter-spacing="4">VOICEINPUT FOR macOS</text>
-  <text x="108" y="422" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="60" font-weight="760">Hold. Speak. Done.</text>
-  <text x="108" y="474" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="25" font-weight="500">按住说话 · 松手输入</text>
-  <text x="108" y="517" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="20">让声音自然落进光标所在的位置</text>
-  <text x="108" y="550" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="19">Voice to text, right where you type.</text>
+  <text x="108" y="354" fill="#0E6B58" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="18" font-weight="750" letter-spacing="3">码上写 · VoxFlow</text>
+  <text x="108" y="422" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="58" font-weight="760">Voice. OCR. Command.</text>
+  <text x="108" y="474" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="25" font-weight="500">语音输入 · 截图文字 · Agent 调度</text>
+  <text x="108" y="517" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="20">把声音、图片文字和任务送回当前现场</text>
+  <text x="108" y="550" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="19">Send every thought back into flow.</text>
 
   <g transform="translate(108 596)">
     <rect width="172" height="48" rx="24" fill="#0E6B58"/>
@@ -74,25 +74,29 @@
     <circle cx="846" cy="160" r="7" fill="#F07F72"/>
     <circle cx="870" cy="160" r="7" fill="#EDB85D"/>
     <circle cx="894" cy="160" r="7" fill="#72B888"/>
-    <rect x="836" y="194" width="116" height="38" rx="10" fill="#D7E9E2"/>
-    <rect x="838" y="207" width="15" height="15" rx="4" fill="#0E6B58"/>
-    <text x="865" y="219" fill="#25453C" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="14" font-weight="700">首页</text>
-    <g fill="#718079" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="13" font-weight="550">
-      <text x="865" y="271">词汇表</text>
-      <text x="865" y="315">风格</text>
-      <text x="865" y="359">文件转写</text>
-      <text x="865" y="403">笔记</text>
-      <text x="865" y="447">设置</text>
+    <rect x="832" y="192" width="128" height="34" rx="10" fill="#D7E9E2"/>
+    <rect x="838" y="203" width="14" height="14" rx="4" fill="#0E6B58"/>
+    <text x="864" y="215" fill="#25453C" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="13" font-weight="700">首页</text>
+    <g fill="#718079" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="12" font-weight="550">
+      <text x="864" y="258">易错词</text>
+      <text x="864" y="298">风格</text>
+      <text x="864" y="338">截图 OCR</text>
+      <text x="864" y="378">文件转写</text>
+      <text x="864" y="418">笔记</text>
+      <text x="864" y="458">AI Coding 助手</text>
+      <text x="864" y="498">设置</text>
     </g>
     <g fill="#9AA7A1">
-      <circle cx="846" cy="266" r="7"/>
-      <circle cx="846" cy="310" r="7"/>
-      <circle cx="846" cy="354" r="7"/>
-      <circle cx="846" cy="398" r="7"/>
-      <circle cx="846" cy="442" r="7"/>
+      <circle cx="846" cy="254" r="6"/>
+      <circle cx="846" cy="294" r="6"/>
+      <circle cx="846" cy="334" r="6"/>
+      <circle cx="846" cy="374" r="6"/>
+      <circle cx="846" cy="414" r="6"/>
+      <circle cx="846" cy="454" r="6"/>
+      <circle cx="846" cy="494" r="6"/>
     </g>
 
-    <text x="1008" y="174" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="24" font-weight="750">首页 · Home</text>
+    <text x="1008" y="174" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="24" font-weight="750">工作台 · Workflow</text>
 
     <g transform="translate(1008 196)">
       <g>

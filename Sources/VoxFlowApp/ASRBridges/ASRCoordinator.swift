@@ -22,6 +22,7 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
         } else {
             self.menuStateResolver = ASRMenuStateResolver(asrManager: manager)
         }
+        AppLogger.general.debug("ASRCoordinator initialized")
     }
 
     var effectiveSelectedEngineType: ASREngineType {
@@ -33,7 +34,11 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
     }
 
     func isMenuOptionEnabled(_ option: ASRMenuModel) -> Bool {
-        menuStateResolver.isEnabled(option)
+        let enabled = menuStateResolver.isEnabled(option)
+        if !enabled {
+            AppLogger.general.info("ASR menu option disabled: \(option.title)")
+        }
+        return enabled
     }
 
     func isMenuOptionSelected(_ option: ASRMenuModel) -> Bool {
@@ -42,12 +47,15 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
 
     @discardableResult
     func selectMenuOption(_ option: ASRMenuModel) -> Bool {
-        menuStateResolver.select(option)
+        let selected = menuStateResolver.select(option)
+        AppLogger.general.info("ASR menu option selected: \(option.title), success=\(selected)")
+        return selected
     }
 
     func dictationConfiguration(for language: RecognitionLanguage) -> DictationConfiguration {
         let engineType = effectiveSelectedEngineType
         let modelMetadata = manager.modelMetadata(for: engineType)
+        AppLogger.general.debug("Build dictation configuration: engine=\(engineType.rawValue), language=\(language.rawValue)")
         return DictationConfiguration(
             engineType: engineType,
             locale: language.locale,
@@ -74,6 +82,7 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
     }
 
     func makeEngine(type: ASREngineType) -> ASREngine {
-        manager.makeEngine(type: type)
+        AppLogger.general.info("ASRCoordinator makeEngine requested: \(type.rawValue)")
+        return manager.makeEngine(type: type)
     }
 }

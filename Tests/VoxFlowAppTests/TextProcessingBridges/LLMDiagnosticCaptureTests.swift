@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
 final class LLMDiagnosticCaptureTests: XCTestCase {
@@ -38,6 +39,39 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
         XCTAssertFalse(contents.contains("secret"))
         XCTAssertFalse(contents.contains("alice"))
         XCTAssertTrue(contents.contains("[REDACTED]"))
+    }
+
+    func testTraceReturnsLatestCapturedTraceForTaskID() throws {
+        let directory = temporaryDirectory()
+        let capture = LLMDiagnosticCapture()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        capture.configure(enabled: true, directory: directory)
+        capture.capture(
+            taskID: "task",
+            trace: trace(response: "旧响应"),
+            at: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        capture.capture(
+            taskID: "other-task",
+            trace: trace(response: "其他响应"),
+            at: Date(timeIntervalSince1970: 1_800_000_001)
+        )
+        capture.capture(
+            taskID: "task",
+            trace: trace(response: "新响应"),
+            at: Date(timeIntervalSince1970: 1_800_000_002)
+        )
+
+        XCTAssertEqual(capture.trace(taskID: "task")?.llm?.responseText, "新响应")
+        XCTAssertEqual(capture.trace(taskID: "other-task")?.llm?.responseText, "其他响应")
+        XCTAssertNil(capture.trace(taskID: "missing"))
+    }
+
+    func testTraceReturnsNilWhenCaptureIsDisabled() throws {
+        let capture = LLMDiagnosticCapture()
+
+        XCTAssertNil(capture.trace(taskID: "task"))
     }
 
     func testDisablingCaptureDeletesExistingDiagnosticContent() throws {
@@ -92,9 +126,91 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
         XCTAssertTrue(contents.contains(where: { $0.contains("third") }))
     }
 
+    func testDiagnosticCaptureKeepsContextBoostTopKAndKnownFailureReason() throws {
+        let directory = temporaryDirectory()
+        let capture = LLMDiagnosticCapture()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        capture.configure(enabled: true, directory: directory)
+        capture.capture(
+            taskID: "task",
+            trace: trace(
+                contextBoost: ContextBoostTrace(
+                    appName: "Claude Code",
+                    bundleID: "com.anthropic.claudefordesktop",
+                    hotwords: ["Qwen3-ASR"],
+                    hotwordDetails: [
+                        ContextBoostHotwordTrace(
+                            text: "Qwen3-ASR",
+                            score: 7,
+                            source: "ocrShape",
+                            evidenceReasons: ["shape_candidate"]
+                        ),
+                    ],
+                    source: "current_window_ocr",
+                    ttlSeconds: 120,
+                    ocrCharacterCount: 128,
+                    candidateCount: 9,
+                    appliedToLLMPrompt: true,
+                    failureReason: "no_ocr_context"
+                )
+            ),
+            at: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let file = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        let contents = try String(contentsOf: file, encoding: .utf8)
+
+        XCTAssertTrue(contents.contains("Qwen3-ASR"))
+        XCTAssertTrue(contents.contains("Claude Code"))
+        XCTAssertTrue(contents.contains("ocrCharacterCount"))
+        XCTAssertTrue(contents.contains("candidateCount"))
+        XCTAssertTrue(contents.contains("shape_candidate"))
+        XCTAssertTrue(contents.contains("no_ocr_context"))
+    }
+
+    func testDiagnosticCaptureKeepsVoiceCorrectionTrace() throws {
+        let directory = temporaryDirectory()
+        let capture = LLMDiagnosticCapture()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let event = CorrectionEvent(
+            ruleID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            original: "Q问",
+            replacement: "Qwen",
+            range: CorrectionTextRange(location: 0, length: 2),
+            scope: .global,
+            source: .manual
+        )
+
+        capture.configure(enabled: true, directory: directory)
+        capture.capture(
+            taskID: "task",
+            trace: trace(
+                voiceCorrection: VoiceCorrectionTrace(
+                    candidateEvents: [event],
+                    appliedEvents: [event],
+                    warnings: []
+                )
+            ),
+            at: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let decoded = try XCTUnwrap(capture.trace(taskID: "task"))
+
+        XCTAssertEqual(decoded.voiceCorrection?.candidateEvents, [event])
+        XCTAssertEqual(decoded.voiceCorrection?.appliedEvents, [event])
+    }
+
     private func trace(
         request: String = #"{"messages":[{"content":"prompt"}]}"#,
-        response: String = "response"
+        response: String = "response",
+        contextBoost: ContextBoostTrace? = nil,
+        voiceCorrection: VoiceCorrectionTrace? = nil
     ) -> TextProcessingTrace {
         TextProcessingTrace(
             llm: LLMRefinementTrace(
@@ -110,7 +226,9 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
                 durationMS: 123,
                 errorMessage: nil,
                 completedAt: Date(timeIntervalSince1970: 1_800_000_000)
-            )
+            ),
+            contextBoost: contextBoost,
+            voiceCorrection: voiceCorrection
         )
     }
 

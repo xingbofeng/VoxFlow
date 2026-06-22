@@ -6,10 +6,14 @@ struct ApplicationIconView: View {
     let iconPath: String?
     var size: CGFloat = 32
 
+    private var iconImage: NSImage? {
+        guard let iconPath else { return nil }
+        return NSImage(contentsOfFile: iconPath)
+    }
+
     var body: some View {
-        Group {
-            if let iconPath,
-               let image = NSImage(contentsOfFile: iconPath) {
+        ZStack {
+            if let image = iconImage {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()

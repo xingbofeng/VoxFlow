@@ -39,10 +39,15 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
 
     func start() throws {
         let configuration = try configurationProvider()
+        AppLogger.audio.debug(
+            "TencentRealtimeASREngine start attempt sessionID=\(UUID().uuidString) localeComplete=\(configuration.isComplete)"
+        )
         guard configuration.isComplete else {
+            AppLogger.audio.warning("TencentRealtimeASREngine start blocked: configuration incomplete")
             throw TencentRealtimeASRError.missingCredential
         }
         let generation = UUID()
+        AppLogger.audio.debug("TencentRealtimeASREngine start generation=\(generation.uuidString)")
         let stream = AsyncStream<Data>(bufferingPolicy: .bufferingNewest(Self.audioChunkBufferLimit)) { continuation in
             lock.withLock {
                 audioContinuation = continuation
@@ -64,16 +69,21 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
                     self?.handle(message, generation: generation)
                 }
                 guard isCurrent(generation), !Task.isCancelled else { return }
+                AppLogger.audio.info("TencentRealtimeASREngine completed generation=\(generation.uuidString)")
                 lock.withLock {
                     runtimeMetadata.finalLatencyMs = max(0, Int(Date().timeIntervalSince(startedAt) * 1_000))
                 }
             } catch {
+                AppLogger.audio.warning(
+                    "TencentRealtimeASREngine transcribe failed generation=\(generation.uuidString) reason=\(error.localizedDescription)"
+                )
                 guard isCurrent(generation), !Task.isCancelled else { return }
                 lock.withLock {
                     runtimeMetadata.errorCode = String(describing: type(of: error))
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isCurrent(generation) else { return }
+                    AppLogger.audio.warning("TencentRealtimeASREngine onError generation=\(generation.uuidString)")
                     self.onError?(error)
                 }
             }
@@ -85,6 +95,7 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
         do {
             encoded = try encode(frame)
         } catch {
+            AppLogger.audio.warning("TencentRealtimeASREngine encode failed: \(error.localizedDescription)")
             let currentGeneration = lock.withLock { generation }
             guard let currentGeneration else { return }
             DispatchQueue.main.async { [weak self] in
@@ -98,10 +109,19 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
             lock.withLock {
                 runtimeMetadata.droppedFrameCount = (runtimeMetadata.droppedFrameCount ?? 0) + 1
             }
+            AppLogger.audio.debug("TencentRealtimeASREngine dropped frame")
         }
+        if lock.withLock({ audioContinuation == nil }) {
+            AppLogger.audio.debug("TencentRealtimeASREngine append ignored: stream not started")
+            return
+        }
+        AppLogger.audio.debug("TencentRealtimeASREngine appended frame sampleRate=\(frame.sampleRate)")
     }
 
     func endAudio() {
+        AppLogger.audio.debug(
+            "TencentRealtimeASREngine endAudio generation=\(lock.withLock { generation?.uuidString ?? "nil" })"
+        )
         lock.withLock {
             audioContinuation?.finish()
             audioContinuation = nil
@@ -109,10 +129,14 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
     }
 
     func stop() {
+        AppLogger.audio.debug("TencentRealtimeASREngine stop generation=\(generation?.uuidString ?? "nil")")
         cancel()
     }
 
     func cancel() {
+        AppLogger.audio.debug(
+            "TencentRealtimeASREngine cancel generation=\(generation?.uuidString ?? "nil") segments=\(stableSegments.count)"
+        )
         lock.withLock {
             generation = nil
             audioContinuation?.finish()
@@ -144,6 +168,7 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
     private func handle(_ message: TencentRealtimeASRMessage, generation: UUID) {
         let emission = lock.withLock { () -> (String, Bool)? in
             guard self.generation == generation else { return nil }
+            AppLogger.audio.debug("TencentRealtimeASREngine handle message final=\(message.isFinal) stable=\(message.isStable)")
             let text = message.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
                 if message.isStable, let index = message.index {
@@ -164,6 +189,9 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
         guard let emission else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isCurrent(generation) else { return }
+            AppLogger.audio.debug(
+                "TencentRealtimeASREngine emit textLen=\(emission.0.count) final=\(emission.1) generation=\(generation.uuidString)"
+            )
             self.onTranscription?(emission.0, emission.1)
         }
     }

@@ -39,6 +39,22 @@ struct CorrectionBenchmarkCase: Codable {
     let tags: [String]
 }
 
+struct ExpectedLearningCandidate: Codable, Equatable, Hashable {
+    let original: String
+    let replacement: String
+}
+
+struct LearningBenchmarkCase: Codable {
+    let id: String
+    let rawText: String
+    let insertedText: String
+    let observedFinalText: String
+    let expectedCandidates: [ExpectedLearningCandidate]
+    let expectedRevertedRuleIDs: [String]
+    let shouldLearn: Bool
+    let tags: [String]
+}
+
 struct BenchmarkRule: Codable {
     let id: String
     let original: String

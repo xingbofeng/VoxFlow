@@ -6,7 +6,7 @@ import VoxFlowModelStore
 final class SettingsViewModelTests: XCTestCase {
     func testSettingsSectionsExposeVibeCoding() {
         XCTAssertTrue(SettingsSection.allCases.contains(.vibeCoding))
-        XCTAssertEqual(SettingsSection.vibeCoding.title, "Vibe Coding")
+        XCTAssertEqual(SettingsSection.vibeCoding.title, "AI 编程")
     }
 
     func testLoadBuildsSettingsSectionsDevicesShortcutAndPermissions() throws {
@@ -20,8 +20,9 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             SettingsSection.allCases.map(\.title),
-            ["通用", "Vibe Coding", "ASR 模型", "LLM 模型", "TTS 模型", "翻译模型", "系统", "数据与隐私"]
+            ["语音识别", "纠错与上下文", "朗读", "翻译", "通用", "AI 编程", "系统", "数据与隐私"]
         )
+        XCTAssertEqual(viewModel.selectedSection, .dictationModels)
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
         XCTAssertEqual(viewModel.selectedInputDeviceID, "built-in")
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
@@ -58,6 +59,35 @@ final class SettingsViewModelTests: XCTestCase {
         )
 
         XCTAssertEqual(viewModel.textInputMode, .simulatedTyping)
+    }
+
+    func testVoiceCorrectionSettingsAreLoadedAndPersisted() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertTrue(viewModel.voiceCorrectionEnabled)
+        XCTAssertTrue(viewModel.voiceCorrectionAutoLearningEnabled)
+        XCTAssertTrue(viewModel.voiceCorrectionAutoLearningAppliesImmediately)
+        XCTAssertFalse(viewModel.voiceCorrectionShadowMode)
+
+        try viewModel.setVoiceCorrectionEnabled(false)
+        try viewModel.setVoiceCorrectionAutoLearningEnabled(false)
+        try viewModel.setVoiceCorrectionAutoLearningAppliesImmediately(true)
+        try viewModel.setVoiceCorrectionShadowMode(true)
+
+        XCTAssertFalse(viewModel.voiceCorrectionEnabled)
+        XCTAssertFalse(viewModel.voiceCorrectionAutoLearningEnabled)
+        XCTAssertTrue(viewModel.voiceCorrectionAutoLearningAppliesImmediately)
+        XCTAssertTrue(viewModel.voiceCorrectionShadowMode)
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: VoiceCorrectionSettingsKey.shadowMode.rawValue),
+            #"{"value":true}"#
+        )
     }
 
     func testStorageStatusExplainsVolatileLaunchFallback() throws {
@@ -561,7 +591,7 @@ final class SettingsViewModelTests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error.localizedDescription,
-                "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键；Command+Shift+A/V 已保留给 OCR。"
+                "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键。"
             )
         }
         XCTAssertEqual(shortcutManager.shortcutKeyCode, commandShiftY)
@@ -585,6 +615,92 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(shortcutManager.agentComposeShortcutKeyCode)
     }
 
+    func testOCRWorkflowShortcutDefaultsCanBeChangedAndClearedFromSettings() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        viewModel.load()
+        XCTAssertEqual(
+            viewModel.clipboardImageOCRShortcutKeyCode,
+            ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        )
+        XCTAssertEqual(
+            viewModel.screenshotOCRShortcutKeyCode,
+            ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        )
+
+        let customShortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x0B,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.shiftModifierMask
+        )
+        try viewModel.updateWorkflowShortcut(.clipboardImageOCR, keyCode: customShortcut)
+
+        XCTAssertEqual(viewModel.clipboardImageOCRShortcutKeyCode, customShortcut)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode(for: .clipboardImageOCR), customShortcut)
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新剪贴板图片识别 快捷键")
+
+        try viewModel.updateWorkflowShortcut(.clipboardImageOCR, keyCode: nil)
+
+        XCTAssertNil(viewModel.clipboardImageOCRShortcutKeyCode)
+        XCTAssertNil(shortcutManager.shortcutKeyCode(for: .clipboardImageOCR))
+    }
+
+    func testOCRWorkflowShortcutRejectsConflictsWithVoiceShortcuts() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        viewModel.load()
+        let commandShiftY = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+        try viewModel.updateActionShortcut(action: .dictation, keyCode: commandShiftY)
+
+        XCTAssertThrowsError(
+            try viewModel.updateWorkflowShortcut(.clipboardImageOCR, keyCode: commandShiftY)
+        ) { error in
+            XCTAssertEqual(error as? SettingsViewModelError, .conflictingBindings)
+        }
+        XCTAssertEqual(
+            shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
+            ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        )
+    }
+
+    func testVoiceShortcutRejectsConflictsWithConfiguredOCRShortcuts() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        viewModel.load()
+
+        XCTAssertThrowsError(
+            try viewModel.updateActionShortcut(
+                action: .dictation,
+                keyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+            )
+        ) { error in
+            XCTAssertEqual(error as? SettingsViewModelError, .conflictingBindings)
+        }
+    }
+
     func testAgentDispatchEnabledPersistsAsAFeatureToggle() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = SettingsViewModel(
@@ -599,20 +715,83 @@ final class SettingsViewModelTests: XCTestCase {
         try viewModel.setAgentDispatchEnabled(true)
 
         XCTAssertTrue(viewModel.agentDispatchEnabled)
-        XCTAssertEqual(viewModel.lastActionMessage, "已启用 Vibe Coding 指挥中心")
+        XCTAssertEqual(viewModel.lastActionMessage, "已启用AI 编程")
         XCTAssertEqual(
             try environment.settingsRepository.value(forKey: SettingsKey.agentDispatchEnabled),
             #"{"value":true}"#
         )
     }
 
-    func testExtendedSystemAndPrivacyOptionsPersist() throws {
+    func testLaunchAtLoginLoadsActualSystemStatusInsteadOfStoredPreference() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.settingsRepository.set(
+            SettingsSystemOption.launchAtLogin.rawValue,
+            jsonValue: #"{"value":false}"#
+        )
+        let launchAtLoginManager = FakeLaunchAtLoginManager(isEnabled: true)
+
         let viewModel = SettingsViewModel(
             environment: environment,
             shortcutManager: makeShortcutManager(),
             audioDeviceProvider: StubAudioDeviceProvider(),
-            permissionProvider: StubPermissionProvider()
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: launchAtLoginManager
+        )
+
+        XCTAssertTrue(viewModel.systemOption(.launchAtLogin))
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsSystemOption.launchAtLogin.rawValue),
+            #"{"value":true}"#
+        )
+    }
+
+    func testLaunchAtLoginToggleUpdatesSystemLoginItemAndPersistsActualState() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let launchAtLoginManager = FakeLaunchAtLoginManager(isEnabled: false)
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: launchAtLoginManager
+        )
+
+        try viewModel.setSystemOption(.launchAtLogin, enabled: true)
+
+        XCTAssertEqual(launchAtLoginManager.requestedValues, [true])
+        XCTAssertTrue(viewModel.systemOption(.launchAtLogin))
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsSystemOption.launchAtLogin.rawValue),
+            #"{"value":true}"#
+        )
+    }
+
+    func testLaunchAtLoginToggleReportsChineseErrorWhenSystemUpdateFails() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let launchAtLoginManager = FakeLaunchAtLoginManager(isEnabled: false)
+        launchAtLoginManager.errorToThrow = FakeLaunchAtLoginError.rejected
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: launchAtLoginManager
+        )
+
+        XCTAssertThrowsError(try viewModel.setSystemOption(.launchAtLogin, enabled: true))
+        XCTAssertFalse(viewModel.systemOption(.launchAtLogin))
+        XCTAssertEqual(viewModel.lastError, "开机自动启动设置失败：系统拒绝了登录项更新")
+    }
+
+    func testExtendedSystemAndPrivacyOptionsPersist() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let launchAtLoginManager = FakeLaunchAtLoginManager(isEnabled: false)
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: launchAtLoginManager
         )
 
         try viewModel.setSystemOption(.keepMicrophoneActive, enabled: true)
@@ -693,4 +872,30 @@ private struct StubPermissionProvider: SettingsPermissionProviding {
     func microphonePermission() -> AudioRecorder.PermissionStatus { .granted }
     func speechPermission() -> AudioRecorder.PermissionStatus { .denied }
     func screenRecordingPermission() -> Bool { false }
+}
+
+private enum FakeLaunchAtLoginError: LocalizedError {
+    case rejected
+
+    var errorDescription: String? {
+        "系统拒绝了登录项更新"
+    }
+}
+
+private final class FakeLaunchAtLoginManager: LaunchAtLoginManaging {
+    private(set) var requestedValues: [Bool] = []
+    var isEnabled: Bool
+    var errorToThrow: Error?
+
+    init(isEnabled: Bool) {
+        self.isEnabled = isEnabled
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        requestedValues.append(enabled)
+        if let errorToThrow {
+            throw errorToThrow
+        }
+        isEnabled = enabled
+    }
 }

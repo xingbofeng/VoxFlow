@@ -4,6 +4,8 @@ import VoxFlowTextInsertion
 
 @MainActor
 final class MainWindowController: NSWindowController {
+    private let screenshotRecordViewModel: ScreenshotRecordViewModel
+
     init(
         environment: AppEnvironment,
         asrRuntime: AppASRRuntime,
@@ -18,7 +20,6 @@ final class MainWindowController: NSWindowController {
             targetProvider: WorkspaceDictationTargetProvider(),
             textPipeline: textRuntime.textPipeline
         )
-        let glossaryViewModel = GlossaryViewModel(environment: environment)
         let voiceCorrectionViewModel = VoiceCorrectionViewModel(environment: environment)
         let styleViewModel = StyleViewModel(environment: environment)
         let llmProviderViewModel = LLMProviderViewModel(environment: environment)
@@ -40,10 +41,14 @@ final class MainWindowController: NSWindowController {
                 audioCaptureCoordinator: audioCaptureCoordinator
             )
         )
+        let screenshotRecordViewModel = ScreenshotRecordViewModel(
+            environment: environment,
+            clipboardService: textRuntime.clipboardService
+        )
+        self.screenshotRecordViewModel = screenshotRecordViewModel
         let rootView = MainShellView(
             viewModel: viewModel,
             homeViewModel: homeViewModel,
-            glossaryViewModel: glossaryViewModel,
             voiceCorrectionViewModel: voiceCorrectionViewModel,
             styleViewModel: styleViewModel,
             llmProviderViewModel: llmProviderViewModel,
@@ -51,6 +56,7 @@ final class MainWindowController: NSWindowController {
             settingsViewModel: settingsViewModel,
             fileTranscriptionViewModel: fileTranscriptionViewModel,
             notesViewModel: notesViewModel,
+            screenshotRecordViewModel: screenshotRecordViewModel,
             navigationRouter: navigationRouter
         )
         let hostingController = NSHostingController(rootView: rootView)
@@ -63,6 +69,7 @@ final class MainWindowController: NSWindowController {
         window.title = ProductBrand.chineseDisplayName
         window.contentViewController = hostingController
         window.isReleasedWhenClosed = false
+        window.sharingType = .readOnly
         if let visibleFrame = NSScreen.main?.visibleFrame {
             window.setFrame(
                 WindowPlacementPolicy.centeredFrame(
@@ -80,5 +87,9 @@ final class MainWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func refreshScreenshotRecords() {
+        screenshotRecordViewModel.refreshAfterExternalInsert()
     }
 }

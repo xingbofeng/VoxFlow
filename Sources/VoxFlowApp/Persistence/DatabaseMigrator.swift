@@ -19,14 +19,18 @@ final class DatabaseMigrator {
     }
 
     func migrate(_ databaseQueue: DatabaseQueue) throws {
+        AppLogger.database.info("Database migration start total=\(migrations.count)")
         try databaseQueue.write { connection in
             try ensureMigrationTable(on: connection)
             let appliedIDs = try appliedMigrationIDs(on: connection)
+            AppLogger.database.debug("Database migrations currently applied=\(appliedIDs.count)")
 
             for migration in migrations where !appliedIDs.contains(migration.id) {
+                AppLogger.database.debug("Applying migration id=\(migration.id) name=\(migration.name)")
                 try apply(migration, on: connection)
             }
         }
+        AppLogger.database.info("Database migration complete")
     }
 
     private func ensureMigrationTable(on connection: SQLiteConnection) throws {
@@ -51,12 +55,15 @@ final class DatabaseMigrator {
     }
 
     private func apply(_ migration: DatabaseMigration, on connection: SQLiteConnection) throws {
+        AppLogger.database.debug("Begin migration tx id=\(migration.id)")
         try connection.execute("BEGIN IMMEDIATE TRANSACTION")
         do {
             try migration.apply(connection)
             try record(migration, on: connection)
             try connection.execute("COMMIT")
+            AppLogger.database.debug("Migration committed id=\(migration.id)")
         } catch {
+            AppLogger.database.error("Migration failed id=\(migration.id): \(error.localizedDescription)")
             try? connection.execute("ROLLBACK")
             throw error
         }

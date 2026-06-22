@@ -57,10 +57,15 @@ final class AppTextRuntime {
             settingsRepository: environment.settingsRepository,
             classifier: LLMApplicationStyleClassifier(refiner: llmRefiner)
         )
+        let contextBoostProvider = CurrentWindowOCRContextProvider()
         textPipeline = DefaultTextProcessingPipeline(
             refiner: llmRefiner,
             styleSelector: styleSelector,
-            voiceCorrectionProcessor: environment.voiceCorrectionProcessor
+            voiceCorrectionProcessor: environment.voiceCorrectionProcessor,
+            contextBoostProvider: contextBoostProvider,
+            contextBoostCoordinator: ContextBoostPrefetchCoordinator(
+                sessionProvider: contextBoostProvider
+            )
         )
     }
 }
@@ -77,6 +82,8 @@ struct AppRuntime {
     let screenshotOCRService: ScreenshotOCRService
     let dictationTargetProvider: WorkspaceDictationTargetProvider
     let voiceTaskCoordinator: VoiceTaskCoordinator
+    let focusedTextObserver: AccessibilityFocusedTextObserver
+    let correctionObservationScheduler: CorrectionObservationScheduler
     let agentHelperManager: AgentHelperManager?
     let agentRouterClient: AgentRouterClient?
 
@@ -93,30 +100,65 @@ struct AppRuntime {
             try DependencyContainer.live()
         }
     ) -> AppRuntime {
+        AppLogger.general.info("AppRuntime bootstrap start")
         let environment = AppEnvironment(container: makeLaunchContainer(containerFactory: containerFactory))
+        AppLogger.general.debug("AppRuntime environment created")
         let asrManager = ASRManager(
             credentialStore: environment.credentialStore,
             settingsRepository: environment.settingsRepository
         )
+        AppLogger.general.debug("AppRuntime ASRManager created")
         let asrRuntime = AppASRRuntime(manager: asrManager)
         let textRuntime = AppTextRuntime(environment: environment)
+        AppLogger.general.debug("AppRuntime TextRuntime created")
         let audioCaptureCoordinator = AudioCaptureCoordinator()
         let capabilityModelDownloader = SoniqoCapabilityModelDownloader()
+        AppLogger.general.debug("AppRuntime capability downloader created")
         let screenshotTextRefiner = ScreenshotTextRefiner(
             cloudRefiner: textRuntime.llmRefiner,
             localTranslator: SoniqoMADLADTranslationRefiner(
                 capabilityDownloader: capabilityModelDownloader
             )
         )
+        let screenshotOCRRecognizer = VisionTextOCRRecognizer()
+        let screenshotInlineTranslator = ScreenshotInlineSelectionTranslator(
+            ocrRecognizer: screenshotOCRRecognizer,
+            translator: screenshotTextRefiner,
+            lastResultStore: textRuntime.lastResultStore
+        )
         let screenshotOCRService = ScreenshotOCRService(
-            imageProvider: SystemInteractiveScreenshotImageProvider(),
-            ocrRecognizer: VisionTextOCRRecognizer(),
+            imageProvider: VoxFlowScreenshotImageProvider(
+                inlineTranslator: screenshotInlineTranslator
+            ),
+            ocrRecognizer: screenshotOCRRecognizer,
             translator: screenshotTextRefiner,
             speechService: SystemScreenshotSpeechService(),
             clipboard: textRuntime.clipboardService,
             lastResultStore: textRuntime.lastResultStore
         )
         let dictationTargetProvider = WorkspaceDictationTargetProvider()
+        let focusedTextObserver = AccessibilityFocusedTextObserver()
+        AppLogger.general.debug("AppRuntime observers created")
+        let correctionObservationCoordinator = CorrectionObservationCoordinator(
+            observer: focusedTextObserver,
+            repository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
+            isAutoLearningEnabled: {
+                (try? VoiceCorrectionSettingsStore.bool(
+                    .autoLearningEnabled,
+                    repository: environment.settingsRepository
+                )) ?? VoiceCorrectionSettingsKey.autoLearningEnabled.defaultValue
+            },
+            autoLearningAppliesImmediately: {
+                (try? VoiceCorrectionSettingsStore.bool(
+                    .autoLearningAppliesImmediately,
+                    repository: environment.settingsRepository
+                )) ?? VoiceCorrectionSettingsKey.autoLearningAppliesImmediately.defaultValue
+            }
+        )
+        let correctionObservationScheduler = CorrectionObservationScheduler(
+            coordinator: correctionObservationCoordinator
+        )
         let voiceTaskCoordinator = VoiceTaskCoordinator(
             taskRepository: VoiceTaskRepository(
                 databaseQueue: environment.container.databaseQueue,
@@ -127,10 +169,15 @@ struct AppRuntime {
             targetProvider: dictationTargetProvider,
             clock: environment.clock,
             contextPipeline: ContextPipeline(),
-            agentRefiner: textRuntime.llmRefiner
+            agentRefiner: textRuntime.llmRefiner,
+            correctionObservationScheduler: correctionObservationScheduler,
+            isFocusedTextFieldSecure: {
+                focusedTextObserver.focusedInputIsSecure()
+            }
         )
         let agentHelperManager = environment.paths.map { AgentHelperManager(paths: $0) }
         let agentRouterClient = environment.paths.map { AgentRouterClient(socketURL: $0.agentRouterSocketURL) }
+        AppLogger.general.debug("AppRuntime wireup complete")
         return AppRuntime(
             environment: environment,
             asrRuntime: asrRuntime,
@@ -147,6 +194,8 @@ struct AppRuntime {
             screenshotOCRService: screenshotOCRService,
             dictationTargetProvider: dictationTargetProvider,
             voiceTaskCoordinator: voiceTaskCoordinator,
+            focusedTextObserver: focusedTextObserver,
+            correctionObservationScheduler: correctionObservationScheduler,
             agentHelperManager: agentHelperManager,
             agentRouterClient: agentRouterClient
         )
@@ -156,13 +205,16 @@ struct AppRuntime {
         containerFactory: () throws -> DependencyContainer
     ) -> DependencyContainer {
         do {
-            return try containerFactory()
+            let container = try containerFactory()
+            AppLogger.general.debug("makeLaunchContainer obtained persistent container")
+            return container
         } catch {
             AppLogger.general.error("Failed to initialize app environment: \(error.localizedDescription)")
             try? FileManager.default.createDirectory(
                 at: FileManager.default.temporaryDirectory,
                 withIntermediateDirectories: true
             )
+            AppLogger.general.warning("makeLaunchContainer fallback to in-memory container")
             return try! DependencyContainer.inMemory(
                 storageHealth: .unavailable(
                     reason: "Persistent storage failed to initialize: \(error.localizedDescription)"

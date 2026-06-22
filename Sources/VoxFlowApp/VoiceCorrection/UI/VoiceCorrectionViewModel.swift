@@ -28,7 +28,7 @@ enum VoiceCorrectionScopeDraft: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .currentApplication: return "当前应用 Cursor"
+        case .currentApplication: return "当前应用"
         case .global: return "全局"
         }
     }
@@ -65,6 +65,19 @@ struct VoiceCorrectionLearningEventRow: Identifiable, Equatable {
     let createdAt: Date
 }
 
+struct VoiceCorrectionTargetRow: Identifiable, Equatable {
+    let id: UUID
+    let projection: CorrectionTargetProjection
+
+    var targetText: String { projection.target.text }
+    var aliasPreview: String { projection.aliasPreview.isEmpty ? "暂无误听写法" : projection.aliasPreview }
+    var scopeTitle: String
+    var correctionCountText: String { "\(projection.appliedCount) 次" }
+    var recentUseText: String
+    var statusTitle: String
+    var aliases: [CorrectionRule] { projection.aliases }
+}
+
 @MainActor
 final class VoiceCorrectionViewModel: ObservableObject {
     @Published private(set) var isEnabled = VoiceCorrectionSettingsKey.enabled.defaultValue
@@ -72,6 +85,8 @@ final class VoiceCorrectionViewModel: ObservableObject {
     @Published private(set) var autoLearningAppliesImmediately = VoiceCorrectionSettingsKey.autoLearningAppliesImmediately.defaultValue
     @Published private(set) var shadowMode = VoiceCorrectionSettingsKey.shadowMode.defaultValue
     @Published private(set) var rules: [CorrectionRule] = []
+    @Published private(set) var targetRows: [VoiceCorrectionTargetRow] = []
+    @Published private(set) var selectedTargetID: UUID?
     @Published var selectedFilter: VoiceCorrectionRuleFilter = .all
     @Published var searchText = ""
     @Published private(set) var lastError: String?
@@ -126,6 +141,55 @@ final class VoiceCorrectionViewModel: ObservableObject {
         }
     }
 
+    var filteredTargetRows: [VoiceCorrectionTargetRow] {
+        let filteredByLifecycle: [VoiceCorrectionTargetRow]
+        switch selectedFilter {
+        case .all:
+            filteredByLifecycle = visibleTargetRows
+        case .active:
+            filteredByLifecycle = targetRows.filter { $0.projection.lifecycle == .active }
+        case .candidate:
+            filteredByLifecycle = []
+        case .suspended:
+            filteredByLifecycle = targetRows.filter {
+                $0.projection.lifecycle == .suspended || $0.projection.lifecycle == .retired
+            }
+        }
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return filteredByLifecycle
+        }
+        return filteredByLifecycle.filter { row in
+            row.targetText.localizedCaseInsensitiveContains(query) ||
+                row.aliases.contains { $0.original.localizedCaseInsensitiveContains(query) } ||
+                row.scopeTitle.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var selectedTarget: VoiceCorrectionTargetRow? {
+        guard let selectedTargetID else {
+            return filteredTargetRows.first
+        }
+        return targetRows.first { $0.id == selectedTargetID }
+    }
+
+    var selectedTargetAliases: [CorrectionRule] {
+        selectedTarget?.aliases ?? []
+    }
+
+    var visibleTargetRows: [VoiceCorrectionTargetRow] {
+        targetRows.filter { $0.projection.lifecycle != .candidate }
+    }
+
+    var visibleTargetCount: Int {
+        visibleTargetRows.count
+    }
+
+    var visibleAliasCount: Int {
+        visibleTargetRows.reduce(0) { $0 + $1.aliases.filter { $0.lifecycle != .candidate }.count }
+    }
+
     var recentLearningEvents: [VoiceCorrectionLearningEventRow] {
         rules
             .filter { $0.source == .automaticLearning }
@@ -141,14 +205,6 @@ final class VoiceCorrectionViewModel: ObservableObject {
             }
     }
 
-    var benchmarkStatusTitle: String {
-        "100/100"
-    }
-
-    var benchmarkStatusDetail: String {
-        "Phase 1 fixtures 已通过"
-    }
-
     func load() {
         do {
             isEnabled = try setting(.enabled)
@@ -156,6 +212,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
             autoLearningAppliesImmediately = try setting(.autoLearningAppliesImmediately)
             shadowMode = try setting(.shadowMode)
             rules = try environment.correctionRuleRepository.list()
+            rebuildTargetRows()
             hasLoaded = true
             lastError = nil
         } catch {
@@ -188,6 +245,106 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     func draftForNewRule() -> VoiceCorrectionRuleDraft {
         VoiceCorrectionRuleDraft.empty(currentBundleIdentifier: currentBundleIdentifier())
+    }
+
+    func selectTarget(_ row: VoiceCorrectionTargetRow) {
+        selectedTargetID = row.id
+    }
+
+    func createTarget(text: String, aliasesText: String) {
+        let targetText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !targetText.isEmpty else {
+            lastError = "目标词不能为空"
+            lastActionMessage = nil
+            return
+        }
+
+        do {
+            let now = Date()
+            let target = CorrectionTargetTerm(
+                text: targetText,
+                scope: .global,
+                lifecycle: .active,
+                source: .manual,
+                createdAt: now,
+                updatedAt: now
+            )
+            try environment.correctionTargetRepository.save(target)
+
+            let aliases = parsedAliases(from: aliasesText)
+            guard hasDuplicateAliases(aliases) == false else {
+                lastError = "误听写法已存在"
+                lastActionMessage = nil
+                return
+            }
+            for alias in aliases {
+                let rule = CorrectionRule(
+                    targetID: target.id,
+                    original: alias,
+                    replacement: target.text,
+                    matchPolicy: .boundary,
+                    scope: target.scope,
+                    lifecycle: .active,
+                    source: .manual,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try environment.correctionRuleRepository.save(rule)
+            }
+
+            rules = try environment.correctionRuleRepository.list()
+            rebuildTargetRows()
+            selectedTargetID = target.id
+            _ = environment.correctionSnapshotProvider.refresh()
+            lastActionMessage = "已新增目标词"
+            lastError = nil
+        } catch {
+            report(error)
+        }
+    }
+
+    func addAliases(to row: VoiceCorrectionTargetRow, aliasesText: String) {
+        let aliases = parsedAliases(from: aliasesText)
+        guard !aliases.isEmpty else {
+            lastError = "误听写法不能为空"
+            lastActionMessage = nil
+            return
+        }
+
+        do {
+            let now = Date()
+            let target = try persistedTarget(from: row, updatedAt: now)
+            let existingAliases = Set(row.aliases.map { $0.original.lowercased() })
+            guard hasDuplicateAliases(aliases) == false,
+                  aliases.allSatisfy({ !existingAliases.contains($0.lowercased()) })
+            else {
+                lastError = "误听写法已存在"
+                lastActionMessage = nil
+                return
+            }
+            for alias in aliases {
+                let rule = CorrectionRule(
+                    targetID: target.id,
+                    original: alias,
+                    replacement: target.text,
+                    matchPolicy: .boundary,
+                    scope: target.scope,
+                    lifecycle: .active,
+                    source: .manual,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try environment.correctionRuleRepository.save(rule)
+            }
+            rules = try environment.correctionRuleRepository.list()
+            rebuildTargetRows()
+            selectedTargetID = target.id
+            _ = environment.correctionSnapshotProvider.refresh()
+            lastActionMessage = "已添加误听写法"
+            lastError = nil
+        } catch {
+            report(error)
+        }
     }
 
     func draft(for rule: CorrectionRule) -> VoiceCorrectionRuleDraft {
@@ -284,8 +441,20 @@ final class VoiceCorrectionViewModel: ObservableObject {
             lastError = nil
             return
         }
-        deleteRule(latest)
-        lastActionMessage = "已撤销最近自动学习"
+        do {
+            try environment.correctionRuleRepository.delete(id: latest.id)
+            if let targetID = latest.targetID,
+               let target = try environment.correctionTargetRepository.target(id: targetID),
+               target.source == .automaticLearning {
+                let remainingRules = try environment.correctionRuleRepository.list()
+                if remainingRules.contains(where: { $0.targetID == targetID }) == false {
+                    try environment.correctionTargetRepository.delete(id: targetID)
+                }
+            }
+            refreshAfterRuleMutation(message: "已撤销最近自动学习")
+        } catch {
+            report(error)
+        }
     }
 
     func scopeTitle(for rule: CorrectionRule) -> String {
@@ -351,14 +520,75 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     private func refreshAfterRuleMutation(message: String) {
         rules = (try? environment.correctionRuleRepository.list()) ?? rules
+        rebuildTargetRows()
         _ = environment.correctionSnapshotProvider.refresh()
         lastActionMessage = message
         lastError = nil
     }
 
+    private func rebuildTargetRows() {
+        let targets = (try? environment.correctionTargetRepository.list()) ?? []
+        let projections = CorrectionTargetProjection.build(targets: targets, rules: rules)
+        targetRows = projections.map { projection in
+            VoiceCorrectionTargetRow(
+                id: projection.id,
+                projection: projection,
+                scopeTitle: scopeTitle(for: projection.target.scope),
+                recentUseText: projection.lastAppliedAt.map(relativeDate) ?? "从未",
+                statusTitle: lifecycleTitle(projection.lifecycle)
+            )
+        }
+        if let selectedTargetID,
+           !targetRows.contains(where: { $0.id == selectedTargetID }) {
+            self.selectedTargetID = targetRows.first?.id
+        } else if selectedTargetID == nil {
+            selectedTargetID = targetRows.first?.id
+        }
+    }
+
+    private func persistedTarget(
+        from row: VoiceCorrectionTargetRow,
+        updatedAt: Date
+    ) throws -> CorrectionTargetTerm {
+        if let target = try environment.correctionTargetRepository.target(id: row.id) {
+            return target
+        }
+        var target = row.projection.target
+        target.updatedAt = updatedAt
+        try environment.correctionTargetRepository.save(target)
+        return target
+    }
+
+    private func parsedAliases(from text: String) -> [String] {
+        text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func hasDuplicateAliases(_ aliases: [String]) -> Bool {
+        var seen = Set<String>()
+        for alias in aliases {
+            let normalized = alias.lowercased()
+            guard seen.insert(normalized).inserted else {
+                return true
+            }
+        }
+        return false
+    }
+
     private func report(_ error: Error) {
         lastError = error.localizedDescription
         lastActionMessage = nil
+    }
+
+    private func scopeTitle(for scope: RuleScope) -> String {
+        switch scope {
+        case .global:
+            return "全局"
+        case .application(let bundleIdentifier):
+            return appName(for: bundleIdentifier)
+        }
     }
 
     private func scope(from draft: VoiceCorrectionRuleDraft) -> RuleScope {
@@ -392,7 +622,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     private func appName(for bundleIdentifier: String) -> String {
         if bundleIdentifier == currentBundleIdentifier() {
-            return targetProvider.currentTarget()?.appName ?? "当前应用 Cursor"
+            return targetProvider.currentTarget()?.appName ?? "当前应用"
         }
         if bundleIdentifier == ProductBrand.bundleIdentifier {
             return ProductBrand.englishName

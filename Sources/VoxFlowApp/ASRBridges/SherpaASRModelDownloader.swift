@@ -45,10 +45,16 @@ struct SherpaASRModelDownloader: SherpaASRModelDownloading, @unchecked Sendable 
         variant: SherpaASRModelVariant,
         progress: @escaping @MainActor @Sendable (SherpaASRModelDownloadProgress) -> Void
     ) async throws -> URL {
+        AppLogger.general.info("Start Sherpa ASR model download: \(variant.directoryName)")
         await progress(.init(fractionCompleted: nil, status: "下载 \(variant.archiveName)"))
         let (temporaryArchive, response) = try await session.download(from: variant.archiveURL)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            AppLogger.general.error("Sherpa model download failed: invalid response type")
+            throw SherpaASRModelDownloaderError.invalidArchive
+        }
+        AppLogger.general.debug("Sherpa download response code=\(httpResponse.statusCode)")
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            AppLogger.general.error("Sherpa model download failed: HTTP \(httpResponse.statusCode)")
             throw SherpaASRModelDownloaderError.invalidArchive
         }
 
@@ -72,6 +78,7 @@ struct SherpaASRModelDownloader: SherpaASRModelDownloading, @unchecked Sendable 
         guard process.terminationStatus == 0 else {
             let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
             let message = String(data: data, encoding: .utf8) ?? "tar exited with \(process.terminationStatus)"
+            AppLogger.general.error("Sherpa model extraction failed: \(message)")
             throw SherpaASRModelDownloaderError.extractionFailed(message)
         }
 
@@ -86,14 +93,17 @@ struct SherpaASRModelDownloader: SherpaASRModelDownloading, @unchecked Sendable 
             return size.int64Value <= 0
         }
         guard missing.isEmpty else {
+            AppLogger.general.error("Sherpa model extraction incomplete: missingFiles=\(missing.joined(separator: ","))")
             throw SherpaASRModelDownloaderError.incompleteModel(missing)
         }
 
         try fileManager.createDirectory(at: modelsRoot, withIntermediateDirectories: true)
         if fileManager.fileExists(atPath: destination.path) {
+            AppLogger.general.warning("Sherpa model destination exists, replacing: \(destination.path)")
             try fileManager.removeItem(at: destination)
         }
         try fileManager.moveItem(at: extracted, to: destination)
+        AppLogger.general.info("Sherpa model download and extract completed: \(destination.path)")
         await progress(.init(fractionCompleted: 1, status: "模型已就绪"))
         return destination
     }

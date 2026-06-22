@@ -67,15 +67,24 @@ enum SherpaASRModelVariant: String, CaseIterable, Sendable {
         fileManager: FileManager = .default
     ) -> Bool {
         let root = directory ?? defaultDirectoryURL
-        return requiredPaths.allSatisfy { relativePath in
+        for relativePath in requiredPaths {
             let path = root.appendingPathComponent(relativePath).path
-            guard fileManager.isReadableFile(atPath: path),
-                  let attributes = try? fileManager.attributesOfItem(atPath: path),
-                  let size = attributes[.size] as? NSNumber else {
+            if !fileManager.isReadableFile(atPath: path) {
+                AppLogger.general.warning(
+                    "SherpaASRModel model missing path variant=\(self.rawValue) path=\(relativePath)"
+                )
                 return false
             }
-            return size.int64Value > 0
+            guard let attributes = try? fileManager.attributesOfItem(atPath: path),
+                  let size = attributes[.size] as? NSNumber, size.int64Value > 0 else {
+                AppLogger.general.warning(
+                    "SherpaASRModel model invalid file variant=\(self.rawValue) path=\(relativePath)"
+                )
+                return false
+            }
         }
+        AppLogger.general.debug("SherpaASRModel model exists variant=\(self.rawValue)")
+        return true
     }
 
     var modelPath: String? {

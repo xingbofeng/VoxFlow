@@ -52,9 +52,9 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("腾讯云配置"))
-        XCTAssertTrue(source.contains("AppID"))
-        XCTAssertTrue(source.contains("SecretId"))
-        XCTAssertTrue(source.contains("SecretKey"))
+        XCTAssertTrue(source.contains("应用 ID"))
+        XCTAssertTrue(source.contains("密钥 ID"))
+        XCTAssertTrue(source.contains("密钥"))
         XCTAssertTrue(source.contains("实时流式语音识别"))
         XCTAssertTrue(source.contains("系统钥匙串"))
     }

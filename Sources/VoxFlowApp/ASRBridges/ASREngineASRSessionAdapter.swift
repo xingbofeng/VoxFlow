@@ -138,6 +138,7 @@ final class ASREngineASRSessionAdapter: VoxFlowASRCore.ASRSession, @unchecked Se
     }
 
     func start() async throws {
+        AppLogger.audio.debug("ASREngineASRSessionAdapter start session=\(sessionID.rawValue)")
         engine.onTranscription = { [weak self] text, isFinal in
             self?.emitTranscript(text, isFinal: isFinal)
         }
@@ -148,8 +149,10 @@ final class ASREngineASRSessionAdapter: VoxFlowASRCore.ASRSession, @unchecked Se
         eventStream.yield(.preparing(sessionID: sessionID, revision: revision))
         do {
             try engine.start()
+            AppLogger.audio.debug("ASREngineASRSessionAdapter ready session=\(sessionID.rawValue)")
             eventStream.yield(.ready(sessionID: sessionID, revision: nextRevision()))
         } catch {
+            AppLogger.audio.warning("ASREngineASRSessionAdapter start failed session=\(sessionID.rawValue) reason=\(error.localizedDescription)")
             emitFailure(error)
             throw error
         }
@@ -181,11 +184,15 @@ final class ASREngineASRSessionAdapter: VoxFlowASRCore.ASRSession, @unchecked Se
 
     func finish() async throws {
         guard !isClosedForCallback else { return }
+        AppLogger.audio.debug(
+            "ASREngineASRSessionAdapter finish session=\(sessionID.rawValue) processedFrames=\(lock.withLock { processedFrameCount })"
+        )
         engine.endAudio()
     }
 
     func cancel() async {
         let shouldEmit = close()
+        AppLogger.audio.debug("ASREngineASRSessionAdapter cancel session=\(sessionID.rawValue)")
         engine.cancel()
         guard shouldEmit else { return }
 

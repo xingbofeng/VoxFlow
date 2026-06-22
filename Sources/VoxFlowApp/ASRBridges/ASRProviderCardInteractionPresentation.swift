@@ -31,6 +31,7 @@ struct ASRProviderCardInteractionPresentation: Equatable {
     }
 
     init(provider: ASRProviderDescriptor) {
+        AppLogger.general.debug("Init ASRProviderCardInteractionPresentation providerID=\(provider.id)")
         providerID = provider.id
         isSelectionEnabled = provider.isAvailable && !provider.isDefault
         if provider.isDefault {
@@ -44,6 +45,9 @@ struct ASRProviderCardInteractionPresentation: Equatable {
         }
         selectionPassthroughRegions = [.icon, .name, .status, .tags, .blank]
         controlOnlyRegions = [.variantPicker, .downloadButton, .deleteButton, .repairButton, .externalLinks]
+        AppLogger.general.debug(
+            "ASRProviderCardInteractionPresentation initialized id=\(provider.id) selectionEnabled=\(isSelectionEnabled) tapBehavior=\(cardTapBehavior)"
+        )
     }
 
     func isSelectionPassthroughRegion(_ region: Region) -> Bool {

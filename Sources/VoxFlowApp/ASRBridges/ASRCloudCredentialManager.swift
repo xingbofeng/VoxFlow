@@ -22,14 +22,17 @@ final class ASRCloudCredentialManager: CredentialStore, @unchecked Sendable {
         if let keychainValue = try? credentialStore.readCredential(account: account) {
             let value = keychainValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if !value.isEmpty {
+                AppLogger.general.debug("Read ASR credential from keychain: account=\(account)")
                 return value
             }
         }
 
+        AppLogger.general.debug("Read ASR credential from legacy settings: account=\(account)")
         return legacySettingsCredential(account: account)
     }
 
     func readCredential(account: String) throws -> String? {
+        AppLogger.general.debug("Read ASR credential request: account=\(account)")
         let value = storedCredential(account: account)
         return value.isEmpty ? nil : value
     }
@@ -38,13 +41,16 @@ final class ASRCloudCredentialManager: CredentialStore, @unchecked Sendable {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             try credentialStore.deleteCredential(account: account)
+            AppLogger.general.info("Cleared ASR credential: account=\(account)")
         } else {
             try credentialStore.saveCredential(trimmed, account: account)
+            AppLogger.general.info("Saved ASR credential: account=\(account), hasValue=true")
         }
         try settingsRepository?.deleteValue(forKey: Self.settingsKey(account: account))
     }
 
     func deleteCredential(account: String) throws {
+        AppLogger.general.info("Delete ASR credential: account=\(account)")
         try saveCredential("", account: account)
     }
 

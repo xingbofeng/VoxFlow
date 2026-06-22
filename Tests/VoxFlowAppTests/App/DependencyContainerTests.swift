@@ -42,6 +42,7 @@ final class DependencyContainerTests: XCTestCase {
         )
 
         XCTAssertEqual(try environment.historyRepository.listRecent(limit: 10).map(\.id), ["entry"])
+        XCTAssertTrue(environment.correctionTargetRepository is SQLiteCorrectionTargetRepository)
     }
 
     func testInMemoryContainerCanExposeLaunchFailureReason() throws {

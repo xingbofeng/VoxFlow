@@ -57,13 +57,26 @@ struct DictationHistoryEntry: Equatable {
         self.deletedAt = deletedAt
     }
 }
-
 protocol HistoryRepository {
     func save(_ entry: DictationHistoryEntry) throws
     func entry(id: String) throws -> DictationHistoryEntry?
     func listRecent(limit: Int) throws -> [DictationHistoryEntry]
+    func listRecent(limit: Int, offset: Int) throws -> [DictationHistoryEntry]
     func search(_ query: String, limit: Int) throws -> [DictationHistoryEntry]
+    func search(_ query: String, limit: Int, offset: Int) throws -> [DictationHistoryEntry]
     func softDelete(id: String, deletedAt: Date) throws
+}
+
+extension HistoryRepository {
+    func listRecent(limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        let rows = try listRecent(limit: limit + offset)
+        return Array(rows.dropFirst(offset))
+    }
+
+    func search(_ query: String, limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        let rows = try search(query, limit: limit + offset)
+        return Array(rows.dropFirst(offset))
+    }
 }
 
 final class SQLiteHistoryRepository: HistoryRepository {
@@ -75,6 +88,9 @@ final class SQLiteHistoryRepository: HistoryRepository {
     }
 
     func save(_ entry: DictationHistoryEntry) throws {
+        AppLogger.database.debug(
+            "保存历史记录：id=\(entry.id), rawLen=\(entry.rawText.count), finalLen=\(entry.finalText.count)"
+        )
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -110,7 +126,8 @@ final class SQLiteHistoryRepository: HistoryRepository {
     }
 
     func entry(id: String) throws -> DictationHistoryEntry? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询历史记录：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, raw_text, final_text, language, asr_provider_id, llm_provider_id,
@@ -123,6 +140,7 @@ final class SQLiteHistoryRepository: HistoryRepository {
             )
             try statement.bind(id, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("历史记录不存在：id=\(id)")
                 return nil
             }
             return try row(from: statement)
@@ -130,7 +148,12 @@ final class SQLiteHistoryRepository: HistoryRepository {
     }
 
     func listRecent(limit: Int) throws -> [DictationHistoryEntry] {
-        try query(
+        AppLogger.database.debug("查询最近历史：limit=\(limit)")
+        return try listRecent(limit: limit, offset: 0)
+    }
+
+    func listRecent(limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        return try query(
             """
             SELECT id, raw_text, final_text, language, asr_provider_id, llm_provider_id,
                    style_id, duration_ms, char_count, cpm, target_app_bundle_id,
@@ -140,15 +163,23 @@ final class SQLiteHistoryRepository: HistoryRepository {
             WHERE deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT ?
+            OFFSET ?
             """,
             bindings: { statement in
                 try statement.bind(limit, at: 1)
+                try statement.bind(offset, at: 2)
             }
         )
     }
 
     func search(_ queryText: String, limit: Int) throws -> [DictationHistoryEntry] {
-        try query(
+        AppLogger.database.debug("搜索历史：queryLen=\(queryText.count), limit=\(limit)")
+        return try search(queryText, limit: limit, offset: 0)
+    }
+
+    func search(_ queryText: String, limit: Int, offset: Int) throws -> [DictationHistoryEntry] {
+        AppLogger.database.debug("搜索历史分页：queryLen=\(queryText.count), limit=\(limit), offset=\(offset)")
+        return try query(
             """
             SELECT id, raw_text, final_text, language, asr_provider_id, llm_provider_id,
                    style_id, duration_ms, char_count, cpm, target_app_bundle_id,
@@ -159,17 +190,20 @@ final class SQLiteHistoryRepository: HistoryRepository {
               AND (raw_text LIKE ? OR final_text LIKE ?)
             ORDER BY created_at DESC
             LIMIT ?
+            OFFSET ?
             """,
             bindings: { statement in
                 let pattern = "%\(queryText)%"
                 try statement.bind(pattern, at: 1)
                 try statement.bind(pattern, at: 2)
                 try statement.bind(limit, at: 3)
+                try statement.bind(offset, at: 4)
             }
         )
     }
 
     func softDelete(id: String, deletedAt: Date) throws {
+        AppLogger.database.info("软删除历史：id=\(id), deletedAt=\(formatter.string(from: deletedAt))")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 "UPDATE dictation_history SET deleted_at = ?, updated_at = ? WHERE id = ?"
@@ -186,13 +220,14 @@ final class SQLiteHistoryRepository: HistoryRepository {
         _ sql: String,
         bindings: (SQLiteStatement) throws -> Void
     ) throws -> [DictationHistoryEntry] {
-        try databaseQueue.read { connection in
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(sql)
             try bindings(statement)
             var entries: [DictationHistoryEntry] = []
             while try statement.step() {
                 entries.append(try row(from: statement))
             }
+            AppLogger.database.debug("历史记录查询返回条数：count=\(entries.count)")
             return entries
         }
     }
@@ -226,6 +261,7 @@ final class SQLiteHistoryRepository: HistoryRepository {
               let updatedAtText = statement.columnString(at: 15),
               let createdAt = formatter.date(from: createdAtText),
               let updatedAt = formatter.date(from: updatedAtText) else {
+            AppLogger.database.error("字典历史记录行数据缺失或日期格式错误")
             throw SQLiteError.stepFailed("Invalid dictation_history row.")
         }
 

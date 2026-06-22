@@ -4,6 +4,15 @@ import XCTest
 
 @MainActor
 final class OverlayAppearanceTests: XCTestCase {
+    override func tearDown() {
+        MainActor.assumeIsolated {
+            for window in NSApplication.shared.windows where window.level == .floating {
+                window.orderOut(nil)
+            }
+        }
+        super.tearDown()
+    }
+
     func testHUDUsesOpaqueWhiteBackground() {
         let color = OverlayAppearance.backgroundColor.usingColorSpace(.deviceRGB)
 
@@ -100,6 +109,7 @@ final class OverlayAppearanceTests: XCTestCase {
         let contentView = try XCTUnwrap(controller.window?.contentView)
         let labels = contentView.descendantTextValues()
         let rows = contentView.descendantViews(withIdentifier: "agentCandidateRow")
+        let defaultRows = contentView.descendantViews(withIdentifier: "agentDefaultOutputRow")
 
         XCTAssertTrue(controller.window?.isVisible ?? false)
         XCTAssertFalse(controller.window?.ignoresMouseEvents ?? true)
@@ -112,9 +122,76 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertTrue(labels.contains("voice-input-method-mac"))
         XCTAssertTrue(labels.contains("2"))
         XCTAssertTrue(labels.contains("docs-site"))
+        XCTAssertEqual(defaultRows.count, 1)
+        XCTAssertTrue(labels.contains("0"))
+        XCTAssertTrue(labels.contains("直接写入当前输入框"))
         XCTAssertTrue(rows.allSatisfy { $0.frame.minX <= 1 })
         XCTAssertTrue(rows.allSatisfy { $0.frame.width >= 500 })
         XCTAssertGreaterThanOrEqual(controller.window?.minSize.height ?? 0, 320)
+    }
+
+    func testAgentDispatchConfirmationNumberBadgesUseVerticallyCenteredCells() throws {
+        let controller = OverlayWindowController()
+
+        controller.updateAgentDispatch(
+            .confirmation(
+                utterance: "看一下这个按钮",
+                candidates: [.confirmationFixture(id: "agent-1", name: "前端")]
+            )
+        )
+
+        let textFields = try XCTUnwrap(controller.window?.contentView?.descendantTextFields())
+        let oneLabel = try XCTUnwrap(textFields.first { $0.stringValue == "1" })
+        let zeroLabel = try XCTUnwrap(textFields.first { $0.stringValue == "0" })
+        XCTAssertTrue(oneLabel.cell is VerticallyCenteredTextFieldCell)
+        XCTAssertTrue(zeroLabel.cell is VerticallyCenteredTextFieldCell)
+    }
+
+    func testAgentDispatchConfirmationZeroKeySelectsDefaultOutput() throws {
+        let controller = OverlayWindowController()
+        var selectedUtterance: String?
+        controller.onAgentDefaultOutputSelected = { utterance in
+            selectedUtterance = utterance
+        }
+        controller.updateAgentDispatch(
+            .confirmation(
+                utterance: "直接写到输入框",
+                candidates: [.confirmationFixture(id: "agent-1", name: "前端")]
+            )
+        )
+
+        let consumed = controller.performAgentConfirmationKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 29, characters: "0"))
+        )
+
+        XCTAssertTrue(consumed)
+        XCTAssertEqual(selectedUtterance, "直接写到输入框")
+    }
+
+    func testAgentDispatchConfirmationZeroKeyDismissesConfirmationImmediately() throws {
+        let controller = OverlayWindowController()
+        controller.updateAgentDispatch(
+            .confirmation(
+                utterance: "直接写到输入框",
+                candidates: [.confirmationFixture(id: "agent-1", name: "前端")]
+            )
+        )
+
+        _ = controller.performAgentConfirmationKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 29, characters: "0"))
+        )
+
+        XCTAssertFalse(controller.window?.isVisible ?? true)
+    }
+
+    func testAgentDispatchConfirmationKeyboardShortcutUsesConsumingEventTap() throws {
+        let sourceURL = Self.projectRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Presentation/OverlayWindowController.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("CGEvent.tapCreate"))
+        XCTAssertTrue(source.contains("return nil"))
+        XCTAssertFalse(source.contains("addGlobalMonitorForEvents(matching: .keyDown)"))
     }
 
     func testAgentDispatchConfirmationCancelsPriorTemporaryMessageTimeout() async throws {
@@ -170,7 +247,7 @@ final class OverlayAppearanceTests: XCTestCase {
 
         let rows = controller.window?.contentView?.descendantViews(withIdentifier: "agentCandidateRow") ?? []
         XCTAssertTrue(rows.isEmpty)
-        XCTAssertTrue(controller.currentText.contains("没有可用队员"))
+        XCTAssertTrue(controller.currentText.contains("没有可用任务助手"))
         XCTAssertTrue(controller.currentText.contains("检查一下按钮"))
         XCTAssertLessThan(controller.window?.frame.height ?? 0, 120)
     }
@@ -180,7 +257,7 @@ final class OverlayAppearanceTests: XCTestCase {
 
         controller.updateAgentDispatch(.listening(agentNames: []))
 
-        XCTAssertEqual(controller.currentText, "说出要交给队员的任务")
+        XCTAssertEqual(controller.currentText, "说出要交给任务助手的任务")
         XCTAssertEqual(controller.window?.frame.width, OverlayLayout.windowWidth(textWidth: 240))
         XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
     }
@@ -196,7 +273,7 @@ final class OverlayAppearanceTests: XCTestCase {
 
         controller.updateAgentDispatch(.listening(agentNames: ["voice-input-method-mac"]))
 
-        XCTAssertEqual(controller.currentText, "说出要交给队员的任务")
+        XCTAssertEqual(controller.currentText, "说出要交给任务助手的任务")
         XCTAssertFalse(controller.currentText.contains("voice-input-method-mac"))
         XCTAssertEqual(controller.window?.frame.width, OverlayLayout.windowWidth(textWidth: 240))
         XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
@@ -214,6 +291,37 @@ private extension NSView {
         let ownText = (self as? NSTextField)?.stringValue
         return (ownText.map { [$0] } ?? [])
             + subviews.flatMap { $0.descendantTextValues() }
+    }
+
+    func descendantTextFields() -> [NSTextField] {
+        let ownTextField = self as? NSTextField
+        return (ownTextField.map { [$0] } ?? [])
+            + subviews.flatMap { $0.descendantTextFields() }
+    }
+}
+
+private extension OverlayAppearanceTests {
+    static func projectRoot() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    static func keyDownEvent(keyCode: UInt16, characters: String) -> NSEvent? {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: keyCode
+        )
     }
 }
 

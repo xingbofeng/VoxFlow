@@ -27,7 +27,11 @@ private final class AgentCandidateButton: NSView {
     var agentID = ""
     var onSelect: ((String) -> Void)?
 
-    override func mouseUp(with event: NSEvent) {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard bounds.contains(point) else { return }
         onSelect?(agentID)
@@ -51,10 +55,28 @@ private enum AgentDispatchConfirmationUtteranceFormatter {
     }
 }
 
+private enum AgentDispatchConfirmationLayout {
+    static let maximumCandidates = 9
+    static let baseHeight: CGFloat = 264
+    static let rowHeight: CGFloat = 44
+    static let rowSpacing: CGFloat = 8
+
+    static func windowHeight(candidateCount: Int) -> CGFloat {
+        let visibleCandidateCount = min(max(candidateCount, 1), maximumCandidates)
+        let visibleRowCount = visibleCandidateCount + 1
+        let rowsHeight = CGFloat(visibleRowCount) * rowHeight
+        let spacingHeight = CGFloat(max(visibleRowCount - 1, 0)) * rowSpacing
+        return baseHeight + rowsHeight + spacingHeight
+    }
+}
+
 /// Manages the compact floating overlay window that displays real-time transcription
 /// with an animated waveform during voice recording.
 final class OverlayWindowController: NSWindowController {
     // MARK: - UI Components
+
+    private let logger = AppLogger.general
+    private var lastRMSBucket = -1
 
     private let waveformView = WaveformView(
         frame: NSRect(
@@ -87,8 +109,12 @@ final class OverlayWindowController: NSWindowController {
     private var agentConfirmationCandidates: [AgentSessionCard] = []
     private var agentConfirmationUtterance = ""
     private var agentCandidateButtons: [AgentCandidateButton] = []
+    private var localAgentCandidateKeyMonitor: Any?
+    private var agentCandidateKeyEventTap: CFMachPort?
+    private var agentCandidateKeyEventTapSource: CFRunLoopSource?
 
     var onAgentCandidateSelected: ((String, String) -> Void)?
+    var onAgentDefaultOutputSelected: ((String) -> Void)?
 
     // MARK: - Initialization
 
@@ -100,6 +126,7 @@ final class OverlayWindowController: NSWindowController {
             defer: false
         )
         super.init(window: window)
+        logger.debug("overlay_controller_init")
         setupWindow()
         setupContentView()
     }
@@ -118,9 +145,11 @@ final class OverlayWindowController: NSWindowController {
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         window.hasShadow = true
+        window.sharingType = .readOnly
         window.isMovableByWindowBackground = false
         window.alphaValue = 0.0
         window.ignoresMouseEvents = true
+        logger.debug("overlay_window_setup_complete")
     }
 
     // MARK: - Content View Setup
@@ -251,6 +280,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.centerXAnchor.constraint(equalTo: indicatorBackgroundView.centerXAnchor),
             refiningSpinner.centerYAnchor.constraint(equalTo: indicatorBackgroundView.centerYAnchor),
         ])
+        logger.debug("overlay_content_view_setup_complete")
     }
 
     private func setupConfirmationContainer() {
@@ -341,7 +371,7 @@ final class OverlayWindowController: NSWindowController {
         confirmationFooterLabel.drawsBackground = false
         confirmationFooterLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
         confirmationFooterLabel.textColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.85)
-        confirmationFooterLabel.stringValue = "未准确命中队员名时，需要你确认目标"
+        confirmationFooterLabel.stringValue = "按 1-9 选择任务助手，按 0 直接写入当前输入框"
         confirmationContainer.addSubview(confirmationFooterLabel)
 
         confirmationLayoutConstraints = [
@@ -391,8 +421,7 @@ final class OverlayWindowController: NSWindowController {
     private func updateWindowSize(textWidth: CGFloat, textHeight: CGFloat = 0) {
         guard let window = window else { return }
 
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
+        guard let screenFrame = WindowPlacementPolicy.interactionVisibleFrame() else { return }
 
         window.minSize = .zero
         window.maxSize = NSSize(
@@ -405,12 +434,12 @@ final class OverlayWindowController: NSWindowController {
         let y = screenFrame.minY + OverlayLayout.bottomOffset
 
         let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
+        logger.debug("overlay_window_size_update width=\(windowWidth) height=\(windowHeight) textWidth=\(textWidth) textHeight=\(textHeight)")
         window.setFrame(frame, display: true, animate: false)
     }
 
     private func updateWindowFrame(width: CGFloat, height: CGFloat) {
-        guard let window, let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
+        guard let window, let screenFrame = WindowPlacementPolicy.interactionVisibleFrame() else { return }
         let size = NSSize(width: width, height: height)
         window.minSize = size
         window.maxSize = size
@@ -420,6 +449,7 @@ final class OverlayWindowController: NSWindowController {
             width: width,
             height: height
         )
+        logger.debug("overlay_window_frame_update width=\(width) height=\(height)")
         window.setFrame(frame, display: true, animate: false)
     }
 
@@ -436,6 +466,10 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func hideAgentConfirmationPresentation() {
+        if !agentCandidateButtons.isEmpty || !confirmationRowsStack.arrangedSubviews.isEmpty {
+            logger.debug("overlay_confirmation_hidden")
+        }
+        removeAgentCandidateKeyMonitor()
         NSLayoutConstraint.deactivate(confirmationLayoutConstraints)
         confirmationContainer.isHidden = true
         agentCandidateButtons.removeAll()
@@ -452,6 +486,9 @@ final class OverlayWindowController: NSWindowController {
         utterance: String,
         candidates: [AgentSessionCard]
     ) {
+        logger.debug(
+            "overlay_confirmation_show candidates=\(candidates.count) utterance=\(AgentDispatchConfirmationUtteranceFormatter.displayText(utterance))"
+        )
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
         temporaryMessageAction = nil
@@ -469,8 +506,9 @@ final class OverlayWindowController: NSWindowController {
         confirmationUtteranceLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(utterance)
         confirmationUtteranceLabel.toolTip = utterance
         rebuildAgentCandidateRows(candidates)
+        installAgentCandidateKeyMonitor()
         let confirmationWidth: CGFloat = 600
-        let confirmationHeight = CGFloat(264 + min(max(candidates.count, 1), 4) * 36)
+        let confirmationHeight = AgentDispatchConfirmationLayout.windowHeight(candidateCount: candidates.count)
         updateWindowFrame(width: confirmationWidth, height: confirmationHeight)
         guard let window else { return }
         window.ignoresMouseEvents = false
@@ -479,13 +517,14 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func rebuildAgentCandidateRows(_ candidates: [AgentSessionCard]) {
+        logger.debug("overlay_rebuild_candidates count=\(candidates.count)")
         agentCandidateButtons.removeAll()
         for row in confirmationRowsStack.arrangedSubviews {
             confirmationRowsStack.removeArrangedSubview(row)
             row.removeFromSuperview()
         }
 
-        for (index, candidate) in candidates.prefix(4).enumerated() {
+        for (index, candidate) in candidates.prefix(AgentDispatchConfirmationLayout.maximumCandidates).enumerated() {
             let button = AgentCandidateButton()
             button.translatesAutoresizingMaskIntoConstraints = false
             button.agentID = candidate.agentID
@@ -517,9 +556,169 @@ final class OverlayWindowController: NSWindowController {
             confirmationRowsStack.addArrangedSubview(button)
             NSLayoutConstraint.activate([
                 button.widthAnchor.constraint(equalTo: confirmationRowsStack.widthAnchor),
-                button.heightAnchor.constraint(equalToConstant: 44),
+                button.heightAnchor.constraint(equalToConstant: AgentDispatchConfirmationLayout.rowHeight),
             ])
             agentCandidateButtons.append(button)
+        }
+        let defaultButton = AgentCandidateButton()
+        defaultButton.translatesAutoresizingMaskIntoConstraints = false
+        defaultButton.identifier = NSUserInterfaceItemIdentifier("agentDefaultOutputRow")
+        defaultButton.onSelect = { [weak self] _ in
+            self?.selectAgentDefaultOutput()
+        }
+        defaultButton.wantsLayer = true
+        defaultButton.layer?.cornerRadius = 11
+        defaultButton.layer?.borderWidth = 1
+        defaultButton.layer?.borderColor = NSColor(
+            red: 0.875,
+            green: 0.900,
+            blue: 0.885,
+            alpha: 0.95
+        ).cgColor
+        defaultButton.layer?.backgroundColor = NSColor(
+            red: 0.998,
+            green: 0.998,
+            blue: 0.994,
+            alpha: 0.92
+        ).cgColor
+        configureDefaultOutputButton(defaultButton)
+        confirmationRowsStack.addArrangedSubview(defaultButton)
+        NSLayoutConstraint.activate([
+            defaultButton.widthAnchor.constraint(equalTo: confirmationRowsStack.widthAnchor),
+            defaultButton.heightAnchor.constraint(equalToConstant: AgentDispatchConfirmationLayout.rowHeight),
+        ])
+    }
+
+    private func installAgentCandidateKeyMonitor() {
+        removeAgentCandidateKeyMonitor()
+        guard !Self.isRunningUnitTests else { return }
+        localAgentCandidateKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard self?.selectAgentCandidate(forKeyEvent: event) == true else {
+                return event
+            }
+            return nil
+        }
+        logger.debug("overlay_candidate_local_monitor_installed")
+        installAgentCandidateKeyEventTap()
+    }
+
+    private func installAgentCandidateKeyEventTap() {
+        let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, userInfo in
+            guard type == .keyDown,
+                  let userInfo else {
+                return Unmanaged.passUnretained(event)
+            }
+            let controller = Unmanaged<OverlayWindowController>
+                .fromOpaque(userInfo)
+                .takeUnretainedValue()
+            let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+            let handled: Bool
+            if Thread.isMainThread {
+                handled = controller.selectAgentCandidate(forKeyCode: keyCode)
+            } else {
+                handled = DispatchQueue.main.sync {
+                    controller.selectAgentCandidate(forKeyCode: keyCode)
+                }
+            }
+            return handled ? nil : Unmanaged.passUnretained(event)
+        }
+
+        guard let eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            logger.warning("overlay_candidate_event_tap_install_failed")
+            return
+        }
+        logger.debug("overlay_candidate_event_tap_installed")
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+        agentCandidateKeyEventTap = eventTap
+        agentCandidateKeyEventTapSource = source
+    }
+
+    private func removeAgentCandidateKeyMonitor() {
+        let hadLocalMonitor = localAgentCandidateKeyMonitor != nil
+        let hadTap = agentCandidateKeyEventTap != nil || agentCandidateKeyEventTapSource != nil
+        if let localAgentCandidateKeyMonitor {
+            NSEvent.removeMonitor(localAgentCandidateKeyMonitor)
+            self.localAgentCandidateKeyMonitor = nil
+        }
+        if let agentCandidateKeyEventTapSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), agentCandidateKeyEventTapSource, .commonModes)
+            self.agentCandidateKeyEventTapSource = nil
+        }
+        if let agentCandidateKeyEventTap {
+            CFMachPortInvalidate(agentCandidateKeyEventTap)
+            self.agentCandidateKeyEventTap = nil
+        }
+        if hadLocalMonitor || hadTap {
+            logger.debug("overlay_candidate_monitors_removed")
+        }
+    }
+
+    private func selectAgentCandidate(forKeyEvent event: NSEvent) -> Bool {
+        let handled = selectAgentCandidate(forKeyCode: event.keyCode)
+        if handled {
+            logger.debug("overlay_candidate_key_event handled keyCode=\(event.keyCode)")
+        }
+        return handled
+    }
+
+    private func selectAgentCandidate(forKeyCode keyCode: UInt16) -> Bool {
+        guard !confirmationContainer.isHidden else {
+            return false
+        }
+        if Self.isDefaultOutputKeyCode(keyCode) {
+            logger.debug("overlay_candidate_key_select_default keyCode=\(keyCode)")
+            selectAgentDefaultOutput()
+            return true
+        }
+        guard let candidateIndex = Self.agentCandidateIndex(forKeyCode: keyCode),
+              agentConfirmationCandidates.indices.contains(candidateIndex) else {
+            return false
+        }
+        logger.debug("overlay_candidate_key_select keyCode=\(keyCode) index=\(candidateIndex)")
+        selectAgentCandidate(agentID: agentConfirmationCandidates[candidateIndex].agentID)
+        return true
+    }
+
+    private static func isDefaultOutputKeyCode(_ keyCode: UInt16) -> Bool {
+        switch keyCode {
+        case 29, 82:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func agentCandidateIndex(forKeyCode keyCode: UInt16) -> Int? {
+        switch keyCode {
+        case 18, 83: return 0
+        case 19, 84: return 1
+        case 20, 85: return 2
+        case 21, 86: return 3
+        case 23, 87: return 4
+        case 22, 88: return 5
+        case 26, 89: return 6
+        case 28, 91: return 7
+        case 25, 92: return 8
+        default: return nil
+        }
+    }
+
+    private static var isRunningUnitTests: Bool {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return true
+        }
+        return ProcessInfo.processInfo.arguments.contains { argument in
+            argument == "-XCTest" || argument.hasSuffix(".xctest") || argument.contains(".xctest/")
         }
     }
 
@@ -573,12 +772,43 @@ final class OverlayWindowController: NSWindowController {
         ])
     }
 
+    private func configureDefaultOutputButton(_ button: AgentCandidateButton) {
+        let numberLabel = confirmationRowText("0", size: 14, weight: .semibold)
+        numberLabel.alignment = .center
+        numberLabel.wantsLayer = true
+        numberLabel.layer?.cornerRadius = 8
+        numberLabel.layer?.backgroundColor = NSColor(
+            red: 1.0,
+            green: 0.540,
+            blue: 0.180,
+            alpha: 0.12
+        ).cgColor
+
+        let nameLabel = confirmationRowText("直接写入当前输入框", size: 14, weight: .semibold)
+        nameLabel.lineBreakMode = .byTruncatingTail
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        [numberLabel, nameLabel].forEach(button.addSubview)
+        NSLayoutConstraint.activate([
+            numberLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+            numberLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            numberLabel.widthAnchor.constraint(equalToConstant: 28),
+            numberLabel.heightAnchor.constraint(equalToConstant: 28),
+
+            nameLabel.leadingAnchor.constraint(equalTo: numberLabel.trailingAnchor, constant: 14),
+            nameLabel.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -14),
+            nameLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+        ])
+    }
+
     private func confirmationRowText(
         _ text: String,
         size: CGFloat,
         weight: NSFont.Weight
     ) -> NSTextField {
         let label = NSTextField(labelWithString: text)
+        label.cell = VerticallyCenteredTextFieldCell(textCell: text)
+        label.stringValue = text
         label.translatesAutoresizingMaskIntoConstraints = false
         label.isBezeled = false
         label.isEditable = false
@@ -622,6 +852,10 @@ final class OverlayWindowController: NSWindowController {
     /// Shows the overlay in the default dictation state (waveform + "听写中").
     func show() {
         guard let window = window else { return }
+        logger.debug(
+            "overlay_show generation=\(presentationGeneration + 1) "
+                + "hasTemporaryMessage=\(isShowingTemporaryMessage)"
+        )
         hideAgentConfirmationPresentation()
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
@@ -649,6 +883,7 @@ final class OverlayWindowController: NSWindowController {
     /// set by `updateAgentComposeStatus` are not overwritten.
     func showWithoutReset() {
         guard let window = window else { return }
+        logger.debug("overlay_show_without_reset generation=\(presentationGeneration + 1)")
         temporaryMessageTask?.cancel()
         temporaryMessageTask = nil
         temporaryMessageAction = nil
@@ -658,10 +893,26 @@ final class OverlayWindowController: NSWindowController {
         present(window)
     }
 
+    func dismissAfterDefaultHUDTimeout() {
+        temporaryMessageTask?.cancel()
+        let generation = presentationGeneration
+        logger.debug("overlay_schedule_timeout_dismiss generation=\(generation)")
+        temporaryMessageTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled,
+                  let self,
+                  self.presentationGeneration == generation else {
+                return
+            }
+            self.dismiss(generation: generation)
+        }
+    }
+
     private func present(_ window: NSWindow) {
         window.alphaValue = 1.0
         window.orderFront(nil)
         window.displayIfNeeded()
+        logger.debug("overlay_presented generation=\(presentationGeneration)")
 
         if let layer = visualEffectView.layer {
             let spring = CASpringAnimation(keyPath: "transform.scale")
@@ -677,6 +928,10 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func updateTranscription(_ text: String, isRefining: Bool) {
+        logger.debug(
+            "overlay_update_transcription isRefining=\(isRefining) "
+                + "length=\(text.count) generation=\(presentationGeneration)"
+        )
         hideAgentConfirmationPresentation()
         let displayText: String
         if isRefining {
@@ -705,6 +960,16 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func updateRMS(_ rms: Float) {
+        if rms.isNaN || rms.isInfinite {
+            logger.warning("overlay_update_rms invalid value=\(rms)")
+            return
+        }
+        let clamped = max(0, min(1, rms))
+        let bucket = Int((clamped * 10).rounded())
+        if bucket != lastRMSBucket {
+            logger.debug("overlay_update_rms bucket=\(bucket)")
+            lastRMSBucket = bucket
+        }
         waveformView.updateRMS(rms)
     }
 
@@ -716,9 +981,14 @@ final class OverlayWindowController: NSWindowController {
         tone: HUDTemporaryMessageTone = .info,
         action: (() -> Void)? = nil
     ) {
+        logger.debug(
+            "overlay_show_temporary_message "
+                + "len=\(text.count) duration=\(duration) tone=\(tone) hasAction=\(action != nil)"
+        )
         hideAgentConfirmationPresentation()
         temporaryMessageTask?.cancel()
         guard OverlayLayout.shouldShowTemporaryMessage(text) else {
+            logger.debug("overlay_show_temporary_message skipped")
             temporaryMessageAction = nil
             isShowingTemporaryMessage = false
             presentationGeneration &+= 1
@@ -780,11 +1050,13 @@ final class OverlayWindowController: NSWindowController {
 
     func dismiss() {
         guard !isShowingTemporaryMessage else { return }
+        logger.debug("overlay_dismiss generation=\(presentationGeneration)")
         dismiss(generation: presentationGeneration)
     }
 
     private func dismiss(generation: UInt) {
         guard let window = window else { return }
+        logger.debug("overlay_dismiss_animation_start generation=\(generation)")
 
         waveformView.stopAnimation()
         if let layer = visualEffectView.layer {
@@ -813,7 +1085,14 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func completeDismiss(window: NSWindow, generation: UInt) {
-        guard presentationGeneration == generation else { return }
+        guard presentationGeneration == generation else {
+            logger.debug(
+                "overlay_complete_dismiss_skipped "
+                    + "requestGeneration=\(generation) currentGeneration=\(presentationGeneration)"
+            )
+            return
+        }
+        logger.debug("overlay_complete_dismiss")
         hideAgentConfirmationPresentation()
         textLabel.stringValue = ""
         statusLabel.stringValue = ""
@@ -827,21 +1106,39 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageAction?()
     }
 
+    func performAgentConfirmationKeyForTesting(_ event: NSEvent) -> Bool {
+        selectAgentCandidate(forKeyEvent: event)
+    }
+
     @objc private func handleOverlayClick(_ recognizer: NSClickGestureRecognizer) {
         guard recognizer.state == .ended else { return }
         if !agentConfirmationCandidates.isEmpty {
+            logger.debug("overlay_click_ignored_has_candidates=true")
             return
         }
+        logger.debug("overlay_click_executed hasAction=\(temporaryMessageAction != nil)")
         temporaryMessageAction?()
     }
 
     private func selectAgentCandidate(agentID: String) {
         let utterance = agentConfirmationUtterance
+        logger.debug("overlay_select_agent_candidate agentID=\(agentID) utteranceLen=\(utterance.count)")
         agentConfirmationCandidates = []
         agentConfirmationUtterance = ""
         hideAgentConfirmationPresentation()
         window?.ignoresMouseEvents = true
         onAgentCandidateSelected?(agentID, utterance)
+    }
+
+    private func selectAgentDefaultOutput() {
+        let utterance = agentConfirmationUtterance
+        logger.debug("overlay_select_agent_default_output utteranceLen=\(utterance.count)")
+        agentConfirmationCandidates = []
+        agentConfirmationUtterance = ""
+        hideAgentConfirmationPresentation()
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
+        onAgentDefaultOutputSelected?(utterance)
     }
 
     /// Returns the current transcription text shown in the overlay.
@@ -853,6 +1150,7 @@ final class OverlayWindowController: NSWindowController {
 
     /// Updates the overlay for agent compose mode stages.
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage) {
+        logger.debug("overlay_update_agent_compose_status stage=\(stage)")
         hideAgentConfirmationPresentation()
         switch stage {
         case .readingWindow:
@@ -907,9 +1205,14 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
+        logger.debug(
+            "overlay_update_agent_dispatch "
+                + "title=\(presentation.title) hasDetail=\(!presentation.detail.isEmpty) "
+                + "badge=\(presentation.badge ?? "-")"
+        )
         if case let .confirmation(utterance, candidates) = presentation {
             guard !candidates.isEmpty else {
-                updateAgentDispatch(.failure(message: "没有可用队员", retainedText: utterance))
+                updateAgentDispatch(.failure(message: "没有可用任务助手", retainedText: utterance))
                 return
             }
             agentConfirmationCandidates = candidates
@@ -926,7 +1229,7 @@ final class OverlayWindowController: NSWindowController {
         textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
         statusLabel.stringValue = presentation.badge ?? presentation.title
         if case .listening = presentation {
-            textLabel.stringValue = "说出要交给队员的任务"
+            textLabel.stringValue = "说出要交给任务助手的任务"
             textLabel.toolTip = nil
         } else if case let .clipboardFallback(text) = presentation {
             textLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(text)

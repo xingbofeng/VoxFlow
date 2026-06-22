@@ -74,6 +74,35 @@ final class LLMDiagnosticCapture: @unchecked Sendable {
         }
     }
 
+    func trace(taskID: String) -> TextProcessingTrace? {
+        lock.withLock {
+            guard let directory,
+                  let files = try? fileManager.contentsOfDirectory(
+                      at: directory,
+                      includingPropertiesForKeys: nil,
+                      options: [.skipsHiddenFiles]
+                  ) else {
+                return nil
+            }
+
+            return files
+                .filter { $0.pathExtension == "json" }
+                .compactMap { file -> CapturedTrace? in
+                    guard
+                        let data = try? Data(contentsOf: file),
+                        let captured = try? JSONDecoder().decode(CapturedTrace.self, from: data),
+                        captured.taskID == taskID
+                    else {
+                        return nil
+                    }
+                    return captured
+                }
+                .sorted { $0.capturedAt > $1.capturedAt }
+                .first?
+                .trace
+        }
+    }
+
     func clear() {
         lock.withLock {
             removeCapturedContentLocked()
@@ -144,7 +173,9 @@ private extension TextProcessingTrace {
                 errorMessage: llm.errorMessage.map(AppLogger.redact),
                 completedAt: llm.completedAt
             ),
-            output: output
+            output: output,
+            contextBoost: contextBoost?.safeForPersistence(),
+            voiceCorrection: voiceCorrection?.safeForPersistence()
         )
     }
 }

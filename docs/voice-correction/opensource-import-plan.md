@@ -1,6 +1,6 @@
-# Voice Correction Open Source Import Plan
+# 易错词开源引入方案
 
-## Confirmed Strategy
+## 已确认策略
 
 第一期确认走 **TypeWhisper GPLv3 模块化引入**：
 
@@ -17,7 +17,7 @@
 6c46bfc676539e2a1a245a01dca9a4afd6f2cb63
 ```
 
-## TypeWhisper Files To Import Or Adapt
+## 需要引入或改写的 TypeWhisper 文件
 
 这些文件是第一期的主要源码参考。实现时允许复制后改写，但必须进入 GPLv3 模块边界：
 
@@ -51,7 +51,7 @@
    - 只参考 dictation 生命周期集成点；
    - VoxFlow 实际落点以 `DictationOrchestrator`、`VoiceTaskCoordinator`、`TextProcessingPipeline` 和 ASR final 出口为准。
 
-## VoxFlow File Mapping
+## VoxFlow 文件映射
 
 具体借鉴 / 复制 / 改写关系必须放进模块，并同步写入 `SOURCE_ATTRIBUTION.md`。建议映射如下：
 
@@ -127,7 +127,7 @@ Packages/VoxFlowVoiceCorrectionKit/
         ← VoxFlow benchmark fixtures
 ```
 
-App integration mapping:
+App 集成映射：
 
 ```text
 Sources/VoxFlowApp/VoiceCorrection/
@@ -148,7 +148,7 @@ Sources/VoxFlowApp/VoiceCorrection/
         ← VoxFlow-specific UI; do not copy TypeWhisper UI naming or layout
 ```
 
-## TypeWhisper Tests To Port
+## 需要迁移的 TypeWhisper 测试
 
 这些测试结构应迁移到 VoxFlow 的测试体系，必要时复制后改写到 GPLv3 模块测试内：
 
@@ -171,7 +171,7 @@ Sources/VoxFlowApp/VoiceCorrection/
    - learning candidate；
    - cancellation。
 
-## TypeWhisper Files Not In Phase 1 Runtime
+## 不进入 Phase 1 运行时的 TypeWhisper 文件
 
 这些文件只作 Phase 2 / Provider bias 参考，第一期不要求 runtime 接入：
 
@@ -184,7 +184,7 @@ Sources/VoxFlowApp/VoiceCorrection/
 - 不要求每个 Provider 支持 prompt / hotword / custom vocabulary；
 - top-K provider bias 是 Phase 2。
 
-## Other Open Source Usage
+## 其他开源使用
 
 第一期使用策略：
 
@@ -220,7 +220,7 @@ Sources/VoxFlowApp/VoiceCorrection/
   - Phase 3 fuzzy 参考；
   - 第一阶段不做 edit-distance fuzzy。
 
-## Required Compliance Artifacts
+## 必需的合规产物
 
 如果复制或改写 TypeWhisper 源码，第一期必须新增：
 

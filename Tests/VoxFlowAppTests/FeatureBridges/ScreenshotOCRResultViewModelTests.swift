@@ -19,6 +19,22 @@ final class ScreenshotOCRResultViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.result.originalImage)
     }
 
+    func testInitialTabCanOpenRecognizedTextDirectly() {
+        let recorder = ScreenshotOCRResultRecorder(translatedText: "ignored")
+        let viewModel = ScreenshotOCRResultViewModel(
+            result: ScreenshotOCRResult(
+                originalText: "Error 404",
+                originalImage: ScreenshotOCRViewModelImage.make()
+            ),
+            service: recorder.service,
+            clipboard: recorder.clipboard,
+            initialTab: .ocr
+        )
+
+        XCTAssertEqual(viewModel.selectedTab, .ocr)
+        XCTAssertEqual(viewModel.displayedText, "Error 404")
+    }
+
     func testTranslateUpdatesResultAndSelectsTranslationTab() async {
         let recorder = ScreenshotOCRResultRecorder(translatedText: "错误 404")
         let viewModel = recorder.makeViewModel(
@@ -47,6 +63,43 @@ final class ScreenshotOCRResultViewModelTests: XCTestCase {
 
         XCTAssertEqual(recorder.clipboard.copiedTexts, ["错误 404"])
         XCTAssertEqual(viewModel.statusMessage, "已复制")
+    }
+
+    func testCopySelectedImageUsesOriginalScreenshot() {
+        let recorder = ScreenshotOCRResultRecorder(translatedText: "ignored")
+        let image = ScreenshotOCRViewModelImage.make(width: 3, height: 5)
+        let viewModel = recorder.makeViewModel(
+            result: ScreenshotOCRResult(
+                originalText: "Error 404",
+                originalImage: image
+            )
+        )
+
+        viewModel.copySelectedImage()
+
+        XCTAssertEqual(recorder.clipboard.copiedImageSizes, [CGSize(width: 3, height: 5)])
+        XCTAssertEqual(viewModel.statusMessage, "已复制图片")
+    }
+
+    func testCopySelectedImageUsesTranslatedOverlayWhenVisible() {
+        let recorder = ScreenshotOCRResultRecorder(translatedText: "ignored")
+        let originalImage = ScreenshotOCRViewModelImage.make(width: 3, height: 5)
+        let overlayImage = ScreenshotOCRViewModelImage.make(width: 7, height: 9)
+        let viewModel = ScreenshotOCRResultViewModel(
+            result: ScreenshotOCRResult(
+                originalText: "Error 404",
+                originalImage: originalImage
+            ),
+            service: recorder.service,
+            clipboard: recorder.clipboard,
+            initialTab: .translatedOverlay,
+            translatedOverlayImage: overlayImage
+        )
+
+        viewModel.copySelectedImage()
+
+        XCTAssertEqual(recorder.clipboard.copiedImageSizes, [CGSize(width: 7, height: 9)])
+        XCTAssertEqual(viewModel.statusMessage, "已复制图片")
     }
 
     func testSummarizeUpdatesResultAndSelectsSummaryTab() async {
@@ -232,11 +285,17 @@ private final class ScreenshotOCRResultRecorder {
 }
 
 @MainActor
-private final class CapturingScreenshotClipboard: ClipboardSetting {
+private final class CapturingScreenshotClipboard: ScreenshotOCRResultClipboard {
     private(set) var copiedTexts: [String] = []
+    private(set) var copiedImageSizes: [CGSize] = []
 
     func setString(_ text: String) -> Bool {
         copiedTexts.append(text)
+        return true
+    }
+
+    func setImage(_ image: CGImage) -> Bool {
+        copiedImageSizes.append(CGSize(width: image.width, height: image.height))
         return true
     }
 }
@@ -264,6 +323,18 @@ private final class ScreenshotOCRViewModelOCR: TextOCRRecognizing, @unchecked Se
 
     func recognizeText(in image: CGImage) async throws -> String {
         text
+    }
+
+    func recognizeTextLines(in image: CGImage) async throws -> [OCRLine] {
+        text
+            .split(separator: "\n")
+            .enumerated()
+            .map { index, line in
+                OCRLine(
+                    text: String(line),
+                    boundingBox: CGRect(x: 0, y: CGFloat(index) * 20, width: CGFloat(image.width), height: 20)
+                )
+            }
     }
 }
 
@@ -359,19 +430,19 @@ private final class ScreenshotOCRViewModelImageClipboard: ScreenshotImageClipboa
 }
 
 private enum ScreenshotOCRViewModelImage {
-    static func make() -> CGImage {
+    static func make(width: Int = 1, height: Int = 1) -> CGImage {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let context = CGContext(
             data: nil,
-            width: 1,
-            height: 1,
+            width: width,
+            height: height,
             bitsPerComponent: 8,
-            bytesPerRow: 4,
+            bytesPerRow: width * 4,
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         )!
         context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         return context.makeImage()!
     }
 }

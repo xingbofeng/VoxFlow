@@ -161,10 +161,10 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         )
     }
 
-    func testBuildWithNoStyleAndNoGlossaryReturnsBasePrompt() {
+    func testBuildWithNoStyleReturnsBasePrompt() {
         let builder = PromptBuilder()
 
-        let result = builder.build(style: nil, glossaryTerms: [])
+        let result = builder.build(style: nil)
 
         XCTAssertEqual(result.systemPrompt, PromptBuilder.conservativeSystemPrompt)
         XCTAssertNil(result.styleID)
@@ -194,7 +194,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         )
         let builder = PromptBuilder()
 
-        let result = builder.build(style: disabledStyle, glossaryTerms: [])
+        let result = builder.build(style: disabledStyle)
 
         XCTAssertEqual(result.systemPrompt, PromptBuilder.conservativeSystemPrompt)
         XCTAssertNil(result.styleID)
@@ -251,13 +251,20 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let migrator = AppDatabase.migrator()
 
         try migrator.migrate(queue)
-        try migrator.migrate(queue)
+        let firstMigrationState = try queue.read { connection -> (count: Int, currentMigrationCount: Int) in
+            let statement = try connection.prepare(
+                "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM schema_migrations"
+            )
+            _ = try statement.step()
+            return (statement.columnInt(at: 0), statement.columnInt(at: 1))
+        }
+        XCTAssertEqual(firstMigrationState.count, firstMigrationState.currentMigrationCount)
 
-        // Verify schema_migrations has exactly the expected number of entries
-        let migrationCount = try queue.read { connection in
+        try migrator.migrate(queue)
+        let secondMigrationCount = try queue.read { connection in
             try countRows(in: "schema_migrations", on: connection)
         }
-        XCTAssertEqual(migrationCount, 7, "AppDatabase has 7 migrations; running twice must not create duplicates")
+        XCTAssertEqual(secondMigrationCount, firstMigrationState.count)
     }
 
     func testAppDatabaseMigratorCreatesAllExpectedTables() throws {

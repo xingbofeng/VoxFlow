@@ -43,6 +43,12 @@ final class AgentRouterCodecTests: XCTestCase {
         XCTAssertNil(card.currentSelfSummary)
         XCTAssertEqual(card.displayName, "web")
     }
+
+    func testObservedProviderTitlePrecedesSelfSummaryForDisplayName() throws {
+        let card = try JSONDecoder().decode(AgentSessionCard.self, from: Data(#"{"schema_version":1,"agent_id":"front","wrapper_pid":1,"child_pid":2,"cli":"claude","command":["claude"],"cwd":"/tmp/web","repo_root":"/tmp/web","repo_name":"web","branch":"main","terminal":"ghostty","tty":"/dev/ttys1","input_channel":"/tmp/front.stdin","status":"active","exit_code":null,"observed_title":{"title":"登录页修复","source":"claude.ai-title","updated_at":2},"self_summary":{"label":"前端","summary":"页面","topics":[],"phase":"editing","expires_at":9999999999},"provider_session_refs":[],"last_dispatched_at":null,"started_at":1,"updated_at":2}"#.utf8))
+
+        XCTAssertEqual(card.displayName, "登录页修复")
+    }
 }
 
 private extension AgentSessionCard {

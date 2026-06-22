@@ -15,9 +15,22 @@ struct Qwen3ModelReadinessPreparer: Qwen3ModelReadinessPreparing {
     }
 
     func prepare(modelURL: URL, size: ASRManager.ModelSize) async throws {
-        try await runner.prepare(
-            modelURL: modelURL,
-            variant: Qwen3ModelVariant(size: size)
+        AppLogger.general.debug(
+            "Qwen3 model readiness prepare start size=\(size.rawValue) path=\(modelURL.lastPathComponent)"
         )
+        do {
+            try await runner.prepare(
+                modelURL: modelURL,
+                variant: Qwen3ModelVariant(size: size)
+            )
+            AppLogger.general.info(
+                "Qwen3 model readiness prepare completed size=\(size.rawValue) path=\(modelURL.lastPathComponent)"
+            )
+        } catch {
+            AppLogger.general.warning(
+                "Qwen3 model readiness prepare failed size=\(size.rawValue) path=\(modelURL.lastPathComponent), reason=\(error.localizedDescription)"
+            )
+            throw error
+        }
     }
 }

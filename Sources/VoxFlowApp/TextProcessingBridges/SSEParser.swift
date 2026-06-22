@@ -9,6 +9,8 @@ import Foundation
 /// data: [DONE]
 /// ```
 enum SSEParser {
+    private static let logger = AppLogger.network
+
     /// Parses an SSE byte stream into an async stream of content delta strings.
     ///
     /// - Parameter byteStream: Raw byte stream from URLSession bytes(for:).
@@ -16,10 +18,12 @@ enum SSEParser {
     static func parse<ByteStream: AsyncSequence & Sendable>(
         byteStream: ByteStream
     ) -> AsyncThrowingStream<String, Error> where ByteStream.Element == UInt8 {
-        AsyncThrowingStream { continuation in
+        logger.debug("SSEParser parse start")
+        return AsyncThrowingStream { continuation in
             let task = Task {
                 var buffer = Data()
                 var accumulatedText = ""
+                var eventIndex = 0
 
                 for try await byte in byteStream {
                     buffer.append(byte)
@@ -28,11 +32,17 @@ enum SSEParser {
                     while let eventRange = nextEventRange(in: buffer) {
                         let eventData = buffer[..<eventRange.lowerBound]
                         buffer.removeSubrange(..<eventRange.upperBound)
+                        eventIndex += 1
 
                         guard let event = String(data: eventData, encoding: .utf8) else {
                             continue
                         }
-                        if processEvent(event, accumulatedText: &accumulatedText, continuation: continuation) {
+                        if processEvent(
+                            event,
+                            index: eventIndex,
+                            accumulatedText: &accumulatedText,
+                            continuation: continuation
+                        ) {
                             return
                         }
                     }
@@ -41,7 +51,12 @@ enum SSEParser {
                 // Process any remaining data in buffer when stream ends without [DONE]
                 if !buffer.isEmpty {
                     if let event = String(data: buffer, encoding: .utf8),
-                       processEvent(event, accumulatedText: &accumulatedText, continuation: continuation) {
+                       processEvent(
+                           event,
+                           index: eventIndex + 1,
+                           accumulatedText: &accumulatedText,
+                           continuation: continuation
+                       ) {
                         return
                     }
                 }
@@ -76,9 +91,11 @@ enum SSEParser {
 
     private static func processEvent(
         _ event: String,
+        index: Int,
         accumulatedText: inout String,
         continuation: AsyncThrowingStream<String, Error>.Continuation
     ) -> Bool {
+        logger.debug("SSEParser processing event index=\(index), bytes=\(event.count)")
         for line in event.split(separator: "\n", omittingEmptySubsequences: true) {
             guard line.hasPrefix("data: ") else { continue }
             let dataString = line.dropFirst(6).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -95,6 +112,9 @@ enum SSEParser {
                   let delta = firstChoice["delta"] as? [String: Any],
                   let content = delta["content"] as? String,
                   !content.isEmpty else {
+                logger.warning(
+                    "SSEParser skip invalid data eventIndex=\(index) dataPrefix=\(String(dataString.prefix(80)))"
+                )
                 // Skip empty deltas (role-only, metadata-only chunks)
                 continue
             }

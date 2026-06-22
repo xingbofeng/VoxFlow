@@ -6,7 +6,7 @@ VoxFlow（码上写）是一款原生 macOS 菜单栏语音输入工具。按住
 
 它的定位是"语音键盘"，不是语音助手：不接管窗口，不自动发送内容，不把用户带到另一个输入框。核心体验围绕全局听写、稳定文本插入、本地优先数据、可选 LLM 保守纠错，以及多 ASR Provider（Apple Speech、Qwen3-ASR、Whisper、FunASR、SenseVoice 等）展开。
 
-技术栈：Swift 6 + SwiftUI/AppKit + SwiftPM，最低支持 macOS 14。主要依赖包括 FluidAudio、WhisperKit/argmax-oss-swift、Sherpa-ONNX vendor runtime、Qwen3 MLX worker/托管 Python runtime 相关脚本，以及 `agent-cli/` 下的 Rust Vibe Coding helper/router。
+技术栈：Swift 6 + SwiftUI/AppKit + SwiftPM，最低支持 macOS 15。主要依赖包括 FluidAudio、WhisperKit/argmax-oss-swift、Sherpa-ONNX vendor runtime、Qwen3 MLX worker/托管 Python runtime 相关脚本，以及 `agent-cli/` 下的 Rust AI Coding 助手 helper/router。
 
 ## 构建与运行
 
@@ -59,11 +59,13 @@ Sources/VoxFlowASRCore/         # Provider / Session / Event 协议
 Sources/VoxFlowModelStore/      # 模型 manifest、下载、校验、安装状态
 Sources/VoxFlowTextInsertion/   # 剪贴板事务、输入源切换、文本插入
 Sources/VoxFlowProviders/VoxFlowProvider*/ # 各 ASR Provider runtime / descriptor / session/client，保持独立 SwiftPM target
+Sources/VoxFlowScreenshotKit/    # 截图采集、标注、滚动截图和截图窗口展示
 Packages/VoxFlowVoiceCorrectionKit/ # 易错词纠错引擎、benchmark fixtures 和独立测试
-agent-cli/                      # Vibe Coding Rust helper/router 源码，构建产物为 bundled voxflow 与 vox shim
+agent-cli/                      # AI Coding 助手 Rust helper/router 源码，构建产物为 bundled voxflow 与 vox shim
 Tests/VoxFlowAppTests/          # App target 测试
 Tests/VoxFlowProviders/VoxFlowProvider*Tests/ # Provider target 测试
 Tests/VoxFlow*Tests/            # 其他独立模块测试
+Tests/VoxFlowScreenshotKitTests/ # 截图采集与标注模块测试
 Resources/                      # AppIcon.icns + iconset
 Vendor/                         # 打包所需的本地 runtime/vendor 资源
 docs/                           # GitHub Pages 落地页、隐私政策、设计/资源文档
@@ -77,7 +79,7 @@ Package.swift                   # SwiftPM 定义（Swift 6.0）
 CONTEXT.md                      # 领域术语、模块边界表、ADR
 ```
 
-Vibe Coding 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 Python 版 `vf-agent` / `agent-cli` 参考 helper 已删除；仓库内剩余 Python 文件只用于 ASR benchmark、架构检查或易错词 JiWER 交叉验证，不参与 App 运行时，也不作为用户 CLI 分发。
+AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 Python 版 `vf-agent` / `agent-cli` 参考 helper 已删除；仓库内剩余 Python 文件只用于 ASR benchmark、架构检查或易错词 JiWER 交叉验证，不参与 App 运行时，也不作为用户 CLI 分发。
 
 ## 架构规则
 
@@ -88,7 +90,7 @@ Vibe Coding 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 P
 | `AppDelegate` | 菜单构建、权限引导、快捷键入口、HUD 回调 | 音频处理、状态机、持久化 |
 | `DictationOrchestrator` | 录制生命周期、ASR 回调、超时兜底、文本管线、注入、历史保存 | 菜单、权限、视图布局 |
 | `VoiceTaskCoordinator` | 统一入口：dictation / agentCompose 两种模式，推进 VoiceTask 记录 | 菜单、视图、音频引擎 |
-| `TextProcessingPipeline` | 替换规则 → LLM 修正 → fallback | ASR、音频、注入 |
+| `TextProcessingPipeline` | 可选 LLM 修正 → 易错词确定性替换 → fallback / 插入前处理 | ASR、音频、注入 |
 | `OutputService` | 模式感知输出选择（注入 vs 复制） | ASR、提示词构建 |
 | `PromptBuilder` / `AgentPromptBuilder` | 纯 prompt 拼装，不持有 repository、不发网络请求 | 持久化、网络 |
 | `TextInjector` | 输入源切换 + 粘贴 + 剪贴板恢复 | 识别或 LLM |

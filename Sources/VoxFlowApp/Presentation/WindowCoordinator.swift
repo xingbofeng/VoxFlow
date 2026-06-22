@@ -2,6 +2,7 @@ import AppKit
 
 @MainActor
 final class WindowCoordinator {
+    private static let logger = AppLogger.general
     private let environment: AppEnvironment
     private let asrRuntime: AppASRRuntime
     private let textRuntime: AppTextRuntime
@@ -23,6 +24,7 @@ final class WindowCoordinator {
 
     func showMainWindow() {
         let createdWindow = mainWindowController == nil
+        Self.logger.debug("show_main_window createdWindow=\(createdWindow)")
         if mainWindowController == nil {
             mainWindowController = MainWindowController(
                 environment: environment,
@@ -34,6 +36,7 @@ final class WindowCoordinator {
         }
         guard let window = mainWindowController?.window else { return }
         let shouldCenterBeforeFirstReveal = createdWindow
+        Self.logger.debug("show_main_window windowIsNil=\(mainWindowController?.window == nil) shouldCenter=\(shouldCenterBeforeFirstReveal)")
         NSApp.activate(ignoringOtherApps: true)
         if createdWindow {
             // AppKit can adjust a newly ordered SwiftUI window on its first pass.
@@ -56,7 +59,12 @@ final class WindowCoordinator {
     }
 
     func showSettings(tab: SettingsTab = .asr) {
+        Self.logger.debug("show_settings tab=\(tab)")
         showMainWindow()
         navigationRouter.showSettings(tab: tab)
+    }
+
+    func refreshScreenshotRecords() {
+        mainWindowController?.refreshScreenshotRecords()
     }
 }

@@ -13,6 +13,7 @@ enum ASRProviderIcon {
     }
 
     static func load(providerID: String) -> NSImage? {
+        AppLogger.general.debug("ASRProviderIcon load providerID=\(providerID)")
         let resourceName: String
         switch providerID {
         case ASRProviderID.appleSpeech:
@@ -52,6 +53,7 @@ enum ASRProviderIcon {
         }
         guard let url = Bundle.module.url(forResource: resourceName, withExtension: "png"),
               let image = NSImage(contentsOf: url) else {
+            AppLogger.general.warning("ASRProviderIcon load failed providerID=\(providerID) resource=\(resourceName)")
             return nil
         }
         image.isTemplate = true

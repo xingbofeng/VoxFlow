@@ -74,7 +74,7 @@ enum PermissionSummary {
 
     static func screenRecordingDescription() -> String {
         """
-        "帮我说"功能可以截取当前窗口作为视觉上下文，帮助 LLM 更好地理解你的意图。
+        "任务助手"功能可以截取当前窗口作为视觉上下文，帮助智能模型更好地理解你的意图。
 
         截图仅在单次任务中使用，不会保存到磁盘或上传到任何服务器。
 

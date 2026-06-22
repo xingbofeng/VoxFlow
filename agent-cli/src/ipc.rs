@@ -8,10 +8,13 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 const MAX_REQUEST_BYTES: u64 = 1_048_576;
+const MAX_CONCURRENT_CONNECTIONS: usize = 32;
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(800);
 
 #[derive(Debug, Deserialize)]
@@ -71,27 +74,90 @@ impl RouterServer {
         let _ = std::fs::remove_file(&self.socket_path);
         let listener = UnixListener::bind(&self.socket_path)?;
         secure_private_file(&self.socket_path)?;
-        let mut handles = Vec::new();
-        for (index, stream) in listener.incoming().enumerate() {
-            let router = self.router.clone();
-            handles.push(thread::spawn(move || {
-                let server = RouterServer {
-                    router,
-                    socket_path: PathBuf::new(),
-                };
-                let _ = server.handle(stream?);
-                Ok::<(), anyhow::Error>(())
-            }));
-            if limit.is_some_and(|limit| index + 1 >= limit) {
-                break;
+        let active_connections = Arc::new(AtomicUsize::new(0));
+        if let Some(limit) = limit {
+            let mut handles = Vec::new();
+            for (index, stream) in listener.incoming().enumerate() {
+                let router = self.router.clone();
+                match Self::try_acquire_connection_slot(&active_connections) {
+                    Some(slot) => {
+                        handles.push(Self::spawn_connection_handler(router, stream, slot))
+                    }
+                    None => Self::reject_busy(stream),
+                }
+                if index + 1 >= limit {
+                    break;
+                }
             }
-        }
-        for handle in handles {
-            let _ = handle.join();
+            for handle in handles {
+                let _ = handle.join();
+            }
+        } else {
+            for stream in listener.incoming() {
+                let router = self.router.clone();
+                match Self::try_acquire_connection_slot(&active_connections) {
+                    Some(slot) => {
+                        let _ = Self::spawn_connection_handler(router, stream, slot);
+                    }
+                    None => Self::reject_busy(stream),
+                }
+            }
         }
         let _ = std::fs::remove_file(&self.socket_path);
         let _ = FileExt::unlock(&server_lock);
         Ok(())
+    }
+
+    fn try_acquire_connection_slot(active: &Arc<AtomicUsize>) -> Option<ConnectionSlot> {
+        let mut current = active.load(Ordering::Acquire);
+        loop {
+            if current >= MAX_CONCURRENT_CONNECTIONS {
+                return None;
+            }
+            match active.compare_exchange_weak(
+                current,
+                current + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => {
+                    return Some(ConnectionSlot {
+                        active: active.clone(),
+                    })
+                }
+                Err(next) => current = next,
+            }
+        }
+    }
+
+    fn spawn_connection_handler(
+        router: Router,
+        stream: std::io::Result<UnixStream>,
+        slot: ConnectionSlot,
+    ) -> thread::JoinHandle<Result<()>> {
+        thread::spawn(move || {
+            let _slot = slot;
+            let server = RouterServer {
+                router,
+                socket_path: PathBuf::new(),
+            };
+            let _ = server.handle(stream?);
+            Ok::<(), anyhow::Error>(())
+        })
+    }
+
+    fn reject_busy(stream: std::io::Result<UnixStream>) {
+        if let Ok(mut stream) = stream {
+            let _ = stream.set_write_timeout(Some(REQUEST_TIMEOUT));
+            let response = Response {
+                id: Value::Null,
+                result: None,
+                error: Some(json!({"code": "router_busy", "message": "router is busy"})),
+            };
+            let _ = serde_json::to_writer(&mut stream, &response);
+            let _ = stream.write_all(b"\n");
+            let _ = stream.flush();
+        }
     }
 
     fn handle(&self, mut stream: UnixStream) -> Result<()> {
@@ -156,6 +222,7 @@ impl RouterServer {
             "list_agents" => {
                 self.router
                     .prune_dispatch_logs(now() - 30.0 * 24.0 * 60.0 * 60.0)?;
+                self.router.refresh_provider_titles()?;
                 let include_inactive = request.params["include_inactive"]
                     .as_bool()
                     .unwrap_or(false);
@@ -195,6 +262,14 @@ impl RouterServer {
             "clean_stale" => Ok(json!({
                 "removed": self.router.registry().remove_stale(&SystemProcessInspector)?
             })),
+            "clean_inactive" => Ok(json!({
+                "removed": self.router.registry().remove_inactive(&SystemProcessInspector)?
+            })),
+            "terminate_agent" => {
+                self.router
+                    .terminate_agent(required_string(&request.params, "agent_id")?)?;
+                Ok(json!({"terminated": true}))
+            }
             "send_message" => {
                 let submit = request.params["submit"].as_bool().unwrap_or(true);
                 self.router.send_message(
@@ -216,6 +291,16 @@ impl RouterServer {
             }
             other => anyhow::bail!("unknown method: {other}"),
         }
+    }
+}
+
+struct ConnectionSlot {
+    active: Arc<AtomicUsize>,
+}
+
+impl Drop for ConnectionSlot {
+    fn drop(&mut self) {
+        self.active.fetch_sub(1, Ordering::AcqRel);
     }
 }
 

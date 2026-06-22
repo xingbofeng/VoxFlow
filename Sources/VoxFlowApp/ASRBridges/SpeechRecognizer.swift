@@ -23,7 +23,9 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
     // MARK: - Permission
 
     static func checkPermission() -> AudioRecorder.PermissionStatus {
-        switch SFSpeechRecognizer.authorizationStatus() {
+        let status = SFSpeechRecognizer.authorizationStatus()
+        AppLogger.audio.debug("Apple speech permission status=\(status.rawValue)")
+        switch status {
         case .authorized: return .granted
         case .denied, .restricted: return .denied
         case .notDetermined: return .notDetermined
@@ -34,6 +36,7 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
     static func requestPermission() async -> SFSpeechRecognizerAuthorizationStatus {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
+                AppLogger.audio.debug("Apple speech permission requested status=\(status.rawValue)")
                 continuation.resume(returning: status)
             }
         }
@@ -42,18 +45,23 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
     // MARK: - Lifecycle
 
     func configure(locale: Locale) {
+        AppLogger.audio.debug("Apple speech recognizer configure locale=\(locale.identifier)")
         recognitionTask?.cancel()
         recognitionTask = nil
         recognizer = SFSpeechRecognizer(locale: locale)
         isAvailable = recognizer?.isAvailable ?? false
+        AppLogger.audio.debug("Apple speech recognizer available=\(isAvailable)")
     }
 
     func start() throws {
+        AppLogger.audio.debug("Apple speech recognizer start")
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
+            AppLogger.audio.warning("Apple speech recognizer start blocked: permission denied")
             throw Error.authorizationDenied
         }
 
         guard let recognizer = recognizer, recognizer.isAvailable else {
+            AppLogger.audio.warning("Apple speech recognizer start blocked: recognizer unavailable")
             throw Error.recognizerUnavailable
         }
 
@@ -65,6 +73,7 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
         recognitionRequest?.shouldReportPartialResults = true
         recognitionRequest?.requiresOnDeviceRecognition = false
         recognitionRequest?.taskHint = .dictation
+        AppLogger.audio.debug("Apple speech recognizer request created")
 
         guard let request = recognitionRequest else { return }
 
@@ -77,8 +86,10 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
                     (nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 216)
                     || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
                 if wasCancelled {
+                    AppLogger.audio.debug("Apple speech recognizer result cancelled")
                     return
                 }
+                AppLogger.audio.warning("Apple speech recognizer error: \(error.localizedDescription)")
                 let capturedOnError = self.onError
                 DispatchQueue.main.async {
                     capturedOnError?(error)
@@ -89,6 +100,7 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
             if let result = result {
                 let text = result.bestTranscription.formattedString
                 let isFinal = result.isFinal
+                AppLogger.audio.debug("Apple speech recognizer callback isFinal=\(isFinal) len=\(text.count)")
                 let capturedOnTranscription = self.onTranscription
                 DispatchQueue.main.async {
                     capturedOnTranscription?(text, isFinal)
@@ -98,21 +110,27 @@ final class SpeechRecognizer: NSObject, @unchecked Sendable, ASREngine {
     }
 
     func appendAudioFrame(_ frame: AudioFrame) {
-        guard let buffer = Self.makeAudioBuffer(from: frame) else { return }
+        guard let buffer = Self.makeAudioBuffer(from: frame) else {
+            AppLogger.audio.warning("Apple speech appendAudioFrame failed: invalid buffer")
+            return
+        }
         recognitionRequest?.append(buffer)
     }
 
     func endAudio() {
+        AppLogger.audio.debug("Apple speech endAudio")
         recognitionRequest?.endAudio()
     }
 
     func stop() {
+        AppLogger.audio.debug("Apple speech stop")
         recognitionTask?.finish()
         recognitionTask = nil
         recognitionRequest = nil
     }
 
     func cancel() {
+        AppLogger.audio.debug("Apple speech cancel")
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil

@@ -20,6 +20,14 @@ struct HighConfidenceCorrectionExtractorTests {
         ).isEmpty)
     }
 
+    @Test("rejects an unsegmented Chinese sentence rewrite")
+    func rejectsChineseSentenceRewrite() {
+        #expect(extractor.extract(
+            original: "这个方案不好",
+            edited: "我想换一个完整说法"
+        ).isEmpty)
+    }
+
     @Test("rejects insertion-only edits")
     func rejectsInsertion() {
         #expect(extractor.extract(original: "hello", edited: "hello world").isEmpty)

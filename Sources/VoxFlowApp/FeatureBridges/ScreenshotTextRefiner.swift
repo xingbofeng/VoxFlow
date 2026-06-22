@@ -7,7 +7,7 @@ protocol ScreenshotTextRefiningCapabilities {
     var isSummaryConfigured: Bool { get }
 }
 
-final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefiningCapabilities, @unchecked Sendable {
+final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefiningCapabilities, StructuredLineTranslationSupporting, @unchecked Sendable {
     private let cloudRefiner: (any PromptAwareTextRefining)?
     private let systemTranslator: any PromptAwareTextRefining
     private let localTranslator: any PromptAwareTextRefining
@@ -54,6 +54,10 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
         cloudRefinerIsReady
     }
 
+    var supportsStructuredLineTranslation: Bool {
+        selectedTranslationModelID == CapabilityModelID.llmTranslation && cloudRefinerIsReady
+    }
+
     func refine(_ text: String) async throws -> String {
         try await refine(
             TextRefinementRequest(
@@ -67,27 +71,36 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
         let isTranslationRequest = Self.isTranslationRequest(request)
+        AppLogger.dictation.info("Screenshot refiner request: type=\(isTranslationRequest ? "translation" : "summary"), model=\(selectedTranslationModelID)")
         if isTranslationRequest {
+            AppLogger.general.debug("Screenshot translation requested")
             var selectedPathError: Error?
             if selectedTranslationModelID == CapabilityModelID.llmTranslation {
+                AppLogger.general.debug("Screenshot translation path: LLM")
                 guard let cloudRefiner,
                       cloudRefiner.isEnabled,
                       cloudRefiner.isConfigured else {
+                    AppLogger.general.warning("Screenshot LLM translation unavailable: cloud not configured")
                     throw ScreenshotLocalModelError.translationRequiresLLM
                 }
                 let output = try await cloudRefiner.refine(request)
+                AppLogger.general.debug("Screenshot LLM translation succeeded length=\(output.count)")
                 return try Self.validatedOutput(output, isTranslationRequest: true)
             } else if selectedTranslationModelID == CapabilityModelID.systemDefaultTranslation {
+                AppLogger.general.debug("Screenshot translation path: system default translation")
                 do {
                     let output = try await systemTranslator.refine(request)
+                    AppLogger.general.debug("Screenshot system translation succeeded length=\(output.count)")
                     return try Self.validatedOutput(output, isTranslationRequest: true)
                 } catch {
                     selectedPathError = error
                     AppLogger.general.warning("Screenshot Apple translation failed, falling back to cloud model: \(error.localizedDescription)")
                 }
             } else if localTranslator.isEnabled, localTranslator.isConfigured {
+                AppLogger.general.debug("Screenshot translation path: local MADLAD")
                 do {
                     let output = try await localTranslator.refine(request)
+                    AppLogger.general.debug("Screenshot local translation succeeded length=\(output.count)")
                     return try Self.validatedOutput(output, isTranslationRequest: true)
                 } catch {
                     selectedPathError = error
@@ -98,23 +111,29 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
             if let cloudRefiner,
                cloudRefiner.isEnabled,
                cloudRefiner.isConfigured {
+                AppLogger.general.debug("Screenshot translation fallback to cloud")
                 let output = try await cloudRefiner.refine(request)
+                AppLogger.general.debug("Screenshot fallback cloud translation succeeded length=\(output.count)")
                 return try Self.validatedOutput(output, isTranslationRequest: true)
             }
 
             if let selectedPathError {
+                AppLogger.general.warning("Screenshot translation failed with prior path error: \(selectedPathError.localizedDescription)")
                 throw selectedPathError
             }
             throw ScreenshotLocalModelError.translationModelNotInstalled
         }
 
+        AppLogger.general.debug("Screenshot summary requested")
         guard let cloudRefiner,
               cloudRefiner.isEnabled,
               cloudRefiner.isConfigured else {
+            AppLogger.general.warning("Screenshot summary unavailable: cloud not configured")
             throw ScreenshotLocalModelError.summaryRequiresLLM
         }
 
         let output = try await cloudRefiner.refine(request)
+        AppLogger.general.debug("Screenshot summary succeeded length=\(output.count)")
         return try Self.validatedOutput(output, isTranslationRequest: false)
     }
 
@@ -160,17 +179,17 @@ private enum ScreenshotLocalModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .translationModelNotInstalled:
-            return "本地翻译模型未安装，MADLAD-400 INT4 约 1.7GB；请先配置 LLM 或安装本地翻译模型"
+            return "本地翻译模型未安装，MADLAD-400 INT4 约 1.7GB；请先配置模型服务或安装本地翻译模型"
         case .translationRequiresLLM:
-            return "翻译需要先配置 LLM 模型"
+            return "翻译前请先配置模型"
         case .summaryModelNotInstalled:
-            return "本地总结模型未安装，Qwen3.5-0.8B INT4 约 404MB；请先配置 LLM 或安装本地总结模型"
+            return "本地总结模型未安装，Qwen3.5-0.8B INT4 约 404MB；请先配置模型或安装本地总结模型"
         case .summaryRequiresLLM:
-            return "总结需要先配置 LLM 模型"
+            return "总结前请先配置模型"
         case .invalidSummaryOutput:
-            return "总结模型输出了网页/代码内容，请重试或改用已配置的 LLM"
+            return "总结模型输出了网页/代码内容，请重试或改用其他已配置模型"
         case .invalidSummaryRepetition:
-            return "总结模型输出异常重复内容，请重试或改用已配置的 LLM"
+            return "总结模型输出异常重复内容，请重试或改用其他已配置模型"
         }
     }
 }
@@ -567,7 +586,7 @@ private enum AppleSystemTranslationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailableOnCurrentSystem:
-            return "Apple 系统翻译在当前系统版本不可用，请使用已配置的 LLM 或安装本地翻译模型"
+            return "Apple 系统翻译在当前系统版本不可用，请使用已配置模型或安装本地翻译模型"
         }
     }
 }

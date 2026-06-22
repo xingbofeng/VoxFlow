@@ -89,6 +89,12 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
             return false
         }
 
+        if originalTokens.count == 1,
+           editedTokens.count == 1,
+           (cjkScalarCount(in: original) > 3 || cjkScalarCount(in: edited) > 3) {
+            return false
+        }
+
         return !isPunctuationOnly(original) && !isPunctuationOnly(edited)
     }
 
@@ -198,5 +204,11 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
                 CharacterSet.symbols.contains($0) ||
                 CharacterSet.whitespacesAndNewlines.contains($0)
         }
+    }
+
+    private func cjkScalarCount(in text: String) -> Int {
+        text.unicodeScalars.filter {
+            (0x4E00...0x9FFF).contains(Int($0.value))
+        }.count
     }
 }

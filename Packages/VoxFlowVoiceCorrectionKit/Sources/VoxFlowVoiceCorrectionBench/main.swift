@@ -43,6 +43,7 @@ do {
     let metrics = report.summary
     guard metrics.totalCases >= baseline.minimumCases,
           report.failedCases.isEmpty,
+          report.failedLearningCases.isEmpty,
           metrics.correctionPrecision >= baseline.correctionPrecision,
           metrics.supportedCorrectionRecall >= baseline.supportedCorrectionRecall,
           metrics.falseReplacementRate <= baseline.falseReplacementRate,
@@ -52,7 +53,7 @@ do {
     else {
         throw BenchmarkError.failedThresholds
     }
-    print("VoiceCorrection benchmark passed: \(metrics.passedCases)/\(metrics.totalCases)")
+    print("VoiceCorrection benchmark passed: \(metrics.passedCases)/\(metrics.totalCases), learning \(report.learningResults.count - report.failedLearningCases.count)/\(report.learningResults.count)")
 } catch {
     fputs("VoiceCorrection benchmark failed: \(error)\n", stderr)
     exit(1)

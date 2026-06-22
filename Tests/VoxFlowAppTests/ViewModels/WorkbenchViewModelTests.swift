@@ -14,13 +14,12 @@ final class WorkbenchViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.snapshot.historyCount, 1)
         XCTAssertEqual(viewModel.snapshot.noteCount, 1)
-        XCTAssertEqual(viewModel.snapshot.glossaryCount, 0)
     }
 
     func testNavigationRoutesCoverRequiredWorkbenchPages() {
         XCTAssertEqual(
             NavigationRoute.allCases.map(\.title),
-            ["首页", "Vibe Coding", "词汇表", "易错词", "风格", "文件转写", "笔记", "设置", "帮助"]
+            ["首页", "截图", "AI 编程", "易错词", "风格", "文件转写", "笔记", "设置", "帮助"]
         )
     }
 

@@ -330,7 +330,9 @@ private final class IntegrationStubTextPipeline: TextProcessing {
             llmProviderID: result.llmProviderID,
             styleID: result.styleID,
             warnings: result.warnings,
-            trace: result.trace
+            trace: result.trace,
+            correctionEvents: result.correctionEvents,
+            appliedCorrectionEvents: result.appliedCorrectionEvents
         )
     }
 }

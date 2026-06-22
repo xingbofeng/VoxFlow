@@ -28,6 +28,8 @@ protocol InstalledApplicationProviding: Sendable {
 // MARK: - FileSystemInstalledApplicationProvider
 
 struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @unchecked Sendable {
+    private let logger = AppLogger.general
+
     private let fileManager: FileManager
     private let applicationsRootPath: String?
     private let userHomePath: String?
@@ -43,6 +45,7 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
     }
 
     func scanInstalledApplications() -> [InstalledApplication] {
+        logger.info("FileSystemInstalledApplicationProvider scan start")
         var results: [InstalledApplication] = []
         var seenBundleIDs: Set<String> = []
 
@@ -70,10 +73,13 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
             scanTargets = targets
         }
 
+        logger.debug("FileSystemInstalledApplicationProvider scan targets: \(scanTargets.map { "\($0.path)" })")
+
         for (path, category) in scanTargets {
             scanDirectory(at: path, category: category, results: &results, seenBundleIDs: &seenBundleIDs)
         }
 
+        logger.info("FileSystemInstalledApplicationProvider scan complete count=\(results.count)")
         return results
     }
 
@@ -85,6 +91,7 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
         results: inout [InstalledApplication],
         seenBundleIDs: inout Set<String>
     ) {
+        logger.debug("scanDirectory start path=\(path) category=\(category.rawValue)")
         // Scan apps at this level
         scanAppBundlelications(
             in: path,
@@ -94,7 +101,11 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
         )
 
         // Scan one level of subdirectories
-        guard let subdirs = try? fileManager.contentsOfDirectory(atPath: path) else { return }
+        guard let subdirs = try? fileManager.contentsOfDirectory(atPath: path) else {
+            logger.warning("scanDirectory list failed path=\(path)")
+            return
+        }
+
         for subdir in subdirs {
             let subdirPath = (path as NSString).appendingPathComponent(subdir)
             var isDir: ObjCBool = false
@@ -102,6 +113,7 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
                   isDir.boolValue,
                   (subdir as NSString).pathExtension != "app"
             else { continue }
+            logger.debug("scanDirectory descend into=\(subdirPath)")
             scanAppBundlelications(
                 in: subdirPath,
                 category: category,
@@ -117,15 +129,31 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
         results: inout [InstalledApplication],
         seenBundleIDs: inout Set<String>
     ) {
-        guard let entries = try? fileManager.contentsOfDirectory(atPath: directoryPath) else { return }
-        for entry in entries where (entry as NSString).pathExtension == "app" {
+        guard let entries = try? fileManager.contentsOfDirectory(atPath: directoryPath) else {
+            logger.warning("scanAppBundles list failed path=\(directoryPath)")
+            return
+        }
+
+        let appEntries = entries.filter { ($0 as NSString).pathExtension == "app" }
+        logger.debug("scanAppBundles path=\(directoryPath) count=\(appEntries.count)")
+
+        for entry in appEntries {
             let appPath = (directoryPath as NSString).appendingPathComponent(entry)
-            guard let app = readApp(at: appPath, category: category) else { continue }
+            guard let app = readApp(at: appPath, category: category) else {
+                logger.warning("scanAppBundles skip invalid app=\(appPath)")
+                continue
+            }
+
             if let bundleID = app.bundleID {
                 let key = bundleID.lowercased()
-                guard !seenBundleIDs.contains(key) else { continue }
+                guard !seenBundleIDs.contains(key) else {
+                    logger.debug("scanAppBundles skip duplicate bundleID=\(bundleID)")
+                    continue
+                }
                 seenBundleIDs.insert(key)
             }
+
+            logger.debug("scanAppBundles add name=\(app.name) bundleID=\(app.bundleID ?? "nil")")
             results.append(app)
         }
     }
@@ -140,26 +168,42 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
         var name = ((path as NSString).deletingPathExtension as NSString).lastPathComponent
         var iconPath: String?
 
-        if let data = fileManager.contents(atPath: infoPlistPath),
-           let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
-            bundleID = plist["CFBundleIdentifier"] as? String
-            if let cfName = plist["CFBundleName"] as? String, !cfName.isEmpty {
-                name = cfName
-            }
-            if let iconFile = plist["CFBundleIconFile"] as? String {
-                let iconFileWithExt = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
-                let candidate = (contentsPath as NSString)
-                    .appendingPathComponent("Resources")
-                    .appending("/" + iconFileWithExt)
-                iconPath = candidate
-            } else if let resources = try? fileManager.contentsOfDirectory(
-                atPath: (contentsPath as NSString).appendingPathComponent("Resources")
-            ) {
-                iconPath = resources
-                    .first { $0.hasSuffix(".icns") }
-                    .map { (contentsPath as NSString).appendingPathComponent("Resources").appending("/" + $0) }
-            }
+        guard let data = fileManager.contents(atPath: infoPlistPath),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data,
+                  options: [],
+                  format: nil
+              ) as? [String: Any] else {
+            logger.warning("readApp missing Info.plist path=\(infoPlistPath)")
+            return InstalledApplication(
+                id: "path:\(path.lowercased())",
+                name: name,
+                bundleID: nil,
+                iconPath: nil,
+                path: path,
+                systemCategory: category
+            )
         }
+
+        bundleID = plist["CFBundleIdentifier"] as? String
+        if let cfName = plist["CFBundleName"] as? String, !cfName.isEmpty {
+            name = cfName
+        }
+        if let iconFile = plist["CFBundleIconFile"] as? String {
+            let iconFileWithExt = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
+            let candidate = (contentsPath as NSString)
+                .appendingPathComponent("Resources")
+                .appending("/" + iconFileWithExt)
+            iconPath = candidate
+        } else if let resources = try? fileManager.contentsOfDirectory(
+            atPath: (contentsPath as NSString).appendingPathComponent("Resources")
+        ) {
+            iconPath = resources
+                .first { $0.hasSuffix(".icns") }
+                .map { (contentsPath as NSString).appendingPathComponent("Resources").appending("/" + $0) }
+        }
+
+        logger.debug("readApp success path=\(path) bundleID=\(bundleID ?? "nil")")
 
         let id: String = {
             if let bundleID, !bundleID.isEmpty { return bundleID }

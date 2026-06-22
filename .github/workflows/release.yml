@@ -54,6 +54,29 @@ jobs:
       - name: Run tests
         run: swift test
 
+      - name: Run voice correction benchmark
+        run: |
+          swift run --package-path Packages/VoxFlowVoiceCorrectionKit VoxFlowVoiceCorrectionBench \
+            --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
+            --baseline Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Baselines/phase1-baseline.json \
+            --output .build/voice-correction-benchmark
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Check Rust agent router
+        working-directory: agent-cli
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Check helper script syntax
+        run: |
+          bash -n agent-cli/vox
+
       - name: Check architecture boundaries
         run: make architecture-check
 

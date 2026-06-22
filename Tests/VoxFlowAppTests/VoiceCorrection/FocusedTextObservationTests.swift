@@ -58,6 +58,21 @@ final class FocusedTextObservationTests: XCTestCase {
         XCTAssertEqual(sleeps, [.seconds(2), .seconds(5), .seconds(10)])
     }
 
+    func testAccessibilityObserverCapsElementCache() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/VoxFlowApp/VoiceCorrection/Observation/AccessibilityFocusedTextObserver.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("maximumCachedElements"))
+        XCTAssertTrue(source.contains("pruneElementCacheIfNeeded"))
+    }
+
     private func observation(
         identity: String,
         value: String,

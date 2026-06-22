@@ -48,8 +48,8 @@ final class AliyunDashScopeASRProviderViewModelTests: XCTestCase {
 
         XCTAssertTrue(source.contains("阿里云百炼配置"))
         XCTAssertTrue(source.contains("DashScope 实时语音识别 WebSocket"))
-        XCTAssertTrue(source.contains("fun-asr-realtime"))
-        XCTAssertTrue(source.contains("API Key 保存在系统钥匙串"))
+        XCTAssertTrue(source.contains("默认使用官方推荐语音识别模型"))
+        XCTAssertTrue(source.contains("访问密钥保存在系统钥匙串"))
     }
 }
 

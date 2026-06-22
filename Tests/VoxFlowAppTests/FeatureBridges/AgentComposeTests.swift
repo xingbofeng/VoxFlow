@@ -144,6 +144,30 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(try repository.fetch(id: agentComposeID)?.finalText, "Generated text")
     }
 
+    func testDefaultHandlerDoesNotReportCopiedStageWhenCopyFails() async throws {
+        let refiner = AgentComposeStubRefiner(result: "Generated text")
+        let outputService = AgentComposeStubOutputService(
+            result: .copyFailed(reason: "Clipboard unavailable")
+        )
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner
+        )
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        var stages: [AgentComposeHUDStage] = []
+        handler.onStageChange = { stages.append($0) }
+
+        try handler.start(target: nil)
+        let result = try await handler.finish(rawTranscript: "compose only")
+
+        XCTAssertEqual(result, .copyFailed(reason: "Clipboard unavailable"))
+        XCTAssertFalse(stages.contains(.copied))
+        XCTAssertEqual(stages, [.readingWindow, .transcribing, .generating])
+    }
+
     func testAgentComposeCancellationDuringLLMDoesNotPersistFinalTextOrDeliverOutput() async throws {
         let refiner = AgentComposeCancellingRefiner(result: "Stale generated text")
         let outputService = AgentComposeStubOutputService(result: .copied)
@@ -213,7 +237,7 @@ final class AgentComposeTests: XCTestCase {
         } catch let error as CoordinatorError {
             if case .llmCallFailed = error {
                 // Expected
-                XCTAssertTrue(error.errorDescription?.contains("LLM") ?? false)
+                XCTAssertTrue(error.errorDescription?.contains("模型调用失败") ?? false)
             } else {
                 XCTFail("Unexpected error type: \(error)")
             }

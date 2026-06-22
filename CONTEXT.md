@@ -19,12 +19,12 @@
 - **Workbench window**: The regular macOS application window shown in Dock, `Command+Tab`, and Force Quit while the menu-bar dictation controls remain available.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
 - **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
-- **VoiceTask mode**: One of `dictation` (right-Command transcription with optional style correction), `agentCompose` ("帮我说" - context-aware LLM generation from user dictation plus window context), or `agentDispatch` (voice-routed instruction delivery to an Agent session).
+- **VoiceTask mode**: One of `dictation` (right-Command transcription with optional style correction), `agentCompose` ("任务助手" - context-aware LLM generation from user dictation plus window context), or `agentDispatch` (voice-routed instruction delivery to an Agent session).
 - **VoiceTask stage**: A step in the task lifecycle: `recording`, `transcribing`, `collectingContext`, `processing`, `outputting`. Stages advance monotonically; backwards transitions are rejected.
-- **Agent Compose ("帮我说")**: A voice mode that reads the current window's context (Accessibility text, window title, optionally a screenshot fallback) and uses an LLM to generate text guided by the user's dictation intent. Output is copy-only: no keyboard injection or auto-send.
-- **Agent Dispatch / 队员调度**: A voice mode that routes a dictated instruction to a registered local coding-agent session and submits it through that session's controlled input channel.
-- **Agent session / 队员会话**: A registered local coding-agent CLI session that can receive an Agent Dispatch instruction.
-- **Agent alias / 队员别名**: A user-confirmed phrase that resolves to an Agent session for future Agent Dispatch targeting.
+- **Agent Compose ("任务助手")**: A voice mode that reads the current window's context (Accessibility text, window title, optionally a screenshot fallback) and uses an LLM to generate text guided by the user's dictation intent. Output is copy-only: no keyboard injection or auto-send.
+- **Agent Dispatch / 任务助手调度**: A voice mode that routes a dictated instruction to a registered local coding-agent session and submits it through that session's controlled input channel.
+- **Agent session / 任务助手会话**: A registered local coding-agent CLI session that can receive an Agent Dispatch instruction.
+- **Agent alias / 任务助手别名**: A user-confirmed phrase that resolves to an Agent session for future Agent Dispatch targeting.
 - **Provider session reference**: A coding-agent CLI's own session identifier or transcript reference linked to an Agent session for resume, diagnostics, and log lookup.
 - **ContextSnapshot**: A structured object holding collected context for a single agent-compose request: trimmed text, source markers, window metadata. Screenshots are transient and never persisted.
 - **Installed application**: A discovered macOS application with name, Bundle ID, icon reference, path, and system category, produced by scanning `/Applications`, `~/Applications`, and system directories.
@@ -48,7 +48,7 @@
 | `TranscriptionSession` | Final/partial/release/timeout completion semantics | AppKit or asynchronous timers |
 | `DictationStateMachine` | Legal dictation state transitions | ASR, audio, UI, persistence |
 | `DictationOrchestrator` | Recording lifecycle, ASR engine callbacks, timeout fallback, text pipeline, injection, history save | Menu construction, permission prompts, view layout |
-| `TextProcessingPipeline` | Replacement stages, optional LLM refinement, prompt context collection, and fallback warnings | ASR, audio capture, text injection |
+| `TextProcessingPipeline` | Optional LLM refinement, post-LLM deterministic voice correction, prompt context collection, and fallback warnings | ASR, audio capture, text injection |
 | `PromptBuilder` | Pure prompt assembly from conservative rules, default style, and enabled glossary terms | Repository access, network requests, history persistence |
 | `AppStyleRuleStore` / `SettingsBackedStyleSelector` | Persisted app-to-style mappings and runtime style resolution for a dictation target | Prompt construction, LLM network requests, SwiftUI layout |
 | `ASRProviderRegistry` | ASR provider descriptors, capability filtering, default provider selection, fallback chain, engine creation | Download UI, AppKit window ownership |

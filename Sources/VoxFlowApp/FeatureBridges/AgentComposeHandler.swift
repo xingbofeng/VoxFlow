@@ -39,24 +39,30 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
         self.target = target
         lastFailedTaskID = nil
+        AppLogger.dictation.debug("AgentComposeHandler start target=\(target?.bundleID ?? "nil")")
         let task = try coordinator.startTask(
             mode: .agentCompose,
             target: target,
             asrMetadata: asrMetadata
         )
+        AppLogger.dictation.info("AgentComposeHandler task started id=\(task.id)")
         activeTaskID = task.id
         coordinator.startContextCollection(target: target, visionSupported: true)
         emitStage(.readingWindow, taskID: task.id)
     }
 
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
+        let providerID = metadata.providerID ?? "nil"
+        AppLogger.dictation.debug("AgentComposeHandler updateASRMetadata provider=\(providerID)")
         try coordinator.updateASRMetadata(metadata, kind: .agentCompose)
     }
 
     func finish(rawTranscript: String) async throws -> OutputResult {
         guard let taskID = activeTaskID else {
+            AppLogger.dictation.warning("AgentComposeHandler finish rejected: no active task")
             throw CoordinatorError.noActiveTask
         }
+        AppLogger.dictation.debug("AgentComposeHandler finish task=\(taskID) transcriptLen=\(rawTranscript.count)")
         emitStage(.transcribing, taskID: taskID)
         try coordinator.recordRawTranscript(rawTranscript, kind: .agentCompose)
 
@@ -99,17 +105,23 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
         switch result {
         case .injected:
             emitStage(.inserted, taskID: taskID, requireActiveWorkflow: false)
-        case .copied, .targetChanged, .permissionDenied, .injectionFailed, .copyFailed:
+        case .copied, .targetChanged, .permissionDenied, .injectionFailed:
             emitStage(.copied, taskID: taskID, requireActiveWorkflow: false)
+        case .copyFailed:
+            AppLogger.dictation.warning("AgentComposeHandler finish copyFailed")
+            break
         case .cancelled:
+            AppLogger.dictation.debug("AgentComposeHandler finish cancelled")
             break
         }
         activeTaskID = nil
         target = nil
+        AppLogger.dictation.debug("AgentComposeHandler finish cleared task")
         return result
     }
 
     func cancel() {
+        AppLogger.dictation.debug("AgentComposeHandler cancel task=\(activeTaskID ?? "nil")")
         coordinator.cancelContextCollection()
         try? coordinator.cancelTask(kind: .agentCompose)
         activeTaskID = nil
@@ -117,6 +129,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     }
 
     func fail(_ error: Error) {
+        AppLogger.dictation.warning("AgentComposeHandler fail \(error.localizedDescription)")
         coordinator.cancelContextCollection()
         lastFailedTaskID = coordinator.activeTaskID(for: .agentCompose)
         try? coordinator.recordFailure(
@@ -142,6 +155,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
            coordinator.activeTaskID(for: .agentCompose) != taskID {
             return
         }
+        AppLogger.dictation.debug("AgentComposeHandler emitStage \(stage)")
         onStageChange?(stage)
     }
 }

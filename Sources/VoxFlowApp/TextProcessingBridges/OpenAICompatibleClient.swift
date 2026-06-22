@@ -95,6 +95,7 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         model: String,
         timeoutSeconds: Double
     ) async throws -> LLMProviderConnectionResult {
+        AppLogger.network.debug("开始连通性测试：baseURL=\(baseURL), model=\(model)")
         let url = try Self.chatCompletionsURL(baseURL: baseURL)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -111,8 +112,10 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
 
         let startedAt = Date()
         let (data, response) = try await session.data(for: request)
+        AppLogger.network.debug("连通性测试收到响应：status=\((response as? HTTPURLResponse)?.statusCode ?? -1), bytes=\(data.count)")
         try validate(response: response, data: data)
         _ = try LLMRefiner.parseChatCompletion(data)
+        AppLogger.network.info("连通性测试成功")
         return LLMProviderConnectionResult(
             message: "连接成功",
             latencyMS: max(0, Int(Date().timeIntervalSince(startedAt) * 1000))
@@ -124,6 +127,7 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         apiKey: String,
         timeoutSeconds: Double
     ) async throws -> [String] {
+        AppLogger.network.debug("开始拉取模型列表：baseURL=\(baseURL)")
         let url = try Self.modelsURL(baseURL: baseURL)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -131,6 +135,7 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         request.timeoutInterval = timeoutSeconds
 
         let (data, response) = try await session.data(for: request)
+        AppLogger.network.debug("模型列表返回：status=\((response as? HTTPURLResponse)?.statusCode ?? -1), bytes=\(data.count)")
         try validate(response: response, data: data)
         return try Self.parseModels(data)
     }
@@ -152,9 +157,11 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
 
     private func validate(response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
+            AppLogger.network.error("响应不是 HTTPURLResponse")
             throw LLMRefiner.Error.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            AppLogger.network.warning("LLM API 非成功响应：code=\(httpResponse.statusCode)")
             if let errorJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let error = errorJSON["error"] as? [String: Any],
                let message = error["message"] as? String {

@@ -1,3 +1,4 @@
+import Foundation
 import VoxFlowVoiceCorrection
 
 protocol VoiceCorrectionTextProcessing {
@@ -11,15 +12,18 @@ struct VoiceCorrectionTextProcessor: VoiceCorrectionTextProcessing {
     let engine: VoiceCorrectionEngine
     let snapshotProvider: CorrectionRuleSnapshotProvider
     let settingsRepository: (any SettingsRepository)?
+    let usageRecorder: (any CorrectionRuleRepository)?
 
     init(
         engine: VoiceCorrectionEngine = VoiceCorrectionEngine(),
         snapshotProvider: CorrectionRuleSnapshotProvider,
-        settingsRepository: (any SettingsRepository)? = nil
+        settingsRepository: (any SettingsRepository)? = nil,
+        usageRecorder: (any CorrectionRuleRepository)? = nil
     ) {
         self.engine = engine
         self.snapshotProvider = snapshotProvider
         self.settingsRepository = settingsRepository
+        self.usageRecorder = usageRecorder
     }
 
     func process(
@@ -27,6 +31,7 @@ struct VoiceCorrectionTextProcessor: VoiceCorrectionTextProcessing {
         context: CorrectionContext
     ) -> CorrectionResult {
         guard isEnabled else {
+            AppLogger.dictation.debug("纠错未启用，返回原文：textLen=\(text.count)")
             return CorrectionResult(rawText: text, correctedText: text)
         }
 
@@ -36,6 +41,7 @@ struct VoiceCorrectionTextProcessor: VoiceCorrectionTextProcessing {
             snapshot: snapshotProvider.refresh()
         )
         guard !shadowMode else {
+            AppLogger.dictation.debug("纠错影子模式开启，结果未落库：rules=\(result.events.count), warnings=\(result.warnings.count)")
             return CorrectionResult(
                 rawText: text,
                 correctedText: text,
@@ -43,6 +49,11 @@ struct VoiceCorrectionTextProcessor: VoiceCorrectionTextProcessing {
                 warnings: result.warnings
             )
         }
+        AppLogger.dictation.info("完成纠错：textLen=\(text.count), events=\(result.events.count)")
+        try? usageRecorder?.recordApplications(
+            ruleIDs: result.events.map(\.ruleID),
+            at: Date()
+        )
         return result
     }
 

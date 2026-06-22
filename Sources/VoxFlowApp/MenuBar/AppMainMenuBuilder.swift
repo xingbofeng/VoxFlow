@@ -1,7 +1,11 @@
 import AppKit
 
 enum AppMainMenuBuilder {
+    private static let logger = AppLogger.general
+
+    @MainActor
     static func makeMainMenu() -> NSMenu {
+        logger.debug("AppMainMenuBuilder makeMainMenu start")
         let mainMenu = NSMenu()
 
         let applicationMenuItem = NSMenuItem()
@@ -43,6 +47,7 @@ enum AppMainMenuBuilder {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
+        logger.debug("AppMainMenuBuilder makeMainMenu completed items=\(mainMenu.items.count)")
         return mainMenu
     }
 }

@@ -350,7 +350,7 @@ final class ASRProviderViewModelTests: XCTestCase {
         let aliyun = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.qwenCloudASR })
         XCTAssertFalse(aliyun.isAvailable)
         XCTAssertNil(aliyun.engineType)
-        XCTAssertEqual(aliyun.statusMessage, "需要配置百炼 API Key")
+        XCTAssertEqual(aliyun.statusMessage, "请先配置百炼访问密钥")
 
         let tencent = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.tencentCloudASR })
         XCTAssertFalse(tencent.isAvailable)

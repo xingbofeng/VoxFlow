@@ -1,16 +1,17 @@
 import Foundation
+import VoxFlowVoiceCorrection
 
 enum HomeHistoryDetailPresentation {
     static let missingTraceMessage = "这条记录没有模型纠错信息。可能是当时没有开启文本纠错，或者它是在追踪功能上线前生成的。点击右上角“重新处理”，即可查看是否调用模型、发送内容和返回结果。"
 
     static func missingTraceMessage(for taskMode: VoiceTaskMode?) -> String {
         if taskMode == .agentDispatch {
-            return "这条 Vibe Coding 指挥记录不调用文本纠错模型；语音原文和调度结果已单独保留。"
+            return "这条AI 编程记录不会调用文本纠错模型；语音原文和生成结果已单独保留。"
         }
         guard taskMode == .agentCompose else {
             return missingTraceMessage
         }
-        return "这条“帮我说”记录没有保存模型调用过程，但识别原文和生成结果仍已保留。可以使用右上角“复制结果”。"
+        return "这条“任务助手”记录没有保存模型调用过程，但识别原文和生成结果仍已保留。可以使用右上角“复制结果”。"
     }
 
     static func languageName(for identifier: String) -> String {
@@ -76,7 +77,7 @@ enum HomeHistoryDetailPresentation {
         }
         switch providerID {
         case "legacy-openai-compatible":
-            return "OpenAI 兼容纠错服务"
+            return "智能模型纠错服务"
         case nil, "":
             return "未启用"
         default:
@@ -111,6 +112,63 @@ enum HomeHistoryDetailPresentation {
         return String(format: "%.1f 秒", seconds)
     }
 
+    static func contextBoostStatusText(appliedToPrompt: Bool) -> String {
+        appliedToPrompt ? "已加入提示词" : "未应用"
+    }
+
+    static func contextBoostSourceName(for source: String) -> String {
+        switch source {
+        case "current_window_ocr":
+            return "当前窗口识别文字"
+        case "screenshot_ocr":
+            return "截图识别文字"
+        default:
+            return source
+        }
+    }
+
+    static func contextBoostHotwordsText(_ hotwords: [String]) -> String {
+        guard !hotwords.isEmpty else { return "未提取到可用热词" }
+        return hotwords.joined(separator: "、")
+    }
+
+    static func contextBoostFailureReasonText(_ reason: String) -> String {
+        switch reason {
+        case "no_ocr_context":
+            return "未在当前窗口识别到可用关键词"
+        case "context_boost_timeout":
+            return "图片文字识别上下文采集超时，已继续纠错"
+        default:
+            return reason
+        }
+    }
+
+    static func voiceCorrectionStatusText(
+        candidateCount: Int,
+        appliedCount: Int,
+        failed: Bool
+    ) -> String {
+        if failed {
+            return "处理失败"
+        }
+        if appliedCount > 0 {
+            return "已替换 \(appliedCount) 处"
+        }
+        if candidateCount > 0 {
+            return "命中 \(candidateCount) 条，未改写"
+        }
+        return "已检查，未命中"
+    }
+
+    static func voiceCorrectionScopeText(_ scope: RuleScope) -> String {
+        switch scope {
+        case .global:
+            return "全局"
+        case .application(let bundleIdentifier):
+            return "应用：\(bundleIdentifier)"
+        }
+    }
+
     static func warningMessage(for code: String, taskMode: VoiceTaskMode?) -> String {
         switch code {
         case "vision_not_supported":
@@ -124,7 +182,7 @@ enum HomeHistoryDetailPresentation {
         case "agent_llm_failed":
             return "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
         case "llm_refinement_failed":
-            return "LLM 模型调用失败，已保留原始识别文本。"
+            return "模型调用失败，已保留原始识别文本。"
         case "llm_refinement_cancelled_by_user":
             return "已取消文本纠错，直接使用原始识别文本。"
         case "context_collection_timeout":

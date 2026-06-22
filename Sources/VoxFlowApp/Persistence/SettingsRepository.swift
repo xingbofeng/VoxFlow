@@ -26,12 +26,14 @@ final class SQLiteSettingsRepository: SettingsRepository {
     }
 
     func value(forKey key: String) throws -> String? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("读取设置：key=\(key)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 "SELECT value_json FROM app_settings WHERE key = ?"
             )
             try statement.bind(key, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("设置不存在：key=\(key)")
                 return nil
             }
             return statement.columnString(at: 0)
@@ -39,6 +41,7 @@ final class SQLiteSettingsRepository: SettingsRepository {
     }
 
     func set(_ key: String, jsonValue: String) throws {
+        AppLogger.database.debug("写入设置：key=\(key)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -54,9 +57,11 @@ final class SQLiteSettingsRepository: SettingsRepository {
             try statement.bind(ISO8601DateFormatter().string(from: clock.now), at: 3)
             _ = try statement.step()
         }
+        AppLogger.database.info("设置已写入：key=\(key)")
     }
 
     func deleteValue(forKey key: String) throws {
+        AppLogger.database.warning("删除设置：key=\(key)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare("DELETE FROM app_settings WHERE key = ?")
             try statement.bind(key, at: 1)
@@ -65,7 +70,8 @@ final class SQLiteSettingsRepository: SettingsRepository {
     }
 
     func list() throws -> [AppSettingRecord] {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("列出设置")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 "SELECT key, value_json, updated_at FROM app_settings ORDER BY key ASC"
             )
@@ -85,6 +91,7 @@ final class SQLiteSettingsRepository: SettingsRepository {
                     )
                 )
             }
+            AppLogger.database.debug("设置列表返回 count=\(records.count)")
             return records
         }
     }

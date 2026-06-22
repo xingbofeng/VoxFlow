@@ -149,6 +149,38 @@ fn oversized_request_is_rejected_without_stopping_server() {
     handle.join().unwrap();
 }
 
+#[test]
+fn production_router_server_does_not_retain_join_handles() {
+    let source = include_str!("../src/ipc.rs");
+
+    assert!(
+        source.contains("if let Some(limit) = limit"),
+        "serve_n should be the only path that retains and joins connection handles"
+    );
+    assert!(
+        source.contains("let _ = Self::spawn_connection_handler(router, stream, slot);"),
+        "unbounded serve() should spawn detached handlers without retaining JoinHandles"
+    );
+}
+
+#[test]
+fn production_router_server_limits_concurrent_connection_handlers() {
+    let source = include_str!("../src/ipc.rs");
+
+    assert!(
+        source.contains("MAX_CONCURRENT_CONNECTIONS"),
+        "router should define a hard worker concurrency limit"
+    );
+    assert!(
+        source.contains("try_acquire_connection_slot"),
+        "router should acquire a bounded connection slot before spawning a handler"
+    );
+    assert!(
+        source.contains("router_busy"),
+        "router should reject overflow clients with a recoverable busy error"
+    );
+}
+
 fn request(socket: &std::path::Path, json: &str) -> serde_json::Value {
     let mut stream = UnixStream::connect(socket).unwrap();
     stream.write_all(json.as_bytes()).unwrap();

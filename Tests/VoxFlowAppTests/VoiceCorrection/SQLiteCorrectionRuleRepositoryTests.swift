@@ -51,6 +51,36 @@ final class SQLiteCorrectionRuleRepositoryTests: XCTestCase {
         XCTAssertThrowsError(try repository.save(duplicate))
     }
 
+    func testAllowsSameOriginalForDifferentProviderModelOrLanguage() throws {
+        try repository.save(makeRule(original: "teh", replacement: "the"))
+
+        var providerScoped = makeRule(original: "TEH", replacement: "The")
+        providerScoped.providerID = "qwen3"
+        XCTAssertNoThrow(try repository.save(providerScoped))
+
+        var modelScoped = makeRule(original: "TEH", replacement: "The")
+        modelScoped.modelID = "remote"
+        XCTAssertNoThrow(try repository.save(modelScoped))
+
+        var languageScoped = makeRule(original: "TEH", replacement: "The")
+        languageScoped.language = "zh-Hans"
+        XCTAssertNoThrow(try repository.save(languageScoped))
+    }
+
+    func testRecordsRuleApplications() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var rule = makeRule(original: "teh", replacement: "the")
+        rule.appliedCount = 0
+        rule.lastAppliedAt = nil
+        try repository.save(rule)
+
+        try repository.recordApplications(ruleIDs: [rule.id], at: now)
+
+        let saved = try XCTUnwrap(repository.rule(id: rule.id))
+        XCTAssertEqual(saved.appliedCount, 1)
+        XCTAssertEqual(saved.lastAppliedAt, now)
+    }
+
     func testCreatesImmutableSnapshotFromStoredRules() throws {
         let rule = makeRule(original: "teh", replacement: "the")
         try repository.save(rule)

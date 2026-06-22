@@ -18,7 +18,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
                 providerID: "legacy-openai-compatible",
                 traceProviderName: nil
             ),
-            "OpenAI 兼容纠错服务"
+            "智能模型纠错服务"
         )
         XCTAssertEqual(
             HomeHistoryDetailPresentation.styleName(for: "builtin.coding"),
@@ -28,6 +28,12 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
             HomeHistoryDetailPresentation.languageName(for: "zh-CN"),
             "中文（简体）"
         )
+    }
+
+    func testProviderInitialBadgeUsesFirstVisibleCharacter() {
+        XCTAssertEqual(ProviderInitialBadge.initial(from: "Qwen3 本地识别"), "Q")
+        XCTAssertEqual(ProviderInitialBadge.initial(from: " Tencent"), "T")
+        XCTAssertEqual(ProviderInitialBadge.initial(from: nil), "?")
     }
 
     func testMissingTraceMessageExplainsWhatUserCanDo() {
@@ -40,14 +46,14 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
     func testAgentComposeMissingTraceMessageDoesNotOfferReprocessing() {
         XCTAssertEqual(
             HomeHistoryDetailPresentation.missingTraceMessage(for: .agentCompose),
-            "这条“帮我说”记录没有保存模型调用过程，但识别原文和生成结果仍已保留。可以使用右上角“复制结果”。"
+            "这条“任务助手”记录没有保存模型调用过程，但识别原文和生成结果仍已保留。可以使用右上角“复制结果”。"
         )
     }
 
     func testAgentDispatchMissingTraceMessagePointsToSavedDispatchResult() {
         XCTAssertEqual(
             HomeHistoryDetailPresentation.missingTraceMessage(for: .agentDispatch),
-            "这条 Vibe Coding 指挥记录不调用文本纠错模型；语音原文和调度结果已单独保留。"
+            "这条AI 编程记录不会调用文本纠错模型；语音原文和生成结果已单独保留。"
         )
     }
 
@@ -122,6 +128,63 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: nil), "未记录")
     }
 
+    func testContextBoostTracePresentationUsesUserReadableLabels() {
+        XCTAssertEqual(HomeHistoryDetailPresentation.contextBoostStatusText(appliedToPrompt: true), "已加入提示词")
+        XCTAssertEqual(HomeHistoryDetailPresentation.contextBoostStatusText(appliedToPrompt: false), "未应用")
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextBoostSourceName(for: "current_window_ocr"),
+            "当前窗口识别文字"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextBoostHotwordsText(["Qwen3-ASR", "WhisperKit"]),
+            "Qwen3-ASR、WhisperKit"
+        )
+        XCTAssertEqual(HomeHistoryDetailPresentation.contextBoostHotwordsText([]), "未提取到可用热词")
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextBoostFailureReasonText("no_ocr_context"),
+            "未在当前窗口识别到可用关键词"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextBoostFailureReasonText("context_boost_timeout"),
+            "图片文字识别上下文采集超时，已继续纠错"
+        )
+    }
+
+    func testVoiceCorrectionTracePresentationUsesUserReadableLabels() {
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.voiceCorrectionStatusText(
+                candidateCount: 0,
+                appliedCount: 0,
+                failed: false
+            ),
+            "已检查，未命中"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.voiceCorrectionStatusText(
+                candidateCount: 1,
+                appliedCount: 0,
+                failed: false
+            ),
+            "命中 1 条，未改写"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.voiceCorrectionStatusText(
+                candidateCount: 2,
+                appliedCount: 2,
+                failed: false
+            ),
+            "已替换 2 处"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.voiceCorrectionStatusText(
+                candidateCount: 0,
+                appliedCount: 0,
+                failed: true
+            ),
+            "处理失败"
+        )
+    }
+
     func testWarningCodesArePresentedAsReadableChinese() {
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(
@@ -142,7 +205,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
                 for: "llm_refinement_failed",
                 taskMode: .dictation
             ),
-            "LLM 模型调用失败，已保留原始识别文本。"
+            "模型调用失败，已保留原始识别文本。"
         )
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(

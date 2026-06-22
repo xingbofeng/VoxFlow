@@ -27,6 +27,7 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
         "VoxFlowFeatures",
         "VoxFlowDesignSystem",
         "VoxFlowInfrastructure",
+        "VoxFlowScreenshotKit",
         "VoxFlowASRWorker",
     ]
     private let requiredTestTargets = [
@@ -35,6 +36,7 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
         "VoxFlowAudioTests",
         "VoxFlowDomainTests",
         "VoxFlowInfrastructureTests",
+        "VoxFlowScreenshotKitTests",
         "VoxFlowProviderAppleTests",
         "VoxFlowProviderNVIDIATests",
         "VoxFlowProviderParaformerTests",
@@ -140,6 +142,24 @@ final class SwiftPMTargetSkeletonTests: XCTestCase {
                 "Package.swift must declare test target \(target)."
             )
         }
+    }
+
+    func testVoxFlowAppDependsOnScreenshotKitTarget() throws {
+        let root = try Self.repositoryRoot()
+        let package = try String(
+            contentsOf: root.appendingPathComponent("Package.swift"),
+            encoding: .utf8
+        )
+        let appTargetStart = try XCTUnwrap(package.range(of: #"executableTarget\(\s*name: "VoxFlowApp""#, options: .regularExpression))
+        let appTargetBody = package[appTargetStart.lowerBound...]
+        let dependenciesStart = try XCTUnwrap(appTargetBody.range(of: "dependencies: ["))
+        let dependenciesBody = appTargetBody[dependenciesStart.upperBound...]
+        let dependenciesEnd = try XCTUnwrap(dependenciesBody.range(of: "],"))
+
+        XCTAssertTrue(
+            dependenciesBody[..<dependenciesEnd.lowerBound].contains(#""VoxFlowScreenshotKit""#),
+            "VoxFlowApp target must depend on VoxFlowScreenshotKit so runtime adapters can import it."
+        )
     }
 
     func testDedicatedVoxFlowTestTargetDirectoriesContainSwiftSource() throws {

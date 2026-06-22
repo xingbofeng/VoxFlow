@@ -88,6 +88,21 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertFalse(appDelegate.contains("AgentHelperManager(paths: paths)"))
     }
 
+    func testTextRuntimeInjectsCurrentWindowOCRContextProviderIntoPipeline() throws {
+        let root = try Self.repositoryRoot()
+        let appRuntime = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/App/AppRuntime.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(appRuntime.contains("let contextBoostProvider = CurrentWindowOCRContextProvider()"))
+        XCTAssertTrue(appRuntime.contains("contextBoostProvider: contextBoostProvider"))
+        XCTAssertTrue(appRuntime.contains("sessionProvider: contextBoostProvider"))
+        XCTAssertTrue(appRuntime.contains("let screenshotInlineTranslator = ScreenshotInlineSelectionTranslator("))
+        XCTAssertTrue(appRuntime.contains("inlineTranslator: screenshotInlineTranslator"))
+        XCTAssertFalse(appRuntime.contains("imageProvider: SystemInteractiveScreenshotImageProvider()"))
+    }
+
     private static func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         while directory.path != "/" {

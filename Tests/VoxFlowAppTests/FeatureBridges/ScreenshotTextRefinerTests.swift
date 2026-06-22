@@ -121,7 +121,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
             )
             XCTFail("Expected disabled LLM translation to fail")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "翻译需要先配置 LLM 模型")
+            XCTAssertEqual(error.localizedDescription, "翻译前请先配置模型")
         }
         XCTAssertTrue(cloud.requests.isEmpty)
     }
@@ -374,7 +374,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
             )
             XCTFail("Expected summary without configured LLM to fail")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "总结需要先配置 LLM 模型")
+            XCTAssertEqual(error.localizedDescription, "总结前请先配置模型")
         }
         XCTAssertTrue(cloud.requests.isEmpty)
         XCTAssertTrue(localSummarizer.requests.isEmpty)
@@ -403,7 +403,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
             )
             XCTFail("Expected summary with disabled LLM to fail")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "总结需要先配置 LLM 模型")
+            XCTAssertEqual(error.localizedDescription, "总结前请先配置模型")
         }
         XCTAssertTrue(cloud.requests.isEmpty)
         XCTAssertTrue(localSummarizer.requests.isEmpty)
@@ -438,7 +438,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
             )
             XCTFail("Expected HTML summary output to be rejected")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "总结模型输出了网页/代码内容，请重试或改用已配置的 LLM")
+            XCTAssertEqual(error.localizedDescription, "总结模型输出了网页/代码内容，请重试或改用其他已配置模型")
         }
     }
 

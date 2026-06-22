@@ -9,13 +9,15 @@ final class DatabaseQueue {
     }
 
     func read<T>(_ block: (SQLiteConnection) throws -> T) throws -> T {
-        try queue.sync {
+        AppLogger.database.debug("DatabaseQueue read 开始")
+        return try queue.sync {
             try block(connection)
         }
     }
 
     func write<T>(_ block: (SQLiteConnection) throws -> T) throws -> T {
-        try queue.sync {
+        AppLogger.database.debug("DatabaseQueue write 开始")
+        return try queue.sync {
             try block(connection)
         }
     }

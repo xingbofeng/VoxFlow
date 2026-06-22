@@ -60,7 +60,11 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     }
 
     func start() throws {
+        AppLogger.audio.debug(
+            "ASRCoreBackedASREngine start requested available=\(isAvailable) configuredLanguage=\(configuredLanguage?.bcp47Tag ?? defaultLanguage.bcp47Tag)"
+        )
         guard isAvailable else {
+            AppLogger.audio.warning("ASRCoreBackedASREngine start blocked model not loaded")
             throw ASREngineError.modelNotLoaded
         }
 
@@ -77,6 +81,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             startedAt = ContinuousClock.now
             return self.generation
         }
+        AppLogger.audio.debug("ASRCoreBackedASREngine start generation=\(generation)")
         var frameContinuation: AsyncStream<AudioFrame>.Continuation?
         let frameStream = AsyncStream<AudioFrame>(bufferingPolicy: .bufferingNewest(96)) { continuation in
             frameContinuation = continuation
@@ -99,6 +104,9 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 }
             } catch is CancellationError {
             } catch {
+                AppLogger.audio.warning(
+                    "ASRCoreBackedASREngine frame consumer failed generation=\(generation) reason=\(error.localizedDescription)"
+                )
                 guard self.isCurrentGeneration(generation) else { return }
                 await MainActor.run {
                     callbacks.onError?(error)
@@ -115,6 +123,9 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 }
             } catch is CancellationError {
             } catch {
+                AppLogger.audio.warning(
+                    "ASRCoreBackedASREngine event loop failed generation=\(generation) reason=\(error.localizedDescription)"
+                )
                 guard self.isCurrentGeneration(generation) else { return }
                 await MainActor.run {
                     callbacks.onError?(error)
@@ -135,6 +146,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     func appendAudioFrame(_ frame: AudioFrame) {
         let continuation = lifecycleLock.withLock {
             guard sessionTask != nil, !isFinishing, let frameContinuation else {
+                AppLogger.audio.warning("ASRCoreBackedASREngine appendAudioFrame skipped (not recording)")
                 return Optional<AsyncStream<AudioFrame>.Continuation>.none
             }
             if !frame.samples.isEmpty {
@@ -156,6 +168,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     func endAudio() {
         let snapshot = lifecycleLock.withLock {
             guard let sessionTask else {
+                AppLogger.audio.warning("ASRCoreBackedASREngine endAudio skipped (no active session)")
                 return Optional<(
                     sessionTask: Task<any ASRSession, Error>,
                     eventTask: Task<Void, Never>?,
@@ -181,6 +194,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
         let callbacks = callbacks
         snapshot.frameContinuation?.finish()
         guard snapshot.hasAcceptedAudioFrame else {
+            AppLogger.audio.debug("ASRCoreBackedASREngine endAudio with no accepted frames generation=\(snapshot.generation)")
             snapshot.frameConsumerTask?.cancel()
             snapshot.eventTask?.cancel()
             callbacks.onTranscription?("", true)
@@ -195,10 +209,14 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             do {
                 await snapshot.frameConsumerTask?.value
                 guard self.isCurrentGeneration(snapshot.generation) else { return }
+                AppLogger.audio.debug("ASRCoreBackedASREngine finishing with frames generation=\(snapshot.generation)")
                 let session = try await snapshot.sessionTask.value
                 try await session.finish()
             } catch is CancellationError {
             } catch {
+                AppLogger.audio.warning(
+                    "ASRCoreBackedASREngine endAudio failed generation=\(snapshot.generation) reason=\(error.localizedDescription)"
+                )
                 guard self.isCurrentGeneration(snapshot.generation) else { return }
                 await MainActor.run {
                     callbacks.onError?(error)
@@ -209,6 +227,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
 
     func stop() {
         let snapshot = lifecycleLock.withLock {
+            AppLogger.audio.debug("ASRCoreBackedASREngine stop generation=\(generation)")
             generation &+= 1
             isFinishing = true
             let snapshot = (
@@ -238,6 +257,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
 
     func cancel() {
         let snapshot = lifecycleLock.withLock {
+            AppLogger.audio.debug("ASRCoreBackedASREngine cancel generation=\(generation)")
             generation &+= 1
             let snapshot = (
                 frameContinuation: frameContinuation,

@@ -13,6 +13,7 @@ final class VoiceTaskRepository {
     // MARK: - Create
 
     func create(_ task: VoiceTask) throws {
+        AppLogger.database.debug("创建 VoiceTask：id=\(task.id), mode=\(task.mode.rawValue), status=\(task.status.rawValue)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -36,7 +37,8 @@ final class VoiceTaskRepository {
     // MARK: - Fetch
 
     func fetch(id: String) throws -> VoiceTask? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询 VoiceTask：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, mode, stage, status,
@@ -61,8 +63,10 @@ final class VoiceTaskRepository {
     // MARK: - Update stage
 
     func updateStage(_ task: VoiceTask) throws {
+        AppLogger.database.debug("更新任务阶段：id=\(task.id), stage=\(task.stage.rawValue)")
         // Validate monotonic advancement by reading the current stage.
         guard let existing = try fetch(id: task.id) else {
+            AppLogger.database.warning("更新阶段失败：任务不存在 id=\(task.id)")
             throw VoiceTaskError.taskNotFound(task.id)
         }
         try existing.stage.validateAdvancement(to: task.stage)
@@ -197,6 +201,7 @@ final class VoiceTaskRepository {
     }
 
     func updateFailure(id: String, failureJson: String, status: VoiceTaskStatus) throws {
+        AppLogger.database.warning("记录任务失败：id=\(id), status=\(status.rawValue)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -236,6 +241,7 @@ final class VoiceTaskRepository {
         outputResult: String?,
         completedAt: Date
     ) throws {
+        AppLogger.database.info("完成任务：id=\(id), status=\(status.rawValue), hasOutput=\(outputResult != nil)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
@@ -256,7 +262,8 @@ final class VoiceTaskRepository {
     // MARK: - Queries
 
     func queryIncompleteTasks() throws -> [VoiceTask] {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询未完成任务")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, mode, stage, status,
@@ -279,7 +286,7 @@ final class VoiceTaskRepository {
         }
     }
 
-    func listRecent(mode: VoiceTaskMode, limit: Int) throws -> [VoiceTask] {
+    func listRecent(mode: VoiceTaskMode, limit: Int, offset: Int = 0) throws -> [VoiceTask] {
         try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
@@ -294,10 +301,12 @@ final class VoiceTaskRepository {
                 WHERE mode = ?
                 ORDER BY created_at DESC
                 LIMIT ?
+                OFFSET ?
                 """
             )
             try statement.bind(mode.rawValue, at: 1)
             try statement.bind(limit, at: 2)
+            try statement.bind(offset, at: 3)
             var tasks: [VoiceTask] = []
             while try statement.step() {
                 tasks.append(try row(from: statement))
@@ -307,6 +316,7 @@ final class VoiceTaskRepository {
     }
 
     func delete(id: String) throws {
+        AppLogger.database.warning("删除任务：id=\(id)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 "DELETE FROM voice_tasks WHERE id = ?"

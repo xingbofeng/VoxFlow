@@ -3,6 +3,8 @@ import Foundation
 /// Shared mapping from keyboard key codes to display names and SF Symbol icons.
 /// Used by HelpView, SettingsRootView, and AppDelegate to avoid duplication.
 enum KeyCodeMapping {
+    private static let logger = AppLogger.general
+
     static func displayName(for keyCode: Int64) -> String {
         let modifierMask = ShortcutManager.modifierMask(for: keyCode)
         if modifierMask != 0 {
@@ -52,7 +54,9 @@ enum KeyCodeMapping {
         case 40: return "K"
         case 45: return "N"
         case 46: return "M"
-        default: return "按键 \(keyCode)"
+        default:
+            logger.debug("KeyCodeMapping fallback base keyCode=\(keyCode)")
+            return "按键 \(keyCode)"
         }
     }
 
@@ -68,8 +72,20 @@ enum KeyCodeMapping {
         case 36: return "return"
         case 49: return "space"
         case 53: return "escape"
-        default: return "keyboard"
+        default:
+            logger.debug("KeyCodeMapping fallback icon for keyCode=\(keyCode)")
+            return "keyboard"
         }
+    }
+
+    static func keycapLabels(for keyCode: Int64) -> [String] {
+        let modifierMask = ShortcutManager.modifierMask(for: keyCode)
+        if modifierMask != 0 {
+            var labels = modifierKeycapLabels(for: modifierMask)
+            labels.append(keycapLabel(forBaseKeyCode: ShortcutManager.baseKeyCode(for: keyCode)))
+            return labels
+        }
+        return [keycapLabel(forBaseKeyCode: keyCode)]
     }
 
     private static func modifierDisplayNames(for mask: Int64) -> [String] {
@@ -79,5 +95,33 @@ enum KeyCodeMapping {
         if mask & ShortcutManager.optionModifierMask != 0 { names.append("Option") }
         if mask & ShortcutManager.controlModifierMask != 0 { names.append("Control") }
         return names
+    }
+
+    private static func modifierKeycapLabels(for mask: Int64) -> [String] {
+        var labels: [String] = []
+        if mask & ShortcutManager.commandModifierMask != 0 { labels.append("⌘") }
+        if mask & ShortcutManager.shiftModifierMask != 0 { labels.append("⇧") }
+        if mask & ShortcutManager.optionModifierMask != 0 { labels.append("⌥") }
+        if mask & ShortcutManager.controlModifierMask != 0 { labels.append("⌃") }
+        return labels
+    }
+
+    private static func keycapLabel(forBaseKeyCode keyCode: Int64) -> String {
+        switch keyCode {
+        case 54: return "右 ⌘"
+        case 55: return "左 ⌘"
+        case 56: return "左 ⇧"
+        case 60: return "右 ⇧"
+        case 58: return "左 ⌥"
+        case 61: return "右 ⌥"
+        case 59: return "左 ⌃"
+        case 62: return "右 ⌃"
+        case 36: return "↩"
+        case 49: return "Space"
+        case 53: return "Esc"
+        default:
+            logger.debug("KeyCodeMapping fallback keycap for keyCode=\(keyCode)")
+            return displayName(forBaseKeyCode: keyCode)
+        }
     }
 }

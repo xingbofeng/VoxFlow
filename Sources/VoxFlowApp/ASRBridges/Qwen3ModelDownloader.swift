@@ -37,11 +37,16 @@ extension Qwen3ModelDownloading {
         size: ASRManager.ModelSize,
         progress: @escaping Qwen3ModelDownloader.ProgressHandler
     ) async throws -> URL {
+        AppLogger.general.info("Prepare Qwen3 download: size=\(size.rawValue)")
         guard ASRManager.isQwen3RuntimeSupported(size: size) else {
+            AppLogger.general.warning(
+                "Qwen3 runtime unsupported: size=\(size.rawValue), reason=\(ASRManager.qwen3RuntimeUnsupportedMessage(for: size))"
+            )
             throw Qwen3ModelDownloadError.runtimeUnsupported(
                 ASRManager.qwen3RuntimeUnsupportedMessage(for: size)
             )
         }
+        AppLogger.general.info("Start Qwen3 download for size=\(size.rawValue)")
         return try await download(manifest: Qwen3ModelManifest.manifest(for: size), progress: progress)
     }
 
@@ -71,10 +76,12 @@ final class Qwen3LiveModelStoreInstaller: Qwen3ModelStoreInstalling, @unchecked 
         manifest: ModelManifest,
         progress: ModelDownloadObserver?
     ) async throws -> URL {
+        AppLogger.general.info("Qwen3 model install begin: manifest=\(manifest)")
         let paths: ApplicationSupportPaths
         do {
             paths = try ApplicationSupportPaths.live(fileManager: fileManager)
         } catch ApplicationSupportPathsError.applicationSupportDirectoryUnavailable {
+            AppLogger.general.error("ApplicationSupport unavailable for Qwen3 install")
             throw Qwen3ModelDownloadError.applicationSupportUnavailable
         }
 
@@ -84,10 +91,12 @@ final class Qwen3LiveModelStoreInstaller: Qwen3ModelStoreInstalling, @unchecked 
             fileManager: fileManager,
             transport: transport
         )
-        return try await installer.install(
+        let result = try await installer.install(
             manifest: manifest,
             progress: progress
         )
+        AppLogger.general.info("Qwen3 model install completed: manifest=\(manifest)")
+        return result
     }
 }
 

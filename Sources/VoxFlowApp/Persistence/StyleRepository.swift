@@ -35,6 +35,7 @@ final class SQLiteStyleRepository: StyleRepository {
     }
 
     func save(_ profile: StyleProfileRecord) throws {
+        AppLogger.database.debug("保存样式：id=\(profile.id), default=\(profile.isDefault)")
         try databaseQueue.write { connection in
             if profile.isDefault {
                 try connection.execute("UPDATE style_profiles SET is_default = 0")
@@ -67,10 +68,12 @@ final class SQLiteStyleRepository: StyleRepository {
             try bind(profile, to: statement)
             _ = try statement.step()
         }
+        AppLogger.database.info("样式已保存：id=\(profile.id)")
     }
 
     func profile(id: String) throws -> StyleProfileRecord? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询样式：id=\(id)")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, name, category, subtitle, mode, prompt, sample_input,
@@ -83,6 +86,7 @@ final class SQLiteStyleRepository: StyleRepository {
             )
             try statement.bind(id, at: 1)
             guard try statement.step() else {
+                AppLogger.database.warning("样式不存在：id=\(id)")
                 return nil
             }
             return try row(from: statement)
@@ -90,6 +94,7 @@ final class SQLiteStyleRepository: StyleRepository {
     }
 
     func list(category: String?) throws -> [StyleProfileRecord] {
+        AppLogger.database.debug("列出样式：category=\(category ?? "nil")")
         if let category {
             return try query(
                 """
@@ -119,7 +124,8 @@ final class SQLiteStyleRepository: StyleRepository {
     }
 
     func defaultProfile() throws -> StyleProfileRecord? {
-        try databaseQueue.read { connection in
+        AppLogger.database.debug("查询默认样式")
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(
                 """
                 SELECT id, name, category, subtitle, mode, prompt, sample_input,
@@ -131,6 +137,7 @@ final class SQLiteStyleRepository: StyleRepository {
                 """
             )
             guard try statement.step() else {
+                AppLogger.database.warning("默认样式不存在")
                 return nil
             }
             return try row(from: statement)
@@ -141,13 +148,14 @@ final class SQLiteStyleRepository: StyleRepository {
         _ sql: String,
         bindings: (SQLiteStatement) throws -> Void
     ) throws -> [StyleProfileRecord] {
-        try databaseQueue.read { connection in
+        return try databaseQueue.read { connection in
             let statement = try connection.prepare(sql)
             try bindings(statement)
             var profiles: [StyleProfileRecord] = []
             while try statement.step() {
                 profiles.append(try row(from: statement))
             }
+            AppLogger.database.debug("样式查询返回 count=\(profiles.count)")
             return profiles
         }
     }

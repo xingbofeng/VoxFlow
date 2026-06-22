@@ -233,6 +233,115 @@ impl Router {
         })
     }
 
+    pub fn record_provider_session_start(
+        &self,
+        agent_id: &str,
+        provider: &str,
+        session_id: &str,
+        transcript_path: Option<String>,
+        source: Option<&str>,
+    ) -> Result<()> {
+        if provider.trim().is_empty() || session_id.trim().is_empty() {
+            anyhow::bail!("provider and session_id are required");
+        }
+        let provider = provider.trim().to_owned();
+        let session_id = session_id.trim().to_owned();
+        let transcript_path = transcript_path
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+        let title = transcript_path.as_deref().and_then(|path| {
+            latest_provider_title(Path::new(path), &provider)
+                .ok()
+                .flatten()
+        });
+        self.registry.update(agent_id, |card| {
+            upsert_reference(
+                card,
+                ProviderReference {
+                    provider: provider.clone(),
+                    kind: "session_id".into(),
+                    value: session_id.clone(),
+                    description: source.map(|value| format!("SessionStart {value}")),
+                },
+            );
+            if let Some(path) = &transcript_path {
+                upsert_reference(
+                    card,
+                    ProviderReference {
+                        provider: provider.clone(),
+                        kind: "transcript_path".into(),
+                        value: path.clone(),
+                        description: None,
+                    },
+                );
+            }
+            if let Some((title, title_source)) = &title {
+                card.set_observed_title(title, title_source);
+            }
+            Ok(())
+        })
+    }
+
+    pub fn refresh_provider_titles(&self) -> Result<()> {
+        let cards = self
+            .registry
+            .list(true, &crate::session::SystemProcessInspector)?;
+        for card in cards {
+            let existing = card.provider_session_refs.iter().find_map(|reference| {
+                if reference.kind == "transcript_path" {
+                    Some((reference.provider.as_str(), reference.value.as_str()))
+                } else {
+                    None
+                }
+            });
+            let discovered = if existing.is_none() {
+                discover_provider_transcript(&card)
+            } else {
+                None
+            };
+            let Some((provider, transcript_path)) =
+                existing.or(discovered.as_ref().map(|reference| {
+                    (
+                        reference.provider.as_str(),
+                        reference.transcript_path.as_str(),
+                    )
+                }))
+            else {
+                continue;
+            };
+            let Some((title, source)) =
+                latest_provider_title(Path::new(transcript_path), provider)?
+            else {
+                continue;
+            };
+            self.registry.update(&card.agent_id, |card| {
+                if let Some(reference) = &discovered {
+                    upsert_reference(
+                        card,
+                        ProviderReference {
+                            provider: reference.provider.clone(),
+                            kind: "session_id".into(),
+                            value: reference.session_id.clone(),
+                            description: Some("discovered transcript".into()),
+                        },
+                    );
+                    upsert_reference(
+                        card,
+                        ProviderReference {
+                            provider: reference.provider.clone(),
+                            kind: "transcript_path".into(),
+                            value: reference.transcript_path.clone(),
+                            description: None,
+                        },
+                    );
+                }
+                card.set_observed_title(&title, &source);
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
     pub fn update_summary(
         &self,
         agent_id: &str,
@@ -244,6 +353,25 @@ impl Router {
     ) -> Result<()> {
         self.registry.update(agent_id, |card| {
             card.set_summary(label, summary, topics, phase, ttl_seconds)
+        })
+    }
+
+    pub fn terminate_agent(&self, agent_id: &str) -> Result<()> {
+        let card = self
+            .registry
+            .list(true, &crate::session::SystemProcessInspector)?
+            .into_iter()
+            .find(|card| card.agent_id == agent_id)
+            .context("session not found")?;
+        if card.status != SessionStatus::Active {
+            anyhow::bail!("session is not active");
+        }
+        terminate_process(card.child_pid)?;
+        terminate_process(card.wrapper_pid)?;
+        self.registry.update(agent_id, |card| {
+            card.status = SessionStatus::Exited;
+            card.exit_code = Some(143);
+            Ok(())
         })
     }
 
@@ -472,6 +600,9 @@ fn card_match_values(card: &SessionCard) -> Vec<&str> {
     let mut values = vec![card.agent_id.as_str(), card.cli.as_str(), card.cwd.as_str()];
     values.extend(card.repo_name.as_deref());
     values.extend(card.branch.as_deref());
+    if let Some(title) = &card.observed_title {
+        values.push(title.title.as_str());
+    }
     if let Some(summary) = card
         .self_summary
         .as_ref()
@@ -486,6 +617,98 @@ fn card_match_values(card: &SessionCard) -> Vec<&str> {
         values.extend(reference.description.as_deref());
     }
     values
+}
+
+fn upsert_reference(card: &mut SessionCard, reference: ProviderReference) {
+    card.provider_session_refs.retain(|existing| {
+        !(existing.provider == reference.provider
+            && existing.kind == reference.kind
+            && existing.value == reference.value)
+    });
+    card.provider_session_refs.push(reference);
+}
+
+struct DiscoveredProviderTranscript {
+    provider: String,
+    session_id: String,
+    transcript_path: String,
+}
+
+fn discover_provider_transcript(card: &SessionCard) -> Option<DiscoveredProviderTranscript> {
+    if card.cli != "codebuddy" {
+        return None;
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    let project_dir = home
+        .join(".codebuddy")
+        .join("projects")
+        .join(codebuddy_project_key(&card.cwd));
+    let entries = fs::read_dir(project_dir).ok()?;
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == std::ffi::OsStr::new("jsonl"))
+        })
+        .filter_map(|path| {
+            let metadata = fs::metadata(&path).ok()?;
+            let modified = metadata.modified().ok()?;
+            let session_id = path.file_stem()?.to_string_lossy().into_owned();
+            Some((modified, session_id, path))
+        })
+        .max_by_key(|(modified, _, _)| *modified)
+        .map(|(_, session_id, path)| DiscoveredProviderTranscript {
+            provider: "codebuddy".into(),
+            session_id,
+            transcript_path: path.display().to_string(),
+        })
+}
+
+fn codebuddy_project_key(cwd: &str) -> String {
+    cwd.trim_start_matches('/').replace('/', "-")
+}
+
+fn latest_provider_title(path: &Path, provider: &str) -> Result<Option<(String, String)>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let reader = std::io::BufReader::new(fs::File::open(path)?);
+    let mut explicit_title = None;
+    let mut fallback_title = None;
+    for line in reader.lines().map_while(Result::ok) {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        match value["type"].as_str() {
+            Some("custom-title") => {
+                if let Some(title) = value["customTitle"]
+                    .as_str()
+                    .filter(|title| !title.trim().is_empty())
+                {
+                    explicit_title = Some((title.to_owned(), format!("{provider}.custom-title")));
+                }
+            }
+            Some("ai-title") => {
+                if let Some(title) = value["aiTitle"]
+                    .as_str()
+                    .filter(|title| !title.trim().is_empty())
+                {
+                    explicit_title = Some((title.to_owned(), format!("{provider}.ai-title")));
+                }
+            }
+            Some("summary") if provider == "codebuddy" => {
+                if let Some(title) = value["summary"]
+                    .as_str()
+                    .filter(|title| !title.trim().is_empty())
+                {
+                    fallback_title = Some((title.to_owned(), "codebuddy.summary".into()));
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(explicit_title.or(fallback_title))
 }
 
 pub fn normalize(value: &str) -> String {
@@ -535,4 +758,16 @@ fn now() -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs_f64()
+}
+
+fn terminate_process(pid: u32) -> Result<()> {
+    let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+    if result == 0 {
+        return Ok(());
+    }
+    let error = std::io::Error::last_os_error();
+    if error.raw_os_error() == Some(libc::ESRCH) {
+        return Ok(());
+    }
+    Err(error).with_context(|| format!("failed to terminate process {pid}"))
 }
