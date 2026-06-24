@@ -176,6 +176,7 @@ final class ASRProviderViewModel: ObservableObject {
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
     private var providerRecordPersistenceTask: Task<Void, Never>?
+    private var cleanupRequestedProviderIDs = Set<String>()
     private var hasLoaded = false
 
     init(
@@ -806,6 +807,14 @@ final class ASRProviderViewModel: ObservableObject {
                 _ = try await coordinator.downloadQwen3Model(size: modelSize) { [weak self] progress in
                     self?.downloadProgress = progress
                 }
+                if cleanupRequestedProviderIDs.remove(id) != nil {
+                    lastError = nil
+                    if lastActionMessage == nil {
+                        lastActionMessage = "已删除本地模型"
+                    }
+                    Self.logger.info("asr_provider_vm_download_model_ignored_after_cleanup id=\(id)")
+                    return
+                }
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
@@ -934,6 +943,14 @@ final class ASRProviderViewModel: ObservableObject {
             }
             Self.logger.info("asr_provider_vm_download_model_success id=\(id)")
         } catch {
+            if cleanupRequestedProviderIDs.remove(id) != nil {
+                lastError = nil
+                if lastActionMessage == nil {
+                    lastActionMessage = "已删除本地模型"
+                }
+                Self.logger.info("asr_provider_vm_download_model_cancelled_after_cleanup id=\(id)")
+                return
+            }
             lastError = error.localizedDescription
             Self.logger.error("asr_provider_vm_download_model_failed id=\(id) error=\(error.localizedDescription)")
         }
@@ -949,12 +966,21 @@ final class ASRProviderViewModel: ObservableObject {
             return
         }
         Self.logger.info("asr_provider_vm_delete_local_model_start id=\(id) engine=\(fallbackEngine.rawValue)")
-        let pathToDelete = modelPath(id: id)
+        let urlsToDelete = modelDeletionURLs(id: id)
+        if isDownloading, downloadingProviderID == id {
+            cleanupRequestedProviderIDs.insert(id)
+            isDownloading = false
+            downloadingProviderID = nil
+            downloadProgress = nil
+            if id == ASRProviderID.qwen3 {
+                Task { await downloader.cancelDownload() }
+            }
+        }
         asrManager.markModelDeleting(for: fallbackEngine)
         load()
         do {
-            if let path = pathToDelete, fileManager.fileExists(atPath: path) {
-                try fileManager.removeItem(at: URL(fileURLWithPath: path, isDirectory: true))
+            for url in urlsToDelete where fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
             }
             if id == ASRProviderID.qwen3 {
                 asrManager.qwen3ModelPath = nil
@@ -968,7 +994,7 @@ final class ASRProviderViewModel: ObservableObject {
             load()
             lastError = nil
             lastActionMessage = "已删除本地模型"
-            Self.logger.info("asr_provider_vm_delete_local_model_success id=\(id) hadPath=\(pathToDelete != nil)")
+            Self.logger.info("asr_provider_vm_delete_local_model_success id=\(id) pathCount=\(urlsToDelete.count)")
         } catch {
             asrManager.markModelDeletionFailed(for: fallbackEngine, message: error.localizedDescription)
             load()
@@ -976,6 +1002,13 @@ final class ASRProviderViewModel: ObservableObject {
             lastError = error.localizedDescription
             Self.logger.error("asr_provider_vm_delete_local_model_failed id=\(id) error=\(error.localizedDescription)")
         }
+    }
+
+    private func modelDeletionURLs(id: String) -> [URL] {
+        if id == ASRProviderID.qwen3 {
+            return asrManager.qwen3ModelDeletionURLs(for: asrManager.qwen3ModelSize)
+        }
+        return modelPath(id: id).map { [URL(fileURLWithPath: $0, isDirectory: true)] } ?? []
     }
 
     func clearFeedback() {

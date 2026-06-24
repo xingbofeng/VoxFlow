@@ -40,6 +40,9 @@ jobs:
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
+      - name: Check release metadata
+        run: make release-check
+
       - name: Verify release version metadata
         id: version
         run: |
@@ -68,6 +71,7 @@ jobs:
         run: |
           rustc --version
           cargo --version
+          rustup component add rustfmt clippy
 
       - name: Check Rust agent router
         working-directory: agent-cli

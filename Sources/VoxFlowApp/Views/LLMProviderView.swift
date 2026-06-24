@@ -297,12 +297,13 @@ private struct LLMProviderEditorSheet: View {
                     HStack(spacing: 8) {
                         Group {
                             if showAPIKey {
-                                TextField("访问密钥", text: $apiKey)
+                                TextField("访问密钥", text: $apiKey.singleLineInput())
                             } else {
-                                SecureField("访问密钥", text: $apiKey)
+                                SecureField("访问密钥", text: $apiKey.singleLineInput())
                             }
                         }
                         .textFieldStyle(.roundedBorder)
+                        .lineLimit(1)
                         Button {
                             if showAPIKey {
                                 apiKey = viewModel.APIKeyForEditing(providerID: provider?.id)
@@ -398,8 +399,9 @@ private struct LLMProviderEditorSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(title) *")
                 .font(.system(size: 13, weight: .medium))
-            TextField(placeholder, text: text)
+            TextField(placeholder, text: text.singleLineInput())
                 .textFieldStyle(.roundedBorder)
+                .lineLimit(1)
             if let error {
                 fieldError(error)
             }
@@ -449,5 +451,14 @@ private struct LLMProviderEditorSheet: View {
             viewModel.report(error: error)
             AppLogger.general.error("Failed to save LLM Provider: \(error.localizedDescription)")
         }
+    }
+}
+
+private extension Binding where Value == String {
+    func singleLineInput() -> Binding<String> {
+        Binding(
+            get: { wrappedValue },
+            set: { wrappedValue = SingleLineTextInput.removingLineBreaks($0) }
+        )
     }
 }

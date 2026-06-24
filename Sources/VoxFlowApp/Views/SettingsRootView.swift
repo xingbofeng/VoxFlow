@@ -32,6 +32,7 @@ struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
+    let onCheckForUpdates: () -> Void
     @StateObject private var ttsCapabilityModelViewModel = CapabilityModelViewModel(kind: .tts)
     @StateObject private var translationCapabilityModelViewModel = CapabilityModelViewModel(kind: .translation)
     @State private var recordingShortcutBinding: ShortcutBinding?
@@ -441,6 +442,34 @@ struct SettingsRootView: View {
                     )
                 }
             }
+
+            appUpdateCard
+        }
+    }
+
+    private var appUpdateCard: some View {
+        SettingsGroupCard(
+            title: "应用更新",
+            subtitle: "查看当前版本并手动检查新版本",
+            systemImage: "arrow.down.circle",
+            tint: .green
+        ) {
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: "app.badge", tint: .green)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("当前版本")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("VoxFlow v\(AppVersionInfo.current().displayText)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer(minLength: 12)
+                Button("检查更新") {
+                    onCheckForUpdates()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .settingsRow()
         }
     }
 

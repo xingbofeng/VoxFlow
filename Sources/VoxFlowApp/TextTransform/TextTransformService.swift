@@ -26,6 +26,10 @@ enum TextTransformOperation: Equatable, Sendable {
     case summary
 }
 
+protocol TextTransformAvailabilityMessaging: Sendable {
+    func unavailableMessage(for operation: TextTransformOperation) -> String
+}
+
 struct TextTransformRequest: Equatable, Sendable {
     let text: String
     let operation: TextTransformOperation
@@ -96,7 +100,9 @@ final class TextTransformService {
         return AsyncStream<TextTransformEvent> { continuation in
             let task = Task {
                 guard refiner.isEnabled, refiner.isConfigured else {
-                    continuation.yield(.failed(message: "请先在设置中配置模型", partialText: ""))
+                    let message = (refiner as? any TextTransformAvailabilityMessaging)?
+                        .unavailableMessage(for: request.operation) ?? "请先在设置中配置模型"
+                    continuation.yield(.failed(message: message, partialText: ""))
                     continuation.finish()
                     return
                 }

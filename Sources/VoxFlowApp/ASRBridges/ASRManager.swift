@@ -619,6 +619,37 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         qwen3ModelPath(for: size) != nil
     }
 
+    func qwen3ModelDeletionURLs(for size: ModelSize) -> [URL] {
+        guard let key = Self.qwen3ModelInstallKey(for: size) else {
+            return qwen3ModelPath(for: size)
+                .map { [URL(fileURLWithPath: $0, isDirectory: true)] } ?? []
+        }
+
+        var urls: [URL] = []
+        if case let .ready(installation) = qwen3StoredModelInstallationState(for: size) {
+            urls.append(installation.installedRoot)
+        }
+
+        if let modelStoreRoot {
+            let manifest = Qwen3ModelManifest.manifest(for: size)
+            urls.append(
+                ResumableModelDownloader.stagingRoot(for: key, storeRoot: modelStoreRoot)
+            )
+            urls.append(
+                contentsOf: qwen3ModelStoreCandidates(
+                    root: modelStoreRoot,
+                    key: key,
+                    manifest: manifest
+                )
+            )
+        }
+
+        return urls.reduce(into: []) { result, url in
+            guard !result.contains(url) else { return }
+            result.append(url)
+        }
+    }
+
     var effectiveSelectedEngineType: ASREngineType {
         let type = selectedEngineType
         if canSelectEngine(type) {

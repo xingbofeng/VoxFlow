@@ -140,6 +140,47 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "连接测试成功")
     }
 
+    func testSaveProviderRemovesLineBreaksFromSingleLineFields() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())
+
+        try viewModel.saveProvider(
+            id: nil,
+            displayName: "Primary\nModel",
+            baseURL: "https://api.example.com\n/v1/",
+            model: "gpt-4o\nmini",
+            apiKey: "secret\nvalue",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: true
+        )
+
+        let provider = try XCTUnwrap(viewModel.providers.first)
+        XCTAssertEqual(provider.displayName, "PrimaryModel")
+        XCTAssertEqual(provider.baseURL, "https://api.example.com/v1")
+        XCTAssertEqual(provider.defaultModel, "gpt-4omini")
+    }
+
+    func testDraftConnectionRemovesLineBreaksFromSingleLineFields() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = CapturingProviderClient()
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        await viewModel.testDraftConnection(
+            providerID: nil,
+            displayName: "Draft\nProvider",
+            baseURL: "https://draft.example.com\n/v1/",
+            model: "draft\nmodel",
+            apiKey: "draft\nsecret"
+        )
+
+        XCTAssertEqual(client.lastBaseURL, "https://draft.example.com/v1")
+        XCTAssertEqual(client.lastModel, "draftmodel")
+        XCTAssertEqual(client.lastAPIKey, "draftsecret")
+        XCTAssertEqual(viewModel.lastActionMessage, "连接测试成功")
+    }
+
     func testDraftValidationReturnsInlineErrorsForEveryInvalidField() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())

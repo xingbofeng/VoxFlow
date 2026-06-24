@@ -32,6 +32,12 @@ public protocol Qwen3ModelStoreInstalling: Sendable {
         manifest: ModelManifest,
         progress: ModelDownloadObserver?
     ) async throws -> URL
+
+    func cancelDownload() async
+}
+
+public extension Qwen3ModelStoreInstalling {
+    func cancelDownload() async {}
 }
 
 public actor Qwen3ModelStoreInstaller: Qwen3ModelStoreInstalling {
@@ -68,6 +74,10 @@ public actor Qwen3ModelStoreInstaller: Qwen3ModelStoreInstalling {
             runtimeVersion: runtimeVersion
         )
         return installation.installedRoot
+    }
+
+    public func cancelDownload() async {
+        await downloader.cancel()
     }
 }
 
@@ -134,6 +144,10 @@ public final class Qwen3ModelStoreLiveInstaller: Qwen3ModelStoreInstalling, @unc
         }
         return installation.installedRoot
     }
+
+    public func cancelDownload() async {
+        await downloader.cancel()
+    }
 }
 
 private struct Qwen3LiveInstallerContext: @unchecked Sendable {
@@ -192,6 +206,10 @@ public struct Qwen3ModelStoreBackedDownloader: Sendable {
         return try await installer.install(manifest: modelStoreManifest) { update in
             await progress(Self.qwenProgress(from: update, in: modelStoreManifest))
         }
+    }
+
+    public func cancelDownload() async {
+        await installer.cancelDownload()
     }
 
     private static func qwenProgress(

@@ -130,12 +130,27 @@ AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。
 | `pages.yml` | push to main | 部署 `docs/` 到 GitHub Pages |
 | `release.yml` | 手动 / tag | 构建 DMG + 上传 Release |
 
+### 发布流水线约定
+
+- 发布流程必须逐步收敛到"一键准备 + CI 自动发布 + CI 强校验"：本地只输入版本号/build、确认 release notes 和 review diff，构建、打包、hash、GitHub Release 上传、GitHub Pages 部署交给脚本和 CI。
+- 版本元数据必须有单一可信来源。当前阶段以 `Sources/VoxFlowApp/Resources/Info.plist` 的 `CFBundleShortVersionString` / `CFBundleVersion` 为源；`docs/script.js` 与 `docs/release.json` 由发布脚本同步生成/更新，CI 通过 `make release-check` 校验一致性。
+- 不要手动分散修改发布版本号。涉及发版时，应通过 `make prepare-release VERSION=<x.y.z> BUILD=<n>`（或等价脚本）统一更新：
+  - `Info.plist` 版本号与 build；
+  - `.github/release-notes/v<x.y.z>.md`（不存在时从模板生成）；
+  - `docs/` 落地页下载链接、release note 展示和版本元数据；
+  - `README.md` / `README_EN.md` 中的 DMG 文件名；
+  - 其他由 release check 维护的版本引用。
+- 发布前必须提供 `make release-check`（或等价脚本）校验版本一致性；CI 的 `ci.yml` 和 `release.yml` 应运行该检查，确保 plist、release notes、落地页、README、DMG asset 命名和 tag 规则一致。
+- 人工必须确认的内容：目标版本号/build、release notes 面向用户的真实描述、`prepare-release` 产生的 diff、发版时机和 tag 推送。
+- 可自动化的内容：版本号落盘、落地页/README 下载信息更新、release notes 模板生成、一致性校验、测试、构建、DMG 打包、sha256 生成、GitHub Release 创建与资产上传、GitHub Pages 部署。
+- 应用内更新检测必须依赖上述发布流水线保证 GitHub Release、落地页下载链接、`docs/release.json`、DMG 文件名和 App 内版本一致；不要让更新检测各自维护另一套版本事实。生产检查优先读取 GitHub Pages 静态 `release.json`，并允许回退解析已部署的 `docs/script.js` release 对象，避免 GitHub API rate limit 影响本地检查。
+
 ## 文件改动禁区
 
 以下文件/路径包含有意保留或受架构约束的名称，**不要随意"修正"、迁移或删除**：
 
 - `Sources/VoxFlowDomain/Branding/ProductBrand.swift` — `legacyBundleIdentifier` 仅用于旧 bundle 清理/测试断言
-- `Makefile LEGACY_BUNDLE_ID` / `LEGACY_APP_NAME` — 仅用于 LaunchServices、旧状态栏 defaults 和残留 app 注册清理
+- `Makefile CURRENT_BUNDLE_ID` / `DEV_BUNDLE_ID` / `LEGACY_BUNDLE_ID` / `LEGACY_APP_NAME` — `CURRENT_BUNDLE_ID=com.voxflow.app` 仅用于正式构建，`DEV_BUNDLE_ID=com.voxflow.app.dev` 仅用于 `build-dev` / `run-dev` 隔离 LaunchServices、TCC 权限和状态栏身份；legacy 名称仅用于旧 LaunchServices、旧状态栏 defaults 和残留 app 注册清理
 - `LanguageManager.swift` — UserDefaults key `VoiceInput_SelectedLanguage`
 - `DatabaseQueue.swift` — DispatchQueue label
 - `VOICEINPUT_TEST_*` 环境变量 — 兼容既有 live/smoke 测试开关，除非成体系迁移测试和 CI，否则不要零散改名

@@ -92,19 +92,26 @@ struct PaletteView: View {
     }
 
     private var homeResultList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
-                SectionHeader("常用")
-                if let firstResult = viewModel.homeResults.first {
-                    homeResultButton(firstResult, index: 0)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    SectionHeader("常用")
+                    if let firstResult = viewModel.homeResults.first {
+                        homeResultButton(firstResult, index: 0)
+                            .id(firstResult.id)
+                    }
+                    SectionHeader("建议")
+                    ForEach(Array(viewModel.homeResults.dropFirst().enumerated()), id: \.element.id) { offset, result in
+                        homeResultButton(result, index: offset + 1)
+                            .id(result.id)
+                    }
                 }
-                SectionHeader("建议")
-                ForEach(Array(viewModel.homeResults.dropFirst().enumerated()), id: \.element.id) { offset, result in
-                    homeResultButton(result, index: offset + 1)
-                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 14)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 14)
+            .onChange(of: viewModel.selectedHomeResultIndex) { _, _ in
+                scrollHomeSelectionIntoView(proxy)
+            }
         }
     }
 
@@ -142,48 +149,92 @@ struct PaletteView: View {
     }
 
     private var assetList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 6) {
-                SectionHeader("今天")
-                ForEach(Array(viewModel.assets.enumerated()), id: \.element.id) { index, asset in
-                    Button {
-                        viewModel.selectAsset(at: index)
-                    } label: {
-                        HStack(spacing: 12) {
-                            assetIcon(asset)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(asset.title)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .lineLimit(1)
-                                Text(assetSubtitle(asset))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("今天")
+                    ForEach(Array(viewModel.assets.enumerated()), id: \.element.id) { index, asset in
+                        Button {
+                            viewModel.selectAsset(at: index)
+                        } label: {
+                            HStack(spacing: 12) {
+                                assetIcon(asset)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(asset.title)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .lineLimit(1)
+                                    Text(assetSubtitle(asset))
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
                             }
-                            Spacer()
+                            .padding(.horizontal, 14)
+                            .frame(height: 48)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 14)
-                        .frame(height: 48)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedAssetIndex == index))
-                    .simultaneousGesture(
-                        TapGesture(count: 2).onEnded {
-                            viewModel.selectAsset(at: index)
-                            viewModel.presentActionPanel()
-                        }
-                    )
-                    .overlay {
-                        RightClickActionView {
-                            viewModel.selectAsset(at: index)
-                            viewModel.presentActionPanel()
+                        .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedAssetIndex == index))
+                        .id(asset.id)
+                        .simultaneousGesture(
+                            TapGesture(count: 2).onEnded {
+                                viewModel.selectAsset(at: index)
+                                viewModel.presentActionPanel()
+                            }
+                        )
+                        .overlay {
+                            RightClickActionView {
+                                viewModel.selectAsset(at: index)
+                                viewModel.presentActionPanel()
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 14)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 14)
+            .onChange(of: viewModel.selectedAssetIndex) { _, _ in
+                scrollAssetSelectionIntoView(proxy)
+            }
         }
+    }
+
+    private func scrollHomeSelectionIntoView(_ proxy: ScrollViewProxy) {
+        guard viewModel.homeResults.indices.contains(viewModel.selectedHomeResultIndex) else { return }
+        let result = viewModel.homeResults[viewModel.selectedHomeResultIndex]
+        withAnimation(.easeOut(duration: 0.12)) {
+            proxy.scrollTo(
+                result.id,
+                anchor: paletteScrollAnchor(
+                    index: viewModel.selectedHomeResultIndex,
+                    count: viewModel.homeResults.count
+                )
+            )
+        }
+    }
+
+    private func scrollAssetSelectionIntoView(_ proxy: ScrollViewProxy) {
+        guard viewModel.assets.indices.contains(viewModel.selectedAssetIndex) else { return }
+        let asset = viewModel.assets[viewModel.selectedAssetIndex]
+        withAnimation(.easeOut(duration: 0.12)) {
+            proxy.scrollTo(
+                asset.id,
+                anchor: paletteScrollAnchor(
+                    index: viewModel.selectedAssetIndex,
+                    count: viewModel.assets.count
+                )
+            )
+        }
+    }
+
+    private func paletteScrollAnchor(index: Int, count: Int) -> UnitPoint {
+        if index == 0 {
+            return .top
+        }
+        if index == count - 1 {
+            return .bottom
+        }
+        return .center
     }
 
     private var assetPreviewPane: some View {

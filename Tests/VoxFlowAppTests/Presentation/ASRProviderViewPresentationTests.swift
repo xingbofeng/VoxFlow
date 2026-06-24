@@ -171,6 +171,16 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("provider.id == ASRProviderID.qwen3\n                || provider.id == ASRProviderID.funASR"))
     }
 
+    func testProviderViewOffersCleanupButtonForDownloadableLocalModels() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("Label(\"清理模型\", systemImage: \"trash\")"))
+        XCTAssertTrue(source.contains("viewModel.deleteLocalModel(id: provider.id)"))
+        XCTAssertTrue(source.contains(".disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)"))
+    }
+
     func testProviderViewOnlyShowsHeavyControlsInsideExpandedCards() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")

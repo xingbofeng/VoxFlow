@@ -575,16 +575,26 @@ struct ASRProviderView: View {
                 Spacer()
                 switch provider.localModelAction {
                 case .download, .repair:
-                    Button {
-                        Task { await viewModel.downloadModel(id: provider.id) }
-                    } label: {
-                        Label(
-                            localModelActionTitle(provider, isDownloading: isDownloading),
-                            systemImage: localModelActionIcon(provider)
-                        )
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await viewModel.downloadModel(id: provider.id) }
+                        } label: {
+                            Label(
+                                localModelActionTitle(provider, isDownloading: isDownloading),
+                                systemImage: localModelActionIcon(provider)
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.isDownloading)
+
+                        Button(role: .destructive) {
+                            viewModel.deleteLocalModel(id: provider.id)
+                        } label: {
+                            Label("清理模型", systemImage: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.isDownloading)
                 case .delete:
                     Button(role: .destructive) {
                         viewModel.deleteLocalModel(id: provider.id)

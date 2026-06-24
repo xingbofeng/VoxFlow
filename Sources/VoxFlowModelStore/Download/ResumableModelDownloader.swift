@@ -3,12 +3,35 @@ import Foundation
 public typealias ModelDownloadProgressSink = @Sendable (ModelDownloadProgress) async throws -> Void
 public typealias ModelDownloadObserver = @Sendable (ModelDownloadProgress) async -> Void
 
-public enum ModelDownloadError: Error, Equatable, Sendable {
+public enum ModelDownloadError: LocalizedError, Equatable, Sendable {
     case nonHTTPSDownloadURL(String)
     case insufficientDisk(requiredBytes: Int64, availableBytes: Int64)
     case paused
     case cancelled
     case networkFailure(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .nonHTTPSDownloadURL:
+            return "模型下载链接不安全，已停止下载。请更新模型清单后重试。"
+        case .insufficientDisk(let requiredBytes, let availableBytes):
+            return "磁盘空间不够，模型需要约 \(Self.formatBytes(requiredBytes))，当前可用约 \(Self.formatBytes(availableBytes))。请清理空间后重试。"
+        case .paused:
+            return "下载已暂停，可以稍后继续。"
+        case .cancelled:
+            return "下载已取消。"
+        case .networkFailure(let reason):
+            let trimmedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedReason.isEmpty else {
+                return "模型下载中断，可能是网络或代理连接失败。请检查网络后重试。"
+            }
+            return "模型下载中断，可能是网络或代理连接失败。请检查网络后重试。详情：\(trimmedReason)"
+        }
+    }
+
+    private static func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
 }
 
 public protocol ModelDownloadTransport: Sendable {
@@ -52,6 +75,7 @@ public actor ResumableModelDownloader {
 
     public func cancel() {
         cancelRequested = true
+        inFlight.values.forEach { $0.cancel() }
     }
 
     public func download(

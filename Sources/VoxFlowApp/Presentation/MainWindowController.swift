@@ -11,7 +11,8 @@ final class MainWindowController: NSWindowController {
         asrRuntime: AppASRRuntime,
         textRuntime: AppTextRuntime,
         audioCaptureCoordinator: AudioCaptureCoordinator,
-        navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter()
+        navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter(),
+        onCheckForUpdates: @escaping () -> Void = {}
     ) {
         let viewModel = WorkbenchViewModel(environment: environment)
         let homeViewModel = HomeDashboardViewModel(
@@ -57,7 +58,8 @@ final class MainWindowController: NSWindowController {
             fileTranscriptionViewModel: fileTranscriptionViewModel,
             notesViewModel: notesViewModel,
             screenshotRecordViewModel: screenshotRecordViewModel,
-            navigationRouter: navigationRouter
+            navigationRouter: navigationRouter,
+            onCheckForUpdates: onCheckForUpdates
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(

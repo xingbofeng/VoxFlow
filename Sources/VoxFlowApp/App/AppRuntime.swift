@@ -81,6 +81,7 @@ struct AppRuntime {
     let asrCoordinator: ASRCoordinator
     let windowCoordinator: WindowCoordinator
     let capabilityModelDownloader: SoniqoCapabilityModelDownloader
+    let screenshotTextRefiner: ScreenshotTextRefiner
     let screenshotOCRService: ScreenshotOCRService
     let dictationTargetProvider: WorkspaceDictationTargetProvider
     let voiceTaskCoordinator: VoiceTaskCoordinator
@@ -214,6 +215,7 @@ struct AppRuntime {
                 audioCaptureCoordinator: audioCaptureCoordinator
             ),
             capabilityModelDownloader: capabilityModelDownloader,
+            screenshotTextRefiner: screenshotTextRefiner,
             screenshotOCRService: screenshotOCRService,
             dictationTargetProvider: dictationTargetProvider,
             voiceTaskCoordinator: voiceTaskCoordinator,

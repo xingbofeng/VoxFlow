@@ -9,6 +9,7 @@ final class WindowCoordinator {
     private let audioCaptureCoordinator: AudioCaptureCoordinator
     private let navigationRouter = WorkbenchNavigationRouter()
     private var mainWindowController: MainWindowController?
+    var onCheckForUpdates: () -> Void = {}
 
     init(
         environment: AppEnvironment,
@@ -31,7 +32,8 @@ final class WindowCoordinator {
                 asrRuntime: asrRuntime,
                 textRuntime: textRuntime,
                 audioCaptureCoordinator: audioCaptureCoordinator,
-                navigationRouter: navigationRouter
+                navigationRouter: navigationRouter,
+                onCheckForUpdates: onCheckForUpdates
             )
         }
         guard let window = mainWindowController?.window else { return }

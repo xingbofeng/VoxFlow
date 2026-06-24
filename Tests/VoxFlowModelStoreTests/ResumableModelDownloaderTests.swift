@@ -2,6 +2,20 @@ import XCTest
 import VoxFlowModelStore
 
 final class ResumableModelDownloaderTests: XCTestCase {
+    func testModelDownloadErrorsUseReadableLocalizedMessages() {
+        XCTAssertEqual(
+            ModelDownloadError.networkFailure("The Internet connection appears to be offline.").localizedDescription,
+            "模型下载中断，可能是网络或代理连接失败。请检查网络后重试。详情：The Internet connection appears to be offline."
+        )
+        XCTAssertEqual(
+            ModelDownloadError.paused.localizedDescription,
+            "下载已暂停，可以稍后继续。"
+        )
+        XCTAssertFalse(
+            ModelDownloadError.cancelled.localizedDescription.contains("ModelDownloadError")
+        )
+    }
+
     func testDownloaderRejectsNonHTTPSURLAndInsufficientDiskBeforeTransport() async throws {
         let root = try makeTemporaryDirectory()
         let transport = FakeDownloadTransport(data: Data("hello".utf8))

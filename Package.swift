@@ -438,6 +438,9 @@ let package = Package(
                 "VoxFlowProviderWhisper",
                 "VoxFlowTextInsertion",
                 .product(name: "VoxFlowContextBoost", package: "VoxFlowContextBoostKit")
+            ],
+            resources: [
+                .copy("Fixtures")
             ]
         )
     ]

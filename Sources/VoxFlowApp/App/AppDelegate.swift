@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var asrCoordinator: ASRCoordinator { runtime!.asrCoordinator }
     private var windowCoordinator: WindowCoordinator { runtime!.windowCoordinator }
     private var llmRefiner: RepositoryBackedLLMRefiner { runtime!.llmRefiner }
+    private var screenshotTextRefiner: ScreenshotTextRefiner { runtime!.screenshotTextRefiner }
     private var fastPasteTextInserter: FastPasteTextInserter { runtime!.fastPasteTextInserter }
     private var lastResultStore: InMemoryLastResultStore { runtime!.lastResultStore }
     private var clipboardService: SystemClipboardService { runtime!.clipboardService }
@@ -149,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
     private lazy var selectionResultPanelController = SelectionResultPanelController(
-        transformService: TextTransformService(refiner: llmRefiner),
+        transformService: TextTransformService(refiner: screenshotTextRefiner),
         clipboard: clipboardService,
         speech: SystemScreenshotSpeechService(),
         textInserter: fastPasteTextInserter,
@@ -275,6 +276,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastExternalSelectionTarget: DictationTarget?
     private var selectionTargetActivationObserver: NSObjectProtocol?
     private var agentDefaultOutputTask: Task<Void, Never>?
+    private lazy var updateCheckCoordinator = UpdateCheckCoordinator.live(
+        currentVersion: AppVersionInfo.current().version
+    )
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
         HotKeyFeatureController(
@@ -331,6 +335,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        windowCoordinator.onCheckForUpdates = { [weak self] in
+            self?.checkForUpdates(nil)
+        }
         startSelectionTargetTracking()
         logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
@@ -351,6 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         hotKeyFeatureController.start()
         clipboardAssetMonitor.start()
+        updateCheckCoordinator.scheduleAutomaticCheck()
 
         Task {
             await resolveRecordingPermissions()
@@ -670,6 +678,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.debug("menu_open_github")
         guard let url = URL(string: HelpExternalLinks.githubRepository) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        logger.debug("menu_check_for_updates")
+        updateCheckCoordinator.checkForUpdatesManually()
     }
 
     // MARK: - ASR Engine Menu

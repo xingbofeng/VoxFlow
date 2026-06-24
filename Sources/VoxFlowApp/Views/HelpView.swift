@@ -268,7 +268,7 @@ private struct WeChatQRCodeOverlay: View {
 
 private enum WeChatQRCodeImage {
     static func load() -> NSImage? {
-        guard let url = Bundle.module.url(
+        guard let url = VoxFlowAppResourceBundle.url(
             forResource: "AuthorWeChatQRCode",
             withExtension: "jpg"
         ) else {
@@ -431,7 +431,7 @@ private struct HelpRowIcon: View {
 
 enum GitHubMarkImage {
     static func load() -> NSImage? {
-        guard let url = Bundle.module.url(forResource: "GitHubMark", withExtension: "png") else {
+        guard let url = VoxFlowAppResourceBundle.url(forResource: "GitHubMark", withExtension: "png") else {
             return nil
         }
         guard let image = NSImage(contentsOf: url) else {

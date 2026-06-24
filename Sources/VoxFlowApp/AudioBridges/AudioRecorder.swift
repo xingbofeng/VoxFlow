@@ -114,6 +114,13 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
         AppLogger.audio.debug("AudioRecorder start sampleRate=\(inputFormat.sampleRate) channels=\(inputFormat.channelCount)")
+        guard Self.isInputFormatUsable(
+            sampleRate: inputFormat.sampleRate,
+            channelCount: inputFormat.channelCount
+        ) else {
+            AppLogger.audio.error("AudioRecorder start failed: invalid input format")
+            throw AudioRecorderError.microphoneUnavailable
+        }
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             self?.processCapturedBuffer(buffer)
@@ -130,6 +137,10 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             throw AudioRecorderError.microphoneUnavailable
         }
         AppLogger.audio.info("AudioRecorder started")
+    }
+
+    static func isInputFormatUsable(sampleRate: Double, channelCount: AVAudioChannelCount) -> Bool {
+        sampleRate.isFinite && sampleRate > 0 && channelCount > 0
     }
 
     func stop() {

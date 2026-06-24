@@ -1,0 +1,13 @@
+{
+  "tag_name": "v1.6.2",
+  "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.6.2",
+  "body": "修复稳定性问题并改进更新检测。",
+  "draft": false,
+  "prerelease": false,
+  "assets": [
+    {
+      "name": "VoxFlow-1.6.2-macOS.dmg",
+      "browser_download_url": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.2/VoxFlow-1.6.2-macOS.dmg"
+    }
+  ]
+}

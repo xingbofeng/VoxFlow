@@ -23,6 +23,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check release metadata
+        run: make release-check
+
       - name: Show Swift toolchain
         run: swift --version
 
@@ -64,6 +67,7 @@ jobs:
         run: |
           rustc --version
           cargo --version
+          rustup component add rustfmt clippy
 
       - name: Check Rust agent router
         working-directory: agent-cli

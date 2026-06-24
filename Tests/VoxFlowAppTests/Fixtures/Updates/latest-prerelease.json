@@ -1,0 +1,13 @@
+{
+  "tag_name": "v1.7.0",
+  "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.7.0",
+  "body": "预览版本。",
+  "draft": false,
+  "prerelease": true,
+  "assets": [
+    {
+      "name": "VoxFlow-1.7.0-macOS.dmg",
+      "browser_download_url": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.7.0/VoxFlow-1.7.0-macOS.dmg"
+    }
+  ]
+}

@@ -28,6 +28,12 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertLessThanOrEqual(AudioRecorder.voiceEnhancementGain(normalizedRMS: 0.01), 2.2)
     }
 
+    func testInputFormatUsabilityRejectsMissingMicrophoneFormat() {
+        XCTAssertFalse(AudioRecorder.isInputFormatUsable(sampleRate: 0, channelCount: 1))
+        XCTAssertFalse(AudioRecorder.isInputFormatUsable(sampleRate: 44_100, channelCount: 0))
+        XCTAssertTrue(AudioRecorder.isInputFormatUsable(sampleRate: 44_100, channelCount: 1))
+    }
+
     func testCopyBufferPreservesSamplesWhenOriginalIsReused() throws {
         let original = try makeBuffer(samples: [0.1, 0.2, 0.3, 0.4])
 

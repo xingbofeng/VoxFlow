@@ -28,6 +28,18 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertFalse(source.contains("Tab"))
     }
 
+    func testPaletteListsScrollSelectedRowsIntoViewForKeyboardWraparound() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("ScrollViewReader"))
+        XCTAssertTrue(source.contains("scrollHomeSelectionIntoView"))
+        XCTAssertTrue(source.contains("scrollAssetSelectionIntoView"))
+        XCTAssertTrue(source.contains("result.id,"))
+        XCTAssertTrue(source.contains("asset.id,"))
+    }
+
     func testPaletteWindowControllerUsesFloatingPanel() throws {
         let sourceURL = Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteWindowController.swift")

@@ -12,6 +12,7 @@ final class AppMainMenuBuilderTests: XCTestCase {
         let applicationMenu = try XCTUnwrap(menu.items.first?.submenu)
         XCTAssertEqual(applicationMenu.items.map { $0.title }, [
             "关于码上写",
+            "检查更新",
             "",
             "隐藏码上写",
             "隐藏其他",
@@ -19,13 +20,14 @@ final class AppMainMenuBuilderTests: XCTestCase {
             "退出码上写",
         ])
         XCTAssertEqual(applicationMenu.items[0].action, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
-        XCTAssertEqual(applicationMenu.items[2].action, #selector(NSApplication.hide(_:)))
-        XCTAssertEqual(applicationMenu.items[3].action, #selector(NSApplication.hideOtherApplications(_:)))
+        XCTAssertEqual(applicationMenu.items[1].action, #selector(AppDelegate.checkForUpdates(_:)))
+        XCTAssertEqual(applicationMenu.items[3].action, #selector(NSApplication.hide(_:)))
+        XCTAssertEqual(applicationMenu.items[4].action, #selector(NSApplication.hideOtherApplications(_:)))
         XCTAssertEqual(
-            applicationMenu.items[3].keyEquivalentModifierMask,
+            applicationMenu.items[4].keyEquivalentModifierMask,
             NSEvent.ModifierFlags([.command, .option])
         )
-        XCTAssertEqual(applicationMenu.items[5].action, #selector(NSApplication.terminate(_:)))
+        XCTAssertEqual(applicationMenu.items[6].action, #selector(NSApplication.terminate(_:)))
 
         let editMenu = try XCTUnwrap(menu.items.dropFirst().first?.submenu)
         XCTAssertEqual(editMenu.title, "编辑")

@@ -101,17 +101,6 @@ enum CapabilityModelCatalog {
         case .translation:
             return [
                 CapabilityModelDescriptor(
-                    id: CapabilityModelID.llmTranslation,
-                    kind: .translation,
-                    displayName: "智能模型配置",
-                    subtitle: "使用设置中配置的智能模型，将识别原文翻译为简体中文",
-                    sizeDescription: "无需下载",
-                    memoryDescription: "由智能模型服务管理",
-                    fallbackDescription: "需要先在设置中配置智能模型服务",
-                    isRecommended: true,
-                    isInstalled: true
-                ),
-                CapabilityModelDescriptor(
                     id: CapabilityModelID.systemDefaultTranslation,
                     kind: .translation,
                     displayName: "系统默认",
@@ -119,6 +108,17 @@ enum CapabilityModelCatalog {
                     sizeDescription: "系统内置",
                     memoryDescription: "由系统管理",
                     fallbackDescription: "Apple 系统翻译暂不可用",
+                    isRecommended: true,
+                    isInstalled: true
+                ),
+                CapabilityModelDescriptor(
+                    id: CapabilityModelID.llmTranslation,
+                    kind: .translation,
+                    displayName: "智能模型配置",
+                    subtitle: "使用设置中配置的智能模型，将识别原文翻译为简体中文",
+                    sizeDescription: "无需下载",
+                    memoryDescription: "由智能模型服务管理",
+                    fallbackDescription: "需要先在设置中配置智能模型服务",
                     isRecommended: false,
                     isInstalled: true
                 ),

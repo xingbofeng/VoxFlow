@@ -236,10 +236,11 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
 
         coordinator.startContextCollection(target: nil, visionSupported: true)
 
-        let snapshot = await coordinator.awaitContextCollection(timeoutMilliseconds: 1)
-        try await Task.sleep(nanoseconds: 20_000_000)
+        let snapshot = await coordinator.awaitContextCollection(timeoutMilliseconds: 0)
 
         XCTAssertEqual(snapshot?.warnings, ["context_collection_timeout"])
+        let didCancel = await contextPipeline.waitUntilCancelled()
+        XCTAssertTrue(didCancel)
         let cancelledCount = await contextPipeline.cancelledCount
         XCTAssertEqual(cancelledCount, 1)
     }
@@ -1751,5 +1752,16 @@ private actor CancellableContextCollector: ContextCollecting {
             trimmedLength: 0,
             warnings: [],
         )
+    }
+
+    func waitUntilCancelled(timeoutNanoseconds: UInt64 = 1_000_000_000) async -> Bool {
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while DispatchTime.now().uptimeNanoseconds < deadline {
+            if cancelledCount > 0 {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+        return cancelledCount > 0
     }
 }

@@ -26,13 +26,13 @@ final class CapabilityModelViewModelTests: XCTestCase {
         XCTAssertEqual(
             viewModel.models.map(\.id),
             [
-                CapabilityModelID.llmTranslation,
                 CapabilityModelID.systemDefaultTranslation,
+                CapabilityModelID.llmTranslation,
                 CapabilityModelID.madladTranslation,
             ]
         )
-        XCTAssertEqual(viewModel.models.first?.displayName, "智能模型配置")
-        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.llmTranslation)
+        XCTAssertEqual(viewModel.models.first?.displayName, "系统默认")
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.systemDefaultTranslation)
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.systemDefaultTranslation })?.fallbackDescription,
             "Apple 系统翻译暂不可用"

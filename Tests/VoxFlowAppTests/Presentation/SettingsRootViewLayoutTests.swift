@@ -158,6 +158,25 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(section.contains("shortcut: .selectionAgent"))
     }
 
+    func testGeneralSettingsIncludesAppUpdateCheckEntry() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let section = try XCTUnwrap(
+            source.range(
+                of: #"private var generalSection:[\s\S]*?\n    private var vibeCodingSection"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(section.contains("appUpdateCard"))
+        XCTAssertTrue(source.contains("private var appUpdateCard"))
+        XCTAssertTrue(source.contains("title: \"应用更新\""))
+        XCTAssertTrue(source.contains("Button(\"检查更新\")"))
+        XCTAssertTrue(source.contains("onCheckForUpdates()"))
+        XCTAssertTrue(source.contains("AppVersionInfo.current().displayText"))
+    }
+
     func testVoiceTriggerModeLivesWithVoiceShortcuts() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")

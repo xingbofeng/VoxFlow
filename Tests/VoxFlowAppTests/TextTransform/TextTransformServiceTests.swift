@@ -52,6 +52,24 @@ final class TextTransformServiceTests: XCTestCase {
         XCTAssertEqual(refiner.requests.map(\.text), [first, second])
     }
 
+    func testUnavailableRefinerCanProvideOperationSpecificFailureMessage() async {
+        let refiner = UnavailableMessagingTextRefiner(message: "Apple 系统翻译在当前系统版本不可用")
+        let service = TextTransformService(refiner: refiner)
+
+        let events = await collect(
+            service.events(
+                for: TextTransformRequest(
+                    text: "Artificial intelligence",
+                    operation: .translation
+                )
+            )
+        )
+
+        XCTAssertEqual(events, [
+            .failed(message: "Apple 系统翻译在当前系统版本不可用", partialText: ""),
+        ])
+    }
+
     private func collect(_ stream: AsyncStream<TextTransformEvent>) async -> [TextTransformEvent] {
         var events: [TextTransformEvent] = []
         for await event in stream {
@@ -110,5 +128,27 @@ private final class FakeBlockingTextRefiner: PromptAwareTextRefining, @unchecked
         let index = requests.count
         requests.append(request)
         return outputs.indices.contains(index) ? outputs[index] : request.text
+    }
+}
+
+private final class UnavailableMessagingTextRefiner: PromptAwareTextRefining, TextTransformAvailabilityMessaging, @unchecked Sendable {
+    var isEnabled = false
+    var isConfigured = false
+    private let message: String
+
+    init(message: String) {
+        self.message = message
+    }
+
+    func unavailableMessage(for operation: TextTransformOperation) -> String {
+        message
+    }
+
+    func refine(_ text: String) async throws -> String {
+        text
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        request.text
     }
 }

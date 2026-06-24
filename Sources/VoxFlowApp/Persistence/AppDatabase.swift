@@ -109,8 +109,8 @@ enum AppDatabase {
     }
 
     static func loadBundledSchemaSQL() throws -> String {
-        guard let schemaURL = Bundle.module.url(forResource: "AppDatabaseSchema", withExtension: "sql")
-            ?? Bundle.module.url(
+        guard let schemaURL = VoxFlowAppResourceBundle.url(forResource: "AppDatabaseSchema", withExtension: "sql")
+            ?? VoxFlowAppResourceBundle.url(
                 forResource: "AppDatabaseSchema",
                 withExtension: "sql",
                 subdirectory: "Persistence"

@@ -7,7 +7,7 @@ protocol ScreenshotTextRefiningCapabilities {
     var isSummaryConfigured: Bool { get }
 }
 
-final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefiningCapabilities, StructuredLineTranslationSupporting, @unchecked Sendable {
+final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefiningCapabilities, StructuredLineTranslationSupporting, TextTransformAvailabilityMessaging, @unchecked Sendable {
     private let cloudRefiner: (any PromptAwareTextRefining)?
     private let systemTranslator: any PromptAwareTextRefining
     private let localTranslator: any PromptAwareTextRefining
@@ -56,6 +56,24 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
 
     var supportsStructuredLineTranslation: Bool {
         selectedTranslationModelID == CapabilityModelID.llmTranslation && cloudRefinerIsReady
+    }
+
+    func unavailableMessage(for operation: TextTransformOperation) -> String {
+        switch operation {
+        case .translation:
+            switch selectedTranslationModelID {
+            case CapabilityModelID.systemDefaultTranslation:
+                return "Apple 系统翻译在当前系统版本不可用，请使用已配置模型或安装本地翻译模型"
+            case CapabilityModelID.llmTranslation:
+                return "请先在设置中配置模型"
+            case CapabilityModelID.madladTranslation:
+                return "本地翻译模型未安装，请先安装本地翻译模型或切换到其他翻译模型"
+            default:
+                return "翻译模型不可用，请在设置中切换翻译模型"
+            }
+        case .summary:
+            return "请先在设置中配置模型"
+        }
     }
 
     func refine(_ text: String) async throws -> String {

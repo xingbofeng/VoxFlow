@@ -614,6 +614,74 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(manager.selectedEngineType, .apple)
     }
 
+    func testDeleteQwenModelRemovesFailedDownloadStagingAndModelStoreCandidates() throws {
+        let suiteName = "test.ASRProviderViewModel.qwen-staging-delete.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenStagingDeleteTests-\(UUID().uuidString)", isDirectory: true)
+        let modelStoreRoot = root.appendingPathComponent("Models", isDirectory: true)
+        let stateRepository = FileModelInstallationStateRepository(
+            fileURL: modelStoreRoot.appendingPathComponent("installation-states.json")
+        )
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let manifest = Qwen3ModelManifest.manifest(for: .size1_7B)
+        let metadata = try Qwen3ModelStoreMetadata.metadata(for: manifest)
+        let key = ModelInstallKey(modelID: metadata.modelID, version: metadata.version)
+        let canonicalURL = modelStoreRoot
+            .appendingPathComponent(metadata.modelID.rawValue, isDirectory: true)
+            .appendingPathComponent(metadata.version, isDirectory: true)
+        let legacyURL = modelStoreRoot
+            .appendingPathComponent(manifest.localDirectoryName, isDirectory: true)
+            .appendingPathComponent(metadata.version, isDirectory: true)
+        let stagingURL = modelStoreRoot
+            .appendingPathComponent("staging", isDirectory: true)
+            .appendingPathComponent("\(metadata.modelID.rawValue)-\(metadata.version).partial", isDirectory: true)
+        for url in [canonicalURL, legacyURL, stagingURL] {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            try Data("partial".utf8).write(to: url.appendingPathComponent("model.safetensors"))
+        }
+
+        let manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: stateRepository,
+            credentialStore: ASRProviderViewModelTestCredentialStore(),
+            qwen3RuntimePreflight: { _ in .supported },
+            modelStoreRoot: modelStoreRoot
+        )
+        manager.qwen3ModelSize = .size1_7B
+        try stateRepository.save(
+            .downloading(
+                progress: ModelDownloadProgress(
+                    bytesWritten: 42,
+                    totalBytes: 100,
+                    componentID: ModelComponentID(rawValue: "model.safetensors")
+                )
+            ),
+            for: key
+        )
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        viewModel.deleteLocalQwenModel()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: canonicalURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        XCTAssertEqual(try stateRepository.state(for: key), .notInstalled)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+    }
+
     func testDeleteLocalFunASRModelClearsModelStoreStateAndRefreshesProvider() throws {
         let manager = makeManager()
         manager.funASRPrecision = .int8
@@ -815,6 +883,44 @@ final class ASRProviderViewModelTests: XCTestCase {
         await downloader.finishAll()
         await first.value
         await second.value
+    }
+
+    func testDeleteQwenDuringDownloadReenablesCleanupAndDownloadControls() async throws {
+        let manager = makeManager()
+        manager.qwen3ModelSize = .size1_7B
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenDeleteWhileDownloading-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingQwen3ModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            downloader: downloader,
+            qwenReadinessPreparer: CapturingQwen3ViewModelReadinessPreparer()
+        )
+
+        let downloadTask = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.qwen3)
+        }
+        await downloader.waitUntilRequestCount(1)
+
+        XCTAssertTrue(viewModel.isDownloading)
+
+        viewModel.deleteLocalQwenModel()
+
+        XCTAssertFalse(viewModel.isDownloading)
+        XCTAssertNil(viewModel.downloadingProviderID)
+        let qwenProvider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.qwen3 })
+        XCTAssertEqual(qwenProvider.localModelAction, .download)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+
+        await downloader.finishAll()
+        await downloadTask.value
     }
 
     func testDownloadFunASRMarksModelStoreReadyState() async throws {
@@ -1042,7 +1148,7 @@ private struct StubQwen3ModelDownloader: Qwen3ModelDownloading {
         downloadedURL
     }
 
-    func missingRequiredLocalPaths(
+    nonisolated func missingRequiredLocalPaths(
         size: ASRManager.ModelSize,
         at directory: URL,
         fileManager: FileManager
@@ -1052,6 +1158,65 @@ private struct StubQwen3ModelDownloader: Qwen3ModelDownloading {
         }
         return Qwen3ModelManifest.manifest(for: size)
             .missingRequiredLocalPaths(at: directory, fileManager: fileManager)
+    }
+}
+
+private actor BlockingQwen3ModelDownloader: Qwen3ModelDownloading {
+    private let downloadedURL: URL
+    private var requestCount = 0
+    private var requestCountWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var released = false
+
+    init(downloadedURL: URL) {
+        self.downloadedURL = downloadedURL
+    }
+
+    func download(
+        manifest: Qwen3ModelManifest,
+        progress: @escaping Qwen3ModelDownloader.ProgressHandler
+    ) async throws -> URL {
+        requestCount += 1
+        resumeSatisfiedRequestCountWaiters()
+        await progress(.init(fileIndex: 0, fileCount: 1, fileName: "model.safetensors", fileProgress: 0.1))
+        await waitForRelease()
+        await progress(.init(fileIndex: 0, fileCount: 1, fileName: "model.safetensors", fileProgress: 1))
+        return downloadedURL
+    }
+
+    nonisolated func missingRequiredLocalPaths(
+        size: ASRManager.ModelSize,
+        at directory: URL,
+        fileManager: FileManager
+    ) -> [String] {
+        []
+    }
+
+    func waitUntilRequestCount(_ expected: Int) async {
+        if requestCount >= expected { return }
+        await withCheckedContinuation { continuation in
+            requestCountWaiters.append((expected, continuation))
+        }
+    }
+
+    func finishAll() {
+        released = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
+    private func waitForRelease() async {
+        if released { return }
+        await withCheckedContinuation { continuation in
+            releaseContinuations.append(continuation)
+        }
+    }
+
+    private func resumeSatisfiedRequestCountWaiters() {
+        let satisfied = requestCountWaiters.filter { requestCount >= $0.0 }
+        requestCountWaiters.removeAll { requestCount >= $0.0 }
+        satisfied.forEach { $0.1.resume() }
     }
 }
 

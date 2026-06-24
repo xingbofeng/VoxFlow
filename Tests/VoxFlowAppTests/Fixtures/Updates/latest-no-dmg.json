@@ -1,0 +1,13 @@
+{
+  "tag_name": "v1.6.2",
+  "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.6.2",
+  "body": "发布页可用，但资产还未上传。",
+  "draft": false,
+  "prerelease": false,
+  "assets": [
+    {
+      "name": "VoxFlow-1.6.2-macOS.zip",
+      "browser_download_url": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.2/VoxFlow-1.6.2-macOS.zip"
+    }
+  ]
+}

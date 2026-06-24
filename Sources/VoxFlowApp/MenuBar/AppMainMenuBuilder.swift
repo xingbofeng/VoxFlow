@@ -15,6 +15,11 @@ enum AppMainMenuBuilder {
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
+        applicationMenu.addItem(
+            withTitle: "检查更新",
+            action: #selector(AppDelegate.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(
             withTitle: "隐藏码上写",

@@ -65,15 +65,15 @@ final class LLMProviderViewModel: ObservableObject {
         isDefault: Bool
     ) throws {
         Self.logger.debug("llm_provider_vm_save_provider_start isNew=\(id == nil) nameLen=\(displayName.count) modelLen=\(model.count) enabled=\(enabled) requestedDefault=\(isDefault)")
-        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = SingleLineTextInput.normalized(displayName)
+        let trimmedURL = SingleLineTextInput.normalized(baseURL)
+        let trimmedModel = SingleLineTextInput.normalized(model)
         let providerID = id ?? UUID().uuidString
         let now = environment.clock.now
         let existing = try environment.llmProviderRepository.provider(id: providerID)
         let keyRef = existing?.apiKeyRef ?? "llm-provider-\(providerID)"
         let storedKey = try environment.credentialStore.readCredential(account: keyRef)
-        let rawKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawKey = SingleLineTextInput.normalized(apiKey)
         let trimmedKey = isMaskedAPIKey(providerID: id, text: rawKey) ? "" : rawKey
         var missingFields: [String] = []
         if trimmedName.isEmpty { missingFields.append("名称") }
@@ -154,20 +154,24 @@ final class LLMProviderViewModel: ObservableObject {
     ) -> [String: String] {
         Self.logger.debug("llm_provider_vm_validation_errors_start providerID=\(providerID ?? "nil") nameLen=\(displayName.count) modelLen=\(model.count)")
         var errors: [String: String] = [:]
-        if displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let normalizedName = SingleLineTextInput.normalized(displayName)
+        let normalizedURL = SingleLineTextInput.normalized(baseURL)
+        let normalizedModel = SingleLineTextInput.normalized(model)
+        let normalizedKey = SingleLineTextInput.normalized(apiKey)
+
+        if normalizedName.isEmpty {
             errors["displayName"] = "请输入名称"
         }
-        if (try? OpenAICompatibleClient.normalizedBaseURL(baseURL)) == nil {
+        if (try? OpenAICompatibleClient.normalizedBaseURL(normalizedURL)) == nil {
             errors["baseURL"] = "请输入有效的 HTTP 或 HTTPS 地址"
         }
-        if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if normalizedModel.isEmpty {
             errors["model"] = "请输入模型名称"
         }
-        let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isMasked = isMaskedAPIKey(providerID: providerID, text: trimmedKey)
-        if trimmedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
+        let isMasked = isMaskedAPIKey(providerID: providerID, text: normalizedKey)
+        if normalizedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
             errors["apiKey"] = "请输入访问密钥"
-        } else if !trimmedKey.isEmpty && !isMasked && trimmedKey.count < 8 {
+        } else if !normalizedKey.isEmpty && !isMasked && normalizedKey.count < 8 {
             errors["apiKey"] = "访问密钥长度不足"
         }
         Self.logger.debug("llm_provider_vm_validation_errors_done count=\(errors.count)")
@@ -188,9 +192,9 @@ final class LLMProviderViewModel: ObservableObject {
         defer { isTestingDraftConnection = false }
 
         do {
-            let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let normalizedURL = try OpenAICompatibleClient.normalizedBaseURL(baseURL)
-            let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedName = SingleLineTextInput.normalized(displayName)
+            let normalizedURL = try OpenAICompatibleClient.normalizedBaseURL(SingleLineTextInput.normalized(baseURL))
+            let trimmedModel = SingleLineTextInput.normalized(model)
             let resolvedKey = try resolvedAPIKey(providerID: providerID, text: apiKey)
             var missingFields: [String] = []
             if trimmedName.isEmpty { missingFields.append("名称") }
@@ -286,7 +290,7 @@ final class LLMProviderViewModel: ObservableObject {
     func selectModel(providerID: String, model: String) throws {
         Self.logger.debug("llm_provider_vm_select_model_start providerID=\(providerID) modelLen=\(model.count)")
         let provider = try requireProvider(id: providerID)
-        let selectedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selectedModel = SingleLineTextInput.normalized(model)
         guard !selectedModel.isEmpty else {
             Self.logger.warning("llm_provider_vm_select_model_rejected providerID=\(providerID) emptyModel=true")
             throw LLMProviderViewModelError.modelRequired
@@ -411,7 +415,7 @@ final class LLMProviderViewModel: ObservableObject {
     }
 
     private func resolvedAPIKey(providerID: String?, text: String) throws -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = SingleLineTextInput.normalized(text)
         guard let providerID,
               (trimmed.isEmpty || isMaskedAPIKey(providerID: providerID, text: trimmed)),
               let provider = try environment.llmProviderRepository.provider(id: providerID) else {

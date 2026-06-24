@@ -26,17 +26,21 @@ final class BrandIdentityTests: XCTestCase {
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
             encoding: .utf8
         )
+        let buildBody = try Self.makeTargetBody("build", in: makefile)
 
         XCTAssertTrue(makefile.contains("APP_NAME := VoxFlow"))
         XCTAssertTrue(makefile.contains("SWIFT_EXECUTABLE := VoxFlowApp"))
         XCTAssertTrue(makefile.contains("DMG_NAME := VoxFlow-$(VERSION)-macOS"))
         XCTAssertTrue(makefile.contains("run: prelaunch-cleanup build"))
         XCTAssertTrue(makefile.contains("CURRENT_BUNDLE_ID := com.voxflow.app"))
+        XCTAssertTrue(makefile.contains("DEV_BUNDLE_ID := com.voxflow.app.dev"))
         XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
         XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains("RENAMED_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains("TEMP_RENAMED_BUNDLE_ID"))
         XCTAssertTrue(makefile.contains("Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)"))
+        XCTAssertTrue(buildBody.contains("Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)"))
+        XCTAssertFalse(buildBody.contains("Set :CFBundleIdentifier $(DEV_BUNDLE_ID)"))
         XCTAssertTrue(makefile.contains("lsregister"))
         XCTAssertTrue(makefile.contains("$(LSREGISTER)\" -f \"$(BUNDLE_DIR)\""))
     }
@@ -75,6 +79,7 @@ final class BrandIdentityTests: XCTestCase {
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
             encoding: .utf8
         )
+        let buildDevBody = try Self.makeTargetBody("build-dev", in: makefile)
 
         XCTAssertTrue(makefile.contains("SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertTrue(makefile.contains("NATIVE_DEBUG_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug"))
@@ -82,6 +87,9 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("swift build $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
         XCTAssertTrue(makefile.contains("\"$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)\""))
         XCTAssertTrue(makefile.contains("run-dev: prelaunch-cleanup build-dev"))
+        XCTAssertTrue(buildDevBody.contains("Set :CFBundleIdentifier $(DEV_BUNDLE_ID)"))
+        XCTAssertTrue(buildDevBody.contains("Set :CFBundleName $(DEV_BUNDLE_NAME)"))
+        XCTAssertTrue(buildDevBody.contains("Set :CFBundleDisplayName $(DEV_DISPLAY_NAME)"))
         XCTAssertTrue(makefile.contains("debug: prepare-runtime"))
 
         XCTAssertTrue(makefile.contains("build-native: prepare-runtime"))
@@ -175,6 +183,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(cleanupBody.contains("RENAMED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("CURRENT_BUNDLE_ID"))
+        XCTAssertTrue(cleanupBody.contains("DEV_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
         XCTAssertTrue(cleanupBody.contains("$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve"))
         XCTAssertTrue(makefile.contains("LEGACY_BUNDLE_ID := com.voiceinput.app"))
@@ -190,7 +199,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(cleanupBody.contains("NSStatusItem Preferred Position $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("NSStatusItem VisibleCC $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("VoxFlowStatusItemPlacementResetV1"))
-        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(LEGACY_BUNDLE_ID)\" \"$(REQUESTED_BUNDLE_ID)\" \"$(CURRENT_BUNDLE_ID)\""))
+        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(LEGACY_BUNDLE_ID)\" \"$(REQUESTED_BUNDLE_ID)\" \"$(CURRENT_BUNDLE_ID)\" \"$(DEV_BUNDLE_ID)\""))
         XCTAssertTrue(cleanupBody.contains("defaults delete \"$$bundle_id\""))
 
         // run target body itself should NOT contain defaults delete (delegated to prelaunch-cleanup)
@@ -315,5 +324,11 @@ final class BrandIdentityTests: XCTestCase {
             directory.deleteLastPathComponent()
         }
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    }
+
+    private static func makeTargetBody(_ target: String, in makefile: String) throws -> String {
+        let start = try XCTUnwrap(makefile.range(of: "\n\(target):")?.lowerBound)
+        let end = try XCTUnwrap(makefile[start...].range(of: "\n\n")?.lowerBound)
+        return String(makefile[start..<end])
     }
 }

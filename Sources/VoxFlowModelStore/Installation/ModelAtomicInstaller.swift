@@ -1,8 +1,24 @@
 import Foundation
 
-public enum ModelInstallError: Error, Equatable, Sendable {
+public enum ModelInstallError: LocalizedError, Equatable, Sendable {
     case emptyManifest
     case integrityFailed(ModelIntegrityReport)
+
+    public var errorDescription: String? {
+        switch self {
+        case .emptyManifest:
+            return "模型清单是空的，无法安装。请更新模型清单后重试。"
+        case .integrityFailed(let report):
+            let details = report.issues
+                .prefix(3)
+                .map(\.localizedSummary)
+                .joined(separator: "；")
+            if details.isEmpty {
+                return "模型文件可能已损坏，校验没有通过。请点“清理模型”后重新下载。"
+            }
+            return "模型文件可能已损坏，校验没有通过。请点“清理模型”后重新下载。问题：\(details)"
+        }
+    }
 }
 
 public struct ModelInstallKey: Codable, Hashable, Sendable {
@@ -104,6 +120,27 @@ public struct ModelAtomicInstaller {
             try? fileManager.moveItem(at: backupRoot, to: destinationRoot)
             throw error
         }
+    }
+}
+
+private extension ModelIntegrityIssue {
+    var localizedSummary: String {
+        switch self {
+        case .missingRequiredComponent(let localPath):
+            return "\(localPath) 缺失"
+        case .sizeMismatch(let localPath, let expected, let actual):
+            return "\(localPath) 大小不一致（需要 \(Self.formatBytes(expected))，实际 \(Self.formatBytes(actual))）"
+        case .sha256Mismatch(let localPath, _, _):
+            return "\(localPath) SHA256 校验不一致"
+        case .runtimeVersionMismatch(let localPath, let expected, let actual):
+            return "\(localPath) 运行时版本不匹配（需要 \(expected)，当前 \(actual)）"
+        case .invalidMetadata(let localPath, let field):
+            return "\(localPath) 元数据字段 \(field) 无效"
+        }
+    }
+
+    private static func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
 

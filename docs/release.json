@@ -1,0 +1,10 @@
+{
+  "version": "1.6.2",
+  "tag": "v1.6.2",
+  "assetName": "VoxFlow-1.6.2-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.6.2",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.2/VoxFlow-1.6.2-macOS.dmg",
+  "releaseNotes": "修复无录音设备或系统返回无效输入格式时的启动/录音崩溃。",
+  "draft": false,
+  "prerelease": false
+}

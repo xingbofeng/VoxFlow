@@ -16,6 +16,7 @@ struct MainShellView: View {
     @ObservedObject var notesViewModel: NotesViewModel
     @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
     @ObservedObject var navigationRouter: WorkbenchNavigationRouter
+    let onCheckForUpdates: () -> Void
 
     var body: some View {
         ZStack {
@@ -103,7 +104,8 @@ struct MainShellView: View {
             settingsViewModel: settingsViewModel,
             fileTranscriptionViewModel: fileTranscriptionViewModel,
             notesViewModel: notesViewModel,
-            screenshotRecordViewModel: screenshotRecordViewModel
+            screenshotRecordViewModel: screenshotRecordViewModel,
+            onCheckForUpdates: onCheckForUpdates
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.ColorToken.pageBackground)
@@ -145,6 +147,7 @@ private struct WorkbenchDetailView: View {
     @ObservedObject var fileTranscriptionViewModel: FileTranscriptionViewModel
     @ObservedObject var notesViewModel: NotesViewModel
     @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
+    let onCheckForUpdates: () -> Void
 
     var body: some View {
         switch route {
@@ -166,7 +169,8 @@ private struct WorkbenchDetailView: View {
             SettingsRootView(
                 viewModel: settingsViewModel,
                 llmProviderViewModel: llmProviderViewModel,
-                asrProviderViewModel: asrProviderViewModel
+                asrProviderViewModel: asrProviderViewModel,
+                onCheckForUpdates: onCheckForUpdates
             )
         case .help:
             HelpView(

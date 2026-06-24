@@ -100,6 +100,27 @@ final class WindowPresentationChoreographyTests: XCTestCase {
         XCTAssertTrue(shellSource.contains("selectedRoute = command.route"))
     }
 
+    func testMainWindowPassesUpdateCheckActionIntoSettings() throws {
+        let appDelegateSource = try projectFile(
+            "Sources/VoxFlowApp/App/AppDelegate.swift"
+        )
+        let coordinatorSource = try projectFile(
+            "Sources/VoxFlowApp/Presentation/WindowCoordinator.swift"
+        )
+        let mainWindowSource = try projectFile(
+            "Sources/VoxFlowApp/Presentation/MainWindowController.swift"
+        )
+        let shellSource = try projectFile(
+            "Sources/VoxFlowApp/Views/MainShellView.swift"
+        )
+
+        XCTAssertTrue(appDelegateSource.contains("windowCoordinator.onCheckForUpdates = { [weak self] in"))
+        XCTAssertTrue(coordinatorSource.contains("var onCheckForUpdates: () -> Void"))
+        XCTAssertTrue(mainWindowSource.contains("onCheckForUpdates: onCheckForUpdates"))
+        XCTAssertTrue(shellSource.contains("onCheckForUpdates: onCheckForUpdates"))
+        XCTAssertTrue(shellSource.contains("SettingsRootView("))
+    }
+
     func testFirstOrderedMainWindowStaysHiddenUntilFinalCenteredFrame() throws {
         let coordinatorSource = try projectFile(
             "Sources/VoxFlowApp/Presentation/WindowCoordinator.swift"

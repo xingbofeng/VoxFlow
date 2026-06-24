@@ -25,6 +25,8 @@ protocol Qwen3ModelDownloading: Sendable {
         progress: @escaping Qwen3ModelDownloader.ProgressHandler
     ) async throws -> URL
 
+    func cancelDownload() async
+
     func missingRequiredLocalPaths(
         size: ASRManager.ModelSize,
         at directory: URL,
@@ -33,6 +35,8 @@ protocol Qwen3ModelDownloading: Sendable {
 }
 
 extension Qwen3ModelDownloading {
+    func cancelDownload() async {}
+
     func download(
         size: ASRManager.ModelSize,
         progress: @escaping Qwen3ModelDownloader.ProgressHandler
@@ -63,6 +67,8 @@ extension Qwen3ModelDownloading {
 final class Qwen3LiveModelStoreInstaller: Qwen3ModelStoreInstalling, @unchecked Sendable {
     private let fileManager: FileManager
     private let transport: any ModelDownloadTransport
+    private let currentInstallerLock = NSLock()
+    private var currentInstaller: Qwen3ModelStoreLiveInstaller?
 
     init(
         fileManager: FileManager = .default,
@@ -91,12 +97,40 @@ final class Qwen3LiveModelStoreInstaller: Qwen3ModelStoreInstalling, @unchecked 
             fileManager: fileManager,
             transport: transport
         )
+        setCurrentInstaller(installer)
+        defer { clearCurrentInstaller(installer) }
         let result = try await installer.install(
             manifest: manifest,
             progress: progress
         )
         AppLogger.general.info("Qwen3 model install completed: manifest=\(manifest)")
         return result
+    }
+
+    func cancelDownload() async {
+        let installer = currentInstallerSnapshot()
+        await installer?.cancelDownload()
+    }
+
+    private func setCurrentInstaller(_ installer: Qwen3ModelStoreLiveInstaller) {
+        currentInstallerLock.lock()
+        currentInstaller = installer
+        currentInstallerLock.unlock()
+    }
+
+    private func clearCurrentInstaller(_ installer: Qwen3ModelStoreLiveInstaller) {
+        currentInstallerLock.lock()
+        if currentInstaller === installer {
+            currentInstaller = nil
+        }
+        currentInstallerLock.unlock()
+    }
+
+    private func currentInstallerSnapshot() -> Qwen3ModelStoreLiveInstaller? {
+        currentInstallerLock.lock()
+        let installer = currentInstaller
+        currentInstallerLock.unlock()
+        return installer
     }
 }
 

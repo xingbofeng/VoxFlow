@@ -79,6 +79,7 @@ final class AppRuntimeTests: XCTestCase {
         )
 
         XCTAssertTrue(appRuntime.contains("let capabilityModelDownloader: SoniqoCapabilityModelDownloader"))
+        XCTAssertTrue(appRuntime.contains("let screenshotTextRefiner: ScreenshotTextRefiner"))
         XCTAssertTrue(appRuntime.contains("let screenshotOCRService: ScreenshotOCRService"))
         XCTAssertTrue(appRuntime.contains("let voiceTaskCoordinator: VoiceTaskCoordinator"))
         XCTAssertTrue(appRuntime.contains("let clipboardAssetMonitor: ClipboardAssetMonitor"))
@@ -87,6 +88,8 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertFalse(appDelegate.contains("private let capabilityModelDownloader = SoniqoCapabilityModelDownloader()"))
         XCTAssertFalse(appDelegate.contains("ScreenshotOCRService("))
         XCTAssertFalse(appDelegate.contains("VoiceTaskCoordinator("))
+        XCTAssertFalse(appDelegate.contains("TextTransformService(refiner: llmRefiner)"))
+        XCTAssertTrue(appDelegate.contains("TextTransformService(refiner: screenshotTextRefiner)"))
         XCTAssertTrue(appDelegate.contains("clipboardAssetMonitor.start()"))
         XCTAssertTrue(appDelegate.contains("clipboardAssetMonitor.stop()"))
         XCTAssertFalse(appDelegate.contains("AgentHelperManager(paths: paths)"))
