@@ -1,11 +1,11 @@
 <div align="center">
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
-  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - dictation, screenshot text, and agent command workflow" width="100%">
+  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - asset workbench for voice, screenshots, clipboard, and agent commands" width="100%">
 
   <h1>VoxFlow</h1>
-  <p><strong>Send spoken thoughts, screenshot text, and coding-agent instructions back into your current workspace.</strong></p>
-  <p>A native macOS menu-bar workflow layer: hold to dictate, capture screenshots for OCR, and dispatch spoken instructions to local agents.</p>
+  <p><strong>A macOS asset workbench for voice, screenshots, clipboard history, and coding-agent instructions.</strong></p>
+  <p>Press <code>Option + Space</code> to open the launcher and recover recent voice, screenshot, and clipboard assets. Dictation, captures, and copied content become searchable, copyable, reusable local history.</p>
   <p><sub><a href="README.md">中文</a></sub></p>
 
   <p>
@@ -25,14 +25,18 @@
 
 ## At A Glance
 
-VoxFlow is a voice keyboard and lightweight workflow layer for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns speech, image text, and agent commands into output that returns to your current workspace.
+VoxFlow is an asset workbench and fast launcher for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns voice, screenshots, clipboard items, and agent commands into searchable, previewable, reusable local assets that return to your current workspace.
 
 | What You Want To Do | Trigger | Output | Boundary |
 | --- | --- | --- | --- |
+| Open the launcher | `Option + Space` | Raycast-style launcher | Recent Assets is selected by default; keyboard navigation first |
+| Recover recent assets | Launcher -> Recent Assets | Second-level asset browser | Voice, screenshots, and clipboard share search and filters |
 | Dictate text | Hold the shortcut, speak, release | Current cursor position | No focus stealing, no auto-submit |
+| Manage clipboard assets | Copy text, images, files, links, or colors | Asset history | Noise filters still skip content that should not be saved |
 | Fix misrecognized terms | Runs after ASR final output and optional LLM correction | Text before insertion | Local deterministic rules; learned candidates stay user-controlled |
 | OCR a clipboard image | Copy an image, press `Command + Shift + V` | Current cursor position | Image-only workflow; does not start normal dictation |
 | Capture and process a screenshot | Press `Command + Shift + A`, select a region | OCR result panel | Translation, summary, and speech playback are optional |
+| Run selection actions | Select text, press `Command + Shift + D/J/K/L` | Action HUD or result panel | D opens the action card; J translates, K summarizes, L sends to Task Assistant |
 | Review screenshot records | Open Workbench → Screenshot | Local screenshot history and OCR text | Stored locally; records can be searched, favorited, copied, and deleted |
 | Compose an AI prompt | Combine current-window context with spoken intent | Copyable prompt | Copy only, no injection, no auto-submit |
 | Command local coding agents | Speak a task assistant name and task | Codex / Claude / CodeBuddy / terminal agent session | Dispatches only to registered sessions |
@@ -50,6 +54,7 @@ VoxFlow is a voice keyboard and lightweight workflow layer for the app you are a
 | If You Want To... | Start Here |
 | --- | --- |
 | Install and try it | [Quick Start](#quick-start) |
+| Understand the launcher and assets | [Corrections, OCR, And Agent Workflows](#corrections-ocr-and-agent-workflows) |
 | Understand speech models | [Dictation And Speech Models](#dictation-and-speech-models) |
 | Understand OCR, translation, summary, and agents | [Corrections, OCR, And Agent Workflows](#corrections-ocr-and-agent-workflows) |
 | Check where data goes | [Privacy](#privacy) |
@@ -119,11 +124,11 @@ This is useful for web pages, error dialogs, screenshots, design mockups, and ch
 
 ### Workbench
 
-VoxFlow also includes a workbench for the parts of voice input that deserve a proper home:
+VoxFlow also includes a full asset workbench:
 
 | Page | What You Can Do |
 | --- | --- |
-| Home | Review stats, daily goals, and dictation history; copy or delete entries |
+| Home | Review asset history, today's additions, source breakdown, and reusable content; search, copy, or delete voice, screenshot, and clipboard assets |
 | Personal Corrections | Manage deterministic correction rules, learned candidates, enablement, and recent events |
 | Styles | Choose output styles such as original, formal, email, or coding notes |
 | File Transcription | Import audio or video files, transcribe them, export txt/md/srt, or save as notes |
@@ -135,6 +140,8 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 ## Highlights
 
+- **VoxFlow Palette launcher**: Press `Option + Space` for a Raycast-style launcher with Recent Assets selected by default, arrow-key navigation, Enter, and `Command + K` actions.
+- **Asset history workbench**: Successful ASR text, screenshots, and clipboard text/images/files/links/colors share one asset system; Home shows asset counts, source breakdown, and reusable content.
 - **Global dictation**: Works in any editable text field, not only inside VoxFlow.
 - **Non-intrusive overlay**: Shows live text and voice activity without taking focus.
 - **Multiple ASR providers**: Start with the built-in system recognizer; local Qwen3-ASR, Whisper, FunASR, SenseVoice, NVIDIA Nemotron, Parakeet, and Omnilingual providers are being unified under the same runtime model; providers without real-time streaming are marked as **Non-streaming** in Models.
@@ -149,7 +156,7 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 - **Agent Compose**: Turn current-window OCR context plus spoken intent into a prompt; it only copies the result and never auto-submits.
 - **OpenAI-compatible providers**: Add, test, edit, and delete providers; LLM API keys are stored in macOS Keychain.
 - **Personal corrections and context hotwords**: Fix repeated misrecognitions with local rules, and use current-window OCR to extract temporary context terms.
-- **History and notes**: Search, copy, edit, and reuse previous dictation results.
+- **History and notes**: Search, copy, edit, and reuse previous input, screenshots, and copied content.
 - **File transcription**: Turn recordings, videos, or meeting audio into text.
 - **Local-first data**: History, personal corrections, settings, notes, and jobs live locally; LLM correction is opt-in.
 
@@ -159,7 +166,7 @@ VoxFlow also includes a workbench for the parts of voice input that deserve a pr
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.5.0-macOS.dmg`
+1. Open `VoxFlow-1.6.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
@@ -186,6 +193,21 @@ VoxFlow needs a few macOS permissions:
 If you use a local Qwen3-ASR model, Speech Recognition permission is not required. Microphone permission is still required.
 
 If the shortcut does not respond after granting permissions, quit and reopen VoxFlow.
+
+### Default Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Option + Space` | Open the VoxFlow Palette launcher |
+| Dictation shortcut | Hold to speak, release to insert at the current cursor; configurable in Settings |
+| `Command + Shift + V` | OCR the clipboard image and paste recognized text |
+| `Command + Shift + A` | Capture a screen region and open the OCR result panel |
+| `Command + Shift + D` | Open the selection action HUD for the selected text |
+| `Command + Shift + J` | Translate the selected text directly |
+| `Command + Shift + K` | Summarize the selected text directly |
+| `Command + Shift + L` | Send the selected text directly to Task Assistant |
+
+Selection-action shortcuts can be changed or cleared individually in **Settings → Selection Actions → Activation**.
 
 ## How To Use
 
@@ -244,15 +266,15 @@ LLM API keys are stored in macOS Keychain. Cloud ASR credentials for Groq, Tence
 
 VoxFlow is local-first by default.
 
-- History, personal correction rules, notes, transcription jobs, and non-secret settings are stored locally.
+- Asset history, personal correction rules, notes, transcription jobs, and non-secret settings are stored locally.
 - LLM API keys are stored in macOS Keychain; cloud ASR credentials are stored in the local SQLite settings database.
 - Apple Speech may process audio according to macOS system behavior.
 - Local Qwen3-ASR runs on-device after the model is downloaded.
 - LLM correction is disabled by default. When enabled, only recognized text is sent to your configured API provider.
-- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device.
-- Clipboard images are used only for the active OCR workflow and are not written to persistent screenshot records or history.
+- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device. VoxFlow does not proactively upload notes, asset history, or clipboard content.
+- Clipboard assets are saved locally for launcher and Home review; noise filters skip meaningless high-frequency changes.
+- Clipboard image OCR can still be used as a one-off OCR entry.
 - Screenshot records (OCR text + screenshot files captured via `Command + Shift + A`) are stored locally and are never uploaded.
-- VoxFlow does not automatically upload notes, history, or clipboard content.
 
 See [Privacy](docs/PRIVACY.md) for more details.
 

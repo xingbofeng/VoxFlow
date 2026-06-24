@@ -32,13 +32,23 @@ public enum InputSourceClassifier {
 @MainActor
 public final class FastPasteTextInserter: TextInserting {
     private let shouldRestoreClipboard: @MainActor () -> Bool
+    private let allowsSystemInteraction: @MainActor () -> Bool
 
-    public init(shouldRestoreClipboard: @escaping @MainActor () -> Bool = { true }) {
+    public init(
+        shouldRestoreClipboard: @escaping @MainActor () -> Bool = { true },
+        allowsSystemInteraction: @escaping @MainActor () -> Bool = {
+            !TextInsertionRuntimeEnvironment.isRunningUnderXCTest()
+        }
+    ) {
         self.shouldRestoreClipboard = shouldRestoreClipboard
+        self.allowsSystemInteraction = allowsSystemInteraction
     }
 
     public func insert(_ text: String) async -> TextInsertionResult {
         guard !text.isEmpty else { return .success }
+        guard allowsSystemInteraction() else {
+            return .unavailable(reason: "Fast paste system interaction is disabled during tests")
+        }
 
         guard AXIsProcessTrusted() else {
             return .permissionDenied

@@ -51,28 +51,28 @@
     </g>
 
     <text x="360" y="140" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="30" font-weight="760">工作台 · Workflow</text>
-    <text x="360" y="174" fill="#7A7B75" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="17">语音输入、截图 OCR、易错词和 AI Coding 助手 都贴着当前应用完成</text>
+    <text x="360" y="174" fill="#7A7B75" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="17">启动台、历史资产、语音、截图和 AI Coding 助手都贴着当前应用完成</text>
 
     <g transform="translate(360 214)" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif">
       <g>
         <rect width="148" height="86" rx="18" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="18" y="31" fill="#718079" font-size="13">累计字符</text>
+        <text x="18" y="31" fill="#718079" font-size="13">累计资产</text>
         <text x="18" y="66" fill="#242525" font-size="31" font-weight="780">8,426</text>
       </g>
       <g transform="translate(166)">
         <rect width="148" height="86" rx="18" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="18" y="31" fill="#718079" font-size="13">今日字符</text>
+        <text x="18" y="31" fill="#718079" font-size="13">今日新增</text>
         <text x="18" y="66" fill="#242525" font-size="31" font-weight="780">1,284</text>
       </g>
       <g transform="translate(332)">
         <rect width="148" height="86" rx="18" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="18" y="31" fill="#718079" font-size="13">平均字/分钟</text>
-        <text x="18" y="66" fill="#242525" font-size="31" font-weight="780">126</text>
+        <text x="18" y="31" fill="#718079" font-size="13">来源分布</text>
+        <text x="18" y="66" fill="#242525" font-size="24" font-weight="780">语音 42</text>
       </g>
       <g transform="translate(498)">
         <rect width="148" height="86" rx="18" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="18" y="31" fill="#718079" font-size="13">连续使用</text>
-        <text x="18" y="66" fill="#242525" font-size="31" font-weight="780">18 天</text>
+        <text x="18" y="31" fill="#718079" font-size="13">可复用</text>
+        <text x="18" y="66" fill="#242525" font-size="31" font-weight="780">18 条</text>
       </g>
     </g>
 

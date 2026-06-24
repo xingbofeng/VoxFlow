@@ -65,23 +65,23 @@ public struct HotwordExtractor: Sendable {
             )
         }
 
+        for label in extractLeadingCJKLabels(from: limited) {
+            addCandidate(
+                label,
+                source: .ocrShape,
+                reason: "cjk_leading_label",
+                weight: 6.5,
+                now: now,
+                candidates: &candidates
+            )
+        }
+
         for token in extractShapeCandidates(from: limited) {
             addCandidate(
                 token,
                 source: .ocrShape,
                 reason: "shape_candidate",
                 weight: 7,
-                now: now,
-                candidates: &candidates
-            )
-        }
-
-        for phrase in extractChinesePhrases(from: limited) {
-            addCandidate(
-                phrase,
-                source: .ocrKeyphrase,
-                reason: "short_chinese_phrase",
-                weight: 4,
                 now: now,
                 candidates: &candidates
             )
@@ -131,6 +131,27 @@ public struct HotwordExtractor: Sendable {
         )
     }
 
+    private func extractLeadingCJKLabels(from text: String) -> [String] {
+        guard containsCJK(text) else { return [] }
+
+        var labels: [String] = []
+        var seen: Set<String> = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let parts = line.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+            guard parts.count == 2 else { continue }
+            let first = clean(String(parts[0]))
+            guard !seen.contains(first),
+                  isCJKToken(first),
+                  (2...8).contains(first.count)
+            else {
+                continue
+            }
+            seen.insert(first)
+            labels.append(first)
+        }
+        return labels
+    }
+
     private func extractShapeCandidates(from text: String) -> [String] {
         guard let regex = Self.shapeCandidateRegex else { return [] }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
@@ -138,33 +159,6 @@ public struct HotwordExtractor: Sendable {
             guard let swiftRange = Range(match.range, in: text) else { return nil }
             return String(text[swiftRange])
         }
-    }
-
-    private func extractChinesePhrases(from text: String) -> [String] {
-        guard let regex = Self.shortChinesePhraseRegex else { return [] }
-        var phrases: [String] = []
-
-        for line in text.components(separatedBy: .newlines) {
-            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedLine.isEmpty else { continue }
-
-            for segment in chineseSegments(in: trimmedLine) {
-                let range = NSRange(segment.startIndex..<segment.endIndex, in: segment)
-                guard regex.firstMatch(in: segment, range: range) != nil else { continue }
-                phrases.append(segment)
-            }
-        }
-
-        return phrases
-    }
-
-    private func chineseSegments(in line: String) -> [String] {
-        let separators = CharacterSet.whitespacesAndNewlines
-            .union(.punctuationCharacters)
-            .union(.symbols)
-        return line.components(separatedBy: separators)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
     }
 
     private func rakeWeight(for phrase: String) -> Double {
@@ -205,6 +199,18 @@ public struct HotwordExtractor: Sendable {
         return word.dropFirst().contains { $0.isLowercase }
     }
 
+    private func isCJKToken(_ text: String) -> Bool {
+        text.unicodeScalars.allSatisfy { scalar in
+            (0x4E00...0x9FFF).contains(Int(scalar.value))
+        }
+    }
+
+    private func containsCJK(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            (0x4E00...0x9FFF).contains(Int(scalar.value))
+        }
+    }
+
     private static let genericUILabels: Set<String> = [
         "取消", "确定", "设置", "保存", "关闭", "返回", "下一步", "完成",
         "Cancel", "OK", "Settings", "Save", "Close", "Back", "Next", "Done"
@@ -214,7 +220,4 @@ public struct HotwordExtractor: Sendable {
         pattern: #"[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)+|[A-Z]{2,}[A-Za-z0-9]*|[A-Z][a-z]+(?:[A-Z][A-Za-z0-9]+)+"#
     )
 
-    private static let shortChinesePhraseRegex = try? NSRegularExpression(
-        pattern: #"^[\p{Han}]{2,8}$"#
-    )
 }

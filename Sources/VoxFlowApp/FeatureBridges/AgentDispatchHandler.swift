@@ -190,7 +190,7 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
             return
         }
         AppLogger.dictation.debug("AgentDispatchHandler confirmation timeout for task=\(taskID ?? "nil")")
-        copyConfirmationToClipboardAndFinish(utterance)
+        retainConfirmationWithoutClipboardAndFinish(utterance)
     }
 
     private func cancelConfirmationTimeout() {
@@ -198,14 +198,9 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         confirmationTimeoutTask = nil
     }
 
-    private func copyConfirmationToClipboardAndFinish(_ text: String) {
-        if clipboardService.setString(text) {
-            AppLogger.dictation.debug("AgentDispatchHandler copy confirmation to clipboard success")
-            dispatchCoordinator.fallbackToClipboard(text: text)
-        } else {
-            AppLogger.dictation.warning("AgentDispatchHandler copy confirmation failed")
-            dispatchCoordinator.fail(message: "复制到剪切板失败", retainedText: text)
-        }
+    private func retainConfirmationWithoutClipboardAndFinish(_ text: String) {
+        AppLogger.dictation.debug("AgentDispatchHandler confirmation timeout retained without clipboard")
+        dispatchCoordinator.fail(message: "未选择任务助手", retainedText: text)
         emitCurrentPresentation()
         try? taskCoordinator.completeAgentDispatch(
             finalText: text,

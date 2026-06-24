@@ -66,17 +66,10 @@ final class SQLiteCorrectionTargetRepositoryTests: XCTestCase {
 
     func testMigrationBackfillsTargetsForLegacyRules() throws {
         let legacyQueue = try DatabaseQueue(connection: .inMemory())
-        try DatabaseMigrator(migrations: [
-            DatabaseMigration(id: 1, name: "initial_schema") { connection in
-                try connection.execute(AppDatabase.initialSchemaSQL)
-            },
-            DatabaseMigration(id: 7, name: "voice_correction") { connection in
-                try connection.execute(AppDatabase.voiceCorrectionSQL)
-            },
-            DatabaseMigration(id: 8, name: "voice_correction_scope_specific_unique_index") { connection in
-                try connection.execute(AppDatabase.voiceCorrectionUniqueIndexSQL)
-            },
-        ]).migrate(legacyQueue)
+        try legacyQueue.write { connection in
+            try connection.execute(try AppDatabase.loadBundledSchemaSQL())
+            try markMigrationsApplied(through: 8, on: connection)
+        }
 
         let ruleID = UUID()
         let timestamp = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: 1_800_000_000))
@@ -132,6 +125,35 @@ final class SQLiteCorrectionTargetRepositoryTests: XCTestCase {
         let ruleAfterSecondMigration = try XCTUnwrap(try ruleRepository.rule(id: ruleID))
         XCTAssertEqual(targetsAfterSecondMigration.count, 1)
         XCTAssertEqual(ruleAfterSecondMigration.targetID, migratedRule.targetID)
+    }
+
+    private func markMigrationsApplied(
+        through maxID: Int,
+        on connection: SQLiteConnection
+    ) throws {
+        let names: [Int: String] = [
+            1: "initial_schema",
+            2: "dictation_history_processing_trace",
+            3: "voice_tasks",
+            4: "llm_provider_timeout_30s",
+            5: "voice_task_asr_metadata",
+            6: "drop_legacy_glossary_and_replacement_tables",
+            7: "voice_correction",
+            8: "voice_correction_scope_specific_unique_index",
+        ]
+        let timestamp = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: 1_700_000_000))
+        for id in 1...maxID {
+            let statement = try connection.prepare(
+                """
+                INSERT OR IGNORE INTO schema_migrations (id, name, applied_at)
+                VALUES (?, ?, ?)
+                """
+            )
+            try statement.bind(id, at: 1)
+            try statement.bind(names[id] ?? "migration_\(id)", at: 2)
+            try statement.bind(timestamp, at: 3)
+            _ = try statement.step()
+        }
     }
 
     private func makeTarget(

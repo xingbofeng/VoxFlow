@@ -15,14 +15,14 @@ struct HomeDashboardView: View {
                     Spacer()
                 }
 
-                HomeStatsGrid(stats: viewModel.stats, focusedCharactersTitle: viewModel.focusedCharactersTitle)
+                HomeStatsGrid(stats: viewModel.stats, focusedAssetsTitle: viewModel.focusedAssetsTitle)
                 HomeActivityCard(
                     activity: viewModel.activity,
                     selectedDate: viewModel.selectedActivityDate,
                     selectAction: viewModel.selectActivityDay,
                     clearAction: viewModel.restoreDefaultDashboardFocusFromActivityBlankTap
                 )
-                HomeHistorySection(viewModel: viewModel)
+                HomeAssetSection(viewModel: viewModel)
             }
             .padding(AppTheme.Spacing.page)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -38,6 +38,326 @@ struct HomeDashboardView: View {
         .onAppear {
             viewModel.loadIfNeeded()
         }
+    }
+}
+
+private struct HomeAssetSection: View {
+    @ObservedObject var viewModel: HomeDashboardViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .center, spacing: 10) {
+                    Label("资产", systemImage: "tray.full")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text("共 \(viewModel.totalAssetCount) 条")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    Spacer(minLength: 16)
+                    TextField(
+                        "搜索资产",
+                        text: Binding(
+                            get: { viewModel.searchText },
+                            set: { viewModel.updateSearch($0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 280)
+                }
+
+                HStack(alignment: .center, spacing: 10) {
+                    assetToolbarButton("清空数据", systemImage: "trash", role: .destructive) {
+                        viewModel.clearAllAssets()
+                    }
+                    .disabled(viewModel.totalAssetCount == 0)
+
+                    assetToolbarButton("删除选中", systemImage: "checklist", role: .destructive) {
+                        viewModel.deleteSelectedAssets()
+                    }
+                    .disabled(viewModel.selectedAssetIDs.isEmpty)
+
+                    assetToolbarButton(viewModel.areVisibleAssetsSelected ? "取消全选" : "全选", systemImage: "checklist") {
+                        viewModel.toggleVisibleAssetSelection()
+                    }
+                    .disabled(viewModel.visibleAssetIDs.isEmpty)
+
+                    Spacer(minLength: 16)
+
+                    assetPagination
+
+                    Picker("每页", selection: Binding(
+                        get: { viewModel.pageSize },
+                        set: { viewModel.updateAssetPageSize($0) }
+                    )) {
+                        ForEach([20, 50, 100], id: \.self) { size in
+                            Text("\(size) 条/页").tag(size)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 110)
+                }
+            }
+
+            if viewModel.assetGroups.isEmpty {
+                Text("暂无资产")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .appPanel()
+            } else {
+                LazyVStack(alignment: .leading, spacing: AppTheme.Spacing.grid) {
+                    ForEach(viewModel.assetGroups, id: \.id) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(group.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            ForEach(group.items, id: \.id) { item in
+                                HomeAssetRow(
+                                    item: item,
+                                    isSelected: viewModel.selectedAssetIDs.contains(item.id),
+                                    selectAction: { viewModel.selectAssetItem(id: item.id) },
+                                    toggleSelectionAction: { viewModel.toggleAssetSelection(id: item.id) },
+                                    copyAction: { viewModel.copyAssetItem(id: item.id) },
+                                    deleteAction: { viewModel.deleteAssetItem(id: item.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func assetToolbarButton(
+        _ title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(height: 28)
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private var assetPagination: some View {
+        HStack(spacing: 6) {
+            Button("上一页", action: viewModel.previousAssetPage)
+                .disabled(!viewModel.canGoToPreviousAssetPage)
+            ForEach(visibleAssetPageSlots, id: \.self) { slot in
+                if let page = slot {
+                    Button("\(page)") { viewModel.goToAssetPage(page) }
+                        .buttonStyle(.bordered)
+                        .background(
+                            page == viewModel.assetCurrentPage
+                                ? AppTheme.ColorToken.accentSoft
+                                : Color.clear
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                } else {
+                    Text("…")
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .frame(width: 22)
+                }
+            }
+            Button("下一页", action: viewModel.nextAssetPage)
+                .disabled(!viewModel.canGoToNextAssetPage)
+        }
+        .font(.system(size: 12, weight: .medium))
+    }
+
+    /// antd 表格风格分页槽位：`nil` 表示省略号 "…"，非 nil 表示可点击的页号。
+    /// 总页数 ≤ 7 时全部显示；否则始终显示首末页 + 当前页 ± 1 + 必要的省略号。
+    private var visibleAssetPageSlots: [Int?] {
+        let total = viewModel.totalAssetPages
+        let current = viewModel.assetCurrentPage
+        guard total > 0 else { return [] }
+        if total <= 7 {
+            return (1...total).map { Optional($0) }
+        }
+        var slots: [Int?] = [1]
+        let left = max(2, current - 1)
+        let right = min(total - 1, current + 1)
+        if left > 2 {
+            slots.append(nil)
+        }
+        for p in left...right {
+            slots.append(p)
+        }
+        if right < total - 1 {
+            slots.append(nil)
+        }
+        slots.append(total)
+        return slots
+    }
+}
+
+private struct HomeAssetRow: View {
+    let item: HomeAssetItem
+    let isSelected: Bool
+    let selectAction: () -> Void
+    let toggleSelectionAction: () -> Void
+    let copyAction: () -> Void
+    let deleteAction: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Button(action: toggleSelectionAction) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(isSelected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: selectAction) {
+                HStack(alignment: .center, spacing: 12) {
+                    if let imagePath = item.imagePath,
+                       let image = NSImage(contentsOfFile: imagePath),
+                       item.systemImage == "photo" {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 34, height: 34)
+                            .background(AppTheme.ColorToken.panelBackground)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous)
+                                    .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                            )
+                    } else {
+                        Image(systemName: item.systemImage)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(AppTheme.ColorToken.accent)
+                            .frame(width: 34, height: 34)
+                            .background(AppTheme.ColorToken.accentSoft)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                            .lineLimit(2)
+                        HStack(spacing: 8) {
+                            Text(item.sourceTitle)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.accent)
+                            Text(item.contentTypeTitle)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            if !item.previewText.isEmpty {
+                                Text(item.previewText)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: copyAction) {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(AppTheme.ColorToken.accent)
+
+            Button(role: .destructive, action: deleteAction) {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(isSelected ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                .stroke(
+                    isSelected ? AppTheme.ColorToken.selectionBorder : AppTheme.ColorToken.panelStroke,
+                    lineWidth: AppTheme.Border.panelLineWidth
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+    }
+}
+
+private struct HomeAssetDetailModal: View {
+    @ObservedObject var viewModel: HomeDashboardViewModel
+    let detail: HomeAssetItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(detail.title)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    HStack(spacing: 8) {
+                        Text(detail.sourceTitle)
+                        Text(detail.contentTypeTitle)
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                Button {
+                    viewModel.clearSelectedHomeDetail()
+                } label: {
+                    Image(systemName: "xmark")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+            }
+
+            if let imagePath = detail.imagePath,
+               let image = NSImage(contentsOfFile: imagePath) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: 360)
+                    .background(AppTheme.ColorToken.pageBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            }
+
+            ScrollView {
+                Text(detail.previewText.isEmpty ? "无可预览内容" : detail.previewText)
+                    .font(.system(size: 15))
+                    .lineSpacing(5)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .textSelection(.enabled)
+            }
+            .frame(minHeight: 140, maxHeight: 260)
+            .padding(14)
+            .background(AppTheme.ColorToken.pageBackground)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+
+            HStack {
+                Button {
+                    viewModel.copyAssetItem(id: detail.id)
+                } label: {
+                    Label("复制", systemImage: "doc.on.doc")
+                }
+                Button(role: .destructive) {
+                    viewModel.deleteAssetItem(id: detail.id)
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                Spacer()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(24)
+        .frame(width: 720)
+        .background(AppTheme.ColorToken.panelBackground)
     }
 }
 
@@ -122,7 +442,7 @@ private struct HomeActivityCard: View {
                                                 }
                                         }
                                         .buttonStyle(.plain)
-                                        .help("\(Self.dateFormatter.string(from: day.date)) · \(day.characters) 字")
+                                        .help(Self.tooltipText(for: day))
                                     }
                                 }
                             }
@@ -156,9 +476,9 @@ private struct HomeActivityCard: View {
     private var summaryText: String {
         guard let selectedDate,
               let selectedDay = activity.days.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }) else {
-            return "本周 \(activity.thisWeekCharacters) 字"
+            return "本周 \(activity.thisWeekAssets) 条资产"
         }
-        return "\(Self.dateFormatter.string(from: selectedDate)) \(selectedDay.characters) 字"
+        return "\(Self.dateFormatter.string(from: selectedDate)) \(selectedDay.assetCount) 条资产"
     }
 
     private var weeks: [[HomeActivityDay]] {
@@ -210,6 +530,14 @@ private struct HomeActivityCard: View {
         }
     }
 
+    private static func tooltipText(for day: HomeActivityDay) -> String {
+        let dateText = dateFormatter.string(from: day.date)
+        guard day.assetCount > 0 else {
+            return "\(dateText) · 0 条资产"
+        }
+        return "\(dateText) · \(day.sourceBreakdown.summaryText)"
+    }
+
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "M月d日"
@@ -219,14 +547,14 @@ private struct HomeActivityCard: View {
 
 private struct HomeStatsGrid: View {
     let stats: HomeDashboardStats
-    let focusedCharactersTitle: String
+    let focusedAssetsTitle: String
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: AppTheme.Spacing.grid)], spacing: AppTheme.Spacing.grid) {
-            HomeStatCard(title: "累计字符", value: "\(stats.totalCharacters)", systemImage: "textformat.size")
-            HomeStatCard(title: focusedCharactersTitle, value: "\(stats.todayCharacters)", systemImage: "calendar")
-            HomeStatCard(title: "平均字/分钟", value: "\(stats.averageCPM)", systemImage: "speedometer")
-            HomeStatCard(title: "连续使用", value: "\(stats.streakDays) 天", systemImage: "flame")
+            HomeStatCard(title: "累计资产", value: "\(stats.totalAssets)", systemImage: "tray.full")
+            HomeStatCard(title: focusedAssetsTitle, value: "\(stats.focusedAssets)", systemImage: "calendar.badge.plus")
+            HomeStatCard(title: "来源分布", value: stats.sourceBreakdown.summaryText, systemImage: "square.grid.2x2")
+            HomeStatCard(title: "可复用内容", value: "\(stats.reusableAssets)", systemImage: "arrowshape.turn.up.right")
         }
     }
 }
@@ -247,7 +575,7 @@ private struct HomeStatCard: View {
                 Spacer()
             }
             Text(value)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .font(.system(size: value.count > 8 ? 18 : 30, weight: .semibold, design: .rounded))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -258,219 +586,10 @@ private struct HomeStatCard: View {
     }
 }
 
-private struct HomeHistorySection: View {
+struct HomeDetailOverlay: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
-    @State private var isShowingClearConfirmation = false
-
-    /// antd 表格风格分页槽位：`nil` 表示省略号 "…"，非 nil 表示可点击的页号。
-    /// 总页数 ≤ 7 时全部显示；否则始终显示首末页 + 当前页 ± 1 + 必要的省略号。
-    private var visiblePageSlots: [Int?] {
-        let total = viewModel.totalPages
-        let current = viewModel.currentPage
-        guard total > 0 else { return [] }
-        if total <= 7 {
-            return (1...total).map { Optional($0) }
-        }
-        var slots: [Int?] = [1]
-        let left = max(2, current - 1)
-        let right = min(total - 1, current + 1)
-        if left > 2 {
-            slots.append(nil)
-        }
-        for p in left...right {
-            slots.append(p)
-        }
-        if right < total - 1 {
-            slots.append(nil)
-        }
-        slots.append(total)
-        return slots
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Label("历史", systemImage: "clock.arrow.circlepath")
-                    .font(.system(size: 18, weight: .semibold))
-                Button(role: .destructive) {
-                    isShowingClearConfirmation = true
-                } label: {
-                    Label("清空数据", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.totalHistoryCount == 0)
-                Spacer()
-                TextField(
-                    "搜索历史",
-                    text: Binding(
-                        get: { viewModel.searchText },
-                        set: { viewModel.updateSearch($0) }
-                    )
-                )
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 240)
-            }
-
-            HStack(spacing: 8) {
-                Text("共 \(viewModel.totalHistoryCount) 条")
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                Picker("每页", selection: Binding(
-                    get: { viewModel.pageSize },
-                    set: { viewModel.updateHistoryPageSize($0) }
-                )) {
-                    ForEach([20, 50, 100], id: \.self) { size in
-                        Text("\(size) 条/页").tag(size)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 110)
-                Spacer()
-                Button("上一页", action: viewModel.previousPage)
-                    .disabled(!viewModel.canGoToPreviousPage)
-                ForEach(visiblePageSlots, id: \.self) { slot in
-                    if let page = slot {
-                        Button("\(page)") { viewModel.goToPage(page) }
-                            .buttonStyle(.bordered)
-                            .background(
-                                page == viewModel.currentPage
-                                    ? AppTheme.ColorToken.accentSoft
-                                    : Color.clear
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    } else {
-                        Text("…")
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            .frame(width: 24)
-                    }
-                }
-                Button("下一页", action: viewModel.nextPage)
-                    .disabled(!viewModel.canGoToNextPage)
-            }
-            .font(.system(size: 12, weight: .medium))
-
-            if viewModel.historyGroups.isEmpty {
-                Text("暂无记录")
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                    .appPanel()
-            } else {
-                LazyVStack(alignment: .leading, spacing: AppTheme.Spacing.grid) {
-                    ForEach(viewModel.historyGroups) { group in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(group.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            ForEach(group.items) { item in
-                                HomeHistoryRow(
-                                    item: item,
-                                    isSelected: viewModel.selectedDetail?.id == item.id,
-                                    selectAction: { viewModel.selectHistoryItem(id: item.id) },
-                                    copyAction: { viewModel.copyHistoryItem(id: item.id) },
-                                    deleteAction: { viewModel.deleteHistoryItem(id: item.id) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .confirmationDialog(
-            "确认清空全部历史数据？",
-            isPresented: $isShowingClearConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("清空数据", role: .destructive, action: viewModel.clearAllHistory)
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("听写历史将被移除，已结束的任务助手与 AI 编程历史将被删除。进行中的任务不会受影响。")
-        }
-    }
-}
-
-private struct HomeHistoryRow: View {
-    let item: HomeHistoryItem
-    let isSelected: Bool
-    let selectAction: () -> Void
-    let copyAction: () -> Void
-    let deleteAction: () -> Void
-    @State private var textVariant: HomeHistoryTextVariant = .final
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Button(action: selectAction) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.text(for: textVariant))
-                        .font(.system(size: 14))
-                        .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        .lineLimit(2)
-                        .truncationMode(.head)
-                    HStack(alignment: .center, spacing: 8) {
-                        if let appName = item.appName {
-                            SourceApplicationIcon(appName: appName, bundleID: item.appBundleID, size: 28)
-                        }
-                        if item.taskMode == .agentCompose {
-                            Label("任务助手", systemImage: "sparkles")
-                                .foregroundStyle(AppTheme.ColorToken.accent)
-                        } else if item.taskMode == .agentDispatch {
-                            Label("AI 编程", systemImage: "terminal")
-                                .foregroundStyle(AppTheme.ColorToken.accent)
-                        }
-                        Text("\(item.charCount) 字")
-                        Text("\(Int(item.cpm.rounded())) 字/分钟")
-                    }
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            Button {
-                textVariant = textVariant == .final ? .raw : .final
-            } label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .disabled(!item.hasTextVariants)
-            .help(textVariant == .final ? "显示转换前" : "显示转换后")
-            Button(action: copyAction) {
-                Image(systemName: "doc.on.doc")
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .help("复制")
-            Button(action: deleteAction) {
-                Image(systemName: "trash")
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .help("删除")
-        }
-        .padding(12)
-        .background(isSelected ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .stroke(
-                    isSelected ? AppTheme.ColorToken.selectionBorder : AppTheme.ColorToken.panelStroke,
-                    lineWidth: AppTheme.Border.panelLineWidth
-                )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
-        .shadow(
-            color: AppTheme.ColorToken.accent.opacity(isSelected ? 0.05 : 0.025),
-            radius: isSelected ? 8 : 4,
-            y: 2
-        )
-    }
-}
-
-struct HomeHistoryDetailOverlay: View {
-    @ObservedObject var viewModel: HomeDashboardViewModel
-    let detail: HomeHistoryDetail
+    let detail: HomeDetailSelection
+    @State private var escapeMonitor: Any?
 
     var body: some View {
         ZStack {
@@ -478,17 +597,52 @@ struct HomeHistoryDetailOverlay: View {
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.dismissSelectedDetailFromBackdrop()
+                    viewModel.clearSelectedHomeDetail()
                 }
 
-            HomeHistoryDetailModal(viewModel: viewModel, detail: detail)
+            modalContent
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: .black.opacity(0.16), radius: 28, y: 12)
                 .contentShape(Rectangle())
                 .onTapGesture {}
         }
+        .onExitCommand(perform: viewModel.clearSelectedHomeDetail)
+        .onAppear { attachEscapeMonitorIfNeeded() }
+        .onDisappear { detachEscapeMonitor() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    @ViewBuilder
+    private var modalContent: some View {
+        switch detail {
+        case .voice(let voiceDetail):
+            HomeHistoryDetailModal(viewModel: viewModel, detail: voiceDetail)
+        case .asset(let assetDetail):
+            HomeAssetDetailModal(viewModel: viewModel, detail: assetDetail)
+        }
+    }
+
+    private func attachEscapeMonitorIfNeeded() {
+        guard escapeMonitor == nil else {
+            return
+        }
+        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == Self.escapeKeyCode else {
+                return event
+            }
+            viewModel.clearSelectedHomeDetail()
+            return nil
+        }
+    }
+
+    private func detachEscapeMonitor() {
+        if let monitor = escapeMonitor {
+            NSEvent.removeMonitor(monitor)
+            escapeMonitor = nil
+        }
+    }
+
+    private static let escapeKeyCode: UInt16 = 53
 }
 
 enum HomeHistoryDetailLayout {
@@ -585,7 +739,7 @@ private struct HomeHistoryDetailModal: View {
                 .disabled(viewModel.isReprocessing)
             }
             Button {
-                viewModel.clearSelectedDetail()
+                viewModel.clearSelectedHomeDetail()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .semibold))
@@ -670,8 +824,9 @@ private struct HomeHistoryDetailModal: View {
                         Text(detail.taskMode == .agentCompose ? "用户说的话" : "发送给模型的内容")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                        Text(HomeHistoryDetailPresentation.requestBodyPreview(
-                            from: llmTrace.requestBodyJSON,
+                        Text(HomeHistoryDetailPresentation.modelInputPreview(
+                            rawText: detail.rawText,
+                            requestBodyJSON: llmTrace.requestBodyJSON,
                             taskMode: detail.taskMode
                         ))
                             .font(.system(size: 13))

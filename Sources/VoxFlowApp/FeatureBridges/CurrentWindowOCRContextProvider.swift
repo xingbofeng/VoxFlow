@@ -40,6 +40,10 @@ struct CurrentWindowOCRContextProvider: CurrentWindowOCRContextProviding {
             AppLogger.dictation.debug("ContextBoost OCR skipped: screen capture unavailable app=\(target?.appName ?? "unknown") bundleID=\(target?.bundleID ?? "unknown")")
             return nil
         }
+        guard !Self.isSensitiveApp(target) else {
+            AppLogger.dictation.debug("ContextBoost OCR skipped: sensitive app app=\(target.appName ?? "unknown") bundleID=\(target.bundleID ?? "unknown")")
+            return nil
+        }
         guard let rawText = await screenshotProvider.visibleText(target: target),
               let text = ContextTextSanitizer.sanitize(rawText),
               !ContextPipeline.isNoise(text) else {
@@ -63,7 +67,7 @@ struct CurrentWindowOCRContextProvider: CurrentWindowOCRContextProviding {
             AppLogger.dictation.debug("ContextBoost OCR produced no hotwords app=\(target.appName ?? "unknown") bundleID=\(target.bundleID ?? "unknown") ocrCharacters=\(text.count) candidates=\(candidates.count) namedEntities=\(namedEntities.count)")
             return nil
         }
-        AppLogger.dictation.debug("ContextBoost OCR captured app=\(target.appName ?? "unknown") bundleID=\(target.bundleID ?? "unknown") ocrCharacters=\(text.count) candidates=\(candidates.count) namedEntities=\(namedEntities.count) topK=\(hotwords.map(\.text).joined(separator: ","))")
+        AppLogger.dictation.debug("ContextBoost OCR captured app=\(target.appName ?? "unknown") bundleID=\(target.bundleID ?? "unknown") ocrCharacters=\(text.count) candidates=\(candidates.count) namedEntities=\(namedEntities.count) topKCount=\(hotwords.count)")
 
         return OCRContextSnapshot(
             bundleID: target.bundleID,
@@ -79,11 +83,26 @@ struct CurrentWindowOCRContextProvider: CurrentWindowOCRContextProviding {
 
 extension CurrentWindowOCRContextProvider: ContextBoostOCRCaptureSessionProviding {
     func makeCaptureSession(for target: DictationTarget) -> (any ContextBoostOCRCaptureSession)? {
-        guard screenshotProvider.canCaptureScreen() else { return nil }
+        guard screenshotProvider.canCaptureScreen(),
+              !Self.isSensitiveApp(target) else { return nil }
         return SystemContextBoostOCRCaptureSession(
             target: target,
             snapshotBuilder: self
         )
+    }
+}
+
+private extension CurrentWindowOCRContextProvider {
+    static func isSensitiveApp(_ target: DictationTarget) -> Bool {
+        let bundleID = target.bundleID?.lowercased() ?? ""
+        let appName = target.appName?.lowercased() ?? ""
+        let markers = [
+            "1password", "bitwarden", "dashlane", "lastpass", "keepass",
+            "keychainaccess", "proton.pass", "secret", "password manager"
+        ]
+        return markers.contains { marker in
+            bundleID.contains(marker) || appName.contains(marker)
+        }
     }
 }
 

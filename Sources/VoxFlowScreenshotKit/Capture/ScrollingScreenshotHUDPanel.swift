@@ -4,22 +4,20 @@ import CoreGraphics
 // GPLv3-scoped behavior attribution:
 // Adapted from sw33tLie/macshot ScrollCaptureHUDView.
 // Source: https://github.com/sw33tLie/macshot
-// Upstream commit: 34c9999625cfe9e8999c00358b3c172dfc00380c
+// Upstream commit: b8ebcb454f957fda011821fbf9c104580592d135
 // License: GPLv3
 
 @MainActor
 final class ScrollingScreenshotHUDView: NSView {
-    private let cancelButton = NSButton()
     private let autoScrollButton = NSButton()
+    private let cancelButton = NSButton()
     private let stopButton = NSButton()
-    private let statusLabel = NSTextField(labelWithString: "")
     private let itemSize: CGFloat = 28
     private let itemSpacing: CGFloat = 4
     private let contentPadding: CGFloat = 8
-    private let labelWidth: CGFloat = 138
 
-    var onCancel: (() -> Void)?
     var onToggleAutoScroll: (() -> Void)?
+    var onCancel: (() -> Void)?
     var onStop: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
@@ -31,16 +29,16 @@ final class ScrollingScreenshotHUDView: NSView {
         layer?.borderColor = NSColor.systemGreen.withAlphaComponent(0.32).cgColor
 
         configureIconButton(
-            cancelButton,
-            symbolName: "xmark",
-            action: #selector(cancelClicked),
-            help: "取消"
-        )
-        configureIconButton(
             autoScrollButton,
             symbolName: "play.fill",
             action: #selector(autoScrollClicked),
             help: "自动滚动"
+        )
+        configureIconButton(
+            cancelButton,
+            symbolName: "xmark",
+            action: #selector(cancelClicked),
+            help: "取消"
         )
         configureIconButton(
             stopButton,
@@ -48,12 +46,6 @@ final class ScrollingScreenshotHUDView: NSView {
             action: #selector(stopClicked),
             help: "完成"
         )
-
-        statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        statusLabel.textColor = .secondaryLabelColor
-        statusLabel.lineBreakMode = .byTruncatingTail
-        statusLabel.alignment = .left
-        addSubview(statusLabel)
     }
 
     private func configureIconButton(
@@ -85,27 +77,93 @@ final class ScrollingScreenshotHUDView: NSView {
     }
 
     func update(status: ScrollingScreenshotSessionStatus, image: CGImage?, scale: CGFloat) {
-        statusLabel.stringValue = Self.statusText(for: status)
+        let isPermissionBlocked: Bool = {
+            guard case .paused(reason: .captureUnavailable, consecutiveFailures: _) = status.health else {
+                return false
+            }
+            return !status.isAutoScrolling
+        }()
+        let symbolName = if isPermissionBlocked {
+            "exclamationmark.triangle.fill"
+        } else {
+            status.isAutoScrolling ? "pause.fill" : "play.fill"
+        }
+        let help = helpText(for: status, isPermissionBlocked: isPermissionBlocked)
         autoScrollButton.image = NSImage(
-            systemSymbolName: status.isAutoScrolling ? "pause.fill" : "play.fill",
-            accessibilityDescription: status.isAutoScrolling ? "暂停自动滚动" : "自动滚动"
+            systemSymbolName: symbolName,
+            accessibilityDescription: help
         )
         autoScrollButton.image?.isTemplate = true
-        autoScrollButton.toolTip = status.isAutoScrolling ? "暂停自动滚动" : "自动滚动"
+        autoScrollButton.contentTintColor = tintColor(for: status, isPermissionBlocked: isPermissionBlocked)
+        autoScrollButton.toolTip = help
+        layer?.borderColor = borderColor(for: status, isPermissionBlocked: isPermissionBlocked).cgColor
         layoutControls()
+    }
+
+    private func helpText(
+        for status: ScrollingScreenshotSessionStatus,
+        isPermissionBlocked: Bool
+    ) -> String {
+        if isPermissionBlocked {
+            return "需要辅助功能权限才能自动滚动"
+        }
+        switch status.health {
+        case .good:
+            return status.isAutoScrolling ? "暂停自动滚动" : "自动滚动"
+        case .unstable:
+            return "匹配不稳定，当前仍可继续滚动"
+        case .paused:
+            return "已暂停，匹配不稳定"
+        case .reachedEnd:
+            return "已到末尾"
+        case .reachedHeightLimit:
+            return "已达高度上限"
+        }
+    }
+
+    private func tintColor(
+        for status: ScrollingScreenshotSessionStatus,
+        isPermissionBlocked: Bool
+    ) -> NSColor {
+        if isPermissionBlocked {
+            return .systemOrange
+        }
+        switch status.health {
+        case .good:
+            return .labelColor
+        case .unstable, .paused, .reachedEnd, .reachedHeightLimit:
+            return .systemOrange
+        }
+    }
+
+    private func borderColor(
+        for status: ScrollingScreenshotSessionStatus,
+        isPermissionBlocked: Bool
+    ) -> NSColor {
+        if isPermissionBlocked {
+            return .systemOrange.withAlphaComponent(0.42)
+        }
+        switch status.health {
+        case .good:
+            return .systemGreen.withAlphaComponent(0.32)
+        case .unstable, .paused:
+            return .systemOrange.withAlphaComponent(0.42)
+        case .reachedEnd, .reachedHeightLimit:
+            return .systemBlue.withAlphaComponent(0.36)
+        }
     }
 
     private func layoutControls() {
         let height = itemSize + contentPadding * 2
-        let width = itemSize * 3 + itemSpacing * 3 + contentPadding * 2 + labelWidth
+        let width = itemSize * 3 + itemSpacing * 2 + contentPadding * 2
         frame.size = CGSize(width: width, height: height)
-        cancelButton.frame = CGRect(
+        autoScrollButton.frame = CGRect(
             x: contentPadding,
             y: contentPadding,
             width: itemSize,
             height: itemSize
         )
-        autoScrollButton.frame = CGRect(
+        cancelButton.frame = CGRect(
             x: contentPadding + itemSize + itemSpacing,
             y: contentPadding,
             width: itemSize,
@@ -117,35 +175,15 @@ final class ScrollingScreenshotHUDView: NSView {
             width: itemSize,
             height: itemSize
         )
-        statusLabel.frame = CGRect(
-            x: contentPadding + (itemSize + itemSpacing) * 3,
-            y: contentPadding,
-            width: labelWidth,
-            height: itemSize
-        )
     }
 
-    private static func statusText(for status: ScrollingScreenshotSessionStatus) -> String {
-        switch status.health {
-        case .good:
-            return "已拼 \(status.stripCount) 帧 · \(status.pixelHeight) px"
-        case .unstable:
-            return "匹配不稳定 · 已拼 \(status.stripCount) 帧"
-        case .paused:
-            return "已暂停 · 匹配不稳定"
-        case .reachedEnd:
-            return "已到末尾 · \(status.pixelHeight) px"
-        case .reachedHeightLimit:
-            return "已达高度上限 · \(status.pixelHeight) px"
-        }
+    @objc private func autoScrollClicked() {
+        ScrollingScreenshotDiagnostics.logger.info("scrolling_hud_autoscroll_clicked")
+        onToggleAutoScroll?()
     }
 
     @objc private func cancelClicked() {
         onCancel?()
-    }
-
-    @objc private func autoScrollClicked() {
-        onToggleAutoScroll?()
     }
 
     @objc private func stopClicked() {
@@ -200,16 +238,28 @@ final class ScrollingScreenshotHUDPanel: NSPanel {
         let image = emptyImage()
         update(image: image, scale: display.scale)
         let size = hudView.frame.size
-        var x = selectionRect.midX - size.width / 2
-        var y = selectionRect.maxY + 8
-        if y + size.height > display.frame.maxY - 6 {
-            y = selectionRect.minY - size.height - 8
+        let localSelectionRect = ScrollingScreenshotPanelGeometry.localRect(
+            for: selectionRect,
+            display: display
+        )
+        let visibleBounds = CGRect(origin: .zero, size: display.overlayFrame.size)
+        var x = localSelectionRect.midX - size.width / 2
+        var y = localSelectionRect.maxY + 8
+        if y + size.height > visibleBounds.maxY - 6 {
+            y = localSelectionRect.minY - size.height - 8
         }
-        x = min(max(x, display.frame.minX + 6), display.frame.maxX - size.width - 6)
-        y = min(max(y, display.frame.minY + 6), display.frame.maxY - size.height - 6)
+        x = min(max(x, visibleBounds.minX + 6), visibleBounds.maxX - size.width - 6)
+        y = min(max(y, visibleBounds.minY + 6), visibleBounds.maxY - size.height - 6)
         contentView?.frame = CGRect(origin: .zero, size: size)
         hudView.frame.origin = .zero
-        setFrame(CGRect(x: x, y: y, width: size.width, height: size.height), display: true)
+        let screenFrame = ScrollingScreenshotPanelGeometry.screenRect(
+            forLocalRect: CGRect(x: x, y: y, width: size.width, height: size.height),
+            display: display
+        )
+        ScrollingScreenshotDiagnostics.logger.info(
+            "scrolling_hud_position selection=\(ScrollingScreenshotDiagnostics.rect(selectionRect), privacy: .public) localSelection=\(ScrollingScreenshotDiagnostics.rect(localSelectionRect), privacy: .public) localFrame=\(ScrollingScreenshotDiagnostics.rect(CGRect(x: x, y: y, width: size.width, height: size.height)), privacy: .public) screenFrame=\(ScrollingScreenshotDiagnostics.rect(screenFrame), privacy: .public) displayFrame=\(ScrollingScreenshotDiagnostics.rect(display.frame), privacy: .public) overlayFrame=\(ScrollingScreenshotDiagnostics.rect(display.overlayFrame), privacy: .public)"
+        )
+        setFrame(screenFrame, display: true)
     }
 
     private func emptyImage() -> CGImage {

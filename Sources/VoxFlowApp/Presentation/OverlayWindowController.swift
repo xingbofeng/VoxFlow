@@ -38,6 +38,21 @@ private final class AgentCandidateButton: NSView {
     }
 }
 
+private final class SelectionActionButton: NSView {
+    var action: SelectionActionKind = .translate
+    var onSelect: ((SelectionActionKind) -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point) else { return }
+        onSelect?(action)
+    }
+}
+
 private enum AgentDispatchConfirmationUtteranceFormatter {
     static let maximumDisplayedCharacters = 72
 
@@ -70,6 +85,14 @@ private enum AgentDispatchConfirmationLayout {
     }
 }
 
+private enum SelectionActionCardLayout {
+    static let width: CGFloat = 292
+    static let height: CGFloat = 154
+    static let tileHeight: CGFloat = 82
+    static let anchorGap: CGFloat = 12
+    static let screenMargin: CGFloat = 16
+}
+
 /// Manages the compact floating overlay window that displays real-time transcription
 /// with an animated waveform during voice recording.
 final class OverlayWindowController: NSWindowController {
@@ -91,6 +114,10 @@ final class OverlayWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "")
     private let refiningSpinner = NSProgressIndicator()
     private let visualEffectView = NSView()
+    private lazy var overlayClickGestureRecognizer = NSClickGestureRecognizer(
+        target: self,
+        action: #selector(handleOverlayClick(_:))
+    )
     private let confirmationContainer = NSView()
     private let confirmationStatusLabel = NSTextField(labelWithString: "")
     private let confirmationUtteranceRow = NSView()
@@ -99,6 +126,10 @@ final class OverlayWindowController: NSWindowController {
     private let confirmationRowsStack = NSStackView()
     private let confirmationFooterLabel = NSTextField(labelWithString: "")
     private var confirmationLayoutConstraints: [NSLayoutConstraint] = []
+    private let selectionActionCard = NSView()
+    private let selectionActionTitleLabel = NSTextField(labelWithString: "")
+    private let selectionActionCloseButton = NSButton()
+    private let selectionActionTilesStack = NSStackView()
 
     // MARK: - Temporary Message
 
@@ -109,12 +140,15 @@ final class OverlayWindowController: NSWindowController {
     private var agentConfirmationCandidates: [AgentSessionCard] = []
     private var agentConfirmationUtterance = ""
     private var agentCandidateButtons: [AgentCandidateButton] = []
+    private var selectionActionPresentation: SelectionActionCardPresentation?
+    private var selectionActionButtons: [SelectionActionButton] = []
     private var localAgentCandidateKeyMonitor: Any?
     private var agentCandidateKeyEventTap: CFMachPort?
     private var agentCandidateKeyEventTapSource: CFRunLoopSource?
 
     var onAgentCandidateSelected: ((String, String) -> Void)?
     var onAgentDefaultOutputSelected: ((String) -> Void)?
+    var onSelectionActionSelected: ((SelectionActionKind, String) -> Void)?
 
     // MARK: - Initialization
 
@@ -125,6 +159,7 @@ final class OverlayWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
+        window.suppressesScreenOrdering = Self.isRunningUnderXCTest
         super.init(window: window)
         logger.debug("overlay_controller_init")
         setupWindow()
@@ -133,6 +168,12 @@ final class OverlayWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private static var isRunningUnderXCTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+            || NSClassFromString("XCTest.XCTestCase") != nil
     }
 
     // MARK: - Window Setup
@@ -171,12 +212,8 @@ final class OverlayWindowController: NSWindowController {
         visualEffectView.translatesAutoresizingMaskIntoConstraints = false
 
         window.contentView = visualEffectView
-        visualEffectView.addGestureRecognizer(
-            NSClickGestureRecognizer(
-                target: self,
-                action: #selector(handleOverlayClick(_:))
-            )
-        )
+        overlayClickGestureRecognizer.isEnabled = false
+        visualEffectView.addGestureRecognizer(overlayClickGestureRecognizer)
 
         indicatorBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         indicatorBackgroundView.wantsLayer = true
@@ -236,6 +273,7 @@ final class OverlayWindowController: NSWindowController {
         indicatorBackgroundView.addSubview(refiningSpinner)
 
         setupConfirmationContainer()
+        setupSelectionActionCard()
 
         // Layout — vertical padding and variable-height text
         NSLayoutConstraint.activate([
@@ -416,6 +454,65 @@ final class OverlayWindowController: NSWindowController {
         ]
     }
 
+    private func setupSelectionActionCard() {
+        selectionActionCard.identifier = NSUserInterfaceItemIdentifier("selectionActionCard")
+        selectionActionCard.translatesAutoresizingMaskIntoConstraints = false
+        selectionActionCard.isHidden = true
+        visualEffectView.addSubview(selectionActionCard)
+
+        selectionActionTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        selectionActionTitleLabel.cell = VerticallyCenteredTextFieldCell(textCell: "")
+        selectionActionTitleLabel.isBezeled = false
+        selectionActionTitleLabel.isEditable = false
+        selectionActionTitleLabel.drawsBackground = false
+        selectionActionTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        selectionActionTitleLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 0.92)
+        selectionActionTitleLabel.stringValue = "划词动作"
+        selectionActionCard.addSubview(selectionActionTitleLabel)
+
+        selectionActionCloseButton.translatesAutoresizingMaskIntoConstraints = false
+        selectionActionCloseButton.identifier = NSUserInterfaceItemIdentifier("selectionActionCloseButton")
+        selectionActionCloseButton.isBordered = false
+        selectionActionCloseButton.image = NSImage(
+            systemSymbolName: "xmark",
+            accessibilityDescription: "关闭"
+        )
+        selectionActionCloseButton.imagePosition = .imageOnly
+        selectionActionCloseButton.contentTintColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.75)
+        selectionActionCloseButton.target = self
+        selectionActionCloseButton.action = #selector(cancelSelectionActionFromButton(_:))
+        selectionActionCard.addSubview(selectionActionCloseButton)
+
+        selectionActionTilesStack.identifier = NSUserInterfaceItemIdentifier("selectionActionTiles")
+        selectionActionTilesStack.translatesAutoresizingMaskIntoConstraints = false
+        selectionActionTilesStack.orientation = .horizontal
+        selectionActionTilesStack.spacing = 10
+        selectionActionTilesStack.alignment = .centerY
+        selectionActionTilesStack.distribution = .fillEqually
+        selectionActionCard.addSubview(selectionActionTilesStack)
+
+        NSLayoutConstraint.activate([
+            selectionActionCard.leadingAnchor.constraint(equalTo: visualEffectView.leadingAnchor),
+            selectionActionCard.trailingAnchor.constraint(equalTo: visualEffectView.trailingAnchor),
+            selectionActionCard.topAnchor.constraint(equalTo: visualEffectView.topAnchor),
+            selectionActionCard.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor),
+
+            selectionActionTitleLabel.leadingAnchor.constraint(equalTo: selectionActionCard.leadingAnchor, constant: 16),
+            selectionActionTitleLabel.topAnchor.constraint(equalTo: selectionActionCard.topAnchor, constant: 13),
+            selectionActionTitleLabel.heightAnchor.constraint(equalToConstant: 22),
+
+            selectionActionCloseButton.trailingAnchor.constraint(equalTo: selectionActionCard.trailingAnchor, constant: -12),
+            selectionActionCloseButton.centerYAnchor.constraint(equalTo: selectionActionTitleLabel.centerYAnchor),
+            selectionActionCloseButton.widthAnchor.constraint(equalToConstant: 24),
+            selectionActionCloseButton.heightAnchor.constraint(equalToConstant: 24),
+
+            selectionActionTilesStack.leadingAnchor.constraint(equalTo: selectionActionCard.leadingAnchor, constant: 14),
+            selectionActionTilesStack.trailingAnchor.constraint(equalTo: selectionActionCard.trailingAnchor, constant: -14),
+            selectionActionTilesStack.topAnchor.constraint(equalTo: selectionActionTitleLabel.bottomAnchor, constant: 12),
+            selectionActionTilesStack.heightAnchor.constraint(equalToConstant: SelectionActionCardLayout.tileHeight),
+        ])
+    }
+
     // MARK: - Sizing
 
     private func updateWindowSize(textWidth: CGFloat, textHeight: CGFloat = 0) {
@@ -453,6 +550,72 @@ final class OverlayWindowController: NSWindowController {
         window.setFrame(frame, display: true, animate: false)
     }
 
+    private func updateSelectionActionCardFrame(
+        visibleFrame: NSRect,
+        anchor: NSRect?,
+        windowSize: NSSize = NSSize(
+            width: SelectionActionCardLayout.width,
+            height: SelectionActionCardLayout.height
+        )
+    ) {
+        guard let window else { return }
+        let size = NSSize(
+            width: windowSize.width,
+            height: windowSize.height
+        )
+        window.minSize = size
+        window.maxSize = size
+        let frame: NSRect
+        if let anchor {
+            frame = Self.selectionActionFrame(
+                windowSize: size,
+                anchor: anchor,
+                visibleFrame: visibleFrame
+            )
+        } else {
+            frame = WindowPlacementPolicy.bottomTrailingFrame(
+                windowSize: size,
+                visibleFrame: visibleFrame,
+                trailingMargin: 24,
+                bottomMargin: 28
+            )
+        }
+        logger.debug(
+            "overlay_selection_action_frame_update width=\(size.width) height=\(size.height)"
+        )
+        window.setFrame(frame, display: true, animate: false)
+    }
+
+    private static func selectionActionFrame(
+        windowSize: NSSize,
+        anchor: NSRect,
+        visibleFrame: NSRect
+    ) -> NSRect {
+        let fittedSize = NSSize(
+            width: min(windowSize.width, visibleFrame.width),
+            height: min(windowSize.height, visibleFrame.height)
+        )
+        let margin = SelectionActionCardLayout.screenMargin
+        let minX = visibleFrame.minX + margin
+        let maxX = visibleFrame.maxX - fittedSize.width - margin
+        let x = max(minX, min(anchor.minX, maxX))
+
+        let preferredBelowY = anchor.minY - SelectionActionCardLayout.anchorGap - fittedSize.height
+        let preferredAboveY = anchor.maxY + SelectionActionCardLayout.anchorGap
+        let minY = visibleFrame.minY + margin
+        let maxY = visibleFrame.maxY - fittedSize.height - margin
+        let y: CGFloat
+        if preferredBelowY >= minY {
+            y = preferredBelowY
+        } else if preferredAboveY <= maxY {
+            y = preferredAboveY
+        } else {
+            y = max(minY, min(preferredBelowY, maxY))
+        }
+
+        return NSRect(x: x, y: y, width: fittedSize.width, height: fittedSize.height)
+    }
+
     private func measuredOverlayTextSize(for text: String) -> CGSize {
         let textSize = (text as NSString).boundingRect(
             with: NSSize(
@@ -472,10 +635,17 @@ final class OverlayWindowController: NSWindowController {
         removeAgentCandidateKeyMonitor()
         NSLayoutConstraint.deactivate(confirmationLayoutConstraints)
         confirmationContainer.isHidden = true
+        selectionActionCard.isHidden = true
         agentCandidateButtons.removeAll()
+        selectionActionButtons.removeAll()
+        selectionActionPresentation = nil
         for row in confirmationRowsStack.arrangedSubviews {
             confirmationRowsStack.removeArrangedSubview(row)
             row.removeFromSuperview()
+        }
+        for tile in selectionActionTilesStack.arrangedSubviews {
+            selectionActionTilesStack.removeArrangedSubview(tile)
+            tile.removeFromSuperview()
         }
         indicatorBackgroundView.isHidden = false
         textLabel.isHidden = false
@@ -494,6 +664,8 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageAction = nil
         isShowingTemporaryMessage = false
         presentationGeneration &+= 1
+        overlayClickGestureRecognizer.isEnabled = false
+        selectionActionCard.isHidden = true
         indicatorBackgroundView.isHidden = true
         waveformView.stopAnimation()
         refiningSpinner.stopAnimation(nil)
@@ -502,6 +674,9 @@ final class OverlayWindowController: NSWindowController {
         statusLabel.isHidden = true
         statusLabel.stringValue = ""
         confirmationContainer.isHidden = false
+        confirmationStatusLabel.stringValue = "需要确认"
+        confirmationUtteranceIconLabel.stringValue = "“"
+        confirmationFooterLabel.stringValue = "按 1-9 选择任务助手，按 0 直接写入当前输入框"
         NSLayoutConstraint.activate(confirmationLayoutConstraints)
         confirmationUtteranceLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(utterance)
         confirmationUtteranceLabel.toolTip = utterance
@@ -519,6 +694,7 @@ final class OverlayWindowController: NSWindowController {
     private func rebuildAgentCandidateRows(_ candidates: [AgentSessionCard]) {
         logger.debug("overlay_rebuild_candidates count=\(candidates.count)")
         agentCandidateButtons.removeAll()
+        selectionActionButtons.removeAll()
         for row in confirmationRowsStack.arrangedSubviews {
             confirmationRowsStack.removeArrangedSubview(row)
             row.removeFromSuperview()
@@ -589,6 +765,47 @@ final class OverlayWindowController: NSWindowController {
         ])
     }
 
+    private func rebuildSelectionActionTiles(_ actions: [SelectionActionKind]) {
+        logger.debug("overlay_rebuild_selection_actions count=\(actions.count)")
+        agentCandidateButtons.removeAll()
+        selectionActionButtons.removeAll()
+        for tile in selectionActionTilesStack.arrangedSubviews {
+            selectionActionTilesStack.removeArrangedSubview(tile)
+            tile.removeFromSuperview()
+        }
+
+        for (index, action) in actions.enumerated() {
+            let button = SelectionActionButton()
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.identifier = NSUserInterfaceItemIdentifier("selectionActionTile")
+            button.action = action
+            button.onSelect = { [weak self] action in
+                self?.selectSelectionAction(action)
+            }
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 12
+            button.layer?.borderWidth = 1
+            button.layer?.borderColor = NSColor(
+                red: 0.875,
+                green: 0.900,
+                blue: 0.885,
+                alpha: 0.95
+            ).cgColor
+            button.layer?.backgroundColor = NSColor(
+                red: 0.998,
+                green: 0.998,
+                blue: 0.994,
+                alpha: 0.92
+            ).cgColor
+            configureSelectionActionTile(button, number: index + 1, action: action)
+            selectionActionTilesStack.addArrangedSubview(button)
+            NSLayoutConstraint.activate([
+                button.heightAnchor.constraint(equalToConstant: SelectionActionCardLayout.tileHeight),
+            ])
+            selectionActionButtons.append(button)
+        }
+    }
+
     private func installAgentCandidateKeyMonitor() {
         removeAgentCandidateKeyMonitor()
         guard !Self.isRunningUnitTests else { return }
@@ -615,10 +832,10 @@ final class OverlayWindowController: NSWindowController {
             let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             let handled: Bool
             if Thread.isMainThread {
-                handled = controller.selectAgentCandidate(forKeyCode: keyCode)
+                handled = controller.selectOverlayChoice(forKeyCode: keyCode)
             } else {
                 handled = DispatchQueue.main.sync {
-                    controller.selectAgentCandidate(forKeyCode: keyCode)
+                    controller.selectOverlayChoice(forKeyCode: keyCode)
                 }
             }
             return handled ? nil : Unmanaged.passUnretained(event)
@@ -664,16 +881,31 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func selectAgentCandidate(forKeyEvent event: NSEvent) -> Bool {
-        let handled = selectAgentCandidate(forKeyCode: event.keyCode)
+        let handled = selectOverlayChoice(forKeyCode: event.keyCode)
         if handled {
             logger.debug("overlay_candidate_key_event handled keyCode=\(event.keyCode)")
         }
         return handled
     }
 
+    private func selectSelectionAction(forKeyEvent event: NSEvent) -> Bool {
+        selectSelectionAction(forKeyCode: event.keyCode)
+    }
+
+    private func selectOverlayChoice(forKeyCode keyCode: UInt16) -> Bool {
+        if selectionActionPresentation != nil {
+            return selectSelectionAction(forKeyCode: keyCode)
+        }
+        return selectAgentCandidate(forKeyCode: keyCode)
+    }
+
     private func selectAgentCandidate(forKeyCode keyCode: UInt16) -> Bool {
         guard !confirmationContainer.isHidden else {
             return false
+        }
+        if Self.isCancelKeyCode(keyCode) {
+            cancelAgentConfirmationPresentation()
+            return true
         }
         if Self.isDefaultOutputKeyCode(keyCode) {
             logger.debug("overlay_candidate_key_select_default keyCode=\(keyCode)")
@@ -689,6 +921,23 @@ final class OverlayWindowController: NSWindowController {
         return true
     }
 
+    private func selectSelectionAction(forKeyCode keyCode: UInt16) -> Bool {
+        guard !selectionActionCard.isHidden,
+              let presentation = selectionActionPresentation else {
+            return false
+        }
+        if Self.isCancelKeyCode(keyCode) {
+            cancelSelectionActionPresentation()
+            return true
+        }
+        guard let actionIndex = Self.selectionActionIndex(forKeyCode: keyCode),
+              presentation.actions.indices.contains(actionIndex) else {
+            return false
+        }
+        selectSelectionAction(presentation.actions[actionIndex])
+        return true
+    }
+
     private static func isDefaultOutputKeyCode(_ keyCode: UInt16) -> Bool {
         switch keyCode {
         case 29, 82:
@@ -696,6 +945,10 @@ final class OverlayWindowController: NSWindowController {
         default:
             return false
         }
+    }
+
+    private static func isCancelKeyCode(_ keyCode: UInt16) -> Bool {
+        keyCode == 53
     }
 
     private static func agentCandidateIndex(forKeyCode keyCode: UInt16) -> Int? {
@@ -709,6 +962,15 @@ final class OverlayWindowController: NSWindowController {
         case 26, 89: return 6
         case 28, 91: return 7
         case 25, 92: return 8
+        default: return nil
+        }
+    }
+
+    private static func selectionActionIndex(forKeyCode keyCode: UInt16) -> Int? {
+        switch keyCode {
+        case 18, 83: return 0
+        case 19, 84: return 1
+        case 20, 85: return 2
         default: return nil
         }
     }
@@ -801,6 +1063,49 @@ final class OverlayWindowController: NSWindowController {
         ])
     }
 
+    private func configureSelectionActionTile(
+        _ button: SelectionActionButton,
+        number: Int,
+        action: SelectionActionKind
+    ) {
+        button.toolTip = "按 \(number) \(action.title)"
+
+        let iconView = NSImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.image = NSImage(
+            systemSymbolName: Self.selectionActionSymbolName(for: action),
+            accessibilityDescription: action.title
+        )
+        iconView.contentTintColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+        iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
+
+        let nameLabel = confirmationRowText(action.title, size: 13, weight: .semibold)
+        nameLabel.alignment = .center
+
+        [iconView, nameLabel].forEach(button.addSubview)
+        NSLayoutConstraint.activate([
+            iconView.centerXAnchor.constraint(equalTo: button.centerXAnchor),
+            iconView.topAnchor.constraint(equalTo: button.topAnchor, constant: 14),
+            iconView.widthAnchor.constraint(equalToConstant: 28),
+            iconView.heightAnchor.constraint(equalToConstant: 28),
+
+            nameLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 6),
+            nameLabel.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -6),
+            nameLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 8),
+        ])
+    }
+
+    private static func selectionActionSymbolName(for action: SelectionActionKind) -> String {
+        switch action {
+        case .translate:
+            return "globe"
+        case .summarize:
+            return "list.bullet"
+        case .agent:
+            return "terminal"
+        }
+    }
+
     private func confirmationRowText(
         _ text: String,
         size: CGFloat,
@@ -849,6 +1154,48 @@ final class OverlayWindowController: NSWindowController {
 
     // MARK: - Public API
 
+    func showSelectionActions(
+        _ presentation: SelectionActionCardPresentation,
+        anchor: NSRect? = nil
+    ) {
+        guard let window else { return }
+        guard let visibleFrame = anchor.flatMap(WindowPlacementPolicy.visibleFrame(containing:))
+            ?? WindowPlacementPolicy.interactionVisibleFrame() else { return }
+        logger.debug("overlay_selection_actions_show actions=\(presentation.actions.count)")
+        temporaryMessageTask?.cancel()
+        temporaryMessageTask = nil
+        temporaryMessageAction = nil
+        isShowingTemporaryMessage = false
+        presentationGeneration &+= 1
+        overlayClickGestureRecognizer.isEnabled = false
+        agentConfirmationCandidates = []
+        agentConfirmationUtterance = ""
+        selectionActionPresentation = presentation
+        indicatorBackgroundView.isHidden = true
+        confirmationContainer.isHidden = true
+        waveformView.stopAnimation()
+        refiningSpinner.stopAnimation(nil)
+        textLabel.isHidden = true
+        textLabel.stringValue = ""
+        statusLabel.isHidden = true
+        statusLabel.stringValue = ""
+        selectionActionCard.isHidden = false
+        rebuildSelectionActionTiles(presentation.actions)
+        installAgentCandidateKeyMonitor()
+        updateSelectionActionCardFrame(visibleFrame: visibleFrame, anchor: anchor)
+        window.ignoresMouseEvents = false
+        present(window)
+        updateSelectionActionCardFrame(
+            visibleFrame: visibleFrame,
+            anchor: anchor,
+            windowSize: window.frame.size
+        )
+    }
+
+    @objc private func cancelSelectionActionFromButton(_ sender: NSButton) {
+        cancelSelectionActionPresentation()
+    }
+
     /// Shows the overlay in the default dictation state (waveform + "听写中").
     func show() {
         guard let window = window else { return }
@@ -862,6 +1209,7 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageAction = nil
         isShowingTemporaryMessage = false
         presentationGeneration &+= 1
+        overlayClickGestureRecognizer.isEnabled = false
         window.ignoresMouseEvents = true
 
         // Calculate initial size for empty text
@@ -889,6 +1237,7 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageAction = nil
         isShowingTemporaryMessage = false
         presentationGeneration &+= 1
+        overlayClickGestureRecognizer.isEnabled = false
         window.ignoresMouseEvents = true
         present(window)
     }
@@ -999,6 +1348,7 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageAction = action
         isShowingTemporaryMessage = true
         presentationGeneration &+= 1
+        overlayClickGestureRecognizer.isEnabled = action != nil
         let generation = presentationGeneration
 
         waveformView.stopAnimation()
@@ -1110,6 +1460,10 @@ final class OverlayWindowController: NSWindowController {
         selectAgentCandidate(forKeyEvent: event)
     }
 
+    func performSelectionActionKeyForTesting(_ event: NSEvent) -> Bool {
+        selectSelectionAction(forKeyEvent: event)
+    }
+
     @objc private func handleOverlayClick(_ recognizer: NSClickGestureRecognizer) {
         guard recognizer.state == .ended else { return }
         if !agentConfirmationCandidates.isEmpty {
@@ -1127,6 +1481,7 @@ final class OverlayWindowController: NSWindowController {
         agentConfirmationUtterance = ""
         hideAgentConfirmationPresentation()
         window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
         onAgentCandidateSelected?(agentID, utterance)
     }
 
@@ -1139,6 +1494,40 @@ final class OverlayWindowController: NSWindowController {
         window?.ignoresMouseEvents = true
         window?.orderOut(nil)
         onAgentDefaultOutputSelected?(utterance)
+    }
+
+    private func cancelAgentConfirmationPresentation() {
+        guard !agentConfirmationCandidates.isEmpty || !agentConfirmationUtterance.isEmpty else {
+            return
+        }
+        logger.debug("overlay_cancel_agent_confirmation")
+        agentConfirmationCandidates = []
+        agentConfirmationUtterance = ""
+        hideAgentConfirmationPresentation()
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
+    }
+
+    private func selectSelectionAction(_ action: SelectionActionKind) {
+        guard let presentation = selectionActionPresentation else {
+            return
+        }
+        let selectedText = presentation.selectedText
+        logger.debug("overlay_select_selection_action action=\(action.rawValue) textLen=\(selectedText.count)")
+        hideAgentConfirmationPresentation()
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
+        onSelectionActionSelected?(action, selectedText)
+    }
+
+    private func cancelSelectionActionPresentation() {
+        guard selectionActionPresentation != nil else {
+            return
+        }
+        logger.debug("overlay_cancel_selection_action")
+        hideAgentConfirmationPresentation()
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
     }
 
     /// Returns the current transcription text shown in the overlay.
@@ -1289,8 +1678,31 @@ enum AgentComposeHUDStage: Equatable {
 
 /// A borderless, non-activating NSPanel that floats above other windows.
 private final class OverlayPanel: NSPanel {
+    var suppressesScreenOrdering = false
+    private var logicalVisibility: Bool?
+
+    override var isVisible: Bool {
+        logicalVisibility ?? super.isVisible
+    }
+
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+
+    override func orderFront(_ sender: Any?) {
+        if suppressesScreenOrdering {
+            logicalVisibility = true
+            return
+        }
+        super.orderFront(sender)
+    }
+
+    override func orderOut(_ sender: Any?) {
+        if suppressesScreenOrdering {
+            logicalVisibility = false
+            return
+        }
+        super.orderOut(sender)
+    }
 
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         frameRect

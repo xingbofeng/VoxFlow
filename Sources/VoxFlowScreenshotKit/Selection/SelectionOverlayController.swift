@@ -4,7 +4,7 @@ import AppKit
 // F full-screen selection, Tab window-targeting toggle, and marquee selection
 // behavior are adapted from sw33tLie/macshot.
 // Source: https://github.com/sw33tLie/macshot
-// Upstream commit: 34c9999625cfe9e8999c00358b3c172dfc00380c
+// Upstream commit: b8ebcb454f957fda011821fbf9c104580592d135
 // License: GPLv3
 
 public struct SelectionOverlayWindowConfiguration: Equatable, Sendable {
@@ -133,7 +133,17 @@ public struct SelectionAnnotationOverlayState: Equatable, Sendable {
 public enum SelectionInlineTranslationStatus: Equatable, Sendable {
     case idle
     case loading
+    case progress(completed: Int, total: Int)
     case failed(String)
+
+    var isActiveTranslation: Bool {
+        switch self {
+        case .loading, .progress:
+            return true
+        case .idle, .failed:
+            return false
+        }
+    }
 }
 
 enum SelectionOverlayDisplayGeometry {
@@ -340,6 +350,7 @@ public final class SelectionOverlayController {
     private let scrollingScreenshotCapture: ScrollingScreenshotCapturing
     private let toolbarPresentation: SelectionToolbarPresentation
     private let onResult: @MainActor (SelectionOverlayResult) -> Void
+    private let inlineTranslationProgressNow: @MainActor () -> TimeInterval
     private var windowRecords: [WindowRecord] = []
     private var activeSelection: ActiveSelection?
     private var currentSelectionState: SelectionState?
@@ -372,6 +383,7 @@ public final class SelectionOverlayController {
     private var inlineTranslationTask: Task<Void, Never>?
     private var scrollingCaptureTask: Task<Void, Never>?
     private var inlineTranslationStatus: SelectionInlineTranslationStatus = .idle
+    private var lastInlineTranslationProgressPushTime: TimeInterval?
 
     public init(
         windowFactory: any SelectionOverlayWindowMaking = AppKitSelectionOverlayWindowFactory(),
@@ -380,7 +392,10 @@ public final class SelectionOverlayController {
         inlineTranslator: (any InlineSelectionTranslating)? = nil,
         toolbarPresentation: SelectionToolbarPresentation = .default,
         onResult: @escaping @MainActor (SelectionOverlayResult) -> Void = { _ in },
-        scrollingScreenshotCapture: @escaping ScrollingScreenshotCapturing = DefaultScrollingScreenshotCapturer.capture
+        scrollingScreenshotCapture: @escaping ScrollingScreenshotCapturing = DefaultScrollingScreenshotCapturer.capture,
+        inlineTranslationProgressNow: @escaping @MainActor () -> TimeInterval = {
+            Date().timeIntervalSinceReferenceDate
+        }
     ) {
         self.windowFactory = windowFactory
         self.imageSaver = imageSaver
@@ -389,6 +404,7 @@ public final class SelectionOverlayController {
         self.scrollingScreenshotCapture = scrollingScreenshotCapture
         self.toolbarPresentation = toolbarPresentation
         self.onResult = onResult
+        self.inlineTranslationProgressNow = inlineTranslationProgressNow
     }
 
     public func present(displays: [ScreenshotDisplay]) {
@@ -904,7 +920,7 @@ public final class SelectionOverlayController {
             pushAnnotationState()
             return
         }
-        if inlineTranslationStatus == .loading {
+        if inlineTranslationStatus.isActiveTranslation {
             inlineTranslationTask?.cancel()
             inlineTranslationTask = nil
             currentTranslatedOverlay = nil
@@ -912,6 +928,7 @@ public final class SelectionOverlayController {
             activeAnnotationTool = nil
             activeBrushPreview = nil
             inlineTranslationStatus = .idle
+            lastInlineTranslationProgressPushTime = nil
             popoverRole = nil
             pushAnnotationState()
             return
@@ -933,11 +950,34 @@ public final class SelectionOverlayController {
         activeAnnotationTool = nil
         activeBrushPreview = nil
         inlineTranslationStatus = .loading
+        lastInlineTranslationProgressPushTime = nil
         popoverRole = nil
         pushAnnotationState()
         inlineTranslationTask = Task { @MainActor [weak self, inlineTranslator] in
             do {
-                let overlay = try await inlineTranslator.translatedOverlay(for: image)
+                let overlay = try await inlineTranslator.translatedOverlay(
+                    for: image,
+                    progress: { [weak self] progress in
+                        guard let self,
+                              !Task.isCancelled,
+                              self.currentSelectionState == state else {
+                            return
+                        }
+                        guard self.shouldPushInlineTranslationProgress(
+                            now: self.inlineTranslationProgressNow()
+                        ) else {
+                            return
+                        }
+                        self.inlineTranslationStatus = .progress(
+                            completed: progress.completed,
+                            total: progress.total
+                        )
+                        if let partialOverlay = progress.partialOverlay {
+                            self.currentTranslatedOverlay = partialOverlay
+                        }
+                        self.pushAnnotationState()
+                    }
+                )
                 guard !Task.isCancelled,
                       let self,
                       self.currentSelectionState == state else {
@@ -948,6 +988,7 @@ public final class SelectionOverlayController {
                 self.activeBrushPreview = nil
                 self.popoverRole = nil
                 self.inlineTranslationStatus = .idle
+                self.lastInlineTranslationProgressPushTime = nil
                 self.currentTranslatedOverlay = overlay
                 self.cachedTranslatedOverlay = overlay
                 self.activeAnnotationRole = .translate
@@ -957,10 +998,24 @@ public final class SelectionOverlayController {
                 guard !Task.isCancelled, let self else { return }
                 self.activeAnnotationRole = nil
                 self.inlineTranslationStatus = .failed(error.localizedDescription)
+                self.lastInlineTranslationProgressPushTime = nil
                 self.inlineTranslationTask = nil
                 self.pushAnnotationState()
             }
         }
+    }
+
+    private func shouldPushInlineTranslationProgress(now: TimeInterval) -> Bool {
+        let minimumInterval: TimeInterval = 0.25
+        guard let lastInlineTranslationProgressPushTime else {
+            self.lastInlineTranslationProgressPushTime = now
+            return true
+        }
+        guard now - lastInlineTranslationProgressPushTime >= minimumInterval else {
+            return false
+        }
+        self.lastInlineTranslationProgressPushTime = now
+        return true
     }
 
     private func beginScrollingCapture() {
@@ -980,6 +1035,9 @@ public final class SelectionOverlayController {
         inlineTranslationStatus = .idle
         popoverRole = nil
         pushAnnotationState()
+        ScrollingScreenshotDiagnostics.logger.info(
+            "scrolling_begin selection=\(ScrollingScreenshotDiagnostics.rect(state.normalizedRect), privacy: .public) displayFrame=\(ScrollingScreenshotDiagnostics.rect(display.frame), privacy: .public) overlayFrame=\(ScrollingScreenshotDiagnostics.rect(display.overlayFrame), privacy: .public) windows=\(self.windowRecords.count, privacy: .public)"
+        )
         windowRecords.forEach { $0.window.setScrollCaptureActive(true, selection: state) }
 
         let request = ScrollingScreenshotRequest(selection: state, display: display)
@@ -1416,7 +1474,11 @@ private struct PointerDragSession {
 public enum DefaultScrollingScreenshotCapturer {
     @MainActor
     public static func capture(_ request: ScrollingScreenshotRequest) async -> ScrollingScreenshotCaptureResult? {
-        await ScrollingScreenshotController(request: request).start()
+        await ScrollingScreenshotController(
+            request: request,
+            showsControlHUD: true,
+            showsLivePreview: true
+        ).start()
     }
 }
 
@@ -1500,6 +1562,55 @@ private final class SelectionOverlayEscapeEventTap: @unchecked Sendable {
     }
 }
 
+private final class SelectionOverlayMouseMoveSuppressor: @unchecked Sendable {
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+
+    func start() {
+        guard eventTap == nil else { return }
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(1 << CGEventType.mouseMoved.rawValue),
+            callback: Self.handleEvent,
+            userInfo: nil
+        ) else {
+            return
+        }
+
+        eventTap = tap
+        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        if let runLoopSource {
+            CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        }
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    func stop() {
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
+            self.eventTap = nil
+        }
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
+    }
+
+    deinit {
+        stop()
+    }
+
+    private static let handleEvent: CGEventTapCallBack = { _, type, event, _ in
+        guard type == .mouseMoved else {
+            return Unmanaged.passUnretained(event)
+        }
+        return nil
+    }
+}
+
 @MainActor
 public final class AppKitSelectionOverlayWindowFactory: SelectionOverlayWindowMaking {
     public init() {}
@@ -1519,6 +1630,7 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
     private var localEventMonitor: Any?
     private var globalEventMonitor: Any?
     private var notificationObserver: Any?
+    private let scrollMouseMoveSuppressor = SelectionOverlayMouseMoveSuppressor()
     private var isClosingOverlay = false
     private var isHiddenForModalPresentation = false
 
@@ -1593,6 +1705,14 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
     func setScrollCaptureActive(_ isActive: Bool, selection: SelectionState?) {
         ignoresMouseEvents = isActive
         overlayView.isScrollCapturing = isActive
+        if isActive {
+            scrollMouseMoveSuppressor.start()
+        } else {
+            scrollMouseMoveSuppressor.stop()
+        }
+        ScrollingScreenshotDiagnostics.logger.info(
+            "scrolling_overlay_active active=\(isActive, privacy: .public) ignoresMouse=\(self.ignoresMouseEvents, privacy: .public) windowFrame=\(ScrollingScreenshotDiagnostics.rect(self.frame), privacy: .public) selection=\(selection.map { ScrollingScreenshotDiagnostics.rect($0.normalizedRect) } ?? "nil", privacy: .public)"
+        )
         if let selection {
             overlayView.selectionState = selection
         }
@@ -1634,6 +1754,7 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
     }
 
     override func close() {
+        scrollMouseMoveSuppressor.stop()
         cleanupResilienceHooks()
         super.close()
     }
@@ -2859,6 +2980,8 @@ final class SelectionOverlayContentView: NSView {
         case .loading:
             drawInlineTranslationSpinner(in: selectionRect)
             return
+        case let .progress(completed, total):
+            message = "翻译中 \(completed)/\(total)"
         case .failed(let reason):
             message = reason.isEmpty ? "翻译失败" : "翻译失败：\(reason)"
         }

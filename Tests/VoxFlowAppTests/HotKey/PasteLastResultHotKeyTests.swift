@@ -35,6 +35,22 @@ final class PasteLastResultHotKeyTests: XCTestCase {
         )
     }
 
+    func testOptionSpaceMatchesPaletteShortcutOnly() {
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: HotKeyShortcutRouting.spaceKeyCode,
+                flags: [.maskAlternate]
+            ),
+            .palette
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: HotKeyShortcutRouting.spaceKeyCode,
+                flags: []
+            )
+        )
+    }
+
     func testShortcutIgnoresPlainVAndCommandV() {
         XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: []))
         XCTAssertNil(HotKeyShortcutRouting.workflowShortcut(keyCode: 0x09, flags: [.maskCommand]))
@@ -159,6 +175,16 @@ final class PasteLastResultHotKeyTests: XCTestCase {
                 screenshotOCRKeyCode: ShortcutManager.defaultScreenshotOCRShortcutKeyCode
             ),
             .workflowShortcut(.screenshotOCR)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.spaceKeyCode,
+                flags: [.maskAlternate],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: 61,
+                paletteKeyCode: ShortcutManager.defaultPaletteShortcutKeyCode
+            ),
+            .workflowShortcut(.palette)
         )
         XCTAssertEqual(
             HotKeyRouter.route(

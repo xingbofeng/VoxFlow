@@ -35,7 +35,7 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertFalse(safe.llm?.requestBodyJSON.contains("敏感 prompt") == true)
     }
 
-    func testTextProcessingTraceSafeForPersistenceKeepsOnlyContextBoostTopK() {
+    func testTextProcessingTraceSafeForPersistenceRedactsContextBoostHotwordText() {
         let trace = TextProcessingTrace(
             contextBoost: ContextBoostTrace(
                 appName: "Claude Code",
@@ -61,9 +61,8 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         let safe = trace.safeForPersistence()
 
         XCTAssertEqual(safe.contextBoost?.appName, "Claude Code")
-        XCTAssertEqual(safe.contextBoost?.hotwords, ["Qwen3-ASR", "Project Apollo"])
-        XCTAssertEqual(safe.contextBoost?.hotwordDetails.first?.text, "Qwen3-ASR")
-        XCTAssertEqual(safe.contextBoost?.hotwordDetails.first?.evidenceReasons, ["shape_candidate"])
+        XCTAssertEqual(safe.contextBoost?.hotwords, [])
+        XCTAssertEqual(safe.contextBoost?.hotwordDetails, [])
         XCTAssertEqual(safe.contextBoost?.ocrCharacterCount, 256)
         XCTAssertEqual(safe.contextBoost?.candidateCount, 14)
         XCTAssertEqual(safe.contextBoost?.failureReason, "no_ocr_context")
@@ -223,9 +222,7 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
         let systemContent = try XCTUnwrap(messages.first?["content"] as? String)
         XCTAssertTrue(systemContent.contains("临时屏幕上下文词，仅本次有效"))
-        XCTAssertTrue(systemContent.contains("- Qwen3-ASR"))
-        XCTAssertTrue(systemContent.contains("- Hyperframe"))
-        XCTAssertTrue(systemContent.contains("- speech-swift"))
+        XCTAssertTrue(systemContent.contains(#""temporary_terms":["Qwen3-ASR","Hyperframe","speech-swift"]"#))
         XCTAssertFalse(systemContent.contains("完整 OCR 文本"))
     }
 

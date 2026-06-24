@@ -13,7 +13,7 @@ jobs:
   release:
     name: Build and publish release
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Check out repository
@@ -60,6 +60,9 @@ jobs:
             --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
             --baseline Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Baselines/phase1-baseline.json \
             --output .build/voice-correction-benchmark
+
+      - name: Run context boost benchmark
+        run: swift run --package-path Packages/VoxFlowContextBoostKit VoxFlowContextBoostBench
 
       - name: Show Rust toolchain
         run: |

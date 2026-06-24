@@ -741,6 +741,50 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.activeTaskID(for: .agentDispatch), nil)
     }
 
+    func testCompletedAgentDispatchWritesVoiceAsset() throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(assetRepository: assetRepository)
+        try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.recordRawTranscript("Codex 看下这个 bug", kind: .agentDispatch)
+
+        try coordinator.completeAgentDispatch(
+            finalText: "Codex 看下这个 bug",
+            presentation: .sent(agentName: "Codex")
+        )
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "Codex 看下这个 bug")
+        XCTAssertEqual(asset.rawText, "Codex 看下这个 bug")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
+    func testAgentDispatchFallbackInputWritesVoiceAssetAfterSkippingCorrection() throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(assetRepository: assetRepository)
+        try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.recordRawTranscript("检查一下按钮", kind: .agentDispatch)
+        try coordinator.completeAgentDispatch(
+            finalText: "检查一下按钮",
+            presentation: .fallbackInput(text: "检查一下按钮")
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "检查一下按钮",
+            outputResult: .injected
+        )
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "检查一下按钮")
+        XCTAssertEqual(asset.rawText, "检查一下按钮")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
     func testAgentDispatchHandlerStoresActualSentMessageAsFinalText() async throws {
         let taskCoordinator = makeCoordinator()
         let dispatchCoordinator = AgentDispatchCoordinator(
@@ -819,6 +863,33 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
 
         XCTAssertTrue(clipboard.copiedTexts.isEmpty)
         XCTAssertNotNil(taskCoordinator.activeTaskID(for: .agentDispatch))
+    }
+
+    func testAgentDispatchHandlerConfirmationTimeoutRetainsTextWithoutClipboard() async throws {
+        let taskCoordinator = makeCoordinator()
+        let clipboard = HandlerClipboardService()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: HandlerAmbiguousAgentRouter()),
+            clipboardService: clipboard,
+            confirmationTimeoutNanoseconds: 1_000_000
+        )
+        var presentations: [AgentDispatchHUDPresentation] = []
+        handler.onPresentationChange = { presentations.append($0) }
+
+        try handler.start(target: nil, asrMetadata: nil)
+        await drainVoiceTaskMainActorTasks()
+        let presentation = try await handler.finish(rawTranscript: "检查一下")
+        XCTAssertTrue(presentation.isConfirmationForTest)
+
+        try await Task.sleep(nanoseconds: 5_000_000)
+
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertTrue(presentations.contains(.failure(message: "未选择任务助手", retainedText: "检查一下")))
+        XCTAssertNil(taskCoordinator.activeTaskID(for: .agentDispatch))
+        let task = try XCTUnwrap(repository.listRecent(mode: .agentDispatch, limit: 1).first)
+        XCTAssertEqual(task.status, .failed)
+        XCTAssertEqual(task.finalText, "检查一下")
     }
 
     func testAgentDispatchHandlerClearsActiveStateWhenFallbackAccountingFails() throws {
@@ -1053,6 +1124,146 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(outputService.lastMode, .dictation)
     }
 
+    func testCoordinatorWritesSuccessfulDictationAsset() async throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(
+            pipeline: CoordinatorStubTextPipeline(
+                result: TextProcessingResult(rawText: "raw text", finalText: "corrected text")
+            ),
+            outputService: CoordinatorStubOutputService(result: .injected),
+            targetProvider: CoordinatorMutableTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            assetRepository: assetRepository
+        )
+        try coordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        try coordinator.recordRawTranscript("raw text")
+
+        _ = try await coordinator.processAndDeliver()
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "corrected text")
+        XCTAssertEqual(asset.rawText, "raw text")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+        XCTAssertEqual(asset.sourceAppName, "Editor")
+        XCTAssertEqual(asset.sourceAppBundleID, "com.example.editor")
+    }
+
+    func testCoordinatorWritesFallbackCopiedDictationAssetWithoutClipboardSource() async throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(
+            pipeline: CoordinatorStubTextPipeline(
+                result: TextProcessingResult(rawText: "raw text", finalText: "fallback text")
+            ),
+            outputService: CoordinatorStubOutputService(
+                result: .permissionDenied(reason: "Accessibility permission denied")
+            ),
+            assetRepository: assetRepository
+        )
+        try coordinator.startTask(mode: .dictation, target: nil)
+        try coordinator.recordRawTranscript("raw text")
+
+        _ = try await coordinator.processAndDeliver()
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        XCTAssertEqual(assetRepository.savedItems.first?.source, .dictation)
+        XCTAssertEqual(assetRepository.savedItems.first?.captureReason, .fallbackCopied)
+    }
+
+    func testCoordinatorWritesSuccessfulAgentDispatchAsset() async throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(
+            pipeline: CoordinatorStubTextPipeline(
+                result: TextProcessingResult(rawText: "什么意思", finalText: "什么意思？")
+            ),
+            outputService: CoordinatorStubOutputService(result: .injected),
+            assetRepository: assetRepository
+        )
+        try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.recordRawTranscript("什么意思")
+
+        _ = try await coordinator.processAndDeliver(kind: .agentDispatch)
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "什么意思")
+        XCTAssertEqual(asset.rawText, "什么意思")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
+    func testCoordinatorWritesSuccessfulAgentComposeAsset() async throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(
+            outputService: CoordinatorStubOutputService(result: .copied),
+            agentRefiner: CoordinatorStubPromptRefiner(result: "帮我说生成后的文本"),
+            assetRepository: assetRepository
+        )
+        try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("帮我说原始语音", kind: .agentCompose)
+
+        _ = try await coordinator.processAgentComposeAndDeliver(context: nil, stylePrompt: nil)
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "帮我说原始语音")
+        XCTAssertEqual(asset.rawText, "帮我说原始语音")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
+    func testCoordinatorWritesAgentComposeAssetWhenPostASRWorkflowFails() throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(assetRepository: assetRepository)
+        try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("帮我说失败前的语音", kind: .agentCompose)
+
+        try coordinator.recordFailure(
+            stage: "agentCompose",
+            code: "agent_compose_failed",
+            message: "LLM failed",
+            recoverable: true,
+            kind: .agentCompose
+        )
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.text, "帮我说失败前的语音")
+        XCTAssertEqual(asset.rawText, "帮我说失败前的语音")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
+    func testCoordinatorWritesAgentDispatchAssetWhenPostASRWorkflowFails() throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(assetRepository: assetRepository)
+        try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.recordRawTranscript("Codex 失败前的语音", kind: .agentDispatch)
+
+        try coordinator.recordFailure(
+            stage: "agentDispatch",
+            code: "agent_dispatch_failed",
+            message: "Router failed",
+            recoverable: true,
+            kind: .agentDispatch
+        )
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.text, "Codex 失败前的语音")
+        XCTAssertEqual(asset.rawText, "Codex 失败前的语音")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
     // MARK: - Helpers
 
     private func makeCoordinator(
@@ -1064,6 +1275,7 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         contextPipeline: (any ContextCollecting)? = nil,
         agentRefiner: (any PromptAwareTextRefining)? = nil,
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        assetRepository: (any AssetRepository)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
     ) -> VoiceTaskCoordinator {
         VoiceTaskCoordinator(
@@ -1075,6 +1287,7 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
             contextPipeline: contextPipeline,
             agentRefiner: agentRefiner,
             correctionObservationScheduler: correctionObservationScheduler,
+            assetRepository: assetRepository,
             isFocusedTextFieldSecure: isFocusedTextFieldSecure
         )
     }
@@ -1219,6 +1432,25 @@ private final class CoordinatorStubOutputService: OutputService {
         lastCurrentTarget = target
         return result
     }
+}
+
+private final class CapturingVoiceTaskAssetRepository: AssetRepository {
+    private(set) var savedItems: [AssetItem] = []
+
+    func save(_ item: AssetItem) throws {
+        savedItems.removeAll { $0.id == item.id }
+        savedItems.append(item)
+    }
+
+    func asset(id: String) throws -> AssetItem? {
+        savedItems.first { $0.id == id && $0.deletedAt == nil }
+    }
+
+    func page(query: AssetQuery) throws -> AssetPage {
+        AssetPage(items: savedItems, totalCount: savedItems.count)
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {}
 }
 
 private final class HandlerClipboardService: ClipboardSetting {
@@ -1417,6 +1649,24 @@ private final class CoordinatorMutableTargetProvider: DictationTargetProviding {
 
     func currentTarget() -> DictationTarget? {
         target
+    }
+}
+
+private final class CoordinatorStubPromptRefiner: PromptAwareTextRefining, @unchecked Sendable {
+    var isEnabled = true
+    var isConfigured = true
+    private let result: String
+
+    init(result: String) {
+        self.result = result
+    }
+
+    func refine(_ text: String) async throws -> String {
+        result
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        result
     }
 }
 

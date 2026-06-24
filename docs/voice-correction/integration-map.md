@@ -69,7 +69,9 @@ Phase 1 ContextGate 应保证只有 `.dictation` final transcript 被 correction
 
 - `Sources/VoxFlowApp/Persistence/AppDatabase.swift`
   - `AppDatabase.migrator(clock:)` 定义按 id 排序的 migration 列表；
-  - `initialSchemaSQL` 当前创建 `glossary_terms` 和 `replacement_rules`。
+  - 表结构快照由 `Sources/VoxFlowApp/Persistence/AppDatabaseSchema.sql` 维护；
+  - migration 中需要建表或补齐运行时表结构时，统一通过 bundled schema SQL 幂等执行；
+  - 不再新增或依赖 `initialSchemaSQL` / `voiceCorrectionSQL` 这类内联建表常量。
 - `Sources/VoxFlowApp/Persistence/DatabaseMigrator.swift`
   - `DatabaseMigrator.migrate(_:)` 读取 `schema_migrations`；
   - 每个 `DatabaseMigration` 在 transaction 中执行并记录 id。

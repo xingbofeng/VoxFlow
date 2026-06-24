@@ -144,7 +144,7 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(try repository.fetch(id: agentComposeID)?.finalText, "Generated text")
     }
 
-    func testDefaultHandlerDoesNotReportCopiedStageWhenCopyFails() async throws {
+    func testDefaultHandlerDoesNotReportPreRecordingContextStageOrCopiedStageWhenCopyFails() async throws {
         let refiner = AgentComposeStubRefiner(result: "Generated text")
         let outputService = AgentComposeStubOutputService(
             result: .copyFailed(reason: "Clipboard unavailable")
@@ -165,7 +165,7 @@ final class AgentComposeTests: XCTestCase {
 
         XCTAssertEqual(result, .copyFailed(reason: "Clipboard unavailable"))
         XCTAssertFalse(stages.contains(.copied))
-        XCTAssertEqual(stages, [.readingWindow, .transcribing, .generating])
+        XCTAssertEqual(stages, [.transcribing, .generating])
     }
 
     func testAgentComposeCancellationDuringLLMDoesNotPersistFinalTextOrDeliverOutput() async throws {

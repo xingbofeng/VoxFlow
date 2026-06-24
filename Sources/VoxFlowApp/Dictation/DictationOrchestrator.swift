@@ -62,6 +62,7 @@ final class DictationOrchestrator {
     private let audioCaptureCoordinator: any AudioCaptureCoordinating
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
+    private let assetRepository: (any AssetRepository)?
     private let finalTimeoutNanoseconds: UInt64
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
@@ -97,7 +98,8 @@ final class DictationOrchestrator {
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
-        finalTimeoutNanoseconds: UInt64 = 15_000_000_000
+        finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
+        assetRepository: (any AssetRepository)? = nil
     ) {
         self.asrEngineFactory = asrEngineFactory
         self.audioRecorder = audioRecorder
@@ -115,6 +117,7 @@ final class DictationOrchestrator {
         self.audioCaptureCoordinator = audioCaptureCoordinator
         self.correctionObservationScheduler = correctionObservationScheduler
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
+        self.assetRepository = assetRepository
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
     }
 
@@ -174,7 +177,8 @@ final class DictationOrchestrator {
 
         currentTarget = targetProvider.currentTarget()
 
-        if mode == .dictation {
+        if mode == .dictation,
+           !isFocusedTextFieldSecure() {
             textPipeline.prepareContextBoost(target: currentTarget)
         }
         AppLogger.dictation.debug("Dictation target resolved: \(currentTarget?.bundleID ?? "nil")")
@@ -943,11 +947,51 @@ final class DictationOrchestrator {
 
         do {
             try historyRepository.save(entry)
+            try saveDictationAsset(
+                id: historyID,
+                rawText: rawText,
+                finalText: finalText,
+                target: target,
+                createdAt: finishedAt
+            )
             onHistorySaved()
             AppLogger.dictation.debug("saveHistory success id=\(historyID)")
         } catch {
             AppLogger.general.error("Failed to save dictation history: \(error.localizedDescription)")
         }
+    }
+
+    private func saveDictationAsset(
+        id: String,
+        rawText: String,
+        finalText: String,
+        target: DictationTarget?,
+        createdAt: Date
+    ) throws {
+        guard let assetRepository else { return }
+        let title = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let item = AssetItem(
+            id: "dictation-\(id)",
+            source: .dictation,
+            contentType: .text,
+            title: title.isEmpty ? "语音输入" : title,
+            previewText: title.isEmpty ? rawText : title,
+            text: finalText,
+            rawText: rawText,
+            imagePath: nil,
+            filePath: nil,
+            url: nil,
+            colorValue: nil,
+            sourceAppName: target?.appName,
+            sourceAppBundleID: target?.bundleID,
+            contentHash: "dictation-\(id)",
+            captureReason: .dictationCompleted,
+            metadataJSON: nil,
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            deletedAt: nil
+        )
+        try assetRepository.save(item)
     }
 
     private func scheduleCorrectionObservationIfNeeded(
@@ -958,6 +1002,11 @@ final class DictationOrchestrator {
     ) {
         guard case .injected = outputResult,
               !context.isSecureField else {
+            return
+        }
+        if processingResult.trace?.contextBoost?.appliedToLLMPrompt == true,
+           processingResult.trace?.llm?.succeeded == true,
+           processingResult.finalText != processingResult.rawText {
             return
         }
         correctionObservationScheduler?.scheduleObservation(

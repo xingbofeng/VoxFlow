@@ -168,6 +168,64 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertEqual(selectedUtterance, "直接写到输入框")
     }
 
+    func testAgentDispatchConfirmationNumberKeySelectsAgentWithOriginalUtterance() throws {
+        let controller = OverlayWindowController()
+        var selectedAgentID: String?
+        var selectedUtterance: String?
+        controller.onAgentCandidateSelected = { agentID, utterance in
+            selectedAgentID = agentID
+            selectedUtterance = utterance
+        }
+        controller.updateAgentDispatch(
+            .confirmation(
+                utterance: "把这段选中文本交给任务助手",
+                candidates: [.confirmationFixture(id: "agent-1", name: "前端")]
+            )
+        )
+
+        let consumed = controller.performAgentConfirmationKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 18, characters: "1"))
+        )
+
+        XCTAssertTrue(consumed)
+        XCTAssertEqual(selectedAgentID, "agent-1")
+        XCTAssertEqual(selectedUtterance, "把这段选中文本交给任务助手")
+        XCTAssertFalse(controller.window?.isVisible ?? true)
+    }
+
+    func testAgentDispatchConfirmationNumberKeysOneThroughNineSelectVisibleCandidates() throws {
+        let keyCodes: [UInt16] = [18, 19, 20, 21, 23, 22, 26, 28, 25]
+        for index in 0..<9 {
+            let controller = OverlayWindowController()
+            var selectedAgentID: String?
+            var selectedUtterance: String?
+            controller.onAgentCandidateSelected = { agentID, utterance in
+                selectedAgentID = agentID
+                selectedUtterance = utterance
+            }
+            let candidates = (1...10).map { number in
+                AgentSessionCard.confirmationFixture(
+                    id: "agent-\(number)",
+                    name: "助手 \(number)"
+                )
+            }
+            controller.updateAgentDispatch(
+                .confirmation(
+                    utterance: "把选中文本交给任务助手",
+                    candidates: candidates
+                )
+            )
+
+            let consumed = controller.performAgentConfirmationKeyForTesting(
+                try XCTUnwrap(Self.keyDownEvent(keyCode: keyCodes[index], characters: "\(index + 1)"))
+            )
+
+            XCTAssertTrue(consumed)
+            XCTAssertEqual(selectedAgentID, "agent-\(index + 1)")
+            XCTAssertEqual(selectedUtterance, "把选中文本交给任务助手")
+        }
+    }
+
     func testAgentDispatchConfirmationZeroKeyDismissesConfirmationImmediately() throws {
         let controller = OverlayWindowController()
         controller.updateAgentDispatch(
@@ -181,6 +239,33 @@ final class OverlayAppearanceTests: XCTestCase {
             try XCTUnwrap(Self.keyDownEvent(keyCode: 29, characters: "0"))
         )
 
+        XCTAssertFalse(controller.window?.isVisible ?? true)
+    }
+
+    func testAgentDispatchConfirmationEscapeCancelsWithoutSelectingOutput() throws {
+        let controller = OverlayWindowController()
+        var didSelectCandidate = false
+        var didSelectDefaultOutput = false
+        controller.onAgentCandidateSelected = { _, _ in
+            didSelectCandidate = true
+        }
+        controller.onAgentDefaultOutputSelected = { _ in
+            didSelectDefaultOutput = true
+        }
+        controller.updateAgentDispatch(
+            .confirmation(
+                utterance: "取消这次任务助手确认",
+                candidates: [.confirmationFixture(id: "agent-1", name: "前端")]
+            )
+        )
+
+        let consumed = controller.performAgentConfirmationKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 53, characters: "\u{1b}"))
+        )
+
+        XCTAssertTrue(consumed)
+        XCTAssertFalse(didSelectCandidate)
+        XCTAssertFalse(didSelectDefaultOutput)
         XCTAssertFalse(controller.window?.isVisible ?? true)
     }
 
@@ -277,6 +362,169 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertFalse(controller.currentText.contains("voice-input-method-mac"))
         XCTAssertEqual(controller.window?.frame.width, OverlayLayout.windowWidth(textWidth: 240))
         XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
+    }
+
+    func testSelectionActionCardUsesExistingHUDWithThreeActions() throws {
+        let controller = OverlayWindowController()
+
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Artificial intelligence changes how we work.")
+        )
+
+        let contentView = try XCTUnwrap(controller.window?.contentView)
+        let labels = contentView.descendantTextValues()
+        let actionCard = try XCTUnwrap(contentView.descendantViews(withIdentifier: "selectionActionCard").first)
+        let actionTiles = contentView.descendantViews(withIdentifier: "selectionActionTile")
+
+        XCTAssertTrue(controller.window?.isVisible ?? false)
+        XCTAssertFalse(controller.window?.ignoresMouseEvents ?? true)
+        XCTAssertTrue(labels.contains("划词动作"))
+        XCTAssertTrue(labels.contains("翻译"))
+        XCTAssertTrue(labels.contains("总结"))
+        XCTAssertTrue(labels.contains("任务助手"))
+        XCTAssertFalse(labels.contains("朗读"))
+        XCTAssertEqual(actionTiles.count, 3)
+        XCTAssertLessThanOrEqual(controller.window?.frame.width ?? 0, 300)
+        XCTAssertLessThanOrEqual(controller.window?.frame.height ?? 0, 260)
+        let tileFrames = actionTiles.map { $0.convert($0.bounds, to: actionCard) }
+        let firstMidY = try XCTUnwrap(tileFrames.first?.midY)
+        XCTAssertTrue(tileFrames.allSatisfy { abs($0.midY - firstMidY) <= 2 })
+        for frame in tileFrames {
+            XCTAssertEqual(frame.width, frame.height, accuracy: 12)
+            XCTAssertGreaterThanOrEqual(frame.width, 78)
+            XCTAssertLessThanOrEqual(frame.width, 96)
+        }
+        XCTAssertLessThan(tileFrames[0].maxX, tileFrames[1].minX)
+        XCTAssertLessThan(tileFrames[1].maxX, tileFrames[2].minX)
+        XCTAssertTrue(contentView.descendantViews(withIdentifier: "agentCandidateRow").isEmpty)
+    }
+
+    func testSelectionActionTileVisibleTextClickSelectsAction() throws {
+        let controller = OverlayWindowController()
+        var selectedAction: SelectionActionKind?
+        var selectedText: String?
+        controller.onSelectionActionSelected = { action, text in
+            selectedAction = action
+            selectedText = text
+        }
+
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Click through visible tile content")
+        )
+
+        let window = try XCTUnwrap(controller.window)
+        let contentView = try XCTUnwrap(window.contentView)
+        contentView.layoutSubtreeIfNeeded()
+        let translateLabel = try XCTUnwrap(
+            contentView.descendantTextFields().first { $0.stringValue == "翻译" }
+        )
+        let clickPointInContent = translateLabel.convert(
+            NSPoint(x: translateLabel.bounds.midX, y: translateLabel.bounds.midY),
+            to: contentView
+        )
+        let clickPointInWindow = contentView.convert(clickPointInContent, to: nil)
+        let event = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: clickPointInWindow,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+
+        contentView.hitTest(clickPointInContent)?.mouseDown(with: event)
+
+        XCTAssertEqual(selectedAction, .translate)
+        XCTAssertEqual(selectedText, "Click through visible tile content")
+        XCTAssertFalse(controller.window?.isVisible ?? true)
+    }
+
+    func testSelectionActionCardDisablesTemporaryMessageClickRecognizer() throws {
+        let controller = OverlayWindowController()
+
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Tile clicks should not be intercepted")
+        )
+
+        let contentView = try XCTUnwrap(controller.window?.contentView)
+        let enabledRecognizers = contentView.gestureRecognizers.filter(\.isEnabled)
+
+        XCTAssertTrue(enabledRecognizers.isEmpty)
+    }
+
+    func testSelectionActionCardUsesSelectionAnchorBeforeBottomTrailingFallback() throws {
+        let controller = OverlayWindowController()
+        let anchor = NSRect(x: 240, y: 520, width: 320, height: 24)
+
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Place this beside the current work"),
+            anchor: anchor
+        )
+
+        let window = try XCTUnwrap(controller.window)
+        let frame = window.frame
+        XCTAssertEqual(frame.minX, anchor.minX, accuracy: 1)
+        XCTAssertLessThanOrEqual(frame.maxY, anchor.minY - 10)
+
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Fallback when selection rect is unavailable"),
+            anchor: nil
+        )
+
+        let fallbackFrame = try XCTUnwrap(controller.window?.frame)
+        let visibleFrame = try XCTUnwrap(controller.window?.screen?.visibleFrame)
+        let expectedFallback = WindowPlacementPolicy.bottomTrailingFrame(
+            windowSize: fallbackFrame.size,
+            visibleFrame: visibleFrame,
+            trailingMargin: 24,
+            bottomMargin: 28
+        )
+        XCTAssertEqual(fallbackFrame.origin.x, expectedFallback.origin.x, accuracy: 1)
+        XCTAssertEqual(fallbackFrame.origin.y, expectedFallback.origin.y, accuracy: 1)
+    }
+
+    func testSelectionActionCardNumberKeySelectsActionAndDismisses() throws {
+        let controller = OverlayWindowController()
+        var selectedAction: SelectionActionKind?
+        var selectedText: String?
+        controller.onSelectionActionSelected = { action, text in
+            selectedAction = action
+            selectedText = text
+        }
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Explain this API")
+        )
+
+        let consumed = controller.performSelectionActionKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 19, characters: "2"))
+        )
+
+        XCTAssertTrue(consumed)
+        XCTAssertEqual(selectedAction, .summarize)
+        XCTAssertEqual(selectedText, "Explain this API")
+        XCTAssertFalse(controller.window?.isVisible ?? true)
+    }
+
+    func testSelectionActionCardEscapeCancelsWithoutSelectingAction() throws {
+        let controller = OverlayWindowController()
+        var didSelectAction = false
+        controller.onSelectionActionSelected = { _, _ in
+            didSelectAction = true
+        }
+        controller.showSelectionActions(
+            SelectionActionCardPresentation(selectedText: "Cancel this card")
+        )
+
+        let consumed = controller.performSelectionActionKeyForTesting(
+            try XCTUnwrap(Self.keyDownEvent(keyCode: 53, characters: "\u{1b}"))
+        )
+
+        XCTAssertTrue(consumed)
+        XCTAssertFalse(didSelectAction)
+        XCTAssertFalse(controller.window?.isVisible ?? true)
     }
 }
 

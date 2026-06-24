@@ -52,7 +52,7 @@
 
   <text x="108" y="354" fill="#0E6B58" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="18" font-weight="750" letter-spacing="3">码上写 · VoxFlow</text>
   <text x="108" y="422" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="58" font-weight="760">Voice. OCR. Command.</text>
-  <text x="108" y="474" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="25" font-weight="500">语音输入 · 截图文字 · Agent 调度</text>
+  <text x="108" y="474" fill="#5F625D" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="25" font-weight="500">启动台 · 历史资产 · Agent 调度</text>
   <text x="108" y="517" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="20">把声音、图片文字和任务送回当前现场</text>
   <text x="108" y="550" fill="#797A75" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="19">Send every thought back into flow.</text>
 
@@ -101,23 +101,23 @@
     <g transform="translate(1008 196)">
       <g>
         <rect width="98" height="68" rx="12" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">累计字符</text>
+        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">累计资产</text>
         <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="750">8,426</text>
       </g>
       <g transform="translate(110)">
         <rect width="98" height="68" rx="12" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">今日字符</text>
+        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">今日新增</text>
         <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="750">1,284</text>
       </g>
       <g transform="translate(220)">
         <rect width="98" height="68" rx="12" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">平均字/分钟</text>
-        <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="750">126</text>
+        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">来源分布</text>
+        <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="750">语音 42</text>
       </g>
       <g transform="translate(330)">
         <rect width="98" height="68" rx="12" fill="#FBF7F0" stroke="#E7DDD0"/>
-        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">连续使用</text>
-        <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="750">18 天</text>
+        <text x="14" y="23" fill="#718079" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10">可复用</text>
+        <text x="14" y="52" fill="#242525" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="750">18 条</text>
       </g>
     </g>
 

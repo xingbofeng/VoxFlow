@@ -308,6 +308,52 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testSelectionActionShortcutRoutesThroughHotKeyRouter() {
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.dKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionActionKeyCode: ShortcutManager.defaultSelectionActionShortcutKeyCode
+            ),
+            .workflowShortcut(.selectionAction)
+        )
+    }
+
+    func testDirectSelectionActionShortcutsRouteThroughHotKeyRouter() {
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.jKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionTranslateKeyCode: ShortcutManager.defaultSelectionTranslateShortcutKeyCode
+            ),
+            .workflowShortcut(.selectionTranslate)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.kKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionSummarizeKeyCode: ShortcutManager.defaultSelectionSummarizeShortcutKeyCode
+            ),
+            .workflowShortcut(.selectionSummarize)
+        )
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.lKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionAgentKeyCode: ShortcutManager.defaultSelectionAgentShortcutKeyCode
+            ),
+            .workflowShortcut(.selectionAgent)
+        )
+    }
+
     func testModifierShortcutRequiresOnlyThatModifierFlag() {
         XCTAssertTrue(
             ShortcutModifierRouting.isPureModifierShortcut(

@@ -110,6 +110,33 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertFalse(preview.contains("Visible text in window:"))
     }
 
+    func testAgentComposeVisibleUserTextUsesRawTranscriptInsteadOfFullPromptRequestBody() {
+        let requestBody = """
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a context-aware writing assistant."
+            },
+            {
+              "role": "user",
+              "content": "Target application:\\n<target_application>\\nCodex\\n</target_application>\\n\\nStyle guidance:\\n<style_guidance>\\n## 编程风格\\n</style_guidance>\\n\\nUser's dictation intent:\\n<user_dictation_intent>\\n告诉他可以继续\\n</user_dictation_intent>"
+            }
+          ]
+        }
+        """
+
+        let visibleText = HomeHistoryDetailPresentation.modelInputPreview(
+            rawText: "告诉他可以继续",
+            requestBodyJSON: requestBody,
+            taskMode: .agentCompose
+        )
+
+        XCTAssertEqual(visibleText, "告诉他可以继续")
+        XCTAssertFalse(visibleText.contains("Target application:"))
+        XCTAssertFalse(visibleText.contains("Style guidance:"))
+    }
+
     func testRequestBodyPreviewFallsBackToRawJSONWhenUserMessageIsMissing() {
         let requestBody = #"{"model":"gpt","messages":[{"role":"system","content":"prompt"}]}"#
 

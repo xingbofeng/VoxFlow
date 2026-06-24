@@ -5,7 +5,12 @@ import Foundation
 @MainActor
 public protocol ScrollingScreenshotAutoScrolling: AnyObject {
     var hasAccessibilityPermission: Bool { get }
-    func postScrollTick(lines: Int32)
+    func requestAccessibilityPermissionPrompt()
+    func postScrollTick(lines: Int32, at location: CGPoint)
+}
+
+public extension ScrollingScreenshotAutoScrolling {
+    func requestAccessibilityPermissionPrompt() {}
 }
 
 @MainActor
@@ -16,7 +21,14 @@ public final class AppKitScrollingScreenshotAutoScroller: ScrollingScreenshotAut
         AXIsProcessTrusted()
     }
 
-    public func postScrollTick(lines: Int32) {
+    public func requestAccessibilityPermissionPrompt() {
+        let options = [
+            "AXTrustedCheckOptionPrompt": true
+        ] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+    }
+
+    public func postScrollTick(lines: Int32, at location: CGPoint) {
         guard hasAccessibilityPermission,
               let event = CGEvent(
                 scrollWheelEvent2Source: nil,
@@ -28,6 +40,7 @@ public final class AppKitScrollingScreenshotAutoScroller: ScrollingScreenshotAut
               ) else {
             return
         }
+        event.location = location
         event.post(tap: .cghidEventTap)
     }
 }

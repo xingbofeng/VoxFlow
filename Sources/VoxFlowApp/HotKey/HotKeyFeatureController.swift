@@ -237,9 +237,19 @@ final class HotKeyFeatureController {
         switch shortcut {
         case .cancel:
             shouldConsume = performWorkflowShortcut(shortcut)
+        case .palette:
+            shouldConsume = performWorkflowShortcut(shortcut)
         case .clipboardImageOCR:
             shouldConsume = performWorkflowShortcut(shortcut)
         case .screenshotOCR:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .selectionAction:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .selectionTranslate:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .selectionSummarize:
+            shouldConsume = performWorkflowShortcut(shortcut)
+        case .selectionAgent:
             shouldConsume = performWorkflowShortcut(shortcut)
         }
         AppLogger.general.info(
@@ -306,10 +316,20 @@ private extension HotKeyRoutingDecision {
 private extension HotKeyWorkflowShortcut {
     var logName: String {
         switch self {
+        case .palette:
+            return "palette"
         case .clipboardImageOCR:
             return "clipboardImageOCR"
         case .screenshotOCR:
             return "screenshotOCR"
+        case .selectionAction:
+            return "selectionAction"
+        case .selectionTranslate:
+            return "selectionTranslate"
+        case .selectionSummarize:
+            return "selectionSummarize"
+        case .selectionAgent:
+            return "selectionAgent"
         case .cancel:
             return "cancel"
         }

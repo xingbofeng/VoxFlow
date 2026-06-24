@@ -92,11 +92,10 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
-    func testAgentComposeRecordingKeepsExistingHUDStage() {
+    func testAgentComposeRecordingShowsDefaultHUDAndClearsText() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
-        controller.handleAgentComposeStage(.readingWindow)
         controller.handleState(
             .recording,
             activeVoiceAction: .agentCompose,
@@ -104,9 +103,8 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         )
 
         XCTAssertEqual(overlay.events, [
-            .updateAgentComposeStatus(.readingWindow),
-            .showWithoutReset,
-            .showWithoutReset,
+            .show,
+            .updateTranscription(text: "", isRefining: false),
         ])
     }
 

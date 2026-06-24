@@ -168,7 +168,12 @@ final class NotesViewModelTests: XCTestCase {
     func testRecordingReplacesCurrentEditorSelectionWithoutDiscardingDraft() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let recorder = NotesTranscriberStub()
-        let viewModel = NotesViewModel(environment: environment, transcriber: recorder)
+        let outputService = CapturingNotesOutputService()
+        let viewModel = NotesViewModel(
+            environment: environment,
+            transcriber: recorder,
+            notesOutputService: outputService
+        )
         viewModel.draftBodyMarkdown = "开头 old text 结尾"
         let selection = (viewModel.draftBodyMarkdown as NSString).range(of: "old text")
 
@@ -179,6 +184,7 @@ final class NotesViewModelTests: XCTestCase {
 
         recorder.emit(text: "新的中英文 content", isFinal: true)
 
+        XCTAssertEqual(outputService.deliveredTexts, ["开头 新的中英文 content 结尾"])
         XCTAssertEqual(viewModel.draftBodyMarkdown, "开头 新的中英文 content 结尾")
         XCTAssertEqual(viewModel.notes.first?.bodyMarkdown, "开头 新的中英文 content 结尾")
     }
@@ -186,13 +192,19 @@ final class NotesViewModelTests: XCTestCase {
     func testRecordingClampsInvalidSelectionToEndOfDraft() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let recorder = NotesTranscriberStub()
-        let viewModel = NotesViewModel(environment: environment, transcriber: recorder)
+        let outputService = CapturingNotesOutputService()
+        let viewModel = NotesViewModel(
+            environment: environment,
+            transcriber: recorder,
+            notesOutputService: outputService
+        )
         viewModel.draftBodyMarkdown = "已有"
 
         await viewModel.startRecording(replacing: NSRange(location: 999, length: 20))
         recorder.emit(text: "追加", isFinal: false)
 
         XCTAssertEqual(viewModel.draftBodyMarkdown, "已有追加")
+        XCTAssertEqual(outputService.deliveredTexts, [])
     }
 
     func testRecordingFailureReturnsToIdleAndShowsError() async {

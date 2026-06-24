@@ -6,6 +6,7 @@ enum ScreenshotImageStorageError: Error, LocalizedError {
     case bitmapRepCreationFailed
     case pngEncodingFailed
     case writeFailed(String)
+    case deleteFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,8 @@ enum ScreenshotImageStorageError: Error, LocalizedError {
             return "PNG 编码失败"
         case .writeFailed(let reason):
             return "写入截图文件失败: \(reason)"
+        case .deleteFailed(let reason):
+            return "删除截图文件失败: \(reason)"
         }
     }
 }
@@ -48,5 +51,19 @@ enum ScreenshotImageStorage {
         }
         Self.logger.debug("ScreenshotImageStorage load found path=\(path)")
         return NSImage(contentsOfFile: path)
+    }
+
+    static func deleteImage(at path: String, fileManager: FileManager = .default) throws {
+        guard fileManager.fileExists(atPath: path) else {
+            Self.logger.debug("ScreenshotImageStorage delete skipped missing path=\(path)")
+            return
+        }
+        do {
+            try fileManager.removeItem(atPath: path)
+            Self.logger.debug("ScreenshotImageStorage delete completed path=\(path)")
+        } catch {
+            Self.logger.error("ScreenshotImageStorage delete failed path=\(path) reason=\(error.localizedDescription)")
+            throw ScreenshotImageStorageError.deleteFailed(error.localizedDescription)
+        }
     }
 }

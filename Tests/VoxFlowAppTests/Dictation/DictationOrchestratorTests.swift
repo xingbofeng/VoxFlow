@@ -115,6 +115,40 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertTrue(engine.didStop)
     }
 
+    func testFinalTranscriptIsSavedAsDictationAsset() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "原始语音", finalText: "最终语音"))
+        let history = CapturingHistoryRepository()
+        let assetRepository = CapturingDictationAssetRepository()
+        let clock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            history: history,
+            clock: clock,
+            targetProvider: StaticDictationTargetProvider(target: target),
+            assetRepository: assetRepository
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        clock.now = Date(timeIntervalSince1970: 1_800_000_003)
+        orchestrator.release()
+        engine.emit(text: "原始语音", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "最终语音")
+        XCTAssertEqual(asset.rawText, "原始语音")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+        XCTAssertEqual(asset.sourceAppName, "Editor")
+        XCTAssertEqual(asset.sourceAppBundleID, "com.example.editor")
+        XCTAssertEqual(asset.createdAt, clock.now)
+    }
+
     func testStartAcceptsJapaneseLanguageConfiguration() throws {
         let engine = FakeASREngine()
         let audioRecorder = FakeAudioRecorder()
@@ -739,6 +773,44 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
     }
 
+    func testContextBoostLLMChangeSkipsCorrectionObservation() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "Qwen3-ASR",
+                trace: TextProcessingTrace(
+                    llm: Self.trace(),
+                    contextBoost: ContextBoostTrace(
+                        appName: "Editor",
+                        bundleID: "com.example.editor",
+                        hotwords: ["Qwen3-ASR"],
+                        source: "current_window_ocr",
+                        ttlSeconds: 120,
+                        appliedToLLMPrompt: true,
+                        failureReason: nil
+                    )
+                )
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            targetProvider: StaticDictationTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
     func testSecureDictationSkipsCorrectionObservationAndMarksCorrectionContextSecure() async throws {
         let engine = FakeASREngine()
         let pipeline = CapturingDictationContextPipeline(
@@ -759,6 +831,20 @@ final class DictationOrchestratorTests: XCTestCase {
 
         XCTAssertEqual(pipeline.capturedContexts.map(\.isSecureField), [true])
         XCTAssertTrue(observer.observations.isEmpty)
+    }
+
+    func testSecureDictationDoesNotPrepareContextBoost() throws {
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(rawText: "raw", finalText: "raw")
+        )
+        let orchestrator = makeOrchestrator(
+            pipeline: pipeline,
+            isFocusedTextFieldSecure: { true }
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+
+        XCTAssertTrue(pipeline.preparedTargets.isEmpty)
     }
 
     func testAgentComposeUsesRecordingStateAndDelegatesFinalTranscript() async throws {
@@ -1034,7 +1120,8 @@ final class DictationOrchestratorTests: XCTestCase {
             target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
         ),
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
-        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
+        isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
+        assetRepository: (any AssetRepository)? = nil
     ) -> DictationOrchestrator {
         DictationOrchestrator(
             asrEngineFactory: FakeASREngineFactory(engine: engine),
@@ -1048,7 +1135,8 @@ final class DictationOrchestratorTests: XCTestCase {
             audioCaptureCoordinator: audioCaptureCoordinator,
             correctionObservationScheduler: correctionObservationScheduler,
             isFocusedTextFieldSecure: isFocusedTextFieldSecure,
-            finalTimeoutNanoseconds: finalTimeoutNanoseconds
+            finalTimeoutNanoseconds: finalTimeoutNanoseconds,
+            assetRepository: assetRepository
         )
     }
 
@@ -1056,6 +1144,23 @@ final class DictationOrchestratorTests: XCTestCase {
         for _ in 0..<10 {
             await Task.yield()
         }
+    }
+
+    private static func trace() -> LLMRefinementTrace {
+        LLMRefinementTrace(
+            providerID: "provider",
+            providerName: "Provider",
+            endpoint: "https://api.example.com/v1/chat/completions",
+            model: "gpt-test",
+            temperature: 0.0,
+            timeoutSeconds: 8,
+            requestBodyJSON: "{}",
+            responseText: "Qwen3-ASR",
+            statusCode: 200,
+            durationMS: 12,
+            errorMessage: nil,
+            completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
     }
 
     private func waitUntil(
@@ -1647,6 +1752,27 @@ private final class CapturingHistoryRepository: HistoryRepository {
     }
 
     func softDelete(id: String, deletedAt: Date) throws {}
+}
+
+private final class CapturingDictationAssetRepository: AssetRepository {
+    private(set) var savedItems: [AssetItem] = []
+    private(set) var deletedIDs: [String] = []
+
+    func save(_ item: AssetItem) throws {
+        savedItems.append(item)
+    }
+
+    func asset(id: String) throws -> AssetItem? {
+        savedItems.first { $0.id == id && $0.deletedAt == nil }
+    }
+
+    func page(query: AssetQuery) throws -> AssetPage {
+        AssetPage(items: savedItems, totalCount: savedItems.count)
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {
+        deletedIDs.append(id)
+    }
 }
 
 private final class MutableClock: AppClock, @unchecked Sendable {

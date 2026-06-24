@@ -3,15 +3,49 @@ import Combine
 import Foundation
 
 struct HomeDashboardStats: Equatable {
-    var totalCharacters = 0
-    var todayCharacters = 0
-    var averageCPM = 0
-    var streakDays = 0
+    var totalAssets = 0
+    var focusedAssets = 0
+    var sourceBreakdown = HomeSourceBreakdown()
+    var reusableAssets = 0
+}
+
+struct HomeSourceBreakdown: Equatable {
+    var dictation = 0
+    var screenshot = 0
+    var clipboard = 0
+
+    var total: Int {
+        dictation + screenshot + clipboard
+    }
+
+    var summaryText: String {
+        guard total > 0 else { return "暂无" }
+        return [
+            ("语音", dictation),
+            ("截图", screenshot),
+            ("剪切板", clipboard)
+        ]
+        .filter { $0.1 > 0 }
+        .map { "\($0.0) \($0.1)" }
+        .joined(separator: " / ")
+    }
+
+    mutating func increment(source: AssetSource) {
+        switch source {
+        case .dictation:
+            dictation += 1
+        case .screenshot:
+            screenshot += 1
+        case .clipboard:
+            clipboard += 1
+        }
+    }
 }
 
 struct HomeActivityDay: Equatable, Identifiable {
     let date: Date
-    let characters: Int
+    let assetCount: Int
+    let sourceBreakdown: HomeSourceBreakdown
     let level: Int
 
     var id: Date { date }
@@ -19,33 +53,92 @@ struct HomeActivityDay: Equatable, Identifiable {
 
 struct HomeActivitySummary: Equatable {
     var days: [HomeActivityDay] = []
-    var thisWeekCharacters = 0
-    var maxDailyCharacters = 0
+    var thisWeekAssets = 0
+    var maxDailyAssets = 0
 }
 
-struct HomeHistoryItem: Equatable, Identifiable {
-    let id: String
-    let finalText: String
-    let rawText: String
-    let appName: String?
-    let appBundleID: String?
-    let charCount: Int
-    let cpm: Double
-    let createdAt: Date
-    let taskMode: VoiceTaskMode?
-    let taskStatus: VoiceTaskStatus?
+struct HomeAssetItem: Equatable, Identifiable {
+    let asset: AssetItem
+    let voiceKind: VoiceAssetKind?
+
+    init(asset: AssetItem, voiceKind: VoiceAssetKind? = nil) {
+        self.asset = asset
+        self.voiceKind = voiceKind
+    }
+
+    var id: String { asset.id }
+    var title: String { asset.title }
+    var previewText: String {
+        asset.previewText
+            ?? asset.text
+            ?? asset.url
+            ?? asset.filePath
+            ?? asset.colorValue
+            ?? ""
+    }
+    var imagePath: String? { asset.imagePath }
+    var createdAt: Date { asset.createdAt }
+    var sourceTitle: String {
+        if let voiceKind {
+            switch voiceKind {
+            case .dictation:
+                return "语音"
+            case .agentCompose:
+                return "任务助手"
+            case .agentDispatch:
+                return "AI 编程"
+            case .selectionTranslation:
+                return "划词翻译"
+            case .selectionSummary:
+                return "划词总结"
+            case .selectionAgent:
+                return "划词任务助手"
+            }
+        }
+        switch asset.source {
+        case .dictation:
+            return "语音"
+        case .screenshot:
+            return "截图"
+        case .clipboard:
+            return "剪切板"
+        }
+    }
+    var contentTypeTitle: String {
+        switch asset.contentType {
+        case .text:
+            return "文本"
+        case .image:
+            return "图片"
+        case .file:
+            return "文件"
+        case .link:
+            return "链接"
+        case .color:
+            return "颜色"
+        }
+    }
+    var systemImage: String {
+        switch asset.contentType {
+        case .text:
+            return asset.source == .dictation ? "waveform" : "doc.text"
+        case .image:
+            return "photo"
+        case .file:
+            return "doc"
+        case .link:
+            return "link"
+        case .color:
+            return "paintpalette"
+        }
+    }
 }
 
-enum HomeHistoryTextVariant: Equatable {
-    case final
-    case raw
-}
-
-struct HomeHistoryGroup: Equatable, Identifiable {
+struct HomeAssetGroup: Equatable, Identifiable {
     let id: String
     let title: String
     let date: Date
-    let items: [HomeHistoryItem]
+    let items: [HomeAssetItem]
 }
 
 struct HomeHistoryDetail: Equatable, Identifiable {
@@ -73,6 +166,20 @@ struct HomeHistoryDetail: Equatable, Identifiable {
     let outputResultRaw: String?
 }
 
+enum HomeDetailSelection: Equatable, Identifiable {
+    case voice(HomeHistoryDetail)
+    case asset(HomeAssetItem)
+
+    var id: String {
+        switch self {
+        case .voice(let detail):
+            return "voice-\(detail.id)"
+        case .asset(let detail):
+            return "asset-\(detail.id)"
+        }
+    }
+}
+
 protocol ClipboardWriting: AnyObject {
     func copy(_ text: String)
 }
@@ -92,13 +199,13 @@ final class HomeDashboardViewModel: ObservableObject {
     @Published private(set) var stats = HomeDashboardStats()
     @Published private(set) var activity = HomeActivitySummary()
     @Published private(set) var selectedActivityDate: Date?
-    @Published private(set) var historyGroups: [HomeHistoryGroup] = []
-    @Published private(set) var selectedDetail: HomeHistoryDetail?
+    @Published private(set) var assetGroups: [HomeAssetGroup] = []
+    @Published private(set) var totalAssetCount = 0
+    @Published private(set) var selectedHomeDetail: HomeDetailSelection?
+    @Published private(set) var selectedAssetIDs: Set<String> = []
     @Published private(set) var isReprocessing = false
-    @Published private(set) var canLoadMoreHistory = false
-    @Published private(set) var currentPage = 1
+    @Published private(set) var assetCurrentPage = 1
     @Published private(set) var pageSize: Int
-    @Published private(set) var totalHistoryCount = 0
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var lastActionTone = ActionFeedbackTone.success
@@ -110,18 +217,27 @@ final class HomeDashboardViewModel: ObservableObject {
     private let targetProvider: (any DictationTargetProviding)?
     private let textPipeline: (any TextProcessing)?
     private let calendar: Calendar
-    private let historyLimit: Int
     private let historyPageSize: Int
     private let voiceTaskRepository: VoiceTaskRepository
-    private let homeHistoryRepository: any HomeHistoryQuerying
-    private var recentEntries: [DictationHistoryEntry] = []
-    private var recentAgentTasks: [VoiceTask] = []
-    private var visibleHistoryItemLimit: Int
     private var cancellables: Set<AnyCancellable> = []
     private var hasLoaded = false
 
     var openHistoryDetailRequests: AnyPublisher<String, Never> {
         environment.openHistoryDetailPublisher
+    }
+
+    var selectedDetail: HomeHistoryDetail? {
+        guard case .voice(let detail) = selectedHomeDetail else {
+            return nil
+        }
+        return detail
+    }
+
+    var selectedAssetDetail: HomeAssetItem? {
+        guard case .asset(let detail) = selectedHomeDetail else {
+            return nil
+        }
+        return detail
     }
 
     init(
@@ -132,8 +248,7 @@ final class HomeDashboardViewModel: ObservableObject {
         textPipeline: (any TextProcessing)? = nil,
         calendar: Calendar = .current,
         historyLimit: Int = 1_000,
-        historyPageSize: Int = 20,
-        homeHistoryRepository: (any HomeHistoryQuerying)? = nil
+        historyPageSize: Int = 20
     ) {
         self.environment = environment
         self.clipboardWriter = clipboardWriter
@@ -141,16 +256,12 @@ final class HomeDashboardViewModel: ObservableObject {
         self.targetProvider = targetProvider
         self.textPipeline = textPipeline ?? Self.makeDefaultTextPipeline(environment: environment)
         self.calendar = calendar
-        self.historyLimit = historyLimit
         self.historyPageSize = max(1, historyPageSize)
         self.pageSize = max(1, historyPageSize)
-        self.visibleHistoryItemLimit = max(1, historyPageSize)
         self.voiceTaskRepository = VoiceTaskRepository(
             databaseQueue: environment.databaseQueue,
             clock: environment.clock
         )
-        self.homeHistoryRepository = homeHistoryRepository
-            ?? HomeHistoryRepository(databaseQueue: environment.databaseQueue)
         environment.historyDidChangePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
@@ -162,7 +273,7 @@ final class HomeDashboardViewModel: ObservableObject {
     func load() {
         do {
             try reloadDashboardAggregate()
-            try reloadHistoryPage()
+            try reloadAssetPage()
             hasLoaded = true
             lastError = nil
         } catch {
@@ -179,19 +290,19 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func updateSearch(_ query: String) {
         searchText = query
-        currentPage = 1
-        refreshHistoryPage()
+        assetCurrentPage = 1
+        refreshAssetPage()
     }
 
     func selectActivityDay(_ date: Date) {
         selectedActivityDate = calendar.startOfDay(for: date)
-        currentPage = 1
+        assetCurrentPage = 1
         refreshScopedDashboardState()
     }
 
     func clearActivityDaySelection() {
         selectedActivityDate = nil
-        currentPage = 1
+        assetCurrentPage = 1
         refreshScopedDashboardState()
     }
 
@@ -206,26 +317,108 @@ final class HomeDashboardViewModel: ObservableObject {
         clearActivityDaySelection()
     }
 
-    func copyHistoryItem(id: String) {
-        guard let item = historyGroups.flatMap(\.items).first(where: { $0.id == id }) else {
+    func copyAssetItem(id: String) {
+        guard let item = assetGroups.flatMap(\.items).first(where: { $0.id == id }) else {
             return
         }
-        clipboardWriter.copy(item.finalText)
+        let text = item.previewText
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            lastError = "该资产没有可复制文本。"
+            return
+        }
+        clipboardWriter.copy(text)
         lastError = nil
-        lastActionMessage = "已复制历史文本"
+        lastActionMessage = "已复制资产内容"
         lastActionTone = .success
     }
 
-    func deleteHistoryItem(id: String) {
+    func deleteAssetItem(id: String) {
         do {
-            if historyGroups.flatMap(\.items).first(where: { $0.id == id })?.taskMode != nil {
-                try voiceTaskRepository.delete(id: id)
-            } else {
-                try environment.historyRepository.softDelete(id: id, deletedAt: environment.clock.now)
+            let asset = try environment.assetRepository.asset(id: id)
+            try environment.assetRepository.softDelete(id: id, deletedAt: environment.clock.now)
+            try deleteBackingVoiceRecordIfNeeded(for: asset)
+            try reloadAssetPage()
+            selectedAssetIDs.remove(id)
+            if selectedAssetDetail?.id == id {
+                selectedHomeDetail = nil
             }
-            load()
             lastError = nil
-            lastActionMessage = "已删除历史记录"
+            lastActionMessage = "已删除资产"
+            lastActionTone = .destructive
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func selectAssetItem(id: String) {
+        do {
+            guard let asset = try environment.assetRepository.asset(id: id) else {
+                selectedHomeDetail = nil
+                lastError = "未找到资产。"
+                return
+            }
+            if selectVoiceDetailIfAvailable(for: asset) {
+                lastError = nil
+                return
+            }
+            selectedHomeDetail = .asset(homeAssetItem(for: asset))
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func toggleAssetSelection(id: String) {
+        if selectedAssetIDs.contains(id) {
+            selectedAssetIDs.remove(id)
+        } else {
+            selectedAssetIDs.insert(id)
+        }
+    }
+
+    func toggleVisibleAssetSelection() {
+        if visibleAssetIDs.isEmpty {
+            return
+        }
+        if areVisibleAssetsSelected {
+            selectedAssetIDs.subtract(visibleAssetIDs)
+        } else {
+            selectedAssetIDs.formUnion(visibleAssetIDs)
+        }
+    }
+
+    func deleteSelectedAssets() {
+        let ids = selectedAssetIDs
+        guard !ids.isEmpty else { return }
+        do {
+            let assets = try ids.compactMap { try environment.assetRepository.asset(id: $0) }
+            try environment.assetRepository.softDelete(ids: Array(ids), deletedAt: environment.clock.now)
+            for asset in assets {
+                try deleteBackingVoiceRecordIfNeeded(for: asset)
+            }
+            selectedAssetIDs = []
+            selectedHomeDetail = nil
+            try reloadAssetPage()
+            lastError = nil
+            lastActionMessage = "已删除 \(ids.count) 条资产"
+            lastActionTone = .destructive
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func clearAllAssets() {
+        do {
+            let assets = try allAssetsForDeletion()
+            try environment.assetRepository.clearAll(deletedAt: environment.clock.now)
+            for asset in assets {
+                try deleteBackingVoiceRecordIfNeeded(for: asset)
+            }
+            selectedAssetIDs = []
+            selectedHomeDetail = nil
+            try reloadAssetPage()
+            lastError = nil
+            lastActionMessage = "已清空资产"
             lastActionTone = .destructive
         } catch {
             lastError = error.localizedDescription
@@ -235,30 +428,30 @@ final class HomeDashboardViewModel: ObservableObject {
     func selectHistoryItem(id: String) {
         do {
             if let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil {
-                selectedDetail = HomeHistoryDetail(entry: entry)
-                    .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
+                selectedHomeDetail = .voice(
+                    HomeHistoryDetail(entry: entry)
+                        .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
+                )
                 lastError = nil
                 return
             }
             if let task = try voiceTaskRepository.fetch(id: id) {
-                selectedDetail = HomeHistoryDetail(task: task)
-                    .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
+                selectedHomeDetail = .voice(
+                    HomeHistoryDetail(task: task)
+                        .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: id))
+                )
                 lastError = nil
                 return
             }
-            selectedDetail = nil
+            selectedHomeDetail = nil
             lastError = "未找到历史记录。"
         } catch {
             lastError = error.localizedDescription
         }
     }
 
-    func clearSelectedDetail() {
-        selectedDetail = nil
-    }
-
-    func dismissSelectedDetailFromBackdrop() {
-        clearSelectedDetail()
+    func clearSelectedHomeDetail() {
+        selectedHomeDetail = nil
     }
 
     func clearFeedback() {
@@ -266,50 +459,46 @@ final class HomeDashboardViewModel: ObservableObject {
         lastActionMessage = nil
     }
 
-    func loadMoreHistory() {
-        nextPage()
+    var totalAssetPages: Int {
+        max(1, Int(ceil(Double(totalAssetCount) / Double(pageSize))))
     }
 
-    var totalPages: Int {
-        max(1, Int(ceil(Double(totalHistoryCount) / Double(pageSize))))
+    var visibleAssetIDs: Set<String> {
+        Set(assetGroups.flatMap(\.items).map(\.id))
     }
 
-    var canGoToPreviousPage: Bool { currentPage > 1 }
-    var canGoToNextPage: Bool { currentPage < totalPages }
-
-    func goToPage(_ page: Int) {
-        let target = min(max(1, page), totalPages)
-        guard target != currentPage else { return }
-        currentPage = target
-        refreshHistoryPage()
+    var areVisibleAssetsSelected: Bool {
+        !visibleAssetIDs.isEmpty && visibleAssetIDs.isSubset(of: selectedAssetIDs)
     }
 
-    func previousPage() {
-        goToPage(currentPage - 1)
-    }
+    var canGoToPreviousAssetPage: Bool { assetCurrentPage > 1 }
+    var canGoToNextAssetPage: Bool { assetCurrentPage < totalAssetPages }
 
-    func nextPage() {
-        goToPage(currentPage + 1)
-    }
-
-    func updateHistoryPageSize(_ size: Int) {
-        guard size > 0, size != pageSize else { return }
-        pageSize = size
-        currentPage = 1
-        refreshHistoryPage()
-    }
-
-    func clearAllHistory() {
+    func goToAssetPage(_ page: Int) {
+        let target = min(max(1, page), totalAssetPages)
+        guard target != assetCurrentPage else { return }
+        assetCurrentPage = target
         do {
-            try homeHistoryRepository.clearAll(deletedAt: environment.clock.now)
-            currentPage = 1
-            selectedDetail = nil
-            load()
-            lastActionMessage = "已清空历史数据"
-            lastActionTone = .destructive
+            try reloadAssetPage()
+            lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func previousAssetPage() {
+        goToAssetPage(assetCurrentPage - 1)
+    }
+
+    func nextAssetPage() {
+        goToAssetPage(assetCurrentPage + 1)
+    }
+
+    func updateAssetPageSize(_ size: Int) {
+        guard size > 0, size != pageSize else { return }
+        pageSize = size
+        assetCurrentPage = 1
+        refreshAssetPage()
     }
 
     // MARK: - Recovery actions
@@ -396,11 +585,11 @@ final class HomeDashboardViewModel: ObservableObject {
         }
     }
 
-    var focusedCharactersTitle: String {
+    var focusedAssetsTitle: String {
         guard let selectedActivityDate else {
-            return "今日字符"
+            return "今日新增"
         }
-        return "\(dateTitle(for: selectedActivityDate))字符"
+        return "\(dateTitle(for: selectedActivityDate))新增"
     }
 
     func reprocessSelectedHistoryItem() async {
@@ -417,7 +606,7 @@ final class HomeDashboardViewModel: ObservableObject {
 
         do {
             guard let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil else {
-                selectedDetail = nil
+                selectedHomeDetail = nil
                 lastError = "未找到历史记录。"
                 return
             }
@@ -426,9 +615,10 @@ final class HomeDashboardViewModel: ObservableObject {
             let finalText = normalizedFinalText(from: result, fallback: entry.rawText)
             let updatedEntry = updatedHistoryEntry(from: entry, finalText: finalText, processingResult: result)
             try environment.historyRepository.save(updatedEntry)
+            try updateDictationAssetIfAvailable(for: updatedEntry)
             environment.notifyHistoryDidChange()
             load()
-            selectedDetail = HomeHistoryDetail(entry: updatedEntry)
+            selectedHomeDetail = .voice(HomeHistoryDetail(entry: updatedEntry))
             lastError = nil
             lastActionMessage = "已重新处理历史记录"
             lastActionTone = .success
@@ -440,16 +630,16 @@ final class HomeDashboardViewModel: ObservableObject {
     private func refreshScopedDashboardState() {
         do {
             try reloadDashboardAggregate()
-            try reloadHistoryPage()
+            try reloadAssetPage()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
     }
 
-    private func refreshHistoryPage() {
+    private func refreshAssetPage() {
         do {
-            try reloadHistoryPage()
+            try reloadAssetPage()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -457,133 +647,257 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func reloadDashboardAggregate() throws {
+        try reloadAssetDashboardAggregate()
+    }
+
+    private func reloadAssetDashboardAggregate() throws {
+        let page = try environment.assetRepository.page(
+            query: AssetQuery(limit: 10_000, offset: 0)
+        )
+
         let today = calendar.startOfDay(for: environment.clock.now)
         let focusDay = selectedActivityDate.map(calendar.startOfDay(for:)) ?? today
-        let focusEnd = calendar.date(byAdding: .day, value: 1, to: focusDay) ?? focusDay
         let currentWeekStart = startOfWeek(containing: today)
         let activityStart = calendar.date(byAdding: .day, value: -51 * 7, to: currentWeekStart)
             ?? currentWeekStart
-        let activityEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? today
-        let aggregate = try homeHistoryRepository.dashboardAggregate(
-            statsStartDate: selectedActivityDate == nil ? nil : focusDay,
-            statsEndDate: selectedActivityDate == nil ? nil : focusEnd,
-            focusStartDate: focusDay,
-            focusEndDate: focusEnd,
-            activityStartDate: activityStart,
-            activityEndDate: activityEnd,
-            activityTimeZoneOffsetSeconds: calendar.timeZone.secondsFromGMT(for: today)
-        )
-
-        let totalMinutes = max(Double(aggregate.totalDurationMS) / 60_000.0, 1.0 / 60_000.0)
-        let averageCPM = aggregate.totalCharacters == 0
-            ? 0
-            : Int((Double(aggregate.totalCharacters) / totalMinutes).rounded())
-        let activeDays = Set(aggregate.activityDays.map { calendar.startOfDay(for: $0.date) })
-        stats = HomeDashboardStats(
-            totalCharacters: aggregate.totalCharacters,
-            todayCharacters: aggregate.focusedCharacters,
-            averageCPM: averageCPM,
-            streakDays: streakDays(from: activeDays, referenceDay: focusDay)
-        )
-
-        let charactersByDay = Dictionary(
-            uniqueKeysWithValues: aggregate.activityDays.map {
-                (calendar.startOfDay(for: $0.date), $0.characters)
-            }
-        )
-        let maxDailyCharacters = charactersByDay.values.max() ?? 0
         let endOfWeek = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) ?? today
+        let focusedItems = page.items.filter { calendar.isDate($0.createdAt, inSameDayAs: focusDay) }
+        let scopedItems = selectedActivityDate == nil ? page.items : focusedItems
+
+        var assetCountsByDay: [Date: Int] = [:]
+        var sourceBreakdownByDay: [Date: HomeSourceBreakdown] = [:]
+        for item in page.items {
+            let day = calendar.startOfDay(for: item.createdAt)
+            guard day >= activityStart, day <= today else { continue }
+            assetCountsByDay[day, default: 0] += 1
+            sourceBreakdownByDay[day, default: HomeSourceBreakdown()].increment(source: item.source)
+        }
+        stats = HomeDashboardStats(
+            totalAssets: page.totalCount,
+            focusedAssets: focusedItems.count,
+            sourceBreakdown: Self.sourceBreakdown(from: scopedItems),
+            reusableAssets: scopedItems.filter(Self.isReusableAsset).count
+        )
+
+        let maxDailyAssets = assetCountsByDay.values.max() ?? 0
         let dayCount = calendar.dateComponents([.day], from: activityStart, to: endOfWeek).day.map { $0 + 1 } ?? 0
         let days = (0..<dayCount).compactMap { offset -> HomeActivityDay? in
             guard let day = calendar.date(byAdding: .day, value: offset, to: activityStart) else {
                 return nil
             }
-            let characters = charactersByDay[day, default: 0]
+            let assetCount = assetCountsByDay[day, default: 0]
             return HomeActivityDay(
                 date: day,
-                characters: characters,
-                level: activityLevel(for: characters, maxDailyCharacters: maxDailyCharacters)
+                assetCount: assetCount,
+                sourceBreakdown: sourceBreakdownByDay[day, default: HomeSourceBreakdown()],
+                level: activityLevel(for: assetCount, maxDailyAssets: maxDailyAssets)
             )
         }
-        let thisWeekCharacters = charactersByDay
+        let thisWeekAssets = assetCountsByDay
             .filter { day, _ in day >= currentWeekStart && day <= today }
             .reduce(0) { $0 + $1.value }
         activity = HomeActivitySummary(
             days: days,
-            thisWeekCharacters: thisWeekCharacters,
-            maxDailyCharacters: maxDailyCharacters
+            thisWeekAssets: thisWeekAssets,
+            maxDailyAssets: maxDailyAssets
         )
     }
 
-    private func streakDays(from activeDays: Set<Date>, referenceDay: Date) -> Int {
-        var cursor = referenceDay
-        var streak = 0
-        while activeDays.contains(cursor) {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
-                break
-            }
-            cursor = previousDay
+    private static func sourceBreakdown(from items: [AssetItem]) -> HomeSourceBreakdown {
+        items.reduce(into: HomeSourceBreakdown()) { result, item in
+            result.increment(source: item.source)
         }
-        return streak
     }
 
-    private func reloadHistoryPage() throws {
+    private static func isReusableAsset(_ item: AssetItem) -> Bool {
+        switch item.contentType {
+        case .text:
+            return item.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .image:
+            return item.imagePath?.isEmpty == false
+                || item.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .file:
+            return item.filePath?.isEmpty == false
+        case .link:
+            return item.url?.isEmpty == false
+                || item.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .color:
+            return item.colorValue?.isEmpty == false
+        }
+    }
+
+    private func reloadAssetPage() throws {
         let dateRange = selectedActivityDate.map { day -> (Date, Date?) in
             let start = calendar.startOfDay(for: day)
             return (start, calendar.date(byAdding: .day, value: 1, to: start))
         }
-        var page = try homeHistoryRepository.page(
-            query: HomeHistoryQuery(
+        var page = try environment.assetRepository.page(
+            query: AssetQuery(
                 searchText: searchText,
                 startDate: dateRange?.0,
                 endDate: dateRange?.1,
                 limit: pageSize,
-                offset: (currentPage - 1) * pageSize
+                offset: (assetCurrentPage - 1) * pageSize
             )
         )
-        totalHistoryCount = page.totalCount
-        let lastPage = totalPages
-        if currentPage > lastPage {
-            currentPage = lastPage
-            page = try homeHistoryRepository.page(
-                query: HomeHistoryQuery(
+        totalAssetCount = page.totalCount
+        let lastPage = totalAssetPages
+        if assetCurrentPage > lastPage {
+            assetCurrentPage = lastPage
+            page = try environment.assetRepository.page(
+                query: AssetQuery(
                     searchText: searchText,
                     startDate: dateRange?.0,
                     endDate: dateRange?.1,
                     limit: pageSize,
-                    offset: (currentPage - 1) * pageSize
+                    offset: (assetCurrentPage - 1) * pageSize
                 )
             )
+            totalAssetCount = page.totalCount
         }
-        canLoadMoreHistory = canGoToNextPage
-        historyGroups = makeHistoryGroups(records: page.records)
+        assetGroups = makeAssetGroups(items: page.items)
     }
 
-    private func makeHistoryGroups(records: [HomeHistoryRecord]) -> [HomeHistoryGroup] {
-        let items = records.map { record in
-            HomeHistoryItem(
-                id: record.id,
-                finalText: record.finalText,
-                rawText: record.rawText,
-                appName: record.appName,
-                appBundleID: record.appBundleID,
-                charCount: record.charCount,
-                cpm: record.cpm,
-                createdAt: record.createdAt,
-                taskMode: record.taskMode,
-                taskStatus: record.taskStatus
-            )
+    private func selectVoiceDetailIfAvailable(for asset: AssetItem) -> Bool {
+        guard asset.source == .dictation,
+              let recordID = Self.voiceRecordID(fromAssetID: asset.id) else {
+            return false
         }
-        let grouped = Dictionary(grouping: items) { calendar.startOfDay(for: $0.createdAt) }
+        do {
+            if let entry = try environment.historyRepository.entry(id: recordID), entry.deletedAt == nil {
+                selectedHomeDetail = .voice(
+                    HomeHistoryDetail(entry: entry)
+                        .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: recordID))
+                )
+                return true
+            }
+            if let task = try voiceTaskRepository.fetch(id: recordID) {
+                selectedHomeDetail = .voice(
+                    HomeHistoryDetail(task: task)
+                        .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: recordID))
+                )
+                return true
+            }
+        } catch {
+            lastError = error.localizedDescription
+        }
+        return false
+    }
+
+    private static func voiceRecordID(fromAssetID id: String) -> String? {
+        let prefix = "dictation-"
+        guard id.hasPrefix(prefix) else { return nil }
+        let recordID = String(id.dropFirst(prefix.count))
+        return recordID.isEmpty ? nil : recordID
+    }
+
+    private func makeAssetGroups(items: [AssetItem]) -> [HomeAssetGroup] {
+        let grouped = Dictionary(grouping: items.map(homeAssetItem(for:))) { item in
+            calendar.startOfDay(for: item.createdAt)
+        }
         return grouped.keys.sorted(by: >).map { day in
-            HomeHistoryGroup(
+            let items = (grouped[day] ?? [])
+                .sorted { $0.createdAt > $1.createdAt }
+            return HomeAssetGroup(
                 id: Self.dayIDFormatter.string(from: day),
                 title: title(for: day, preferExplicitDate: selectedActivityDate != nil),
                 date: day,
-                items: grouped[day] ?? []
+                items: items
             )
         }
+    }
+
+    private func homeAssetItem(for asset: AssetItem) -> HomeAssetItem {
+        HomeAssetItem(asset: asset, voiceKind: voiceKind(for: asset))
+    }
+
+    private func voiceKind(for asset: AssetItem) -> VoiceAssetKind? {
+        guard asset.source == .dictation,
+              let recordID = Self.voiceRecordID(fromAssetID: asset.id) else {
+            return nil
+        }
+        if let entry = try? environment.historyRepository.entry(id: recordID),
+           entry.deletedAt == nil {
+            return .dictation
+        }
+        guard let task = try? voiceTaskRepository.fetch(id: recordID) else {
+            return voiceKindFromRawVoiceTaskMode(id: recordID)
+        }
+        return VoiceAssetKind(rawValue: task.mode.rawValue)
+    }
+
+    private func voiceKindFromRawVoiceTaskMode(id: String) -> VoiceAssetKind? {
+        try? environment.databaseQueue.read { connection in
+            let statement = try connection.prepare(
+                """
+                SELECT mode
+                FROM voice_tasks
+                WHERE id = ? AND status != 'inProgress'
+                """
+            )
+            try statement.bind(id, at: 1)
+            guard try statement.step() else {
+                return nil
+            }
+            return VoiceAssetKind(rawValue: statement.columnString(at: 0))
+        }
+    }
+
+    private func deleteBackingVoiceRecordIfNeeded(for asset: AssetItem?) throws {
+        guard let asset,
+              asset.source == .dictation,
+              let recordID = Self.voiceRecordID(fromAssetID: asset.id) else {
+            return
+        }
+        if let entry = try environment.historyRepository.entry(id: recordID),
+           entry.deletedAt == nil {
+            try environment.historyRepository.softDelete(id: recordID, deletedAt: environment.clock.now)
+            return
+        }
+        if try voiceTaskRepository.fetch(id: recordID) != nil {
+            try voiceTaskRepository.delete(id: recordID)
+        }
+    }
+
+    private func allAssetsForDeletion() throws -> [AssetItem] {
+        var items: [AssetItem] = []
+        while true {
+            let page = try environment.assetRepository.page(
+                query: AssetQuery(limit: 500, offset: items.count)
+            )
+            guard !page.items.isEmpty else { break }
+            items.append(contentsOf: page.items)
+        }
+        return items
+    }
+
+    private func updateDictationAssetIfAvailable(for entry: DictationHistoryEntry) throws {
+        let assetID = "dictation-\(entry.id)"
+        guard let asset = try environment.assetRepository.asset(id: assetID) else {
+            return
+        }
+        let updatedAsset = AssetItem(
+            id: asset.id,
+            source: asset.source,
+            contentType: asset.contentType,
+            title: entry.finalText,
+            previewText: entry.finalText,
+            text: entry.finalText,
+            rawText: entry.rawText,
+            imagePath: asset.imagePath,
+            filePath: asset.filePath,
+            url: asset.url,
+            colorValue: asset.colorValue,
+            sourceAppName: asset.sourceAppName,
+            sourceAppBundleID: asset.sourceAppBundleID,
+            contentHash: asset.contentHash,
+            captureReason: asset.captureReason,
+            metadataJSON: asset.metadataJSON,
+            createdAt: asset.createdAt,
+            updatedAt: entry.updatedAt,
+            deletedAt: asset.deletedAt
+        )
+        try environment.assetRepository.save(updatedAsset)
     }
 
     private static func makeDefaultTextPipeline(environment: any AppServiceProviding) -> any TextProcessing {
@@ -602,79 +916,12 @@ final class HomeDashboardViewModel: ObservableObject {
         )
     }
 
-    private func scopedEntries(_ entries: [DictationHistoryEntry]) -> [DictationHistoryEntry] {
-        guard let selectedActivityDate else {
-            return entries
-        }
-        return entries.filter { calendar.isDate($0.createdAt, inSameDayAs: selectedActivityDate) }
-    }
-
-    private func makeStats(from entries: [DictationHistoryEntry], focusDay: Date? = nil) -> HomeDashboardStats {
-        let validEntries = entries.filter { $0.durationMS >= 300 && $0.charCount > 0 }
-        let totalCharacters = validEntries.reduce(0) { $0 + $1.charCount }
-        let today = focusDay ?? calendar.startOfDay(for: environment.clock.now)
-        let todayCharacters = entries
-            .filter { calendar.isDate($0.createdAt, inSameDayAs: today) }
-            .reduce(0) { $0 + $1.charCount }
-        let totalDurationMS = validEntries.reduce(0) { $0 + max(0, $1.durationMS) }
-        let totalMinutes = max(Double(totalDurationMS) / 60_000.0, 1.0 / 60_000.0)
-        let averageCPM = validEntries.isEmpty ? 0 : Int((Double(totalCharacters) / totalMinutes).rounded())
-        return HomeDashboardStats(
-            totalCharacters: totalCharacters,
-            todayCharacters: todayCharacters,
-            averageCPM: averageCPM,
-            streakDays: streakDays(from: entries, referenceDay: today)
-        )
-    }
-
-    private func makeActivity(from entries: [DictationHistoryEntry]) -> HomeActivitySummary {
-        let today = calendar.startOfDay(for: environment.clock.now)
-        let currentWeekStart = startOfWeek(containing: today)
-        guard let startDay = calendar.date(byAdding: .day, value: -51 * 7, to: currentWeekStart),
-              let endDay = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) else {
-            return HomeActivitySummary()
-        }
-
-        var charactersByDay: [Date: Int] = [:]
-        for entry in entries {
-            let day = calendar.startOfDay(for: entry.createdAt)
-            guard day >= startDay, day <= today else {
-                continue
-            }
-            charactersByDay[day, default: 0] += max(0, entry.charCount)
-        }
-
-        let maxDailyCharacters = charactersByDay.values.max() ?? 0
-        let dayCount = calendar.dateComponents([.day], from: startDay, to: endDay).day.map { $0 + 1 } ?? 0
-        let days = (0..<dayCount).compactMap { offset -> HomeActivityDay? in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else {
-                return nil
-            }
-            let characters = charactersByDay[day, default: 0]
-            return HomeActivityDay(
-                date: day,
-                characters: characters,
-                level: activityLevel(for: characters, maxDailyCharacters: maxDailyCharacters)
-            )
-        }
-
-        let thisWeekCharacters = charactersByDay
-            .filter { day, _ in day >= currentWeekStart && day <= today }
-            .reduce(0) { $0 + $1.value }
-
-        return HomeActivitySummary(
-            days: days,
-            thisWeekCharacters: thisWeekCharacters,
-            maxDailyCharacters: maxDailyCharacters
-        )
-    }
-
-    private func activityLevel(for characters: Int, maxDailyCharacters: Int) -> Int {
-        guard characters > 0, maxDailyCharacters > 0 else {
+    private func activityLevel(for assetCount: Int, maxDailyAssets: Int) -> Int {
+        guard assetCount > 0, maxDailyAssets > 0 else {
             return 0
         }
 
-        let ratio = Double(characters) / Double(maxDailyCharacters)
+        let ratio = Double(assetCount) / Double(maxDailyAssets)
         switch ratio {
         case ...0.25:
             return 1
@@ -691,77 +938,6 @@ final class HomeDashboardViewModel: ObservableObject {
         let weekday = calendar.component(.weekday, from: day)
         let daysFromMonday = (weekday + 5) % 7
         return calendar.date(byAdding: .day, value: -daysFromMonday, to: day) ?? day
-    }
-
-    private func streakDays(from entries: [DictationHistoryEntry], referenceDay: Date? = nil) -> Int {
-        let activeDays = Set(entries.map { calendar.startOfDay(for: $0.createdAt) })
-        var cursor = referenceDay ?? calendar.startOfDay(for: environment.clock.now)
-        var streak = 0
-
-        while activeDays.contains(cursor) {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
-                break
-            }
-            cursor = previousDay
-        }
-
-        return streak
-    }
-
-    private func historyEntriesForGroups(
-        query: String,
-        fallback: [DictationHistoryEntry]
-    ) throws -> [DictationHistoryEntry] {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else {
-            return fallback
-        }
-        return try environment.historyRepository.search(trimmedQuery, limit: historyLimit)
-    }
-
-    private func makeHistoryGroups(
-        entries: [DictationHistoryEntry],
-        query: String
-    ) -> [HomeHistoryGroup] {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let taskItems = recentAgentTasks
-            .filter { task in
-                guard !trimmedQuery.isEmpty else { return true }
-                return [
-                    task.rawTranscript,
-                    task.finalText,
-                    task.targetAppName,
-                    task.targetWindowTitle,
-                ]
-                .compactMap { $0 }
-                .contains { $0.localizedCaseInsensitiveContains(trimmedQuery) }
-            }
-            .filter { task in
-                guard let selectedActivityDate else { return true }
-                return calendar.isDate(task.createdAt, inSameDayAs: selectedActivityDate)
-            }
-            .map(HomeHistoryItem.init(task:))
-        let historyItems = scopedEntries(entries).map(HomeHistoryItem.init(entry:))
-        let sortedItems = (historyItems + taskItems)
-            .sorted { $0.createdAt > $1.createdAt }
-            .prefix(historyLimit)
-        canLoadMoreHistory = sortedItems.count > visibleHistoryItemLimit
-        let allItems = Array(sortedItems.prefix(visibleHistoryItemLimit))
-        let grouped = Dictionary(grouping: allItems) { item in
-            calendar.startOfDay(for: item.createdAt)
-        }
-
-        return grouped.keys.sorted(by: >).map { day in
-            let items = (grouped[day] ?? [])
-                .sorted { $0.createdAt > $1.createdAt }
-            return HomeHistoryGroup(
-                id: Self.dayIDFormatter.string(from: day),
-                title: title(for: day, preferExplicitDate: selectedActivityDate != nil),
-                date: day,
-                items: items
-            )
-        }
     }
 
     private func title(for day: Date, preferExplicitDate: Bool = false) -> String {
@@ -844,53 +1020,6 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private static let dayIDFormatter = ISO8601DateFormatter()
-}
-
-private extension HomeHistoryItem {
-    init(entry: DictationHistoryEntry) {
-        self.init(
-            id: entry.id,
-            finalText: entry.finalText,
-            rawText: entry.rawText,
-            appName: entry.targetAppName,
-            appBundleID: entry.targetAppBundleID,
-            charCount: entry.charCount,
-            cpm: entry.cpm,
-            createdAt: entry.createdAt,
-            taskMode: nil,
-            taskStatus: nil
-        )
-    }
-
-    init(task: VoiceTask) {
-        self.init(
-            id: task.id,
-            finalText: task.finalText ?? "",
-            rawText: task.rawTranscript ?? "",
-            appName: task.targetAppName,
-            appBundleID: task.targetAppBundleID,
-            charCount: task.finalText?.count ?? task.rawTranscript?.count ?? 0,
-            cpm: 0,
-            createdAt: task.createdAt,
-            taskMode: task.mode,
-            taskStatus: task.status
-        )
-    }
-}
-
-extension HomeHistoryItem {
-    var hasTextVariants: Bool {
-        rawText != finalText
-    }
-
-    func text(for variant: HomeHistoryTextVariant) -> String {
-        switch variant {
-        case .final:
-            return finalText
-        case .raw:
-            return rawText
-        }
-    }
 }
 
 private extension HomeHistoryDetail {

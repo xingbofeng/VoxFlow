@@ -1,5 +1,6 @@
 import XCTest
 import VoxFlowContextBoost
+import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
 @MainActor
@@ -200,13 +201,13 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(result.finalText, "Qwen3-ASR")
         XCTAssertEqual(contextProvider.requestedTargets.map { $0?.bundleID }, ["com.example.editor"])
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("- Qwen3-ASR") == true)
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("- Project Apollo") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(#""Qwen3-ASR""#) == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(#""Project Apollo""#) == true)
         XCTAssertEqual(result.trace?.contextBoost?.ocrCharacterCount, 120)
         XCTAssertEqual(result.trace?.contextBoost?.candidateCount, 18)
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.text, "Qwen3-ASR")
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.score, 5)
-        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.source, "ocrKeyphrase")
+        XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.source, "ocrShape")
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.evidenceReasons, ["test"])
     }
 
@@ -236,6 +237,43 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
         XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
         XCTAssertNil(result.trace?.contextBoost)
+    }
+
+    func testPipelineDoesNotCaptureContextWhenCorrectionContextIsSecure() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("原始文本"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.password-manager",
+                appName: "Password Manager",
+                windowTitle: "Secret",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [temporaryHotword("secret-token")]
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true }
+        )
+
+        let result = await pipeline.process(
+            "原始文本",
+            target: DictationTarget(bundleID: "com.example.password-manager", appName: "Password Manager", pid: 42),
+            correctionContext: CorrectionContext(
+                mode: .dictation,
+                providerID: "apple",
+                modelID: nil,
+                language: nil,
+                bundleIdentifier: "com.example.password-manager",
+                isFinalTranscript: true,
+                isSecureField: true
+            )
+        )
+
+        XCTAssertEqual(result.finalText, "原始文本")
+        XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
+        XCTAssertNil(result.trace?.contextBoost)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("secret-token") == true)
     }
 
     func testPipelineRecordsContextBoostTraceWhenEnabledButNoOCRContextIsAvailable() async {
@@ -425,6 +463,57 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         XCTAssertEqual(result.finalText, "原始文本")
         XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
+    }
+
+    func testPipelineFallsBackWhenLLMDeletesProtectedTokens() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("部署完成"))
+        let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
+        let raw = "部署版本 1.5.0 到 /tmp/VoxFlow.app，然后打开 https://example.com"
+
+        let result = await pipeline.process(raw, target: nil)
+
+        XCTAssertEqual(result.finalText, raw)
+        XCTAssertTrue(result.warnings.contains("llm_refinement_rejected"))
+    }
+
+    func testPipelineFallsBackWhenLLMReturnsExplanationInsteadOfText() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修改说明：已帮你润色成正式版本。"))
+        let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
+        let raw = "明天发 Qwen3-ASR 的发布计划"
+
+        let result = await pipeline.process(raw, target: nil)
+
+        XCTAssertEqual(result.finalText, raw)
+        XCTAssertTrue(result.warnings.contains("llm_refinement_rejected"))
+    }
+
+    func testPipelineFallsBackWhenLLMInjectsMultipleContextHotwordsIntoUnrelatedText() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("Qwen3-ASR WhisperKit"))
+        let contextProvider = StubCurrentWindowOCRContextProvider(
+            snapshot: OCRContextSnapshot(
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                windowTitle: "Release Notes",
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                hotwords: [
+                    temporaryHotword("Qwen3-ASR"),
+                    temporaryHotword("WhisperKit"),
+                ]
+            )
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            contextBoostProvider: contextProvider,
+            contextBoostEnabled: { true }
+        )
+
+        let result = await pipeline.process(
+            "好的",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+        )
+
+        XCTAssertEqual(result.finalText, "好的")
+        XCTAssertTrue(result.warnings.contains("llm_refinement_rejected"))
     }
 
     private enum TestError: Error {
@@ -667,12 +756,12 @@ final class TextProcessingPipelineTests: XCTestCase {
         }
     }
 
-    private func temporaryHotword(_ text: String) -> TemporaryHotword {
+    private func temporaryHotword(_ text: String, source: HotwordSource = .ocrShape) -> TemporaryHotword {
         TemporaryHotword(
             text: text,
             normalizedText: text.lowercased(),
             score: 5,
-            source: .ocrKeyphrase,
+            source: source,
             evidence: [HotwordEvidence(reason: "test", weight: 5)],
             expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
         )

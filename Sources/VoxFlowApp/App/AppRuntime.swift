@@ -19,6 +19,7 @@ final class AppTextRuntime {
     let fastPasteTextInserter: FastPasteTextInserter
     let textInsertionCoordinator: TextInsertionCoordinator
     let lastResultStore: InMemoryLastResultStore
+    let clipboardInternalWriteGuard: ClipboardInternalWriteGuard
     let clipboardService: SystemClipboardService
     let outputService: DefaultOutputService
     let styleSelector: SettingsBackedStyleSelector
@@ -43,7 +44,8 @@ final class AppTextRuntime {
             simulatedTypingInserter: SimulatedTypingInserter()
         )
         lastResultStore = InMemoryLastResultStore()
-        clipboardService = SystemClipboardService()
+        clipboardInternalWriteGuard = ClipboardInternalWriteGuard()
+        clipboardService = SystemClipboardService(internalWriteGuard: clipboardInternalWriteGuard)
         outputService = DefaultOutputService(
             textInsertionCoordinator: textInsertionCoordinator,
             clipboardService: clipboardService,
@@ -84,12 +86,14 @@ struct AppRuntime {
     let voiceTaskCoordinator: VoiceTaskCoordinator
     let focusedTextObserver: AccessibilityFocusedTextObserver
     let correctionObservationScheduler: CorrectionObservationScheduler
+    let clipboardAssetMonitor: ClipboardAssetMonitor
     let agentHelperManager: AgentHelperManager?
     let agentRouterClient: AgentRouterClient?
 
     var llmRefiner: RepositoryBackedLLMRefiner { textRuntime.llmRefiner }
     var fastPasteTextInserter: FastPasteTextInserter { textRuntime.fastPasteTextInserter }
     var lastResultStore: InMemoryLastResultStore { textRuntime.lastResultStore }
+    var clipboardInternalWriteGuard: ClipboardInternalWriteGuard { textRuntime.clipboardInternalWriteGuard }
     var clipboardService: SystemClipboardService { textRuntime.clipboardService }
     var outputService: DefaultOutputService { textRuntime.outputService }
     var styleSelector: SettingsBackedStyleSelector { textRuntime.styleSelector }
@@ -134,7 +138,9 @@ struct AppRuntime {
             translator: screenshotTextRefiner,
             speechService: SystemScreenshotSpeechService(),
             clipboard: textRuntime.clipboardService,
-            lastResultStore: textRuntime.lastResultStore
+            lastResultStore: textRuntime.lastResultStore,
+            assetRepository: environment.assetRepository,
+            assetImageDirectory: environment.paths?.screenshotsDirectory
         )
         let dictationTargetProvider = WorkspaceDictationTargetProvider()
         let focusedTextObserver = AccessibilityFocusedTextObserver()
@@ -171,8 +177,25 @@ struct AppRuntime {
             contextPipeline: ContextPipeline(),
             agentRefiner: textRuntime.llmRefiner,
             correctionObservationScheduler: correctionObservationScheduler,
+            assetRepository: environment.assetRepository,
             isFocusedTextFieldSecure: {
                 focusedTextObserver.focusedInputIsSecure()
+            }
+        )
+        let clipboardAssetMonitor = ClipboardAssetMonitor(
+            repository: environment.assetRepository,
+            internalWriteGuard: textRuntime.clipboardInternalWriteGuard,
+            imageDataWriter: { data, contentHash in
+                let directory = environment.paths?.clipboardAssetsDirectory
+                    ?? FileManager.default.temporaryDirectory
+                        .appendingPathComponent("VoxFlowClipboardAssets", isDirectory: true)
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
+                )
+                let url = directory.appendingPathComponent("\(contentHash).png", isDirectory: false)
+                try data.write(to: url, options: .atomic)
+                return url.path
             }
         )
         let agentHelperManager = environment.paths.map { AgentHelperManager(paths: $0) }
@@ -196,6 +219,7 @@ struct AppRuntime {
             voiceTaskCoordinator: voiceTaskCoordinator,
             focusedTextObserver: focusedTextObserver,
             correctionObservationScheduler: correctionObservationScheduler,
+            clipboardAssetMonitor: clipboardAssetMonitor,
             agentHelperManager: agentHelperManager,
             agentRouterClient: agentRouterClient
         )

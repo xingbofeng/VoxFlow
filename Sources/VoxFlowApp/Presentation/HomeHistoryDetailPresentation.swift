@@ -213,4 +213,18 @@ enum HomeHistoryDetailPresentation {
         }
         return content
     }
+
+    static func modelInputPreview(
+        rawText: String,
+        requestBodyJSON: String,
+        taskMode: VoiceTaskMode?
+    ) -> String {
+        if taskMode == .agentCompose {
+            let trimmedRawText = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedRawText.isEmpty {
+                return trimmedRawText
+            }
+        }
+        return requestBodyPreview(from: requestBodyJSON, taskMode: taskMode)
+    }
 }

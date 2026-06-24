@@ -14,6 +14,7 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
     var databaseQueue: DatabaseQueue { container.databaseQueue }
     var credentialStore: CredentialStore { container.credentialStore }
     var historyRepository: any HistoryRepository { container.historyRepository }
+    var assetRepository: any AssetRepository { container.assetRepository }
     var styleRepository: any StyleRepository { container.styleRepository }
     var asrProviderRepository: any ASRProviderRepository { container.asrProviderRepository }
     var llmProviderRepository: any LLMProviderRepository { container.llmProviderRepository }

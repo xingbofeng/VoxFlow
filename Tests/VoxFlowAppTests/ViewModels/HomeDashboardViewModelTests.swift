@@ -3,39 +3,435 @@ import XCTest
 
 @MainActor
 final class HomeDashboardViewModelTests: XCTestCase {
-    func testLoadComputesStatisticsAndGroupedHistory() throws {
+    func testLoadComputesStatisticsAndGroupedAssets() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "today",
-                finalText: "今天输入文本",
-                charCount: 50,
-                durationMS: 30_000,
-                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "yesterday",
-                finalText: "昨天输入",
-                charCount: 30,
-                durationMS: 30_000,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "today",
+            source: .dictation,
+            contentType: .text,
+            title: "今天输入文本",
+            text: "今天输入文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday",
+            source: .dictation,
+            contentType: .text,
+            title: "昨天输入",
+            text: "昨天输入",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
 
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
 
-        XCTAssertEqual(viewModel.stats.totalCharacters, 80)
-        XCTAssertEqual(viewModel.stats.todayCharacters, 50)
-        XCTAssertEqual(viewModel.stats.averageCPM, 80)
-        XCTAssertEqual(viewModel.stats.streakDays, 2)
-        XCTAssertEqual(viewModel.historyGroups.map(\.title), ["今天", "昨天"])
-        XCTAssertEqual(viewModel.historyGroups.first?.items.map(\.id), ["today"])
+        XCTAssertEqual(viewModel.stats.totalAssets, 2)
+        XCTAssertEqual(viewModel.stats.focusedAssets, 1)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(dictation: 2))
+        XCTAssertEqual(viewModel.stats.reusableAssets, 2)
+        XCTAssertEqual(viewModel.assetGroups.map(\.title), ["今天", "昨天"])
+        XCTAssertEqual(viewModel.assetGroups.first?.items.map(\.id), ["today"])
+    }
+
+    func testLoadBuildsHomeAssetGroupsFromAssetLedger() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "voice",
+            source: .dictation,
+            contentType: .text,
+            title: "语音识别内容",
+            text: "语音识别内容",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (1200x800)",
+            text: "截图里的错误提示",
+            imagePath: "/tmp/screenshot.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 10)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "clipboard",
+            source: .clipboard,
+            contentType: .link,
+            title: "https://example.com",
+            text: "https://example.com",
+            url: "https://example.com",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        XCTAssertEqual(viewModel.totalAssetCount, 3)
+        XCTAssertEqual(viewModel.assetGroups.map(\.title), ["今天", "昨天"])
+        XCTAssertEqual(viewModel.assetGroups.first?.items.map(\.id), ["voice"])
+        XCTAssertEqual(viewModel.assetGroups.last?.items.map(\.id), ["screenshot", "clipboard"])
+        XCTAssertEqual(viewModel.assetGroups.first?.items.first?.sourceTitle, "语音")
+        XCTAssertEqual(viewModel.assetGroups.last?.items.first?.sourceTitle, "截图")
+    }
+
+    func testAssetBackedHomeIgnoresLegacyHistoryListData() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(historyEntry(
+            id: "legacy-history",
+            finalText: "旧首页历史",
+            createdAt: now
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-legacy-history",
+            source: .dictation,
+            contentType: .text,
+            title: "旧首页历史",
+            text: "旧首页历史",
+            createdAt: now
+        ))
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["dictation-legacy-history"])
+    }
+
+    func testLoadComputesStatsFromAssetsWhenAssetLedgerHasMigratedData() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "today-voice",
+            source: .dictation,
+            contentType: .text,
+            title: "今天语音",
+            text: "今天语音文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday-clip",
+            source: .clipboard,
+            contentType: .text,
+            title: "昨天复制",
+            text: "昨天复制文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 10)
+        ))
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        XCTAssertEqual(viewModel.stats.totalAssets, 2)
+        XCTAssertEqual(viewModel.stats.focusedAssets, 1)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(dictation: 1, clipboard: 1))
+        XCTAssertEqual(viewModel.stats.reusableAssets, 2)
+        XCTAssertEqual(viewModel.activity.thisWeekAssets, 2)
+    }
+
+    func testSelectingHomeAssetLoadsPreviewDetailAndDismissesIt() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (1200x800)",
+            text: "截图预览文字",
+            imagePath: "/tmp/screenshot.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.selectAssetItem(id: "screenshot")
+
+        XCTAssertEqual(viewModel.selectedAssetDetail?.id, "screenshot")
+        XCTAssertEqual(viewModel.selectedAssetDetail?.title, "Image (1200x800)")
+        XCTAssertEqual(viewModel.selectedAssetDetail?.previewText, "截图预览文字")
+        XCTAssertEqual(viewModel.selectedAssetDetail?.imagePath, "/tmp/screenshot.png")
+
+        viewModel.clearSelectedHomeDetail()
+
+        XCTAssertNil(viewModel.selectedAssetDetail)
+    }
+
+    func testDirectHistoryDetailSelectionClearsExistingAssetPreview() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (1200x800)",
+            text: "截图预览文字",
+            imagePath: "/tmp/screenshot.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        try environment.historyRepository.save(historyEntry(
+            id: "history-voice",
+            rawText: "原始录音",
+            finalText: "纠正后的录音"
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+        viewModel.selectAssetItem(id: "screenshot")
+
+        viewModel.selectHistoryItem(id: "history-voice")
+
+        XCTAssertNil(viewModel.selectedAssetDetail)
+        XCTAssertEqual(viewModel.selectedDetail?.id, "history-voice")
+    }
+
+    func testSelectingDictationAssetOpensRichHistoryDetailInsteadOfAssetPreview() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(historyEntry(
+            id: "history-voice",
+            rawText: "原始录音",
+            finalText: "纠正后的录音"
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-history-voice",
+            source: .dictation,
+            contentType: .text,
+            title: "纠正后的录音",
+            text: "纠正后的录音",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.selectAssetItem(id: "dictation-history-voice")
+
+        XCTAssertNil(viewModel.selectedAssetDetail)
+        XCTAssertEqual(viewModel.selectedDetail?.id, "history-voice")
+        XCTAssertEqual(viewModel.selectedDetail?.rawText, "原始录音")
+        XCTAssertEqual(viewModel.selectedDetail?.finalText, "纠正后的录音")
+    }
+
+    func testSelectingAgentComposeAssetOpensRichTaskDetailInsteadOfAssetPreview() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                targetAppName: "微信",
+                rawTranscript: "帮我回复今晚可以",
+                finalText: "可以，今晚发给你。",
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-agent-task",
+            source: .dictation,
+            contentType: .text,
+            title: "帮我回复今晚可以",
+            text: "帮我回复今晚可以",
+            createdAt: now
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.selectAssetItem(id: "dictation-agent-task")
+
+        XCTAssertNil(viewModel.selectedAssetDetail)
+        XCTAssertEqual(viewModel.selectedDetail?.id, "agent-task")
+        XCTAssertEqual(viewModel.selectedDetail?.taskMode, .agentCompose)
+        XCTAssertEqual(viewModel.selectedDetail?.rawText, "帮我回复今晚可以")
+        XCTAssertEqual(viewModel.selectedDetail?.finalText, "可以，今晚发给你。")
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).first?.sourceTitle, "任务助手")
+    }
+
+    func testSelectingAgentDispatchAssetOpensRichTaskDetailInsteadOfAssetPreview() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "dispatch-task",
+                mode: .agentDispatch,
+                stage: .outputting,
+                status: .completed,
+                targetAppName: "Terminal",
+                rawTranscript: "让 codex 修复测试",
+                finalText: "fix failing tests",
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-dispatch-task",
+            source: .dictation,
+            contentType: .text,
+            title: "让 codex 修复测试",
+            text: "让 codex 修复测试",
+            createdAt: now
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.selectAssetItem(id: "dictation-dispatch-task")
+
+        XCTAssertNil(viewModel.selectedAssetDetail)
+        XCTAssertEqual(viewModel.selectedDetail?.id, "dispatch-task")
+        XCTAssertEqual(viewModel.selectedDetail?.taskMode, .agentDispatch)
+        XCTAssertEqual(viewModel.selectedDetail?.rawText, "让 codex 修复测试")
+        XCTAssertEqual(viewModel.selectedDetail?.finalText, "fix failing tests")
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).first?.sourceTitle, "AI 编程")
+    }
+
+    func testDeletingDictationAssetAlsoDeletesLegacyHistoryRecord() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(historyEntry(
+            id: "history-voice",
+            finalText: "历史语音"
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-history-voice",
+            source: .dictation,
+            contentType: .text,
+            title: "历史语音",
+            text: "历史语音",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.deleteAssetItem(id: "dictation-history-voice")
+
+        XCTAssertNil(try environment.assetRepository.asset(id: "dictation-history-voice"))
+        XCTAssertNotNil(try environment.historyRepository.entry(id: "history-voice")?.deletedAt)
+        XCTAssertTrue(viewModel.assetGroups.flatMap(\.items).isEmpty)
+    }
+
+    func testDeletingAgentAssetAlsoDeletesVoiceTask() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                rawTranscript: "帮我说",
+                finalText: "帮我说结果",
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-agent-task",
+            source: .dictation,
+            contentType: .text,
+            title: "帮我说",
+            text: "帮我说",
+            createdAt: now
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.deleteAssetItem(id: "dictation-agent-task")
+
+        XCTAssertNil(try environment.assetRepository.asset(id: "dictation-agent-task"))
+        XCTAssertNil(try taskRepository.fetch(id: "agent-task"))
+        XCTAssertTrue(viewModel.assetGroups.flatMap(\.items).isEmpty)
+    }
+
+    func testBatchDeleteSelectedAssetsAndClearAllAssets() throws {
+        let clock = MutableHomeClock(now: Date(timeIntervalSince1970: 1_800_000_100))
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        for index in 0..<3 {
+            try environment.assetRepository.save(homeAsset(
+                id: "asset-\(index)",
+                source: .clipboard,
+                contentType: .text,
+                title: "asset \(index)",
+                text: "asset \(index)",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index))
+            ))
+        }
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.toggleAssetSelection(id: "asset-0")
+        viewModel.toggleAssetSelection(id: "asset-1")
+        viewModel.deleteSelectedAssets()
+
+        XCTAssertEqual(viewModel.selectedAssetIDs, [])
+        XCTAssertEqual(viewModel.totalAssetCount, 1)
+        XCTAssertNil(try environment.assetRepository.asset(id: "asset-0"))
+        XCTAssertNil(try environment.assetRepository.asset(id: "asset-1"))
+        XCTAssertNotNil(try environment.assetRepository.asset(id: "asset-2"))
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除 2 条资产")
+        XCTAssertEqual(viewModel.lastActionTone, .destructive)
+
+        viewModel.clearAllAssets()
+
+        XCTAssertEqual(viewModel.totalAssetCount, 0)
+        XCTAssertTrue(viewModel.assetGroups.isEmpty)
+        XCTAssertEqual(viewModel.lastActionMessage, "已清空资产")
+    }
+
+    func testSearchFiltersHomeAssetsFromAssetLedger() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "voice",
+            source: .dictation,
+            contentType: .text,
+            title: "会议纪要",
+            text: "会议纪要",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (1200x800)",
+            text: "构建失败",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+        viewModel.updateSearch("构建")
+
+        XCTAssertEqual(viewModel.totalAssetCount, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["screenshot"])
     }
 
     func testLoadBuildsContributionActivity() throws {
@@ -43,38 +439,39 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "today",
-                finalText: "today",
-                charCount: 40,
-                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "yesterday",
-                finalText: "yesterday",
-                charCount: 10,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "same-day",
-                finalText: "same-day",
-                charCount: 30,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 15)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "older",
-                finalText: "older",
-                charCount: 80,
-                createdAt: makeDate(year: 2025, month: 5, day: 20, hour: 9)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "today",
+            source: .dictation,
+            contentType: .text,
+            title: "today",
+            text: "today",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday",
+            source: .clipboard,
+            contentType: .text,
+            title: "yesterday",
+            text: "yesterday",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "same-day",
+            source: .screenshot,
+            contentType: .image,
+            title: "same-day",
+            text: "same-day",
+            imagePath: "/tmp/same-day.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 15)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "older",
+            source: .dictation,
+            contentType: .text,
+            title: "older",
+            text: "older",
+            createdAt: makeDate(year: 2025, month: 5, day: 20, hour: 9)
+        ))
 
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
@@ -82,16 +479,16 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.activity.days.count, 364)
         XCTAssertEqual(viewModel.activity.days.first?.date, makeDate(year: 2025, month: 6, day: 16, hour: 0))
         XCTAssertEqual(viewModel.activity.days.last?.date, makeDate(year: 2026, month: 6, day: 14, hour: 0))
-        XCTAssertEqual(viewModel.activity.days.first?.characters, 0)
+        XCTAssertEqual(viewModel.activity.days.first?.assetCount, 0)
         XCTAssertEqual(viewModel.activity.days.first?.level, 0)
-        XCTAssertEqual(viewModel.activity.days[357].characters, 40)
+        XCTAssertEqual(viewModel.activity.days[357].assetCount, 2)
         XCTAssertEqual(viewModel.activity.days[357].level, 4)
-        XCTAssertEqual(viewModel.activity.days[358].characters, 40)
-        XCTAssertEqual(viewModel.activity.days[358].level, 4)
-        XCTAssertEqual(viewModel.activity.days.last?.characters, 0)
+        XCTAssertEqual(viewModel.activity.days[358].assetCount, 1)
+        XCTAssertEqual(viewModel.activity.days[358].level, 2)
+        XCTAssertEqual(viewModel.activity.days.last?.assetCount, 0)
         XCTAssertEqual(viewModel.activity.days.last?.level, 0)
-        XCTAssertEqual(viewModel.activity.thisWeekCharacters, 80)
-        XCTAssertEqual(viewModel.activity.maxDailyCharacters, 40)
+        XCTAssertEqual(viewModel.activity.thisWeekAssets, 3)
+        XCTAssertEqual(viewModel.activity.maxDailyAssets, 2)
     }
 
     func testSelectingActivityDayFiltersStatsAndHistory() throws {
@@ -99,53 +496,52 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "today",
-                finalText: "今天输入文本",
-                charCount: 50,
-                durationMS: 30_000,
-                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "yesterday-morning",
-                finalText: "昨天上午",
-                charCount: 30,
-                durationMS: 30_000,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "yesterday-afternoon",
-                finalText: "昨天下午",
-                charCount: 10,
-                durationMS: 30_000,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 15)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "today",
+            source: .dictation,
+            contentType: .text,
+            title: "今天输入文本",
+            text: "今天输入文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday-morning",
+            source: .clipboard,
+            contentType: .text,
+            title: "昨天上午",
+            text: "昨天上午",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday-afternoon",
+            source: .screenshot,
+            contentType: .image,
+            title: "昨天下午",
+            text: "昨天下午",
+            imagePath: "/tmp/yesterday.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 15)
+        ))
 
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
         viewModel.selectActivityDay(makeDate(year: 2026, month: 6, day: 8, hour: 18))
 
         XCTAssertEqual(viewModel.selectedActivityDate, makeDate(year: 2026, month: 6, day: 8, hour: 0))
-        XCTAssertEqual(viewModel.stats.totalCharacters, 40)
-        XCTAssertEqual(viewModel.stats.todayCharacters, 40)
-        XCTAssertEqual(viewModel.stats.averageCPM, 40)
-        XCTAssertEqual(viewModel.focusedCharactersTitle, "6月8日字符")
-        XCTAssertEqual(viewModel.historyGroups.map(\.title), ["6月8日"])
-        XCTAssertEqual(viewModel.historyGroups.first?.items.map(\.id), ["yesterday-afternoon", "yesterday-morning"])
+        XCTAssertEqual(viewModel.stats.totalAssets, 3)
+        XCTAssertEqual(viewModel.stats.focusedAssets, 2)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(screenshot: 1, clipboard: 1))
+        XCTAssertEqual(viewModel.stats.reusableAssets, 2)
+        XCTAssertEqual(viewModel.focusedAssetsTitle, "6月8日新增")
+        XCTAssertEqual(viewModel.assetGroups.map(\.title), ["6月8日"])
+        XCTAssertEqual(viewModel.assetGroups.first?.items.map(\.id), ["yesterday-afternoon", "yesterday-morning"])
 
         viewModel.clearActivityDaySelection()
 
         XCTAssertNil(viewModel.selectedActivityDate)
-        XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
-        XCTAssertEqual(viewModel.stats.totalCharacters, 90)
-        XCTAssertEqual(viewModel.stats.todayCharacters, 50)
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["today", "yesterday-afternoon", "yesterday-morning"])
+        XCTAssertEqual(viewModel.focusedAssetsTitle, "今日新增")
+        XCTAssertEqual(viewModel.stats.totalAssets, 3)
+        XCTAssertEqual(viewModel.stats.focusedAssets, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["today", "yesterday-afternoon", "yesterday-morning"])
     }
 
     func testActivityBlankTapRestoresDefaultDashboardState() throws {
@@ -153,22 +549,22 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let clock = MutableHomeClock(now: now)
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "today",
-                finalText: "今天输入文本",
-                charCount: 50,
-                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
-            )
-        )
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "yesterday",
-                finalText: "昨天输入",
-                charCount: 30,
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "today",
+            source: .dictation,
+            contentType: .text,
+            title: "今天输入文本",
+            text: "今天输入文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "yesterday",
+            source: .clipboard,
+            contentType: .text,
+            title: "昨天输入",
+            text: "昨天输入",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
         viewModel.selectActivityDay(makeDate(year: 2026, month: 6, day: 8, hour: 18))
@@ -176,9 +572,9 @@ final class HomeDashboardViewModelTests: XCTestCase {
         viewModel.restoreDefaultDashboardFocusFromActivityBlankTap()
 
         XCTAssertNil(viewModel.selectedActivityDate)
-        XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
-        XCTAssertEqual(viewModel.stats.totalCharacters, 80)
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["today", "yesterday"])
+        XCTAssertEqual(viewModel.focusedAssetsTitle, "今日新增")
+        XCTAssertEqual(viewModel.stats.totalAssets, 2)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["today", "yesterday"])
     }
 
     func testApplicationPointerDownRestoresDefaultDashboardState() throws {
@@ -191,26 +587,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         viewModel.handleApplicationPointerDown()
 
         XCTAssertNil(viewModel.selectedActivityDate)
-        XCTAssertEqual(viewModel.focusedCharactersTitle, "今日字符")
-    }
-
-    func testHistoryItemExposesFinalAndRawTextForConversionToggle() throws {
-        let container = try DependencyContainer.inMemory()
-        let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "entry",
-                rawText: "转换前文本",
-                finalText: "转换后文本"
-            )
-        )
-        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
-        viewModel.load()
-
-        let item = try XCTUnwrap(viewModel.historyGroups.first?.items.first)
-        XCTAssertTrue(item.hasTextVariants)
-        XCTAssertEqual(item.text(for: .final), "转换后文本")
-        XCTAssertEqual(item.text(for: .raw), "转换前文本")
+        XCTAssertEqual(viewModel.focusedAssetsTitle, "今日新增")
     }
 
     func testSelectingHistoryItemUsesRawLLMDiagnosticTraceWhenAvailable() throws {
@@ -255,22 +632,17 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.selectedDetail?.trace?.llm?.requestBodyJSON.contains("完整系统提示") == true)
     }
 
-    func testSearchFiltersHistoryThroughRepository() throws {
+    func testCopyWritesAssetTextToClipboardWriter() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(historyEntry(id: "match", finalText: "搜索目标"))
-        try environment.historyRepository.save(historyEntry(id: "miss", finalText: "其他文本"))
-
-        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
-        viewModel.updateSearch("目标")
-
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["match"])
-    }
-
-    func testCopyWritesFinalTextToClipboardWriter() throws {
-        let container = try DependencyContainer.inMemory()
-        let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(historyEntry(id: "entry", finalText: "可复制文本"))
+        try environment.assetRepository.save(homeAsset(
+            id: "entry",
+            source: .clipboard,
+            contentType: .text,
+            title: "可复制文本",
+            text: "可复制文本",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
         let clipboard = CapturingClipboardWriter()
         let viewModel = HomeDashboardViewModel(
             environment: environment,
@@ -279,10 +651,10 @@ final class HomeDashboardViewModelTests: XCTestCase {
         )
         viewModel.load()
 
-        viewModel.copyHistoryItem(id: "entry")
+        viewModel.copyAssetItem(id: "entry")
 
         XCTAssertEqual(clipboard.copiedTexts, ["可复制文本"])
-        XCTAssertEqual(viewModel.lastActionMessage, "已复制历史文本")
+        XCTAssertEqual(viewModel.lastActionMessage, "已复制资产内容")
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
@@ -292,40 +664,49 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
 
-        try environment.historyRepository.save(historyEntry(id: "new", finalText: "刚刚输入"))
+        try environment.assetRepository.save(homeAsset(
+            id: "new",
+            source: .dictation,
+            contentType: .text,
+            title: "刚刚输入",
+            text: "刚刚输入",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
         environment.notifyHistoryDidChange()
         RunLoop.main.run(until: Date().addingTimeInterval(0.02))
 
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["new"])
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["new"])
     }
 
     func testLoadIfNeededDoesNotReloadAlreadyLoadedDashboard() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "initial",
-                finalText: "已有记录",
-                createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "initial",
+            source: .dictation,
+            contentType: .text,
+            title: "已有记录",
+            text: "已有记录",
+            createdAt: makeDate(year: 2026, month: 6, day: 8, hour: 9)
+        ))
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
 
         viewModel.load()
-        try environment.historyRepository.save(
-            historyEntry(
-                id: "later",
-                finalText: "切换后新增",
-                createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
-            )
-        )
+        try environment.assetRepository.save(homeAsset(
+            id: "later",
+            source: .dictation,
+            contentType: .text,
+            title: "切换后新增",
+            text: "切换后新增",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
         viewModel.loadIfNeeded()
 
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["initial"])
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["initial"])
 
         viewModel.load()
 
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).map(\.id), ["later", "initial"])
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["later", "initial"])
     }
 
     func testLoadIncludesAgentComposeTasksAndOpensTheirDetail() throws {
@@ -351,17 +732,90 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 completedAt: now
             )
         )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-agent-task",
+            source: .dictation,
+            contentType: .text,
+            title: "帮我回复今晚可以",
+            text: "帮我回复今晚可以",
+            createdAt: now
+        ))
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
 
         viewModel.load()
-        viewModel.selectHistoryItem(id: "agent-task")
+        viewModel.selectAssetItem(id: "dictation-agent-task")
 
-        let item = try XCTUnwrap(viewModel.historyGroups.flatMap(\.items).first)
-        XCTAssertEqual(item.id, "agent-task")
-        XCTAssertEqual(item.taskMode, .agentCompose)
-        XCTAssertEqual(item.finalText, "可以，今晚发给你。")
+        let item = try XCTUnwrap(viewModel.assetGroups.flatMap(\.items).first)
+        XCTAssertEqual(item.id, "dictation-agent-task")
+        XCTAssertEqual(item.sourceTitle, "任务助手")
         XCTAssertEqual(viewModel.selectedDetail?.taskMode, .agentCompose)
         XCTAssertEqual(viewModel.selectedDetail?.appName, "微信")
+    }
+
+    func testLoadIncludesSelectionActionTasksWithHomeBadges() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try insertVoiceTask(
+            id: "selection-translation",
+            mode: "selectionTranslation",
+            status: "completed",
+            text: "划词翻译结果",
+            createdAt: now,
+            into: container.databaseQueue
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-selection-translation",
+            source: .dictation,
+            contentType: .text,
+            title: "划词翻译结果",
+            text: "划词翻译结果",
+            createdAt: now
+        ))
+        try insertVoiceTask(
+            id: "selection-summary",
+            mode: "selectionSummary",
+            status: "completed",
+            text: "划词总结结果",
+            createdAt: now.addingTimeInterval(-60),
+            into: container.databaseQueue
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-selection-summary",
+            source: .dictation,
+            contentType: .text,
+            title: "划词总结结果",
+            text: "划词总结结果",
+            createdAt: now.addingTimeInterval(-60)
+        ))
+        try insertVoiceTask(
+            id: "selection-agent",
+            mode: "selectionAgent",
+            status: "failed",
+            text: "划词任务助手上下文",
+            createdAt: now.addingTimeInterval(-120),
+            into: container.databaseQueue
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-selection-agent",
+            source: .dictation,
+            contentType: .text,
+            title: "划词任务助手上下文",
+            text: "划词任务助手上下文",
+            createdAt: now.addingTimeInterval(-120)
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+
+        viewModel.load()
+
+        let items = viewModel.assetGroups.flatMap(\.items)
+        XCTAssertEqual(items.map(\.id), [
+            "dictation-selection-translation",
+            "dictation-selection-summary",
+            "dictation-selection-agent"
+        ])
+        XCTAssertEqual(items.map(\.sourceTitle), ["划词翻译", "划词总结", "划词任务助手"])
     }
 
     func testAgentComposeDetailDecodesSavedLLMTrace() throws {
@@ -400,7 +854,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.selectedDetail?.trace?.llm?.responseText)
     }
 
-    func testAgentComposeHistoryCopyAndDeleteUseVoiceTaskRepository() throws {
+    func testAgentComposeAssetCopyAndDeleteUseVoiceTaskRepository() throws {
         let clock = MutableHomeClock(now: Date(timeIntervalSince1970: 1_800_000_000))
         let container = try DependencyContainer.inMemory(clock: clock)
         let environment = AppEnvironment(container: container)
@@ -421,6 +875,14 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 completedAt: clock.now
             )
         )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-agent-task",
+            source: .dictation,
+            contentType: .text,
+            title: "生成结果",
+            text: "生成结果",
+            createdAt: clock.now
+        ))
         let clipboard = CapturingClipboardWriter()
         let viewModel = HomeDashboardViewModel(
             environment: environment,
@@ -429,12 +891,12 @@ final class HomeDashboardViewModelTests: XCTestCase {
         )
         viewModel.load()
 
-        viewModel.copyHistoryItem(id: "agent-task")
-        viewModel.deleteHistoryItem(id: "agent-task")
+        viewModel.copyAssetItem(id: "dictation-agent-task")
+        viewModel.deleteAssetItem(id: "dictation-agent-task")
 
         XCTAssertEqual(clipboard.copiedTexts, ["生成结果"])
         XCTAssertNil(try taskRepository.fetch(id: "agent-task"))
-        XCTAssertTrue(viewModel.historyGroups.flatMap(\.items).isEmpty)
+        XCTAssertTrue(viewModel.assetGroups.flatMap(\.items).isEmpty)
     }
 
     func testFailedVoiceTaskDetailCanCopyRecoverableRawTranscript() throws {
@@ -597,21 +1059,6 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已复制诊断信息")
     }
 
-    func testDeleteSoftDeletesAndReloadsHistory() throws {
-        let container = try DependencyContainer.inMemory()
-        let environment = AppEnvironment(container: container)
-        try environment.historyRepository.save(historyEntry(id: "entry", finalText: "删除文本"))
-        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
-        viewModel.load()
-
-        viewModel.deleteHistoryItem(id: "entry")
-
-        XCTAssertEqual(viewModel.historyGroups, [])
-        XCTAssertNotNil(try environment.historyRepository.entry(id: "entry")?.deletedAt)
-        XCTAssertEqual(viewModel.lastActionMessage, "已删除历史记录")
-        XCTAssertEqual(viewModel.lastActionTone, .destructive)
-    }
-
     func testSelectHistoryItemLoadsDetail() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -644,7 +1091,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.selectHistoryItem(id: "entry")
 
-        viewModel.dismissSelectedDetailFromBackdrop()
+        viewModel.clearSelectedHomeDetail()
 
         XCTAssertNil(viewModel.selectedDetail)
     }
@@ -662,6 +1109,14 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 durationMS: 30_000
             )
         )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-entry",
+            source: .dictation,
+            contentType: .text,
+            title: "旧文本",
+            text: "旧文本",
+            createdAt: now
+        ))
         let pipeline = CapturingHomeTextPipeline(
             result: TextProcessingResult(
                 rawText: "原始文本",
@@ -692,23 +1147,26 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(saved.cpm, 6)
         XCTAssertEqual(saved.updatedAt, now)
         XCTAssertEqual(viewModel.selectedDetail?.finalText, "新文本")
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).first?.finalText, "新文本")
+        let asset = try XCTUnwrap(try environment.assetRepository.asset(id: "dictation-entry"))
+        XCTAssertEqual(asset.title, "新文本")
+        XCTAssertEqual(asset.text, "新文本")
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).first?.title, "新文本")
         XCTAssertEqual(saved.processingWarningsJSON, #"["replacement_rule_invalid_regex:rule"]"#)
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
-    func testPaginationPageSizeFilterResetDeleteFallbackAndClear() throws {
+    func testAssetPaginationPageSizeFilterResetDeleteFallbackAndClear() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
         for index in 0..<41 {
-            try environment.historyRepository.save(
-                historyEntry(
-                    id: "entry-\(index)",
-                    rawText: index == 0 ? "needle" : "raw \(index)",
-                    finalText: index == 0 ? "needle" : "final \(index)",
-                    createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index))
-                )
-            )
+            try environment.assetRepository.save(homeAsset(
+                id: "entry-\(index)",
+                source: .clipboard,
+                contentType: .text,
+                title: index == 0 ? "needle" : "final \(index)",
+                text: index == 0 ? "needle" : "final \(index)",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index))
+            ))
         }
         let viewModel = HomeDashboardViewModel(
             environment: environment,
@@ -717,29 +1175,29 @@ final class HomeDashboardViewModelTests: XCTestCase {
         )
 
         viewModel.load()
-        XCTAssertEqual(viewModel.totalHistoryCount, 41)
-        XCTAssertEqual(viewModel.totalPages, 3)
-        XCTAssertEqual(viewModel.currentPage, 1)
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).count, 20)
+        XCTAssertEqual(viewModel.totalAssetCount, 41)
+        XCTAssertEqual(viewModel.totalAssetPages, 3)
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).count, 20)
 
-        viewModel.goToPage(3)
-        XCTAssertEqual(viewModel.currentPage, 3)
-        XCTAssertEqual(viewModel.historyGroups.flatMap(\.items).count, 1)
-        viewModel.deleteHistoryItem(id: "entry-0")
-        XCTAssertEqual(viewModel.currentPage, 2)
-        XCTAssertEqual(viewModel.totalHistoryCount, 40)
+        viewModel.goToAssetPage(3)
+        XCTAssertEqual(viewModel.assetCurrentPage, 3)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).count, 1)
+        viewModel.deleteAssetItem(id: "entry-0")
+        XCTAssertEqual(viewModel.assetCurrentPage, 2)
+        XCTAssertEqual(viewModel.totalAssetCount, 40)
 
-        viewModel.updateHistoryPageSize(50)
-        XCTAssertEqual(viewModel.currentPage, 1)
+        viewModel.updateAssetPageSize(50)
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
         XCTAssertEqual(viewModel.pageSize, 50)
-        viewModel.goToPage(2)
+        viewModel.goToAssetPage(2)
         viewModel.updateSearch("final 1")
-        XCTAssertEqual(viewModel.currentPage, 1)
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
 
-        viewModel.clearAllHistory()
-        XCTAssertEqual(viewModel.currentPage, 1)
-        XCTAssertEqual(viewModel.totalHistoryCount, 0)
-        XCTAssertTrue(viewModel.historyGroups.isEmpty)
+        viewModel.clearAllAssets()
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        XCTAssertEqual(viewModel.totalAssetCount, 0)
+        XCTAssertTrue(viewModel.assetGroups.isEmpty)
     }
 
     func testLoadUsesDatabaseAggregateWithoutCallingHistoryListRecent() throws {
@@ -752,6 +1210,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             databaseQueue: base.databaseQueue,
             credentialStore: base.credentialStore,
             historyRepository: historyRepository,
+            assetRepository: base.assetRepository,
             styleRepository: base.styleRepository,
             asrProviderRepository: base.asrProviderRepository,
             llmProviderRepository: base.llmProviderRepository,
@@ -774,11 +1233,18 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(historyRepository.listRecentLimits, [])
     }
 
-    func testPreviousNextAndInvalidPageNumbersStayWithinAvailablePages() throws {
+    func testAssetPreviousNextAndInvalidPageNumbersStayWithinAvailablePages() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
         for index in 0..<41 {
-            try environment.historyRepository.save(historyEntry(id: "page-entry-\(index)"))
+            try environment.assetRepository.save(homeAsset(
+                id: "page-entry-\(index)",
+                source: .clipboard,
+                contentType: .text,
+                title: "page entry \(index)",
+                text: "page entry \(index)",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index))
+            ))
         }
         let viewModel = HomeDashboardViewModel(
             environment: environment,
@@ -787,45 +1253,18 @@ final class HomeDashboardViewModelTests: XCTestCase {
         )
         viewModel.load()
 
-        viewModel.previousPage()
-        XCTAssertEqual(viewModel.currentPage, 1)
-        viewModel.nextPage()
-        XCTAssertEqual(viewModel.currentPage, 2)
-        viewModel.previousPage()
-        XCTAssertEqual(viewModel.currentPage, 1)
-        viewModel.goToPage(-10)
-        XCTAssertEqual(viewModel.currentPage, 1)
-        viewModel.goToPage(999)
-        XCTAssertEqual(viewModel.currentPage, 3)
-        viewModel.nextPage()
-        XCTAssertEqual(viewModel.currentPage, 3)
-    }
-
-    func testSearchAndPaginationDoNotReloadDashboardAggregate() throws {
-        let container = try DependencyContainer.inMemory()
-        let environment = AppEnvironment(container: container)
-        for index in 0..<25 {
-            try environment.historyRepository.save(historyEntry(id: "query-entry-\(index)"))
-        }
-        let queryRepository = CountingHomeHistoryRepository(
-            base: HomeHistoryRepository(databaseQueue: environment.databaseQueue)
-        )
-        let viewModel = HomeDashboardViewModel(
-            environment: environment,
-            calendar: testCalendar,
-            historyPageSize: 20,
-            homeHistoryRepository: queryRepository
-        )
-
-        viewModel.load()
-        XCTAssertEqual(queryRepository.aggregateCallCount, 1)
-
-        viewModel.updateSearch("q")
-        viewModel.updateSearch("qu")
-        viewModel.nextPage()
-        viewModel.updateHistoryPageSize(50)
-
-        XCTAssertEqual(queryRepository.aggregateCallCount, 1)
+        viewModel.previousAssetPage()
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        viewModel.nextAssetPage()
+        XCTAssertEqual(viewModel.assetCurrentPage, 2)
+        viewModel.previousAssetPage()
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        viewModel.goToAssetPage(-10)
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        viewModel.goToAssetPage(999)
+        XCTAssertEqual(viewModel.assetCurrentPage, 3)
+        viewModel.nextAssetPage()
+        XCTAssertEqual(viewModel.assetCurrentPage, 3)
     }
 
     private func historyEntry(
@@ -853,6 +1292,41 @@ final class HomeDashboardViewModelTests: XCTestCase {
             targetAppName: "Editor",
             processingWarningsJSON: processingWarningsJSON,
             processingTraceJSON: processingTraceJSON,
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            deletedAt: nil
+        )
+    }
+
+    private func homeAsset(
+        id: String,
+        source: AssetSource,
+        contentType: AssetContentType,
+        title: String,
+        text: String? = nil,
+        imagePath: String? = nil,
+        filePath: String? = nil,
+        url: String? = nil,
+        colorValue: String? = nil,
+        createdAt: Date
+    ) -> AssetItem {
+        AssetItem(
+            id: id,
+            source: source,
+            contentType: contentType,
+            title: title,
+            previewText: text,
+            text: text,
+            rawText: nil,
+            imagePath: imagePath,
+            filePath: filePath,
+            url: url,
+            colorValue: colorValue,
+            sourceAppName: nil,
+            sourceAppBundleID: nil,
+            contentHash: "hash-\(id)",
+            captureReason: source == .dictation ? .dictationCompleted : .userCopied,
+            metadataJSON: nil,
             createdAt: createdAt,
             updatedAt: createdAt,
             deletedAt: nil
@@ -943,6 +1417,35 @@ private final class MutableHomeClock: AppClock, @unchecked Sendable {
     func sleep(nanoseconds: UInt64) async throws {}
 }
 
+private func insertVoiceTask(
+    id: String,
+    mode: String,
+    status: String,
+    text: String,
+    createdAt: Date,
+    into queue: DatabaseQueue
+) throws {
+    let timestamp = ISO8601DateFormatter().string(from: createdAt)
+    try queue.write { connection in
+        let statement = try connection.prepare(
+            """
+            INSERT INTO voice_tasks
+                (id, mode, stage, status, raw_transcript, final_text, warnings_json, created_at, updated_at, completed_at)
+            VALUES (?, ?, 'outputting', ?, ?, ?, '[]', ?, ?, ?)
+            """
+        )
+        try statement.bind(id, at: 1)
+        try statement.bind(mode, at: 2)
+        try statement.bind(status, at: 3)
+        try statement.bind(text, at: 4)
+        try statement.bind(text, at: 5)
+        try statement.bind(timestamp, at: 6)
+        try statement.bind(timestamp, at: 7)
+        try statement.bind(timestamp, at: 8)
+        _ = try statement.step()
+    }
+}
+
 private final class CapturingListHistoryRepository: HistoryRepository {
     private let base: any HistoryRepository
     private(set) var listRecentLimits: [Int] = []
@@ -969,43 +1472,5 @@ private final class CapturingListHistoryRepository: HistoryRepository {
     }
     func softDelete(id: String, deletedAt: Date) throws {
         try base.softDelete(id: id, deletedAt: deletedAt)
-    }
-}
-
-private final class CountingHomeHistoryRepository: HomeHistoryQuerying {
-    private let base: HomeHistoryRepository
-    private(set) var aggregateCallCount = 0
-
-    init(base: HomeHistoryRepository) {
-        self.base = base
-    }
-
-    func page(query: HomeHistoryQuery) throws -> HomeHistoryPage {
-        try base.page(query: query)
-    }
-
-    func dashboardAggregate(
-        statsStartDate: Date?,
-        statsEndDate: Date?,
-        focusStartDate: Date,
-        focusEndDate: Date,
-        activityStartDate: Date,
-        activityEndDate: Date,
-        activityTimeZoneOffsetSeconds: Int
-    ) throws -> HomeDashboardAggregate {
-        aggregateCallCount += 1
-        return try base.dashboardAggregate(
-            statsStartDate: statsStartDate,
-            statsEndDate: statsEndDate,
-            focusStartDate: focusStartDate,
-            focusEndDate: focusEndDate,
-            activityStartDate: activityStartDate,
-            activityEndDate: activityEndDate,
-            activityTimeZoneOffsetSeconds: activityTimeZoneOffsetSeconds
-        )
-    }
-
-    func clearAll(deletedAt: Date) throws {
-        try base.clearAll(deletedAt: deletedAt)
     }
 }

@@ -248,7 +248,8 @@ let package = Package(
                 .copy("Resources/ASRQwenCloud.png"),
                 .copy("Resources/ASRSenseVoice.png"),
                 .copy("Resources/ASRTencentCloud.png"),
-                .copy("Resources/ASRWhisper.png")
+                .copy("Resources/ASRWhisper.png"),
+                .copy("Persistence/AppDatabaseSchema.sql")
             ]
         ),
         .testTarget(

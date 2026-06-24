@@ -17,6 +17,26 @@ enum WindowPlacementPolicy {
         )
     }
 
+    static func bottomTrailingFrame(
+        windowSize: NSSize,
+        visibleFrame: NSRect,
+        trailingMargin: CGFloat,
+        bottomMargin: CGFloat
+    ) -> NSRect {
+        let fittedSize = NSSize(
+            width: min(windowSize.width, visibleFrame.width),
+            height: min(windowSize.height, visibleFrame.height)
+        )
+        let maxX = visibleFrame.maxX - fittedSize.width
+        let maxY = visibleFrame.maxY - fittedSize.height
+        return NSRect(
+            x: max(visibleFrame.minX, min(maxX, maxX - trailingMargin)),
+            y: max(visibleFrame.minY, min(maxY, visibleFrame.minY + bottomMargin)),
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+
     static func isFullyVisible(_ frame: NSRect, in visibleFrames: [NSRect]) -> Bool {
         visibleFrames.contains { visibleFrame in
             NSEqualRects(NSIntersectionRect(frame, visibleFrame), frame)
@@ -55,6 +75,34 @@ enum WindowPlacementPolicy {
         }
 
         return nil
+    }
+
+    static func visibleFrame(
+        containing frame: NSRect,
+        screenFrames: [NSRect],
+        visibleFrames: [NSRect]
+    ) -> NSRect? {
+        let screenPairs = Array(zip(screenFrames, visibleFrames))
+        guard !screenPairs.isEmpty else { return nil }
+
+        if let containingPair = screenPairs.first(where: {
+            NSIntersectsRect(frame, $0.0) || NSIntersectsRect(frame, $0.1)
+        }) {
+            return containingPair.1
+        }
+
+        let anchorPoint = NSPoint(x: frame.midX, y: frame.midY)
+        return screenPairs.first(where: { NSMouseInRect(anchorPoint, $0.0, false) })?.1
+    }
+
+    @MainActor
+    static func visibleFrame(containing frame: NSRect) -> NSRect? {
+        let screens = NSScreen.screens
+        return visibleFrame(
+            containing: frame,
+            screenFrames: screens.map { displayFrame(for: $0) ?? $0.frame },
+            visibleFrames: screens.map(\.visibleFrame)
+        )
     }
 
     @MainActor

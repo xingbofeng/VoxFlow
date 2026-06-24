@@ -67,6 +67,25 @@ final class CurrentWindowOCRContextProviderTests: XCTestCase {
         XCTAssertNil(missingTarget)
         XCTAssertNil(emptyOCR)
     }
+
+    func testCaptureContextSkipsSensitivePasswordManagerApps() async {
+        let screenshotProvider = FakeScreenshotProvider(canCapture: true, visibleText: "Qwen3-ASR secret token")
+        let provider = CurrentWindowOCRContextProvider(
+            screenshotProvider: screenshotProvider,
+            namedEntityProvider: FakeOCRNamedEntityProvider(entities: [])
+        )
+
+        let snapshot = await provider.captureContext(
+            for: DictationTarget(
+                bundleID: "com.1password.1password",
+                appName: "1Password",
+                pid: 42
+            )
+        )
+
+        XCTAssertNil(snapshot)
+        XCTAssertFalse(screenshotProvider.didRequestVisibleText)
+    }
 }
 
 private final class FakeScreenshotProvider: ScreenshotProviding, @unchecked Sendable {

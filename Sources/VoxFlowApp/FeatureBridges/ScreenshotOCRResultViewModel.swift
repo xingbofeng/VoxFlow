@@ -29,6 +29,8 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
 
     private let service: ScreenshotOCRService
     private let clipboard: any ScreenshotOCRResultClipboard
+    private var activeTranslationTask: Task<Void, Never>?
+    private var activeSummaryTask: Task<Void, Never>?
 
     init(
         result: ScreenshotOCRResult,
@@ -111,6 +113,49 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         }
     }
 
+    func activateSelectedTabTaskIfNeeded() {
+        Self.logger.debug("ScreenshotOCRResultViewModel activateSelectedTabTaskIfNeeded tab=\(selectedTab)")
+        switch selectedTab {
+        case .translation where !hasTranslation:
+            startTranslationTask()
+        case .summary where !hasSummary:
+            startSummaryTask()
+        case .originalImage, .ocr, .translation, .summary, .translatedOverlay:
+            break
+        }
+    }
+
+    func startTranslationTask() {
+        activeTranslationTask?.cancel()
+        activeTranslationTask = Task { [weak self] in
+            await self?.translate()
+            self?.activeTranslationTask = nil
+        }
+    }
+
+    func startSummaryTask() {
+        activeSummaryTask?.cancel()
+        activeSummaryTask = Task { [weak self] in
+            await self?.summarize()
+            self?.activeSummaryTask = nil
+        }
+    }
+
+    func cancelActiveTransformTasks() {
+        activeTranslationTask?.cancel()
+        activeTranslationTask = nil
+        activeSummaryTask?.cancel()
+        activeSummaryTask = nil
+        if isTranslating {
+            isTranslating = false
+            statusMessage = "已取消翻译"
+        }
+        if isSummarizing {
+            isSummarizing = false
+            statusMessage = "已取消总结"
+        }
+    }
+
     func translate() async {
         Self.logger.debug("ScreenshotOCRResultViewModel translate requested tab=\(selectedTab)")
         guard !isTranslating else { return }
@@ -125,23 +170,34 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
             isTranslating = false
         }
 
-        let outcome = await service.translate(result)
-        switch outcome {
-        case .translated(let translatedResult):
-            result = translatedResult
-            selectedTab = .translation
-            statusMessage = "翻译完成"
-            Self.logger.info("ScreenshotOCRResultViewModel translate succeeded length=\(translatedResult.translatedText?.count ?? 0)")
-        case .translationUnavailable:
-            statusMessage = "请先在设置中配置模型"
-            Self.logger.debug("ScreenshotOCRResultViewModel translate unavailable")
-        case .translationFailed(_, let reason):
-            statusMessage = "翻译失败：\(reason)"
-            Self.logger.warning("ScreenshotOCRResultViewModel translate failed reason=\(reason)")
-        case .recognized, .summarized, .summaryUnavailable, .summaryFailed,
-             .captureCancelled, .captureFailed, .ocrFailed, .translatedOverlay:
-            statusMessage = "翻译失败"
-            Self.logger.warning("ScreenshotOCRResultViewModel translate unexpected state result=\(outcome)")
+        selectedTab = .translation
+        for await event in service.translationEvents(for: result) {
+            switch event {
+            case .started:
+                statusMessage = "正在翻译..."
+            case .partialText(let text):
+                result.translatedText = text
+            case .unitCompleted:
+                break
+            case .completed(let text):
+                result.translatedText = text
+                statusMessage = "翻译完成"
+                Self.logger.info("ScreenshotOCRResultViewModel translate succeeded length=\(text.count)")
+            case .cancelled(let partialText):
+                if !partialText.isEmpty {
+                    result.translatedText = partialText
+                }
+                statusMessage = "已取消翻译"
+                Self.logger.debug("ScreenshotOCRResultViewModel translate cancelled")
+            case .failed(let message, let partialText):
+                if !partialText.isEmpty {
+                    result.translatedText = partialText
+                }
+                statusMessage = message == "请先在设置中配置模型"
+                    ? message
+                    : (partialText.isEmpty ? "翻译失败：\(message)" : "翻译部分完成：\(message)")
+                Self.logger.warning("ScreenshotOCRResultViewModel translate failed reason=\(message)")
+            }
         }
     }
 
@@ -159,23 +215,34 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
             isSummarizing = false
         }
 
-        let outcome = await service.summarize(result)
-        switch outcome {
-        case .summarized(let summarizedResult):
-            result = summarizedResult
-            selectedTab = .summary
-            statusMessage = "总结完成"
-            Self.logger.info("ScreenshotOCRResultViewModel summarize succeeded length=\(summarizedResult.summaryText?.count ?? 0)")
-        case .summaryUnavailable:
-            statusMessage = "请先在设置中配置模型"
-            Self.logger.debug("ScreenshotOCRResultViewModel summarize unavailable")
-        case .summaryFailed(_, let reason):
-            statusMessage = "总结失败：\(reason)"
-            Self.logger.warning("ScreenshotOCRResultViewModel summarize failed reason=\(reason)")
-        case .recognized, .translated, .translationUnavailable, .translationFailed,
-             .captureCancelled, .captureFailed, .ocrFailed, .translatedOverlay:
-            statusMessage = "总结失败"
-            Self.logger.warning("ScreenshotOCRResultViewModel summarize unexpected state result=\(outcome)")
+        selectedTab = .summary
+        for await event in service.summaryEvents(for: result) {
+            switch event {
+            case .started:
+                statusMessage = "正在总结..."
+            case .partialText(let text):
+                result.summaryText = text
+            case .unitCompleted:
+                break
+            case .completed(let text):
+                result.summaryText = text
+                statusMessage = "总结完成"
+                Self.logger.info("ScreenshotOCRResultViewModel summarize succeeded length=\(text.count)")
+            case .cancelled(let partialText):
+                if !partialText.isEmpty {
+                    result.summaryText = partialText
+                }
+                statusMessage = "已取消总结"
+                Self.logger.debug("ScreenshotOCRResultViewModel summarize cancelled")
+            case .failed(let message, let partialText):
+                if !partialText.isEmpty {
+                    result.summaryText = partialText
+                }
+                statusMessage = message == "请先在设置中配置模型"
+                    ? message
+                    : (partialText.isEmpty ? "总结失败：\(message)" : "总结部分完成：\(message)")
+                Self.logger.warning("ScreenshotOCRResultViewModel summarize failed reason=\(message)")
+            }
         }
     }
 
@@ -214,6 +281,7 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
 
     func close() {
         Self.logger.debug("ScreenshotOCRResultViewModel close")
+        cancelActiveTransformTasks()
         service.stopSpeaking()
         playbackState = nil
     }

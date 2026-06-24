@@ -42,6 +42,31 @@ final class DependencyContainerTests: XCTestCase {
         )
 
         XCTAssertEqual(try environment.historyRepository.listRecent(limit: 10).map(\.id), ["entry"])
+        try environment.assetRepository.save(
+            AssetItem(
+                id: "asset",
+                source: .clipboard,
+                contentType: .text,
+                title: "asset",
+                previewText: nil,
+                text: "asset text",
+                rawText: nil,
+                imagePath: nil,
+                filePath: nil,
+                url: nil,
+                colorValue: nil,
+                sourceAppName: nil,
+                sourceAppBundleID: nil,
+                contentHash: "hash-asset",
+                captureReason: .userCopied,
+                metadataJSON: nil,
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+                updatedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                deletedAt: nil
+            )
+        )
+
+        XCTAssertEqual(try environment.assetRepository.page(query: .init(limit: 10, offset: 0)).items.map(\.id), ["asset"])
         XCTAssertTrue(environment.correctionTargetRepository is SQLiteCorrectionTargetRepository)
     }
 

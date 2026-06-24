@@ -35,6 +35,7 @@ final class VoiceTaskCoordinator {
     private let contextPipeline: (any ContextCollecting)?
     private let agentRefiner: (any PromptAwareTextRefining)?
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
+    private let assetRepository: (any AssetRepository)?
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
 
     private let taskRuntime = VoiceTaskRuntimeStore()
@@ -93,6 +94,7 @@ final class VoiceTaskCoordinator {
         contextPipeline: (any ContextCollecting)? = nil,
         agentRefiner: (any PromptAwareTextRefining)? = nil,
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        assetRepository: (any AssetRepository)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
     ) {
         self.taskRepository = taskRepository
@@ -103,6 +105,7 @@ final class VoiceTaskCoordinator {
         self.contextPipeline = contextPipeline
         self.agentRefiner = agentRefiner
         self.correctionObservationScheduler = correctionObservationScheduler
+        self.assetRepository = assetRepository
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
     }
 
@@ -182,6 +185,7 @@ final class VoiceTaskCoordinator {
         ) ?? ""
 
         try taskRepository.updateFinalText(id: taskID, finalText: finalText)
+        task.finalText = finalText
         try taskRepository.updateOutputResult(id: taskID, outputResult: encoded)
 
         switch presentation {
@@ -197,6 +201,12 @@ final class VoiceTaskCoordinator {
             task.completedAt = completedAt
             task.outputResult = encoded
             taskRuntime.clearWorkflow(for: task)
+            saveRawVoiceTextAssetIfNeeded(
+                task: task,
+                rawText: task.rawTranscript ?? finalText,
+                captureReason: agentDispatchCaptureReason(for: presentation),
+                completedAt: completedAt
+            )
         case .fallbackInput:
             task.stage = .processing
             task.updatedAt = clock.now
@@ -254,6 +264,12 @@ final class VoiceTaskCoordinator {
         task.completedAt = completedAt
         AppLogger.general.info("voice_workflow_completed kind=agentDispatch taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
+        saveRawVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: task.rawTranscript ?? finalText,
+            captureReason: dictationCaptureReason(for: outputResult),
+            completedAt: completedAt
+        )
     }
 
     /// Processes text through the LLM pipeline and delivers via OutputService.
@@ -356,6 +372,22 @@ final class VoiceTaskCoordinator {
         taskRuntime.clearCurrentTaskIfMatching(task)
         AppLogger.general.info("voice_workflow_completed kind=\(workflowKind.rawValue) taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
+        if task.mode == .dictation {
+            saveVoiceTextAssetIfNeeded(
+                task: task,
+                rawText: rawText,
+                finalText: finalText,
+                outputResult: outputResult,
+                completedAt: completedAt
+            )
+        } else {
+            saveAgentComposeVoiceAssetIfNeeded(
+                task: task,
+                rawText: rawText,
+                outputResult: outputResult,
+                completedAt: completedAt
+            )
+        }
         scheduleCorrectionObservationIfNeeded(
             task: task,
             finalText: finalText,
@@ -588,6 +620,12 @@ final class VoiceTaskCoordinator {
         taskRuntime.clearCurrentTaskIfMatching(task)
         AppLogger.general.info("voice_workflow_completed kind=agentCompose taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
+        saveAgentComposeVoiceAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            outputResult: outputResult,
+            completedAt: completedAt
+        )
 
         return outputResult
     }
@@ -736,6 +774,7 @@ final class VoiceTaskCoordinator {
         }
         AppLogger.general.error("voice_workflow_completed kind=\(VoiceWorkflowKind(mode: task.mode).rawValue) taskID=\(task.id) status=failed code=\(code) recoverable=\(recoverable)")
         taskRuntime.clearWorkflow(for: task)
+        saveFailedVoiceAssetIfNeeded(task: task, completedAt: clock.now)
     }
 
     // MARK: - Incomplete task detection (Task 2.10)
@@ -762,6 +801,142 @@ final class VoiceTaskCoordinator {
 
     private func task(for kind: VoiceWorkflowKind?) throws -> VoiceTask? {
         taskRuntime.task(for: kind)
+    }
+
+    private func saveVoiceTextAssetIfNeeded(
+        task: VoiceTask,
+        rawText: String,
+        finalText: String,
+        outputResult: OutputResult,
+        completedAt: Date
+    ) {
+        if case .cancelled = outputResult { return }
+        if case .copyFailed = outputResult { return }
+        saveVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            finalText: finalText,
+            captureReason: dictationCaptureReason(for: outputResult),
+            completedAt: completedAt
+        )
+    }
+
+    private func saveAgentComposeVoiceAssetIfNeeded(
+        task: VoiceTask,
+        rawText: String,
+        outputResult: OutputResult,
+        completedAt: Date
+    ) {
+        if case .cancelled = outputResult { return }
+        let transcript = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !transcript.isEmpty else { return }
+        saveRawVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            captureReason: .dictationCompleted,
+            completedAt: completedAt
+        )
+    }
+
+    private func saveRawVoiceTextAssetIfNeeded(
+        task: VoiceTask,
+        rawText: String,
+        captureReason: AssetCaptureReason,
+        completedAt: Date
+    ) {
+        saveVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            finalText: rawText,
+            captureReason: captureReason,
+            completedAt: completedAt
+        )
+    }
+
+    private func saveFailedVoiceAssetIfNeeded(task: VoiceTask, completedAt: Date) {
+        guard task.mode == .agentCompose || task.mode == .agentDispatch,
+              let rawText = task.rawTranscript,
+              !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        saveVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            finalText: rawText,
+            captureReason: .dictationCompleted,
+            completedAt: completedAt
+        )
+    }
+
+    private func saveVoiceTextAssetIfNeeded(
+        task: VoiceTask,
+        rawText: String,
+        finalText: String,
+        captureReason: AssetCaptureReason,
+        completedAt: Date
+    ) {
+        let storedText = finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? rawText
+            : finalText
+        guard let assetRepository else { return }
+
+        let asset = AssetItem(
+            id: "dictation-\(task.id)",
+            source: .dictation,
+            contentType: .text,
+            title: assetTitle(from: storedText),
+            previewText: storedText,
+            text: storedText,
+            rawText: rawText,
+            imagePath: nil,
+            filePath: nil,
+            url: nil,
+            colorValue: nil,
+            sourceAppName: task.targetAppName,
+            sourceAppBundleID: task.targetAppBundleID,
+            contentHash: "dictation-\(task.id)",
+            captureReason: captureReason,
+            metadataJSON: nil,
+            createdAt: completedAt,
+            updatedAt: completedAt,
+            deletedAt: nil
+        )
+        do {
+            try assetRepository.save(asset)
+            AppLogger.general.debug("voice_asset_saved id=\(asset.id) taskID=\(task.id) reason=\(captureReason.rawValue)")
+        } catch {
+            AppLogger.general.error("Failed to save dictation asset: \(error.localizedDescription)")
+        }
+    }
+
+    private func dictationCaptureReason(for outputResult: OutputResult) -> AssetCaptureReason {
+        switch outputResult {
+        case .injected:
+            return .dictationCompleted
+        case .copied, .targetChanged, .permissionDenied, .injectionFailed:
+            return .fallbackCopied
+        case .copyFailed, .cancelled:
+            return .dictationCompleted
+        }
+    }
+
+    private func agentDispatchCaptureReason(
+        for presentation: AgentDispatchHUDPresentation
+    ) -> AssetCaptureReason {
+        if case .clipboardFallback = presentation {
+            return .fallbackCopied
+        }
+        return .dictationCompleted
+    }
+
+    private func assetTitle(from text: String) -> String {
+        let collapsed = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? text
+        guard collapsed.count > 80 else { return collapsed }
+        return String(collapsed.prefix(80))
     }
 
     private func terminalStatus(for result: OutputResult) -> VoiceTaskStatus {

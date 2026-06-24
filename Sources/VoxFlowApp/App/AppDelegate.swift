@@ -78,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var capabilityModelDownloader: SoniqoCapabilityModelDownloader { runtime!.capabilityModelDownloader }
     private var screenshotOCRService: ScreenshotOCRService { runtime!.screenshotOCRService }
     private var voiceTaskCoordinator: VoiceTaskCoordinator { runtime!.voiceTaskCoordinator }
+    private var clipboardAssetMonitor: ClipboardAssetMonitor { runtime!.clipboardAssetMonitor }
     private var agentHelperManager: AgentHelperManager? { runtime!.agentHelperManager }
     private lazy var menuBarCoordinator = MenuBarCoordinator(
         asrOptions: Self.makeASRMenuOptions(),
@@ -94,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selectLLMProvider: { [weak self] providerID in self?.selectLLMProvider(providerID) },
             selectCapabilityModel: { [weak self] kind, modelID in self?.selectCapabilityModel(kind: kind, modelID: modelID) },
             openWorkbench: { [weak self] in self?.openWorkbench() },
+            requestSelectionAction: { [weak self] in _ = self?.performWorkflowShortcut(.selectionAction) },
             openSettings: { [weak self] in self?.openSettings() },
             openGitHub: { [weak self] in self?.openGitHub() },
             checkPermissions: { [weak self] in self?.checkPermissions() },
@@ -139,6 +141,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         service: screenshotOCRService,
         clipboard: clipboardService
     )
+    private lazy var selectionHistoryRecorder = SQLiteSelectionHistoryRecorder(
+        databaseQueue: appEnvironment.databaseQueue,
+        clock: appEnvironment.clock,
+        didRecord: { [weak self] in
+            self?.appEnvironment.notifyHistoryDidChange()
+        }
+    )
+    private lazy var selectionResultPanelController = SelectionResultPanelController(
+        transformService: TextTransformService(refiner: llmRefiner),
+        clipboard: clipboardService,
+        speech: SystemScreenshotSpeechService(),
+        textInserter: fastPasteTextInserter,
+        historyRecorder: selectionHistoryRecorder
+    )
+    private var paletteWindowController: PaletteWindowController?
     private let overlayController = OverlayWindowController()
     private lazy var hudFeatureController = VoiceHUDFeatureController(overlay: overlayController)
     private var pendingASRSelectionFallbackNotice: ASRManager.SelectionFallbackNotice?
@@ -255,6 +272,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var agentDispatchHandler: DefaultAgentDispatchHandler?
     private let logger = AppLogger.general
     private let pendingCorrectionFallback = PendingCorrectionFallbackController()
+    private var lastExternalSelectionTarget: DictationTarget?
+    private var selectionTargetActivationObserver: NSObjectProtocol?
     private var agentDefaultOutputTask: Task<Void, Never>?
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
@@ -312,6 +331,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        startSelectionTargetTracking()
         logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
         recordingFeedbackController = RecordingAudioFeedbackController(
@@ -330,6 +350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         audioRecorder.delegate = self
 
         hotKeyFeatureController.start()
+        clipboardAssetMonitor.start()
 
         Task {
             await resolveRecordingPermissions()
@@ -364,6 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dictationOrchestrator.cancel()
         agentDefaultOutputTask?.cancel()
         agentDispatchHandler?.cancel()
+        clipboardAssetMonitor.stop()
+        stopSelectionTargetTracking()
         agentHelperManager?.stopRouter()
     }
 
@@ -379,6 +402,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         agentComposeHandler.onStreamingDelta = { [weak self] partialText in
             self?.hudFeatureController.updateStreamingText(partialText)
+        }
+        overlayController.onSelectionActionSelected = { [weak self] action, selectedText in
+            self?.handleSelectionActionSelected(action: action, selectedText: selectedText)
         }
         if let helperManager = agentHelperManager,
            let agentRouterClient = runtime!.agentRouterClient {
@@ -464,7 +490,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             correctionObservationScheduler: runtime!.correctionObservationScheduler,
             isFocusedTextFieldSecure: { [weak self] in
                 self?.runtime?.focusedTextObserver.focusedInputIsSecure() ?? false
-            }
+            },
+            assetRepository: appEnvironment.assetRepository
         )
         dictationOrchestrator.onStateChange = { [weak self] state in
             self?.handleDictationStateChange(state)
@@ -889,6 +916,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func performWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
         logger.debug("workflow_shortcut_requested shortcut=\(shortcut)")
         switch shortcut {
+        case .palette:
+            logger.debug("workflow_shortcut_palette")
+            showPalette()
+            return true
         case .clipboardImageOCR:
             logger.debug("workflow_shortcut_clipboard_image_ocr")
             guard shouldStartEphemeralWorkflow(shortcut) else {
@@ -931,6 +962,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             voiceTaskCoordinator.registerEphemeralWorkflowTask(task, for: lease)
             return true
+        case .selectionAction:
+            logger.debug("workflow_shortcut_selection_action")
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            showSelectionActionCard()
+            return true
+        case .selectionTranslate:
+            logger.debug("workflow_shortcut_selection_translate")
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            performSelectionAction(.translate)
+            return true
+        case .selectionSummarize:
+            logger.debug("workflow_shortcut_selection_summarize")
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            performSelectionAction(.summarize)
+            return true
+        case .selectionAgent:
+            logger.debug("workflow_shortcut_selection_agent")
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            performSelectionAction(.agent)
+            return true
         case .cancel:
             logger.debug("workflow_shortcut_cancel")
             if pendingCorrectionFallback.hasPending {
@@ -954,6 +1013,217 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             _ = handleEscapeKey()
             return true
+        }
+    }
+
+    private func performSelectionAction(_ action: SelectionActionKind) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await restoreLastExternalSelectionTargetIfNeeded()
+            let provider = SelectionTextProvider(
+                adapter: SystemSelectionAcquisitionAdapter(
+                    accessibilityReader: SystemSelectionAccessibilityReader(),
+                    copyPerformer: SystemSelectionCopyPerformer(),
+                    appContext: SystemSelectionAppContextProvider()
+                ),
+                configuration: .userInitiated(
+                    frontmostBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+                )
+            )
+            switch await provider.snapshotResult() {
+            case .success(let snapshot):
+                handleSelectionActionSelected(action: action, selectedText: snapshot.text)
+            case .failure(let failure):
+                hudFeatureController.showTemporaryMessage(failure.userMessage, duration: 1.8)
+            }
+        }
+    }
+
+    private func showPalette() {
+        logger.debug("palette_show_requested")
+        if paletteWindowController?.isVisible == true {
+            paletteWindowController?.close()
+            return
+        }
+        if paletteWindowController == nil {
+            paletteWindowController = PaletteWindowController(
+                repository: appEnvironment.assetRepository,
+                actionService: AssetActionService(
+                    textInserter: fastPasteTextInserter,
+                    internalWriteGuard: runtime!.clipboardInternalWriteGuard,
+                    repository: appEnvironment.assetRepository
+                ),
+                onCommand: { [weak self] command in
+                    self?.handlePaletteCommand(command)
+                }
+            )
+        }
+        paletteWindowController?.present()
+    }
+
+    private func handlePaletteCommand(_ command: PaletteCommand) {
+        switch command {
+        case .recentAssets, .assetHistory:
+            break
+        case .screenshotOCR:
+            paletteWindowController?.close()
+            _ = performWorkflowShortcut(.screenshotOCR)
+        case .startAgentCompose:
+            paletteWindowController?.close()
+            togglePaletteVoiceAction(.agentCompose)
+        case .startAgentDispatch:
+            paletteWindowController?.close()
+            togglePaletteVoiceAction(.agentDispatch)
+        case .startDictation:
+            paletteWindowController?.close()
+            togglePaletteVoiceAction(.dictation)
+        }
+    }
+
+    private func togglePaletteVoiceAction(_ action: VoiceAction) {
+        if dictationFeatureController.activeVoiceAction == action {
+            dictationFeatureController.handleRelease(action: action)
+        } else {
+            dictationFeatureController.handlePress(action: action)
+        }
+    }
+
+    private func showSelectionActionCard() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let mouseAnchor = NSRect(
+                x: NSEvent.mouseLocation.x,
+                y: NSEvent.mouseLocation.y,
+                width: 1,
+                height: 1
+            )
+            await restoreLastExternalSelectionTargetIfNeeded()
+            let provider = SelectionTextProvider(
+                adapter: SystemSelectionAcquisitionAdapter(
+                    accessibilityReader: SystemSelectionAccessibilityReader(),
+                    copyPerformer: SystemSelectionCopyPerformer(),
+                    appContext: SystemSelectionAppContextProvider()
+                ),
+                configuration: .userInitiated(
+                    frontmostBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+                )
+            )
+            switch await provider.snapshotResult() {
+            case .success(let snapshot):
+                let anchor = snapshot.selectionBounds ?? mouseAnchor
+                overlayController.showSelectionActions(
+                    SelectionActionCardPresentation(selectedText: snapshot.text),
+                    anchor: anchor
+                )
+            case .failure(let failure):
+                hudFeatureController.showTemporaryMessage(failure.userMessage, duration: 1.8)
+            }
+        }
+    }
+
+    private func startSelectionTargetTracking() {
+        recordCurrentExternalSelectionTarget()
+        selectionTargetActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else {
+                return
+            }
+            let bundleID = application.bundleIdentifier
+            let appName = application.localizedName
+            let pid = Int(application.processIdentifier)
+            MainActor.assumeIsolated {
+                self?.recordExternalSelectionTarget(
+                    DictationTarget(bundleID: bundleID, appName: appName, pid: pid)
+                )
+            }
+        }
+    }
+
+    private func stopSelectionTargetTracking() {
+        if let selectionTargetActivationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(selectionTargetActivationObserver)
+            self.selectionTargetActivationObserver = nil
+        }
+    }
+
+    private func recordCurrentExternalSelectionTarget() {
+        guard let application = NSWorkspace.shared.frontmostApplication else { return }
+        recordExternalSelectionTarget(application)
+    }
+
+    private func recordExternalSelectionTarget(_ application: NSRunningApplication) {
+        recordExternalSelectionTarget(DictationTarget(
+            bundleID: application.bundleIdentifier,
+            appName: application.localizedName,
+            pid: Int(application.processIdentifier)
+        ))
+    }
+
+    private func recordExternalSelectionTarget(_ target: DictationTarget) {
+        guard target.bundleID != Bundle.main.bundleIdentifier else { return }
+        lastExternalSelectionTarget = target
+    }
+
+    private func restoreLastExternalSelectionTargetIfNeeded() async {
+        guard runtime?.dictationTargetProvider.currentTarget()?.bundleID == Bundle.main.bundleIdentifier,
+              let lastExternalSelectionTarget else {
+            return
+        }
+        _ = await DictationTargetActivation.activate(lastExternalSelectionTarget)
+    }
+
+    private func handleSelectionActionSelected(
+        action: SelectionActionKind,
+        selectedText: String
+    ) {
+        switch SelectionActionDispatcher().route(action: action, selectedText: selectedText) {
+        case let .textTransform(operation, text):
+            logger.debug("selection_action_text_transform operation=\(operation) textLen=\(text.count)")
+            selectionResultPanelController.present(
+                selectedText: text,
+                operation: operation
+            )
+        case let .agentContext(text):
+            logger.debug("selection_action_agent_context textLen=\(text.count)")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    await restoreLastExternalSelectionTargetIfNeeded()
+                    try agentDispatchHandler?.start(
+                        target: runtime?.dictationTargetProvider.currentTarget(),
+                        asrMetadata: nil
+                    )
+                    let presentation = try await agentDispatchHandler?.finish(rawTranscript: text)
+                    if let presentation {
+                        selectionHistoryRecorder.record(
+                            SelectionHistoryRecordDraft(
+                                kind: .selectionAgent,
+                                selectedText: text,
+                                resultText: text,
+                                status: .completed,
+                                failureMessage: nil
+                            )
+                        )
+                        hudFeatureController.handleAgentDispatch(presentation)
+                    }
+                } catch {
+                    selectionHistoryRecorder.record(
+                        SelectionHistoryRecordDraft(
+                            kind: .selectionAgent,
+                            selectedText: text,
+                            resultText: text,
+                            status: .failed,
+                            failureMessage: error.localizedDescription
+                        )
+                    )
+                    hudFeatureController.handleAgentDispatch(
+                        .failure(message: "任务助手处理失败", retainedText: text)
+                    )
+                }
+            }
         }
     }
 
@@ -1035,16 +1305,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch outcome {
         case .recognized(let result):
             let opensFromTextRecognitionCommand = result.captureCompletionKind == .textRecognition
-            let completionMessage = result.captureCompletionKind == .scrollingScreenshot
-                ? "截图完成"
-                : "屏幕文字识别完成"
-            screenshotOCRResultPanelController.present(
-                result: result,
-                initialTab: opensFromTextRecognitionCommand ? .ocr : .originalImage,
-                autoDismiss: !opensFromTextRecognitionCommand
-            )
-            if shouldPresentHUD {
-                hudFeatureController.showTemporaryMessage(completionMessage, duration: 1.8, tone: .success)
+            if opensFromTextRecognitionCommand {
+                screenshotOCRResultPanelController.present(
+                    result: result,
+                    initialTab: .ocr,
+                    autoDismiss: false
+                )
+            } else {
+                screenshotOCRResultPanelController.presentThumbnail(
+                    result: result,
+                    initialTab: .originalImage
+                )
             }
             saveScreenshotRecord(result: result)
         case .translatedOverlay(let originalResult, let overlayImage):

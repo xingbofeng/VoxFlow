@@ -128,6 +128,54 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         }
     }
 
+    func testSelectionActionOnlyStartsWhileIdleAndNeverPresentsEphemeralHUD() {
+        for shortcut in [
+            HotKeyWorkflowShortcut.selectionAction,
+            .selectionTranslate,
+            .selectionSummarize,
+            .selectionAgent,
+        ] {
+            XCTAssertTrue(
+                HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                    shortcut,
+                    dictationState: .idle
+                )
+            )
+        }
+
+        for state in [DictationState.recording, .waitingForFinal, .processing, .injecting] {
+            for shortcut in [
+                HotKeyWorkflowShortcut.selectionAction,
+                .selectionTranslate,
+                .selectionSummarize,
+                .selectionAgent,
+            ] {
+                XCTAssertFalse(
+                    HotKeyWorkflowRoutingPolicy.shouldStartEphemeralWorkflow(
+                        shortcut,
+                        dictationState: state
+                    )
+                )
+            }
+        }
+
+        for state in [DictationState.idle, .recording, .waitingForFinal, .processing, .injecting] {
+            for shortcut in [
+                HotKeyWorkflowShortcut.selectionAction,
+                .selectionTranslate,
+                .selectionSummarize,
+                .selectionAgent,
+            ] {
+                XCTAssertFalse(
+                    HotKeyWorkflowRoutingPolicy.shouldPresentEphemeralWorkflowHUD(
+                        shortcut,
+                        dictationState: state
+                    )
+                )
+            }
+        }
+    }
+
     func testAppDelegateDoesNotShowPreCaptureScreenshotHUD() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
@@ -151,9 +199,10 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
 
         XCTAssertTrue(method.contains("screenshotOCRResultPanelController.present("))
+        XCTAssertTrue(method.contains("screenshotOCRResultPanelController.presentThumbnail("))
         XCTAssertTrue(method.contains("result.captureCompletionKind == .textRecognition"))
-        XCTAssertTrue(method.contains("initialTab: opensFromTextRecognitionCommand ? .ocr : .originalImage"))
-        XCTAssertTrue(method.contains("autoDismiss: !opensFromTextRecognitionCommand"))
+        XCTAssertTrue(method.contains("initialTab: .ocr"))
+        XCTAssertTrue(method.contains("autoDismiss: false"))
     }
 
     func testSavedScreenshotRecordRefreshesVisibleScreenshotTab() throws {
@@ -398,6 +447,158 @@ final class AppDelegateEventRoutingTests: XCTestCase {
                 .clipboardImageOCR,
                 dictationState: .idle
             )
+        )
+    }
+
+    func testSelectionActionWorkflowShortcutShowsActionCardAndConsumesShortcut() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let selectionActionCase = try XCTUnwrap(
+            source.range(
+                of: #"case \.selectionAction:[\s\S]*?\n        case \.cancel:"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(selectionActionCase.contains("shouldStartEphemeralWorkflow(shortcut)"))
+        XCTAssertTrue(selectionActionCase.contains("showSelectionActionCard()"))
+        XCTAssertTrue(selectionActionCase.contains("return true"))
+        XCTAssertFalse(selectionActionCase.contains("selection_action_not_ready"))
+    }
+
+    func testDirectSelectionActionWorkflowShortcutsInvokeSelectedActionAndConsumeShortcut() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        for (caseName, nextCaseName, actionName) in [
+            ("selectionTranslate", "selectionSummarize", "translate"),
+            ("selectionSummarize", "selectionAgent", "summarize"),
+            ("selectionAgent", "cancel", "agent"),
+        ] {
+            let shortcutCase = try XCTUnwrap(
+                source.range(
+                    of: #"case \.\#(caseName):[\s\S]*?\n        case \.\#(nextCaseName):"#,
+                    options: .regularExpression
+                ).map { String(source[$0]) }
+            )
+
+            XCTAssertTrue(shortcutCase.contains("shouldStartEphemeralWorkflow(shortcut)"))
+            XCTAssertTrue(shortcutCase.contains("performSelectionAction(.\(actionName))"))
+            XCTAssertTrue(shortcutCase.contains("return true"))
+        }
+    }
+
+    func testSelectionActionCardDoesNotOpenWhenSelectedTextAcquisitionFails() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func showSelectionActionCard\(\) \{[\s\S]*?\n    private func handleSelectionActionSelected"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("provider.snapshotResult()"))
+        XCTAssertTrue(method.contains("let anchor = snapshot.selectionBounds ?? mouseAnchor"))
+        XCTAssertTrue(method.contains("case .success(let snapshot):"))
+        XCTAssertTrue(method.contains("overlayController.showSelectionActions("))
+        XCTAssertTrue(method.contains("SelectionActionCardPresentation(selectedText: snapshot.text)"))
+        XCTAssertTrue(method.contains("anchor: anchor"))
+        XCTAssertTrue(method.contains("case .failure(let failure):"))
+        XCTAssertTrue(method.contains("hudFeatureController.showTemporaryMessage(failure.userMessage, duration: 1.8)"))
+    }
+
+    func testSelectionActionRestoresLastExternalTargetBeforeReadingSelection() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func showSelectionActionCard\(\) \{[\s\S]*?\n    private func handleSelectionActionSelected"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        let restoreRange = try XCTUnwrap(method.range(of: "await restoreLastExternalSelectionTargetIfNeeded()"))
+        let providerRange = try XCTUnwrap(method.range(of: "let provider = SelectionTextProvider"))
+        XCTAssertLessThan(
+            restoreRange.lowerBound,
+            providerRange.lowerBound,
+            "Status bar menu actions should restore the previously focused external app before reading selection."
+        )
+    }
+
+    func testSelectionActionEntrypointsUseUserInitiatedSelectionConfiguration() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        for methodPattern in [
+            #"private func performSelectionAction\([\s\S]*?\n    private func showPalette"#,
+            #"private func showSelectionActionCard\(\) \{[\s\S]*?\n    private func startSelectionTargetTracking"#,
+        ] {
+            let method = try XCTUnwrap(
+                source.range(of: methodPattern, options: .regularExpression).map { String(source[$0]) }
+            )
+
+            XCTAssertTrue(method.contains("configuration: .userInitiated("))
+            XCTAssertTrue(method.contains("frontmostBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier"))
+        }
+    }
+
+    func testSelectionActionCardCallbackUsesDispatcherAndAgentHandler() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("overlayController.onSelectionActionSelected"))
+        XCTAssertTrue(source.contains("handleSelectionActionSelected(action: action, selectedText: selectedText)"))
+
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleSelectionActionSelected\([\s\S]*?\n    private func shouldStartEphemeralWorkflow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("SelectionActionDispatcher().route"))
+        XCTAssertTrue(method.contains("case let .textTransform"))
+        XCTAssertTrue(method.contains("case let .agentContext"))
+        XCTAssertTrue(method.contains("selectionResultPanelController.present"))
+        XCTAssertTrue(method.contains("agentDispatchHandler?.start"))
+        XCTAssertTrue(method.contains("agentDispatchHandler?.finish"))
+        XCTAssertTrue(method.contains("selectionHistoryRecorder.record"))
+        XCTAssertTrue(method.contains("kind: .selectionAgent"))
+        XCTAssertFalse(method.contains("正在翻译选中文本"))
+        XCTAssertFalse(method.contains("正在总结选中文本"))
+    }
+
+    func testSelectionAgentContextRestoresExternalTargetBeforeStartingAgentDispatch() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleSelectionActionSelected\([\s\S]*?\n    private func shouldStartEphemeralWorkflow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+        let agentBranch = try XCTUnwrap(
+            method.range(
+                of: #"case let \.agentContext\(text\):[\s\S]*?\n        \}"#,
+                options: .regularExpression
+            ).map { String(method[$0]) }
+        )
+
+        let restoreRange = try XCTUnwrap(agentBranch.range(of: "await restoreLastExternalSelectionTargetIfNeeded()"))
+        let startRange = try XCTUnwrap(agentBranch.range(of: "agentDispatchHandler?.start"))
+        XCTAssertLessThan(
+            restoreRange.lowerBound,
+            startRange.lowerBound,
+            "Clicking the selection action card can focus VoxFlow, so Agent dispatch must restore the original external target before capturing fallback output."
         )
     }
 

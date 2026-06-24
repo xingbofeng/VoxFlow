@@ -4,6 +4,24 @@ import XCTest
 @testable import VoxFlowApp
 
 final class ContextPipelineTests: XCTestCase {
+    func testAccessibilitySelectedTextFallsBackToValueSliceUsingUTF16Range() {
+        let selectedText = SystemAccessibilityProvider.selectedText(
+            fromValue: "hello 码上写 world",
+            selectedRange: CFRange(location: 6, length: 3)
+        )
+
+        XCTAssertEqual(selectedText, "码上写")
+    }
+
+    func testAccessibilitySelectedTextValueSliceRejectsInvalidRange() {
+        let selectedText = SystemAccessibilityProvider.selectedText(
+            fromValue: "hello",
+            selectedRange: CFRange(location: 4, length: 20)
+        )
+
+        XCTAssertNil(selectedText)
+    }
+
 
     func testContextTextSanitizerRemovesJSONChromeAndCorruptedOCRLines() {
         let text = """
@@ -580,6 +598,7 @@ private struct StubAccessibilityProvider: AccessibilityProviding {
 
     func visibleText(pid: Int?) -> String? { visibleText }
     func selectedText(pid: Int?) -> String? { selectedText }
+    func selectedTextBounds(pid: Int?) -> NSRect? { nil }
     func inputAreaText(pid: Int?) -> String? { inputAreaText }
     func isSecureTextField(pid: Int?) -> Bool { isSecure }
 }
@@ -607,6 +626,10 @@ private final class SlowAccessibilityProvider: AccessibilityProviding, @unchecke
     func selectedText(pid: Int?) -> String? {
         Thread.sleep(forTimeInterval: Double(delayMilliseconds) / 1000.0)
         return nil
+    }
+
+    func selectedTextBounds(pid: Int?) -> NSRect? {
+        nil
     }
 
     func inputAreaText(pid: Int?) -> String? {

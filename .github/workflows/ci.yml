@@ -57,6 +57,9 @@ jobs:
             --baseline Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Baselines/phase1-baseline.json \
             --output .build/voice-correction-benchmark
 
+      - name: Run context boost benchmark
+        run: swift run --package-path Packages/VoxFlowContextBoostKit VoxFlowContextBoostBench
+
       - name: Show Rust toolchain
         run: |
           rustc --version

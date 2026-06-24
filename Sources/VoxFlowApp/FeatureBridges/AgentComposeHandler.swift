@@ -48,7 +48,6 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
         AppLogger.dictation.info("AgentComposeHandler task started id=\(task.id)")
         activeTaskID = task.id
         coordinator.startContextCollection(target: target, visionSupported: true)
-        emitStage(.readingWindow, taskID: task.id)
     }
 
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {

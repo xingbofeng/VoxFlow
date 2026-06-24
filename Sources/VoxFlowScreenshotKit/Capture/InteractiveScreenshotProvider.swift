@@ -47,6 +47,35 @@ public struct InteractiveScreenshotCaptureResult: Equatable {
 @MainActor
 public protocol InlineSelectionTranslating: AnyObject {
     func translatedOverlay(for image: CGImage) async throws -> TranslatedOverlayAnnotationElement
+    func translatedOverlay(
+        for image: CGImage,
+        progress: @escaping @MainActor (InlineSelectionTranslationProgress) -> Void
+    ) async throws -> TranslatedOverlayAnnotationElement
+}
+
+public extension InlineSelectionTranslating {
+    func translatedOverlay(
+        for image: CGImage,
+        progress: @escaping @MainActor (InlineSelectionTranslationProgress) -> Void
+    ) async throws -> TranslatedOverlayAnnotationElement {
+        try await translatedOverlay(for: image)
+    }
+}
+
+public struct InlineSelectionTranslationProgress: Equatable, Sendable {
+    public let completed: Int
+    public let total: Int
+    public let partialOverlay: TranslatedOverlayAnnotationElement?
+
+    public init(
+        completed: Int,
+        total: Int,
+        partialOverlay: TranslatedOverlayAnnotationElement? = nil
+    ) {
+        self.completed = completed
+        self.total = total
+        self.partialOverlay = partialOverlay
+    }
 }
 
 @MainActor

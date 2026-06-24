@@ -6,6 +6,28 @@ private enum ShortcutBinding: Equatable {
     case workflow(HotKeyWorkflowShortcut)
 }
 
+enum SettingsShortcutRecorder {
+    static func encodedShortcutKeyCode(
+        eventType: NSEvent.EventType,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        allowsPureModifierShortcut: Bool
+    ) -> Int64? {
+        if eventType == .flagsChanged, !allowsPureModifierShortcut {
+            return nil
+        }
+        return ShortcutManager.encodeShortcut(
+            keyCode: Int64(keyCode),
+            modifierMask: ShortcutManager.modifierMask(
+                command: modifierFlags.contains(.command),
+                shift: modifierFlags.contains(.shift),
+                option: modifierFlags.contains(.option),
+                control: modifierFlags.contains(.control)
+            )
+        )
+    }
+}
+
 struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
@@ -120,19 +142,20 @@ struct SettingsRootView: View {
 
     private var settingsSidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
+            sidebarGroupTitle("应用设置")
+
+            settingsSidebarButton(.general)
+            settingsSidebarButton(.vibeCoding)
+            settingsSidebarButton(.selectionActions)
+            settingsSidebarButton(.system)
+
             sidebarGroupTitle("模型配置")
+                .padding(.top, 16)
 
             settingsSidebarButton(.dictationModels)
             settingsSidebarButton(.correctionModels)
             settingsSidebarButton(.ttsModels)
             settingsSidebarButton(.translationModels)
-
-            sidebarGroupTitle("应用设置")
-                .padding(.top, 16)
-
-            settingsSidebarButton(.general)
-            settingsSidebarButton(.vibeCoding)
-            settingsSidebarButton(.system)
 
             sidebarGroupTitle("数据与隐私")
                 .padding(.top, 16)
@@ -156,6 +179,8 @@ struct SettingsRootView: View {
             generalSection
         case .vibeCoding:
             vibeCodingSection
+        case .selectionActions:
+            selectionActionsSection
         case .dictationModels:
             dictationModelsSection
         case .correctionModels:
@@ -306,10 +331,46 @@ struct SettingsRootView: View {
                     Divider()
                         .padding(.leading, 2)
 
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 14) {
+                            Text("触发方式")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                            Picker("触发方式", selection: shortPressTriggerBinding) {
+                                Text("按住").tag(false)
+                                Text("切换").tag(true)
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(width: 220)
+                            Spacer(minLength: 0)
+                        }
+                        Text(viewModel.shortcutConflict ? "当前快捷键冲突，请为两个动作设置不同按键。" : "仅影响语音快捷键的短按/长按行为")
+                            .font(.system(size: 12))
+                            .foregroundStyle(viewModel.shortcutConflict ? Color.red : AppTheme.ColorToken.secondaryText)
+                    }
+                    .padding(12)
+                    .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+
+                    Divider()
+                        .padding(.leading, 2)
+
                     shortcutGroupHeader(
                         title: "工作流快捷键",
                         subtitle: "图片文字识别相关操作可单独改键，清空后不会响应快捷键"
                     )
+
+                    workflowShortcutRow(
+                        shortcut: .palette,
+                        title: "启动台",
+                        subtitle: "打开 VoxFlow Palette，搜索最近资产与命令",
+                        systemImage: "rectangle.grid.1x2",
+                        tint: .teal
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
 
                     workflowShortcutRow(
                         shortcut: .clipboardImageOCR,
@@ -333,27 +394,51 @@ struct SettingsRootView: View {
                     Divider()
                         .padding(.leading, 70)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 14) {
-                            Text("触发方式")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            Picker("触发方式", selection: shortPressTriggerBinding) {
-                                Text("按住").tag(false)
-                                Text("切换").tag(true)
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(width: 220)
-                            Spacer(minLength: 0)
-                        }
-                        Text(viewModel.shortcutConflict ? "当前快捷键冲突，请为两个动作设置不同按键。" : "两个动作不能使用相同触发方式")
-                            .font(.system(size: 12))
-                            .foregroundStyle(viewModel.shortcutConflict ? Color.red : AppTheme.ColorToken.secondaryText)
-                    }
-                    .padding(12)
-                    .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+                    shortcutGroupHeader(
+                        title: "划词动作快捷键",
+                        subtitle: "选中文本后打开动作 HUD，或直接翻译、总结、发给任务助手"
+                    )
+
+                    workflowShortcutRow(
+                        shortcut: .selectionAction,
+                        title: "划词动作",
+                        subtitle: "选中文本后按快捷键打开动作卡",
+                        systemImage: "text.cursor",
+                        tint: .teal
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    workflowShortcutRow(
+                        shortcut: .selectionTranslate,
+                        title: "直接翻译",
+                        subtitle: "选中文本后按快捷键直接打开翻译结果",
+                        systemImage: "translate",
+                        tint: .teal
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    workflowShortcutRow(
+                        shortcut: .selectionSummarize,
+                        title: "直接总结",
+                        subtitle: "选中文本后按快捷键直接生成总结",
+                        systemImage: "text.alignleft",
+                        tint: .orange
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    workflowShortcutRow(
+                        shortcut: .selectionAgent,
+                        title: "直接发给任务助手",
+                        subtitle: "选中文本后按快捷键直接交给任务助手",
+                        systemImage: "terminal",
+                        tint: AppTheme.ColorToken.accent
+                    )
                 }
             }
         }
@@ -471,6 +556,124 @@ struct SettingsRootView: View {
                 )
             }
 
+        }
+    }
+
+    private var selectionActionsSection: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsGroupCard(
+                title: "划词动作",
+                subtitle: "选中文本后翻译、总结或交给任务助手",
+                systemImage: "text.cursor",
+                tint: .teal
+            ) {
+                selectionActionCapabilityRow(
+                    title: "手动唤起",
+                    subtitle: "第一期不会自动弹出动作卡，避免打扰现有阅读和输入流程",
+                    systemImage: "hand.tap",
+                    tint: .teal
+                )
+            }
+
+            SettingsGroupCard(
+                title: "启用方式",
+                subtitle: "默认手动唤起，不自动弹出",
+                systemImage: "keyboard",
+                tint: .purple
+            ) {
+                workflowShortcutRow(
+                    shortcut: .selectionAction,
+                    title: "划词动作",
+                    subtitle: "选中文本后按快捷键打开动作卡",
+                    systemImage: "text.cursor",
+                    tint: .teal
+                )
+
+                Divider()
+                    .padding(.leading, 70)
+
+                workflowShortcutRow(
+                    shortcut: .selectionTranslate,
+                    title: "直接翻译",
+                    subtitle: "选中文本后按快捷键直接打开翻译结果",
+                    systemImage: "translate",
+                    tint: .teal
+                )
+
+                Divider()
+                    .padding(.leading, 70)
+
+                workflowShortcutRow(
+                    shortcut: .selectionSummarize,
+                    title: "直接总结",
+                    subtitle: "选中文本后按快捷键直接生成总结",
+                    systemImage: "text.alignleft",
+                    tint: .orange
+                )
+
+                Divider()
+                    .padding(.leading, 70)
+
+                workflowShortcutRow(
+                    shortcut: .selectionAgent,
+                    title: "直接发给任务助手",
+                    subtitle: "选中文本后按快捷键直接交给任务助手",
+                    systemImage: "terminal",
+                    tint: AppTheme.ColorToken.accent
+                )
+            }
+
+            SettingsGroupCard(
+                title: "动作卡",
+                subtitle: "保持轻量，只显示第一期三个动作",
+                systemImage: "rectangle.3.group",
+                tint: .teal
+            ) {
+                selectionActionCapabilityRow(
+                    title: "翻译",
+                    subtitle: "自动翻译或润色选中文本",
+                    systemImage: "translate",
+                    tint: .teal
+                )
+                selectionActionCapabilityRow(
+                    title: "总结",
+                    subtitle: "把长段文本压缩成简洁要点",
+                    systemImage: "text.alignleft",
+                    tint: .orange
+                )
+                selectionActionCapabilityRow(
+                    title: "任务助手",
+                    subtitle: "把选中文本作为上下文交给现有任务助手 HUD",
+                    systemImage: "terminal",
+                    tint: AppTheme.ColorToken.accent
+                )
+            }
+
+            SettingsGroupCard(
+                title: "结果面板",
+                subtitle: "复用截图结果卡的文本操作体验",
+                systemImage: "rectangle.and.text.magnifyingglass",
+                tint: .indigo
+            ) {
+                selectionActionCapabilityRow(
+                    title: "流式结果",
+                    subtitle: "长文本翻译和总结会逐步显示已生成内容",
+                    systemImage: "text.line.first.and.arrowtriangle.forward",
+                    tint: .indigo
+                )
+                selectionActionCapabilityRow(
+                    title: "写回与复制",
+                    subtitle: "支持复制、替换原文、插入下一行；写入失败时自动复制",
+                    systemImage: "doc.on.doc",
+                    tint: .green
+                )
+                selectionActionCapabilityRow(
+                    title: "朗读",
+                    subtitle: "朗读原文、译文或总结结果",
+                    systemImage: "speaker.wave.2",
+                    tint: .blue
+                )
+            }
         }
     }
 
@@ -901,10 +1104,20 @@ struct SettingsRootView: View {
 
     private func shortcutKeyCode(for workflowShortcut: HotKeyWorkflowShortcut) -> Int64? {
         switch workflowShortcut {
+        case .palette:
+            return viewModel.paletteShortcutKeyCode
         case .clipboardImageOCR:
             return viewModel.clipboardImageOCRShortcutKeyCode
         case .screenshotOCR:
             return viewModel.screenshotOCRShortcutKeyCode
+        case .selectionAction:
+            return viewModel.selectionActionShortcutKeyCode
+        case .selectionTranslate:
+            return viewModel.selectionTranslateShortcutKeyCode
+        case .selectionSummarize:
+            return viewModel.selectionSummarizeShortcutKeyCode
+        case .selectionAgent:
+            return viewModel.selectionAgentShortcutKeyCode
         case .cancel:
             return HotKeyShortcutRouting.escapeKeyCode
         }
@@ -1197,6 +1410,28 @@ struct SettingsRootView: View {
         .settingsRow()
     }
 
+    private func selectionActionCapabilityRow(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: 14) {
+            SettingsRowIcon(systemImage: systemImage, tint: tint)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 16)
+        }
+        .settingsRow()
+    }
+
     private func shortcutGroupHeader(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
@@ -1248,16 +1483,22 @@ struct SettingsRootView: View {
     }
 
     private func recordShortcut(from event: NSEvent) {
-        let keyCode = ShortcutManager.encodeShortcut(
-            keyCode: Int64(event.keyCode),
-            modifierMask: ShortcutManager.modifierMask(
-                command: event.modifierFlags.contains(.command),
-                shift: event.modifierFlags.contains(.shift),
-                option: event.modifierFlags.contains(.option),
-                control: event.modifierFlags.contains(.control)
-            )
-        )
         let binding = recordingShortcutBinding ?? .voice(.dictation)
+        let allowsPureModifierShortcut: Bool
+        switch binding {
+        case .voice:
+            allowsPureModifierShortcut = true
+        case .workflow:
+            allowsPureModifierShortcut = false
+        }
+        guard let keyCode = SettingsShortcutRecorder.encodedShortcutKeyCode(
+            eventType: event.type,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags,
+            allowsPureModifierShortcut: allowsPureModifierShortcut
+        ) else {
+            return
+        }
         guard keyCode > 0 else {
             viewModel.report(error: SettingsViewModelError.invalidShortcutKeyCode)
             stopShortcutRecording()
@@ -1451,6 +1692,7 @@ private extension SettingsSection {
         switch self {
         case .general: return "通用"
         case .vibeCoding: return "AI 编程"
+        case .selectionActions: return "划词动作"
         case .dictationModels: return "语音识别"
         case .correctionModels: return "纠错与上下文"
         case .ttsModels: return "朗读"

@@ -7,6 +7,9 @@ final class SettingsViewModelTests: XCTestCase {
     func testSettingsSectionsExposeVibeCoding() {
         XCTAssertTrue(SettingsSection.allCases.contains(.vibeCoding))
         XCTAssertEqual(SettingsSection.vibeCoding.title, "AI 编程")
+        XCTAssertTrue(SettingsSection.allCases.contains(.selectionActions))
+        XCTAssertEqual(SettingsSection.selectionActions.title, "划词动作")
+        XCTAssertEqual(SettingsSection.selectionActions.systemImage, "text.cursor")
     }
 
     func testLoadBuildsSettingsSectionsDevicesShortcutAndPermissions() throws {
@@ -20,14 +23,26 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             SettingsSection.allCases.map(\.title),
-            ["语音识别", "纠错与上下文", "朗读", "翻译", "通用", "AI 编程", "系统", "数据与隐私"]
+            ["通用", "AI 编程", "划词动作", "系统", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
         )
-        XCTAssertEqual(viewModel.selectedSection, .dictationModels)
+        XCTAssertEqual(viewModel.selectedSection, .general)
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
         XCTAssertEqual(viewModel.selectedInputDeviceID, "built-in")
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
         XCTAssertEqual(viewModel.longPressThreshold, 0.5)
         XCTAssertEqual(viewModel.shortPressBehavior, .toggleListening)
+        XCTAssertEqual(
+            viewModel.selectionTranslateShortcutKeyCode,
+            ShortcutManager.defaultSelectionTranslateShortcutKeyCode
+        )
+        XCTAssertEqual(
+            viewModel.selectionSummarizeShortcutKeyCode,
+            ShortcutManager.defaultSelectionSummarizeShortcutKeyCode
+        )
+        XCTAssertEqual(
+            viewModel.selectionAgentShortcutKeyCode,
+            ShortcutManager.defaultSelectionAgentShortcutKeyCode
+        )
         XCTAssertEqual(viewModel.microphonePermission, .granted)
         XCTAssertEqual(viewModel.speechPermission, .denied)
         XCTAssertFalse(viewModel.screenRecordingGranted)
@@ -303,6 +318,31 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.performanceOptimizationEnabled), #"{"value":true}"#)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.analyticsEnabled), #"{"value":true}"#)
         XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（仅当前会话生效，重启后可能丢失）")
+    }
+
+    func testUpdatesDirectSelectionWorkflowShortcuts() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        let customShortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x23,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.optionModifierMask
+        )
+
+        try viewModel.updateWorkflowShortcut(.selectionTranslate, keyCode: customShortcut)
+
+        XCTAssertEqual(viewModel.selectionTranslateShortcutKeyCode, customShortcut)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode(for: .selectionTranslate), customShortcut)
+
+        try viewModel.updateWorkflowShortcut(.selectionTranslate, keyCode: nil)
+
+        XCTAssertNil(viewModel.selectionTranslateShortcutKeyCode)
+        XCTAssertNil(shortcutManager.shortcutKeyCode(for: .selectionTranslate))
     }
 
     func testClearHistoryClearCacheExportImportAndResetSettings() throws {
@@ -627,6 +667,10 @@ final class SettingsViewModelTests: XCTestCase {
 
         viewModel.load()
         XCTAssertEqual(
+            viewModel.paletteShortcutKeyCode,
+            ShortcutManager.defaultPaletteShortcutKeyCode
+        )
+        XCTAssertEqual(
             viewModel.clipboardImageOCRShortcutKeyCode,
             ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
         )
@@ -649,6 +693,34 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertNil(viewModel.clipboardImageOCRShortcutKeyCode)
         XCTAssertNil(shortcutManager.shortcutKeyCode(for: .clipboardImageOCR))
+    }
+
+    func testPaletteWorkflowShortcutCanBeChangedAndClearedFromSettings() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        viewModel.load()
+
+        let customShortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x0F,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.controlModifierMask
+        )
+        try viewModel.updateWorkflowShortcut(.palette, keyCode: customShortcut)
+
+        XCTAssertEqual(viewModel.paletteShortcutKeyCode, customShortcut)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode(for: .palette), customShortcut)
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新启动台 快捷键")
+
+        try viewModel.updateWorkflowShortcut(.palette, keyCode: nil)
+
+        XCTAssertNil(viewModel.paletteShortcutKeyCode)
+        XCTAssertNil(shortcutManager.shortcutKeyCode(for: .palette))
     }
 
     func testOCRWorkflowShortcutRejectsConflictsWithVoiceShortcuts() throws {
@@ -676,6 +748,33 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(
             shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
             ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        )
+    }
+
+    func testScreenshotOCRShortcutCannotTakeClipboardOCRDefaultShortcutAfterClipboardShortcutIsCleared() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        viewModel.load()
+        try viewModel.updateWorkflowShortcut(.clipboardImageOCR, keyCode: nil)
+
+        XCTAssertThrowsError(
+            try viewModel.updateWorkflowShortcut(
+                .screenshotOCR,
+                keyCode: ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+            )
+        ) { error in
+            XCTAssertEqual(error as? SettingsViewModelError, .conflictingBindings)
+        }
+        XCTAssertEqual(
+            shortcutManager.shortcutKeyCode(for: .screenshotOCR),
+            ShortcutManager.defaultScreenshotOCRShortcutKeyCode
         )
     }
 

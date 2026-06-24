@@ -167,7 +167,7 @@ final class TextProcessingPipelineVoiceCorrectionTests: XCTestCase {
                         text: "Qwen",
                         normalizedText: "qwen",
                         score: 5,
-                        source: .ocrKeyphrase,
+                        source: .ocrShape,
                         evidence: [HotwordEvidence(reason: "test", weight: 5)],
                         expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
                     ),
@@ -187,7 +187,7 @@ final class TextProcessingPipelineVoiceCorrectionTests: XCTestCase {
             correctionContext: makeContext()
         )
 
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("- Qwen") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(#""temporary_terms":["Qwen"]"#) == true)
         XCTAssertEqual(contextProvider.requestedTargets.map { $0?.bundleID }, ["com.example.editor"])
         XCTAssertEqual(processor.inputs, ["去问"])
         XCTAssertEqual(result.trace?.contextBoost?.hotwords, ["Qwen"])

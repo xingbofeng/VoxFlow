@@ -21,19 +21,47 @@ protocol ScreenshotOCRResultClipboard: ClipboardSetting, ScreenshotImageClipboar
 
 @MainActor
 final class SystemClipboardService: ClipboardSetting, ScreenshotImageClipboardWriting {
+    private let internalWriteGuard: ClipboardInternalWriteGuard?
+    private let pasteboard: NSPasteboard
+
+    init(
+        internalWriteGuard: ClipboardInternalWriteGuard? = nil,
+        pasteboard: NSPasteboard? = nil
+    ) {
+        self.internalWriteGuard = internalWriteGuard
+        self.pasteboard = pasteboard ?? Self.defaultPasteboard()
+    }
+
     @discardableResult
     func setString(_ text: String) -> Bool {
-        let pasteboard = NSPasteboard.general
+        if let internalWriteGuard {
+            return internalWriteGuard.writeInternalString(text, to: pasteboard)
+        }
         pasteboard.clearContents()
         return pasteboard.setString(text, forType: .string)
     }
 
     @discardableResult
     func setImage(_ image: CGImage) -> Bool {
-        let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         let nsImage = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
-        return pasteboard.writeObjects([nsImage])
+        let wroteImage = pasteboard.writeObjects([nsImage])
+        if wroteImage {
+            internalWriteGuard?.markInternalWrite(changeCount: pasteboard.changeCount)
+        }
+        return wroteImage
+    }
+
+    private static func defaultPasteboard() -> NSPasteboard {
+        guard isRunningUnderXCTest else { return .general }
+        let name = NSPasteboard.Name("SystemClipboardServiceTests-\(UUID().uuidString)")
+        return NSPasteboard(name: name)
+    }
+
+    private static var isRunningUnderXCTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+            || NSClassFromString("XCTest.XCTestCase") != nil
     }
 }
 

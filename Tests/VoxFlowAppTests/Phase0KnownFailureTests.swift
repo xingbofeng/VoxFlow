@@ -72,12 +72,10 @@ final class Phase0KnownFailureTests: XCTestCase {
         XCTAssertTrue(source.contains("PasteCompletionWaiter"))
     }
 
-    func testTextInjectorDoesNotReturnSuccessUntilPasteIsVerified() {
-        XCTExpectFailure("VF-0002/TXT-03: Cmd+V event posting currently returns success without verifying the target received the paste.") {
-            XCTFail(
-                "Text injection must distinguish posted keyboard events from verified paste completion."
-            )
-        }
+    func testTextInjectorDoesNotReturnSuccessUntilPasteIsVerified() throws {
+        throw XCTSkip(
+            "VF-0002/TXT-03: Cmd+V event posting currently returns success without verifying the target received the paste."
+        )
     }
 
     @MainActor

@@ -6,7 +6,7 @@ enum AppDatabase {
         return DatabaseMigrator(
             migrations: [
                 DatabaseMigration(id: 1, name: "initial_schema") { connection in
-                    try connection.execute(initialSchemaSQL)
+                    try applyBundledSchema(on: connection)
                 },
                 DatabaseMigration(id: 2, name: "dictation_history_processing_trace") { connection in
                     try connection.addColumnIfNeeded(
@@ -16,7 +16,7 @@ enum AppDatabase {
                     )
                 },
                 DatabaseMigration(id: 3, name: "voice_tasks") { connection in
-                    try connection.execute(voiceTasksSQL)
+                    try applyBundledSchema(on: connection)
                 },
                 DatabaseMigration(id: 4, name: "llm_provider_timeout_30s") { connection in
                     try connection.execute(
@@ -39,13 +39,13 @@ enum AppDatabase {
                     )
                 },
                 DatabaseMigration(id: 7, name: "voice_correction") { connection in
-                    try connection.execute(voiceCorrectionSQL)
+                    try applyBundledSchema(on: connection)
                 },
                 DatabaseMigration(id: 8, name: "voice_correction_scope_specific_unique_index") { connection in
-                    try connection.execute(voiceCorrectionUniqueIndexSQL)
+                    try applyBundledSchema(on: connection)
                 },
                 DatabaseMigration(id: 9, name: "voice_correction_targets") { connection in
-                    try connection.execute(voiceCorrectionTargetsSQL)
+                    try applyBundledSchema(on: connection)
                     try connection.addColumnIfNeeded(
                         table: "voice_correction_rules",
                         column: "target_id",
@@ -54,180 +54,93 @@ enum AppDatabase {
                     try connection.execute(voiceCorrectionTargetBackfillSQL)
                 },
                 DatabaseMigration(id: 10, name: "home_dashboard_query_indexes") { connection in
-                    try connection.execute(homeDashboardQueryIndexesSQL)
+                    try applyBundledSchema(on: connection)
                 },
                 DatabaseMigration(id: 11, name: "screenshot_records_table") { connection in
-                    try connection.execute(screenshotRecordsSQL)
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 12, name: "asset_items_source_of_truth") { connection in
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 13, name: "voice_tasks_asset_backfill") { connection in
+                    try applyBundledSchema(on: connection)
+                    try connection.execute(voiceTaskAssetBackfillSQL)
+                },
+                DatabaseMigration(id: 14, name: "screenshot_records_asset_backfill") { connection in
+                    try applyBundledSchema(on: connection)
+                    try connection.execute(screenshotRecordAssetBackfillSQL)
+                },
+                DatabaseMigration(id: 15, name: "voice_tasks_asset_repair") { connection in
+                    try applyBundledSchema(on: connection)
+                    try connection.execute(voiceTaskAssetBackfillSQL)
                 }
             ],
             clock: clock
         )
     }
 
+    static func bootstrapFromSnapshotIfEnabled(on databaseQueue: DatabaseQueue) throws {
+        #if DEBUG
+        guard shouldBootstrapFromSnapshotFromEnvironment else {
+            return
+        }
+
+        AppLogger.database.warning("AppDatabase bootstrap from bundled AppDatabaseSchema.sql")
+        try databaseQueue.write { connection in
+            try applyBundledSchema(on: connection)
+        }
+        AppLogger.database.warning("AppDatabase bootstrap from bundled schema finished")
+        #endif
+    }
+
+    private static var shouldBootstrapFromSnapshotFromEnvironment: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--voxflow-apply-db-schema") {
+            return true
+        }
+
+        guard let value = ProcessInfo.processInfo.environment["VOXFLOW_DB_SCHEMA_SQL"] else {
+            return false
+        }
+        return value == "1" || value.lowercased() == "true" || value.lowercased() == "yes"
+        #else
+        return false
+        #endif
+    }
+
+    static func loadBundledSchemaSQL() throws -> String {
+        guard let schemaURL = Bundle.module.url(forResource: "AppDatabaseSchema", withExtension: "sql")
+            ?? Bundle.module.url(
+                forResource: "AppDatabaseSchema",
+                withExtension: "sql",
+                subdirectory: "Persistence"
+            )
+        else {
+            throw AppDatabaseSchemaError.missingBundledSchema
+        }
+        return try String(contentsOf: schemaURL, encoding: .utf8)
+    }
+
+    private static func applyBundledSchema(on connection: SQLiteConnection) throws {
+        try connection.execute(try loadBundledSchemaSQL())
+    }
+
     static func ensureRequiredRuntimeTables(_ databaseQueue: DatabaseQueue) throws {
         try databaseQueue.write { connection in
-            try connection.execute(screenshotRecordsSQL)
+            try applyBundledSchema(on: connection)
         }
     }
 
-    static let voiceTasksSQL = """
-    CREATE TABLE IF NOT EXISTS voice_tasks (
-        id TEXT PRIMARY KEY,
-        mode TEXT NOT NULL,
-        stage TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'inProgress',
-        target_app_bundle_id TEXT,
-        target_app_name TEXT,
-        target_app_pid INTEGER,
-        target_window_id TEXT,
-        target_window_title TEXT,
-        audio_relative_path TEXT,
-        raw_transcript TEXT,
-        context_json TEXT,
-        final_text TEXT,
-        output_result TEXT,
-        failure_json TEXT,
-        asr_metadata_json TEXT,
-        warnings_json TEXT NOT NULL DEFAULT '[]',
-        trace_json TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        completed_at TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_voice_tasks_status ON voice_tasks(status);
-    CREATE INDEX IF NOT EXISTS idx_voice_tasks_created_at ON voice_tasks(created_at);
-    CREATE INDEX IF NOT EXISTS idx_voice_tasks_mode_created_at
-    ON voice_tasks(mode, created_at DESC);
-    """
+    enum AppDatabaseSchemaError: LocalizedError {
+        case missingBundledSchema
 
-    static let homeDashboardQueryIndexesSQL = """
-    CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_created_at
-    ON dictation_history(deleted_at, created_at DESC);
-
-    CREATE INDEX IF NOT EXISTS idx_voice_tasks_mode_created_at
-    ON voice_tasks(mode, created_at DESC);
-    """
-
-    static let screenshotRecordsSQL = """
-    CREATE TABLE IF NOT EXISTS screenshot_records (
-        id TEXT PRIMARY KEY,
-        ocr_text TEXT NOT NULL DEFAULT '',
-        translated_text TEXT,
-        summary_text TEXT,
-        image_path TEXT,
-        char_count INTEGER NOT NULL DEFAULT 0,
-        is_favorited INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        deleted_at TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_screenshot_records_created_at
-    ON screenshot_records(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_screenshot_records_deleted_created
-    ON screenshot_records(deleted_at, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_screenshot_records_favorited
-    ON screenshot_records(is_favorited, deleted_at);
-    """
-
-    static let voiceCorrectionSQL = """
-    CREATE TABLE IF NOT EXISTS voice_correction_rules (
-        id TEXT PRIMARY KEY,
-        original TEXT NOT NULL,
-        replacement TEXT NOT NULL,
-        match_policy TEXT NOT NULL,
-        scope_type TEXT NOT NULL,
-        scope_value TEXT,
-        allowed_modes_json TEXT NOT NULL,
-        lifecycle TEXT NOT NULL,
-        source TEXT NOT NULL,
-        case_sensitive INTEGER NOT NULL DEFAULT 0,
-        confidence REAL NOT NULL,
-        observed_count INTEGER NOT NULL DEFAULT 0,
-        applied_count INTEGER NOT NULL DEFAULT 0,
-        reverted_count INTEGER NOT NULL DEFAULT 0,
-        provider_id TEXT,
-        model_id TEXT,
-        language TEXT,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        last_applied_at TEXT
-    );
-    \(voiceCorrectionUniqueIndexSQL)
-    CREATE INDEX IF NOT EXISTS idx_voice_correction_rules_lifecycle
-    ON voice_correction_rules(lifecycle, enabled);
-
-    CREATE TABLE IF NOT EXISTS voice_correction_events (
-        id TEXT PRIMARY KEY,
-        rule_id TEXT,
-        original TEXT NOT NULL,
-        replacement TEXT NOT NULL,
-        range_location INTEGER NOT NULL,
-        range_length INTEGER NOT NULL,
-        scope_type TEXT NOT NULL,
-        scope_value TEXT,
-        source TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_voice_correction_events_created_at
-    ON voice_correction_events(created_at DESC);
-
-    CREATE TABLE IF NOT EXISTS voice_correction_learning_suppression (
-        id TEXT PRIMARY KEY,
-        original TEXT NOT NULL,
-        replacement TEXT NOT NULL,
-        bundle_identifier TEXT,
-        suppressed_until TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_suppression_pair
-    ON voice_correction_learning_suppression(
-        original COLLATE NOCASE,
-        replacement COLLATE NOCASE,
-        IFNULL(bundle_identifier, '')
-    );
-    """
-
-    static let voiceCorrectionUniqueIndexSQL = """
-    DROP INDEX IF EXISTS idx_voice_correction_active_scope_original;
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_active_scope_original
-    ON voice_correction_rules(
-        scope_type,
-        IFNULL(scope_value, ''),
-        original COLLATE NOCASE,
-        IFNULL(provider_id, ''),
-        IFNULL(model_id, ''),
-        IFNULL(language, '')
-    )
-    WHERE lifecycle = 'active';
-    """
-
-    static let voiceCorrectionTargetsSQL = """
-    CREATE TABLE IF NOT EXISTS voice_correction_targets (
-        id TEXT PRIMARY KEY,
-        text TEXT NOT NULL,
-        normalized_text TEXT NOT NULL,
-        scope_type TEXT NOT NULL,
-        scope_value TEXT,
-        lifecycle TEXT NOT NULL,
-        source TEXT NOT NULL,
-        observed_count INTEGER NOT NULL DEFAULT 0,
-        applied_count INTEGER NOT NULL DEFAULT 0,
-        reverted_count INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        last_applied_at TEXT
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_targets_scope_text
-    ON voice_correction_targets(
-        scope_type,
-        IFNULL(scope_value, ''),
-        normalized_text COLLATE NOCASE
-    );
-    CREATE INDEX IF NOT EXISTS idx_voice_correction_targets_updated_at
-    ON voice_correction_targets(updated_at DESC);
-    """
+        var errorDescription: String? {
+            switch self {
+            case .missingBundledSchema:
+                return "Bundled AppDatabaseSchema.sql not found."
+            }
+        }
+    }
 
     static let voiceCorrectionTargetBackfillSQL = """
     INSERT OR IGNORE INTO voice_correction_targets (
@@ -280,126 +193,156 @@ enum AppDatabase {
       AND trim(replacement) != '';
     """
 
-    static let initialSchemaSQL = """
-    CREATE TABLE IF NOT EXISTS dictation_history (
-        id TEXT PRIMARY KEY,
-        raw_text TEXT NOT NULL,
-        final_text TEXT NOT NULL,
-        language TEXT NOT NULL,
-        asr_provider_id TEXT,
-        llm_provider_id TEXT,
-        style_id TEXT,
-        duration_ms INTEGER NOT NULL DEFAULT 0,
-        char_count INTEGER NOT NULL DEFAULT 0,
-        cpm REAL NOT NULL DEFAULT 0,
-        target_app_bundle_id TEXT,
-        target_app_name TEXT,
-        processing_warnings_json TEXT,
-        processing_trace_json TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        deleted_at TEXT
-    );
+    static let voiceTaskAssetBackfillSQL = """
+    WITH eligible_voice_tasks AS (
+        SELECT
+            id,
+            mode,
+            raw_transcript,
+            final_text,
+            output_result,
+            target_app_bundle_id,
+            target_app_name,
+            COALESCE(completed_at, updated_at, created_at) AS asset_created_at,
+            CASE
+                WHEN mode IN ('agentCompose', 'agentDispatch')
+                  AND raw_transcript IS NOT NULL
+                  AND trim(raw_transcript) != ''
+                THEN raw_transcript
+                ELSE final_text
+            END AS asset_text
+        FROM voice_tasks
+        WHERE mode IN ('dictation', 'agentCompose', 'agentDispatch')
+          AND status IN ('completed', 'partiallyCompleted')
+          AND final_text IS NOT NULL
+          AND trim(final_text) != ''
+          AND IFNULL(output_result, '') NOT LIKE '%"kind":"failed"%'
+          AND IFNULL(output_result, '') NOT LIKE '%"kind":"cancelled"%'
+    ),
+    normalized_voice_tasks AS (
+        SELECT
+            id,
+            raw_transcript,
+            output_result,
+            target_app_bundle_id,
+            target_app_name,
+            asset_created_at,
+            asset_text,
+            trim(replace(replace(asset_text, char(13), ' '), char(10), ' ')) AS collapsed_title
+        FROM eligible_voice_tasks
+        WHERE asset_text IS NOT NULL
+          AND trim(asset_text) != ''
+    )
+    INSERT OR IGNORE INTO asset_items (
+        id,
+        source,
+        content_type,
+        title,
+        preview_text,
+        text,
+        raw_text,
+        image_path,
+        file_path,
+        url,
+        color_value,
+        source_app_name,
+        source_app_bundle_id,
+        content_hash,
+        capture_reason,
+        metadata_json,
+        created_at,
+        updated_at,
+        deleted_at
+    )
+    SELECT
+        'dictation-' || id,
+        'dictation',
+        'text',
+        CASE
+            WHEN collapsed_title = '' THEN '语音输入'
+            WHEN length(collapsed_title) > 80 THEN substr(collapsed_title, 1, 80)
+            ELSE collapsed_title
+        END,
+        asset_text,
+        asset_text,
+        raw_transcript,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        target_app_name,
+        target_app_bundle_id,
+        'dictation-' || id,
+        CASE
+            WHEN IFNULL(output_result, '') LIKE '%"kind":"inserted"%' THEN 'dictationCompleted'
+            ELSE 'fallbackCopied'
+        END,
+        NULL,
+        asset_created_at,
+        asset_created_at,
+        NULL
+    FROM normalized_voice_tasks;
+    """
 
-    CREATE INDEX IF NOT EXISTS idx_dictation_history_created_at
-    ON dictation_history(created_at);
-
-    CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_at
-    ON dictation_history(deleted_at);
-
-    CREATE INDEX IF NOT EXISTS idx_dictation_history_deleted_created_at
-    ON dictation_history(deleted_at, created_at DESC);
-
-    CREATE TABLE IF NOT EXISTS style_profiles (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        subtitle TEXT,
-        mode TEXT NOT NULL DEFAULT 'conservative',
-        prompt TEXT NOT NULL,
-        sample_input TEXT,
-        sample_output TEXT,
-        llm_provider_id TEXT,
-        model TEXT,
-        temperature REAL NOT NULL DEFAULT 0.2,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        built_in INTEGER NOT NULL DEFAULT 0,
-        is_default INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS asr_providers (
-        id TEXT PRIMARY KEY,
-        display_name TEXT NOT NULL,
-        provider_type TEXT NOT NULL,
-        capabilities_json TEXT NOT NULL,
-        tags_json TEXT NOT NULL,
-        config_json TEXT NOT NULL DEFAULT '{}',
-        enabled INTEGER NOT NULL DEFAULT 0,
-        is_default INTEGER NOT NULL DEFAULT 0,
-        last_health_status TEXT,
-        last_health_message TEXT,
-        last_checked_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS llm_providers (
-        id TEXT PRIMARY KEY,
-        display_name TEXT NOT NULL,
-        provider_type TEXT NOT NULL DEFAULT 'openaiCompatible',
-        base_url TEXT NOT NULL,
-        default_model TEXT NOT NULL,
-        api_key_ref TEXT NOT NULL,
-        temperature REAL NOT NULL DEFAULT 0.2,
-        timeout_seconds REAL NOT NULL DEFAULT 30,
-        enabled INTEGER NOT NULL DEFAULT 0,
-        is_default INTEGER NOT NULL DEFAULT 0,
-        last_health_status TEXT,
-        last_health_message TEXT,
-        last_latency_ms INTEGER,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS transcription_jobs (
-        id TEXT PRIMARY KEY,
-        source_file_path TEXT NOT NULL,
-        source_file_name TEXT NOT NULL,
-        source_file_bookmark BLOB,
-        status TEXT NOT NULL,
-        progress REAL NOT NULL DEFAULT 0,
-        raw_text TEXT,
-        final_text TEXT,
-        asr_provider_id TEXT,
-        style_id TEXT,
-        error_message TEXT,
-        duration_ms INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        completed_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS notes (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        body_markdown TEXT NOT NULL,
-        source_type TEXT NOT NULL DEFAULT 'manual',
-        source_id TEXT,
-        tags_json TEXT NOT NULL DEFAULT '[]',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        deleted_at TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_notes_updated_at
-    ON notes(updated_at);
-
-    CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
+    static let screenshotRecordAssetBackfillSQL = """
+    WITH eligible_screenshots AS (
+        SELECT
+            id,
+            ocr_text,
+            image_path,
+            created_at,
+            updated_at,
+            trim(replace(replace(ocr_text, char(13), ' '), char(10), ' ')) AS collapsed_text
+        FROM screenshot_records
+        WHERE deleted_at IS NULL
+          AND image_path IS NOT NULL
+          AND trim(image_path) != ''
+    )
+    INSERT OR IGNORE INTO asset_items (
+        id,
+        source,
+        content_type,
+        title,
+        preview_text,
+        text,
+        raw_text,
+        image_path,
+        file_path,
+        url,
+        color_value,
+        source_app_name,
+        source_app_bundle_id,
+        content_hash,
+        capture_reason,
+        metadata_json,
+        created_at,
+        updated_at,
+        deleted_at
+    )
+    SELECT
+        'screenshot-' || id,
+        'screenshot',
+        'image',
+        CASE
+            WHEN collapsed_text = '' THEN 'Image'
+            WHEN length(collapsed_text) > 80 THEN substr(collapsed_text, 1, 80)
+            ELSE collapsed_text
+        END,
+        NULLIF(ocr_text, ''),
+        NULLIF(ocr_text, ''),
+        NULL,
+        image_path,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        'screenshot-' || id,
+        'screenshotCaptured',
+        NULL,
+        created_at,
+        updated_at,
+        NULL
+    FROM eligible_screenshots;
     """
 }

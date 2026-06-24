@@ -84,7 +84,7 @@ final class HotwordExtractorTests: XCTestCase {
         XCTAssertGreaterThan(qwen?.score ?? 0, phrase?.score ?? 0)
     }
 
-    func testExtractsShortChinesePhraseCandidatesWithoutKeepingGenericUIOrLongSentences() {
+    func testExtractsLeadingChineseLabelsWithoutGenericChinesePhrases() {
         let extractor = HotwordExtractor()
         let text = """
         取消
@@ -98,6 +98,8 @@ final class HotwordExtractorTests: XCTestCase {
 
         XCTAssertTrue(candidates.containsText("码上写"))
         XCTAssertTrue(candidates.containsText("语音键盘"))
+        XCTAssertFalse(candidates.containsText("发布计划"))
+        XCTAssertFalse(candidates.containsText("体验反馈"))
         XCTAssertFalse(candidates.containsText("取消"))
         XCTAssertFalse(candidates.containsText("确定"))
         XCTAssertFalse(candidates.containsText("这是一个非常长的"))

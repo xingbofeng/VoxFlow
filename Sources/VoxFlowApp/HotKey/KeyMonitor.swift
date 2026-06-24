@@ -312,8 +312,13 @@ final class KeyMonitor: @unchecked Sendable {
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
             agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            paletteKeyCode: shortcutManager.shortcutKeyCode(for: .palette),
             clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
-            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR),
+            selectionActionKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAction),
+            selectionTranslateKeyCode: shortcutManager.shortcutKeyCode(for: .selectionTranslate),
+            selectionSummarizeKeyCode: shortcutManager.shortcutKeyCode(for: .selectionSummarize),
+            selectionAgentKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAgent)
         )
 
         if !isPressed,
@@ -380,8 +385,10 @@ final class KeyMonitor: @unchecked Sendable {
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
             agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            paletteKeyCode: shortcutManager.shortcutKeyCode(for: .palette),
             clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
-            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+            screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR),
+            selectionActionKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAction)
         )
         guard case let .voiceAction(action) = routedEvent else {
             return Unmanaged.passUnretained(event)

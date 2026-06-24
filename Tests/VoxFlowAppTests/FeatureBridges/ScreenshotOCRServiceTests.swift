@@ -18,6 +18,29 @@ final class ScreenshotOCRServiceTests: XCTestCase {
         XCTAssertEqual(recorder.store.lastResultText, "Error 404 - Page Not Found")
     }
 
+    func testCaptureAndRecognizeWritesScreenshotAssetWithOCRText() async {
+        let assets = CapturingScreenshotAssetRepository()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ScreenshotOCRServiceTests-\(UUID().uuidString)", isDirectory: true)
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "  Error 404 - Page Not Found  ",
+            assetRepository: assets,
+            assetImageDirectory: directory
+        )
+
+        _ = await recorder.service.captureAndRecognize()
+
+        XCTAssertEqual(assets.savedItems.count, 1)
+        let asset = try! XCTUnwrap(assets.savedItems.first)
+        XCTAssertEqual(asset.source, .screenshot)
+        XCTAssertEqual(asset.contentType, .image)
+        XCTAssertEqual(asset.title, "Image (1x1)")
+        XCTAssertEqual(asset.text, "Error 404 - Page Not Found")
+        XCTAssertEqual(asset.captureReason, .screenshotCaptured)
+        XCTAssertNotNil(asset.imagePath)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: asset.imagePath ?? ""))
+    }
+
     func testCaptureAndRecognizePreservesTextRecognitionCompletionKind() async {
         let recorder = ScreenshotOCRRecorder(
             recognizedText: "  Error 404 - Page Not Found  ",
@@ -116,6 +139,54 @@ final class ScreenshotOCRServiceTests: XCTestCase {
         XCTAssertEqual(recorder.store.lastResultText, "错误 404")
     }
 
+    func testTranslationEventsUseStreamingRefinerAndStoreCompletedText() async {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "Error 404",
+            translatedText: "unused"
+        )
+        recorder.translator.streamSnapshots = ["错误", "错误 404"]
+
+        let events = await collectTextTransformEvents(
+            recorder.service.translationEvents(
+                for: ScreenshotOCRResult(originalText: "Error 404")
+            )
+        )
+
+        XCTAssertEqual(events, [
+            .started(totalUnits: nil),
+            .partialText("错误"),
+            .partialText("错误 404"),
+            .completed("错误 404"),
+        ])
+        XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404"])
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字翻译助手"))
+        XCTAssertEqual(recorder.store.lastResultText, "错误 404")
+    }
+
+    func testSummaryEventsUseStreamingRefinerAndStoreCompletedText() async {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "Error 404",
+            translatedText: "unused"
+        )
+        recorder.translator.streamSnapshots = ["- 错误", "- 错误 404"]
+
+        let events = await collectTextTransformEvents(
+            recorder.service.summaryEvents(
+                for: ScreenshotOCRResult(originalText: "Error 404")
+            )
+        )
+
+        XCTAssertEqual(events, [
+            .started(totalUnits: nil),
+            .partialText("- 错误"),
+            .partialText("- 错误 404"),
+            .completed("- 错误 404"),
+        ])
+        XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404"])
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字总结助手"))
+        XCTAssertEqual(recorder.store.lastResultText, "- 错误 404")
+    }
+
     func testTranslateFallsBackWhenLLMIsNotConfigured() async {
         let recorder = ScreenshotOCRRecorder(
             recognizedText: "Error 404",
@@ -176,6 +247,99 @@ final class ScreenshotOCRServiceTests: XCTestCase {
         XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字翻译助手"))
     }
 
+    func testInlineSelectionTranslatorReportsLineTranslationProgress() async throws {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "Name\nAge",
+            translatedText: "unused"
+        )
+        recorder.translator.supportsStructuredLineTranslation = false
+        recorder.translator.responsesByText = [
+            "Name": "姓名",
+            "Age": "年龄",
+        ]
+        var events: [LineTransformEvent] = []
+        let translator = ScreenshotInlineSelectionTranslator(
+            ocrRecognizer: recorder.ocr,
+            translator: recorder.translator,
+            lastResultStore: recorder.store,
+            onLineTranslationEvent: { event in
+                events.append(event)
+            }
+        )
+
+        _ = try await translator.translatedOverlay(for: recorder.imageProvider.image)
+
+        XCTAssertEqual(events, [
+            LineTransformEvent(completedLines: [0: "姓名"], totalLineCount: 2, isFinal: false),
+            LineTransformEvent(completedLines: [0: "姓名", 1: "年龄"], totalLineCount: 2, isFinal: true),
+        ])
+    }
+
+    func testLineTranslationEventsEmitProgressForIndividualFallback() async {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "Name\nAge",
+            translatedText: "unused"
+        )
+        recorder.translator.supportsStructuredLineTranslation = false
+        recorder.translator.responsesByText = [
+            "Name": "姓名",
+            "Age": "年龄",
+        ]
+        let lines = [
+            OCRLine(text: "Name", boundingBox: CGRect(x: 0, y: 0, width: 1, height: 20)),
+            OCRLine(text: "Age", boundingBox: CGRect(x: 0, y: 20, width: 1, height: 20)),
+        ]
+
+        let events = await collectLineTransformEvents(
+            ScreenshotOCRService.lineTranslationEvents(lines, translator: recorder.translator)
+        )
+
+        XCTAssertEqual(events, [
+            LineTransformEvent(completedLines: [0: "姓名"], totalLineCount: 2, isFinal: false),
+            LineTransformEvent(completedLines: [0: "姓名", 1: "年龄"], totalLineCount: 2, isFinal: true),
+        ])
+    }
+
+    func testLineTranslationEventsEmitBatchProgressForStructuredTranslation() async {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: (0..<12).map { "Line \($0)" }.joined(separator: "\n"),
+            translatedText: "unused"
+        )
+        let lines = (0..<12).map { index in
+            OCRLine(
+                text: "Line \(index)",
+                boundingBox: CGRect(x: 0, y: CGFloat(index) * 20, width: 1, height: 20)
+            )
+        }
+        let firstBatchRequest = lineTranslationRequestJSON(for: 0..<8)
+        let secondBatchRequest = lineTranslationRequestJSON(for: 8..<12)
+        recorder.translator.responsesByText = [
+            firstBatchRequest: lineTranslationResponseJSON(for: 0..<8),
+            secondBatchRequest: lineTranslationResponseJSON(for: 8..<12),
+        ]
+
+        let events = await collectLineTransformEvents(
+            ScreenshotOCRService.lineTranslationEvents(lines, translator: recorder.translator)
+        )
+
+        XCTAssertEqual(events, [
+            LineTransformEvent(
+                completedLines: Dictionary(uniqueKeysWithValues: (0..<8).map { ($0, "译文 \($0)") }),
+                totalLineCount: 12,
+                isFinal: false
+            ),
+            LineTransformEvent(
+                completedLines: Dictionary(uniqueKeysWithValues: (0..<12).map { ($0, "译文 \($0)") }),
+                totalLineCount: 12,
+                isFinal: true
+            ),
+        ])
+        XCTAssertEqual(recorder.translator.requests.map(\.text), [
+            firstBatchRequest,
+            secondBatchRequest,
+        ])
+    }
+
     func testInlineSelectionTranslatorFallsBackToIndividualLinesWhenStructuredResponseIsInvalid() async throws {
         let recorder = ScreenshotOCRRecorder(
             recognizedText: "Address\nNew York No. 1 Lake Park\nLondon No. 1 Lake Park\nSydney No. 1 Lake Park",
@@ -210,6 +374,35 @@ final class ScreenshotOCRServiceTests: XCTestCase {
             "New York No. 1 Lake Park",
             "London No. 1 Lake Park",
             "Sydney No. 1 Lake Park",
+        ])
+    }
+
+    func testInlineSelectionTranslatorFallsBackWhenStructuredResponseHasDuplicateIndexes() async throws {
+        let recorder = ScreenshotOCRRecorder(
+            recognizedText: "Name\nAge",
+            translatedText: """
+            [{"index":0,"translated":"姓名"},{"index":0,"translated":"年龄"}]
+            """
+        )
+        recorder.translator.responsesByText = [
+            "Name": "姓名",
+            "Age": "年龄",
+        ]
+        let translator = ScreenshotInlineSelectionTranslator(
+            ocrRecognizer: recorder.ocr,
+            translator: recorder.translator,
+            lastResultStore: recorder.store
+        )
+
+        let overlay = try await translator.translatedOverlay(for: recorder.imageProvider.image)
+
+        XCTAssertEqual(overlay.lines.map(\.text), ["姓名", "年龄"])
+        XCTAssertEqual(recorder.translator.requests.map(\.text), [
+            """
+            [{"index":0,"text":"Name"},{"index":1,"text":"Age"}]
+            """,
+            "Name",
+            "Age",
         ])
     }
 
@@ -432,6 +625,36 @@ final class ScreenshotOCRServiceTests: XCTestCase {
     }
 }
 
+private func collectTextTransformEvents(_ stream: AsyncStream<TextTransformEvent>) async -> [TextTransformEvent] {
+    var events: [TextTransformEvent] = []
+    for await event in stream {
+        events.append(event)
+    }
+    return events
+}
+
+private func collectLineTransformEvents(_ stream: AsyncStream<LineTransformEvent>) async -> [LineTransformEvent] {
+    var events: [LineTransformEvent] = []
+    for await event in stream {
+        events.append(event)
+    }
+    return events
+}
+
+private func lineTranslationRequestJSON(for indexes: Range<Int>) -> String {
+    let items = indexes.map { index in
+        "{\"index\":\(index),\"text\":\"Line \(index)\"}"
+    }.joined(separator: ",")
+    return "[\(items)]"
+}
+
+private func lineTranslationResponseJSON(for indexes: Range<Int>) -> String {
+    let items = indexes.map { index in
+        "{\"index\":\(index),\"translated\":\"译文 \(index)\"}"
+    }.joined(separator: ",")
+    return "[\(items)]"
+}
+
 @MainActor
 private final class ScreenshotOCRRecorder {
     let imageProvider: StubScreenshotImageProvider
@@ -450,6 +673,8 @@ private final class ScreenshotOCRRecorder {
         translationConfigured: Bool? = nil,
         summaryConfigured: Bool? = nil,
         captureCompletionKind: ScreenshotCaptureCompletionKind = .complete,
+        assetRepository: (any AssetRepository)? = nil,
+        assetImageDirectory: URL? = nil,
         isCancelled: @escaping @MainActor () -> Bool = { Task.isCancelled }
     ) {
         imageProvider = StubScreenshotImageProvider(
@@ -474,6 +699,8 @@ private final class ScreenshotOCRRecorder {
             speechService: speech,
             clipboard: clipboard,
             lastResultStore: store,
+            assetRepository: assetRepository,
+            assetImageDirectory: assetImageDirectory,
             isCancelled: isCancelled
         )
     }
@@ -532,13 +759,14 @@ private final class StubScreenshotOCRRecognizer: TextOCRRecognizing, @unchecked 
     }
 }
 
-private final class StubScreenshotTranslator: PromptAwareTextRefining, ScreenshotTextRefiningCapabilities, StructuredLineTranslationSupporting, @unchecked Sendable {
+private final class StubScreenshotTranslator: StreamingPromptAwareTextRefining, ScreenshotTextRefiningCapabilities, StructuredLineTranslationSupporting, @unchecked Sendable {
     var isEnabled = true
     var isConfigured: Bool
     var isTranslationConfigured: Bool
     var isSummaryConfigured: Bool
     var supportsStructuredLineTranslation = true
     var responsesByText: [String: String] = [:]
+    var streamSnapshots: [String]?
     let text: String
     private(set) var requests: [TextRefinementRequest] = []
 
@@ -561,6 +789,17 @@ private final class StubScreenshotTranslator: PromptAwareTextRefining, Screensho
     func refine(_ request: TextRefinementRequest) async throws -> String {
         requests.append(request)
         return responsesByText[request.text] ?? text
+    }
+
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        requests.append(request)
+        let snapshots = streamSnapshots ?? [responsesByText[request.text] ?? text]
+        return AsyncThrowingStream { continuation in
+            for snapshot in snapshots {
+                continuation.yield(snapshot)
+            }
+            continuation.finish()
+        }
     }
 }
 
@@ -676,6 +915,25 @@ private final class CapturingScreenshotImageClipboard: ScreenshotImageClipboardW
         copiedImageWidths.append(image.width)
         return true
     }
+}
+
+private final class CapturingScreenshotAssetRepository: AssetRepository {
+    private(set) var savedItems: [AssetItem] = []
+
+    func save(_ item: AssetItem) throws {
+        savedItems.removeAll { $0.id == item.id }
+        savedItems.append(item)
+    }
+
+    func asset(id: String) throws -> AssetItem? {
+        savedItems.first { $0.id == id && $0.deletedAt == nil }
+    }
+
+    func page(query: AssetQuery) throws -> AssetPage {
+        AssetPage(items: savedItems, totalCount: savedItems.count)
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {}
 }
 
 private enum ScreenshotOCRTestImage {

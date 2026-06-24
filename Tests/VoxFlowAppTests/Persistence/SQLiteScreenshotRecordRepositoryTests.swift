@@ -118,6 +118,28 @@ final class SQLiteScreenshotRecordRepositoryTests: XCTestCase {
         XCTAssertEqual(favorites.first?.id, "r2")
     }
 
+    func testCalendarFiltersUseLocalTodayWeekAndMonthBoundaries() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 8 * 60 * 60)!
+        calendar.firstWeekday = 2
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let fixedNow = ISO8601DateFormatter().date(from: "2026-06-23T02:00:00Z")!
+        let repository = SQLiteScreenshotRecordRepository(
+            databaseQueue: queue,
+            calendar: calendar,
+            now: { fixedNow }
+        )
+        try repository.save(makeRecord(id: "local-today", ocrText: "today", createdAt: ISO8601DateFormatter().date(from: "2026-06-22T17:00:00Z")!))
+        try repository.save(makeRecord(id: "previous-week", ocrText: "previous week", createdAt: ISO8601DateFormatter().date(from: "2026-06-21T15:59:59Z")!))
+        try repository.save(makeRecord(id: "previous-month", ocrText: "previous month", createdAt: ISO8601DateFormatter().date(from: "2026-05-31T15:59:59Z")!))
+
+        XCTAssertEqual(try repository.list(filter: .today, search: nil).map(\.id), ["local-today"])
+        XCTAssertEqual(try repository.list(filter: .thisWeek, search: nil).map(\.id), ["local-today"])
+        XCTAssertEqual(try repository.list(filter: .thisMonth, search: nil).map(\.id), ["local-today", "previous-week"])
+        XCTAssertEqual(try repository.stats().todayRecords, 1)
+    }
+
     func testSearchMatchesOcrText() throws {
         try repository.save(makeRecord(id: "r1", ocrText: "产品设计需求文档"))
         try repository.save(makeRecord(id: "r2", ocrText: "代码片段"))

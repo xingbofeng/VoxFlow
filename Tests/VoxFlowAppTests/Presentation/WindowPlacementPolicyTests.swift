@@ -15,6 +15,34 @@ final class WindowPlacementPolicyTests: XCTestCase {
         XCTAssertEqual(frame.size.height, 400)
     }
 
+    func testBottomTrailingFrameUsesVisibleFrameLowerRightCorner() {
+        let frame = WindowPlacementPolicy.bottomTrailingFrame(
+            windowSize: NSSize(width: 440, height: 560),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800),
+            trailingMargin: 28,
+            bottomMargin: 36
+        )
+
+        XCTAssertEqual(frame.origin.x, 832)
+        XCTAssertEqual(frame.origin.y, 236)
+        XCTAssertEqual(frame.size.width, 440)
+        XCTAssertEqual(frame.size.height, 560)
+    }
+
+    func testBottomTrailingFrameStaysInsideVisibleFrameWhenWindowNearlyFillsScreen() {
+        let frame = WindowPlacementPolicy.bottomTrailingFrame(
+            windowSize: NSSize(width: 1_200, height: 800),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800),
+            trailingMargin: 28,
+            bottomMargin: 36
+        )
+
+        XCTAssertEqual(frame.origin.x, 100)
+        XCTAssertEqual(frame.origin.y, 200)
+        XCTAssertEqual(frame.size.width, 1_200)
+        XCTAssertEqual(frame.size.height, 800)
+    }
+
     func testWindowSpanningTwoDisplaysIsNotConsideredFullyVisible() {
         let window = NSRect(x: 800, y: 100, width: 600, height: 400)
         let screens = [

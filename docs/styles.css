@@ -995,3 +995,201 @@ html[lang="zh-CN"] h1 {
     --soft-line: rgba(30, 34, 30, .16);
   }
 }
+
+/* landing/docs tab */
+.tab-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tab-btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 24px rgba(85, 69, 45, .08);
+  border-radius: 999px;
+  padding: 10px 14px;
+  min-width: 88px;
+  text-align: center;
+  color: #32332f;
+  font-size: 14px;
+  font-weight: 710;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.tab-btn.is-active {
+  border-color: rgba(15, 124, 100, .22);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.tab-btn:hover {
+  border-color: rgba(15, 124, 100, .24);
+  background: #ffffff;
+}
+
+.tab-btn:focus-visible {
+  outline: 2px solid rgba(15, 124, 100, .28);
+  outline-offset: 2px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.is-active {
+  display: block;
+}
+
+.doc-section {
+  padding-top: 24px;
+}
+
+.doc-intro {
+  margin-bottom: 18px;
+}
+
+.doc-step-grid {
+  margin-top: 22px;
+  display: grid;
+  gap: 12px;
+}
+
+.doc-step {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 34px rgba(77, 55, 32, .08);
+}
+
+.doc-step-index {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 760;
+  background: #ffffff;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+}
+
+.doc-step h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  letter-spacing: -.02em;
+}
+
+.doc-step p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.doc-shortcut-section {
+  margin: 12px 0 24px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 34px rgba(77, 55, 32, .08);
+}
+
+.doc-shortcut-section h3 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  letter-spacing: -.02em;
+}
+
+.doc-shortcut-intro {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.doc-shortcut-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.doc-shortcut-item {
+  display: grid;
+  grid-template-columns: minmax(200px, auto) 1fr;
+  align-items: start;
+  gap: 12px;
+}
+
+.doc-shortcut-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #f9f8f3;
+  font-family: var(--body);
+  font-size: 13px;
+  font-weight: 760;
+  color: #2f3030;
+}
+
+.keycap.keycap-command {
+  background: var(--accent-soft);
+  border-color: rgba(15, 124, 100, .25);
+  color: var(--accent);
+}
+
+.keycap.keycap-shift {
+  min-width: 24px;
+}
+
+.doc-shortcut-text {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 960px) {
+  .tab-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .tab-btn {
+    min-width: 82px;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .doc-step {
+    grid-template-columns: 30px 1fr;
+    padding: 14px;
+  }
+
+  .doc-shortcut-item {
+    grid-template-columns: 1fr;
+  }
+
+  .doc-shortcut-text {
+    margin-left: 0;
+  }
+}
+.tab-panel.is-hidden { display: none; }

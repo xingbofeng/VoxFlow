@@ -45,6 +45,10 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("Screenshots", isDirectory: true)
     }
 
+    var clipboardAssetsDirectory: URL {
+        rootDirectory.appendingPathComponent("ClipboardAssets", isDirectory: true)
+    }
+
     var llmTraceDiagnosticsDirectory: URL {
         rootDirectory.appendingPathComponent("LLMTraceDiagnostics", isDirectory: true)
     }
@@ -65,6 +69,7 @@ struct ApplicationSupportPaths: Equatable {
             modelsDirectory,
             voiceTaskAudioDirectory,
             screenshotsDirectory,
+            clipboardAssetsDirectory,
             agentRouterDirectory,
             cliBinDirectory,
         ] {

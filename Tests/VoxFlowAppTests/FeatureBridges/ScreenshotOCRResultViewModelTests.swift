@@ -49,6 +49,26 @@ final class ScreenshotOCRResultViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.statusMessage, "翻译完成")
     }
 
+    func testTranslateConsumesStreamingEventsFromService() async {
+        let translator = ScreenshotOCRViewModelStreamingTranslator(
+            blockingText: "blocking result",
+            snapshots: ["错误", "错误 404"]
+        )
+        let recorder = ScreenshotOCRResultRecorder(translator: translator)
+        let viewModel = recorder.makeViewModel(
+            result: ScreenshotOCRResult(originalText: "Error 404")
+        )
+
+        await viewModel.translate()
+
+        XCTAssertEqual(viewModel.result.translatedText, "错误 404")
+        XCTAssertEqual(viewModel.selectedTab, .translation)
+        XCTAssertEqual(viewModel.displayedText, "错误 404")
+        XCTAssertEqual(viewModel.statusMessage, "翻译完成")
+        XCTAssertEqual(translator.blockingRequestCount, 0)
+        XCTAssertEqual(translator.streamingRequestCount, 1)
+    }
+
     func testCopySelectedTextUsesClipboard() {
         let recorder = ScreenshotOCRResultRecorder(translatedText: "ignored")
         let viewModel = recorder.makeViewModel(
@@ -248,6 +268,71 @@ final class ScreenshotOCRResultViewModelTests: XCTestCase {
         translator.finish(with: "Translated text")
         await task.value
     }
+
+    func testCloseCancelsActiveTranslationTaskAndKeepsPartialResult() async {
+        let translator = CancellableScreenshotOCRViewModelStreamingTranslator(firstSnapshot: "partial translation")
+        let recorder = ScreenshotOCRResultRecorder(translator: translator)
+        let viewModel = recorder.makeViewModel(
+            result: ScreenshotOCRResult(originalText: "Long recognized text")
+        )
+
+        viewModel.startTranslationTask()
+        await translator.waitUntilStreamStarted()
+        await waitUntil { viewModel.result.translatedText == "partial translation" }
+
+        XCTAssertTrue(viewModel.isTranslating)
+
+        viewModel.close()
+        await translator.waitUntilTerminated()
+
+        XCTAssertEqual(viewModel.result.translatedText, "partial translation")
+        XCTAssertFalse(viewModel.isTranslating)
+        XCTAssertEqual(recorder.speech.stopCount, 1)
+    }
+
+    func testTranslateFailureKeepsPartialResultAndShowsPartialCompletionMessage() async {
+        let translator = FailingAfterPartialScreenshotOCRViewModelTranslator(
+            snapshot: "partial translation",
+            errorMessage: "network dropped"
+        )
+        let recorder = ScreenshotOCRResultRecorder(translator: translator)
+        let viewModel = recorder.makeViewModel(
+            result: ScreenshotOCRResult(originalText: "Long recognized text")
+        )
+
+        await viewModel.translate()
+
+        XCTAssertEqual(viewModel.result.translatedText, "partial translation")
+        XCTAssertEqual(viewModel.statusMessage, "翻译部分完成：network dropped")
+        XCTAssertFalse(viewModel.isTranslating)
+    }
+
+    func testSummarizeFailureKeepsPartialResultAndShowsPartialCompletionMessage() async {
+        let translator = FailingAfterPartialScreenshotOCRViewModelTranslator(
+            snapshot: "partial summary",
+            errorMessage: "network dropped"
+        )
+        let recorder = ScreenshotOCRResultRecorder(translator: translator)
+        let viewModel = recorder.makeViewModel(
+            result: ScreenshotOCRResult(originalText: "Long recognized text")
+        )
+
+        await viewModel.summarize()
+
+        XCTAssertEqual(viewModel.result.summaryText, "partial summary")
+        XCTAssertEqual(viewModel.statusMessage, "总结部分完成：network dropped")
+        XCTAssertFalse(viewModel.isSummarizing)
+    }
+
+    private func waitUntil(
+        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while !condition(), DispatchTime.now().uptimeNanoseconds < deadline {
+            await Task.yield()
+        }
+    }
 }
 
 @MainActor
@@ -353,6 +438,152 @@ private final class ScreenshotOCRViewModelTranslator: PromptAwareTextRefining, @
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
         text
+    }
+}
+
+private final class ScreenshotOCRViewModelStreamingTranslator: StreamingPromptAwareTextRefining, @unchecked Sendable {
+    var isEnabled = true
+    var isConfigured = true
+    let blockingText: String
+    let snapshots: [String]
+    private(set) var blockingRequestCount = 0
+    private(set) var streamingRequestCount = 0
+
+    init(blockingText: String, snapshots: [String]) {
+        self.blockingText = blockingText
+        self.snapshots = snapshots
+    }
+
+    func refine(_ text: String) async throws -> String {
+        blockingRequestCount += 1
+        return blockingText
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        blockingRequestCount += 1
+        return blockingText
+    }
+
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        streamingRequestCount += 1
+        let snapshots = snapshots
+        return AsyncThrowingStream { continuation in
+            for snapshot in snapshots {
+                continuation.yield(snapshot)
+            }
+            continuation.finish()
+        }
+    }
+}
+
+private final class CancellableScreenshotOCRViewModelStreamingTranslator: StreamingPromptAwareTextRefining, @unchecked Sendable {
+    var isEnabled = true
+    var isConfigured = true
+    private let firstSnapshot: String
+    private let lock = NSLock()
+    private var streamStartedContinuation: CheckedContinuation<Void, Never>?
+    private var streamTerminatedContinuation: CheckedContinuation<Void, Never>?
+    private var didStart = false
+    private var didTerminate = false
+
+    init(firstSnapshot: String) {
+        self.firstSnapshot = firstSnapshot
+    }
+
+    func refine(_ text: String) async throws -> String {
+        firstSnapshot
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        firstSnapshot
+    }
+
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        let firstSnapshot = firstSnapshot
+        return AsyncThrowingStream { continuation in
+            continuation.yield(firstSnapshot)
+            signalStarted()
+            continuation.onTermination = { [weak self] _ in
+                self?.signalTerminated()
+            }
+        }
+    }
+
+    func waitUntilStreamStarted() async {
+        await withCheckedContinuation { continuation in
+            lock.withLock {
+                if didStart {
+                    continuation.resume()
+                } else {
+                    streamStartedContinuation = continuation
+                }
+            }
+        }
+    }
+
+    func waitUntilTerminated() async {
+        await withCheckedContinuation { continuation in
+            lock.withLock {
+                if didTerminate {
+                    continuation.resume()
+                } else {
+                    streamTerminatedContinuation = continuation
+                }
+            }
+        }
+    }
+
+    private func signalStarted() {
+        lock.withLock {
+            didStart = true
+            streamStartedContinuation?.resume()
+            streamStartedContinuation = nil
+        }
+    }
+
+    private func signalTerminated() {
+        lock.withLock {
+            didTerminate = true
+            streamTerminatedContinuation?.resume()
+            streamTerminatedContinuation = nil
+        }
+    }
+}
+
+private final class FailingAfterPartialScreenshotOCRViewModelTranslator: StreamingPromptAwareTextRefining, @unchecked Sendable {
+    var isEnabled = true
+    var isConfigured = true
+    private let snapshot: String
+    private let errorMessage: String
+
+    init(snapshot: String, errorMessage: String) {
+        self.snapshot = snapshot
+        self.errorMessage = errorMessage
+    }
+
+    func refine(_ text: String) async throws -> String {
+        throw Failure(message: errorMessage)
+    }
+
+    func refine(_ request: TextRefinementRequest) async throws -> String {
+        throw Failure(message: errorMessage)
+    }
+
+    func refineStream(_ request: TextRefinementRequest) -> AsyncThrowingStream<String, Error> {
+        let snapshot = snapshot
+        let errorMessage = errorMessage
+        return AsyncThrowingStream { continuation in
+            continuation.yield(snapshot)
+            continuation.finish(throwing: Failure(message: errorMessage))
+        }
+    }
+
+    private struct Failure: LocalizedError {
+        let message: String
+
+        var errorDescription: String? {
+            message
+        }
     }
 }
 

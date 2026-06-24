@@ -1,9 +1,21 @@
+import AppKit
 import XCTest
 import VoxFlowTextInsertion
 @testable import VoxFlowApp
 
 @MainActor
 final class OutputServiceTests: XCTestCase {
+    func testSystemClipboardServiceCanWriteToIsolatedPasteboard() throws {
+        let pasteboard = try XCTUnwrap(
+            NSPasteboard(name: NSPasteboard.Name("OutputServiceTests-\(UUID().uuidString)"))
+        )
+        let service = SystemClipboardService(pasteboard: pasteboard)
+
+        XCTAssertTrue(service.setString("isolated clipboard text"))
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "isolated clipboard text")
+    }
+
     // MARK: - Dictation mode: target unchanged -> inject
 
     func testDictationSuccessInjectsWhenTargetUnchanged() async {

@@ -33,6 +33,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         var openedSettings = false
         var openedGitHub = false
         var checkedPermissions = false
+        var selectionActionRequested = false
         var quitRequested = false
         let provider = makeProvider(id: "provider", displayName: "OpenAI", model: "gpt-4.1", enabled: true, isDefault: true)
         let coordinator = MenuBarCoordinator(
@@ -46,6 +47,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
                 selectLLMProvider: { selectedLLMProviderID = $0 },
                 selectCapabilityModel: { kind, id in selectedCapabilityModel = (kind, id) },
                 openWorkbench: { openedWorkbench = true },
+                requestSelectionAction: { selectionActionRequested = true },
                 openSettings: { openedSettings = true },
                 openGitHub: { openedGitHub = true },
                 checkPermissions: { checkedPermissions = true },
@@ -79,6 +81,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         sendAction(for: llmItem)
         sendAction(for: ttsItem)
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "打开工作台")))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "划词动作")))
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "设置")))
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "GitHub")))
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "检查权限")))
@@ -90,6 +93,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertEqual(selectedCapabilityModel?.0, .tts)
         XCTAssertEqual(selectedCapabilityModel?.1, CapabilityModelID.systemDefaultTTS)
         XCTAssertTrue(openedWorkbench)
+        XCTAssertTrue(selectionActionRequested)
         XCTAssertTrue(openedSettings)
         XCTAssertTrue(openedGitHub)
         XCTAssertTrue(checkedPermissions)

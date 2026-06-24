@@ -747,6 +747,142 @@ final class SelectionOverlayControllerTests: XCTestCase {
         await translator.finish()
     }
 
+    func testInlineTranslationProgressUpdatesToolbarStatus() async {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 100, height: 80),
+            scale: 1,
+            isPrimary: true
+        )
+        let snapshot = makeImage(width: 100, height: 80)
+        let factory = FakeSelectionOverlayWindowFactory()
+        let translator = ProgressInlineSelectionTranslator(
+            overlay: TranslatedOverlayAnnotationElement(lines: [
+                .init(bounds: CGRect(x: 2, y: 3, width: 20, height: 10), text: "你好")
+            ])
+        )
+        let controller = SelectionOverlayController(
+            windowFactory: factory,
+            inlineTranslator: translator
+        )
+        controller.present(frames: [
+            ScreenshotDisplayFrame(display: display, image: snapshot)
+        ])
+        controller.beginSelection(on: display.id, at: CGPoint(x: 10, y: 10))
+        controller.updateSelection(to: CGPoint(x: 60, y: 40))
+
+        controller.handleToolbarRole(.translate)
+        await translator.waitForRequest()
+        translator.emitProgress(completed: 1, total: 3)
+        await Task.yield()
+
+        XCTAssertEqual(
+            factory.windows.first?.annotationStates.last?.inlineTranslationStatus,
+            .progress(completed: 1, total: 3)
+        )
+
+        await translator.finish()
+    }
+
+    func testInlineTranslationProgressCanUpdatePartialTranslatedOverlay() async {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 100, height: 80),
+            scale: 1,
+            isPrimary: true
+        )
+        let snapshot = makeImage(width: 100, height: 80)
+        let factory = FakeSelectionOverlayWindowFactory()
+        let translator = ProgressInlineSelectionTranslator(
+            overlay: TranslatedOverlayAnnotationElement(lines: [
+                .init(bounds: CGRect(x: 2, y: 3, width: 20, height: 10), text: "你好"),
+                .init(bounds: CGRect(x: 2, y: 18, width: 20, height: 10), text: "世界"),
+            ])
+        )
+        let partialOverlay = TranslatedOverlayAnnotationElement(lines: [
+            .init(bounds: CGRect(x: 2, y: 3, width: 20, height: 10), text: "你好")
+        ])
+        let controller = SelectionOverlayController(
+            windowFactory: factory,
+            inlineTranslator: translator
+        )
+        controller.present(frames: [
+            ScreenshotDisplayFrame(display: display, image: snapshot)
+        ])
+        controller.beginSelection(on: display.id, at: CGPoint(x: 10, y: 10))
+        controller.updateSelection(to: CGPoint(x: 60, y: 40))
+
+        controller.handleToolbarRole(.translate)
+        await translator.waitForRequest()
+        translator.emitProgress(completed: 1, total: 2, partialOverlay: partialOverlay)
+        await Task.yield()
+
+        XCTAssertEqual(
+            factory.windows.first?.annotationStates.last?.inlineTranslationStatus,
+            .progress(completed: 1, total: 2)
+        )
+        XCTAssertEqual(
+            factory.windows.first?.annotationStates.last?.translatedOverlay?.lines.map(\.text),
+            ["你好"]
+        )
+
+        await translator.finish()
+    }
+
+    func testInlineTranslationProgressIsThrottled() async {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 100, height: 80),
+            scale: 1,
+            isPrimary: true
+        )
+        let snapshot = makeImage(width: 100, height: 80)
+        let factory = FakeSelectionOverlayWindowFactory()
+        let translator = ProgressInlineSelectionTranslator(
+            overlay: TranslatedOverlayAnnotationElement(lines: [
+                .init(bounds: CGRect(x: 2, y: 3, width: 20, height: 10), text: "你好")
+            ])
+        )
+        let clock = InlineTranslationTestClock()
+        let controller = SelectionOverlayController(
+            windowFactory: factory,
+            inlineTranslator: translator,
+            inlineTranslationProgressNow: { clock.now }
+        )
+        controller.present(frames: [
+            ScreenshotDisplayFrame(display: display, image: snapshot)
+        ])
+        controller.beginSelection(on: display.id, at: CGPoint(x: 10, y: 10))
+        controller.updateSelection(to: CGPoint(x: 60, y: 40))
+
+        controller.handleToolbarRole(.translate)
+        await translator.waitForRequest()
+        translator.emitProgress(completed: 1, total: 4)
+        await Task.yield()
+        clock.now = 0.05
+        translator.emitProgress(completed: 2, total: 4)
+        await Task.yield()
+
+        XCTAssertEqual(
+            factory.windows.first?.annotationStates.last?.inlineTranslationStatus,
+            .progress(completed: 1, total: 4)
+        )
+
+        clock.now = 0.30
+        translator.emitProgress(completed: 3, total: 4)
+        await Task.yield()
+
+        XCTAssertEqual(
+            factory.windows.first?.annotationStates.last?.inlineTranslationStatus,
+            .progress(completed: 3, total: 4)
+        )
+
+        await translator.finish()
+    }
+
     func testTranslateToolbarRoleCanReenableInlineTranslationAfterToggleOff() async {
         let display = ScreenshotDisplay(
             id: 1,
@@ -1822,6 +1958,64 @@ final class SelectionOverlayControllerTests: XCTestCase {
         XCTAssertEqual(results, [.cancelled])
     }
 
+    func testScrollCaptureKeepsSelectionOverlayVisibleWhileRunning() async {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Main",
+            frame: CGRect(x: 0, y: 0, width: 1000, height: 800),
+            scale: 2,
+            isPrimary: true
+        )
+        let factory = FakeSelectionOverlayWindowFactory()
+        var suspendedCapture: CheckedContinuation<ScrollingScreenshotCaptureResult?, Never>?
+        var results: [SelectionOverlayResult] = []
+        let controller = SelectionOverlayController(
+            windowFactory: factory,
+            onResult: { result in
+                results.append(result)
+            },
+            scrollingScreenshotCapture: { _ in
+                await withCheckedContinuation { continuation in
+                    suspendedCapture = continuation
+                }
+            }
+        )
+        controller.present(displays: [display])
+        controller.beginSelection(on: display.id, at: CGPoint(x: 100, y: 100))
+        controller.updateSelection(to: CGPoint(x: 500, y: 500))
+
+        controller.handleToolbarRole(.scrollCapture)
+        while suspendedCapture == nil {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(factory.windows.first?.scrollCaptureStates, [true])
+        XCTAssertEqual(factory.windows.first?.visibilityChanges, [])
+        XCTAssertEqual(factory.windows.first?.isVisible, true)
+
+        suspendedCapture?.resume(returning: nil)
+        while results.isEmpty {
+            await Task.yield()
+        }
+    }
+
+    func testDefaultScrollCaptureShowsFloatingPanels() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Selection/SelectionOverlayController.swift"),
+            encoding: .utf8
+        )
+
+        let capturerRange = try XCTUnwrap(source.range(of: "public enum DefaultScrollingScreenshotCapturer"))
+        let extensionRange = try XCTUnwrap(source.range(of: "private extension CGRect", range: capturerRange.upperBound..<source.endIndex))
+        let capturerSource = source[capturerRange.lowerBound..<extensionRange.lowerBound]
+        XCTAssertTrue(capturerSource.contains("showsControlHUD: true"))
+        XCTAssertTrue(capturerSource.contains("showsLivePreview: true"))
+    }
+
     // MARK: - Popover (color / lineWidth / fontSize)
 
     private func presentControllerWithSelection() -> (SelectionOverlayController, FakeSelectionOverlayWindowFactory, FakeSelectionOverlayWindow) {
@@ -2118,4 +2312,68 @@ private final class SuspendingInlineSelectionTranslator: InlineSelectionTranslat
         finishContinuation = nil
         await Task.yield()
     }
+}
+
+@MainActor
+private final class ProgressInlineSelectionTranslator: InlineSelectionTranslating {
+    private let overlay: TranslatedOverlayAnnotationElement
+    private var progressHandler: (@MainActor (InlineSelectionTranslationProgress) -> Void)?
+    private var requestContinuation: CheckedContinuation<Void, Never>?
+    private var finishContinuation: CheckedContinuation<TranslatedOverlayAnnotationElement, Never>?
+    private var didReceiveRequest = false
+
+    init(overlay: TranslatedOverlayAnnotationElement) {
+        self.overlay = overlay
+    }
+
+    func translatedOverlay(for image: CGImage) async throws -> TranslatedOverlayAnnotationElement {
+        try await translatedOverlay(for: image, progress: { _ in })
+    }
+
+    func translatedOverlay(
+        for image: CGImage,
+        progress: @escaping @MainActor (InlineSelectionTranslationProgress) -> Void
+    ) async throws -> TranslatedOverlayAnnotationElement {
+        didReceiveRequest = true
+        progressHandler = progress
+        requestContinuation?.resume()
+        requestContinuation = nil
+        return await withCheckedContinuation { continuation in
+            finishContinuation = continuation
+        }
+    }
+
+    func waitForRequest() async {
+        if didReceiveRequest {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            requestContinuation = continuation
+        }
+    }
+
+    func emitProgress(
+        completed: Int,
+        total: Int,
+        partialOverlay: TranslatedOverlayAnnotationElement? = nil
+    ) {
+        progressHandler?(
+            InlineSelectionTranslationProgress(
+                completed: completed,
+                total: total,
+                partialOverlay: partialOverlay
+            )
+        )
+    }
+
+    func finish() async {
+        finishContinuation?.resume(returning: overlay)
+        finishContinuation = nil
+        await Task.yield()
+    }
+}
+
+@MainActor
+private final class InlineTranslationTestClock {
+    var now: TimeInterval = 0
 }

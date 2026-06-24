@@ -1,5 +1,5 @@
 import XCTest
-import VoxFlowTextInsertion
+@testable import VoxFlowTextInsertion
 
 final class TextInsertionContractTests: XCTestCase {
     @MainActor
@@ -29,6 +29,29 @@ final class TextInsertionContractTests: XCTestCase {
         let inserter: any TextInserting = FastPasteTextInserter()
 
         XCTAssertTrue(inserter is FastPasteTextInserter)
+    }
+
+    @MainActor
+    func testFastPasteTextInserterDisablesSystemInteractionDuringTests() async {
+        let inserter = FastPasteTextInserter()
+
+        let result = await inserter.insert("final")
+
+        XCTAssertEqual(
+            result,
+            .unavailable(reason: "Fast paste system interaction is disabled during tests")
+        )
+    }
+
+    func testTextInsertionRuntimeEnvironmentDetectsXCTestFromXCTestArguments() {
+        XCTAssertTrue(
+            TextInsertionRuntimeEnvironment.isRunningUnderXCTest(
+                environment: [:],
+                arguments: ["/tmp/VoxFlowTextInsertionTests.xctest"],
+                bundlePaths: [],
+                classExists: { _ in false }
+            )
+        )
     }
 }
 

@@ -11,12 +11,32 @@ final class ShortcutManager: @unchecked Sendable {
     static let shared = ShortcutManager()
     static let defaultShortcutKeyCode: Int64 = 54
     static let defaultAgentComposeShortcutKeyCode: Int64 = 61
+    static let defaultPaletteShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.spaceKeyCode,
+        modifierMask: optionModifierMask
+    )
     static let defaultClipboardImageOCRShortcutKeyCode: Int64 = encodeShortcut(
         keyCode: HotKeyShortcutRouting.vKeyCode,
         modifierMask: commandModifierMask | shiftModifierMask
     )
     static let defaultScreenshotOCRShortcutKeyCode: Int64 = encodeShortcut(
         keyCode: HotKeyShortcutRouting.aKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
+    static let defaultSelectionActionShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.dKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
+    static let defaultSelectionTranslateShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.jKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
+    static let defaultSelectionSummarizeShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.kKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
+    static let defaultSelectionAgentShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.lKeyCode,
         modifierMask: commandModifierMask | shiftModifierMask
     )
     static let defaultLongPressThreshold: TimeInterval = 0.5
@@ -170,10 +190,20 @@ final class ShortcutManager: @unchecked Sendable {
         static let dictationShortcutKeyCode = "DictationShortcutKeyCode"
         static let agentComposeShortcutKeyCode = "AgentComposeShortcutKeyCode"
         static let agentComposeShortcutDisabled = "AgentComposeShortcutDisabled"
+        static let paletteShortcutKeyCode = "PaletteShortcutKeyCode"
+        static let paletteShortcutDisabled = "PaletteShortcutDisabled"
         static let clipboardImageOCRShortcutKeyCode = "ClipboardImageOCRShortcutKeyCode"
         static let clipboardImageOCRShortcutDisabled = "ClipboardImageOCRShortcutDisabled"
         static let screenshotOCRShortcutKeyCode = "ScreenshotOCRShortcutKeyCode"
         static let screenshotOCRShortcutDisabled = "ScreenshotOCRShortcutDisabled"
+        static let selectionActionShortcutKeyCode = "SelectionActionShortcutKeyCode"
+        static let selectionActionShortcutDisabled = "SelectionActionShortcutDisabled"
+        static let selectionTranslateShortcutKeyCode = "SelectionTranslateShortcutKeyCode"
+        static let selectionTranslateShortcutDisabled = "SelectionTranslateShortcutDisabled"
+        static let selectionSummarizeShortcutKeyCode = "SelectionSummarizeShortcutKeyCode"
+        static let selectionSummarizeShortcutDisabled = "SelectionSummarizeShortcutDisabled"
+        static let selectionAgentShortcutKeyCode = "SelectionAgentShortcutKeyCode"
+        static let selectionAgentShortcutDisabled = "SelectionAgentShortcutDisabled"
         static let migrationDone = "ShortcutManager_MigrationDone_V2"
     }
 
@@ -195,6 +225,11 @@ final class ShortcutManager: @unchecked Sendable {
 
     private func normalizeConflictingBindings() {
         AppLogger.general.debug("ShortcutManager normalize conflict check start")
+        normalizeAgentComposeConflict()
+        normalizeReservedWorkflowShortcutConflict()
+    }
+
+    private func normalizeAgentComposeConflict() {
         guard defaults.object(forKey: Keys.agentComposeShortcutKeyCode) != nil else {
             AppLogger.general.debug("ShortcutManager agent-compose shortcut missing, skip conflict normalization")
             return
@@ -212,6 +247,32 @@ final class ShortcutManager: @unchecked Sendable {
             AppLogger.general.warning("ShortcutManager removed duplicate agent-compose shortcut \(agentComposeKeyCode)")
             defaults.removeObject(forKey: Keys.agentComposeShortcutKeyCode)
         }
+    }
+
+    private func normalizeReservedWorkflowShortcutConflict() {
+        guard defaults.object(forKey: Keys.screenshotOCRShortcutKeyCode) != nil else {
+            return
+        }
+        let screenshotOCRKeyCode = Int64(defaults.integer(forKey: Keys.screenshotOCRShortcutKeyCode))
+        guard screenshotOCRKeyCode == Self.defaultClipboardImageOCRShortcutKeyCode else {
+            return
+        }
+
+        let clipboardImageOCRKeyCode: Int64
+        if defaults.object(forKey: Keys.clipboardImageOCRShortcutKeyCode) != nil {
+            clipboardImageOCRKeyCode = Int64(defaults.integer(forKey: Keys.clipboardImageOCRShortcutKeyCode))
+        } else {
+            clipboardImageOCRKeyCode = Self.defaultClipboardImageOCRShortcutKeyCode
+        }
+        let clipboardImageOCRDisabled = defaults.bool(forKey: Keys.clipboardImageOCRShortcutDisabled)
+        guard clipboardImageOCRDisabled || clipboardImageOCRKeyCode == Self.defaultClipboardImageOCRShortcutKeyCode else {
+            return
+        }
+
+        AppLogger.general.warning("ShortcutManager restored clipboard-image OCR default shortcut from screenshot OCR binding")
+        defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutDisabled)
+        defaults.removeObject(forKey: Keys.screenshotOCRShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.screenshotOCRShortcutDisabled)
     }
 
     // MARK: - Shortcut Key Code (Legacy)
@@ -284,6 +345,14 @@ final class ShortcutManager: @unchecked Sendable {
 
     func shortcutKeyCode(for workflowShortcut: HotKeyWorkflowShortcut) -> Int64? {
         switch workflowShortcut {
+        case .palette:
+            guard !defaults.bool(forKey: Keys.paletteShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.paletteShortcutKeyCode) != nil else {
+                return Self.defaultPaletteShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.paletteShortcutKeyCode))
         case .clipboardImageOCR:
             guard !defaults.bool(forKey: Keys.clipboardImageOCRShortcutDisabled) else {
                 return nil
@@ -300,6 +369,38 @@ final class ShortcutManager: @unchecked Sendable {
                 return Self.defaultScreenshotOCRShortcutKeyCode
             }
             return Int64(defaults.integer(forKey: Keys.screenshotOCRShortcutKeyCode))
+        case .selectionAction:
+            guard !defaults.bool(forKey: Keys.selectionActionShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.selectionActionShortcutKeyCode) != nil else {
+                return Self.defaultSelectionActionShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.selectionActionShortcutKeyCode))
+        case .selectionTranslate:
+            guard !defaults.bool(forKey: Keys.selectionTranslateShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.selectionTranslateShortcutKeyCode) != nil else {
+                return Self.defaultSelectionTranslateShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.selectionTranslateShortcutKeyCode))
+        case .selectionSummarize:
+            guard !defaults.bool(forKey: Keys.selectionSummarizeShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.selectionSummarizeShortcutKeyCode) != nil else {
+                return Self.defaultSelectionSummarizeShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.selectionSummarizeShortcutKeyCode))
+        case .selectionAgent:
+            guard !defaults.bool(forKey: Keys.selectionAgentShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.selectionAgentShortcutKeyCode) != nil else {
+                return Self.defaultSelectionAgentShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.selectionAgentShortcutKeyCode))
         case .cancel:
             return HotKeyShortcutRouting.escapeKeyCode
         }
@@ -324,6 +425,14 @@ final class ShortcutManager: @unchecked Sendable {
             "ShortcutManager setShortcutKeyCode workflowShortcut=\(logName(for: workflowShortcut)) keyCode=\(keyCode.map(String.init) ?? "nil")"
         )
         switch workflowShortcut {
+        case .palette:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.paletteShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.paletteShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.paletteShortcutDisabled)
+                defaults.removeObject(forKey: Keys.paletteShortcutKeyCode)
+            }
         case .clipboardImageOCR:
             if let keyCode {
                 defaults.set(false, forKey: Keys.clipboardImageOCRShortcutDisabled)
@@ -340,6 +449,38 @@ final class ShortcutManager: @unchecked Sendable {
                 defaults.set(true, forKey: Keys.screenshotOCRShortcutDisabled)
                 defaults.removeObject(forKey: Keys.screenshotOCRShortcutKeyCode)
             }
+        case .selectionAction:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.selectionActionShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.selectionActionShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.selectionActionShortcutDisabled)
+                defaults.removeObject(forKey: Keys.selectionActionShortcutKeyCode)
+            }
+        case .selectionTranslate:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.selectionTranslateShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.selectionTranslateShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.selectionTranslateShortcutDisabled)
+                defaults.removeObject(forKey: Keys.selectionTranslateShortcutKeyCode)
+            }
+        case .selectionSummarize:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.selectionSummarizeShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.selectionSummarizeShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.selectionSummarizeShortcutDisabled)
+                defaults.removeObject(forKey: Keys.selectionSummarizeShortcutKeyCode)
+            }
+        case .selectionAgent:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.selectionAgentShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.selectionAgentShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.selectionAgentShortcutDisabled)
+                defaults.removeObject(forKey: Keys.selectionAgentShortcutKeyCode)
+            }
         case .cancel:
             break
         }
@@ -352,10 +493,20 @@ final class ShortcutManager: @unchecked Sendable {
         shortPressBehavior = .toggleListening
         defaults.removeObject(forKey: Keys.agentComposeShortcutKeyCode)
         defaults.removeObject(forKey: Keys.agentComposeShortcutDisabled)
+        defaults.removeObject(forKey: Keys.paletteShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.paletteShortcutDisabled)
         defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutKeyCode)
         defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutDisabled)
         defaults.removeObject(forKey: Keys.screenshotOCRShortcutKeyCode)
         defaults.removeObject(forKey: Keys.screenshotOCRShortcutDisabled)
+        defaults.removeObject(forKey: Keys.selectionActionShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.selectionActionShortcutDisabled)
+        defaults.removeObject(forKey: Keys.selectionTranslateShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.selectionTranslateShortcutDisabled)
+        defaults.removeObject(forKey: Keys.selectionSummarizeShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.selectionSummarizeShortcutDisabled)
+        defaults.removeObject(forKey: Keys.selectionAgentShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.selectionAgentShortcutDisabled)
     }
 
     /// Checks if two actions have conflicting (identical) key bindings.
@@ -432,10 +583,20 @@ final class ShortcutManager: @unchecked Sendable {
 
     private func logName(for workflowShortcut: HotKeyWorkflowShortcut) -> String {
         switch workflowShortcut {
+        case .palette:
+            return "palette"
         case .clipboardImageOCR:
             return "clipboardImageOCR"
         case .screenshotOCR:
             return "screenshotOCR"
+        case .selectionAction:
+            return "selectionAction"
+        case .selectionTranslate:
+            return "selectionTranslate"
+        case .selectionSummarize:
+            return "selectionSummarize"
+        case .selectionAgent:
+            return "selectionAgent"
         case .cancel:
             return "cancel"
         }

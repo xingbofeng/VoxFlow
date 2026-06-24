@@ -47,6 +47,7 @@ VoxFlow（码上写）是一款原生 macOS 菜单栏语音输入工具。按住
 - App 测试目录：`Tests/VoxFlowAppTests/`
 - 用户数据目录：`~/Library/Application Support/VoxFlow/`
 - 主数据库：`voxflow.sqlite`
+- SQLite schema 快照：`Sources/VoxFlowApp/Persistence/AppDatabaseSchema.sql`
 - Keychain service：`com.voxflow.app.credentials`
 
 ## 项目结构
@@ -82,6 +83,13 @@ CONTEXT.md                      # 领域术语、模块边界表、ADR
 AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 Python 版 `vf-agent` / `agent-cli` 参考 helper 已删除；仓库内剩余 Python 文件只用于 ASR benchmark、架构检查或易错词 JiWER 交叉验证，不参与 App 运行时，也不作为用户 CLI 分发。
 
 ## 架构规则
+
+### SQLite 与迁移
+
+- 表结构快照统一维护在 `Sources/VoxFlowApp/Persistence/AppDatabaseSchema.sql`。
+- 新增或修改表、索引、列的默认建表定义时，先更新 `AppDatabaseSchema.sql`，再让 `AppDatabase.swift` 的 migration 通过 bundled schema 幂等执行。
+- 不再新增 `initialSchemaSQL`、`voiceCorrectionSQL` 这类内联建表常量；只有必要的数据回填、清理或一次性转换逻辑可以留在 migration 代码里。
+- SQLite repository 负责 CRUD SQL；schema SQL 负责结构定义，测试应覆盖 bundled schema 能创建/补齐对应表结构。
 
 ### 核心分层
 

@@ -99,13 +99,9 @@ final class VoiceHUDFeatureController {
         case .preparing:
             overlay.show()
             overlay.updateTranscription("准备识别...", isRefining: true)
-        case let .recording(action):
-            if action == .agentCompose {
-                overlay.showWithoutReset()
-            } else {
-                overlay.show()
-                overlay.updateTranscription("", isRefining: false)
-            }
+        case .recording:
+            overlay.show()
+            overlay.updateTranscription("", isRefining: false)
         case let .waitingForFinal(showIndicator):
             if showIndicator {
                 overlay.updateTranscription("正在识别...", isRefining: true)

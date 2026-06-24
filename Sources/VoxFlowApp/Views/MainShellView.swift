@@ -46,8 +46,8 @@ struct MainShellView: View {
                 }
             }
 
-            if let detail = homeViewModel.selectedDetail {
-                HomeHistoryDetailOverlay(viewModel: homeViewModel, detail: detail)
+            if let detail = homeViewModel.selectedHomeDetail {
+                HomeDetailOverlay(viewModel: homeViewModel, detail: detail)
             }
         }
         .frame(minWidth: 1_260, minHeight: 720)

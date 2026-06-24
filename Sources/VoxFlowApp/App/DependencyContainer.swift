@@ -25,6 +25,7 @@ struct DependencyContainer {
     let databaseQueue: DatabaseQueue
     let credentialStore: CredentialStore
     let historyRepository: any HistoryRepository
+    let assetRepository: any AssetRepository
     let styleRepository: any StyleRepository
     let asrProviderRepository: any ASRProviderRepository
     let llmProviderRepository: any LLMProviderRepository
@@ -48,6 +49,9 @@ struct DependencyContainer {
         try paths.ensureDirectories()
         let databaseQueue = try DatabaseQueue(connection: SQLiteConnection(url: paths.databaseURL))
         AppLogger.general.debug("DependencyContainer databaseQueue created")
+        #if DEBUG
+        try AppDatabase.bootstrapFromSnapshotIfEnabled(on: databaseQueue)
+        #endif
         try AppDatabase.migrator(clock: clock).migrate(databaseQueue)
         AppLogger.general.debug("DependencyContainer migration completed")
         try AppDatabase.ensureRequiredRuntimeTables(databaseQueue)
@@ -72,6 +76,9 @@ struct DependencyContainer {
         AppLogger.general.info("DependencyContainer.inMemory start")
         let databaseQueue = try DatabaseQueue(connection: .inMemory())
         AppLogger.general.debug("DependencyContainer in-memory DB queue created")
+        #if DEBUG
+        try AppDatabase.bootstrapFromSnapshotIfEnabled(on: databaseQueue)
+        #endif
         try AppDatabase.migrator(clock: clock).migrate(databaseQueue)
         AppLogger.general.debug("DependencyContainer in-memory migration completed")
         try AppDatabase.ensureRequiredRuntimeTables(databaseQueue)
@@ -104,6 +111,7 @@ struct DependencyContainer {
     ) throws -> DependencyContainer {
         AppLogger.general.debug("DependencyContainer.make initialize repositories")
         let historyRepository = SQLiteHistoryRepository(databaseQueue: databaseQueue)
+        let assetRepository = SQLiteAssetRepository(databaseQueue: databaseQueue)
         let styleRepository = SQLiteStyleRepository(databaseQueue: databaseQueue)
         try BuiltInStyleSeeder.seed(styleRepository: styleRepository, clock: clock)
         let asrProviderRepository = SQLiteASRProviderRepository(databaseQueue: databaseQueue)
@@ -142,6 +150,7 @@ struct DependencyContainer {
             databaseQueue: databaseQueue,
             credentialStore: credentialStore,
             historyRepository: historyRepository,
+            assetRepository: assetRepository,
             styleRepository: styleRepository,
             asrProviderRepository: asrProviderRepository,
             llmProviderRepository: llmProviderRepository,

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#fbfaf7">
-  <meta name="description" content="码上写 VoxFlow - 原生 macOS 菜单栏语音工作流，支持全局听写、截图 OCR、易错词和 AI Coding 助手 HUD 控制台。">
-  <meta property="og:title" content="码上写 VoxFlow - 把声音、截图和指令送回当前工作现场。">
-  <meta property="og:description" content="A native macOS menu-bar voice input app for dictation, screenshot OCR, personal corrections, and local coding-agent dispatch.">
+  <meta name="description" content="码上写 VoxFlow - 语音、截图、剪切板和 Agent 指令的 macOS 资产工作台，支持启动台、最近资产、全局听写、截图 OCR 和本地 Agent 调度。">
+  <meta property="og:title" content="码上写 VoxFlow - macOS 资产工作台与启动台。">
+  <meta property="og:description" content="A macOS asset workbench and launcher for voice, screenshots, clipboard history, and local coding-agent workflows.">
   <meta property="og:image" content="https://xingbofeng.github.io/VoxFlow/assets/voiceinput-logo.png">
-  <title>码上写 VoxFlow - 把声音、截图和指令送回当前工作现场。</title>
+  <title>码上写 VoxFlow - macOS 资产工作台与启动台。</title>
   <link rel="icon" href="assets/voiceinput-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260622-product-preview">
+  <link rel="stylesheet" href="styles.css?v=20260624-doc-shortcuts">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -24,6 +24,29 @@
       <img src="assets/voiceinput-logo.png" alt="">
       <span>码上写 <small>VoxFlow</small></span>
     </a>
+    <nav class="tab-bar" aria-label="主导航">
+      <button
+        class="tab-btn is-active"
+        type="button"
+        data-tab-btn="landing"
+        aria-selected="true"
+        data-i18n="tabHome"
+      >首页</button>
+      <button
+        class="tab-btn"
+        type="button"
+        data-tab-btn="quickstart"
+        aria-selected="false"
+        data-i18n="tabQuickStart"
+      >快速开始</button>
+      <button
+        class="tab-btn"
+        type="button"
+        data-tab-btn="shortcuts"
+        aria-selected="false"
+        data-i18n="tabShortcuts"
+      >快捷键</button>
+    </nav>
     <div class="nav-actions">
       <button class="language-switch" type="button" aria-label="Switch language">
         <span data-lang-label>EN</span>
@@ -37,99 +60,227 @@
   </header>
 
   <main id="top">
-    <section class="hero shell">
-      <div class="hero-copy-block">
-        <p class="eyebrow reveal" data-i18n="eyebrow">原生 macOS 语音工作流</p>
-        <h1 class="reveal">
-          <span data-i18n="headlineA">声音、截图、指令，</span>
-          <span data-i18n="headlineB">回到当前现场。</span>
-        </h1>
-        <p class="hero-copy reveal" data-i18n="heroCopy">
-          常驻菜单栏的输入层。按住说话即可写入当前光标，框选截图即可提取文字，喊出任务助手即可把任务投递给本地 Agent。
+    <section id="landing-page" class="tab-panel is-active" data-tab-id="landing">
+      <section class="hero shell">
+        <div class="hero-copy-block">
+          <p class="eyebrow reveal" data-i18n="eyebrow">macOS 资产工作台</p>
+          <h1 class="reveal">
+            <span data-i18n="headlineA">语音、截图、剪切板，</span>
+            <span data-i18n="headlineB">都进同一个工作台。</span>
+          </h1>
+          <p class="hero-copy reveal" data-i18n="heroCopy">
+            Option + Space 打开启动台，找回最近语音、截图和剪切板资产；按住说话、框选截图、复制内容都会沉淀为可搜索、可复用的本地历史。
+          </p>
+
+          <div class="hero-actions reveal">
+            <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.0/VoxFlow-1.6.0-macOS.dmg">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.9c0-2.5 2.1-3.7 2.2-3.8a4.8 4.8 0 0 0-3.8-2c-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.2 3.2-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-3-.9-3-4.1ZM14 5.4A4.6 4.6 0 0 0 15.1 2a4.7 4.7 0 0 0-3.1 1.6A4.4 4.4 0 0 0 10.8 7 3.9 3.9 0 0 0 14 5.4Z"/></svg>
+              <span>
+                <strong data-i18n="download">下载 macOS App</strong>
+                <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
+              </span>
+            </a>
+            <span class="release-note" data-i18n="releaseNote">v1.6.0 · 免费开源</span>
+          </div>
+        </div>
+        <div class="product-theater reveal" aria-label="码上写 VoxFlow app and HUD preview">
+          <img
+            class="product-visual-image"
+            data-hero-preview
+            src="assets/voiceinput-product-preview.svg"
+            width="1200"
+            height="820"
+            alt="码上写 VoxFlow 启动台、历史资产、语音、截图和 AI Coding 助手工作流预览"
+          >
+        </div>
+      </section>
+
+      <section class="flow-section shell">
+        <p class="section-label" data-i18n="flowLabel">工作流</p>
+        <h2 data-i18n="flowTitle">不切窗口，<br>也不打断思路。</h2>
+        <p data-i18n="flowCopy">启动台、最近资产、语音输入、截图 OCR、剪切板历史和 AI Coding 助手调度都贴着当前应用完成。码上写只在你需要它时出现，结束后把现场恢复原样。</p>
+      </section>
+
+      <section class="feature-grid shell">
+        <article class="feature feature-hud">
+          <div class="mini-hud" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <h3 data-i18n="featureNativeTitle">启动台先到最近资产</h3>
+          <p data-i18n="featureNativeCopy">Option + Space 打开 Raycast 风格入口，默认选中最近资产；上下键、回车和 Command + K 都服务键盘流。</p>
+        </article>
+        <article class="feature feature-correction">
+          <div class="correction-demo" aria-hidden="true">
+            <span>queue win</span><b>→</b><strong>Qwen</strong>
+            <span>g p t image two</span><b>→</b><strong>GPT Image 2</strong>
+            <span>易 错 词</span><b>→</b><strong>易错词</strong>
+          </div>
+          <h3 data-i18n="featureCorrectionTitle">首页变成资产管理</h3>
+          <p data-i18n="featureCorrectionCopy">首页展示累计资产、今日新增、来源分布和可复用内容；语音、截图、剪切板都能搜索、复制和删除。</p>
+        </article>
+        <article class="feature feature-window">
+          <div class="mini-window" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </div>
+          <h3 data-i18n="featureLanguageTitle">截图也能变成可用文本</h3>
+          <p data-i18n="featureLanguageCopy">剪贴板图片 OCR 直接粘贴识别结果；框选截图 OCR 打开结果面板，可继续翻译、总结或朗读。</p>
+        </article>
+        <article class="feature feature-command">
+          <div class="refine-demo" aria-hidden="true">
+            <span class="wrong">本地模型</span><span class="arrow">+</span><span class="right">云端 ASR</span>
+            <span class="wrong">离线</span><span class="arrow">·</span><span class="right">实时流式</span>
+          </div>
+          <h3 data-i18n="featureRefineTitle">把任务说给本地 Agent</h3>
+          <p data-i18n="featureRefineCopy">AI Coding 助手 HUD 控制台识别任务助手、展示确认状态，并把语音指令投递给已注册的 Codex、Claude、CodeBuddy 或终端 Agent。</p>
+        </article>
+      </section>
+
+      <section class="privacy shell">
+        <div class="privacy-mark" aria-hidden="true">⌘</div>
+        <div>
+          <p class="section-label" data-i18n="trustLabel">隐私</p>
+          <h2 data-i18n="privacyTitle">你的输入现场，<br>结束后恢复原样。</h2>
+        </div>
+        <p data-i18n="privacyCopy">资产历史保存在本机，剪切板资产只用于启动台和首页回看；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。</p>
+      </section>
+
+      <section class="final-cta shell">
+        <img src="assets/voiceinput-logo.png" alt="" loading="lazy">
+        <h2 data-i18n="ctaTitle">让下一句话、下一张截图、<br>下一次复制都进入工作台。</h2>
+        <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.0/VoxFlow-1.6.0-macOS.dmg">
+          <span>
+            <strong data-i18n="download">下载 macOS App</strong>
+            <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
+          </span>
+        </a>
+      </section>
+    </section>
+
+    <section id="quickstart-page" class="tab-panel" data-tab-id="quickstart" aria-hidden="true">
+      <section class="doc-section shell">
+        <p class="section-label" data-i18n="quickstartLabel">快速开始</p>
+        <h2 data-i18n="quickstartTitle">VoxFlow 快速开始</h2>
+        <p class="hero-copy doc-intro" data-i18n="quickstartIntro">
+          一页看懂 VoxFlow 的完整使用流：从权限、听写到任务发送，按下文按步骤完成日常工作。
         </p>
+        <section class="doc-step-grid">
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">1</span>
+            <div>
+              <h3 data-i18n="docStep1Title">准备：安装与权限</h3>
+              <p data-i18n="docStep1Body">第一次打开时按提示完成麦克风、辅助功能、屏幕录制和剪贴板权限。每项权限缺失都会在对应入口给出指引，补齐后重启后即可使用。</p>
+            </div>
+          </article>
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">2</span>
+            <div>
+              <h3 data-i18n="docStep2Title">语音输入：快速上手</h3>
+              <p data-i18n="docStep2Body">打开设置确认听写快捷键后按住触发键开始录音，结束后松开键，文本会自动回填到当前输入焦点。支持在输入法切换后稳定贴回，无需手动处理焦点。</p>
+            </div>
+          </article>
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">3</span>
+            <div>
+              <h3 data-i18n="docStep3Title">启动台与资产回看</h3>
+              <p data-i18n="docStep3Body">按下 `Option + Space` 打开启动台，最近语音/截图/剪贴板会作为首屏内容出现，可搜索、复制、删除并快速回放。</p>
+            </div>
+          </article>
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">4</span>
+            <div>
+              <h3 data-i18n="docStep4Title">截图与 OCR</h3>
+              <p data-i18n="docStep4Body">截取区域后可将图片 OCR 转成文本；在结果面板可继续进行翻译、总结、朗读。也可直接对剪贴板图片触发识别并粘贴结果。</p>
+            </div>
+          </article>
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">5</span>
+            <div>
+              <h3 data-i18n="docStep5Title">划词动作与助手</h3>
+              <p data-i18n="docStep5Body">选中文本后可通过快捷键触发动作卡（如翻译、总结、发给任务助手）。常用流程建议先打开结果再确认，避免误发。</p>
+            </div>
+          </article>
+          <article class="doc-step">
+            <span class="doc-step-index" aria-hidden="true">6</span>
+            <div>
+              <h3 data-i18n="docStep6Title">文件转写与笔记</h3>
+              <p data-i18n="docStep6Body">支持文件转写和笔记模块，转写结果会归类到资产历史，可再次搜索、复用，适合长文本复盘和会议记录整理。</p>
+            </div>
+          </article>
+        </section>
+      </section>
+    </section>
 
-        <div class="hero-actions reveal">
-          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.5.0/VoxFlow-1.5.0-macOS.dmg">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.9c0-2.5 2.1-3.7 2.2-3.8a4.8 4.8 0 0 0-3.8-2c-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.2 3.2-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-3-.9-3-4.1ZM14 5.4A4.6 4.6 0 0 0 15.1 2a4.7 4.7 0 0 0-3.1 1.6A4.4 4.4 0 0 0 10.8 7 3.9 3.9 0 0 0 14 5.4Z"/></svg>
-            <span>
-              <strong data-i18n="download">下载 macOS App</strong>
-              <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
+    <section id="shortcuts-page" class="tab-panel" data-tab-id="shortcuts" aria-hidden="true">
+      <section class="doc-section shell">
+        <p class="section-label" data-i18n="shortcutsLabel">快捷键</p>
+        <h2 data-i18n="docShortcutTitle">快捷键速查</h2>
+        <p class="doc-shortcut-intro" data-i18n="docShortcutIntro">
+          先看快捷键，先搭好习惯；你也可以在设置里改掉和恢复默认。
+        </p>
+        <ul class="doc-shortcut-list">
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys" aria-label="Option Space">
+              <span class="keycap">⌥</span>
+              <span class="keycap">Space</span>
             </span>
-          </a>
-          <span class="release-note" data-i18n="releaseNote">v1.5.0 · 免费开源</span>
-        </div>
-      </div>
-
-      <div class="product-theater reveal" aria-label="码上写 VoxFlow app and HUD preview">
-        <img
-          class="product-visual-image"
-          data-hero-preview
-          src="assets/voiceinput-product-preview.svg"
-          width="1200"
-          height="820"
-          alt="码上写 VoxFlow 语音、OCR、易错词和 AI Coding 助手 工作流预览"
-        >
-      </div>
-    </section>
-
-    <section class="flow-section shell">
-      <p class="section-label" data-i18n="flowLabel">工作流</p>
-      <h2 data-i18n="flowTitle">不切窗口，<br>也不打断思路。</h2>
-      <p data-i18n="flowCopy">语音输入、易错词修正、截图 OCR、任务助手和 AI Coding 助手 调度都贴着当前应用完成。码上写只在你需要它时出现，结束后把现场恢复原样。</p>
-    </section>
-
-    <section class="feature-grid shell">
-      <article class="feature feature-hud">
-        <div class="mini-hud" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <h3 data-i18n="featureNativeTitle">按住说话，松开写入</h3>
-        <p data-i18n="featureNativeCopy">底部 HUD 显示实时转写和声音状态；松手后文本回到当前光标，不抢焦点，不自动发送。</p>
-      </article>
-      <article class="feature feature-correction">
-        <div class="correction-demo" aria-hidden="true">
-          <span>queue win</span><b>→</b><strong>Qwen</strong>
-          <span>g p t image two</span><b>→</b><strong>GPT Image 2</strong>
-          <span>易 错 词</span><b>→</b><strong>易错词</strong>
-        </div>
-        <h3 data-i18n="featureCorrectionTitle">易错词让技术词更稳</h3>
-        <p data-i18n="featureCorrectionCopy">ASR final 和可选 LLM 之后，本地规则会修正常见误识别；后续编辑还能沉淀成候选规则。</p>
-      </article>
-      <article class="feature feature-window">
-        <div class="mini-window" aria-hidden="true">
-          <i></i><i></i><i></i>
-        </div>
-        <h3 data-i18n="featureLanguageTitle">截图也能变成可用文本</h3>
-        <p data-i18n="featureLanguageCopy">剪贴板图片 OCR 直接粘贴识别结果；框选截图 OCR 打开结果面板，可继续翻译、总结或朗读。</p>
-      </article>
-      <article class="feature feature-command">
-        <div class="refine-demo" aria-hidden="true">
-          <span class="wrong">本地模型</span><span class="arrow">+</span><span class="right">云端 ASR</span>
-          <span class="wrong">离线</span><span class="arrow">·</span><span class="right">实时流式</span>
-        </div>
-        <h3 data-i18n="featureRefineTitle">把任务说给本地 Agent</h3>
-        <p data-i18n="featureRefineCopy">AI Coding 助手 HUD 控制台识别任务助手、展示确认状态，并把语音指令投递给已注册的 Codex、Claude、CodeBuddy 或终端 Agent。</p>
-      </article>
-    </section>
-
-    <section class="privacy shell">
-      <div class="privacy-mark" aria-hidden="true">⌘</div>
-      <div>
-        <p class="section-label" data-i18n="trustLabel">隐私</p>
-        <h2 data-i18n="privacyTitle">你的输入现场，<br>结束后恢复原样。</h2>
-      </div>
-      <p data-i18n="privacyCopy">输入法临时切换后自动恢复，剪贴板完整还原。截图 OCR 和任务助手的视觉上下文不保存原图；本地模型让音频留在设备上，只有主动选择云端 ASR 时才会把录音发送给对应服务商。</p>
-    </section>
-
-    <section class="final-cta shell">
-      <img src="assets/voiceinput-logo.png" alt="" loading="lazy">
-      <h2 data-i18n="ctaTitle">让下一句话、下一张截图、<br>下一条指令直接进入工作流。</h2>
-      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.5.0/VoxFlow-1.5.0-macOS.dmg">
-        <span>
-          <strong data-i18n="download">下载 macOS App</strong>
-          <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
-        </span>
-      </a>
+            <span class="doc-shortcut-text" data-i18n="docShortcutLauncher">打开启动台，进入最近资产视图。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">D</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutSelection">划词动作（翻译/总结/发给任务助手）弹窗。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">J</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutTranslate">直接执行文本翻译。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">K</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutSummarize">直接执行文本总结。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">L</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutAgent">直接发给任务助手。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">A</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutScreenshotOcr">区域截图 OCR 面板。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap keycap-command">⌘</span>
+              <span class="keycap keycap-shift">⇧</span>
+              <span class="keycap">V</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutClipboardOcr">从剪贴板图片 OCR 并插入结果。</span>
+          </li>
+          <li class="doc-shortcut-item">
+            <span class="doc-shortcut-keys">
+              <span class="keycap" data-i18n="docShortcutDictationKey">听写触发键</span>
+            </span>
+            <span class="doc-shortcut-text" data-i18n="docShortcutDictation">在设置里设置你的听写热键。</span>
+          </li>
+        </ul>
+      </section>
     </section>
   </main>
 
@@ -138,6 +289,6 @@
     <span data-i18n="footer">Swift & AppKit · 开源</span>
   </footer>
 
-  <script src="script.js?v=20260622-product-preview"></script>
+  <script src="script.js?v=20260624-doc-shortcuts"></script>
 </body>
 </html>

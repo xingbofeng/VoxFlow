@@ -166,11 +166,11 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
         )
         let contents = try String(contentsOf: file, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("Qwen3-ASR"))
         XCTAssertTrue(contents.contains("Claude Code"))
         XCTAssertTrue(contents.contains("ocrCharacterCount"))
         XCTAssertTrue(contents.contains("candidateCount"))
-        XCTAssertTrue(contents.contains("shape_candidate"))
+        XCTAssertFalse(contents.contains("Qwen3-ASR"))
+        XCTAssertFalse(contents.contains("shape_candidate"))
         XCTAssertTrue(contents.contains("no_ocr_context"))
     }
 

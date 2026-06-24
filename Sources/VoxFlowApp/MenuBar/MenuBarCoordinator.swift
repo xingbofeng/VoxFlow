@@ -7,6 +7,7 @@ struct MenuBarActions {
     let selectLLMProvider: (String) -> Void
     let selectCapabilityModel: (CapabilityModelKind, String) -> Void
     let openWorkbench: () -> Void
+    let requestSelectionAction: () -> Void
     let openSettings: () -> Void
     let openGitHub: () -> Void
     let checkPermissions: () -> Void
@@ -19,6 +20,7 @@ struct MenuBarActions {
         selectLLMProvider: { _ in },
         selectCapabilityModel: { _, _ in },
         openWorkbench: {},
+        requestSelectionAction: {},
         openSettings: {},
         openGitHub: {},
         checkPermissions: {},
@@ -32,6 +34,7 @@ struct MenuBarActions {
         selectLLMProvider: @escaping (String) -> Void = { _ in },
         selectCapabilityModel: @escaping (CapabilityModelKind, String) -> Void = { _, _ in },
         openWorkbench: @escaping () -> Void,
+        requestSelectionAction: @escaping () -> Void = {},
         openSettings: @escaping () -> Void,
         openGitHub: @escaping () -> Void,
         checkPermissions: @escaping () -> Void,
@@ -43,6 +46,7 @@ struct MenuBarActions {
         self.selectLLMProvider = selectLLMProvider
         self.selectCapabilityModel = selectCapabilityModel
         self.openWorkbench = openWorkbench
+        self.requestSelectionAction = requestSelectionAction
         self.openSettings = openSettings
         self.openGitHub = openGitHub
         self.checkPermissions = checkPermissions
@@ -207,6 +211,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     private func addCommandItems() {
         AppLogger.general.debug("MenuBarCoordinator addCommandItems")
         menu.addItem(makeItem(title: "打开工作台", action: #selector(openWorkbench(_:))))
+        menu.addItem(makeItem(title: "划词动作", action: #selector(requestSelectionAction(_:))))
         menu.addItem(makeItem(title: "设置", action: #selector(openSettings(_:))))
         menu.addItem(makeItem(title: "GitHub", action: #selector(openGitHub(_:))))
         menu.addItem(.separator())
@@ -324,6 +329,11 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     @objc private func openWorkbench(_ sender: NSMenuItem) {
         AppLogger.general.info("MenuBarCoordinator openWorkbench")
         actions.openWorkbench()
+    }
+
+    @objc private func requestSelectionAction(_ sender: NSMenuItem) {
+        AppLogger.general.info("MenuBarCoordinator requestSelectionAction")
+        actions.requestSelectionAction()
     }
 
     @objc private func openSettings(_ sender: NSMenuItem) {

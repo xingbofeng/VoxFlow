@@ -17,6 +17,20 @@ final class SelectionOverlaySourceTests: XCTestCase {
         XCTAssertTrue(source.contains(".windowTargetSelected"))
     }
 
+    func testScrollCaptureSuppressesMouseMovedEventsLikeMacshot() throws {
+        let source = try String(contentsOf: sourceURL(), encoding: .utf8)
+        let method = try methodSource(
+            named: "setScrollCaptureActive",
+            endingBefore: "commitInlineTextEditing",
+            in: source
+        )
+
+        XCTAssertTrue(method.contains("scrollMouseMoveSuppressor.start()"))
+        XCTAssertTrue(method.contains("scrollMouseMoveSuppressor.stop()"))
+        XCTAssertTrue(source.contains("CGEventType.mouseMoved"))
+        XCTAssertTrue(source.contains("return nil"))
+    }
+
     func testInlineTextEscapeCancelsWholeSelectionOverlay() throws {
         let source = try String(contentsOf: sourceURL(), encoding: .utf8)
 
@@ -90,9 +104,15 @@ final class SelectionOverlaySourceTests: XCTestCase {
         endingBefore nextMethodName: String,
         in source: String
     ) throws -> Substring {
-        let methodStart = try XCTUnwrap(source.range(of: "private func \(methodName)"))
+        let methodStart = try XCTUnwrap(
+            source.range(of: "private func \(methodName)") ??
+                source.range(of: "func \(methodName)")
+        )
         let searchRange = methodStart.upperBound..<source.endIndex
-        let methodEnd = try XCTUnwrap(source.range(of: "private func \(nextMethodName)", range: searchRange))
+        let methodEnd = try XCTUnwrap(
+            source.range(of: "private func \(nextMethodName)", range: searchRange) ??
+                source.range(of: "func \(nextMethodName)", range: searchRange)
+        )
         return source[methodStart.lowerBound..<methodEnd.lowerBound]
     }
 }

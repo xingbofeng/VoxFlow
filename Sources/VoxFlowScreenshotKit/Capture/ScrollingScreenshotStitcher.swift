@@ -5,10 +5,10 @@ import Vision
 // GPLv3-scoped behavior attribution:
 // The scrolling screenshot stitching model is adapted from sw33tLie/macshot.
 // Source: https://github.com/sw33tLie/macshot
-// Upstream commit: 34c9999625cfe9e8999c00358b3c172dfc00380c
+// Upstream commit: b8ebcb454f957fda011821fbf9c104580592d135
 // License: GPLv3
 
-enum ScrollingScreenshotScrollDirection {
+public enum ScrollingScreenshotScrollDirection: Equatable, Sendable {
     case upward
     case downward
 }
@@ -32,17 +32,19 @@ public struct ScrollingScreenshotShiftDetectionConfiguration: Equatable, Sendabl
     }
 }
 
-public final class ScrollingScreenshotStitcher {
+public final class ScrollingScreenshotStitcher: @unchecked Sendable {
     public typealias ShiftDetector = (_ current: CGImage, _ previous: CGImage) -> Int?
     public typealias ShiftEstimator = (_ current: CGImage, _ previous: CGImage) -> ScrollingScreenshotShiftEstimate?
 
     private let shiftEstimator: ShiftEstimator?
     private(set) public var currentImage: CGImage?
     private(set) var lastScrollDirection: ScrollingScreenshotScrollDirection?
+    private var captureDirection: ScrollingScreenshotScrollDirection?
     private var previousFrame: CGImage?
     private var stickyTopRows = 0
     private var rightMarginColumns = 0
     private var hasDetectedExclusions = false
+    private var stitchedRowHashes: [UInt64] = []
 
     public init() {
         shiftEstimator = nil
@@ -68,9 +70,11 @@ public final class ScrollingScreenshotStitcher {
         currentImage = image
         previousFrame = image
         lastScrollDirection = nil
+        captureDirection = nil
         stickyTopRows = 0
         rightMarginColumns = 0
         hasDetectedExclusions = false
+        stitchedRowHashes = Self.rowHashes(in: image)
         return image
     }
 
@@ -80,7 +84,11 @@ public final class ScrollingScreenshotStitcher {
     }
 
     @discardableResult
-    public func appendAnalyzed(_ image: CGImage) -> ScrollingScreenshotStitchResult {
+    public func appendAnalyzed(
+        _ image: CGImage,
+        maxPixelHeight: Int? = nil,
+        preferredScrollDirection: ScrollingScreenshotScrollDirection? = nil
+    ) -> ScrollingScreenshotStitchResult {
         guard let previousFrame,
               let currentImage,
               image.width == previousFrame.width,
@@ -97,28 +105,98 @@ public final class ScrollingScreenshotStitcher {
             stickyTopRows = Self.detectStickyTopRows(current: image, previous: previousFrame)
             rightMarginColumns = Self.detectRightMarginColumns(current: image, previous: previousFrame)
             hasDetectedExclusions = true
+            stitchedRowHashes = Self.rowHashes(in: currentImage, excludedRightColumns: rightMarginColumns)
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_stitch_exclusions stickyTopRows=\(self.stickyTopRows, privacy: .public) rightMarginColumns=\(self.rightMarginColumns, privacy: .public) frame=\(ScrollingScreenshotDiagnostics.size(image), privacy: .public)"
+            )
         }
 
-        guard let estimate = estimateShift(current: image, previous: previousFrame), estimate.rows != 0 else {
+        guard let estimate = estimateShift(current: image, previous: previousFrame) else {
             return .skipped(.bandVoteDisagreed)
+        }
+        guard estimate.rows != 0 else {
+            return .skipped(.shiftTooSmall(0))
         }
 
         let shift = estimate.rows
-        let newRows = min(abs(shift), image.height)
+        let detectedRows = min(abs(shift), image.height)
+        let minimumStitchRows = max(1, image.height / 10)
+        guard detectedRows >= minimumStitchRows else {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_append_skip_tiny_shift rows=\(detectedRows, privacy: .public) min=\(minimumStitchRows, privacy: .public)"
+            )
+            return .skipped(.shiftTooSmall(shift))
+        }
+
+        let safeDetectedRows = max(1, detectedRows - 1)
+        let remainingRows = maxPixelHeight.map { max(0, $0 - currentImage.height) } ?? safeDetectedRows
+        let newRows = min(safeDetectedRows, remainingRows)
         guard newRows > 0 else {
             return .skipped(.shiftTooSmall(shift))
         }
 
-        let scrollDirection: ScrollingScreenshotScrollDirection = shift > 0 ? .downward : .upward
-        let stitched = shift > 0
-            ? Self.appendBottomRows(from: image, rowCount: newRows, to: currentImage)
-            : Self.prependTopRows(from: image, rowCount: newRows, to: currentImage)
+        let scrollDirection = preferredScrollDirection ?? Self.resolveScrollDirection(
+            current: image,
+            previous: previousFrame,
+            shiftedRows: detectedRows,
+            excludedTopRows: stickyTopRows,
+            excludedRightColumns: rightMarginColumns
+        ) ?? (shift > 0 ? .downward : .upward)
+        if let captureDirection, scrollDirection != captureDirection {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_append_skip_reverse locked=\(String(describing: captureDirection), privacy: .public) detected=\(String(describing: scrollDirection), privacy: .public) rows=\(newRows, privacy: .public)"
+            )
+            return .skipped(.duplicateFrame)
+        }
+        let newRowRange = scrollDirection == .downward
+            ? (image.height - newRows)..<image.height
+            : 0..<newRows
+        let newRowHashes = Self.rowHashes(
+            in: image,
+            rows: newRowRange,
+            excludedRightColumns: rightMarginColumns
+        )
+        if Self.containsContiguousSequence(newRowHashes, in: stitchedRowHashes) {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_append_skip_already_captured direction=\(String(describing: scrollDirection), privacy: .public) rows=\(newRows, privacy: .public)"
+            )
+            self.previousFrame = image
+            return .skipped(.duplicateFrame)
+        }
+        let duplicateBoundaryRows = switch scrollDirection {
+        case .downward:
+            Self.longestPrefixSuffixOverlap(prefix: newRowHashes, suffix: stitchedRowHashes)
+        case .upward:
+            Self.longestSuffixPrefixOverlap(suffix: newRowHashes, prefix: stitchedRowHashes)
+        }
+        let rowsToWrite = newRows - duplicateBoundaryRows
+        guard rowsToWrite > 0 else {
+            self.previousFrame = image
+            return .skipped(.duplicateFrame)
+        }
+        let rowHashesToWrite = scrollDirection == .downward
+            ? Array(newRowHashes.suffix(rowsToWrite))
+            : Array(newRowHashes.prefix(rowsToWrite))
+
+        let stitched = scrollDirection == .downward
+            ? Self.appendBottomRows(from: image, rowCount: rowsToWrite, to: currentImage)
+            : Self.prependTopRows(from: image, rowCount: rowsToWrite, to: currentImage)
         guard let stitched else {
             return .skipped(.shiftNotDetected)
         }
         self.currentImage = stitched
         self.previousFrame = image
         self.lastScrollDirection = scrollDirection
+        if captureDirection == nil {
+            captureDirection = scrollDirection
+        }
+        if rowHashesToWrite.isEmpty {
+            stitchedRowHashes = Self.rowHashes(in: stitched, excludedRightColumns: rightMarginColumns)
+        } else if scrollDirection == .downward {
+            stitchedRowHashes.append(contentsOf: rowHashesToWrite)
+        } else {
+            stitchedRowHashes.insert(contentsOf: rowHashesToWrite, at: 0)
+        }
         return .stitched(stitched, estimate: estimate)
     }
 
@@ -130,7 +208,8 @@ public final class ScrollingScreenshotStitcher {
             current: current,
             previous: previous,
             excludedTopRows: stickyTopRows,
-            excludedRightColumns: rightMarginColumns
+            excludedRightColumns: rightMarginColumns,
+            fallbackShiftDetector: Self.detectVerticalShift
         )
     }
 
@@ -156,18 +235,44 @@ public final class ScrollingScreenshotStitcher {
         configuration: ScrollingScreenshotShiftDetectionConfiguration = .init(),
         excludedTopRows: Int = 0,
         excludedRightColumns: Int = 0,
-        bandShiftDetector: ((_ bandIndex: Int, _ currentBand: CGImage, _ previousBand: CGImage) -> Int?)? = nil
+        bandShiftDetector: ((_ bandIndex: Int, _ currentBand: CGImage, _ previousBand: CGImage) -> Int?)? = nil,
+        fallbackShiftDetector: ((_ current: CGImage, _ previous: CGImage) -> Int?)? = nil
     ) -> ScrollingScreenshotShiftEstimate? {
         guard current.width == previous.width,
               current.height == previous.height else {
             return nil
         }
 
+        func fallbackEstimate() -> ScrollingScreenshotShiftEstimate? {
+            guard let rows = fallbackShiftDetector?(current, previous) else {
+                ScrollingScreenshotDiagnostics.logger.info(
+                    "scrolling_shift_fallback rows=nil min=\(configuration.minimumShiftRows, privacy: .public)"
+                )
+                return nil
+            }
+            guard abs(rows) >= configuration.minimumShiftRows else {
+                ScrollingScreenshotDiagnostics.logger.info(
+                    "scrolling_shift_fallback rows=\(rows, privacy: .public) rejected=minShift min=\(configuration.minimumShiftRows, privacy: .public)"
+                )
+                return nil
+            }
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_shift_fallback rows=\(rows, privacy: .public) accepted min=\(configuration.minimumShiftRows, privacy: .public)"
+            )
+            return ScrollingScreenshotShiftEstimate(
+                rows: rows,
+                agreeingBandCount: 1,
+                totalBandCount: 1,
+                excludedTopRows: excludedTopRows,
+                excludedRightColumns: excludedRightColumns
+            )
+        }
+
         let cropTop = min(max(0, excludedTopRows), current.height - 1)
         let cropRight = min(max(0, excludedRightColumns), current.width - 1)
         let cropWidth = current.width - cropRight
         let cropHeight = current.height - cropTop
-        guard cropWidth > 20, cropHeight > 20 else { return nil }
+        guard cropWidth > 20, cropHeight > 20 else { return fallbackEstimate() }
 
         let bandCount = min(configuration.bandCount, max(1, cropHeight / 20))
         let bandHeight = max(20, cropHeight / bandCount)
@@ -194,7 +299,12 @@ public final class ScrollingScreenshotStitcher {
             }
         }
 
-        guard totalBands > 0, offsets.first != nil else { return nil }
+        guard totalBands > 0, offsets.first != nil else {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_shift_bands_empty total=\(totalBands, privacy: .public) offsets=\(String(describing: offsets), privacy: .public)"
+            )
+            return fallbackEstimate()
+        }
         var bestGroup: [Int] = []
         for offset in offsets {
             let group = offsets.filter { abs($0 - offset) <= configuration.toleranceRows }
@@ -204,11 +314,25 @@ public final class ScrollingScreenshotStitcher {
         }
 
         let requiredAgreement = max(1, Int(ceil(Double(totalBands) * configuration.agreementRatio)))
-        guard bestGroup.count >= requiredAgreement else { return nil }
+        guard bestGroup.count >= requiredAgreement else {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_shift_bands_disagree total=\(totalBands, privacy: .public) required=\(requiredAgreement, privacy: .public) offsets=\(String(describing: offsets), privacy: .public) best=\(String(describing: bestGroup), privacy: .public)"
+            )
+            return fallbackEstimate()
+        }
 
         let average = Double(bestGroup.reduce(0, +)) / Double(bestGroup.count)
         let rows = Int(round(average))
-        guard abs(rows) >= configuration.minimumShiftRows else { return nil }
+        guard abs(rows) >= configuration.minimumShiftRows else {
+            ScrollingScreenshotDiagnostics.logger.info(
+                "scrolling_shift_bands_small rows=\(rows, privacy: .public) total=\(totalBands, privacy: .public) offsets=\(String(describing: offsets), privacy: .public) best=\(String(describing: bestGroup), privacy: .public)"
+            )
+            return fallbackEstimate()
+        }
+
+        ScrollingScreenshotDiagnostics.logger.info(
+            "scrolling_shift_bands_ok rows=\(rows, privacy: .public) total=\(totalBands, privacy: .public) required=\(requiredAgreement, privacy: .public) offsets=\(String(describing: offsets), privacy: .public) best=\(String(describing: bestGroup), privacy: .public)"
+        )
 
         return ScrollingScreenshotShiftEstimate(
             rows: rows,
@@ -222,7 +346,7 @@ public final class ScrollingScreenshotStitcher {
     public static func detectStickyTopRows(
         current: CGImage,
         previous: CGImage,
-        maxHeaderRatio: Double = 0.6,
+        maxHeaderRatio: Double = 0.2,
         minStableRows: Int = 10
     ) -> Int {
         guard current.width == previous.width,
@@ -250,6 +374,123 @@ public final class ScrollingScreenshotStitcher {
         }
 
         return stickyRows >= minStableRows ? stickyRows : 0
+    }
+
+    private static func resolveScrollDirection(
+        current: CGImage,
+        previous: CGImage,
+        shiftedRows: Int,
+        excludedTopRows: Int,
+        excludedRightColumns: Int
+    ) -> ScrollingScreenshotScrollDirection? {
+        guard shiftedRows > 0,
+              shiftedRows < current.height,
+              current.width == previous.width,
+              current.height == previous.height,
+              let currentData = rgbaData(for: current),
+              let previousData = rgbaData(for: previous) else {
+            return nil
+        }
+
+        let width = current.width
+        let height = current.height
+        let compareWidth = width - min(max(0, excludedRightColumns), max(0, width - 1))
+        let topRows = min(max(0, excludedTopRows), max(0, height - shiftedRows - 1))
+        let overlapRows = height - shiftedRows - topRows
+        guard compareWidth > 0, overlapRows > 0 else { return nil }
+
+        let downwardScore = overlapDifference(
+            currentData: currentData,
+            previousData: previousData,
+            width: width,
+            compareWidth: compareWidth,
+            currentStartY: topRows,
+            previousStartY: topRows + shiftedRows,
+            rows: overlapRows
+        )
+        let upwardScore = overlapDifference(
+            currentData: currentData,
+            previousData: previousData,
+            width: width,
+            compareWidth: compareWidth,
+            currentStartY: topRows + shiftedRows,
+            previousStartY: topRows,
+            rows: overlapRows
+        )
+
+        guard let downwardScore, let upwardScore else { return nil }
+        ScrollingScreenshotDiagnostics.logger.debug(
+            "scrolling_direction_score shift=\(shiftedRows, privacy: .public) down=\(downwardScore, privacy: .public) up=\(upwardScore, privacy: .public)"
+        )
+        return downwardScore <= upwardScore ? .downward : .upward
+    }
+
+    private static func overlapDifference(
+        currentData: Data,
+        previousData: Data,
+        width: Int,
+        compareWidth: Int,
+        currentStartY: Int,
+        previousStartY: Int,
+        rows: Int
+    ) -> Double? {
+        let bytesPerPixel = 4
+        let rowLength = width * bytesPerPixel
+        let rowStep = max(1, rows / 80)
+        let columnStep = max(1, compareWidth / 120)
+        var totalDifference: UInt64 = 0
+        var sampleCount: UInt64 = 0
+
+        for rowOffset in stride(from: 0, to: rows, by: rowStep) {
+            let currentY = currentStartY + rowOffset
+            let previousY = previousStartY + rowOffset
+            let currentRowOffset = currentY * rowLength
+            let previousRowOffset = previousY * rowLength
+            guard currentRowOffset + compareWidth * bytesPerPixel <= currentData.count,
+                  previousRowOffset + compareWidth * bytesPerPixel <= previousData.count else {
+                continue
+            }
+
+            for x in stride(from: 0, to: compareWidth, by: columnStep) {
+                let currentOffset = currentRowOffset + x * bytesPerPixel
+                let previousOffset = previousRowOffset + x * bytesPerPixel
+                totalDifference += UInt64(abs(Int(currentData[currentOffset]) - Int(previousData[previousOffset])))
+                totalDifference += UInt64(abs(Int(currentData[currentOffset + 1]) - Int(previousData[previousOffset + 1])))
+                totalDifference += UInt64(abs(Int(currentData[currentOffset + 2]) - Int(previousData[previousOffset + 2])))
+                sampleCount += 3
+            }
+        }
+
+        guard sampleCount > 0 else { return nil }
+        return Double(totalDifference) / Double(sampleCount)
+    }
+
+    private static func longestPrefixSuffixOverlap(
+        prefix candidate: [UInt64],
+        suffix existing: [UInt64]
+    ) -> Int {
+        guard !candidate.isEmpty, !existing.isEmpty else { return 0 }
+        let maxCount = min(candidate.count, existing.count)
+        for count in stride(from: maxCount, through: 1, by: -1) {
+            if Array(candidate.prefix(count)) == Array(existing.suffix(count)) {
+                return count
+            }
+        }
+        return 0
+    }
+
+    private static func longestSuffixPrefixOverlap(
+        suffix candidate: [UInt64],
+        prefix existing: [UInt64]
+    ) -> Int {
+        guard !candidate.isEmpty, !existing.isEmpty else { return 0 }
+        let maxCount = min(candidate.count, existing.count)
+        for count in stride(from: maxCount, through: 1, by: -1) {
+            if Array(candidate.suffix(count)) == Array(existing.prefix(count)) {
+                return count
+            }
+        }
+        return 0
     }
 
     public static func detectRightMarginColumns(
@@ -437,5 +678,65 @@ public final class ScrollingScreenshotStitcher {
             }
         }
         return compact
+    }
+
+    private static func rowHashes(
+        in image: CGImage,
+        rows requestedRows: Range<Int>? = nil,
+        excludedRightColumns: Int = 0
+    ) -> [UInt64] {
+        guard let data = rgbaData(for: image) else { return [] }
+        let bytesPerPixel = 4
+        let width = image.width
+        let height = image.height
+        let excludedColumns = min(max(0, excludedRightColumns), max(0, width - 1))
+        let compareWidth = width - excludedColumns
+        guard compareWidth > 0 else { return [] }
+
+        let rows = requestedRows ?? 0..<height
+        let lowerBound = min(max(0, rows.lowerBound), height)
+        let upperBound = min(max(lowerBound, rows.upperBound), height)
+        guard lowerBound < upperBound else { return [] }
+
+        let rowLength = width * bytesPerPixel
+        let compareBytes = compareWidth * bytesPerPixel
+        var hashes: [UInt64] = []
+        hashes.reserveCapacity(upperBound - lowerBound)
+
+        data.withUnsafeBytes { bytes in
+            guard let base = bytes.bindMemory(to: UInt8.self).baseAddress else { return }
+            for row in lowerBound..<upperBound {
+                var hash: UInt64 = 14_695_981_039_346_656_037
+                let rowBase = base.advanced(by: row * rowLength)
+                for offset in 0..<compareBytes {
+                    hash ^= UInt64(rowBase[offset])
+                    hash = hash &* 1_099_511_628_211
+                }
+                hashes.append(hash)
+            }
+        }
+        return hashes
+    }
+
+    private static func containsContiguousSequence(
+        _ needle: [UInt64],
+        in haystack: [UInt64]
+    ) -> Bool {
+        guard !needle.isEmpty, needle.count <= haystack.count else { return false }
+        if needle.count == 1 {
+            return haystack.contains(needle[0])
+        }
+
+        for start in 0...(haystack.count - needle.count) {
+            var matches = true
+            for offset in 0..<needle.count where haystack[start + offset] != needle[offset] {
+                matches = false
+                break
+            }
+            if matches {
+                return true
+            }
+        }
+        return false
     }
 }

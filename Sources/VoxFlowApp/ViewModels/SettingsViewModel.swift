@@ -5,13 +5,14 @@ import Foundation
 import ApplicationServices
 
 enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case vibeCoding
+    case selectionActions
+    case system
     case dictationModels
     case correctionModels
     case ttsModels
     case translationModels
-    case general
-    case vibeCoding
-    case system
     case dataPrivacy
 
     var id: String { rawValue }
@@ -20,6 +21,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "通用"
         case .vibeCoding: return "AI 编程"
+        case .selectionActions: return "划词动作"
         case .system: return "系统"
         case .dictationModels: return "语音识别"
         case .correctionModels: return "纠错与上下文"
@@ -33,6 +35,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "slider.horizontal.3"
         case .vibeCoding: return "terminal"
+        case .selectionActions: return "text.cursor"
         case .dictationModels: return "waveform"
         case .correctionModels: return "sparkles"
         case .ttsModels: return "speaker.wave.2"
@@ -240,7 +243,7 @@ enum SystemSettingsPane {
 final class SettingsViewModel: ObservableObject {
     private static let logger = AppLogger.general
 
-    @Published var selectedSection: SettingsSection = .dictationModels
+    @Published var selectedSection: SettingsSection = .general
     @Published private(set) var inputDevices: [AudioInputDevice] = []
     @Published private(set) var selectedInputDeviceID = ""
     @Published private(set) var shortcutKeyCode: Int64 = ShortcutManager.defaultShortcutKeyCode
@@ -248,8 +251,13 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var shortPressBehavior: ShortPressBehavior = .toggleListening
     @Published private(set) var dictationShortcutKeyCode: Int64? = nil
     @Published private(set) var agentComposeShortcutKeyCode: Int64? = nil
+    @Published private(set) var paletteShortcutKeyCode: Int64? = nil
     @Published private(set) var clipboardImageOCRShortcutKeyCode: Int64? = nil
     @Published private(set) var screenshotOCRShortcutKeyCode: Int64? = nil
+    @Published private(set) var selectionActionShortcutKeyCode: Int64? = nil
+    @Published private(set) var selectionTranslateShortcutKeyCode: Int64? = nil
+    @Published private(set) var selectionSummarizeShortcutKeyCode: Int64? = nil
+    @Published private(set) var selectionAgentShortcutKeyCode: Int64? = nil
     @Published private(set) var agentDispatchEnabled = false
     @Published private(set) var agentDispatchExactDirectEnabled = true
     @Published private(set) var agentDispatchMCPEnabled = true
@@ -356,8 +364,13 @@ final class SettingsViewModel: ObservableObject {
             shortPressBehavior = shortcutManager.shortPressBehavior
             dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
             agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+            paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
             clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
             screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+            selectionActionShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAction)
+            selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
+            selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
+            selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
             agentDispatchEnabled = try readBool(
                 SettingsKey.agentDispatchEnabled,
                 defaultValue: false
@@ -459,8 +472,13 @@ final class SettingsViewModel: ObservableObject {
         self.shortPressBehavior = shortPressBehavior
         self.dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         self.agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        self.paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
         self.clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
         self.screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+        self.selectionActionShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAction)
+        self.selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
+        self.selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
+        self.selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
         self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新快捷键设置"
@@ -484,8 +502,13 @@ final class SettingsViewModel: ObservableObject {
         shortcutKeyCode = shortcutManager.shortcutKeyCode
         dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
         clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
         screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+        selectionActionShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAction)
+        selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
+        selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
+        selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
         shortcutConflict = false
         lastError = nil
         lastActionMessage = "已更新\(action.displayName)快捷键"
@@ -506,8 +529,13 @@ final class SettingsViewModel: ObservableObject {
             throw SettingsViewModelError.conflictingBindings
         }
         shortcutManager.setShortcutKeyCode(keyCode, for: shortcut)
+        paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
         clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
         screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
+        selectionActionShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAction)
+        selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
+        selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
+        selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
         shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新\(shortcut.displayName) 快捷键"
@@ -1182,6 +1210,10 @@ final class SettingsViewModel: ObservableObject {
 
     private func wouldConflict(workflowShortcut: HotKeyWorkflowShortcut, keyCode: Int64?) -> Bool {
         guard let keyCode else { return false }
+        if workflowShortcut == .screenshotOCR,
+           keyCode == ShortcutManager.defaultClipboardImageOCRShortcutKeyCode {
+            return true
+        }
         let voiceShortcutKeyCodes = [
             shortcutManager.shortcutKeyCode(for: .dictation),
             shortcutManager.shortcutKeyCode(for: .agentCompose),
@@ -1193,7 +1225,15 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func currentWorkflowShortcutKeyCodes(excluding workflowShortcut: HotKeyWorkflowShortcut?) -> [Int64] {
-        let shortcuts: [HotKeyWorkflowShortcut] = [.clipboardImageOCR, .screenshotOCR]
+        let shortcuts: [HotKeyWorkflowShortcut] = [
+            .palette,
+            .clipboardImageOCR,
+            .screenshotOCR,
+            .selectionAction,
+            .selectionTranslate,
+            .selectionSummarize,
+            .selectionAgent,
+        ]
         return shortcuts.compactMap { shortcut in
             guard shortcut != workflowShortcut else { return nil }
             return shortcutManager.shortcutKeyCode(for: shortcut)
@@ -1303,10 +1343,20 @@ enum SettingsViewModelError: LocalizedError {
 private extension HotKeyWorkflowShortcut {
     var displayName: String {
         switch self {
+        case .palette:
+            return "启动台"
         case .clipboardImageOCR:
             return "剪贴板图片识别"
         case .screenshotOCR:
             return "截图文字识别"
+        case .selectionAction:
+            return "划词动作"
+        case .selectionTranslate:
+            return "划词翻译"
+        case .selectionSummarize:
+            return "划词总结"
+        case .selectionAgent:
+            return "发给任务助手"
         case .cancel:
             return "取消"
         }

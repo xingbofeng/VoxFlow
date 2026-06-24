@@ -35,9 +35,12 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("sidebarGroupTitle(\"应用设置\")"))
         XCTAssertTrue(source.contains("sidebarGroupTitle(\"模型配置\")"))
         XCTAssertTrue(source.contains("sidebarGroupTitle(\"数据与隐私\")"))
-        let modelGroupRange = try XCTUnwrap(source.range(of: "sidebarGroupTitle(\"模型配置\")"))
         let appGroupRange = try XCTUnwrap(source.range(of: "sidebarGroupTitle(\"应用设置\")"))
-        XCTAssertLessThan(modelGroupRange.lowerBound, appGroupRange.lowerBound)
+        let modelGroupRange = try XCTUnwrap(source.range(of: "sidebarGroupTitle(\"模型配置\")"))
+        XCTAssertLessThan(appGroupRange.lowerBound, modelGroupRange.lowerBound)
+        let generalButtonRange = try XCTUnwrap(source.range(of: "settingsSidebarButton(.general)"))
+        XCTAssertLessThan(appGroupRange.lowerBound, generalButtonRange.lowerBound)
+        XCTAssertLessThan(generalButtonRange.lowerBound, modelGroupRange.lowerBound)
         XCTAssertTrue(source.contains("private var dictationModelsSection"))
         XCTAssertTrue(source.contains("private var correctionModelsSection"))
         XCTAssertTrue(source.contains("private var ttsModelsSection"))
@@ -58,6 +61,8 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("仅将当前窗口提取的前 K 条候选词临时加入模型纠错提示词"))
         XCTAssertTrue(source.contains("title: \"剪贴板图片文字识别\""))
         XCTAssertTrue(source.contains("title: \"截图文字识别\""))
+        XCTAssertTrue(source.contains("title: \"启动台\""))
+        XCTAssertTrue(source.contains("subtitle: \"打开 VoxFlow Palette，搜索最近资产与命令\""))
         XCTAssertTrue(source.contains("workflowShortcutRow("))
         XCTAssertTrue(source.contains("viewModel.updateWorkflowShortcut(shortcut"))
         XCTAssertFalse(source.contains("settingsSidebarButton(.models)"))
@@ -92,6 +97,116 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertFalse(source.contains("title: \"任务助手别名\""))
         XCTAssertFalse(source.contains("title: \"HUD 控制台快捷键\""))
         XCTAssertFalse(source.contains("agent.status.rawValue"))
+    }
+
+    func testSelectionActionsSettingsPageLivesInApplicationSettingsGroup() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let appGroup = try XCTUnwrap(
+            source.range(
+                of: #"sidebarGroupTitle\("应用设置"\)[\s\S]*?sidebarGroupTitle\("数据与隐私"\)"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+        let vibeCoding = try XCTUnwrap(appGroup.range(of: "settingsSidebarButton(.vibeCoding)"))
+        let selectionActions = try XCTUnwrap(appGroup.range(of: "settingsSidebarButton(.selectionActions)"))
+
+        XCTAssertLessThan(vibeCoding.lowerBound, selectionActions.lowerBound)
+        XCTAssertTrue(source.contains("private var selectionActionsSection"))
+        XCTAssertTrue(source.contains("title: \"划词动作\""))
+        XCTAssertTrue(source.contains("subtitle: \"选中文本后翻译、总结或交给任务助手\""))
+        XCTAssertTrue(source.contains("title: \"启用方式\""))
+        XCTAssertTrue(source.contains("title: \"动作卡\""))
+        XCTAssertTrue(source.contains("title: \"结果面板\""))
+    }
+
+    func testSelectionActionShortcutIsConfiguredOnlyInsideSelectionActionsSection() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let section = try XCTUnwrap(
+            source.range(
+                of: #"private var selectionActionsSection:[\s\S]*?\n    private func selectionActionCapabilityRow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(section.contains("shortcut: .selectionAction"))
+        XCTAssertTrue(section.contains("shortcut: .selectionTranslate"))
+        XCTAssertTrue(section.contains("shortcut: .selectionSummarize"))
+        XCTAssertTrue(section.contains("shortcut: .selectionAgent"))
+        XCTAssertTrue(section.contains("title: \"启用方式\""))
+    }
+
+    func testGeneralShortcutSettingsIncludeDirectSelectionActions() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let section = try XCTUnwrap(
+            source.range(
+                of: #"private var generalSection:[\s\S]*?\n    private var vibeCodingSection"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(section.contains("title: \"划词动作快捷键\""))
+        XCTAssertTrue(section.contains("shortcut: .selectionAction"))
+        XCTAssertTrue(section.contains("shortcut: .selectionTranslate"))
+        XCTAssertTrue(section.contains("shortcut: .selectionSummarize"))
+        XCTAssertTrue(section.contains("shortcut: .selectionAgent"))
+    }
+
+    func testVoiceTriggerModeLivesWithVoiceShortcuts() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let section = try XCTUnwrap(
+            source.range(
+                of: #"private var generalSection:[\s\S]*?\n    private var vibeCodingSection"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        let voiceHeader = try XCTUnwrap(section.range(of: #"title: "语音快捷键""#))
+        let triggerMode = try XCTUnwrap(section.range(of: #"Text\("触发方式"\)"#, options: .regularExpression))
+        let workflowHeader = try XCTUnwrap(section.range(of: #"title: "工作流快捷键""#))
+
+        XCTAssertLessThan(voiceHeader.lowerBound, triggerMode.lowerBound)
+        XCTAssertLessThan(triggerMode.lowerBound, workflowHeader.lowerBound)
+    }
+
+    func testWorkflowShortcutRecordingIgnoresModifierOnlyEvents() throws {
+        let commandOnly = SettingsShortcutRecorder.encodedShortcutKeyCode(
+            eventType: .flagsChanged,
+            keyCode: UInt16(55),
+            modifierFlags: .command,
+            allowsPureModifierShortcut: false
+        )
+        XCTAssertNil(commandOnly)
+
+        let commandShiftJ = SettingsShortcutRecorder.encodedShortcutKeyCode(
+            eventType: .keyDown,
+            keyCode: UInt16(HotKeyShortcutRouting.jKeyCode),
+            modifierFlags: [.command, .shift],
+            allowsPureModifierShortcut: false
+        )
+        XCTAssertEqual(
+            commandShiftJ,
+            ShortcutManager.encodeShortcut(
+                keyCode: HotKeyShortcutRouting.jKeyCode,
+                modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+            )
+        )
+
+        let voiceCommand = SettingsShortcutRecorder.encodedShortcutKeyCode(
+            eventType: .flagsChanged,
+            keyCode: UInt16(55),
+            modifierFlags: .command,
+            allowsPureModifierShortcut: true
+        )
+        XCTAssertEqual(voiceCommand, 55)
     }
 
     func testVibeCodingStatusPageOwnsAgentsAliasEditingAndAutoRefresh() throws {

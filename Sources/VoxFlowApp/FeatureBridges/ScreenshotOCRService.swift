@@ -181,6 +181,8 @@ final class ScreenshotOCRService {
     private let speechService: any ScreenshotSpeechSpeaking
     private let clipboard: any ScreenshotImageClipboardWriting
     private let lastResultStore: any LastResultStoring
+    private let assetRepository: (any AssetRepository)?
+    private let assetImageDirectory: URL?
     private let isCancelled: @MainActor () -> Bool
 
     init(
@@ -190,6 +192,8 @@ final class ScreenshotOCRService {
         speechService: any ScreenshotSpeechSpeaking,
         clipboard: any ScreenshotImageClipboardWriting,
         lastResultStore: any LastResultStoring,
+        assetRepository: (any AssetRepository)? = nil,
+        assetImageDirectory: URL? = nil,
         isCancelled: @escaping @MainActor () -> Bool = { Task.isCancelled }
     ) {
         self.imageProvider = imageProvider
@@ -198,6 +202,8 @@ final class ScreenshotOCRService {
         self.speechService = speechService
         self.clipboard = clipboard
         self.lastResultStore = lastResultStore
+        self.assetRepository = assetRepository
+        self.assetImageDirectory = assetImageDirectory
         self.isCancelled = isCancelled
     }
 
@@ -237,6 +243,7 @@ final class ScreenshotOCRService {
             guard !isCancelled() else { return .captureCancelled }
             guard !text.isEmpty else {
                 AppLogger.general.warning("Screenshot OCR returned empty text")
+                saveScreenshotAsset(image: image, ocrText: nil)
                 return .recognized(
                     ScreenshotOCRResult(
                         originalText: "",
@@ -247,6 +254,7 @@ final class ScreenshotOCRService {
                 )
             }
             lastResultStore.setLastResultText(text)
+            saveScreenshotAsset(image: image, ocrText: text)
             AppLogger.general.debug("Screenshot OCR result saved to last result cache")
             return .recognized(
                 ScreenshotOCRResult(
@@ -257,6 +265,7 @@ final class ScreenshotOCRService {
             )
         } catch {
             AppLogger.general.warning("Screenshot OCR failed: \(error.localizedDescription)")
+            saveScreenshotAsset(image: image, ocrText: nil)
             return .ocrFailed(error.localizedDescription)
         }
     }
@@ -356,6 +365,60 @@ final class ScreenshotOCRService {
         }
     }
 
+    private func saveScreenshotAsset(image: CGImage, ocrText: String?) {
+        guard let assetRepository else { return }
+        let id = UUID().uuidString
+        let imagePath: String?
+        if let assetImageDirectory {
+            do {
+                try FileManager.default.createDirectory(
+                    at: assetImageDirectory,
+                    withIntermediateDirectories: true
+                )
+                imagePath = try ScreenshotImageStorage.save(
+                    image: image,
+                    id: id,
+                    directory: assetImageDirectory
+                )
+            } catch {
+                AppLogger.general.error("Failed to save screenshot asset image: \(error.localizedDescription)")
+                imagePath = nil
+            }
+        } else {
+            imagePath = nil
+        }
+
+        let now = Date()
+        let text = ocrText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let searchableText = text?.isEmpty == false ? text : nil
+        let asset = AssetItem(
+            id: "screenshot-\(id)",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (\(image.width)x\(image.height))",
+            previewText: searchableText,
+            text: searchableText,
+            rawText: nil,
+            imagePath: imagePath,
+            filePath: nil,
+            url: nil,
+            colorValue: nil,
+            sourceAppName: nil,
+            sourceAppBundleID: nil,
+            contentHash: "screenshot-\(id)",
+            captureReason: .screenshotCaptured,
+            metadataJSON: nil,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        do {
+            try assetRepository.save(asset)
+        } catch {
+            AppLogger.general.error("Failed to save screenshot asset: \(error.localizedDescription)")
+        }
+    }
+
     /// 按行翻译：优先走 JSON 模式（云 LLM），失败后逐行翻译，保证译文能回到对应 OCR bbox。
     static func translateLines(
         _ lines: [OCRLine],
@@ -399,6 +462,127 @@ final class ScreenshotOCRService {
         return await translateLinesIndividually(lines, translator: translator)
     }
 
+    static func lineTranslationEvents(
+        _ lines: [OCRLine],
+        translator: any PromptAwareTextRefining
+    ) -> AsyncStream<LineTransformEvent> {
+        AsyncStream<LineTransformEvent> { continuation in
+            let task = Task {
+                let supportsStructuredLineTranslation = (translator as? StructuredLineTranslationSupporting)?
+                    .supportsStructuredLineTranslation ?? true
+                if supportsStructuredLineTranslation {
+                    var completed: [Int: String] = [:]
+                    let batches = structuredLineTranslationBatches(for: lines)
+                    for (batchIndex, batch) in batches.enumerated() {
+                        let translated = await translateStructuredLineBatch(
+                            batch,
+                            translator: translator
+                        )
+                        for (index, text) in translated {
+                            completed[index] = text
+                        }
+                        continuation.yield(
+                            LineTransformEvent(
+                                completedLines: completed,
+                                totalLineCount: lines.count,
+                                isFinal: batchIndex == batches.indices.last
+                            )
+                        )
+                    }
+                    continuation.finish()
+                    return
+                }
+
+                var completed: [Int: String] = [:]
+                for (index, line) in lines.enumerated() {
+                    do {
+                        let translated = try await translator.refine(
+                            TextRefinementRequest(
+                                text: line.text,
+                                systemPrompt: Self.translationSystemPrompt,
+                                model: nil,
+                                temperature: 0.2
+                            )
+                        )
+                        completed[index] = translated.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } catch {
+                        AppLogger.general.warning("Screenshot line translation event failed index=\(index): \(error.localizedDescription)")
+                        completed[index] = ""
+                    }
+                    continuation.yield(
+                        LineTransformEvent(
+                            completedLines: completed,
+                            totalLineCount: lines.count,
+                            isFinal: index == lines.indices.last
+                        )
+                    )
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+
+    private static let structuredLineTranslationBatchSize = 8
+
+    private static func structuredLineTranslationBatches(
+        for lines: [OCRLine]
+    ) -> [[(index: Int, line: OCRLine)]] {
+        var batches: [[(index: Int, line: OCRLine)]] = []
+        var batch: [(index: Int, line: OCRLine)] = []
+        batch.reserveCapacity(structuredLineTranslationBatchSize)
+        for (index, line) in lines.enumerated() {
+            batch.append((index, line))
+            if batch.count == structuredLineTranslationBatchSize {
+                batches.append(batch)
+                batch = []
+                batch.reserveCapacity(structuredLineTranslationBatchSize)
+            }
+        }
+        if !batch.isEmpty {
+            batches.append(batch)
+        }
+        return batches
+    }
+
+    private static func translateStructuredLineBatch(
+        _ batch: [(index: Int, line: OCRLine)],
+        translator: any PromptAwareTextRefining
+    ) async -> [Int: String] {
+        let inputItems = batch.map { index, line in
+            "{\"index\":\(index),\"text\":\(Self.escapeJSON(line.text))}"
+        }.joined(separator: ",")
+        let inputJSON = "[\(inputItems)]"
+        let allowedIndexes = Set(batch.map(\.index))
+        do {
+            let raw = try await translator.refine(
+                TextRefinementRequest(
+                    text: inputJSON,
+                    systemPrompt: Self.lineTranslationSystemPrompt,
+                    model: nil,
+                    temperature: 0.2
+                )
+            )
+            if let parsed = Self.parseLineTranslationResponseMap(
+                raw,
+                allowedIndexes: allowedIndexes,
+                expectedItemCount: batch.count
+            ) {
+                return parsed
+            }
+            AppLogger.general.warning("Screenshot line translation batch parse failed, fallback to individual line mode")
+        } catch {
+            AppLogger.general.warning("Screenshot line translation batch error: \(error.localizedDescription)")
+        }
+
+        let translated = await translateLinesIndividually(batch.map(\.line), translator: translator)
+        return Dictionary(
+            uniqueKeysWithValues: zip(batch.map(\.index), translated)
+        )
+    }
+
     private static func translateLinesIndividually(
         _ lines: [OCRLine],
         translator: any PromptAwareTextRefining
@@ -438,6 +622,21 @@ final class ScreenshotOCRService {
 
     /// 解析 LLM 返回的 JSON 数组 [{index, translated}]，要求行数匹配。
     static func parseLineTranslationResponse(_ raw: String, expectedCount: Int) -> [String]? {
+        guard let parsed = parseLineTranslationResponseMap(
+            raw,
+            allowedIndexes: Set(0..<expectedCount),
+            expectedItemCount: expectedCount
+        ) else {
+            return nil
+        }
+        return (0..<expectedCount).map { parsed[$0] ?? "" }
+    }
+
+    private static func parseLineTranslationResponseMap(
+        _ raw: String,
+        allowedIndexes: Set<Int>,
+        expectedItemCount: Int
+    ) -> [Int: String]? {
         // 尝试解析为 [{index, translated}]
         struct TranslationItem: Decodable {
             let index: Int?
@@ -454,23 +653,18 @@ final class ScreenshotOCRService {
               let items = try? JSONDecoder().decode([TranslationItem].self, from: jsonData) else {
             return nil
         }
-        guard items.count == expectedCount else { return nil }
-        // 按 index 排序，index 缺失就按数组顺序
-        var result = [String?](repeating: nil, count: expectedCount)
-        var fallbackOrder = 0
+        guard items.count == expectedItemCount else { return nil }
+        var result: [Int: String] = [:]
         for item in items {
-            if let index = item.index, index >= 0 && index < expectedCount {
-                result[index] = item.translated ?? ""
-            } else {
-                while fallbackOrder < expectedCount && result[fallbackOrder] != nil {
-                    fallbackOrder += 1
-                }
-                if fallbackOrder < expectedCount {
-                    result[fallbackOrder] = item.translated ?? ""
-                }
+            guard let index = item.index,
+                  allowedIndexes.contains(index),
+                  result[index] == nil,
+                  let translated = item.translated else {
+                return nil
             }
+            result[index] = translated
         }
-        return result.compactMap { $0 }
+        return result.count == expectedItemCount ? result : nil
     }
 
     func translate(_ result: ScreenshotOCRResult) async -> ScreenshotOCRServiceOutcome {
@@ -509,6 +703,15 @@ final class ScreenshotOCRService {
         }
     }
 
+    func translationEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
+        transformEvents(
+            for: result,
+            operation: .translation,
+            systemPrompt: Self.translationSystemPrompt,
+            unavailableMessage: "请先在设置中配置模型"
+        )
+    }
+
     func summarize(_ result: ScreenshotOCRResult) async -> ScreenshotOCRServiceOutcome {
         guard let translator,
               translator.isEnabled,
@@ -542,6 +745,67 @@ final class ScreenshotOCRService {
         } catch {
             AppLogger.general.warning("Screenshot summary failed: \(error.localizedDescription)")
             return .summaryFailed(result, error.localizedDescription)
+        }
+    }
+
+    func summaryEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
+        transformEvents(
+            for: result,
+            operation: .summary,
+            systemPrompt: Self.summarySystemPrompt,
+            unavailableMessage: "请先在设置中配置模型"
+        )
+    }
+
+    private func transformEvents(
+        for result: ScreenshotOCRResult,
+        operation: TextTransformOperation,
+        systemPrompt: String,
+        unavailableMessage: String
+    ) -> AsyncStream<TextTransformEvent> {
+        guard let translator,
+              translator.isEnabled,
+              transformIsConfigured(translator, operation: operation) else {
+            return AsyncStream<TextTransformEvent> { continuation in
+                continuation.yield(.failed(message: unavailableMessage, partialText: ""))
+                continuation.finish()
+            }
+        }
+
+        let sourceEvents = TextTransformService(refiner: translator).events(
+            for: TextTransformRequest(
+                text: result.originalText,
+                operation: operation,
+                systemPrompt: systemPrompt,
+                temperature: 0.2
+            )
+        )
+        let lastResultStore = self.lastResultStore
+        return AsyncStream<TextTransformEvent> { continuation in
+            let task = Task { @MainActor in
+                for await event in sourceEvents {
+                    if case .completed(let text) = event {
+                        lastResultStore.setLastResultText(text)
+                    }
+                    continuation.yield(event)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+
+    private func transformIsConfigured(
+        _ refiner: any PromptAwareTextRefining,
+        operation: TextTransformOperation
+    ) -> Bool {
+        switch operation {
+        case .translation:
+            return Self.translationIsConfigured(refiner)
+        case .summary:
+            return summaryIsConfigured(refiner)
         }
     }
 
@@ -613,18 +877,28 @@ final class ScreenshotInlineSelectionTranslator: InlineSelectionTranslating {
     private let ocrRecognizer: any TextOCRRecognizing
     private let translator: (any PromptAwareTextRefining)?
     private let lastResultStore: any LastResultStoring
+    private let onLineTranslationEvent: ((LineTransformEvent) -> Void)?
 
     init(
         ocrRecognizer: any TextOCRRecognizing,
         translator: (any PromptAwareTextRefining)?,
-        lastResultStore: any LastResultStoring
+        lastResultStore: any LastResultStoring,
+        onLineTranslationEvent: ((LineTransformEvent) -> Void)? = nil
     ) {
         self.ocrRecognizer = ocrRecognizer
         self.translator = translator
         self.lastResultStore = lastResultStore
+        self.onLineTranslationEvent = onLineTranslationEvent
     }
 
     func translatedOverlay(for image: CGImage) async throws -> TranslatedOverlayAnnotationElement {
+        try await translatedOverlay(for: image, progress: { _ in })
+    }
+
+    func translatedOverlay(
+        for image: CGImage,
+        progress: @escaping @MainActor (InlineSelectionTranslationProgress) -> Void
+    ) async throws -> TranslatedOverlayAnnotationElement {
         let startedAt = Date()
         AppLogger.general.info("screenshot_inline_translation_started imageWidth=\(image.width) imageHeight=\(image.height)")
         let ocrLines: [OCRLine]
@@ -651,7 +925,23 @@ final class ScreenshotInlineSelectionTranslator: InlineSelectionTranslating {
         }
 
         AppLogger.general.info("screenshot_inline_translation_refine_started lineCount=\(ocrLines.count)")
-        let translatedLines = await ScreenshotOCRService.translateLines(ocrLines, translator: translator)
+        var completedLines: [Int: String] = [:]
+        let lineTranslationService = LineMappedTranslationService(translator: translator)
+        for await event in lineTranslationService.events(for: ocrLines) {
+            completedLines = event.completedLines
+            onLineTranslationEvent?(event)
+            progress(
+                InlineSelectionTranslationProgress(
+                    completed: event.completedLines.count,
+                    total: event.totalLineCount,
+                    partialOverlay: Self.translatedOverlay(
+                        from: event.completedLines,
+                        ocrLines: ocrLines
+                    )
+                )
+            )
+        }
+        let translatedLines = ocrLines.indices.map { completedLines[$0] ?? "" }
         guard !translatedLines.isEmpty else {
             AppLogger.general.error("screenshot_inline_translation_empty_result lineCount=\(ocrLines.count)")
             throw ScreenshotInlineTranslationError.emptyTranslation
@@ -665,6 +955,25 @@ final class ScreenshotInlineSelectionTranslator: InlineSelectionTranslating {
         }
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
         AppLogger.general.info("screenshot_inline_translation_completed lineCount=\(lines.count) durationMs=\(durationMs)")
+        return TranslatedOverlayAnnotationElement(lines: lines)
+    }
+
+    private static func translatedOverlay(
+        from completedLines: [Int: String],
+        ocrLines: [OCRLine]
+    ) -> TranslatedOverlayAnnotationElement? {
+        let lines = completedLines.keys.sorted().compactMap { index -> TranslatedOverlayAnnotationElement.Line? in
+            guard ocrLines.indices.contains(index) else {
+                return nil
+            }
+            return TranslatedOverlayAnnotationElement.Line(
+                bounds: ocrLines[index].boundingBox,
+                text: completedLines[index] ?? ""
+            )
+        }
+        guard !lines.isEmpty else {
+            return nil
+        }
         return TranslatedOverlayAnnotationElement(lines: lines)
     }
 }

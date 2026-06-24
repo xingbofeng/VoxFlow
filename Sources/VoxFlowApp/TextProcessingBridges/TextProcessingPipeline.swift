@@ -33,6 +33,70 @@ struct TextProcessingResult: Equatable, Sendable {
     }
 }
 
+struct ConservativeRefinementGuard: Sendable {
+    enum Decision: Equatable, Sendable {
+        case accept
+        case reject(String)
+    }
+
+    func validate(
+        raw: String,
+        refined: String,
+        temporaryHotwords: [String]
+    ) -> Decision {
+        let rawTrimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let refinedTrimmed = refined.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !refinedTrimmed.isEmpty else {
+            return .reject("empty")
+        }
+        guard !looksLikeExplanation(refinedTrimmed) else {
+            return .reject("explanation")
+        }
+        guard preservedTokens(in: rawTrimmed).allSatisfy({ refinedTrimmed.contains($0) }) else {
+            return .reject("protected_token_missing")
+        }
+        let introducedHotwords = temporaryHotwords.filter {
+            !rawTrimmed.localizedCaseInsensitiveContains($0)
+                && refinedTrimmed.localizedCaseInsensitiveContains($0)
+        }
+        guard introducedHotwords.count <= 1 else {
+            return .reject("too_many_hotwords")
+        }
+        return .accept
+    }
+
+    private func looksLikeExplanation(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixes = [
+            "修改说明", "说明：", "说明:", "以下是", "标题：", "标题:",
+            "我已", "已经帮你", "```", "# "
+        ]
+        return prefixes.contains { trimmed.hasPrefix($0) }
+    }
+
+    private func preservedTokens(in text: String) -> [String] {
+        let patterns = [
+            #"https?://[^\s，。！？、]+"#,
+            #"(?:^|[\s，。])/[A-Za-z0-9._~/%+-]+"#,
+            #"\b\d+(?:\.\d+)*\b"#,
+            #"`[^`]+`"#
+        ]
+        return patterns.flatMap { matches(pattern: $0, in: text) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func matches(pattern: String, in text: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return regex.matches(in: text, range: range).compactMap { match in
+            guard let swiftRange = Range(match.range, in: text) else { return nil }
+            return String(text[swiftRange])
+        }
+    }
+
+}
+
 struct TextProcessingTrace: Equatable, Codable, Sendable {
     var llm: LLMRefinementTrace? = nil
     var output: OutputDeliveryTrace? = nil
@@ -137,8 +201,8 @@ struct ContextBoostTrace: Equatable, Codable, Sendable {
         ContextBoostTrace(
             appName: appName,
             bundleID: bundleID,
-            hotwords: hotwords,
-            hotwordDetails: hotwordDetails.map { $0.safeForPersistence() },
+            hotwords: [],
+            hotwordDetails: [],
             source: source,
             ttlSeconds: ttlSeconds,
             ocrCharacterCount: ocrCharacterCount,
@@ -453,7 +517,9 @@ final class DefaultTextProcessingPipeline: TextProcessing {
 
         if refiner.isEnabled, refiner.isConfigured {
             do {
-                let contextBoostOutcome = await captureContextBoostIfNeeded(target: target)
+                let contextBoostOutcome = correctionContext?.isSecureField == true
+                    ? nil
+                    : await captureContextBoostIfNeeded(target: target)
                 let contextSnapshot = contextBoostOutcome?.snapshot
                 contextBoostTrace = contextTrace(from: contextBoostOutcome, target: target)
                 let prompt = await buildPrompt(
@@ -500,7 +566,17 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     promptMetadata = nil
                 }
                 let trimmedRefinedText = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                text = trimmedRefinedText.isEmpty ? text : trimmedRefinedText
+                let refinementDecision = ConservativeRefinementGuard().validate(
+                    raw: text,
+                    refined: trimmedRefinedText,
+                    temporaryHotwords: contextSnapshot?.hotwords.map(\.text) ?? []
+                )
+                switch refinementDecision {
+                case .accept:
+                    text = trimmedRefinedText
+                case .reject:
+                    warnings.append("llm_refinement_rejected")
+                }
                 llmProviderID = localLLMProviderID ?? (refiner as? any ActiveLLMProviderIdentifying)?.activeProviderID
                 styleID = promptMetadata?.styleID
                 trace = TextProcessingTrace(

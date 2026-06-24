@@ -23,12 +23,14 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     private let environment: any AppServiceProviding
     private let clipboardService: SystemClipboardService
-    private var imageCache: [String: NSImage] = [:]
+    private let imageCache = NSCache<NSString, NSImage>()
     private var hasLoaded = false
 
     init(environment: any AppServiceProviding, clipboardService: SystemClipboardService) {
         self.environment = environment
         self.clipboardService = clipboardService
+        imageCache.countLimit = 60
+        imageCache.totalCostLimit = 120 * 1024 * 1024
     }
 
     var totalPages: Int { max(1, Int(ceil(Double(totalRecords) / Double(pageSize)))) }
@@ -111,11 +113,15 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     func deleteRecord(id: String) {
         do {
+            let imagePath = try environment.screenshotRecordRepository.record(id: id)?.imagePath
             try environment.screenshotRecordRepository.softDelete(
                 id: id,
                 deletedAt: environment.clock.now
             )
-            imageCache.removeValue(forKey: id)
+            imageCache.removeObject(forKey: id as NSString)
+            if let imagePath {
+                try ScreenshotImageStorage.deleteImage(at: imagePath)
+            }
             load()
             lastActionMessage = "已删除"
         } catch {
@@ -146,7 +152,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
     }
 
     func loadImage(for record: ScreenshotRecord) -> NSImage? {
-        if let cached = imageCache[record.id] {
+        if let cached = imageCache.object(forKey: record.id as NSString) {
             return cached
         }
         guard let path = record.imagePath else {
@@ -154,7 +160,11 @@ final class ScreenshotRecordViewModel: ObservableObject {
         }
         let image = ScreenshotImageStorage.loadImage(at: path)
         if let image {
-            imageCache[record.id] = image
+            imageCache.setObject(
+                image,
+                forKey: record.id as NSString,
+                cost: max(1, Int(image.size.width * image.size.height * 4))
+            )
         }
         return image
     }

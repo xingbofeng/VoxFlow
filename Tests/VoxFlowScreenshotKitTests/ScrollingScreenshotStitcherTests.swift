@@ -14,7 +14,7 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
             [.cyan, .magenta],
             [.black, .white],
         ])
-        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in 1 })
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in -1 })
 
         _ = stitcher.start(with: first)
         let stitched = try XCTUnwrap(stitcher.append(second))
@@ -51,7 +51,7 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
             [.blue, .yellow],
             [.cyan, .magenta],
         ])
-        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in -1 })
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in 1 })
 
         _ = stitcher.start(with: first)
         let stitched = try XCTUnwrap(stitcher.append(second))
@@ -62,6 +62,224 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
         XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 1, in: stitched) }, [.blue, .yellow])
         XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 2, in: stitched) }, [.cyan, .magenta])
         XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 3, in: stitched) }, [.black, .white])
+    }
+
+    func testPreferredUpwardDirectionSkipsAlreadyCapturedReversalRows() throws {
+        let first = makeImage(rows: [
+            [.red, .green],
+            [.blue, .yellow],
+            [.cyan, .magenta],
+        ])
+        let reversalFrame = makeImage(rows: [
+            [.blue, .yellow],
+            [.cyan, .magenta],
+            [.black, .white],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in -1 })
+
+        _ = stitcher.start(with: first)
+        let result = stitcher.appendAnalyzed(
+            reversalFrame,
+            preferredScrollDirection: .upward
+        )
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .duplicateFrame)
+        XCTAssertEqual(stitcher.currentImage?.height, 3)
+    }
+
+    func testScrollingBackToAlreadyCapturedRowsDoesNotGrowImage() throws {
+        let first = makeImage(rows: [
+            [.red, .green],
+            [.blue, .yellow],
+            [.cyan, .magenta],
+        ])
+        let scrolledDown = makeImage(rows: [
+            [.blue, .yellow],
+            [.cyan, .magenta],
+            [.black, .white],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in -1 })
+
+        _ = stitcher.start(with: first)
+        let stitched = try XCTUnwrap(stitcher.append(scrolledDown))
+        XCTAssertEqual(stitched.height, 4)
+
+        let result = stitcher.appendAnalyzed(
+            first,
+            preferredScrollDirection: .upward
+        )
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .duplicateFrame)
+        XCTAssertEqual(stitcher.currentImage?.height, 4)
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 0, in: stitched) }, [.red, .green])
+    }
+
+    func testScrollingBackToAlreadyCapturedRowsDoesNotGrowImageWithoutPreferredDirection() throws {
+        let first = makeImage(rows: [
+            [.red, .green],
+            [.blue, .yellow],
+            [.cyan, .magenta],
+        ])
+        let scrolledDown = makeImage(rows: [
+            [.blue, .yellow],
+            [.cyan, .magenta],
+            [.black, .white],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in -1 })
+
+        _ = stitcher.start(with: first)
+        let stitched = try XCTUnwrap(stitcher.append(scrolledDown))
+        XCTAssertEqual(stitched.height, 4)
+
+        let result = stitcher.appendAnalyzed(first)
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .duplicateFrame)
+        XCTAssertEqual(stitcher.currentImage?.height, 4)
+    }
+
+    func testReverseScrollAfterInitialDownwardCaptureDoesNotPrependTopRows() throws {
+        let initial = makeImage(rows: [
+            [.red, .red],
+            [.green, .green],
+            [.blue, .blue],
+        ])
+        let scrolledDown = makeImage(rows: [
+            [.green, .green],
+            [.blue, .blue],
+            [.yellow, .yellow],
+        ])
+        let reverseScrolledAboveInitial = makeImage(rows: [
+            [.black, .black],
+            [.red, .red],
+            [.green, .green],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { current, _ in
+            current.dataProvider?.data == scrolledDown.dataProvider?.data ? -1 : 1
+        })
+
+        _ = stitcher.start(with: initial)
+        let stitchedDown = try XCTUnwrap(
+            stitcher.appendAnalyzed(
+                scrolledDown,
+                preferredScrollDirection: .downward
+            ).image
+        )
+        XCTAssertEqual(stitchedDown.height, 4)
+
+        let result = stitcher.appendAnalyzed(
+            reverseScrolledAboveInitial,
+            preferredScrollDirection: .upward
+        )
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .duplicateFrame)
+        XCTAssertEqual(stitcher.currentImage?.height, 4)
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 0, in: stitchedDown) }, [.red, .red])
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 3, in: stitchedDown) }, [.yellow, .yellow])
+    }
+
+    func testReverseRejectedFrameDoesNotBecomeBaselineForResumedForwardScroll() throws {
+        let initial = makeImage(rows: [
+            [.red, .red],
+            [.green, .green],
+            [.blue, .blue],
+        ])
+        let scrolledDown = makeImage(rows: [
+            [.green, .green],
+            [.blue, .blue],
+            [.yellow, .yellow],
+        ])
+        let reverseFrame = initial
+        let resumedDown = makeImage(rows: [
+            [.blue, .blue],
+            [.yellow, .yellow],
+            [.white, .white],
+        ])
+        var comparedResumedFrameAgainstAcceptedFrame = false
+        let stitcher = ScrollingScreenshotStitcher(shiftEstimator: { current, previous in
+            if current.dataProvider?.data == scrolledDown.dataProvider?.data,
+               previous.dataProvider?.data == initial.dataProvider?.data {
+                return ScrollingScreenshotShiftEstimate(rows: -1, agreeingBandCount: 1, totalBandCount: 1)
+            }
+            if current.dataProvider?.data == reverseFrame.dataProvider?.data,
+               previous.dataProvider?.data == scrolledDown.dataProvider?.data {
+                return ScrollingScreenshotShiftEstimate(rows: 1, agreeingBandCount: 1, totalBandCount: 1)
+            }
+            if current.dataProvider?.data == resumedDown.dataProvider?.data,
+               previous.dataProvider?.data == scrolledDown.dataProvider?.data {
+                comparedResumedFrameAgainstAcceptedFrame = true
+                return ScrollingScreenshotShiftEstimate(rows: -1, agreeingBandCount: 1, totalBandCount: 1)
+            }
+            return nil
+        })
+
+        _ = stitcher.start(with: initial)
+        let stitchedDown = try XCTUnwrap(
+            stitcher.appendAnalyzed(
+                scrolledDown,
+                preferredScrollDirection: .downward
+            ).image
+        )
+        XCTAssertEqual(stitchedDown.height, 4)
+
+        let reverseResult = stitcher.appendAnalyzed(
+            reverseFrame,
+            preferredScrollDirection: .upward
+        )
+        let resumedResult = stitcher.appendAnalyzed(
+            resumedDown,
+            preferredScrollDirection: .downward
+        )
+
+        XCTAssertNil(reverseResult.image)
+        XCTAssertEqual(reverseResult.failureReason, .duplicateFrame)
+        XCTAssertTrue(comparedResumedFrameAgainstAcceptedFrame)
+        XCTAssertEqual(resumedResult.image?.height, 5)
+        XCTAssertEqual(stitcher.currentImage?.height, 5)
+    }
+
+    func testReverseScrollAfterInitialUpwardCaptureDoesNotAppendBottomRows() throws {
+        let initial = makeImage(rows: [
+            [.green, .green],
+            [.blue, .blue],
+            [.yellow, .yellow],
+        ])
+        let scrolledUp = makeImage(rows: [
+            [.red, .red],
+            [.green, .green],
+            [.blue, .blue],
+        ])
+        let reverseScrolledPastOriginalBottom = makeImage(rows: [
+            [.blue, .blue],
+            [.yellow, .yellow],
+            [.white, .white],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { current, _ in
+            current.dataProvider?.data == scrolledUp.dataProvider?.data ? 1 : -1
+        })
+
+        _ = stitcher.start(with: initial)
+        let stitchedUp = try XCTUnwrap(
+            stitcher.appendAnalyzed(
+                scrolledUp,
+                preferredScrollDirection: .upward
+            ).image
+        )
+        XCTAssertEqual(stitchedUp.height, 4)
+
+        let result = stitcher.appendAnalyzed(
+            reverseScrolledPastOriginalBottom,
+            preferredScrollDirection: .downward
+        )
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .duplicateFrame)
+        XCTAssertEqual(stitcher.currentImage?.height, 4)
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 0, in: stitchedUp) }, [.red, .red])
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 3, in: stitchedUp) }, [.yellow, .yellow])
     }
 
     func testDefaultShiftDetectorReportsPositiveRowsForDownwardScroll() throws {
@@ -128,6 +346,32 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
         XCTAssertNil(estimate)
     }
 
+    func testBandVotedShiftDetectorFallsBackToWholeFrameOffsetWhenBandsDisagree() throws {
+        let first = makePatternImage(width: 80, height: 150)
+        let second = makePatternImage(width: 80, height: 150)
+        let estimate = try XCTUnwrap(
+            ScrollingScreenshotStitcher.detectVerticalShiftEstimate(
+                current: second,
+                previous: first,
+                configuration: .init(bandCount: 5, agreementRatio: 0.75, toleranceRows: 1, minimumShiftRows: 3),
+                bandShiftDetector: { band, _, _ in
+                    switch band {
+                    case 0: return 10
+                    case 1: return -8
+                    case 2: return 3
+                    case 3: return 21
+                    default: return nil
+                    }
+                },
+                fallbackShiftDetector: { _, _ in 12 }
+            )
+        )
+
+        XCTAssertEqual(estimate.rows, 12)
+        XCTAssertEqual(estimate.agreeingBandCount, 1)
+        XCTAssertEqual(estimate.totalBandCount, 1)
+    }
+
     func testAppendReturnsSkippedWhenBandVoteDisagrees() {
         let first = makePatternImage(width: 80, height: 150)
         let second = makeImage(width: 80, height: 150) { x, y in
@@ -147,6 +391,91 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
 
         XCTAssertNil(result.image)
         XCTAssertEqual(result.failureReason, .bandVoteDisagreed)
+    }
+
+    func testAppendClassifiesZeroShiftAsNoMovement() {
+        let first = makePatternImage(width: 80, height: 150)
+        let second = makeImage(width: 80, height: 150) { x, y in
+            RGBA(
+                red: UInt8((x * 19 + y * 7) % 255),
+                green: UInt8((x * 3 + y * 17) % 255),
+                blue: UInt8((x * 11 + y * 23) % 255),
+                alpha: 255
+            )
+        }
+        let stitcher = ScrollingScreenshotStitcher(
+            shiftEstimator: { _, _ in
+                ScrollingScreenshotShiftEstimate(rows: 0, agreeingBandCount: 5, totalBandCount: 5)
+            }
+        )
+
+        _ = stitcher.start(with: first)
+        let result = stitcher.appendAnalyzed(second)
+
+        XCTAssertNil(result.image)
+        XCTAssertEqual(result.failureReason, .shiftTooSmall(0))
+    }
+
+    func testTinyShiftDoesNotAdvancePreviousFrameUntilOffsetAccumulates() throws {
+        let first = makePatternImage(width: 2, height: 20)
+        let tinyShift = makeImage(width: 2, height: 20) { x, y in
+            RGBA(
+                red: UInt8((x * 31 + y * 7 + 5) % 255),
+                green: UInt8((x * 13 + y * 11 + 5) % 255),
+                blue: UInt8((x * 17 + y * 19 + 5) % 255),
+                alpha: 255
+            )
+        }
+        let accumulatedShift = makeImage(width: 2, height: 20) { x, y in
+            RGBA(
+                red: UInt8((x * 31 + y * 7 + 11) % 255),
+                green: UInt8((x * 13 + y * 11 + 11) % 255),
+                blue: UInt8((x * 17 + y * 19 + 11) % 255),
+                alpha: 255
+            )
+        }
+        var comparedAccumulatedShiftAgainstFirst = false
+        let stitcher = ScrollingScreenshotStitcher(shiftEstimator: { current, previous in
+            if current.dataProvider?.data == tinyShift.dataProvider?.data {
+                return ScrollingScreenshotShiftEstimate(rows: 1, agreeingBandCount: 1, totalBandCount: 1)
+            }
+            if current.dataProvider?.data == accumulatedShift.dataProvider?.data,
+               previous.dataProvider?.data == first.dataProvider?.data {
+                comparedAccumulatedShiftAgainstFirst = true
+                return ScrollingScreenshotShiftEstimate(rows: 2, agreeingBandCount: 1, totalBandCount: 1)
+            }
+            return ScrollingScreenshotShiftEstimate(rows: 1, agreeingBandCount: 1, totalBandCount: 1)
+        })
+
+        _ = stitcher.start(with: first)
+        let tinyResult = stitcher.appendAnalyzed(tinyShift, preferredScrollDirection: .downward)
+        let accumulatedResult = stitcher.appendAnalyzed(accumulatedShift, preferredScrollDirection: .downward)
+
+        XCTAssertNil(tinyResult.image)
+        XCTAssertEqual(tinyResult.failureReason, .shiftTooSmall(1))
+        XCTAssertTrue(comparedAccumulatedShiftAgainstFirst)
+        XCTAssertEqual(accumulatedResult.image?.height, 21)
+    }
+
+    func testSuccessfulStitchKeepsOneRowOverlapAtBoundary() throws {
+        let first = makeImage(rows: [
+            [.red, .red],
+            [.green, .green],
+            [.blue, .blue],
+        ])
+        let second = makeImage(rows: [
+            [.blue, .blue],
+            [.yellow, .yellow],
+            [.white, .white],
+        ])
+        let stitcher = ScrollingScreenshotStitcher(shiftDetector: { _, _ in 2 })
+
+        _ = stitcher.start(with: first)
+        let result = stitcher.appendAnalyzed(second, preferredScrollDirection: .downward)
+        let stitched = try XCTUnwrap(result.image)
+
+        XCTAssertEqual(stitched.height, 4)
+        XCTAssertEqual((0..<2).map { pixel(atX: $0, y: 3, in: stitched) }, [.white, .white])
     }
 
     func testDetectStickyHeaderRowsFindsStableTopRegion() {
@@ -171,6 +500,32 @@ final class ScrollingScreenshotStitcherTests: XCTestCase {
         )
 
         XCTAssertEqual(rows, 2)
+    }
+
+    func testDetectStickyHeaderRowsUsesConservativeDefaultLimit() {
+        let previous = makeImage(width: 12, height: 100) { x, y in
+            y < 60 ? .white : RGBA(
+                red: UInt8((x * 11 + y * 3) % 255),
+                green: UInt8((x * 5 + y * 7) % 255),
+                blue: UInt8((x * 13 + y * 17) % 255),
+                alpha: 255
+            )
+        }
+        let current = makeImage(width: 12, height: 100) { x, y in
+            y < 60 ? .white : RGBA(
+                red: UInt8((x * 19 + y * 23) % 255),
+                green: UInt8((x * 29 + y * 31) % 255),
+                blue: UInt8((x * 37 + y * 41) % 255),
+                alpha: 255
+            )
+        }
+
+        let rows = ScrollingScreenshotStitcher.detectStickyTopRows(
+            current: current,
+            previous: previous
+        )
+
+        XCTAssertLessThanOrEqual(rows, 20)
     }
 
     func testDetectRightMarginColumnsFindsChangingScrollbarRegion() {

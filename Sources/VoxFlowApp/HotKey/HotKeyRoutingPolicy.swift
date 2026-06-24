@@ -25,8 +25,13 @@ private enum HotKeyRoutingPolicyLogger {
 }
 
 enum HotKeyWorkflowShortcut: Equatable {
+    case palette
     case clipboardImageOCR
     case screenshotOCR
+    case selectionAction
+    case selectionTranslate
+    case selectionSummarize
+    case selectionAgent
     case cancel
 }
 
@@ -69,14 +74,24 @@ enum HotKeyRouter {
         dictationKeyCode: Int64?,
         agentComposeKeyCode: Int64?,
         agentDispatchKeyCode: Int64? = nil,
+        paletteKeyCode: Int64? = ShortcutManager.defaultPaletteShortcutKeyCode,
         clipboardImageOCRKeyCode: Int64? = ShortcutManager.defaultClipboardImageOCRShortcutKeyCode,
-        screenshotOCRKeyCode: Int64? = ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        screenshotOCRKeyCode: Int64? = ShortcutManager.defaultScreenshotOCRShortcutKeyCode,
+        selectionActionKeyCode: Int64? = ShortcutManager.defaultSelectionActionShortcutKeyCode,
+        selectionTranslateKeyCode: Int64? = ShortcutManager.defaultSelectionTranslateShortcutKeyCode,
+        selectionSummarizeKeyCode: Int64? = ShortcutManager.defaultSelectionSummarizeShortcutKeyCode,
+        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode
     ) -> HotKeyRouterResult {
         if let workflowShortcut = HotKeyShortcutRouting.workflowShortcut(
             keyCode: keyCode,
             flags: flags,
+            paletteKeyCode: paletteKeyCode,
             clipboardImageOCRKeyCode: clipboardImageOCRKeyCode,
-            screenshotOCRKeyCode: screenshotOCRKeyCode
+            screenshotOCRKeyCode: screenshotOCRKeyCode,
+            selectionActionKeyCode: selectionActionKeyCode,
+            selectionTranslateKeyCode: selectionTranslateKeyCode,
+            selectionSummarizeKeyCode: selectionSummarizeKeyCode,
+            selectionAgentKeyCode: selectionAgentKeyCode
         ) {
             return .workflowShortcut(workflowShortcut)
         }
@@ -97,14 +112,24 @@ enum HotKeyRouter {
 
 enum HotKeyShortcutRouting {
     static let aKeyCode: Int64 = 0x00
+    static let dKeyCode: Int64 = 0x02
     static let vKeyCode: Int64 = 0x09
+    static let lKeyCode: Int64 = 0x25
+    static let jKeyCode: Int64 = 0x26
+    static let kKeyCode: Int64 = 0x28
+    static let spaceKeyCode: Int64 = 0x31
     static let escapeKeyCode: Int64 = 53
 
     static func workflowShortcut(
         keyCode: Int64,
         flags: CGEventFlags,
+        paletteKeyCode: Int64? = ShortcutManager.defaultPaletteShortcutKeyCode,
         clipboardImageOCRKeyCode: Int64? = ShortcutManager.defaultClipboardImageOCRShortcutKeyCode,
-        screenshotOCRKeyCode: Int64? = ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        screenshotOCRKeyCode: Int64? = ShortcutManager.defaultScreenshotOCRShortcutKeyCode,
+        selectionActionKeyCode: Int64? = ShortcutManager.defaultSelectionActionShortcutKeyCode,
+        selectionTranslateKeyCode: Int64? = ShortcutManager.defaultSelectionTranslateShortcutKeyCode,
+        selectionSummarizeKeyCode: Int64? = ShortcutManager.defaultSelectionSummarizeShortcutKeyCode,
+        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode
     ) -> HotKeyWorkflowShortcut? {
         if keyCode == escapeKeyCode {
             return flags.intersection([
@@ -113,6 +138,15 @@ enum HotKeyShortcutRouting {
                 .maskAlternate,
                 .maskControl,
             ]).isEmpty ? .cancel : nil
+        }
+
+        if let paletteKeyCode,
+           ShortcutManager.shortcutMatches(
+               paletteKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .palette
         }
 
         if let clipboardImageOCRKeyCode,
@@ -131,6 +165,42 @@ enum HotKeyShortcutRouting {
                flags: flags
            ) {
             return .screenshotOCR
+        }
+
+        if let selectionActionKeyCode,
+           ShortcutManager.shortcutMatches(
+               selectionActionKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .selectionAction
+        }
+
+        if let selectionTranslateKeyCode,
+           ShortcutManager.shortcutMatches(
+               selectionTranslateKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .selectionTranslate
+        }
+
+        if let selectionSummarizeKeyCode,
+           ShortcutManager.shortcutMatches(
+               selectionSummarizeKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .selectionSummarize
+        }
+
+        if let selectionAgentKeyCode,
+           ShortcutManager.shortcutMatches(
+               selectionAgentKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .selectionAgent
         }
 
         return nil
@@ -215,10 +285,14 @@ enum HotKeyWorkflowRoutingPolicy {
     ) -> Bool {
         let result: Bool
         switch shortcut {
+        case .palette:
+            result = true
         case .clipboardImageOCR:
             result = dictationState.isIdle
         case .screenshotOCR:
             result = true
+        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent:
+            result = dictationState.isIdle
         case .cancel:
             result = false
         }
@@ -235,9 +309,13 @@ enum HotKeyWorkflowRoutingPolicy {
     ) -> Bool {
         let result: Bool
         switch shortcut {
+        case .palette:
+            result = false
         case .clipboardImageOCR:
             result = dictationState.isIdle
         case .screenshotOCR:
+            result = false
+        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent:
             result = false
         case .cancel:
             result = false

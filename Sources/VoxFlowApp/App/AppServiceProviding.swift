@@ -8,6 +8,7 @@ protocol AppServiceProviding {
     var databaseQueue: DatabaseQueue { get }
     var credentialStore: CredentialStore { get }
     var historyRepository: any HistoryRepository { get }
+    var assetRepository: any AssetRepository { get }
     var styleRepository: any StyleRepository { get }
     var asrProviderRepository: any ASRProviderRepository { get }
     var llmProviderRepository: any LLMProviderRepository { get }

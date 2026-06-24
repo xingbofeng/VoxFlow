@@ -377,6 +377,7 @@ struct SystemWindowInfoProvider: WindowInfoProviding {
 protocol AccessibilityProviding: Sendable {
     func visibleText(pid: Int?) -> String?
     func selectedText(pid: Int?) -> String?
+    func selectedTextBounds(pid: Int?) -> NSRect?
     func inputAreaText(pid: Int?) -> String?
     func isSecureTextField(pid: Int?) -> Bool
 }
@@ -464,7 +465,53 @@ struct SystemAccessibilityProvider: AccessibilityProviding {
 
     func selectedText(pid: Int?) -> String? {
         guard let pid, let element = focusedElement(pid: pid) else { return nil }
-        return axAttribute(element, kAXSelectedTextAttribute) as? String
+        if let selectedText = axAttribute(element, kAXSelectedTextAttribute) as? String,
+           !selectedText.isEmpty {
+            return selectedText
+        }
+
+        guard let selectedRangeValue = axAttribute(element, kAXSelectedTextRangeAttribute),
+              let selectedRange = Self.cfRange(from: selectedRangeValue),
+              let value = axAttribute(element, kAXValueAttribute) as? String else {
+            return nil
+        }
+
+        return Self.selectedText(fromValue: value, selectedRange: selectedRange)
+    }
+
+    func selectedTextBounds(pid: Int?) -> NSRect? {
+        guard let pid,
+              let element = focusedElement(pid: pid),
+              let selectedRange = axAttribute(element, kAXSelectedTextRangeAttribute) else {
+            return nil
+        }
+
+        var rawBounds: CFTypeRef?
+        let result = AXUIElementCopyParameterizedAttributeValue(
+            element,
+            kAXBoundsForRangeParameterizedAttribute as CFString,
+            selectedRange,
+            &rawBounds
+        )
+        guard result == .success,
+              let boundsValue = rawBounds,
+              CFGetTypeID(boundsValue) == AXValueGetTypeID() else {
+            return nil
+        }
+
+        let axValue = boundsValue as! AXValue
+        guard AXValueGetType(axValue) == .cgRect else {
+            return nil
+        }
+
+        var rect = CGRect.zero
+        guard AXValueGetValue(axValue, .cgRect, &rect),
+              !rect.isNull,
+              rect.width > 0,
+              rect.height > 0 else {
+            return nil
+        }
+        return rect
     }
 
     func inputAreaText(pid: Int?) -> String? {
@@ -582,11 +629,43 @@ struct SystemAccessibilityProvider: AccessibilityProviding {
         return false
     }
 
+    static func selectedText(fromValue value: String, selectedRange: CFRange) -> String? {
+        guard selectedRange.location >= 0,
+              selectedRange.length > 0 else {
+            return nil
+        }
+
+        let range = NSRange(location: selectedRange.location, length: selectedRange.length)
+        guard let stringRange = Range(range, in: value) else {
+            return nil
+        }
+
+        let selectedText = String(value[stringRange])
+        return selectedText.isEmpty ? nil : selectedText
+    }
+
     private func axAttribute(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
         var value: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
         guard result == .success else { return nil }
         return value
+    }
+
+    private static func cfRange(from value: CFTypeRef) -> CFRange? {
+        guard CFGetTypeID(value) == AXValueGetTypeID() else {
+            return nil
+        }
+
+        let axValue = value as! AXValue
+        guard AXValueGetType(axValue) == .cfRange else {
+            return nil
+        }
+
+        var range = CFRange()
+        guard AXValueGetValue(axValue, .cfRange, &range) else {
+            return nil
+        }
+        return range
     }
 }
 

@@ -6,15 +6,15 @@ final class VoxFlowSelfCaptureWindowSharingTests: XCTestCase {
         let mainWindow = try source(
             at: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/MainWindowController.swift")
         )
-        let resultPanel = try source(
-            at: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenshotOCRResultPanelController.swift")
+        let textResultPanel = try source(
+            at: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/TextResultPanelController.swift")
         )
         let voiceHUD = try source(
             at: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/OverlayWindowController.swift")
         )
 
         XCTAssertTrue(mainWindow.contains("window.sharingType = .readOnly"))
-        XCTAssertTrue(resultPanel.contains("panel.sharingType = .readOnly"))
+        XCTAssertTrue(textResultPanel.contains("panel.sharingType = .readOnly"))
         XCTAssertTrue(voiceHUD.contains("window.sharingType = .readOnly"))
     }
 

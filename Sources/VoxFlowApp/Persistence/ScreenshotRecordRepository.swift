@@ -58,9 +58,17 @@ struct ScreenshotRecordPage: Equatable {
 final class SQLiteScreenshotRecordRepository: ScreenshotRecordRepository {
     private let databaseQueue: DatabaseQueue
     private let formatter = ISO8601DateFormatter()
+    private let calendar: Calendar
+    private let now: () -> Date
 
-    init(databaseQueue: DatabaseQueue) {
+    init(
+        databaseQueue: DatabaseQueue,
+        calendar: Calendar = .autoupdatingCurrent,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.databaseQueue = databaseQueue
+        self.calendar = calendar
+        self.now = now
     }
 
     func save(_ record: ScreenshotRecord) throws {
@@ -134,11 +142,11 @@ final class SQLiteScreenshotRecordRepository: ScreenshotRecordRepository {
         case .all:
             break
         case .today:
-            sql += " AND date(created_at) = date('now')"
+            sql += " AND created_at >= ? AND created_at < ?"
         case .thisWeek:
-            sql += " AND created_at >= date('now', '-7 days')"
+            sql += " AND created_at >= ? AND created_at < ?"
         case .thisMonth:
-            sql += " AND created_at >= date('now', '-30 days')"
+            sql += " AND created_at >= ? AND created_at < ?"
         case .favorites:
             sql += " AND is_favorited = 1"
         }
@@ -151,11 +159,17 @@ final class SQLiteScreenshotRecordRepository: ScreenshotRecordRepository {
 
         return try databaseQueue.read { connection in
             let statement = try connection.prepare(sql)
+            var bindIndex: Int32 = 1
+            if let interval = dateInterval(for: filter) {
+                try statement.bind(formatter.string(from: interval.start), at: bindIndex)
+                try statement.bind(formatter.string(from: interval.end), at: bindIndex + 1)
+                bindIndex += 2
+            }
             if let search, !search.isEmpty {
                 let pattern = "%\(search)%"
-                try statement.bind(pattern, at: 1)
-                try statement.bind(pattern, at: 2)
-                try statement.bind(pattern, at: 3)
+                try statement.bind(pattern, at: bindIndex)
+                try statement.bind(pattern, at: bindIndex + 1)
+                try statement.bind(pattern, at: bindIndex + 2)
             }
             var records: [ScreenshotRecord] = []
             while try statement.step() {
@@ -202,11 +216,14 @@ final class SQLiteScreenshotRecordRepository: ScreenshotRecordRepository {
                 """
                 SELECT
                     (SELECT COUNT(*) FROM screenshot_records WHERE deleted_at IS NULL) AS total,
-                    (SELECT COUNT(*) FROM screenshot_records WHERE deleted_at IS NULL AND date(created_at) = date('now')) AS today,
+                    (SELECT COUNT(*) FROM screenshot_records WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ?) AS today,
                     (SELECT COALESCE(SUM(char_count), 0) FROM screenshot_records WHERE deleted_at IS NULL) AS chars,
                     (SELECT COUNT(*) FROM screenshot_records WHERE deleted_at IS NULL AND is_favorited = 1) AS fav
                 """
             )
+            let today = dayInterval(containing: now())
+            try statement.bind(formatter.string(from: today.start), at: 1)
+            try statement.bind(formatter.string(from: today.end), at: 2)
             guard try statement.step() else {
                 return ScreenshotRecordStats(totalRecords: 0, todayRecords: 0, totalCharacters: 0, favoritedRecords: 0)
             }
@@ -221,6 +238,23 @@ final class SQLiteScreenshotRecordRepository: ScreenshotRecordRepository {
             )
             return stats
         }
+    }
+
+    private func dateInterval(for filter: ScreenshotRecordFilter) -> DateInterval? {
+        switch filter {
+        case .all, .favorites:
+            return nil
+        case .today:
+            return dayInterval(containing: now())
+        case .thisWeek:
+            return calendar.dateInterval(of: .weekOfYear, for: now())
+        case .thisMonth:
+            return calendar.dateInterval(of: .month, for: now())
+        }
+    }
+
+    private func dayInterval(containing date: Date) -> DateInterval {
+        calendar.dateInterval(of: .day, for: date) ?? DateInterval(start: date, duration: 24 * 60 * 60)
     }
 
     func page(limit: Int, offset: Int, search: String?, onlyFavorites: Bool = false) throws -> ScreenshotRecordPage {

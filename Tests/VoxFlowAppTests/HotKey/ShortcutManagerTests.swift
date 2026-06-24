@@ -43,6 +43,74 @@ final class ShortcutManagerTests: XCTestCase {
         )
     }
 
+    func testDefaultSelectionActionShortcutIsCommandShiftD() {
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .selectionAction),
+            ShortcutManager.defaultSelectionActionShortcutKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.baseKeyCode(for: ShortcutManager.defaultSelectionActionShortcutKeyCode),
+            HotKeyShortcutRouting.dKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.modifierMask(for: ShortcutManager.defaultSelectionActionShortcutKeyCode),
+            ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+        )
+    }
+
+    func testDefaultDirectSelectionActionShortcutsUseCommandShiftJKL() {
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .selectionTranslate),
+            ShortcutManager.defaultSelectionTranslateShortcutKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.baseKeyCode(for: ShortcutManager.defaultSelectionTranslateShortcutKeyCode),
+            HotKeyShortcutRouting.jKeyCode
+        )
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .selectionSummarize),
+            ShortcutManager.defaultSelectionSummarizeShortcutKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.baseKeyCode(for: ShortcutManager.defaultSelectionSummarizeShortcutKeyCode),
+            HotKeyShortcutRouting.kKeyCode
+        )
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .selectionAgent),
+            ShortcutManager.defaultSelectionAgentShortcutKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.baseKeyCode(for: ShortcutManager.defaultSelectionAgentShortcutKeyCode),
+            HotKeyShortcutRouting.lKeyCode
+        )
+
+        for shortcut in [
+            ShortcutManager.defaultSelectionTranslateShortcutKeyCode,
+            ShortcutManager.defaultSelectionSummarizeShortcutKeyCode,
+            ShortcutManager.defaultSelectionAgentShortcutKeyCode,
+        ] {
+            XCTAssertEqual(
+                ShortcutManager.modifierMask(for: shortcut),
+                ShortcutManager.commandModifierMask | ShortcutManager.shiftModifierMask
+            )
+        }
+    }
+
+    func testDefaultPaletteShortcutIsOptionSpace() {
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .palette),
+            ShortcutManager.defaultPaletteShortcutKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.baseKeyCode(for: ShortcutManager.defaultPaletteShortcutKeyCode),
+            HotKeyShortcutRouting.spaceKeyCode
+        )
+        XCTAssertEqual(
+            ShortcutManager.modifierMask(for: ShortcutManager.defaultPaletteShortcutKeyCode),
+            ShortcutManager.optionModifierMask
+        )
+    }
+
     func testAgentDispatchDoesNotOwnASeparateShortcutKey() {
         XCTAssertNil(sut.shortcutKeyCode(for: .agentDispatch))
     }
@@ -79,6 +147,77 @@ final class ShortcutManagerTests: XCTestCase {
 
         XCTAssertNil(sut.shortcutKeyCode(for: .clipboardImageOCR))
         XCTAssertEqual(sut.shortcutKeyCode(for: .screenshotOCR), screenshotOCR)
+    }
+
+    func testSelectionActionWorkflowShortcutCanBeChangedAndCleared() {
+        let shortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x0F,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.optionModifierMask
+        )
+
+        sut.setShortcutKeyCode(shortcut, for: .selectionAction)
+
+        XCTAssertEqual(sut.shortcutKeyCode(for: .selectionAction), shortcut)
+
+        sut.setShortcutKeyCode(nil, for: .selectionAction)
+
+        XCTAssertNil(sut.shortcutKeyCode(for: .selectionAction))
+    }
+
+    func testDirectSelectionActionWorkflowShortcutsCanBeChangedAndCleared() {
+        let shortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x23,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.optionModifierMask
+        )
+
+        sut.setShortcutKeyCode(shortcut, for: .selectionTranslate)
+
+        XCTAssertEqual(sut.shortcutKeyCode(for: .selectionTranslate), shortcut)
+
+        sut.setShortcutKeyCode(nil, for: .selectionTranslate)
+
+        XCTAssertNil(sut.shortcutKeyCode(for: .selectionTranslate))
+    }
+
+    func testPaletteWorkflowShortcutCanBeChangedAndCleared() {
+        let shortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x0F,
+            modifierMask: ShortcutManager.controlModifierMask | ShortcutManager.optionModifierMask
+        )
+
+        sut.setShortcutKeyCode(shortcut, for: .palette)
+
+        XCTAssertEqual(sut.shortcutKeyCode(for: .palette), shortcut)
+
+        sut.setShortcutKeyCode(nil, for: .palette)
+
+        XCTAssertNil(sut.shortcutKeyCode(for: .palette))
+    }
+
+    func testStartupNormalizesScreenshotOCRAwayFromClipboardOCRDefaultShortcut() {
+        let commandShiftV = ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        defaults.set(true, forKey: "ClipboardImageOCRShortcutDisabled")
+        defaults.set(commandShiftV, forKey: "ScreenshotOCRShortcutKeyCode")
+
+        sut = ShortcutManager(defaults: defaults)
+
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .clipboardImageOCR),
+            ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        )
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .screenshotOCR),
+            ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        )
+        XCTAssertEqual(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: HotKeyShortcutRouting.vKeyCode,
+                flags: [.maskCommand, .maskShift],
+                clipboardImageOCRKeyCode: sut.shortcutKeyCode(for: .clipboardImageOCR),
+                screenshotOCRKeyCode: sut.shortcutKeyCode(for: .screenshotOCR)
+            ),
+            .clipboardImageOCR
+        )
     }
 
     func testOCRWorkflowShortcutsRequireModifiedNonSystemKeys() {

@@ -15,7 +15,10 @@
 - **Provider target**: A SwiftPM target that owns one ASR backend implementation. Provider targets live under the `Sources/VoxFlowProviders/` directory, but they remain separate targets rather than one large provider module.
 - **Capability tag**: A user-facing and filterable ASR Provider label such as local, streaming, cloud, multilingual, or punctuation.
 - **Injection**: Temporarily placing text on the pasteboard and posting Command-V to the focused application.
-- **HUD**: The bottom-centered non-activating capsule shown during recording and refinement.
+- **Voice HUD / 语音 HUD**: The bottom-centered non-activating capsule shown during voice recording, recognition, refinement, and output status.
+- **Agent Confirmation HUD / 任务助手确认 HUD**: The non-activating confirmation surface that lets a user choose an Agent session or fall back to direct input for an Agent Dispatch request.
+- **Selection Action Card / 划词动作卡**: The compact surface opened for selected text that offers first-level actions such as translate, summarize, or send to Agent Dispatch.
+- **Text Result Panel / 文本结果面板**: The reusable panel for showing obtained text and derived results such as translation or summary, regardless of whether the source text came from screenshot OCR, selected text, or another text source.
 - **Workbench window**: The regular macOS application window shown in Dock, `Command+Tab`, and Force Quit while the menu-bar dictation controls remain available.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
 - **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
@@ -34,6 +37,10 @@
 - **OutputResult**: A structured result from the output stage: `injected` (dictation success), `copied` (agent compose success), or various failure modes with recovery paths.
 - **OutputService**: The service that selects between injection (dictation mode) and clipboard copy (agent compose mode), returning a structured OutputResult. Replaces ad-hoc injection logic.
 - **HistoryRecoveryAction**: An enum (`copy`, `reinject`, `regenerate`, `retranscribe`, `delete`) representing a recovery operation available on a history/task detail. Available actions are computed from task mode, status, and data availability. Retries never silently overwrite the original transcription or result.
+- **Asset / 历史资产**: A reusable input-context record produced by VoxFlow or captured from user copy actions, including dictation text, screenshot images, and clipboard records.
+- **Dictation History / 语音历史**: Completed dictation text saved after a voice input flow. It is one source of Asset records, not the umbrella term for all reusable history.
+- **Screenshot Record / 截图记录**: A saved screenshot image record. OCR text may be available as derived copyable text, but it is not a separate Asset.
+- **Clipboard Asset / 剪切板资产**: User-copied pasteboard content captured for reuse. VoxFlow's internal pasteboard writes are not Clipboard Assets.
 
 ## Module Boundaries
 
