@@ -2,6 +2,7 @@ APP_NAME := VoxFlow
 SWIFT_EXECUTABLE := VoxFlowApp
 BUILD_DIR := .build
 BUNDLE_DIR := $(BUILD_DIR)/$(APP_NAME).app
+RESOURCE_BUNDLE_NAME := $(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle
 ARM_RELEASE_BIN_DIR := $(BUILD_DIR)/arm64-apple-macosx/release
 SWIFT_NATIVE_ARCH := $(shell uname -m)
 NATIVE_RELEASE_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release
@@ -74,16 +75,16 @@ build: prepare-runtime prepare-agent-helper
 	@cp "$(AGENT_HELPER_BINARY)" "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(BUNDLE_DIR)/Contents/Helpers/voxflow" "$(BUNDLE_DIR)/Contents/Helpers/vox"
-	@if [ -d "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
-		cp -R "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
-	fi
+	@test -d "$(ARM_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
+	@cp -R "$(ARM_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(BUNDLE_DIR)/Contents/Resources/"
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
@@ -108,16 +109,16 @@ build-native: prepare-runtime prepare-agent-helper
 	@cp "$(AGENT_HELPER_BINARY)" "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(BUNDLE_DIR)/Contents/Helpers/voxflow" "$(BUNDLE_DIR)/Contents/Helpers/vox"
-	@if [ -d "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
-		cp -R "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
-	fi
+	@test -d "$(NATIVE_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
+	@cp -R "$(NATIVE_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(BUNDLE_DIR)/Contents/Resources/"
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
@@ -142,16 +143,16 @@ build-dev: prepare-runtime prepare-agent-helper
 	@cp "$(AGENT_HELPER_BINARY)" "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(BUNDLE_DIR)/Contents/Helpers/voxflow" "$(BUNDLE_DIR)/Contents/Helpers/vox"
-	@if [ -d "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" ]; then \
-		cp -R "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle" "$(BUNDLE_DIR)/Contents/Resources/"; \
-	fi
+	@test -d "$(NATIVE_DEBUG_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
+	@cp -R "$(NATIVE_DEBUG_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(BUNDLE_DIR)/Contents/Resources/"
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/AuthorWeChatQRCode.jpg"
-	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle/GitHubMark.png"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
+	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"

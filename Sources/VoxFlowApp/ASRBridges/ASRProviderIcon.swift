@@ -51,7 +51,7 @@ enum ASRProviderIcon {
         default:
             return nil
         }
-        guard let url = Bundle.module.url(forResource: resourceName, withExtension: "png"),
+        guard let url = VoxFlowAppResourceBundle.url(forResource: resourceName, withExtension: "png"),
               let image = NSImage(contentsOf: url) else {
             AppLogger.general.warning("ASRProviderIcon load failed providerID=\(providerID) resource=\(resourceName)")
             return nil
