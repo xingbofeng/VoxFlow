@@ -3,6 +3,12 @@ import XCTest
 
 @MainActor
 final class HomeDashboardViewModelTests: XCTestCase {
+    func testSourceBreakdownSummaryUsesClipboardDisplayName() {
+        let breakdown = HomeSourceBreakdown(dictation: 10, screenshot: 126, clipboard: 80)
+
+        XCTAssertEqual(breakdown.summaryText, "语音 10 / 截图 126 / 剪贴板 80")
+    }
+
     func testLoadComputesStatisticsAndGroupedAssets() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 12)
         let clock = MutableHomeClock(now: now)
@@ -392,6 +398,9 @@ final class HomeDashboardViewModelTests: XCTestCase {
         viewModel.deleteSelectedAssets()
 
         XCTAssertEqual(viewModel.selectedAssetIDs, [])
+        XCTAssertEqual(viewModel.stats.totalAssets, 1)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(clipboard: 1))
+        XCTAssertEqual(viewModel.stats.reusableAssets, 1)
         XCTAssertEqual(viewModel.totalAssetCount, 1)
         XCTAssertNil(try environment.assetRepository.asset(id: "asset-0"))
         XCTAssertNil(try environment.assetRepository.asset(id: "asset-1"))
@@ -402,6 +411,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         viewModel.clearAllAssets()
 
         XCTAssertEqual(viewModel.totalAssetCount, 0)
+        XCTAssertEqual(viewModel.stats, HomeDashboardStats())
         XCTAssertTrue(viewModel.assetGroups.isEmpty)
         XCTAssertEqual(viewModel.lastActionMessage, "已清空资产")
     }
@@ -423,6 +433,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             contentType: .image,
             title: "Image (1200x800)",
             text: "构建失败",
+            imagePath: "/tmp/screenshot.png",
             createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
         ))
 
@@ -1196,6 +1207,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
 
         viewModel.clearAllAssets()
         XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        XCTAssertEqual(viewModel.stats, HomeDashboardStats())
         XCTAssertEqual(viewModel.totalAssetCount, 0)
         XCTAssertTrue(viewModel.assetGroups.isEmpty)
     }

@@ -92,6 +92,40 @@ final class HotKeyStateMachine: @unchecked Sendable {
     }
 }
 
+struct MouseShortcutButtonState {
+    private var activeButtonNumber: Int64?
+
+    var isPressed: Bool {
+        activeButtonNumber != nil
+    }
+
+    mutating func transition(
+        buttonNumber: Int64,
+        isPressed: Bool
+    ) -> HotKeyTransition? {
+        guard let activeButtonNumber else {
+            guard isPressed else { return nil }
+            self.activeButtonNumber = buttonNumber
+            return .pressed
+        }
+
+        guard activeButtonNumber == buttonNumber else {
+            return nil
+        }
+
+        guard !isPressed else {
+            return nil
+        }
+
+        self.activeButtonNumber = nil
+        return .released
+    }
+
+    mutating func reset() {
+        activeButtonNumber = nil
+    }
+}
+
 enum ShortcutEventRouting {
     static func shouldPassThrough(
         appIsActive: Bool,
@@ -174,6 +208,21 @@ enum ShortcutActionRouting {
     }
 }
 
+enum MouseShortcutRouting {
+    static let middleMouseButtonNumber: Int64 = 2
+
+    static func action(
+        buttonNumber: Int64,
+        middleMouseRecordingEnabled: Bool
+    ) -> VoiceAction? {
+        guard middleMouseRecordingEnabled,
+              buttonNumber == middleMouseButtonNumber else {
+            return nil
+        }
+        return .dictation
+    }
+}
+
 enum ShortcutModifierRouting {
     static func isPureModifierShortcut(keyCode: Int64, flags: CGEventFlags) -> Bool {
         guard let expectedFlag = modifierFlag(for: keyCode) else {
@@ -210,6 +259,7 @@ final class KeyMonitor: @unchecked Sendable {
     // MARK: - State
 
     private let hotKeyStateMachine = HotKeyStateMachine()
+    private var mouseShortcutState = MouseShortcutButtonState()
     private var workflowShortcutState = WorkflowShortcutKeyState()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -227,6 +277,7 @@ final class KeyMonitor: @unchecked Sendable {
         guard eventTap == nil else { return true }
 
         hotKeyStateMachine.reset()
+        mouseShortcutState.reset()
         workflowShortcutState.reset()
 
         let options = [_kAXPrompt: true] as CFDictionary
@@ -238,7 +289,9 @@ final class KeyMonitor: @unchecked Sendable {
         let mask: CGEventMask =
             (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.keyUp.rawValue)
+            (1 << CGEventType.keyUp.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseUp.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -274,6 +327,7 @@ final class KeyMonitor: @unchecked Sendable {
         eventTap = nil
         runLoopSource = nil
         hotKeyStateMachine.reset()
+        mouseShortcutState.reset()
         workflowShortcutState.reset()
     }
 
@@ -294,6 +348,10 @@ final class KeyMonitor: @unchecked Sendable {
 
         if type == .keyDown || type == .keyUp {
             return handleKeyEvent(event: event, isPressed: type == .keyDown)
+        }
+
+        if type == .otherMouseDown || type == .otherMouseUp {
+            return handleMouseEvent(event: event, isPressed: type == .otherMouseDown)
         }
 
         guard type == .flagsChanged else {
@@ -338,10 +396,33 @@ final class KeyMonitor: @unchecked Sendable {
             }
             return handleWorkflowShortcut(event: event, shortcut: shortcut)
         case let .voiceAction(action):
-            return handleVoiceShortcut(event: event, action: action, isPressed: isPressed)
+            return handleVoiceShortcut(
+                keyCode: keyCode,
+                event: event,
+                action: action,
+                isPressed: isPressed
+            )
         case .passThrough:
             return Unmanaged.passUnretained(event)
         }
+    }
+
+    private func handleMouseEvent(event: CGEvent, isPressed: Bool) -> Unmanaged<CGEvent>? {
+        let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+        let shortcutManager = ShortcutManager.shared
+        guard let action = MouseShortcutRouting.action(
+            buttonNumber: buttonNumber,
+            middleMouseRecordingEnabled: shortcutManager.middleMouseRecordingEnabled
+        ) else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        return handleMouseShortcut(
+            buttonNumber: buttonNumber,
+            event: event,
+            action: action,
+            isPressed: isPressed
+        )
     }
 
     private func handleWorkflowShortcut(event: CGEvent, shortcut: HotKeyWorkflowShortcut) -> Unmanaged<CGEvent>? {
@@ -395,6 +476,7 @@ final class KeyMonitor: @unchecked Sendable {
         }
 
         return handleVoiceShortcut(
+            keyCode: keyCode,
             event: event,
             action: action,
             isPressed: Self.isModifierPressed(keyCode: keyCode, flags: event.flags)
@@ -402,11 +484,11 @@ final class KeyMonitor: @unchecked Sendable {
     }
 
     private func handleVoiceShortcut(
+        keyCode: Int64,
         event: CGEvent,
         action: VoiceAction,
         isPressed: Bool
     ) -> Unmanaged<CGEvent>? {
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let shortcutManager = ShortcutManager.shared
         let passThrough = MainActor.assumeIsolated {
             let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
@@ -450,6 +532,51 @@ final class KeyMonitor: @unchecked Sendable {
         }
 
         // Suppress the shortcut key event to prevent system-side effects.
+        return nil
+    }
+
+    private func handleMouseShortcut(
+        buttonNumber: Int64,
+        event: CGEvent,
+        action: VoiceAction,
+        isPressed: Bool
+    ) -> Unmanaged<CGEvent>? {
+        let passThrough = MainActor.assumeIsolated {
+            let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
+            let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            return ShortcutEventRouting.shouldPassThrough(
+                appIsActive: NSApp.isActive,
+                appIsFrontmost: frontmostBundleID == appBundleID,
+                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+            )
+        }
+        if passThrough {
+            mouseShortcutState.reset()
+            return Unmanaged.passUnretained(event)
+        }
+
+        guard let transition = mouseShortcutState.transition(
+            buttonNumber: buttonNumber,
+            isPressed: isPressed
+        ) else {
+            return nil
+        }
+
+        switch transition {
+        case .pressed:
+            let handler = onHotKeyPress
+            DispatchQueue.main.async {
+                handler?(action)
+            }
+        case .released:
+            let handler = onHotKeyRelease
+            DispatchQueue.main.async {
+                handler?(action)
+            }
+        case .shortPress:
+            break
+        }
+
         return nil
     }
 

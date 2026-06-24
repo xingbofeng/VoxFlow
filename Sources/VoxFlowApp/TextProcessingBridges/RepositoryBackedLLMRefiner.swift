@@ -313,7 +313,7 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
     }
 
     private static func isUsableProvider(_ provider: LLMProviderRecord) -> Bool {
-        !provider.baseURL.isEmpty && !provider.defaultModel.isEmpty
+        provider.hasRequiredLLMConfiguration
     }
 
     private func finishTrace(

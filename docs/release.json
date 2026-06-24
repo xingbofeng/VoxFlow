@@ -1,10 +1,10 @@
 {
-  "version": "1.6.2",
-  "tag": "v1.6.2",
-  "assetName": "VoxFlow-1.6.2-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.6.2",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.6.2/VoxFlow-1.6.2-macOS.dmg",
-  "releaseNotes": "修复无录音设备或系统返回无效输入格式时的启动/录音崩溃。",
+  "version": "1.7.0",
+  "tag": "v1.7.0",
+  "assetName": "VoxFlow-1.7.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.7.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.7.0/VoxFlow-1.7.0-macOS.dmg",
+  "releaseNotes": "全面更新 VoxFlow / 码上写品牌视觉，替换为新的工作台风格 Logo、App Icon 和中英文宣传图。",
   "draft": false,
   "prerelease": false
 }

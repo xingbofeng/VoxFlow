@@ -31,19 +31,76 @@ final class AssetRepositoryTests: XCTestCase {
     }
 
     func testSaveAndFetchAsset() throws {
-        let asset = makeAsset(
+        let asset = try AssetItem.makeText(
             id: "dictation-1",
             source: .dictation,
-            contentType: .text,
             title: "Qwen3-ASR 接入计划",
             text: "把 Qwen3-ASR 接到 VoxFlow",
             rawText: "把 Qwen3 ASR 接到 VoxFlow",
-            sourceAppName: "Cursor"
+            contentHash: "hash-dictation-1",
+            captureReason: .dictationCompleted,
+            sourceAppName: "Cursor",
+            createdAt: date("2026-06-23T09:00:00Z")
         )
 
         try repository.save(asset)
 
         XCTAssertEqual(try repository.asset(id: "dictation-1"), asset)
+    }
+
+    func testTypedFactoriesCreateValidContentSpecificAssets() throws {
+        let image = try AssetItem.makeImage(
+            id: "image-1",
+            source: .screenshot,
+            title: "Screenshot",
+            imagePath: "/tmp/screenshot.png",
+            previewText: "OCR text",
+            text: "OCR text",
+            contentHash: "hash-image-1",
+            captureReason: .screenshotCaptured
+        )
+        let file = try AssetItem.makeFile(
+            id: "file-1",
+            source: .clipboard,
+            title: "Report",
+            filePath: "/tmp/report.pdf",
+            contentHash: "hash-file-1",
+            captureReason: .userCopied
+        )
+        let link = try AssetItem.makeLink(
+            id: "link-1",
+            source: .clipboard,
+            title: "VoxFlow",
+            url: "https://example.com/voxflow",
+            contentHash: "hash-link-1",
+            captureReason: .userCopied
+        )
+        let color = try AssetItem.makeColor(
+            id: "color-1",
+            source: .clipboard,
+            title: "#08745f",
+            colorValue: "#08745f",
+            contentHash: "hash-color-1",
+            captureReason: .userCopied
+        )
+
+        XCTAssertNoThrow(try image.validate())
+        XCTAssertNoThrow(try file.validate())
+        XCTAssertNoThrow(try link.validate())
+        XCTAssertNoThrow(try color.validate())
+    }
+
+    func testSaveRejectsImageAssetWithoutImagePath() throws {
+        let invalid = makeAsset(
+            id: "invalid-image",
+            source: .screenshot,
+            contentType: .image,
+            imagePath: nil
+        )
+
+        XCTAssertThrowsError(try repository.save(invalid)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("image_path"))
+        }
     }
 
     func testPageOrdersByCreatedAtDescendingThenIDAscending() throws {
@@ -76,9 +133,19 @@ final class AssetRepositoryTests: XCTestCase {
 
     func testFiltersBySourceAndContentType() throws {
         try repository.save(makeAsset(id: "voice", source: .dictation, contentType: .text))
-        try repository.save(makeAsset(id: "screenshot", source: .screenshot, contentType: .image))
+        try repository.save(makeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            imagePath: "/tmp/screenshot.png"
+        ))
         try repository.save(makeAsset(id: "clip-text", source: .clipboard, contentType: .text))
-        try repository.save(makeAsset(id: "clip-file", source: .clipboard, contentType: .file))
+        try repository.save(makeAsset(
+            id: "clip-file",
+            source: .clipboard,
+            contentType: .file,
+            filePath: "/tmp/clip-file.pdf"
+        ))
 
         let clipboard = try repository.page(
             query: .init(sources: [.clipboard], limit: 10, offset: 0)

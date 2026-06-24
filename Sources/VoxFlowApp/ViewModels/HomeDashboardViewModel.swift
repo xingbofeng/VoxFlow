@@ -23,7 +23,7 @@ struct HomeSourceBreakdown: Equatable {
         return [
             ("语音", dictation),
             ("截图", screenshot),
-            ("剪切板", clipboard)
+            ("剪贴板", clipboard)
         ]
         .filter { $0.1 > 0 }
         .map { "\($0.0) \($0.1)" }
@@ -187,8 +187,22 @@ protocol ClipboardWriting: AnyObject {
 typealias HistoryRecoveryAction = VoiceTaskRecoveryAction
 
 final class GeneralPasteboardWriter: ClipboardWriting {
+    private let pasteboard: NSPasteboard
+    private let internalWriteGuard: ClipboardInternalWriteGuard?
+
+    init(
+        pasteboard: NSPasteboard = .general,
+        internalWriteGuard: ClipboardInternalWriteGuard? = nil
+    ) {
+        self.pasteboard = pasteboard
+        self.internalWriteGuard = internalWriteGuard
+    }
+
     func copy(_ text: String) {
-        let pasteboard = NSPasteboard.general
+        if let internalWriteGuard {
+            internalWriteGuard.writeInternalString(text, to: pasteboard)
+            return
+        }
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
@@ -337,6 +351,7 @@ final class HomeDashboardViewModel: ObservableObject {
             let asset = try environment.assetRepository.asset(id: id)
             try environment.assetRepository.softDelete(id: id, deletedAt: environment.clock.now)
             try deleteBackingVoiceRecordIfNeeded(for: asset)
+            try reloadDashboardAggregate()
             try reloadAssetPage()
             selectedAssetIDs.remove(id)
             if selectedAssetDetail?.id == id {
@@ -398,6 +413,7 @@ final class HomeDashboardViewModel: ObservableObject {
             }
             selectedAssetIDs = []
             selectedHomeDetail = nil
+            try reloadDashboardAggregate()
             try reloadAssetPage()
             lastError = nil
             lastActionMessage = "已删除 \(ids.count) 条资产"
@@ -416,6 +432,7 @@ final class HomeDashboardViewModel: ObservableObject {
             }
             selectedAssetIDs = []
             selectedHomeDetail = nil
+            try reloadDashboardAggregate()
             try reloadAssetPage()
             lastError = nil
             lastActionMessage = "已清空资产"

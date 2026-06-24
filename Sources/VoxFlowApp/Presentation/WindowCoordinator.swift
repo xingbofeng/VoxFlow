@@ -7,6 +7,7 @@ final class WindowCoordinator {
     private let asrRuntime: AppASRRuntime
     private let textRuntime: AppTextRuntime
     private let audioCaptureCoordinator: AudioCaptureCoordinator
+    private let updatePromptStore: UpdatePromptPresentationStore
     private let navigationRouter = WorkbenchNavigationRouter()
     private var mainWindowController: MainWindowController?
     var onCheckForUpdates: () -> Void = {}
@@ -15,12 +16,14 @@ final class WindowCoordinator {
         environment: AppEnvironment,
         asrRuntime: AppASRRuntime,
         textRuntime: AppTextRuntime,
-        audioCaptureCoordinator: AudioCaptureCoordinator
+        audioCaptureCoordinator: AudioCaptureCoordinator,
+        updatePromptStore: UpdatePromptPresentationStore
     ) {
         self.environment = environment
         self.asrRuntime = asrRuntime
         self.textRuntime = textRuntime
         self.audioCaptureCoordinator = audioCaptureCoordinator
+        self.updatePromptStore = updatePromptStore
     }
 
     func showMainWindow() {
@@ -33,6 +36,7 @@ final class WindowCoordinator {
                 textRuntime: textRuntime,
                 audioCaptureCoordinator: audioCaptureCoordinator,
                 navigationRouter: navigationRouter,
+                updatePromptStore: updatePromptStore,
                 onCheckForUpdates: onCheckForUpdates
             )
         }

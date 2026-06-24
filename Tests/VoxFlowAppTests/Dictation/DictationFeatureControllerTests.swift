@@ -76,9 +76,21 @@ final class DictationFeatureControllerTests: XCTestCase {
         XCTAssertTrue(recorder.startCalls.isEmpty)
     }
 
-    func testRecordingPermissionStartErrorShowsPermissionAlertAndDoesNotTrackActiveAction() {
+    func testMissingMicrophoneStartErrorShowsRecognitionErrorAndDoesNotTrackActiveAction() {
         let recorder = DictationFeatureRecorder()
         recorder.startError = AudioRecorder.AudioRecorderError.microphoneUnavailable
+        let controller = recorder.makeController()
+
+        controller.handlePress(action: .dictation)
+
+        XCTAssertNil(controller.activeVoiceAction)
+        XCTAssertEqual(recorder.permissionAlertCount, 0)
+        XCTAssertEqual(recorder.recognitionErrors.count, 1)
+    }
+
+    func testMicrophonePermissionStartErrorShowsPermissionAlertAndDoesNotTrackActiveAction() {
+        let recorder = DictationFeatureRecorder()
+        recorder.startError = AudioRecorder.AudioRecorderError.microphonePermissionDenied
         let controller = recorder.makeController()
 
         controller.handlePress(action: .dictation)
@@ -201,7 +213,7 @@ private final class DictationFeatureRecorder {
                 self?.releaseCount += 1
             },
             isRecordingPermissionError: { error in
-                error is AudioRecorder.AudioRecorderError
+                (error as? AudioRecorder.AudioRecorderError) == .microphonePermissionDenied
             },
             showRecognitionError: { [weak self] error in
                 self?.recognitionErrors.append(error)

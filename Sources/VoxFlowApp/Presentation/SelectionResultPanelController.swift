@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@preconcurrency import Translation
 import VoxFlowTextInsertion
 
 @MainActor
@@ -12,18 +13,21 @@ final class SelectionResultPanelController {
     private let textInserter: any TextInserting
     private let historyRecorder: any SelectionHistoryRecording
     private let panelController = TextResultPanelController(title: "文本结果")
+    private let translationCoordinator: AppleTranslationCoordinator
 
     init(
         transformService: TextTransformService,
         clipboard: any ClipboardSetting,
         speech: any ScreenshotSpeechSpeaking,
         textInserter: any TextInserting,
+        translationCoordinator: AppleTranslationCoordinator,
         historyRecorder: any SelectionHistoryRecording = NoopSelectionHistoryRecorder()
     ) {
         self.transformService = transformService
         self.clipboard = clipboard
         self.speech = speech
         self.textInserter = textInserter
+        self.translationCoordinator = translationCoordinator
         self.historyRecorder = historyRecorder
     }
 
@@ -53,6 +57,7 @@ final class SelectionResultPanelController {
 
         panelController.present(
             rootView: rootView,
+            accessoryView: AppleTranslationSessionHostFactory.makeNSView(coordinator: translationCoordinator),
             onCancel: { [weak self] in self?.close() }
         )
         viewModel.startTransformTask()

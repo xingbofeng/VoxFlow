@@ -20,9 +20,10 @@ struct CapabilityModelView: View {
 
     private func modelCard(_ model: CapabilityModelDescriptor) -> some View {
         let isSelected = viewModel.selectedModelID == model.id
+        let isSelectable = CapabilityModelViewModel.isSelectable(model)
         return VStack(alignment: .leading, spacing: 12) {
             Button {
-                guard !isSelected else { return }
+                guard !isSelected, isSelectable else { return }
                 viewModel.selectModel(id: model.id)
             } label: {
                 HStack(alignment: .center, spacing: 12) {
@@ -71,9 +72,10 @@ struct CapabilityModelView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(!isSelectable)
 
             HStack(spacing: 8) {
-                Text(model.isInstalled ? "就绪，可直接使用" : "尚未下载")
+                Text(statusText(for: model))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(model.isInstalled ? AppTheme.ColorToken.accent : .orange)
                 Text(model.fallbackDescription)
@@ -86,7 +88,7 @@ struct CapabilityModelView: View {
                         .font(.system(size: 12))
                 }
             }
-            if !model.isInstalled {
+            if !model.isInstalled, CapabilityModelID.requiresDownload(model.id) {
                 Button {
                     Task { await viewModel.downloadModel(id: model.id) }
                 } label: {
@@ -96,6 +98,7 @@ struct CapabilityModelView: View {
                 .disabled(viewModel.isDownloading)
             }
         }
+        .opacity(isSelectable ? 1 : 0.58)
         .padding(14)
         .background(isSelected ? AppTheme.ColorToken.selectionBackground.opacity(0.72) : AppTheme.ColorToken.panelBackground)
         .overlay(
@@ -106,5 +109,15 @@ struct CapabilityModelView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func statusText(for model: CapabilityModelDescriptor) -> String {
+        if model.isInstalled {
+            return "就绪，可直接使用"
+        }
+        if model.id == CapabilityModelID.llmTranslation {
+            return "尚未配置"
+        }
+        return "尚未下载"
     }
 }

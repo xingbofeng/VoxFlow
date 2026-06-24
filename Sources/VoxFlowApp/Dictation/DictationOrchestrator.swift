@@ -970,26 +970,20 @@ final class DictationOrchestrator {
     ) throws {
         guard let assetRepository else { return }
         let title = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let item = AssetItem(
+        let item = try AssetItem.makeText(
             id: "dictation-\(id)",
             source: .dictation,
-            contentType: .text,
             title: title.isEmpty ? "语音输入" : title,
-            previewText: title.isEmpty ? rawText : title,
             text: finalText,
             rawText: rawText,
-            imagePath: nil,
-            filePath: nil,
-            url: nil,
-            colorValue: nil,
-            sourceAppName: target?.appName,
-            sourceAppBundleID: target?.bundleID,
+            previewText: title.isEmpty ? rawText : title,
             contentHash: "dictation-\(id)",
             captureReason: .dictationCompleted,
             metadataJSON: nil,
+            sourceAppName: target?.appName,
+            sourceAppBundleID: target?.bundleID,
             createdAt: createdAt,
-            updatedAt: createdAt,
-            deletedAt: nil
+            updatedAt: createdAt
         )
         try assetRepository.save(item)
     }
@@ -1004,8 +998,7 @@ final class DictationOrchestrator {
               !context.isSecureField else {
             return
         }
-        if processingResult.trace?.contextBoost?.appliedToLLMPrompt == true,
-           processingResult.trace?.llm?.succeeded == true,
+        if processingResult.trace?.llm?.succeeded == true,
            processingResult.finalText != processingResult.rawText {
             return
         }

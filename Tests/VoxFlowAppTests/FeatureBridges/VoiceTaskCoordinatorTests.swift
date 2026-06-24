@@ -497,6 +497,53 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
     }
 
+    func testCoordinatorSkipsCorrectionObservationWhenSuccessfulLLMChangedText() async throws {
+        let pipeline = CoordinatorStubTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "refined text",
+                trace: TextProcessingTrace(
+                    llm: LLMRefinementTrace(
+                        providerID: "provider",
+                        providerName: "Provider",
+                        endpoint: "https://api.example.com/v1/chat/completions",
+                        model: "gpt-test",
+                        temperature: 0.0,
+                        timeoutSeconds: 8,
+                        requestBodyJSON: "{}",
+                        responseText: "refined text",
+                        statusCode: 200,
+                        durationMS: 12,
+                        errorMessage: nil,
+                        completedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                    )
+                )
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let coordinator = makeCoordinator(
+            pipeline: pipeline,
+            outputService: CoordinatorStubOutputService(result: .injected),
+            targetProvider: CoordinatorMutableTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+        try coordinator.startTask(
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        )
+        try coordinator.updateASRMetadata(
+            VoiceTaskASRMetadata(providerID: "apple", modelID: "local", language: "en"),
+            kind: .dictation
+        )
+        try coordinator.recordRawTranscript("raw", kind: .dictation)
+
+        _ = try await coordinator.processAndDeliver(kind: .dictation)
+
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
     func testCoordinatorCompletesTaskOnCopiedOutput() async throws {
         let pipeline = CoordinatorStubTextPipeline(
             result: TextProcessingResult(rawText: "raw", finalText: "final")
@@ -883,10 +930,19 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         let presentation = try await handler.finish(rawTranscript: "检查一下")
         XCTAssertTrue(presentation.isConfirmationForTest)
 
-        try await Task.sleep(nanoseconds: 5_000_000)
+        let expectedFailure = AgentDispatchHUDPresentation.failure(
+            message: "未选择任务助手",
+            retainedText: "检查一下"
+        )
+        let didTimeout = await waitUntilVoiceTaskTestCondition {
+            presentations.contains(expectedFailure)
+                && taskCoordinator.activeTaskID(for: .agentDispatch) == nil
+                && ((try? self.repository.listRecent(mode: .agentDispatch, limit: 1).first?.status) == .failed)
+        }
 
         XCTAssertTrue(clipboard.copiedTexts.isEmpty)
-        XCTAssertTrue(presentations.contains(.failure(message: "未选择任务助手", retainedText: "检查一下")))
+        XCTAssertTrue(didTimeout)
+        XCTAssertTrue(presentations.contains(expectedFailure))
         XCTAssertNil(taskCoordinator.activeTaskID(for: .agentDispatch))
         let task = try XCTUnwrap(repository.listRecent(mode: .agentDispatch, limit: 1).first)
         XCTAssertEqual(task.status, .failed)
@@ -1611,6 +1667,21 @@ private func drainVoiceTaskMainActorTasks() async {
     for _ in 0..<10 {
         await Task.yield()
     }
+}
+
+@MainActor
+private func waitUntilVoiceTaskTestCondition(
+    timeoutNanoseconds: UInt64 = 1_000_000_000,
+    _ condition: @escaping () -> Bool
+) async -> Bool {
+    let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
+    while ContinuousClock.now < deadline {
+        if condition() {
+            return true
+        }
+        try? await Task.sleep(nanoseconds: 1_000_000)
+    }
+    return condition()
 }
 
 @MainActor

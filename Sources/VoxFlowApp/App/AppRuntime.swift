@@ -1,4 +1,6 @@
 import Foundation
+@preconcurrency import Translation
+import VoxFlowScreenshotKit
 import VoxFlowTextInsertion
 
 @MainActor
@@ -80,7 +82,9 @@ struct AppRuntime {
     let audioCaptureCoordinator: AudioCaptureCoordinator
     let asrCoordinator: ASRCoordinator
     let windowCoordinator: WindowCoordinator
+    let updatePromptStore: UpdatePromptPresentationStore
     let capabilityModelDownloader: SoniqoCapabilityModelDownloader
+    let appleTranslationCoordinator: AppleTranslationCoordinator
     let screenshotTextRefiner: ScreenshotTextRefiner
     let screenshotOCRService: ScreenshotOCRService
     let dictationTargetProvider: WorkspaceDictationTargetProvider
@@ -117,10 +121,16 @@ struct AppRuntime {
         let textRuntime = AppTextRuntime(environment: environment)
         AppLogger.general.debug("AppRuntime TextRuntime created")
         let audioCaptureCoordinator = AudioCaptureCoordinator()
+        let updatePromptStore = UpdatePromptPresentationStore()
         let capabilityModelDownloader = SoniqoCapabilityModelDownloader()
         AppLogger.general.debug("AppRuntime capability downloader created")
+        let appleTranslationCoordinator = AppleTranslationCoordinator()
+        let appleSystemTranslationRefiner = AppleSystemTranslationRefiner(
+            coordinator: appleTranslationCoordinator
+        )
         let screenshotTextRefiner = ScreenshotTextRefiner(
             cloudRefiner: textRuntime.llmRefiner,
+            systemTranslator: appleSystemTranslationRefiner,
             localTranslator: SoniqoMADLADTranslationRefiner(
                 capabilityDownloader: capabilityModelDownloader
             )
@@ -131,8 +141,27 @@ struct AppRuntime {
             translator: screenshotTextRefiner,
             lastResultStore: textRuntime.lastResultStore
         )
+        let overlayControllerFactory: VoxFlowInteractiveScreenshotProvider.OverlayControllerFactory = { onResult in
+            let windowFactory = AppKitSelectionOverlayWindowFactory(
+                accessoryViewProvider: { configuration in
+                    guard configuration.display.isPrimary else { return nil }
+                    return AppleTranslationSessionHostFactory.makeNSView(
+                        coordinator: appleTranslationCoordinator
+                    )
+                }
+            )
+            return SelectionOverlayController(
+                windowFactory: windowFactory,
+                inlineTranslator: screenshotInlineTranslator,
+                onResult: onResult
+            )
+        }
+
         let screenshotOCRService = ScreenshotOCRService(
             imageProvider: VoxFlowScreenshotImageProvider(
+                screenshotProvider: VoxFlowInteractiveScreenshotProvider(
+                    overlayControllerFactory: overlayControllerFactory
+                ),
                 inlineTranslator: screenshotInlineTranslator
             ),
             ocrRecognizer: screenshotOCRRecognizer,
@@ -212,9 +241,12 @@ struct AppRuntime {
                 environment: environment,
                 asrRuntime: asrRuntime,
                 textRuntime: textRuntime,
-                audioCaptureCoordinator: audioCaptureCoordinator
+                audioCaptureCoordinator: audioCaptureCoordinator,
+                updatePromptStore: updatePromptStore
             ),
+            updatePromptStore: updatePromptStore,
             capabilityModelDownloader: capabilityModelDownloader,
+            appleTranslationCoordinator: appleTranslationCoordinator,
             screenshotTextRefiner: screenshotTextRefiner,
             screenshotOCRService: screenshotOCRService,
             dictationTargetProvider: dictationTargetProvider,

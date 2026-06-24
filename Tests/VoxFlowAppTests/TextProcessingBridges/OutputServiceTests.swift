@@ -16,6 +16,23 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "isolated clipboard text")
     }
 
+    func testGeneralPasteboardWriterCanMarkInternalWrites() throws {
+        let pasteboard = try XCTUnwrap(
+            NSPasteboard(name: NSPasteboard.Name("OutputServiceTests-\(UUID().uuidString)"))
+        )
+        let guarder = ClipboardInternalWriteGuard()
+        let writer = GeneralPasteboardWriter(
+            pasteboard: pasteboard,
+            internalWriteGuard: guarder
+        )
+
+        writer.copy("internal dashboard copy")
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "internal dashboard copy")
+        XCTAssertTrue(pasteboard.types?.contains(.voxFlowInternalMarker) == true)
+        XCTAssertTrue(guarder.shouldIgnore(changeCount: pasteboard.changeCount, types: pasteboard.types ?? []))
+    }
+
     // MARK: - Dictation mode: target unchanged -> inject
 
     func testDictationSuccessInjectsWhenTargetUnchanged() async {

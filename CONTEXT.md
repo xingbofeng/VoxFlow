@@ -105,7 +105,7 @@ Refinement is off unless configured and enabled. API failure falls back to raw t
 
 ### ADR-005: Host-Native SwiftPM Build
 
-The default Make target builds for the current host architecture. A signed bundle is always produced and verified; ad-hoc signing is the default for local development.
+Release and development app bundles are isolated at `.build/release/VoxFlow.app` and `.build/dev/VoxFlow.app`. Local development prefers an available Apple Development identity and falls back to ad-hoc signing. DMG packaging never falls back to ad-hoc signing: `make dmg` requires the stable `RELEASE_CODE_SIGN_IDENTITY` to exist in the active keychain.
 
 ### ADR-006: AppDelegate Delegates Dictation Lifecycle
 

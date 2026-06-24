@@ -204,6 +204,7 @@ final class ShortcutManager: @unchecked Sendable {
         static let selectionSummarizeShortcutDisabled = "SelectionSummarizeShortcutDisabled"
         static let selectionAgentShortcutKeyCode = "SelectionAgentShortcutKeyCode"
         static let selectionAgentShortcutDisabled = "SelectionAgentShortcutDisabled"
+        static let middleMouseRecordingEnabled = "MiddleMouseRecordingEnabled"
         static let migrationDone = "ShortcutManager_MigrationDone_V2"
     }
 
@@ -507,6 +508,7 @@ final class ShortcutManager: @unchecked Sendable {
         defaults.removeObject(forKey: Keys.selectionSummarizeShortcutDisabled)
         defaults.removeObject(forKey: Keys.selectionAgentShortcutKeyCode)
         defaults.removeObject(forKey: Keys.selectionAgentShortcutDisabled)
+        defaults.removeObject(forKey: Keys.middleMouseRecordingEnabled)
     }
 
     /// Checks if two actions have conflicting (identical) key bindings.
@@ -567,6 +569,21 @@ final class ShortcutManager: @unchecked Sendable {
         set {
             AppLogger.general.debug("ShortcutManager shortPressBehavior set=\(newValue.rawValue)")
             defaults.set(newValue.rawValue, forKey: Keys.shortPressBehavior)
+        }
+    }
+
+    // MARK: - Middle Mouse Recording
+
+    var middleMouseRecordingEnabled: Bool {
+        get {
+            guard defaults.object(forKey: Keys.middleMouseRecordingEnabled) != nil else {
+                return false
+            }
+            return defaults.bool(forKey: Keys.middleMouseRecordingEnabled)
+        }
+        set {
+            AppLogger.general.debug("ShortcutManager middleMouseRecordingEnabled set=\(newValue)")
+            defaults.set(newValue, forKey: Keys.middleMouseRecordingEnabled)
         }
     }
 

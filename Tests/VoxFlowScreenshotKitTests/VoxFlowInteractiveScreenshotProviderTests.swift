@@ -5,6 +5,69 @@ import XCTest
 
 @MainActor
 final class VoxFlowInteractiveScreenshotProviderTests: XCTestCase {
+    func testCaptureFailsWhenSharedLeaseIsAlreadyHeld() async throws {
+        let image = makeImage(width: 20, height: 20)
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Display",
+            frame: CGRect(x: 0, y: 0, width: 20, height: 20),
+            scale: 1,
+            isPrimary: true
+        )
+        let frameProvider = ScreenCaptureFrameProvider(
+            displayLoader: { [display] },
+            displayCapture: { _, _ in image }
+        )
+        let lease = InteractiveScreenshotCaptureLease()
+        XCTAssertTrue(lease.tryAcquire())
+        let provider = VoxFlowInteractiveScreenshotProvider(
+            frameProvider: frameProvider,
+            selectionProvider: { _ in .cancelled },
+            captureLease: lease
+        )
+
+        do {
+            _ = try await provider.capture()
+            XCTFail("Expected capture lease failure")
+        } catch let error as InteractiveScreenshotError {
+            XCTAssertEqual(error, .captureFailed("已有截图流程正在进行"))
+        }
+    }
+
+    func testCaptureReleasesLeaseAfterCompletion() async throws {
+        let image = makeImage(width: 20, height: 20)
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Display",
+            frame: CGRect(x: 0, y: 0, width: 20, height: 20),
+            scale: 1,
+            isPrimary: true
+        )
+        let frameProvider = ScreenCaptureFrameProvider(
+            displayLoader: { [display] },
+            displayCapture: { _, _ in image }
+        )
+        let lease = InteractiveScreenshotCaptureLease()
+        let provider = VoxFlowInteractiveScreenshotProvider(
+            frameProvider: frameProvider,
+            selectionProvider: { _ in
+                .accepted(
+                    SelectionState(
+                        displayFrame: display.frame,
+                        displayScale: display.scale,
+                        startPoint: CGPoint(x: 2, y: 3),
+                        currentPoint: CGPoint(x: 6, y: 8)
+                    )
+                )
+            },
+            captureLease: lease
+        )
+
+        _ = try await provider.capture()
+
+        XCTAssertTrue(lease.tryAcquire())
+    }
+
     func testCancellingCaptureClosesOverlayAndResumesContinuationOnlyOnce() async throws {
         let image = makeImage(width: 20, height: 20)
         let display = ScreenshotDisplay(

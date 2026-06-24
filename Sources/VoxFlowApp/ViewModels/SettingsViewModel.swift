@@ -258,6 +258,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var selectionTranslateShortcutKeyCode: Int64? = nil
     @Published private(set) var selectionSummarizeShortcutKeyCode: Int64? = nil
     @Published private(set) var selectionAgentShortcutKeyCode: Int64? = nil
+    @Published private(set) var middleMouseRecordingEnabled = false
     @Published private(set) var agentDispatchEnabled = false
     @Published private(set) var agentDispatchExactDirectEnabled = true
     @Published private(set) var agentDispatchMCPEnabled = true
@@ -315,6 +316,7 @@ final class SettingsViewModel: ObservableObject {
     private let launchAtLoginManager: any LaunchAtLoginManaging
     private let paths: ApplicationSupportPaths?
     private let fileManager: FileManager
+    private let clipboardWriter: ClipboardWriting
     private var languageObserverID: UUID?
     private var hasLoaded = false
 
@@ -328,7 +330,8 @@ final class SettingsViewModel: ObservableObject {
         localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)? = nil,
         launchAtLoginManager: any LaunchAtLoginManaging = SystemLaunchAtLoginManager(),
         paths: ApplicationSupportPaths? = nil,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        clipboardWriter: ClipboardWriting = GeneralPasteboardWriter()
     ) {
         self.environment = environment
         self.shortcutManager = shortcutManager
@@ -340,6 +343,7 @@ final class SettingsViewModel: ObservableObject {
         self.launchAtLoginManager = launchAtLoginManager
         self.paths = paths ?? environment.paths
         self.fileManager = fileManager
+        self.clipboardWriter = clipboardWriter
         self.storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
         load()
         languageObserverID = languageManager.observeLanguageChanges { [weak self] language in
@@ -371,6 +375,7 @@ final class SettingsViewModel: ObservableObject {
             selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
             selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
             selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
+            middleMouseRecordingEnabled = shortcutManager.middleMouseRecordingEnabled
             agentDispatchEnabled = try readBool(
                 SettingsKey.agentDispatchEnabled,
                 defaultValue: false
@@ -759,11 +764,7 @@ final class SettingsViewModel: ObservableObject {
 
     func copyAgentLaunchCommand(_ agent: AgentSessionCard) {
         Self.logger.info("settings_vm_copy_agent_launch_command agentID=\(agent.agentID) argCount=\(agent.command.count)")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(
-            "voxflow run -- \(agent.command.joined(separator: " "))",
-            forType: .string
-        )
+        clipboardWriter.copy("voxflow run -- \(agent.command.joined(separator: " "))")
         lastActionMessage = "已复制任务助手启动命令"
     }
 
@@ -798,11 +799,7 @@ final class SettingsViewModel: ObservableObject {
 
     func copyMCPDiagnostics(for agent: AgentSessionCard, logText: String) {
         Self.logger.info("settings_vm_copy_mcp_diagnostics agentID=\(agent.agentID) logLen=\(logText.count)")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(
-            mcpDiagnosticsText(for: agent, logText: logText),
-            forType: .string
-        )
+        clipboardWriter.copy(mcpDiagnosticsText(for: agent, logText: logText))
         lastError = nil
         lastActionMessage = "已复制协作通道诊断信息"
     }
@@ -877,11 +874,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func copyAgentCLIExamples() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(
-            "vox flow codex\nvox flow --claude\nvox flow --codebuddy",
-            forType: .string
-        )
+        clipboardWriter.copy("vox flow codex\nvox flow --claude\nvox flow --codebuddy")
         lastActionMessage = "已复制启动命令"
     }
 
@@ -929,6 +922,13 @@ final class SettingsViewModel: ObservableObject {
         try setBool(SettingsKey.analyticsEnabled, value: enabled)
         lastError = nil
         lastActionMessage = persistentWriteMessage("已更新分析设置")
+    }
+
+    func setMiddleMouseRecordingEnabled(_ enabled: Bool) throws {
+        middleMouseRecordingEnabled = enabled
+        shortcutManager.middleMouseRecordingEnabled = enabled
+        lastError = nil
+        lastActionMessage = enabled ? "已启用鼠标中键录音" : "已关闭鼠标中键录音"
     }
 
     func systemOption(_ option: SettingsSystemOption) -> Bool {

@@ -34,6 +34,39 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertTrue(AudioRecorder.isInputFormatUsable(sampleRate: 44_100, channelCount: 1))
     }
 
+    func testStartWithoutUsableInputDeviceThrowsBeforeStartingRecording() {
+        let recorder = AudioRecorder(
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { false }
+        )
+
+        XCTAssertThrowsError(try recorder.start()) { error in
+            XCTAssertEqual(
+                error as? AudioRecorder.AudioRecorderError,
+                .microphoneUnavailable
+            )
+        }
+        XCTAssertFalse(recorder.isRecording)
+    }
+
+    func testUnavailableMicrophoneErrorExplainsHowToRecover() {
+        XCTAssertEqual(
+            AudioRecorder.AudioRecorderError.microphoneUnavailable.errorDescription,
+            "未检测到可用麦克风。请连接或启用一个输入设备后重试。"
+        )
+    }
+
+    func testObjectiveCExceptionDuringTapInstallationIsConvertedToFailure() {
+        let succeeded = AudioRecorder.performCatchingObjectiveCException {
+            NSException(
+                name: .internalInconsistencyException,
+                reason: "Simulated AVAudioEngine tap failure"
+            ).raise()
+        }
+
+        XCTAssertFalse(succeeded)
+    }
+
     func testCopyBufferPreservesSamplesWhenOriginalIsReused() throws {
         let original = try makeBuffer(samples: [0.1, 0.2, 0.3, 0.4])
 

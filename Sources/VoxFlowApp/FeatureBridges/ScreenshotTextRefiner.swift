@@ -16,7 +16,7 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
 
     init(
         cloudRefiner: (any PromptAwareTextRefining)?,
-        systemTranslator: any PromptAwareTextRefining = AppleSystemTranslationRefiner(),
+        systemTranslator: any PromptAwareTextRefining,
         localTranslator: any PromptAwareTextRefining = SoniqoMADLADTranslationRefiner(),
         localSummarizer: any PromptAwareTextRefining = SoniqoQwen35SummaryRefiner(),
         defaults: UserDefaults = .standard
@@ -63,7 +63,7 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
         case .translation:
             switch selectedTranslationModelID {
             case CapabilityModelID.systemDefaultTranslation:
-                return "Apple 系统翻译在当前系统版本不可用，请使用已配置模型或安装本地翻译模型"
+                return "Apple 系统翻译暂时不可用，请确保系统版本为 macOS 15 或更高版本"
             case CapabilityModelID.llmTranslation:
                 return "请先在设置中配置模型"
             case CapabilityModelID.madladTranslation:
@@ -156,7 +156,11 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
     }
 
     private var selectedTranslationModelID: String {
-        CapabilityModelViewModel.selectedModelID(kind: .translation, defaults: defaults)
+        CapabilityModelViewModel.selectedModelID(
+            kind: .translation,
+            defaults: defaults,
+            llmTranslationAvailable: cloudRefinerIsReady
+        )
     }
 
     private var cloudRefinerIsReady: Bool {
@@ -579,33 +583,6 @@ enum MADLADTranslationInputChunker {
             chunks.append(current)
         }
         return chunks
-    }
-}
-
-final class AppleSystemTranslationRefiner: PromptAwareTextRefining, @unchecked Sendable {
-    var isEnabled: Bool { isConfigured }
-
-    var isConfigured: Bool {
-        return false
-    }
-
-    func refine(_ text: String) async throws -> String {
-        throw AppleSystemTranslationError.unavailableOnCurrentSystem
-    }
-
-    func refine(_ request: TextRefinementRequest) async throws -> String {
-        try await refine(request.text)
-    }
-}
-
-private enum AppleSystemTranslationError: LocalizedError {
-    case unavailableOnCurrentSystem
-
-    var errorDescription: String? {
-        switch self {
-        case .unavailableOnCurrentSystem:
-            return "Apple 系统翻译在当前系统版本不可用，请使用已配置模型或安装本地翻译模型"
-        }
     }
 }
 

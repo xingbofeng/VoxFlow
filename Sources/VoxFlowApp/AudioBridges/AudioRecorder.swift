@@ -1,5 +1,7 @@
 @preconcurrency import AVFoundation
+import CoreAudio
 import Foundation
+import VoxFlowObjCExceptionSupport
 
 /// Manages audio capture from the default microphone with real-time RMS level metering.
 final class AudioRecorder: NSObject, @unchecked Sendable {
@@ -55,11 +57,17 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         case notDetermined
     }
 
-    enum AudioRecorderError: Error, LocalizedError {
+    enum AudioRecorderError: Error, Equatable, LocalizedError {
+        case microphonePermissionDenied
         case microphoneUnavailable
 
         var errorDescription: String? {
-            "麦克风不可用。请检查系统权限设置。"
+            switch self {
+            case .microphonePermissionDenied:
+                return "没有麦克风权限。请在系统设置中允许 VoxFlow 使用麦克风。"
+            case .microphoneUnavailable:
+                return "未检测到可用麦克风。请连接或启用一个输入设备后重试。"
+            }
         }
     }
 
@@ -67,12 +75,20 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
 
     private let engine = AVAudioEngine()
     private let eventDispatcher: EventDispatcher
+    private let permissionStatus: @Sendable () -> PermissionStatus
+    private let inputDeviceAvailability: @Sendable () -> Bool
     private(set) var isRecording = false
     var voiceEnhancementEnabled = false
     weak var delegate: Delegate?
 
-    init(eventDispatcher: EventDispatcher = .audioQueue()) {
+    init(
+        eventDispatcher: EventDispatcher = .audioQueue(),
+        permissionStatus: @escaping @Sendable () -> PermissionStatus = AudioRecorder.checkPermission,
+        inputDeviceAvailability: @escaping @Sendable () -> Bool = AudioRecorder.hasUsableSystemInputDevice
+    ) {
         self.eventDispatcher = eventDispatcher
+        self.permissionStatus = permissionStatus
+        self.inputDeviceAvailability = inputDeviceAvailability
         super.init()
     }
 
@@ -111,6 +127,15 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             AppLogger.audio.debug("AudioRecorder start skipped: already recording")
             return
         }
+        guard permissionStatus() == .granted else {
+            AppLogger.audio.error("AudioRecorder start failed: microphone permission denied")
+            throw AudioRecorderError.microphonePermissionDenied
+        }
+        guard inputDeviceAvailability() else {
+            AppLogger.audio.error("AudioRecorder start failed: no usable input device")
+            throw AudioRecorderError.microphoneUnavailable
+        }
+
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
         AppLogger.audio.debug("AudioRecorder start sampleRate=\(inputFormat.sampleRate) channels=\(inputFormat.channelCount)")
@@ -122,8 +147,14 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             throw AudioRecorderError.microphoneUnavailable
         }
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
-            self?.processCapturedBuffer(buffer)
+        let tapInstalled = Self.performCatchingObjectiveCException {
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
+                self?.processCapturedBuffer(buffer)
+            }
+        }
+        guard tapInstalled else {
+            AppLogger.audio.error("AudioRecorder start failed: input tap installation raised an exception")
+            throw AudioRecorderError.microphoneUnavailable
         }
 
         do {
@@ -133,10 +164,73 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         } catch {
             inputNode.removeTap(onBus: 0)
             engine.stop()
-            AppLogger.audio.error("AudioRecorder start failed: microphoneUnavailable")
+            if permissionStatus() != .granted {
+                AppLogger.audio.error("AudioRecorder start failed: microphone permission denied")
+                throw AudioRecorderError.microphonePermissionDenied
+            }
+            AppLogger.audio.error("AudioRecorder start failed: microphone unavailable")
             throw AudioRecorderError.microphoneUnavailable
         }
         AppLogger.audio.info("AudioRecorder started")
+    }
+
+    static func performCatchingObjectiveCException(_ action: () -> Void) -> Bool {
+        VoxFlowPerformCatchingException(action)
+    }
+
+    static func hasUsableSystemInputDevice() -> Bool {
+        var defaultInputAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var device = AudioObjectID(kAudioObjectUnknown)
+        var deviceSize = UInt32(MemoryLayout<AudioObjectID>.size)
+        let deviceStatus = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &defaultInputAddress,
+            0,
+            nil,
+            &deviceSize,
+            &device
+        )
+        guard deviceStatus == noErr, device != kAudioObjectUnknown else {
+            return false
+        }
+
+        var aliveAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsAlive,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var isAlive: UInt32 = 0
+        var aliveSize = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(
+            device,
+            &aliveAddress,
+            0,
+            nil,
+            &aliveSize,
+            &isAlive
+        ) == noErr, isAlive != 0 else {
+            return false
+        }
+
+        var streamsAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var streamsSize: UInt32 = 0
+        let streamsStatus = AudioObjectGetPropertyDataSize(
+            device,
+            &streamsAddress,
+            0,
+            nil,
+            &streamsSize
+        )
+        return streamsStatus == noErr
+            && streamsSize >= UInt32(MemoryLayout<AudioStreamID>.size)
     }
 
     static func isInputFormatUsable(sampleRate: Double, channelCount: AVAudioChannelCount) -> Bool {

@@ -99,6 +99,82 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
     }
 
+    func testMakefileSeparatesDevelopmentAndReleaseAppBundles() throws {
+        let makefile = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+        let buildBody = try Self.makeTargetBody("build", in: makefile)
+        let buildDevBody = try Self.makeTargetBody("build-dev", in: makefile)
+        let runDevBody = try Self.makeTargetBody("run-dev", in: makefile)
+        let cleanupBody = try Self.makeTargetBody("prelaunch-cleanup", in: makefile)
+
+        XCTAssertTrue(makefile.contains("BUNDLE_DIR := $(BUILD_DIR)/release/$(APP_NAME).app"))
+        XCTAssertTrue(makefile.contains("DEV_BUNDLE_DIR := $(BUILD_DIR)/dev/$(APP_NAME).app"))
+        XCTAssertTrue(buildBody.contains("\"$(BUNDLE_DIR)/Contents/MacOS"))
+        XCTAssertFalse(buildBody.contains("$(DEV_BUNDLE_DIR)"))
+        XCTAssertTrue(buildDevBody.contains("\"$(DEV_BUNDLE_DIR)/Contents/MacOS"))
+        XCTAssertFalse(buildDevBody.contains("\"$(BUNDLE_DIR)/Contents/MacOS"))
+        XCTAssertTrue(runDevBody.contains("open \"$(DEV_BUNDLE_DIR)\""))
+        XCTAssertTrue(cleanupBody.contains("\"$(BUNDLE_DIR)\""))
+        XCTAssertTrue(cleanupBody.contains("\"$(DEV_BUNDLE_DIR)\""))
+        XCTAssertTrue(cleanupBody.contains("rm -rf \".build/$(APP_NAME).app\""))
+    }
+
+    func testReleaseDMGRequiresExplicitStableSigningIdentity() throws {
+        let root = Self.repositoryRoot()
+        let makefile = try String(
+            contentsOf: root.appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+        let release = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+        let signingGuardBody = try Self.makeTargetBody("require-release-signing-identity", in: makefile)
+
+        XCTAssertTrue(makefile.contains("DEVELOPMENT_CODE_SIGN_IDENTITY ?="))
+        XCTAssertTrue(makefile.contains("RELEASE_CODE_SIGN_IDENTITY ?= VoxFlow Release Signing"))
+        XCTAssertTrue(makefile.contains("RELEASE_KEYCHAIN_PATH ?="))
+        XCTAssertTrue(makefile.contains("CODE_SIGN_KEYCHAIN_OPTION := $(if $(RELEASE_KEYCHAIN_PATH),--keychain \"$(RELEASE_KEYCHAIN_PATH)\",)"))
+        XCTAssertTrue(makefile.contains("dmg: CODE_SIGN_IDENTITY = $(RELEASE_CODE_SIGN_IDENTITY)"))
+        XCTAssertTrue(makefile.contains("dmg: require-release-signing-identity build"))
+        XCTAssertTrue(signingGuardBody.contains("test -n \"$(RELEASE_CODE_SIGN_IDENTITY)\""))
+        XCTAssertTrue(signingGuardBody.contains("test \"$(RELEASE_CODE_SIGN_IDENTITY)\" != \"-\""))
+        XCTAssertTrue(signingGuardBody.contains("RELEASE_KEYCHAIN_PATH"))
+        XCTAssertTrue(signingGuardBody.contains("Release signing keychain not found"))
+        XCTAssertTrue(signingGuardBody.contains("security find-identity -v -p codesigning"))
+        XCTAssertFalse(signingGuardBody.contains("security find-identity -v \"$(RELEASE_KEYCHAIN_PATH)\""))
+        XCTAssertFalse(signingGuardBody.contains("|| true"))
+
+        XCTAssertTrue(release.contains("VOXFLOW_RELEASE_CERTIFICATE_P12_BASE64"))
+        XCTAssertTrue(release.contains("VOXFLOW_RELEASE_CERTIFICATE_PASSWORD"))
+        XCTAssertTrue(release.contains("VOXFLOW_RELEASE_SIGNING_IDENTITY"))
+        XCTAssertTrue(release.contains("VOXFLOW_RELEASE_KEYCHAIN_PATH"))
+        XCTAssertTrue(release.contains("security import"))
+        XCTAssertFalse(release.contains("security add-trusted-cert"))
+        XCTAssertTrue(release.contains("CERTIFICATE_SHA1=$(security find-certificate -a -Z \"$KEYCHAIN_PATH\""))
+        XCTAssertTrue(release.contains("VOXFLOW_RELEASE_SIGNING_IDENTITY=$CERTIFICATE_SHA1"))
+        XCTAssertTrue(release.contains("codesign -d --extract-certificates \"$GITHUB_WORKSPACE/.build/release/VoxFlow.app\""))
+        XCTAssertTrue(release.contains("APP_CERTIFICATE_SHA1=$(openssl x509 -inform DER -in \"$CERTIFICATE_DIR/codesign0\""))
+        XCTAssertTrue(release.contains("test \"$APP_CERTIFICATE_SHA1\" = \"$VOXFLOW_RELEASE_SIGNING_IDENTITY\""))
+        XCTAssertFalse(release.contains("Authority=$VOXFLOW_RELEASE_SIGNING_IDENTITY"))
+        XCTAssertTrue(release.contains("RELEASE_CODE_SIGN_IDENTITY=\"$VOXFLOW_RELEASE_SIGNING_IDENTITY\""))
+        XCTAssertTrue(release.contains("RELEASE_KEYCHAIN_PATH=\"$VOXFLOW_RELEASE_KEYCHAIN_PATH\""))
+    }
+
+    func testDMGCreationUsesExplicitImageSizeMargin() throws {
+        let makefile = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+        let dmgBody = try Self.makeTargetBody("dmg", in: makefile)
+
+        XCTAssertTrue(dmgBody.contains("du -sm dist/staging"))
+        XCTAssertTrue(dmgBody.contains("+ 256"))
+        XCTAssertTrue(dmgBody.contains("-size $${dmg_size_mb}m"))
+    }
+
     func testMakefileDetectsCargoWithoutAssumingSwiftArchitectureMatchesRustTriple() throws {
         let makefile = try String(
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
@@ -123,13 +199,15 @@ final class BrandIdentityTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/Helpers/voxflow\"").count - 1,
-            3
+            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(BUNDLE_DIR)/Contents/Helpers/voxflow\"").count - 1,
+            2
         )
         XCTAssertEqual(
-            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/Helpers/vox\"").count - 1,
-            3
+            makefile.components(separatedBy: "codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(BUNDLE_DIR)/Contents/Helpers/vox\"").count - 1,
+            2
         )
+        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(DEV_BUNDLE_DIR)/Contents/Helpers/voxflow\""))
+        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(DEV_BUNDLE_DIR)/Contents/Helpers/vox\""))
     }
 
     func testMakefileBundlesMLXMetallibForSpeechSwiftRuntime() throws {
@@ -147,7 +225,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("bash \"$(MLX_METALLIB_SCRIPT)\" debug"))
         XCTAssertTrue(makefile.contains("\"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
         XCTAssertTrue(makefile.contains("@test -f \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
-        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
     }
 
     func testMakefileSkipsSherpaBootstrapWhenRuntimeLibrariesExist() throws {
@@ -253,12 +331,15 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("make architecture-check"))
         XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertTrue(ci.contains("cancel-in-progress: true"))
+        XCTAssertTrue(ci.contains("timeout-minutes: 40"))
         XCTAssertFalse(ci.contains("make dmg"))
         XCTAssertFalse(ci.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertFalse(ci.contains(".build/VoxFlowApp.app"))
 
-        XCTAssertTrue(release.contains(".build/VoxFlow.app"))
+        XCTAssertTrue(release.contains(".build/release/VoxFlow.app"))
         XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
+        XCTAssertTrue(release.contains("overwrite_files: true"))
+        XCTAssertFalse(release.contains(".build/VoxFlow.app"))
         XCTAssertFalse(release.contains(".build/VoxFlowApp.app"))
     }
 

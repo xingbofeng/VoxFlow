@@ -401,4 +401,39 @@ final class KeyMonitorTests: XCTestCase {
             )
         )
     }
+
+    func testMiddleMouseRecordingRoutesOnlyWhenEnabledAndButtonIsMiddle() {
+        XCTAssertEqual(
+            MouseShortcutRouting.action(
+                buttonNumber: 2,
+                middleMouseRecordingEnabled: true
+            ),
+            .dictation
+        )
+        XCTAssertNil(
+            MouseShortcutRouting.action(
+                buttonNumber: 2,
+                middleMouseRecordingEnabled: false
+            )
+        )
+        XCTAssertNil(
+            MouseShortcutRouting.action(
+                buttonNumber: 1,
+                middleMouseRecordingEnabled: true
+            )
+        )
+    }
+
+    func testMiddleMouseButtonStateAlwaysReleasesInsteadOfShortPress() {
+        var state = MouseShortcutButtonState()
+
+        XCTAssertEqual(
+            state.transition(buttonNumber: 2, isPressed: true),
+            .pressed
+        )
+        XCTAssertEqual(
+            state.transition(buttonNumber: 2, isPressed: false),
+            .released
+        )
+    }
 }

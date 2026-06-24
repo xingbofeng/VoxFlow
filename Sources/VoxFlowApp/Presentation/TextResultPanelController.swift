@@ -14,6 +14,7 @@ final class TextResultPanelController {
         rootView: Content,
         contentSize: NSSize = NSSize(width: 440, height: 560),
         bottomMargin: CGFloat = 36,
+        accessoryView: NSView? = nil,
         onCancel: @escaping () -> Void,
         onInteraction: (@MainActor () -> Void)? = nil
     ) {
@@ -24,8 +25,11 @@ final class TextResultPanelController {
         window.onCancel = onCancel
         window.onInteraction = onInteraction
         window.setContentSize(contentSize)
-        window.contentView = NSHostingView(rootView: rootView)
+        window.contentView = makeContentView(rootView: rootView, accessoryView: accessoryView)
         position(window, bottomMargin: bottomMargin)
+        if accessoryView != nil {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         window.orderFrontRegardless()
         window.makeKey()
     }
@@ -59,6 +63,35 @@ final class TextResultPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         return panel
+    }
+
+    private func makeContentView<Content: View>(
+        rootView: Content,
+        accessoryView: NSView?
+    ) -> NSView {
+        let container = NSView()
+        let contentHost = NSHostingView(rootView: rootView)
+        contentHost.translatesAutoresizingMaskIntoConstraints = false
+
+        if let accessoryView {
+            accessoryView.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(accessoryView)
+            NSLayoutConstraint.activate([
+                accessoryView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                accessoryView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                accessoryView.topAnchor.constraint(equalTo: container.topAnchor),
+                accessoryView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            ])
+        }
+
+        container.addSubview(contentHost)
+        NSLayoutConstraint.activate([
+            contentHost.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            contentHost.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            contentHost.topAnchor.constraint(equalTo: container.topAnchor),
+            contentHost.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        return container
     }
 
     private func position(_ window: NSWindow, bottomMargin: CGFloat) {

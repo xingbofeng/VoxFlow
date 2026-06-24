@@ -20,7 +20,10 @@ final class UpdateCheckCoordinator {
         self.presenter = presenter
     }
 
-    static func live(currentVersion: String) -> UpdateCheckCoordinator {
+    static func live(
+        currentVersion: String,
+        presenter: UpdatePromptPresenter? = nil
+    ) -> UpdateCheckCoordinator {
         let stateStore = UpdateCheckStateStore()
         let client = makeReleaseClient(currentVersion: currentVersion)
         let service = UpdateCheckService(
@@ -31,7 +34,8 @@ final class UpdateCheckCoordinator {
         return UpdateCheckCoordinator(
             currentVersion: currentVersion,
             service: service,
-            stateStore: stateStore
+            stateStore: stateStore,
+            presenter: presenter ?? UpdatePromptPresenter()
         )
     }
 
@@ -55,17 +59,17 @@ final class UpdateCheckCoordinator {
         let result = await service.check(mode: mode)
         switch result {
         case .updateAvailable(let release):
-            let action = presenter.presentUpdateAvailable(release: release, currentVersion: currentVersion)
+            let action = await presenter.presentUpdateAvailable(release: release, currentVersion: currentVersion)
             if action == .ignore {
                 stateStore.ignoredVersion = release.version
             }
         case .upToDate:
             if mode == .manual {
-                presenter.presentUpToDate(currentVersion: currentVersion)
+                await presenter.presentUpToDate(currentVersion: currentVersion)
             }
         case .failed:
             if mode == .manual {
-                presenter.presentFailure()
+                await presenter.presentFailure()
             } else {
                 AppLogger.general.debug("automatic_update_check_failed")
             }

@@ -1611,15 +1611,27 @@ private final class SelectionOverlayMouseMoveSuppressor: @unchecked Sendable {
     }
 }
 
+public typealias SelectionOverlayAccessoryViewProvider = (SelectionOverlayWindowConfiguration) -> NSView?
+
 @MainActor
 public final class AppKitSelectionOverlayWindowFactory: SelectionOverlayWindowMaking {
-    public init() {}
+    private let accessoryViewProvider: SelectionOverlayAccessoryViewProvider
+
+    public init(
+        accessoryViewProvider: @escaping SelectionOverlayAccessoryViewProvider = { _ in nil }
+    ) {
+        self.accessoryViewProvider = accessoryViewProvider
+    }
 
     public func makeWindow(
         configuration: SelectionOverlayWindowConfiguration,
         eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void
     ) -> any SelectionOverlayWindowControlling {
-        AppKitSelectionOverlayWindow(configuration: configuration, eventHandler: eventHandler)
+        AppKitSelectionOverlayWindow(
+            configuration: configuration,
+            eventHandler: eventHandler,
+            accessoryViewProvider: accessoryViewProvider
+        )
     }
 }
 
@@ -1636,7 +1648,8 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
 
     init(
         configuration: SelectionOverlayWindowConfiguration,
-        eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void
+        eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void,
+        accessoryViewProvider: @escaping SelectionOverlayAccessoryViewProvider = { _ in nil }
     ) {
         self.eventHandler = eventHandler
         overlayView = SelectionOverlayContentView(configuration: configuration, eventHandler: eventHandler)
@@ -1661,6 +1674,12 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
         acceptsMouseMovedEvents = true
 
         contentView = overlayView
+        // 挂载 accessory view（如系统翻译 session host）
+        if let accessoryView = accessoryViewProvider(configuration) {
+            overlayView.addSubview(accessoryView)
+            accessoryView.frame = overlayView.bounds
+            accessoryView.autoresizingMask = [.width, .height]
+        }
         overlayView.windowTargetResolver = SelectionWindowTargetResolver.live(
             screenFrame: configuration.display.frame,
             ownWindowID: CGWindowID(windowNumber)

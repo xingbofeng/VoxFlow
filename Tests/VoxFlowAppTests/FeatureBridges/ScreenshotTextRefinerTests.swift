@@ -9,6 +9,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.madladTranslation)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
@@ -36,6 +37,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.madladTranslation)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
@@ -62,6 +64,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.llmTranslation)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
@@ -88,6 +91,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.llmTranslation)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
@@ -96,34 +100,25 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         XCTAssertFalse(refiner.isTranslationConfigured)
     }
 
-    func testLLMTranslationSelectionRequiresEnabledCloudRefiner() async {
-        let cloud = CapturingPromptRefiner(result: "云端译文", configured: true)
-        cloud.isEnabled = false
+    func testSystemDefaultUnavailableMessageWhenSystemNotConfigured() {
+        let cloud = CapturingPromptRefiner(result: "云端译文", configured: false)
         let localTranslator = CapturingPromptRefiner(result: "本地译文", configured: true)
         let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
-        let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.llmTranslation)
+        let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.systemDefaultTranslation, migrationVersion: 1)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
         )
 
+        // System default with no system translator and no cloud
+        XCTAssertEqual(
+            refiner.unavailableMessage(for: .translation),
+            "Apple 系统翻译暂时不可用，请确保系统版本为 macOS 15 或更高版本"
+        )
         XCTAssertFalse(refiner.isTranslationConfigured)
-        do {
-            _ = try await refiner.refine(
-                TextRefinementRequest(
-                    text: "Error 404",
-                    systemPrompt: ScreenshotOCRService.translationSystemPrompt,
-                    model: nil,
-                    temperature: nil
-                )
-            )
-            XCTFail("Expected disabled LLM translation to fail")
-        } catch {
-            XCTAssertEqual(error.localizedDescription, "翻译前请先配置模型")
-        }
-        XCTAssertTrue(cloud.requests.isEmpty)
     }
 
     func testKeepsLocalTranslationOutputWithoutRepetitionHeuristic() async throws {
@@ -136,6 +131,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.madladTranslation)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer,
             defaults: defaults
@@ -359,6 +355,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer
         )
@@ -387,6 +384,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer
         )
@@ -423,6 +421,7 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
         let refiner = ScreenshotTextRefiner(
             cloudRefiner: cloud,
+            systemTranslator: CapturingPromptRefiner(result: "", configured: false),
             localTranslator: localTranslator,
             localSummarizer: localSummarizer
         )
@@ -442,10 +441,74 @@ final class ScreenshotTextRefinerTests: XCTestCase {
         }
     }
 
-    private static func defaults(selectedTranslationModelID: String) -> UserDefaults {
+    func testSystemTranslationFallsBackToCloudWhenSystemFails() async throws {
+        let cloud = CapturingPromptRefiner(result: "云端译文", configured: true)
+        let failingSystem = CapturingPromptRefiner(result: "系统译文", configured: true)
+        failingSystem.shouldThrowOnRefine = true
+        let localTranslator = CapturingPromptRefiner(result: "本地译文", configured: true)
+        let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
+        let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.systemDefaultTranslation)
+        let refiner = ScreenshotTextRefiner(
+            cloudRefiner: cloud,
+            systemTranslator: failingSystem,
+            localTranslator: localTranslator,
+            localSummarizer: localSummarizer,
+            defaults: defaults
+        )
+
+        let output = try await refiner.refine(
+            TextRefinementRequest(
+                text: "Error 404",
+                systemPrompt: ScreenshotOCRService.translationSystemPrompt,
+                model: nil,
+                temperature: nil
+            )
+        )
+
+        XCTAssertEqual(output, "云端译文")
+        XCTAssertEqual(failingSystem.requests.map(\.text), ["Error 404"])
+        XCTAssertEqual(cloud.requests.map(\.text), ["Error 404"])
+    }
+
+    func testSystemTranslationFailsWithoutCloudFallbackPropagatesSystemError() async {
+        let cloud = CapturingPromptRefiner(result: "云端译文", configured: false)
+        let failingSystem = CapturingPromptRefiner(result: "系统译文", configured: true)
+        failingSystem.shouldThrowOnRefineWithError = NSError(
+            domain: "AppleTranslation",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Apple 系统翻译失败"]
+        )
+        let localTranslator = CapturingPromptRefiner(result: "本地译文", configured: false)
+        let localSummarizer = CapturingPromptRefiner(result: "本地总结", configured: true)
+        let defaults = Self.defaults(selectedTranslationModelID: CapabilityModelID.systemDefaultTranslation)
+        let refiner = ScreenshotTextRefiner(
+            cloudRefiner: cloud,
+            systemTranslator: failingSystem,
+            localTranslator: localTranslator,
+            localSummarizer: localSummarizer,
+            defaults: defaults
+        )
+
+        do {
+            _ = try await refiner.refine(
+                TextRefinementRequest(
+                    text: "Error 404",
+                    systemPrompt: ScreenshotOCRService.translationSystemPrompt,
+                    model: nil,
+                    temperature: nil
+                )
+            )
+            XCTFail("Expected system error to propagate")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("Apple 系统翻译失败"))
+        }
+    }
+
+    private static func defaults(selectedTranslationModelID: String, migrationVersion: Int = 1) -> UserDefaults {
         let suiteName = "test.ScreenshotTextRefinerTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.set(selectedTranslationModelID, forKey: "settings.capabilityModel.translation.selectedModelID")
+        defaults.set(migrationVersion, forKey: "settings.capabilityModel.translation.defaultMigrationVersion")
         return defaults
     }
 }
@@ -454,6 +517,8 @@ private final class CapturingPromptRefiner: PromptAwareTextRefining, @unchecked 
     var isEnabled = true
     var isConfigured: Bool
     let result: String
+    var shouldThrowOnRefine = false
+    var shouldThrowOnRefineWithError: Error?
     private(set) var requests: [TextRefinementRequest] = []
 
     init(result: String, configured: Bool) {
@@ -462,11 +527,23 @@ private final class CapturingPromptRefiner: PromptAwareTextRefining, @unchecked 
     }
 
     func refine(_ text: String) async throws -> String {
-        result
+        if let error = shouldThrowOnRefineWithError {
+            throw error
+        }
+        if shouldThrowOnRefine {
+            throw NSError(domain: "CapturingPromptRefiner", code: 1, userInfo: nil)
+        }
+        return result
     }
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
         requests.append(request)
+        if let error = shouldThrowOnRefineWithError {
+            throw error
+        }
+        if shouldThrowOnRefine {
+            throw NSError(domain: "CapturingPromptRefiner", code: 1, userInfo: nil)
+        }
         return result
     }
 }

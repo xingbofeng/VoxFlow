@@ -108,6 +108,11 @@ struct SettingsRootView: View {
         }
         .onAppear {
             viewModel.loadIfNeeded()
+            llmProviderViewModel.loadIfNeeded()
+            syncTranslationLLMAvailability()
+        }
+        .onChange(of: llmProviderViewModel.providers) { _, _ in
+            syncTranslationLLMAvailability()
         }
         .onDisappear {
             stopShortcutRecording()
@@ -130,6 +135,12 @@ struct SettingsRootView: View {
         viewModel.clearFeedback()
         llmProviderViewModel.clearFeedback()
         asrProviderViewModel.clearFeedback()
+    }
+
+    private func syncTranslationLLMAvailability() {
+        translationCapabilityModelViewModel.setLLMTranslationAvailable(
+            LLMProviderAvailability.hasUsableProvider(in: llmProviderViewModel.providers)
+        )
     }
 
     private var unresolvedBehaviorHelpText: String {
@@ -327,6 +338,17 @@ struct SettingsRootView: View {
                         buttonTitle: "设置快捷键",
                         badge: "不自动发送",
                         prominentWhenUnbound: true
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    SettingsToggleRow(
+                        title: "鼠标中键录音",
+                        subtitle: "开启后，按住鼠标中键说话，松开后转写并输入",
+                        systemImage: "computermouse",
+                        tint: .blue,
+                        isOn: middleMouseRecordingBinding
                     )
 
                     Divider()
@@ -1296,6 +1318,13 @@ struct SettingsRootView: View {
         Binding(
             get: { viewModel.analyticsEnabled },
             set: { value in perform { try viewModel.setAnalyticsEnabled(value) } }
+        )
+    }
+
+    private var middleMouseRecordingBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.middleMouseRecordingEnabled },
+            set: { value in perform { try viewModel.setMiddleMouseRecordingEnabled(value) } }
         )
     }
 

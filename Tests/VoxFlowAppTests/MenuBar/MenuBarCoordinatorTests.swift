@@ -156,6 +156,36 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertNotNil(translationMenu.item(withTitle: "Soniqo MADLAD（未下载）"))
     }
 
+    func testTranslationLLMMenuItemIsDisabledWhenProviderIsUnavailable() throws {
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { _ in false },
+            actions: .noop,
+            capabilityModels: { kind in
+                CapabilityModelCatalog.models(for: kind).map { model in
+                    var mutable = model
+                    if model.id == CapabilityModelID.llmTranslation {
+                        mutable.isInstalled = false
+                    }
+                    return mutable
+                }
+            },
+            selectedCapabilityModelID: { kind in
+                kind == .tts ? CapabilityModelID.systemDefaultTTS : CapabilityModelID.systemDefaultTranslation
+            },
+            isCapabilityModelEnabled: { $0.isInstalled }
+        )
+
+        let translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
+        let llmItem = try XCTUnwrap(translationMenu.item(withTitle: "智能模型配置（未配置）"))
+
+        XCTAssertFalse(llmItem.isEnabled)
+        XCTAssertEqual(llmItem.state, .off)
+        XCTAssertEqual(translationMenu.item(withTitle: "系统默认")?.state, .on)
+    }
+
     func testCoordinatorRefreshesLanguageASRAndRefiningStateWhenMenuOpens() throws {
         let apple = ASRMenuModel(engineType: .apple, title: "系统自带")
         let qwen = ASRMenuModel(engineType: .qwen3, modelSize: .size0_6B, title: "Qwen3-ASR 0.6B")

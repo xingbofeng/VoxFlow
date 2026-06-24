@@ -5,6 +5,12 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      run_quality_gates:
+        description: "Run full tests, benchmarks, Rust checks, architecture check, and debug warning build before packaging"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -55,9 +61,18 @@ jobs:
           echo "value=$PLIST_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
-        run: swift test
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
+        run: |
+          start=$(date +%s)
+          swift test --parallel --num-workers 1 --jobs 1
+          duration=$(( $(date +%s) - start ))
+          echo "### Release timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| swift test --parallel --num-workers 1 --jobs 1 | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run voice correction benchmark
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         run: |
           swift run --package-path Packages/VoxFlowVoiceCorrectionKit VoxFlowVoiceCorrectionBench \
             --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
@@ -65,38 +80,109 @@ jobs:
             --output .build/voice-correction-benchmark
 
       - name: Run context boost benchmark
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         run: swift run --package-path Packages/VoxFlowContextBoostKit VoxFlowContextBoostBench
 
       - name: Show Rust toolchain
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         run: |
           rustc --version
           cargo --version
           rustup component add rustfmt clippy
 
       - name: Check Rust agent router
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         working-directory: agent-cli
         run: |
+          start=$(date +%s)
           cargo fmt --check
           cargo clippy --all-targets -- -D warnings
           cargo test
+          duration=$(( $(date +%s) - start ))
+          echo "| Rust fmt/clippy/test | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check helper script syntax
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         run: |
           bash -n agent-cli/vox
 
       - name: Check architecture boundaries
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
         run: make architecture-check
 
       - name: Build with warnings as errors
-        run: swift build -c debug -Xswiftc -warnings-as-errors
+        if: github.event_name == 'workflow_dispatch' && inputs.run_quality_gates == true
+        run: |
+          start=$(date +%s)
+          swift build -c debug -Xswiftc -warnings-as-errors
+          duration=$(( $(date +%s) - start ))
+          echo "| debug warnings-as-errors build | $duration |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Configure release signing identity
+        timeout-minutes: 3
+        env:
+          RELEASE_CERTIFICATE_P12_BASE64: ${{ secrets.VOXFLOW_RELEASE_CERTIFICATE_P12_BASE64 }}
+          RELEASE_CERTIFICATE_PASSWORD: ${{ secrets.VOXFLOW_RELEASE_CERTIFICATE_PASSWORD }}
+          RELEASE_SIGNING_IDENTITY: ${{ secrets.VOXFLOW_RELEASE_SIGNING_IDENTITY }}
+        run: |
+          test -n "$RELEASE_CERTIFICATE_P12_BASE64"
+          test -n "$RELEASE_CERTIFICATE_PASSWORD"
+          test -n "$RELEASE_SIGNING_IDENTITY"
+          CERTIFICATE_PATH="$RUNNER_TEMP/voxflow-release-signing.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/voxflow-release-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          echo "$RELEASE_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$RELEASE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          CERTIFICATE_SHA1=$(security find-certificate -a -Z "$KEYCHAIN_PATH" | awk '/SHA-1 hash:/ { print $3; exit }')
+          test -n "$CERTIFICATE_SHA1"
+          echo "VOXFLOW_RELEASE_SIGNING_IDENTITY=$CERTIFICATE_SHA1" >> "$GITHUB_ENV"
+          echo "VOXFLOW_RELEASE_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "VOXFLOW_RELEASE_KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Cache MLX metallib
+        id: mlx-metallib-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/release/mlx.metallib
+            .build/release/.mlx.metallib.sha
+          key: ${{ runner.os }}-${{ runner.arch }}-mlx-metallib-${{ hashFiles('Package.resolved', 'scripts/build-mlx-metallib.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-mlx-metallib-
 
       - name: Build release DMG
-        run: make dmg
+        run: |
+          start=$(date +%s)
+          security unlock-keychain -p "$VOXFLOW_RELEASE_KEYCHAIN_PASSWORD" "$VOXFLOW_RELEASE_KEYCHAIN_PATH"
+          security list-keychains -d user -s "$VOXFLOW_RELEASE_KEYCHAIN_PATH"
+          make dmg \
+            RELEASE_CODE_SIGN_IDENTITY="$VOXFLOW_RELEASE_SIGNING_IDENTITY" \
+            RELEASE_KEYCHAIN_PATH="$VOXFLOW_RELEASE_KEYCHAIN_PATH"
+          duration=$(( $(date +%s) - start ))
+          echo "### Release timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| make dmg | $duration |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| MLX metallib cache hit | ${{ steps.mlx-metallib-cache.outputs.cache-hit || 'false' }} |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify release assets
         run: |
-          codesign --verify --deep --strict .build/VoxFlow.app
-          lipo .build/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
+          codesign --verify --deep --strict .build/release/VoxFlow.app
+          CERTIFICATE_DIR="$(mktemp -d)"
+          (
+            cd "$CERTIFICATE_DIR"
+            codesign -d --extract-certificates "$GITHUB_WORKSPACE/.build/release/VoxFlow.app"
+          )
+          APP_CERTIFICATE_SHA1=$(openssl x509 -inform DER -in "$CERTIFICATE_DIR/codesign0" -noout -fingerprint -sha1 | awk -F= '{ print $2 }' | tr -d :)
+          rm -rf "$CERTIFICATE_DIR"
+          test "$APP_CERTIFICATE_SHA1" = "$VOXFLOW_RELEASE_SIGNING_IDENTITY"
+          lipo .build/release/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
           shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
       - name: Publish GitHub Release
@@ -109,3 +195,4 @@ jobs:
             dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
             dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
           fail_on_unmatched_files: true
+          overwrite_files: true

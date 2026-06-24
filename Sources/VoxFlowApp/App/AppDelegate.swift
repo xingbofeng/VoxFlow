@@ -110,15 +110,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (try? self?.appEnvironment.llmProviderRepository.list().first { $0.enabled && $0.isDefault }?.id) ?? nil
         },
         capabilityModels: { [weak self] kind in
-            CapabilityModelCatalog.models(for: kind).map { model in
-                var mutable = model
-                mutable.isInstalled = CapabilityModelID.isBuiltInOption(model.id) ||
-                    (self?.capabilityModelDownloader.isInstalled(modelID: model.id) ?? false)
-                return mutable
-            }
+            CapabilityModelViewModel.models(
+                kind: kind,
+                isModelInstalled: { modelID in
+                    CapabilityModelID.isBuiltInOption(modelID) ||
+                        (self?.capabilityModelDownloader.isInstalled(modelID: modelID) ?? false)
+                },
+                llmTranslationAvailable: self?.isLLMTranslationAvailable() ?? false
+            )
         },
-        selectedCapabilityModelID: { kind in
-            CapabilityModelViewModel.selectedModelID(kind: kind)
+        selectedCapabilityModelID: { [weak self] kind in
+            CapabilityModelViewModel.selectedModelID(
+                kind: kind,
+                llmTranslationAvailable: self?.isLLMTranslationAvailable() ?? false
+            )
         },
         isCapabilityModelEnabled: { $0.isInstalled }
     )
@@ -140,7 +145,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     private lazy var screenshotOCRResultPanelController = ScreenshotOCRResultPanelController(
         service: screenshotOCRService,
-        clipboard: clipboardService
+        clipboard: clipboardService,
+        translationCoordinator: runtime!.appleTranslationCoordinator
     )
     private lazy var selectionHistoryRecorder = SQLiteSelectionHistoryRecorder(
         databaseQueue: appEnvironment.databaseQueue,
@@ -154,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipboard: clipboardService,
         speech: SystemScreenshotSpeechService(),
         textInserter: fastPasteTextInserter,
+        translationCoordinator: runtime!.appleTranslationCoordinator,
         historyRecorder: selectionHistoryRecorder
     )
     private var paletteWindowController: PaletteWindowController?
@@ -254,7 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.dictationOrchestrator.release()
         },
         isRecordingPermissionError: { error in
-            error is AudioRecorder.AudioRecorderError
+            (error as? AudioRecorder.AudioRecorderError) == .microphonePermissionDenied
         },
         showRecognitionError: { [weak self] error in
             self?.showRecognitionError(error)
@@ -277,7 +284,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var selectionTargetActivationObserver: NSObjectProtocol?
     private var agentDefaultOutputTask: Task<Void, Never>?
     private lazy var updateCheckCoordinator = UpdateCheckCoordinator.live(
-        currentVersion: AppVersionInfo.current().version
+        currentVersion: AppVersionInfo.current().version,
+        presenter: UpdatePromptPresenter(presentationStore: runtime?.updatePromptStore)
     )
 
     private func makeHotKeyFeatureController() -> HotKeyFeatureController {
@@ -667,6 +675,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func selectCapabilityModel(kind: CapabilityModelKind, modelID: String) {
         logger.debug("menu_select_capability_model kind=\(kind) modelID=\(modelID)")
         CapabilityModelViewModel.setSelectedModelID(modelID, kind: kind)
+    }
+
+    private func isLLMTranslationAvailable() -> Bool {
+        let providers = (try? appEnvironment.llmProviderRepository.list()) ?? []
+        return LLMProviderAvailability.hasUsableProvider(in: providers)
     }
 
     private func openWorkbench() {

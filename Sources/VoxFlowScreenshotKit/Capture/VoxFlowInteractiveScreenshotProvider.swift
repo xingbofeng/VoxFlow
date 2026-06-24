@@ -2,6 +2,31 @@ import CoreGraphics
 import Foundation
 
 @MainActor
+public protocol InteractiveScreenshotCaptureLeasing: AnyObject {
+    func tryAcquire() -> Bool
+    func release()
+}
+
+@MainActor
+public final class InteractiveScreenshotCaptureLease: InteractiveScreenshotCaptureLeasing {
+    public static let shared = InteractiveScreenshotCaptureLease()
+
+    private var isAcquired = false
+
+    public init() {}
+
+    public func tryAcquire() -> Bool {
+        guard !isAcquired else { return false }
+        isAcquired = true
+        return true
+    }
+
+    public func release() {
+        isAcquired = false
+    }
+}
+
+@MainActor
 public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotProviding {
     public typealias SelectionProvider = ([ScreenshotDisplayFrame]) async -> SelectionOverlayResult
     public typealias OverlayControllerFactory = (
@@ -15,6 +40,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
     private let selectionProvider: SelectionProvider?
     private let overlayControllerFactory: OverlayControllerFactory
     private let inlineTranslator: (any InlineSelectionTranslating)?
+    private let captureLease: any InteractiveScreenshotCaptureLeasing
     private var activeOverlayController: SelectionOverlayController?
     private var cancelActiveSelection: (() -> Void)?
 
@@ -25,6 +51,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
         shouldOpenAnnotationEditor: Bool = false,
         selectionProvider: SelectionProvider? = nil,
         inlineTranslator: (any InlineSelectionTranslating)? = nil,
+        captureLease: any InteractiveScreenshotCaptureLeasing = InteractiveScreenshotCaptureLease.shared,
         overlayControllerFactory: OverlayControllerFactory? = nil
     ) {
         self.frameProvider = frameProvider
@@ -33,6 +60,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
         self.shouldOpenAnnotationEditor = shouldOpenAnnotationEditor
         self.selectionProvider = selectionProvider
         self.inlineTranslator = inlineTranslator
+        self.captureLease = captureLease
         self.overlayControllerFactory = overlayControllerFactory ?? { onResult in
             SelectionOverlayController(
                 inlineTranslator: inlineTranslator,
@@ -47,6 +75,11 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
     }
 
     public func capture() async throws -> InteractiveScreenshotCaptureResult {
+        guard captureLease.tryAcquire() else {
+            throw InteractiveScreenshotError.captureFailed("已有截图流程正在进行")
+        }
+        defer { captureLease.release() }
+
         let frames: [ScreenshotDisplayFrame]
         do {
             frames = try await frameProvider.captureDisplayFrames()

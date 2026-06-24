@@ -34,6 +34,7 @@ final class SQLiteAssetRepository: AssetRepository {
     }
 
     func save(_ item: AssetItem) throws {
+        try item.validate()
         AppLogger.database.debug(
             "保存资产：id=\(item.id), source=\(item.source.rawValue), type=\(item.contentType.rawValue)"
         )

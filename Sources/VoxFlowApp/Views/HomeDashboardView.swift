@@ -550,39 +550,71 @@ private struct HomeStatsGrid: View {
     let focusedAssetsTitle: String
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: AppTheme.Spacing.grid)], spacing: AppTheme.Spacing.grid) {
+        HStack(spacing: Self.cardSpacing) {
             HomeStatCard(title: "累计资产", value: "\(stats.totalAssets)", systemImage: "tray.full")
+                .compact()
             HomeStatCard(title: focusedAssetsTitle, value: "\(stats.focusedAssets)", systemImage: "calendar.badge.plus")
-            HomeStatCard(title: "来源分布", value: stats.sourceBreakdown.summaryText, systemImage: "square.grid.2x2")
+                .compact()
+            HomeStatCard(title: "语音", value: "\(stats.sourceBreakdown.dictation)", systemImage: "waveform")
+                .compact()
+            HomeStatCard(title: "截图", value: "\(stats.sourceBreakdown.screenshot)", systemImage: "camera.viewfinder")
+                .compact()
+            HomeStatCard(title: "剪贴板", value: "\(stats.sourceBreakdown.clipboard)", systemImage: "clipboard")
+                .compact()
             HomeStatCard(title: "可复用内容", value: "\(stats.reusableAssets)", systemImage: "arrowshape.turn.up.right")
+                .compact()
         }
     }
+
+    private static let cardSpacing: CGFloat = 10
 }
 
 private struct HomeStatCard: View {
     let title: String
     let value: String
     let systemImage: String
+    private var usesCompactLayout = false
+
+    init(title: String, value: String, systemImage: String) {
+        self.title = title
+        self.value = value
+        self.systemImage = systemImage
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
+        VStack(alignment: .leading, spacing: usesCompactLayout ? 8 : 10) {
+            HStack(spacing: usesCompactLayout ? 7 : 8) {
                 Image(systemName: systemImage)
                     .foregroundStyle(AppTheme.ColorToken.accent)
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: usesCompactLayout ? 12 : 13, weight: .medium))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Spacer()
             }
             Text(value)
-                .font(.system(size: value.count > 8 ? 18 : 30, weight: .semibold, design: .rounded))
+                .font(.system(size: valueFontSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .padding(AppTheme.Spacing.card)
+        .padding(usesCompactLayout ? 12 : AppTheme.Spacing.card)
         .frame(maxWidth: .infinity, alignment: .leading)
         .appPanel()
+    }
+
+    func compact() -> Self {
+        var copy = self
+        copy.usesCompactLayout = true
+        return copy
+    }
+
+    private var valueFontSize: CGFloat {
+        if value.count > 8 {
+            return usesCompactLayout ? 17 : 18
+        }
+        return usesCompactLayout ? 26 : 30
     }
 }
 

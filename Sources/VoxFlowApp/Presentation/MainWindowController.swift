@@ -12,11 +12,16 @@ final class MainWindowController: NSWindowController {
         textRuntime: AppTextRuntime,
         audioCaptureCoordinator: AudioCaptureCoordinator,
         navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter(),
+        updatePromptStore: UpdatePromptPresentationStore = UpdatePromptPresentationStore(),
         onCheckForUpdates: @escaping () -> Void = {}
     ) {
         let viewModel = WorkbenchViewModel(environment: environment)
+        let internalClipboardWriter = GeneralPasteboardWriter(
+            internalWriteGuard: textRuntime.clipboardInternalWriteGuard
+        )
         let homeViewModel = HomeDashboardViewModel(
             environment: environment,
+            clipboardWriter: internalClipboardWriter,
             outputService: textRuntime.outputService,
             targetProvider: WorkspaceDictationTargetProvider(),
             textPipeline: textRuntime.textPipeline
@@ -28,12 +33,14 @@ final class MainWindowController: NSWindowController {
         let settingsViewModel = SettingsViewModel(
             environment: environment,
             asrSettingsResetter: asrRuntime.manager,
-            localModelDeletionCoordinator: asrRuntime.manager
+            localModelDeletionCoordinator: asrRuntime.manager,
+            clipboardWriter: internalClipboardWriter
         )
         let fileTranscriptionViewModel = FileTranscriptionViewModel(
             environment: environment,
             worker: ASRFileTranscriptionWorker(asrManager: asrRuntime.manager),
-            currentASRProviderID: { asrRuntime.manager.effectiveSelectedEngineType.providerID }
+            currentASRProviderID: { asrRuntime.manager.effectiveSelectedEngineType.providerID },
+            clipboardWriter: internalClipboardWriter
         )
         let notesViewModel = NotesViewModel(
             environment: environment,
@@ -59,6 +66,7 @@ final class MainWindowController: NSWindowController {
             notesViewModel: notesViewModel,
             screenshotRecordViewModel: screenshotRecordViewModel,
             navigationRouter: navigationRouter,
+            updatePromptStore: updatePromptStore,
             onCheckForUpdates: onCheckForUpdates
         )
         let hostingController = NSHostingController(rootView: rootView)

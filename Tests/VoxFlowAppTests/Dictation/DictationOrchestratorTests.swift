@@ -811,6 +811,33 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertTrue(observer.observations.isEmpty)
     }
 
+    func testSuccessfulLLMChangeSkipsCorrectionObservation() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(
+            result: TextProcessingResult(
+                rawText: "raw",
+                finalText: "refined text",
+                trace: TextProcessingTrace(llm: Self.trace(responseText: "refined text"))
+            )
+        )
+        let observer = CapturingCorrectionObservationScheduler()
+        let orchestrator = makeOrchestrator(
+            engine: engine,
+            pipeline: pipeline,
+            targetProvider: StaticDictationTargetProvider(
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            ),
+            correctionObservationScheduler: observer
+        )
+
+        try orchestrator.start(configuration: .appleChinese)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
     func testSecureDictationSkipsCorrectionObservationAndMarksCorrectionContextSecure() async throws {
         let engine = FakeASREngine()
         let pipeline = CapturingDictationContextPipeline(
@@ -1146,7 +1173,7 @@ final class DictationOrchestratorTests: XCTestCase {
         }
     }
 
-    private static func trace() -> LLMRefinementTrace {
+    private static func trace(responseText: String = "Qwen3-ASR") -> LLMRefinementTrace {
         LLMRefinementTrace(
             providerID: "provider",
             providerName: "Provider",
@@ -1155,7 +1182,7 @@ final class DictationOrchestratorTests: XCTestCase {
             temperature: 0.0,
             timeoutSeconds: 8,
             requestBodyJSON: "{}",
-            responseText: "Qwen3-ASR",
+            responseText: responseText,
             statusCode: 200,
             durationMS: 12,
             errorMessage: nil,

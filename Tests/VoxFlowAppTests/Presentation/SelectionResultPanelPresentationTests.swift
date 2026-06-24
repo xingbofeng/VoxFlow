@@ -71,6 +71,31 @@ final class SelectionResultPanelPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("复制图片"))
     }
 
+    func testSelectionResultPanelMountsAppleTranslationHostAsAppKitAccessory() throws {
+        let root = try Self.repositoryRoot()
+        let selectionSource = try String(
+            contentsOf: root
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/SelectionResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let screenshotSource = try String(
+            contentsOf: root
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenshotOCRResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let sharedControllerSource = try String(
+            contentsOf: root
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/TextResultPanelController.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(sharedControllerSource.contains("accessoryView: NSView? = nil"))
+        XCTAssertTrue(selectionSource.contains("accessoryView: AppleTranslationSessionHostFactory.makeNSView"))
+        XCTAssertTrue(screenshotSource.contains("accessoryView: AppleTranslationSessionHostFactory.makeNSView"))
+        XCTAssertFalse(selectionSource.contains(".appleTranslationSessionHost(translationCoordinator)"))
+        XCTAssertFalse(screenshotSource.contains(".appleTranslationSessionHost(translationCoordinator)"))
+    }
+
     private static func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath)
         while directory.path != "/" {

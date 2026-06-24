@@ -10,14 +10,17 @@ final class ScreenshotOCRResultPanelController {
     private let autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling
     private let panelController = TextResultPanelController(title: "屏幕识别")
     private var autoDismissToken: (any ScreenshotOCRResultAutoDismissCancellable)?
+    private let translationCoordinator: AppleTranslationCoordinator
 
     init(
         service: ScreenshotOCRService,
         clipboard: any ScreenshotOCRResultClipboard,
+        translationCoordinator: AppleTranslationCoordinator,
         autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling = TaskScreenshotOCRResultAutoDismissScheduler()
     ) {
         self.service = service
         self.clipboard = clipboard
+        self.translationCoordinator = translationCoordinator
         self.autoDismissScheduler = autoDismissScheduler
     }
 
@@ -51,6 +54,7 @@ final class ScreenshotOCRResultPanelController {
         panelController.present(
             rootView: rootView,
             contentSize: NSSize(width: 440, height: 560),
+            accessoryView: AppleTranslationSessionHostFactory.makeNSView(coordinator: translationCoordinator),
             onCancel: { [weak self] in self?.close() },
             onInteraction: { [weak self] in self?.cancelAutoDismissForInteraction() }
         )

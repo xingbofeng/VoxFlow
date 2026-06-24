@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
-  <img src="docs/assets/voiceinput-hero.svg" alt="VoxFlow - asset workbench for voice, screenshots, clipboard, and agent commands" width="100%">
+  <img src="docs/assets/voxflow-hero-workbench-promo-en.png" alt="VoxFlow - OCR, translation, voice, and asset workbench" width="100%">
 
   <h1>VoxFlow</h1>
   <p><strong>A macOS asset workbench for voice, screenshots, clipboard history, and coding-agent instructions.</strong></p>
@@ -166,7 +166,7 @@ VoxFlow also includes a full asset workbench:
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.6.2-macOS.dmg`
+1. Open `VoxFlow-1.7.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 

@@ -164,30 +164,28 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
     }
 
     func testLoadIfNeededDoesNotReloadAlreadyLoadedRules() throws {
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        try environment.correctionRuleRepository.save(
+        let baseEnvironment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try baseEnvironment.correctionRuleRepository.save(
             CorrectionRule(
                 original: "initial",
                 replacement: "Initial",
                 updatedAt: Date(timeIntervalSince1970: 100)
             )
         )
+        let countingRepository = CountingCorrectionRuleRepository(wrapped: baseEnvironment.correctionRuleRepository)
+        let environment = CountingVoiceCorrectionEnvironment(
+            wrapped: baseEnvironment,
+            correctionRuleRepository: countingRepository
+        )
         let viewModel = VoiceCorrectionViewModel(environment: environment)
 
-        try environment.correctionRuleRepository.save(
-            CorrectionRule(
-                original: "later",
-                replacement: "Later",
-                updatedAt: Date(timeIntervalSince1970: 200)
-            )
-        )
+        XCTAssertEqual(countingRepository.listCallCount, 1)
         viewModel.loadIfNeeded()
-
-        XCTAssertEqual(viewModel.rules.map(\.original), ["initial"])
+        XCTAssertEqual(countingRepository.listCallCount, 1)
 
         viewModel.load()
-
-        XCTAssertEqual(viewModel.rules.map(\.original), ["later", "initial"])
+        XCTAssertEqual(countingRepository.listCallCount, 2)
+        XCTAssertEqual(viewModel.rules.map(\.original), ["initial"])
     }
 
     func testCandidateCanBeAcceptedAndClearAllDeletesRules() throws {
@@ -322,4 +320,65 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
         XCTAssertEqual(shadowResult.correctedText, "q 问")
         XCTAssertEqual(shadowResult.events.map(\.replacement), ["Qwen"])
     }
+}
+
+private final class CountingCorrectionRuleRepository: CorrectionRuleRepository {
+    private let wrapped: any CorrectionRuleRepository
+    private(set) var listCallCount = 0
+
+    init(wrapped: any CorrectionRuleRepository) {
+        self.wrapped = wrapped
+    }
+
+    func list() throws -> [CorrectionRule] {
+        listCallCount += 1
+        return try wrapped.list()
+    }
+
+    func save(_ rule: CorrectionRule) throws {
+        try wrapped.save(rule)
+    }
+
+    func rule(id: UUID) throws -> CorrectionRule? {
+        try wrapped.rule(id: id)
+    }
+
+    func setEnabled(_ isEnabled: Bool, id: UUID, updatedAt: Date) throws {
+        try wrapped.setEnabled(isEnabled, id: id, updatedAt: updatedAt)
+    }
+
+    func recordApplications(ruleIDs: [UUID], at date: Date) throws {
+        try wrapped.recordApplications(ruleIDs: ruleIDs, at: date)
+    }
+
+    func delete(id: UUID) throws {
+        try wrapped.delete(id: id)
+    }
+
+    func clearAll() throws {
+        try wrapped.clearAll()
+    }
+}
+
+private struct CountingVoiceCorrectionEnvironment: AppServiceProviding {
+    let wrapped: AppEnvironment
+    let correctionRuleRepository: any CorrectionRuleRepository
+
+    var clock: any AppClock { wrapped.clock }
+    var paths: ApplicationSupportPaths? { wrapped.paths }
+    var storageHealth: StorageHealthState { wrapped.storageHealth }
+    var databaseQueue: DatabaseQueue { wrapped.databaseQueue }
+    var credentialStore: CredentialStore { wrapped.credentialStore }
+    var historyRepository: any HistoryRepository { wrapped.historyRepository }
+    var assetRepository: any AssetRepository { wrapped.assetRepository }
+    var styleRepository: any StyleRepository { wrapped.styleRepository }
+    var asrProviderRepository: any ASRProviderRepository { wrapped.asrProviderRepository }
+    var llmProviderRepository: any LLMProviderRepository { wrapped.llmProviderRepository }
+    var transcriptionJobRepository: any TranscriptionJobRepository { wrapped.transcriptionJobRepository }
+    var noteRepository: any NoteRepository { wrapped.noteRepository }
+    var screenshotRecordRepository: any ScreenshotRecordRepository { wrapped.screenshotRecordRepository }
+    var settingsRepository: any SettingsRepository { wrapped.settingsRepository }
+    var correctionTargetRepository: any CorrectionTargetRepository { wrapped.correctionTargetRepository }
+    var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { wrapped.correctionSnapshotProvider }
+    var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { wrapped.voiceCorrectionProcessor }
 }

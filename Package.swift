@@ -185,6 +185,11 @@ let package = Package(
             path: "Sources/VoxFlowInfrastructure"
         ),
         .target(
+            name: "VoxFlowObjCExceptionSupport",
+            path: "Sources/VoxFlowObjCExceptionSupport",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "VoxFlowScreenshotKit",
             dependencies: [
                 "VoxFlowDomain"
@@ -203,6 +208,7 @@ let package = Package(
                 "VoxFlowASRCore",
                 "VoxFlowInfrastructure",
                 "VoxFlowModelStore",
+                "VoxFlowObjCExceptionSupport",
                 "VoxFlowProviderNVIDIA",
                 "VoxFlowProviderParakeet",
                 "VoxFlowProviderOmnilingual",

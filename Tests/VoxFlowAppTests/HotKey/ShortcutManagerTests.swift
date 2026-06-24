@@ -249,6 +249,18 @@ final class ShortcutManagerTests: XCTestCase {
         XCTAssertEqual(sut.shortcutKeyCode, 63)
     }
 
+    func testMiddleMouseRecordingDefaultsOffCanBeEnabledAndResets() {
+        XCTAssertFalse(sut.middleMouseRecordingEnabled)
+
+        sut.middleMouseRecordingEnabled = true
+
+        XCTAssertTrue(sut.middleMouseRecordingEnabled)
+
+        sut.resetToDefaults()
+
+        XCTAssertFalse(sut.middleMouseRecordingEnabled)
+    }
+
     // MARK: - Long Press Threshold
 
     func testDefaultLongPressThresholdIs500ms() {

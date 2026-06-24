@@ -320,6 +320,30 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（仅当前会话生效，重启后可能丢失）")
     }
 
+    func testMiddleMouseRecordingSettingLoadsPersistsAndResets() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertFalse(viewModel.middleMouseRecordingEnabled)
+
+        try viewModel.setMiddleMouseRecordingEnabled(true)
+
+        XCTAssertTrue(viewModel.middleMouseRecordingEnabled)
+        XCTAssertTrue(shortcutManager.middleMouseRecordingEnabled)
+        XCTAssertEqual(viewModel.lastActionMessage, "已启用鼠标中键录音")
+
+        try viewModel.resetSettings()
+
+        XCTAssertFalse(viewModel.middleMouseRecordingEnabled)
+        XCTAssertFalse(shortcutManager.middleMouseRecordingEnabled)
+    }
+
     func testUpdatesDirectSelectionWorkflowShortcuts() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let shortcutManager = makeShortcutManager()

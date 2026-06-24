@@ -23,28 +23,84 @@ struct ClipboardAssetCandidate: Equatable, Sendable {
         createdAt: Date? = nil,
         sourceApplication: ClipboardSourceApplication?,
         imagePath: String? = nil
-    ) -> AssetItem {
-        AssetItem(
-            id: "clipboard-\(contentHash)",
-            source: .clipboard,
-            contentType: contentType,
-            title: title,
-            previewText: previewText,
-            text: text,
-            rawText: nil,
-            imagePath: imagePath,
-            filePath: filePath,
-            url: url,
-            colorValue: colorValue,
-            sourceAppName: sourceApplication?.name,
-            sourceAppBundleID: sourceApplication?.bundleID,
-            contentHash: contentHash,
-            captureReason: .userCopied,
-            metadataJSON: nil,
-            createdAt: createdAt ?? now,
-            updatedAt: now,
-            deletedAt: nil
-        )
+    ) throws -> AssetItem {
+        switch contentType {
+        case .text:
+            return try AssetItem.makeText(
+                id: "clipboard-\(contentHash)",
+                source: .clipboard,
+                title: title,
+                text: text ?? previewText ?? title,
+                previewText: previewText,
+                contentHash: contentHash,
+                captureReason: .userCopied,
+                sourceAppName: sourceApplication?.name,
+                sourceAppBundleID: sourceApplication?.bundleID,
+                createdAt: createdAt ?? now,
+                updatedAt: now
+            )
+        case .image:
+            guard let imagePath else {
+                throw AssetValidationError.missingRequiredField(contentType: .image, field: "image_path")
+            }
+            return try AssetItem.makeImage(
+                id: "clipboard-\(contentHash)",
+                source: .clipboard,
+                title: title,
+                imagePath: imagePath,
+                previewText: previewText,
+                text: text,
+                contentHash: contentHash,
+                captureReason: .userCopied,
+                sourceAppName: sourceApplication?.name,
+                sourceAppBundleID: sourceApplication?.bundleID,
+                createdAt: createdAt ?? now,
+                updatedAt: now
+            )
+        case .file:
+            return try AssetItem.makeFile(
+                id: "clipboard-\(contentHash)",
+                source: .clipboard,
+                title: title,
+                filePath: filePath ?? "",
+                previewText: previewText,
+                contentHash: contentHash,
+                captureReason: .userCopied,
+                sourceAppName: sourceApplication?.name,
+                sourceAppBundleID: sourceApplication?.bundleID,
+                createdAt: createdAt ?? now,
+                updatedAt: now
+            )
+        case .link:
+            return try AssetItem.makeLink(
+                id: "clipboard-\(contentHash)",
+                source: .clipboard,
+                title: title,
+                url: url ?? "",
+                previewText: previewText,
+                text: text,
+                contentHash: contentHash,
+                captureReason: .userCopied,
+                sourceAppName: sourceApplication?.name,
+                sourceAppBundleID: sourceApplication?.bundleID,
+                createdAt: createdAt ?? now,
+                updatedAt: now
+            )
+        case .color:
+            return try AssetItem.makeColor(
+                id: "clipboard-\(contentHash)",
+                source: .clipboard,
+                title: title,
+                colorValue: colorValue ?? "",
+                previewText: previewText,
+                contentHash: contentHash,
+                captureReason: .userCopied,
+                sourceAppName: sourceApplication?.name,
+                sourceAppBundleID: sourceApplication?.bundleID,
+                createdAt: createdAt ?? now,
+                updatedAt: now
+            )
+        }
     }
 }
 

@@ -16,6 +16,7 @@ struct MainShellView: View {
     @ObservedObject var notesViewModel: NotesViewModel
     @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
     @ObservedObject var navigationRouter: WorkbenchNavigationRouter
+    @ObservedObject var updatePromptStore: UpdatePromptPresentationStore
     let onCheckForUpdates: () -> Void
 
     var body: some View {
@@ -50,15 +51,24 @@ struct MainShellView: View {
             if let detail = homeViewModel.selectedHomeDetail {
                 HomeDetailOverlay(viewModel: homeViewModel, detail: detail)
             }
+
+            if let updatePrompt = updatePromptStore.presentation {
+                UpdatePromptOverlayView(presentation: updatePrompt) { action in
+                    updatePromptStore.finish(action)
+                }
+            }
         }
         .frame(minWidth: 1_260, minHeight: 720)
         .tint(AppTheme.ColorToken.accent)
         .preferredColorScheme(settingsViewModel.systemOption(.darkMode) ? .dark : .light)
         .onAppear {
             viewModel.loadIfNeeded()
+            updatePromptStore.isHostVisible = true
             installApplicationPointerMonitor()
         }
         .onDisappear {
+            updatePromptStore.isHostVisible = false
+            updatePromptStore.finish(.remindLater)
             removeApplicationPointerMonitor()
         }
         .onReceive(homeViewModel.openHistoryDetailRequests) { id in

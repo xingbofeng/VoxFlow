@@ -92,7 +92,7 @@ final class ClipboardAssetMonitor {
         } ?? nil
         let assetID = "clipboard-\(candidate.contentHash)"
         let existingAsset = try repository.asset(id: assetID)
-        let asset = candidate.makeAsset(
+        let asset = try candidate.makeAsset(
             now: now,
             createdAt: existingAsset?.createdAt,
             sourceApplication: sourceApplicationProvider(),

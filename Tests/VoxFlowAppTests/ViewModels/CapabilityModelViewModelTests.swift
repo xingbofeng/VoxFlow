@@ -35,7 +35,7 @@ final class CapabilityModelViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.systemDefaultTranslation)
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.systemDefaultTranslation })?.fallbackDescription,
-            "Apple 系统翻译暂不可用"
+            "系统翻译失败时可使用已配置的智能模型"
         )
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.llmTranslation })?.displayName,
@@ -43,8 +43,49 @@ final class CapabilityModelViewModelTests: XCTestCase {
         )
         XCTAssertEqual(
             viewModel.models.first(where: { $0.id == CapabilityModelID.llmTranslation })?.isInstalled,
+            false
+        )
+    }
+
+    func testLLMTranslationOptionIsAvailableWhenConfiguredProviderExists() {
+        let viewModel = CapabilityModelViewModel(kind: .translation, llmTranslationAvailable: true)
+
+        XCTAssertEqual(
+            viewModel.models.first(where: { $0.id == CapabilityModelID.llmTranslation })?.isInstalled,
             true
         )
+    }
+
+    func testStoredLLMTranslationSelectionFallsBackWhenLLMIsUnavailable() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        CapabilityModelViewModel.setSelectedModelID(CapabilityModelID.llmTranslation, kind: .translation, defaults: defaults)
+
+        let viewModel = CapabilityModelViewModel(kind: .translation, defaults: defaults, llmTranslationAvailable: false)
+
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.systemDefaultTranslation)
+        XCTAssertEqual(viewModel.models.first?.id, CapabilityModelID.systemDefaultTranslation)
+    }
+
+    func testCannotSelectUnavailableLLMTranslationOption() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let viewModel = CapabilityModelViewModel(kind: .translation, defaults: defaults, llmTranslationAvailable: false)
+
+        viewModel.selectModel(id: CapabilityModelID.llmTranslation)
+
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.systemDefaultTranslation)
+        XCTAssertEqual(
+            CapabilityModelViewModel.selectedModelID(
+                kind: .translation,
+                defaults: defaults,
+                llmTranslationAvailable: false
+            ),
+            CapabilityModelID.systemDefaultTranslation
+        )
+        XCTAssertEqual(viewModel.lastError, "请先在设置中配置智能模型服务")
     }
 
     func testDownloadMarksModelInstalledAndPublishesProgress() async {
@@ -172,6 +213,86 @@ final class CapabilityModelViewModelTests: XCTestCase {
         try await second.value
         let operationCount = await probe.recordedOperationCount()
         XCTAssertEqual(operationCount, 1)
+    }
+
+    func testFreshTranslationSelectionDefaultsToSystem() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // No saved model -> defaults to recommended (system)
+        let viewModel = CapabilityModelViewModel(kind: .translation, defaults: defaults)
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.systemDefaultTranslation)
+    }
+
+    func testLegacyLLMDefaultMigratesToSystemOnce() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // Simulate old LLM default with no migration version
+        defaults.set(CapabilityModelID.llmTranslation, forKey: "settings.capabilityModel.translation.selectedModelID")
+
+        // First access triggers migration
+        _ = CapabilityModelViewModel.migrateTranslationDefault(defaults: defaults)
+
+        // After migration, the selected model should still be LLM (migration just sets the
+        // internal stored value to system, but model selection reads from defaults internally)
+        let migrationVersion = defaults.integer(forKey: "settings.capabilityModel.translation.defaultMigrationVersion")
+        XCTAssertEqual(migrationVersion, 1)
+
+        let selectedModelID = defaults.string(forKey: "settings.capabilityModel.translation.selectedModelID")
+        XCTAssertEqual(selectedModelID, CapabilityModelID.systemDefaultTranslation)
+    }
+
+    func testExplicitLLMSelectionAfterMigrationPersists() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // First migrate
+        _ = CapabilityModelViewModel.migrateTranslationDefault(defaults: defaults)
+
+        // User later selects smart model
+        CapabilityModelViewModel.setSelectedModelID(CapabilityModelID.llmTranslation, kind: .translation, defaults: defaults)
+
+        let viewModel = CapabilityModelViewModel(kind: .translation, defaults: defaults, llmTranslationAvailable: true)
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.llmTranslation)
+    }
+
+    func testLegacyMADLADSelectionIsPreserved() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // Old MADLAD selection
+        defaults.set(CapabilityModelID.madladTranslation, forKey: "settings.capabilityModel.translation.selectedModelID")
+
+        // Migration should not change MADLAD
+        _ = CapabilityModelViewModel.migrateTranslationDefault(defaults: defaults)
+
+        let viewModel = CapabilityModelViewModel(kind: .translation, defaults: defaults)
+        XCTAssertEqual(viewModel.selectedModelID, CapabilityModelID.madladTranslation)
+    }
+
+    func testTranslationMigrationDoesNotChangeTTSSelection() {
+        let suiteName = "test.CapabilityModelViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // Old LLM translation + TTS set
+        defaults.set(CapabilityModelID.llmTranslation, forKey: "settings.capabilityModel.translation.selectedModelID")
+        defaults.set(CapabilityModelID.cosyVoice3, forKey: "settings.capabilityModel.tts.selectedModelID")
+
+        _ = CapabilityModelViewModel.migrateTranslationDefault(defaults: defaults)
+
+        let translationVM = CapabilityModelViewModel(kind: .translation, defaults: defaults)
+        let ttsVM = CapabilityModelViewModel(kind: .tts, defaults: defaults)
+
+        // Translation migrated to system
+        XCTAssertEqual(translationVM.selectedModelID, CapabilityModelID.systemDefaultTranslation)
+        // TTS unchanged
+        XCTAssertEqual(ttsVM.selectedModelID, CapabilityModelID.cosyVoice3)
     }
 
     private func makeCachedFile(_ modelID: String, _ relativePath: String, cacheRoot: URL) throws {

@@ -17,7 +17,7 @@ jobs:
   checks:
     name: Test and build macOS app
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Check out repository
@@ -51,7 +51,14 @@ jobs:
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
       - name: Run tests
-        run: swift test
+        run: |
+          start=$(date +%s)
+          swift test --parallel --num-workers 1 --jobs 1
+          duration=$(( $(date +%s) - start ))
+          echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| swift test --parallel --num-workers 1 --jobs 1 | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run voice correction benchmark
         run: |
@@ -72,9 +79,12 @@ jobs:
       - name: Check Rust agent router
         working-directory: agent-cli
         run: |
+          start=$(date +%s)
           cargo fmt --check
           cargo clippy --all-targets -- -D warnings
           cargo test
+          duration=$(( $(date +%s) - start ))
+          echo "| Rust fmt/clippy/test | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check helper script syntax
         run: |
@@ -84,4 +94,8 @@ jobs:
         run: make architecture-check
 
       - name: Build with warnings as errors
-        run: swift build -c debug -Xswiftc -warnings-as-errors
+        run: |
+          start=$(date +%s)
+          swift build -c debug -Xswiftc -warnings-as-errors
+          duration=$(( $(date +%s) - start ))
+          echo "| debug warnings-as-errors build | $duration |" >> "$GITHUB_STEP_SUMMARY"

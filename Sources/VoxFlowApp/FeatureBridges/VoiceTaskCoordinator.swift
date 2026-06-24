@@ -413,6 +413,10 @@ final class VoiceTaskCoordinator {
         else {
             return
         }
+        if processingResult.trace?.llm?.succeeded == true,
+           processingResult.finalText != processingResult.rawText {
+            return
+        }
         correctionObservationScheduler?.scheduleObservation(
             insertedText: finalText,
             context: correctionContext,
@@ -880,27 +884,26 @@ final class VoiceTaskCoordinator {
             : finalText
         guard let assetRepository else { return }
 
-        let asset = AssetItem(
-            id: "dictation-\(task.id)",
-            source: .dictation,
-            contentType: .text,
-            title: assetTitle(from: storedText),
-            previewText: storedText,
-            text: storedText,
-            rawText: rawText,
-            imagePath: nil,
-            filePath: nil,
-            url: nil,
-            colorValue: nil,
-            sourceAppName: task.targetAppName,
-            sourceAppBundleID: task.targetAppBundleID,
-            contentHash: "dictation-\(task.id)",
-            captureReason: captureReason,
-            metadataJSON: nil,
-            createdAt: completedAt,
-            updatedAt: completedAt,
-            deletedAt: nil
-        )
+        let asset: AssetItem
+        do {
+            asset = try AssetItem.makeText(
+                id: "dictation-\(task.id)",
+                source: .dictation,
+                title: assetTitle(from: storedText),
+                text: storedText,
+                rawText: rawText,
+                previewText: storedText,
+                contentHash: "dictation-\(task.id)",
+                captureReason: captureReason,
+                sourceAppName: task.targetAppName,
+                sourceAppBundleID: task.targetAppBundleID,
+                createdAt: completedAt,
+                updatedAt: completedAt
+            )
+        } catch {
+            AppLogger.general.error("voice_asset_validation_failed taskID=\(task.id) reason=\(error.localizedDescription)")
+            return
+        }
         do {
             try assetRepository.save(asset)
             AppLogger.general.debug("voice_asset_saved id=\(asset.id) taskID=\(task.id) reason=\(captureReason.rawValue)")

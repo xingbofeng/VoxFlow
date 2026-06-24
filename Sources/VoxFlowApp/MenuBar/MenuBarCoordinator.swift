@@ -286,7 +286,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         for model in capabilityModels(kind) {
             let enabled = isCapabilityModelEnabled(model)
             let item = NSMenuItem(
-                title: enabled ? model.displayName : "\(model.displayName)（未下载）",
+                title: enabled ? model.displayName : "\(model.displayName)（\(unavailableSuffix(for: model))）",
                 action: #selector(selectCapabilityModel(_:)),
                 keyEquivalent: ""
             )
@@ -296,6 +296,10 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
             item.state = model.id == selectedID ? .on : .off
             menu.addItem(item)
         }
+    }
+
+    private func unavailableSuffix(for model: CapabilityModelDescriptor) -> String {
+        model.id == CapabilityModelID.llmTranslation ? "未配置" : "未下载"
     }
 
     @objc private func selectLanguage(_ sender: NSMenuItem) {

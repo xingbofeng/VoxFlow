@@ -22,6 +22,8 @@ final class StatusBarIconTests: XCTestCase {
     }
 
     func testConfigureAppliesCompactVisibleIconAndRestoresVisibility() throws {
+        try skipSystemStatusBarOnHeadlessCI()
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         defer {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -60,6 +62,8 @@ final class StatusBarIconTests: XCTestCase {
     }
 
     func testConfigureUsesStableAutosaveNameAfterClearingHiddenState() throws {
+        try skipSystemStatusBarOnHeadlessCI()
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         defer {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -79,6 +83,8 @@ final class StatusBarIconTests: XCTestCase {
     }
 
     func testConfigureReappliesTemplateImageWhenButtonContentWasBlanked() throws {
+        try skipSystemStatusBarOnHeadlessCI()
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         defer {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -95,7 +101,9 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertEqual(button.contentTintColor, .secondaryLabelColor)
     }
 
-    func testStatusItemClearsAutomaticallyPersistedHiddenState() {
+    func testStatusItemClearsAutomaticallyPersistedHiddenState() throws {
+        try skipSystemStatusBarOnHeadlessCI()
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         defer {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -116,7 +124,9 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertTrue(statusItem.isVisible)
     }
 
-    func testStatusItemUsesStableAutosaveNameWhenRestoringVisibility() {
+    func testStatusItemUsesStableAutosaveNameWhenRestoringVisibility() throws {
+        try skipSystemStatusBarOnHeadlessCI()
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         defer {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -216,6 +226,13 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime"))
         XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC Item-0"))
         XCTAssertNil(defaults.object(forKey: "VoxFlowStatusItemPlacementResetV1"))
+    }
+
+    private func skipSystemStatusBarOnHeadlessCI() throws {
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment["CI"] == "true",
+            "NSStatusBar.system requires a fully initialized WindowServer session."
+        )
     }
 
     private func statusBarIconSource() throws -> String {

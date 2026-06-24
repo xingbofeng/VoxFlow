@@ -29,6 +29,10 @@ enum CapabilityModelID {
     static func isBuiltInOption(_ id: String) -> Bool {
         isSystemDefault(id) || id == llmTranslation
     }
+
+    static func requiresDownload(_ id: String) -> Bool {
+        !isBuiltInOption(id)
+    }
 }
 
 enum CapabilityModelKind: String, Sendable {
@@ -104,10 +108,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.systemDefaultTranslation,
                     kind: .translation,
                     displayName: "系统默认",
-                    subtitle: "Apple 系统翻译暂不可用",
-                    sizeDescription: "系统内置",
-                    memoryDescription: "由系统管理",
-                    fallbackDescription: "Apple 系统翻译暂不可用",
+                    subtitle: "使用 Apple 系统翻译，首次使用可能需要下载语言包",
+                    sizeDescription: "系统语言包",
+                    memoryDescription: "由 macOS 管理",
+                    fallbackDescription: "系统翻译失败时可使用已配置的智能模型",
                     isRecommended: true,
                     isInstalled: true
                 ),
@@ -153,21 +157,24 @@ final class CapabilityModelViewModel: ObservableObject {
     let kind: CapabilityModelKind
     private let downloader: any CapabilityModelDownloading
     private let defaults: UserDefaults
+    private var llmTranslationAvailable: Bool
 
     init(
         kind: CapabilityModelKind,
         downloader: any CapabilityModelDownloading = SoniqoCapabilityModelDownloader(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        llmTranslationAvailable: Bool = false
     ) {
         self.kind = kind
         self.downloader = downloader
         self.defaults = defaults
+        self.llmTranslationAvailable = llmTranslationAvailable
         Self.logger.debug("capability_model_vm_init_start kind=\(kind.rawValue)")
-        let catalogModels = CapabilityModelCatalog.models(for: kind).map { model in
-            var mutable = model
-            mutable.isInstalled = CapabilityModelID.isBuiltInOption(model.id) || downloader.isInstalled(modelID: model.id)
-            return mutable
-        }
+        let catalogModels = Self.models(
+            kind: kind,
+            isModelInstalled: { CapabilityModelID.isBuiltInOption($0) || downloader.isInstalled(modelID: $0) },
+            llmTranslationAvailable: llmTranslationAvailable
+        )
         let selectedModelID = Self.selectedModelID(
             kind: kind,
             models: catalogModels,
@@ -180,16 +187,43 @@ final class CapabilityModelViewModel: ObservableObject {
 
     func selectModel(id: String) {
         Self.logger.debug("capability_model_vm_select_model_start kind=\(kind.rawValue) id=\(id)")
-        guard models.contains(where: { $0.id == id }) else {
+        guard let model = models.first(where: { $0.id == id }) else {
             Self.logger.warning("capability_model_vm_select_model_skipped kind=\(kind.rawValue) id=\(id)")
+            return
+        }
+        guard Self.isSelectable(model) else {
+            lastActionMessage = nil
+            lastError = "请先在设置中配置智能模型服务"
+            Self.logger.warning("capability_model_vm_select_model_unavailable kind=\(kind.rawValue) id=\(id)")
             return
         }
         selectedModelID = id
         models = Self.models(models, withSelectedFirst: id)
         defaults.set(id, forKey: Self.selectedModelDefaultsKey(kind: kind))
+        if kind == .translation {
+            defaults.set(Self.translationDefaultMigrationVersion, forKey: Self.translationDefaultMigrationKey)
+        }
         lastError = nil
         lastActionMessage = "已切换模型配置"
         Self.logger.info("capability_model_vm_select_model_success kind=\(kind.rawValue) id=\(id)")
+    }
+
+    func setLLMTranslationAvailable(_ available: Bool) {
+        guard kind == .translation else { return }
+        guard llmTranslationAvailable != available else { return }
+        llmTranslationAvailable = available
+        let catalogModels = Self.models(
+            kind: kind,
+            isModelInstalled: { CapabilityModelID.isBuiltInOption($0) || downloader.isInstalled(modelID: $0) },
+            llmTranslationAvailable: available
+        )
+        let selectedModelID = Self.selectedModelID(
+            kind: kind,
+            models: catalogModels,
+            defaults: defaults
+        )
+        self.models = Self.models(catalogModels, withSelectedFirst: selectedModelID)
+        self.selectedModelID = selectedModelID
     }
 
     func clearFeedback() {
@@ -207,7 +241,14 @@ final class CapabilityModelViewModel: ObservableObject {
             Self.logger.warning("capability_model_vm_download_skipped kind=\(kind.rawValue) id=\(id) missingModel=true")
             return
         }
-        guard !CapabilityModelID.isBuiltInOption(id) else {
+        if id == CapabilityModelID.llmTranslation,
+           models.first(where: { $0.id == id })?.isInstalled != true {
+            lastActionMessage = nil
+            lastError = "请先在设置中配置智能模型服务"
+            Self.logger.info("capability_model_vm_download_llm_unavailable kind=\(kind.rawValue) id=\(id)")
+            return
+        }
+        guard CapabilityModelID.requiresDownload(id) else {
             markInstalled(id: id, installed: true)
             lastError = nil
             lastActionMessage = "已切换内置模型"
@@ -254,6 +295,22 @@ final class CapabilityModelViewModel: ObservableObject {
         selectedModelID(kind: kind, models: CapabilityModelCatalog.models(for: kind), defaults: defaults)
     }
 
+    nonisolated static func selectedModelID(
+        kind: CapabilityModelKind,
+        defaults: UserDefaults = .standard,
+        llmTranslationAvailable: Bool
+    ) -> String {
+        selectedModelID(
+            kind: kind,
+            models: models(
+                kind: kind,
+                isModelInstalled: { CapabilityModelID.isBuiltInOption($0) },
+                llmTranslationAvailable: llmTranslationAvailable
+            ),
+            defaults: defaults
+        )
+    }
+
     nonisolated static func setSelectedModelID(
         _ modelID: String,
         kind: CapabilityModelKind,
@@ -262,6 +319,10 @@ final class CapabilityModelViewModel: ObservableObject {
         let models = CapabilityModelCatalog.models(for: kind)
         guard models.contains(where: { $0.id == modelID }) else { return }
         defaults.set(modelID, forKey: selectedModelDefaultsKey(kind: kind))
+        // 用户明确选择翻译模型时同步写入迁移标记
+        if kind == .translation {
+            defaults.set(translationDefaultMigrationVersion, forKey: translationDefaultMigrationKey)
+        }
     }
 
     private nonisolated static func selectedModelID(
@@ -270,8 +331,36 @@ final class CapabilityModelViewModel: ObservableObject {
         defaults: UserDefaults
     ) -> String {
         let fallbackModelID = models.first(where: \.isRecommended)?.id ?? models.first?.id ?? ""
+        // 翻译类型执行默认迁移
+        if kind == .translation {
+            _ = migrateTranslationDefault(defaults: defaults)
+        }
         let storedModelID = defaults.string(forKey: selectedModelDefaultsKey(kind: kind))
-        return models.contains { $0.id == storedModelID } ? storedModelID ?? fallbackModelID : fallbackModelID
+        guard let storedModelID,
+              let storedModel = models.first(where: { $0.id == storedModelID }) else {
+            return fallbackModelID
+        }
+        return isSelectable(storedModel) ? storedModelID : fallbackModelID
+    }
+
+    nonisolated static func models(
+        kind: CapabilityModelKind,
+        isModelInstalled: (String) -> Bool,
+        llmTranslationAvailable: Bool
+    ) -> [CapabilityModelDescriptor] {
+        CapabilityModelCatalog.models(for: kind).map { model in
+            var mutable = model
+            if model.id == CapabilityModelID.llmTranslation {
+                mutable.isInstalled = llmTranslationAvailable
+            } else {
+                mutable.isInstalled = CapabilityModelID.isSystemDefault(model.id) || isModelInstalled(model.id)
+            }
+            return mutable
+        }
+    }
+
+    nonisolated static func isSelectable(_ model: CapabilityModelDescriptor) -> Bool {
+        model.id != CapabilityModelID.llmTranslation || model.isInstalled
     }
 
     private nonisolated static func models(
@@ -286,5 +375,37 @@ final class CapabilityModelViewModel: ObservableObject {
 
     private nonisolated static func selectedModelDefaultsKey(kind: CapabilityModelKind) -> String {
         "settings.capabilityModel.\(kind.rawValue).selectedModelID"
+    }
+
+    // MARK: - Translation default migration
+
+    nonisolated private static let translationDefaultMigrationKey = "settings.capabilityModel.translation.defaultMigrationVersion"
+    nonisolated private static let translationDefaultMigrationVersion = 1
+
+    /// 迁移旧版本默认值：旧 llm.configured.translation 一次性迁移到
+    /// system.default.translation。MADLAD 保留。写入迁移标记后不再重复执行。
+    /// - Returns: 迁移后的 modelID，或 nil 表示无需迁移。
+    nonisolated static func migrateTranslationDefault(
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        let migrationVersion = defaults.integer(forKey: translationDefaultMigrationKey)
+        guard migrationVersion < translationDefaultMigrationVersion else {
+            return nil
+        }
+        let storedModelID = defaults.string(forKey: selectedModelDefaultsKey(kind: .translation))
+        guard let storedModelID else {
+            // 从未保存过选择：无需迁移，写入版本标记后返回 nil
+            defaults.set(translationDefaultMigrationVersion, forKey: translationDefaultMigrationKey)
+            return nil
+        }
+        guard storedModelID == CapabilityModelID.llmTranslation else {
+            // MADLAD 或已明确选择的模型：保留，写入版本标记
+            defaults.set(translationDefaultMigrationVersion, forKey: translationDefaultMigrationKey)
+            return nil
+        }
+        // 旧默认智能模型 → 系统默认
+        defaults.set(CapabilityModelID.systemDefaultTranslation, forKey: selectedModelDefaultsKey(kind: .translation))
+        defaults.set(translationDefaultMigrationVersion, forKey: translationDefaultMigrationKey)
+        return CapabilityModelID.systemDefaultTranslation
     }
 }

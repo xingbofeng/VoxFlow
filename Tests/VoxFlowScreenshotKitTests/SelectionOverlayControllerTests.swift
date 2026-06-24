@@ -33,6 +33,32 @@ final class SelectionOverlayControllerTests: XCTestCase {
         XCTAssertEqual(factory.windows.map(\.orderFrontCallCount), [1, 1])
     }
 
+    func testAppKitWindowKeepsAccessoryViewInFinalContentHierarchy() {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 240, height: 160),
+            scale: 2,
+            isPrimary: true
+        )
+        let accessoryView = NSView()
+        let factory = AppKitSelectionOverlayWindowFactory { _ in accessoryView }
+
+        let controller = factory.makeWindow(
+            configuration: SelectionOverlayWindowConfiguration(display: display),
+            eventHandler: { _ in }
+        )
+        guard let window = controller as? NSWindow else {
+            XCTFail("Expected AppKit factory to create an NSWindow-backed controller")
+            return
+        }
+        defer { window.close() }
+
+        XCTAssertTrue(window.contentView?.containsDescendant(accessoryView) == true)
+        XCTAssertEqual(accessoryView.frame, window.contentView?.bounds)
+        XCTAssertEqual(accessoryView.autoresizingMask, [.width, .height])
+    }
+
     func testSelectionChromeIsHiddenOnDisplaysThatDoNotIntersectSelection() {
         let displayA = ScreenshotDisplay(
             id: 1,
@@ -2035,7 +2061,7 @@ final class SelectionOverlayControllerTests: XCTestCase {
     }
 
     func testColorToolbarRoleOpensPopoverAndSecondClickClosesIt() {
-        let (controller, factory, window) = presentControllerWithSelection()
+        let (controller, _, window) = presentControllerWithSelection()
 
         controller.handleToolbarRole(.color)
         XCTAssertEqual(window.annotationStates.last?.popoverRole, .color)
@@ -2099,7 +2125,7 @@ final class SelectionOverlayControllerTests: XCTestCase {
     }
 
     func testPopoverDismissedWhenNoPopoverIsOpenIsNoop() {
-        let (controller, _, window) = presentControllerWithSelection()
+        let (_, _, window) = presentControllerWithSelection()
 
         // No popover open — dismiss should not push a redundant state change.
         let stateCountBefore = window.annotationStates.count
@@ -2124,6 +2150,15 @@ final class SelectionOverlayControllerTests: XCTestCase {
             shouldInterpolate: false,
             intent: .defaultIntent
         )!
+    }
+}
+
+private extension NSView {
+    func containsDescendant(_ target: NSView) -> Bool {
+        if self === target {
+            return true
+        }
+        return subviews.contains { $0.containsDescendant(target) }
     }
 }
 

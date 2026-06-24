@@ -391,28 +391,23 @@ final class ScreenshotOCRService {
         let now = Date()
         let text = ocrText?.trimmingCharacters(in: .whitespacesAndNewlines)
         let searchableText = text?.isEmpty == false ? text : nil
-        let asset = AssetItem(
-            id: "screenshot-\(id)",
-            source: .screenshot,
-            contentType: .image,
-            title: "Image (\(image.width)x\(image.height))",
-            previewText: searchableText,
-            text: searchableText,
-            rawText: nil,
-            imagePath: imagePath,
-            filePath: nil,
-            url: nil,
-            colorValue: nil,
-            sourceAppName: nil,
-            sourceAppBundleID: nil,
-            contentHash: "screenshot-\(id)",
-            captureReason: .screenshotCaptured,
-            metadataJSON: nil,
-            createdAt: now,
-            updatedAt: now,
-            deletedAt: nil
-        )
+        guard let imagePath else {
+            AppLogger.general.warning("Skipping screenshot asset because image path is unavailable")
+            return
+        }
         do {
+            let asset = try AssetItem.makeImage(
+                id: "screenshot-\(id)",
+                source: .screenshot,
+                title: "Image (\(image.width)x\(image.height))",
+                imagePath: imagePath,
+                previewText: searchableText,
+                text: searchableText,
+                contentHash: "screenshot-\(id)",
+                captureReason: .screenshotCaptured,
+                createdAt: now,
+                updatedAt: now
+            )
             try assetRepository.save(asset)
         } catch {
             AppLogger.general.error("Failed to save screenshot asset: \(error.localizedDescription)")
@@ -704,11 +699,14 @@ final class ScreenshotOCRService {
     }
 
     func translationEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
-        transformEvents(
+        let message = (translator as? any TextTransformAvailabilityMessaging)?
+            .unavailableMessage(for: .translation)
+            ?? "请先在设置中配置模型"
+        return transformEvents(
             for: result,
             operation: .translation,
             systemPrompt: Self.translationSystemPrompt,
-            unavailableMessage: "请先在设置中配置模型"
+            unavailableMessage: message
         )
     }
 
@@ -749,11 +747,14 @@ final class ScreenshotOCRService {
     }
 
     func summaryEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
-        transformEvents(
+        let message = (translator as? any TextTransformAvailabilityMessaging)?
+            .unavailableMessage(for: .summary)
+            ?? "请先在设置中配置模型"
+        return transformEvents(
             for: result,
             operation: .summary,
             systemPrompt: Self.summarySystemPrompt,
-            unavailableMessage: "请先在设置中配置模型"
+            unavailableMessage: message
         )
     }
 
