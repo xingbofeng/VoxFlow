@@ -15,7 +15,8 @@ final class SimulatedTypingInserterTests: XCTestCase {
         let poster = CapturingTypingEventPoster()
         let inserter = SimulatedTypingInserter(
             eventPoster: poster,
-            permissionChecker: { true }
+            permissionChecker: { true },
+            interClusterDelayNanoseconds: 0
         )
 
         let result = await inserter.insert("你a👨‍👩‍👧‍👦")
@@ -32,7 +33,8 @@ final class SimulatedTypingInserterTests: XCTestCase {
         let inserter = SimulatedTypingInserter(
             eventPoster: poster,
             permissionChecker: { true },
-            cancellationMonitor: cancellationToken
+            cancellationMonitor: cancellationToken,
+            interClusterDelayNanoseconds: 0
         )
 
         let result = await inserter.insert("abc")
@@ -45,7 +47,8 @@ final class SimulatedTypingInserterTests: XCTestCase {
         let poster = CapturingTypingEventPoster()
         let inserter = SimulatedTypingInserter(
             eventPoster: poster,
-            permissionChecker: { false }
+            permissionChecker: { false },
+            interClusterDelayNanoseconds: 0
         )
 
         let result = await inserter.insert("hello")
@@ -58,7 +61,8 @@ final class SimulatedTypingInserterTests: XCTestCase {
         let poster = CapturingTypingEventPoster(shouldPost: false)
         let inserter = SimulatedTypingInserter(
             eventPoster: poster,
-            permissionChecker: { true }
+            permissionChecker: { true },
+            interClusterDelayNanoseconds: 0
         )
 
         let result = await inserter.insert("hello")
