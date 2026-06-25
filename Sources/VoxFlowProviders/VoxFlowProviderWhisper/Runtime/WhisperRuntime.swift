@@ -9,15 +9,18 @@ public struct WhisperTranscriptionRequest: Sendable, Equatable {
     public let audio: [Float]
     public let languageCode: String
     public let task: WhisperTranscriptionTask
+    public let prompt: String?
 
     public init(
         audio: [Float],
         languageCode: String,
-        task: WhisperTranscriptionTask
+        task: WhisperTranscriptionTask,
+        prompt: String? = nil
     ) {
         self.audio = audio
         self.languageCode = languageCode
         self.task = task
+        self.prompt = prompt
     }
 }
 
@@ -63,7 +66,7 @@ private actor LocalWhisperKitTranscriber: WhisperKitTranscribing {
         _ request: WhisperTranscriptionRequest,
         onPartial: WhisperPartialHandler?
     ) async throws -> String {
-        let options = DecodingOptions(
+        var options = DecodingOptions(
             verbose: false,
             task: .transcribe,
             language: request.languageCode,
@@ -72,6 +75,14 @@ private actor LocalWhisperKitTranscriber: WhisperKitTranscribing {
             skipSpecialTokens: true,
             withoutTimestamps: true
         )
+        if let prompt = request.prompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !prompt.isEmpty,
+           let tokenizer = whisperKit.tokenizer {
+            options.promptTokens = tokenizer
+                .encode(text: " " + prompt)
+                .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+            options.usePrefillPrompt = true
+        }
         let results = try await whisperKit.transcribe(
             audioArray: request.audio,
             decodeOptions: options,

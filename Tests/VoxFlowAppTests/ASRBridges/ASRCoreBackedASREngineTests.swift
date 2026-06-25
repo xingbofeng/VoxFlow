@@ -46,6 +46,33 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         XCTAssertEqual(callbacks.map(\.1), [false, true])
     }
 
+    func testConfiguredTermPromptIsForwardedToProviderSessionBeforeStart() async throws {
+        let session = CapturingCoreSession()
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session
+        )
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN")
+        )
+
+        engine.configureTermPrompt("VoxFlow, tokenhub")
+        try engine.start()
+        engine.appendAudioFrame(Self.frame(sequenceNumber: 1))
+
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(session.configuredPrompt(), "VoxFlow, tokenhub")
+        XCTAssertTrue(session.didStartAfterPromptConfiguration())
+        engine.cancel()
+    }
+
     func testEndAudioIgnoresLateAudioFramesAfterFinalCallback() async throws {
         let session = CapturingCoreSession()
         let provider = CapturingCoreProvider(
@@ -294,6 +321,8 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
     private var acceptedFrames: [AudioFrame] = []
     private var finishCount = 0
     private var cancelCount = 0
+    private var prompt: String?
+    private var promptWasConfiguredWhenStarted = false
 
     init(
         acceptDelayNanoseconds: UInt64 = 0,
@@ -304,12 +333,21 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
     }
 
     func start() async throws {
+        lock.withLock {
+            promptWasConfiguredWhenStarted = prompt != nil
+        }
         eventStream.yield(.preparing(sessionID: sessionID, revision: revision))
         let readyRevision = lock.withLock {
             currentRevision += 1
             return currentRevision
         }
         eventStream.yield(.ready(sessionID: sessionID, revision: readyRevision))
+    }
+
+    func configurePrompt(_ prompt: String?) async throws {
+        lock.withLock {
+            self.prompt = prompt
+        }
     }
 
     func accept(_ frame: AudioFrame) async throws {
@@ -376,5 +414,13 @@ private final class CapturingCoreSession: ASRSession, @unchecked Sendable {
 
     func cancelCallCount() -> Int {
         lock.withLock { cancelCount }
+    }
+
+    func configuredPrompt() -> String? {
+        lock.withLock { prompt }
+    }
+
+    func didStartAfterPromptConfiguration() -> Bool {
+        lock.withLock { promptWasConfiguredWhenStarted }
     }
 }

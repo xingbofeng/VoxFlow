@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import VoxFlowApp
 
@@ -76,6 +77,60 @@ final class PaletteViewModelTests: XCTestCase {
             viewModel.primaryKeyboardAction(),
             .openApplication(path: "/Applications/Slack.app", itemID: PaletteRootItemID(rawValue: "application:com.tinyspeck.slackmacgap"))
         )
+    }
+
+    func testHomeSearchSelectionIdentityTracksFirstResultWhenIndexStaysZero() throws {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.tinyspeck.slackmacgap",
+                    name: "Slack",
+                    bundleID: "com.tinyspeck.slackmacgap",
+                    iconPath: nil,
+                    path: "/Applications/Slack.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+        let initialSelectionID = viewModel.selectedRootItemID
+
+        try viewModel.updateSearchText("slk")
+
+        XCTAssertEqual(viewModel.selectedHomeResultIndex, 0)
+        XCTAssertEqual(viewModel.visibleRootItems.first?.title, "Slack")
+        XCTAssertEqual(viewModel.selectedRootItemID, viewModel.visibleRootItems.first?.id)
+        XCTAssertNotEqual(viewModel.selectedRootItemID, initialSelectionID)
+        XCTAssertTrue(viewModel.visibleRootItems.first.map(viewModel.isRootItemSelected) ?? false)
+    }
+
+    func testHomeSearchPublishesFirstResultSelectionWhenIndexStaysZero() throws {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.microsoft.VSCode",
+                    name: "Code",
+                    bundleID: "com.microsoft.VSCode",
+                    iconPath: nil,
+                    path: "/Applications/Visual Studio Code.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+        var publishedSelectionIDs: [PaletteRootItemID?] = []
+        let selectionCancellable = viewModel.$selectedRootItemID
+            .dropFirst()
+            .sink { publishedSelectionIDs.append($0) }
+
+        try viewModel.updateSearchText("vs")
+
+        XCTAssertEqual(publishedSelectionIDs.last, viewModel.visibleRootItems.first?.id)
+        withExtendedLifetime(selectionCancellable) {}
     }
 
     func testRootActivationRecordsUsageAndQuerySelection() throws {

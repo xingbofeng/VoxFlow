@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import VoxFlowVoiceCorrection
 
 struct HomeDashboardStats: Equatable {
     var totalAssets = 0
@@ -40,6 +41,12 @@ struct HomeSourceBreakdown: Equatable {
             clipboard += 1
         }
     }
+}
+
+enum HomeDashboardError: Error, Equatable {
+    case noSelectedHistoryItem
+    case emptyFinalText
+    case historyItemNotFound
 }
 
 struct HomeActivityDay: Equatable, Identifiable {
@@ -652,6 +659,38 @@ final class HomeDashboardViewModel: ObservableObject {
         }
     }
 
+    func updateSelectedHistoryFinalText(_ editedText: String) throws {
+        guard let id = selectedDetail?.id else {
+            lastError = "未选择历史记录。"
+            throw HomeDashboardError.noSelectedHistoryItem
+        }
+        let newText = editedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newText.isEmpty else {
+            lastError = "修正后的文本不能为空。"
+            throw HomeDashboardError.emptyFinalText
+        }
+        guard let entry = try environment.historyRepository.entry(id: id), entry.deletedAt == nil else {
+            selectedHomeDetail = nil
+            lastError = "未找到历史记录。"
+            throw HomeDashboardError.historyItemNotFound
+        }
+        guard newText != entry.finalText else {
+            lastError = nil
+            return
+        }
+
+        let updatedEntry = manuallyUpdatedHistoryEntry(from: entry, finalText: newText)
+        try environment.historyRepository.save(updatedEntry)
+        try updateDictationAssetIfAvailable(for: updatedEntry)
+        try learnCorrectionsFromHistoryEdit(originalText: entry.finalText, editedText: newText, entry: entry)
+        environment.notifyHistoryDidChange()
+        load()
+        selectedHomeDetail = .voice(HomeHistoryDetail(entry: updatedEntry))
+        lastError = nil
+        lastActionMessage = "已更新历史记录"
+        lastActionTone = .success
+    }
+
     private func refreshScopedDashboardState() {
         do {
             try reloadDashboardAggregate()
@@ -1023,6 +1062,126 @@ final class HomeDashboardViewModel: ObservableObject {
             updatedAt: now,
             deletedAt: entry.deletedAt
         )
+    }
+
+    private func manuallyUpdatedHistoryEntry(
+        from entry: DictationHistoryEntry,
+        finalText: String
+    ) -> DictationHistoryEntry {
+        let charCount = finalText.count
+        let durationMinutes = max(Double(entry.durationMS) / 60_000.0, 1.0 / 60_000.0)
+        let now = environment.clock.now
+
+        return DictationHistoryEntry(
+            id: entry.id,
+            rawText: entry.rawText,
+            finalText: finalText,
+            language: entry.language,
+            asrProviderID: entry.asrProviderID,
+            llmProviderID: entry.llmProviderID,
+            styleID: entry.styleID,
+            durationMS: entry.durationMS,
+            charCount: charCount,
+            cpm: Double(charCount) / durationMinutes,
+            targetAppBundleID: entry.targetAppBundleID,
+            targetAppName: entry.targetAppName,
+            processingWarningsJSON: entry.processingWarningsJSON,
+            processingTraceJSON: entry.processingTraceJSON,
+            createdAt: entry.createdAt,
+            updatedAt: now,
+            deletedAt: entry.deletedAt
+        )
+    }
+
+    private func learnCorrectionsFromHistoryEdit(
+        originalText: String,
+        editedText: String,
+        entry: DictationHistoryEntry
+    ) throws {
+        let pairs = HighConfidenceCorrectionExtractor().extract(
+            insertedText: originalText,
+            baselineText: originalText,
+            editedText: editedText,
+            appliedCorrectionRanges: []
+        )
+        guard !pairs.isEmpty else { return }
+
+        let scope: RuleScope = entry.targetAppBundleID
+            .map { .application(bundleIdentifier: $0) } ?? .global
+        let existingRules = try environment.correctionRuleRepository.list()
+        let now = environment.clock.now
+        var didSaveRule = false
+
+        for pair in pairs where !hasExistingCorrection(pair, scope: scope, in: existingRules) {
+            let target = try correctionTarget(
+                text: pair.replacement,
+                scope: scope,
+                now: now
+            )
+            let rule = CorrectionRule(
+                targetID: target.id,
+                original: pair.original,
+                replacement: target.text,
+                matchPolicy: .boundary,
+                scope: scope,
+                lifecycle: .active,
+                source: .automaticLearning,
+                confidence: 0.90,
+                observedCount: 1,
+                providerID: entry.asrProviderID,
+                modelID: nil,
+                language: entry.language,
+                createdAt: now,
+                updatedAt: now
+            )
+            try environment.correctionRuleRepository.save(rule)
+            didSaveRule = true
+        }
+
+        if didSaveRule {
+            _ = environment.correctionSnapshotProvider.refresh()
+        }
+    }
+
+    private func hasExistingCorrection(
+        _ pair: LearnedCorrectionPair,
+        scope: RuleScope,
+        in existingRules: [CorrectionRule]
+    ) -> Bool {
+        existingRules.contains {
+            $0.scope == scope &&
+                $0.original.caseInsensitiveCompare(pair.original) == .orderedSame
+        }
+    }
+
+    private func correctionTarget(
+        text: String,
+        scope: RuleScope,
+        now: Date
+    ) throws -> CorrectionTargetTerm {
+        let normalizedText = CorrectionTargetTerm.normalize(text)
+        if var existing = try environment.correctionTargetRepository.list().first(where: {
+            $0.normalizedText.caseInsensitiveCompare(normalizedText) == .orderedSame &&
+                $0.scope == scope
+        }) {
+            existing.observedCount += 1
+            existing.updatedAt = now
+            try environment.correctionTargetRepository.save(existing)
+            return existing
+        }
+
+        let target = CorrectionTargetTerm(
+            text: text,
+            normalizedText: normalizedText,
+            scope: scope,
+            lifecycle: .active,
+            source: .automaticLearning,
+            observedCount: 1,
+            createdAt: now,
+            updatedAt: now
+        )
+        try environment.correctionTargetRepository.save(target)
+        return target
     }
 
     private func warningsJSON(_ warnings: [String]) -> String? {

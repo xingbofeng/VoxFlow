@@ -6,10 +6,15 @@ public protocol ASRSession: Sendable {
     var revision: UInt64 { get }
     var events: AsyncStream<ASREvent> { get }
 
+    func configurePrompt(_ prompt: String?) async throws
     func start() async throws
     func accept(_ frame: AudioFrame) async throws
     func finish() async throws
     func cancel() async
+}
+
+public extension ASRSession {
+    func configurePrompt(_ prompt: String?) async throws {}
 }
 
 public final class ASREventStream: @unchecked Sendable {

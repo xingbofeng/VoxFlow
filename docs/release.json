@@ -1,10 +1,10 @@
 {
-  "version": "1.8.0",
-  "tag": "v1.8.0",
-  "assetName": "VoxFlow-1.8.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.8.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.0/VoxFlow-1.8.0-macOS.dmg",
-  "releaseNotes": "启动台升级为可搜索的工作台入口：支持搜索并打开 macOS 应用、管理最喜欢项目，并通过 `⌘K` 执行打开/收藏等动作。",
+  "version": "1.8.1",
+  "tag": "v1.8.1",
+  "assetName": "VoxFlow-1.8.1-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.8.1",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.1/VoxFlow-1.8.1-macOS.dmg",
+  "releaseNotes": "易错词自动学习在 Ghostty、AI 编程控制台和浏览器等目标里更稳定：快速改正识别结果后也能学到，并在下一次 ASR 后处理中立即生效。",
   "draft": false,
   "prerelease": false
 }

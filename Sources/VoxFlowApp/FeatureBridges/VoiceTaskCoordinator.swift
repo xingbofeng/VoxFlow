@@ -231,7 +231,8 @@ final class VoiceTaskCoordinator {
 
     func completeAgentDispatchFallbackInput(
         finalText: String,
-        outputResult: OutputResult
+        outputResult: OutputResult,
+        appliedCorrectionEvents: [CorrectionEvent] = []
     ) throws {
         guard var task = try task(for: .agentDispatch) else {
             throw CoordinatorError.noActiveTask
@@ -334,6 +335,10 @@ final class VoiceTaskCoordinator {
         let currentTarget = targetProvider.currentTarget()
 
         // Deliver output
+        let correctionObservationAnchor = correctionObservationAnchorIfNeeded(
+            context: correctionContext,
+            targetProcessID: originalTarget?.pid
+        )
         let outputResult = await outputService.deliver(
             text: finalText,
             mode: task.mode,
@@ -393,7 +398,9 @@ final class VoiceTaskCoordinator {
             finalText: finalText,
             correctionContext: correctionContext,
             processingResult: processingResult,
-            outputResult: outputResult
+            outputResult: outputResult,
+            baseline: correctionObservationBaseline(from: correctionObservationAnchor),
+            targetProcessID: originalTarget?.pid
         )
 
         return outputResult
@@ -404,7 +411,9 @@ final class VoiceTaskCoordinator {
         finalText: String,
         correctionContext: CorrectionContext?,
         processingResult: TextProcessingResult,
-        outputResult: OutputResult
+        outputResult: OutputResult,
+        baseline: FocusedTextObservation?,
+        targetProcessID: Int?
     ) {
         guard task.mode == .dictation,
               case .injected = outputResult,
@@ -420,8 +429,23 @@ final class VoiceTaskCoordinator {
         correctionObservationScheduler?.scheduleObservation(
             insertedText: finalText,
             context: correctionContext,
-            appliedEvents: processingResult.appliedCorrectionEvents
+            appliedEvents: processingResult.appliedCorrectionEvents,
+            baseline: baseline,
+            targetProcessID: targetProcessID
         )
+    }
+
+    private func correctionObservationAnchorIfNeeded(
+        context: CorrectionContext?,
+        targetProcessID: Int?
+    ) -> FocusedTextObservation? {
+        guard let context, !context.isSecureField else { return nil }
+        return correctionObservationScheduler?.captureBaselineForObservation(targetProcessID: targetProcessID)
+    }
+
+    private func correctionObservationBaseline(from anchor: FocusedTextObservation?) -> FocusedTextObservation? {
+        guard let anchor else { return nil }
+        return correctionObservationScheduler?.recaptureBaselineForObservation(matching: anchor)
     }
 
     // MARK: - Agent compose

@@ -476,6 +476,19 @@ final class VoiceCorrectionViewModel: ObservableObject {
         }
     }
 
+    func undoLearningBatch(_ event: CorrectionObservationLearningEvent) {
+        do {
+            let deletedCount = try correctionLearningBatchUndoService.undo(event)
+            refreshAfterRuleMutation(
+                message: deletedCount > 0
+                    ? "已撤销本次自动学习"
+                    : "本次学习已变更，未执行撤销"
+            )
+        } catch {
+            report(error)
+        }
+    }
+
     func applyAutomaticLearningEvent(_ event: CorrectionObservationLearningEvent) {
         load()
         lastActionMessage = event.message
@@ -604,6 +617,14 @@ final class VoiceCorrectionViewModel: ObservableObject {
     private func report(_ error: Error) {
         lastError = error.localizedDescription
         lastActionMessage = nil
+    }
+
+    private var correctionLearningBatchUndoService: CorrectionLearningBatchUndoService {
+        CorrectionLearningBatchUndoService(
+            ruleRepository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
+            snapshotProvider: environment.correctionSnapshotProvider
+        )
     }
 
     private func observeAutomaticLearningEvents() {

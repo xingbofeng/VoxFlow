@@ -283,6 +283,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pendingCorrectionFallback = PendingCorrectionFallbackController()
     private var lastExternalSelectionTarget: DictationTarget?
     private var selectionTargetActivationObserver: NSObjectProtocol?
+    private var correctionLearningObserver: NSObjectProtocol?
     private var agentDefaultOutputTask: Task<Void, Never>?
     private lazy var updateCheckCoordinator = UpdateCheckCoordinator.live(
         currentVersion: AppVersionInfo.current().version,
@@ -344,6 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        startCorrectionLearningFeedback()
         windowCoordinator.onCheckForUpdates = { [weak self] in
             self?.checkForUpdates(nil)
         }
@@ -415,6 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         agentDispatchHandler?.cancel()
         clipboardAssetMonitor.stop()
         stopSelectionTargetTracking()
+        stopCorrectionLearningFeedback()
         agentHelperManager?.stopRouter()
     }
 
@@ -516,6 +519,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             agentDispatchHandler: agentDispatchHandler,
             audioCaptureCoordinator: runtime!.audioCaptureCoordinator,
             correctionObservationScheduler: runtime!.correctionObservationScheduler,
+            asrTermPromptProvider: CorrectionTargetASRTermPromptProvider(
+                repository: appEnvironment.correctionTargetRepository,
+                isEnabled: { [weak self] in
+                    self?.isSettingEnabled(
+                        VoiceCorrectionSettingsKey.enabled.rawValue,
+                        defaultValue: VoiceCorrectionSettingsKey.enabled.defaultValue
+                    ) ?? VoiceCorrectionSettingsKey.enabled.defaultValue
+                }
+            ),
             isFocusedTextFieldSecure: { [weak self] in
                 self?.runtime?.focusedTextObserver.focusedInputIsSecure() ?? false
             },
@@ -611,7 +623,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try handler?.completeFallbackInput(
                 finalText: result.finalText,
-                outputResult: result.outputResult
+                outputResult: result.outputResult,
+                appliedCorrectionEvents: []
             )
         } catch {
             AppLogger.general.error("Failed to complete Agent Dispatch default output: \(error.localizedDescription)")
@@ -928,7 +941,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try agentDispatchHandler?.completeFallbackInput(
                 finalText: rawText,
-                outputResult: outputResult
+                outputResult: outputResult,
+                appliedCorrectionEvents: []
             )
         } catch {
             AppLogger.general.error(
@@ -1184,6 +1198,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func startCorrectionLearningFeedback() {
+        correctionLearningObserver = NotificationCenter.default.addObserver(
+            forName: .correctionObservationLearningEvent,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let event = notification.object as? CorrectionObservationLearningEvent else {
+                return
+            }
+            MainActor.assumeIsolated {
+                self?.hudFeatureController.handleCorrectionLearning(event) { [weak self] in
+                    self?.undoCorrectionLearningBatch(event)
+                }
+            }
+        }
+    }
+
+    private func stopCorrectionLearningFeedback() {
+        if let correctionLearningObserver {
+            NotificationCenter.default.removeObserver(correctionLearningObserver)
+            self.correctionLearningObserver = nil
+        }
+    }
+
+    private func undoCorrectionLearningBatch(_ event: CorrectionObservationLearningEvent) {
+        do {
+            let deletedCount = try CorrectionLearningBatchUndoService(
+                ruleRepository: appEnvironment.correctionRuleRepository,
+                targetRepository: appEnvironment.correctionTargetRepository,
+                snapshotProvider: appEnvironment.correctionSnapshotProvider
+            ).undo(event)
+            let message = deletedCount > 0 ? "已撤销本次自动学习" : "本次学习已变更，未执行撤销"
+            hudFeatureController.showTemporaryMessage(
+                message,
+                duration: 2.2,
+                tone: deletedCount > 0 ? .success : .info
+            )
+        } catch {
+            logger.error("correction_learning_batch_undo_failed \(error.localizedDescription)")
+            hudFeatureController.showTemporaryMessage("撤销自动学习失败", duration: 3.0)
+        }
+    }
+
     private func stopSelectionTargetTracking() {
         if let selectionTargetActivationObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(selectionTargetActivationObserver)
@@ -1338,8 +1395,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceTaskCoordinator.completeEphemeralWorkflow(lease)
         }
 
-        updateCheckCoordinator.dismissActivePromptAsNextTime()
-        windowCoordinator.dismissHomeDetailOverlay()
+        let appIsFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            == NSRunningApplication.current.processIdentifier
+        if AppPresentationPolicy.shouldDismissVoxFlowOverlaysBeforeScreenshotCapture(
+            appIsFrontmost: appIsFrontmost
+        ) {
+            updateCheckCoordinator.dismissActivePromptAsNextTime()
+            windowCoordinator.dismissHomeDetailOverlay()
+        }
         let outcome = await screenshotOCRService.captureAndRecognize()
         guard !Task.isCancelled else { return }
         guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {

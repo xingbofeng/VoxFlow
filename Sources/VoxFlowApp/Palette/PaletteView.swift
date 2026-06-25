@@ -1,4 +1,5 @@
 import AppKit
+import FuzzyMatch
 import SwiftUI
 
 struct PaletteView: View {
@@ -126,50 +127,34 @@ struct PaletteView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 14)
+                .id(viewModel.selectedRootItemID)
             }
             .onChange(of: viewModel.selectedHomeResultIndex) { _, _ in
+                scrollHomeSelectionIntoView(proxy)
+            }
+            .onChange(of: viewModel.selectedRootItemID) { _, _ in
                 scrollHomeSelectionIntoView(proxy)
             }
         }
     }
 
-    private func homeResultButton(_ result: PaletteHomeResult, index: Int) -> some View {
-        Button {
-            viewModel.selectHomeResult(at: index)
-            activate(result.command)
-        } label: {
-            HStack(spacing: 13) {
-                commandIcon(for: result.command)
-                Text(result.title)
-                    .font(.system(size: 16, weight: .medium))
-                Text(result.subtitle)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(result.command == .recentAssets ? "命令" : "")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 15)
-            .frame(height: 45)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedHomeResultIndex == index))
-    }
-
     private func rootResultButton(_ item: PaletteRootItem, index: Int) -> some View {
-        Button {
+        let isSelected = viewModel.isRootItemSelected(item)
+        return Button {
             viewModel.selectHomeResult(at: index)
             performPrimaryAction()
         } label: {
             HStack(spacing: 13) {
                 rootIcon(for: item)
-                Text(item.title)
-                    .font(.system(size: 16, weight: .medium))
+                PaletteHighlightedText(text: item.title, query: viewModel.searchText, size: 16, weight: .medium)
                     .lineLimit(1)
-                Text(item.subtitle)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
+                PaletteHighlightedText(
+                    text: item.subtitle,
+                    query: viewModel.searchText,
+                    size: 14,
+                    weight: .regular,
+                    color: .secondary
+                )
                     .lineLimit(1)
                 Spacer()
                 Text(kindTitle(for: item.kind))
@@ -180,7 +165,10 @@ struct PaletteView: View {
             .frame(height: 45)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedHomeResultIndex == index))
+        .buttonStyle(PaletteRowButtonStyle())
+        .background {
+            PaletteRowSelectionHighlight(isSelected: isSelected)
+        }
     }
 
     private var favoriteHintRow: some View {
@@ -216,6 +204,7 @@ struct PaletteView: View {
                 LazyVStack(alignment: .leading, spacing: 6) {
                     SectionHeader("今天")
                     ForEach(Array(viewModel.assets.enumerated()), id: \.element.id) { index, asset in
+                        let isSelected = viewModel.selectedAssetIndex == index
                         Button {
                             viewModel.selectAsset(at: index)
                         } label: {
@@ -236,7 +225,10 @@ struct PaletteView: View {
                             .frame(height: 48)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedAssetIndex == index))
+                        .buttonStyle(PaletteRowButtonStyle())
+                        .background {
+                            PaletteRowSelectionHighlight(isSelected: isSelected)
+                        }
                         .id(asset.id)
                         .simultaneousGesture(
                             TapGesture(count: 2).onEnded {
@@ -669,11 +661,16 @@ struct PaletteView: View {
                 .frame(maxWidth: .infinity, maxHeight: 210)
                 .padding(16)
         } else {
-            Text(asset.previewText ?? asset.text ?? asset.url ?? asset.filePath ?? asset.colorValue ?? asset.title)
-                .font(.system(size: 18))
-                .lineSpacing(5)
-                .padding(22)
-                .frame(maxWidth: .infinity, maxHeight: 210, alignment: .topLeading)
+            ScrollView(.vertical) {
+                Text(asset.previewText ?? asset.text ?? asset.url ?? asset.filePath ?? asset.colorValue ?? asset.title)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(18)
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: 210, alignment: .topLeading)
         }
     }
 
@@ -720,6 +717,53 @@ struct PaletteView: View {
             return "颜色"
         }
     }
+
+}
+
+private struct PaletteHighlightedText: View {
+    private static let matcher = FuzzyMatcher()
+    private static let highlightColor = Color(red: 0.03, green: 0.46, blue: 0.38)
+
+    let text: String
+    let query: String
+    let size: CGFloat
+    let weight: Font.Weight
+    var color: Color = .primary
+
+    var body: some View {
+        Text(attributedText)
+    }
+
+    static func matchesVisibleText(_ text: String, query: String) -> Bool {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else { return false }
+        return matcher.highlight(text, against: normalizedQuery) != nil
+    }
+
+    private var attributedText: AttributedString {
+        var result = AttributedString(text)
+        result.foregroundColor = color
+        result.font = .system(size: size, weight: weight)
+
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty,
+              let ranges = Self.matcher.highlight(text, against: normalizedQuery)
+        else {
+            return result
+        }
+
+        var highlightAttributes = AttributeContainer()
+        highlightAttributes.foregroundColor = Self.highlightColor
+        highlightAttributes.font = .system(size: size, weight: .semibold)
+        for range in ranges {
+            guard let lower = AttributedString.Index(range.lowerBound, within: result),
+                  let upper = AttributedString.Index(range.upperBound, within: result) else {
+                continue
+            }
+            result[lower..<upper].mergeAttributes(highlightAttributes)
+        }
+        return result
+    }
 }
 
 private struct SectionHeader: View {
@@ -739,26 +783,32 @@ private struct SectionHeader: View {
 }
 
 private struct PaletteRowButtonStyle: ButtonStyle {
-    var isSelected = false
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(rowColor(isPressed: configuration.isPressed))
+                    .fill(
+                        configuration.isPressed
+                            ? Color(nsColor: .separatorColor).opacity(0.45)
+                            : .clear
+                    )
             )
     }
+}
 
-    private func rowColor(isPressed: Bool) -> Color {
-        if isSelected {
-            return selectedRowHighlightColor(isPressed: isPressed)
-        }
-        return .clear
-    }
+private struct PaletteRowSelectionHighlight: View {
+    let isSelected: Bool
 
-    private func selectedRowHighlightColor(isPressed: Bool) -> Color {
-        Color(nsColor: .selectedContentBackgroundColor)
-            .opacity(isPressed ? 0.22 : 0.16)
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isSelected ? Color.accentColor.opacity(0.26) : .clear,
+                        lineWidth: isSelected ? 1 : 0
+                    )
+            )
     }
 }
 

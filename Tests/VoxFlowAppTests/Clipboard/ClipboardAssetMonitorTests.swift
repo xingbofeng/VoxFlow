@@ -79,6 +79,29 @@ final class ClipboardAssetMonitorTests: XCTestCase {
     }
 
     @MainActor
+    func testMonitorSkipsUnsupportedLeadingRichTextPasteboardItem() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: ClipboardInternalWriteGuard()
+        )
+        let richTextItem = NSPasteboardItem()
+        richTextItem.setData(Data("<b>missing plain text</b>".utf8), forType: .html)
+        let textItem = NSPasteboardItem()
+        textItem.setString("plain text after unsupported rich item", forType: .string)
+
+        pasteboard.clearContents()
+        pasteboard.writeObjects([richTextItem, textItem])
+
+        let item = try monitor.processIfChanged(now: date("2026-06-23T10:00:00Z"))
+
+        XCTAssertEqual(item?.text, "plain text after unsupported rich item")
+        XCTAssertEqual(repository.savedItems.map(\.id), [item?.id])
+    }
+
+    @MainActor
     func testMonitorIgnoresInternalVoxFlowWrites() throws {
         let pasteboard = try makePasteboard()
         let repository = CapturingAssetRepository()

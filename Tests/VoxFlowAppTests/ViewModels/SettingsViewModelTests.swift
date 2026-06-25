@@ -1,5 +1,6 @@
 import XCTest
 import VoxFlowModelStore
+import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
 @MainActor
@@ -103,6 +104,63 @@ final class SettingsViewModelTests: XCTestCase {
             try environment.settingsRepository.value(forKey: VoiceCorrectionSettingsKey.shadowMode.rawValue),
             #"{"value":true}"#
         )
+    }
+
+    func testExportAndImportIncludesVoiceCorrectionDictionary() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let target = CorrectionTargetTerm(
+            text: "Qwen",
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning
+        )
+        try environment.correctionTargetRepository.save(target)
+        try environment.correctionRuleRepository.save(CorrectionRule(
+            targetID: target.id,
+            original: "q 问",
+            replacement: "Qwen",
+            matchPolicy: .boundary,
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning,
+            confidence: 0.9,
+            observedCount: 1,
+            providerID: "apple_speech",
+            modelID: nil,
+            language: "zh-CN"
+        ))
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        let exported = try viewModel.exportDataJSON()
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(exported.utf8)) as? [String: Any])
+        let voiceCorrection = try XCTUnwrap(payload["voiceCorrection"] as? [String: Any])
+        XCTAssertEqual((voiceCorrection["targets"] as? [[String: Any]])?.first?["text"] as? String, "Qwen")
+        XCTAssertEqual((voiceCorrection["rules"] as? [[String: Any]])?.first?["original"] as? String, "q 问")
+
+        let importedEnvironment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let importViewModel = SettingsViewModel(
+            environment: importedEnvironment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        try importViewModel.importSettingsJSON(exported)
+
+        let importedRule = try XCTUnwrap(try importedEnvironment.correctionRuleRepository.list().first)
+        XCTAssertEqual(importedRule.original, "q 问")
+        XCTAssertEqual(importedRule.replacement, "Qwen")
+        XCTAssertEqual(importedRule.scope, .application(bundleIdentifier: "com.cursor.Cursor"))
+        XCTAssertEqual(importedRule.providerID, "apple_speech")
+        XCTAssertEqual(importedRule.language, "zh-CN")
+        let importedTarget = try XCTUnwrap(try importedEnvironment.correctionTargetRepository.list().first)
+        XCTAssertEqual(importedTarget.text, "Qwen")
+        XCTAssertEqual(importedRule.targetID, importedTarget.id)
     }
 
     func testStorageStatusExplainsVolatileLaunchFallback() throws {

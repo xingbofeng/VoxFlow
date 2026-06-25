@@ -3,6 +3,7 @@ import AppKit
 import Combine
 import Foundation
 import ApplicationServices
+import VoxFlowVoiceCorrection
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
@@ -1079,6 +1080,7 @@ final class SettingsViewModel: ObservableObject {
         let object: [String: Any] = [
             "history": history,
             "settings": settings,
+            "voiceCorrection": try voiceCorrectionExportObject(),
         ]
         let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
         let string = String(data: data, encoding: .utf8) ?? "{}"
@@ -1099,10 +1101,158 @@ final class SettingsViewModel: ObservableObject {
         for (key, value) in settings {
             try environment.settingsRepository.set(key, jsonValue: value)
         }
+        if let voiceCorrection = object["voiceCorrection"] as? [String: Any] {
+            try importVoiceCorrection(voiceCorrection)
+        }
         load()
         lastError = nil
         lastActionMessage = persistentWriteMessage("已导入设置")
         Self.logger.info("settings_vm_import_settings_json_success settings=\(settings.count)")
+    }
+
+    private func voiceCorrectionExportObject() throws -> [String: Any] {
+        [
+            "targets": try environment.correctionTargetRepository.list().map(exportTarget),
+            "rules": try environment.correctionRuleRepository.list().map(exportRule),
+        ]
+    }
+
+    private func exportTarget(_ target: CorrectionTargetTerm) -> [String: Any] {
+        var object: [String: Any] = [
+            "id": target.id.uuidString,
+            "text": target.text,
+            "normalizedText": target.normalizedText,
+            "lifecycle": target.lifecycle.rawValue,
+            "source": target.source.rawValue,
+            "observedCount": target.observedCount,
+            "appliedCount": target.appliedCount,
+            "revertedCount": target.revertedCount,
+            "createdAt": Self.iso8601.string(from: target.createdAt),
+            "updatedAt": Self.iso8601.string(from: target.updatedAt),
+        ]
+        addScope(target.scope, to: &object)
+        if let lastAppliedAt = target.lastAppliedAt {
+            object["lastAppliedAt"] = Self.iso8601.string(from: lastAppliedAt)
+        }
+        return object
+    }
+
+    private func exportRule(_ rule: CorrectionRule) -> [String: Any] {
+        var object: [String: Any] = [
+            "id": rule.id.uuidString,
+            "original": rule.original,
+            "replacement": rule.replacement,
+            "matchPolicy": rule.matchPolicy.rawValue,
+            "allowedModes": rule.allowedModes.map(\.rawValue).sorted(),
+            "lifecycle": rule.lifecycle.rawValue,
+            "source": rule.source.rawValue,
+            "caseSensitive": rule.caseSensitive,
+            "confidence": rule.confidence,
+            "observedCount": rule.observedCount,
+            "appliedCount": rule.appliedCount,
+            "revertedCount": rule.revertedCount,
+            "enabled": rule.isEnabled,
+            "createdAt": Self.iso8601.string(from: rule.createdAt),
+            "updatedAt": Self.iso8601.string(from: rule.updatedAt),
+        ]
+        addScope(rule.scope, to: &object)
+        object["targetID"] = rule.targetID?.uuidString
+        object["providerID"] = rule.providerID
+        object["modelID"] = rule.modelID
+        object["language"] = rule.language
+        if let lastAppliedAt = rule.lastAppliedAt {
+            object["lastAppliedAt"] = Self.iso8601.string(from: lastAppliedAt)
+        }
+        return object
+    }
+
+    private func importVoiceCorrection(_ object: [String: Any]) throws {
+        let targets = object["targets"] as? [[String: Any]] ?? []
+        let rules = object["rules"] as? [[String: Any]] ?? []
+        for targetObject in targets {
+            try environment.correctionTargetRepository.save(importTarget(targetObject))
+        }
+        for ruleObject in rules {
+            try environment.correctionRuleRepository.save(importRule(ruleObject))
+        }
+        _ = environment.correctionSnapshotProvider.refresh()
+    }
+
+    private func importTarget(_ object: [String: Any]) throws -> CorrectionTargetTerm {
+        let text = try requiredString("text", in: object)
+        return CorrectionTargetTerm(
+            id: UUID(uuidString: try requiredString("id", in: object)) ?? UUID(),
+            text: text,
+            normalizedText: object["normalizedText"] as? String ?? CorrectionTargetTerm.normalize(text),
+            scope: scope(from: object),
+            lifecycle: RuleLifecycle(rawValue: object["lifecycle"] as? String ?? "") ?? .active,
+            source: RuleSource(rawValue: object["source"] as? String ?? "") ?? .imported,
+            observedCount: object["observedCount"] as? Int ?? 0,
+            appliedCount: object["appliedCount"] as? Int ?? 0,
+            revertedCount: object["revertedCount"] as? Int ?? 0,
+            createdAt: date("createdAt", in: object) ?? Date(),
+            updatedAt: date("updatedAt", in: object) ?? Date(),
+            lastAppliedAt: date("lastAppliedAt", in: object)
+        )
+    }
+
+    private func importRule(_ object: [String: Any]) throws -> CorrectionRule {
+        let allowedModeValues = object["allowedModes"] as? [String] ?? [CorrectionInputMode.dictation.rawValue]
+        return CorrectionRule(
+            id: UUID(uuidString: try requiredString("id", in: object)) ?? UUID(),
+            targetID: (object["targetID"] as? String).flatMap(UUID.init(uuidString:)),
+            original: try requiredString("original", in: object),
+            replacement: try requiredString("replacement", in: object),
+            matchPolicy: MatchPolicy(rawValue: object["matchPolicy"] as? String ?? "") ?? .boundary,
+            scope: scope(from: object),
+            allowedModes: Set(allowedModeValues.compactMap(CorrectionInputMode.init(rawValue:))),
+            lifecycle: RuleLifecycle(rawValue: object["lifecycle"] as? String ?? "") ?? .active,
+            source: RuleSource(rawValue: object["source"] as? String ?? "") ?? .imported,
+            caseSensitive: object["caseSensitive"] as? Bool ?? false,
+            confidence: object["confidence"] as? Double ?? 1,
+            observedCount: object["observedCount"] as? Int ?? 0,
+            appliedCount: object["appliedCount"] as? Int ?? 0,
+            revertedCount: object["revertedCount"] as? Int ?? 0,
+            providerID: object["providerID"] as? String,
+            modelID: object["modelID"] as? String,
+            language: object["language"] as? String,
+            isEnabled: object["enabled"] as? Bool ?? true,
+            createdAt: date("createdAt", in: object) ?? Date(),
+            updatedAt: date("updatedAt", in: object) ?? Date(),
+            lastAppliedAt: date("lastAppliedAt", in: object)
+        )
+    }
+
+    private static let iso8601 = ISO8601DateFormatter()
+
+    private func addScope(_ scope: RuleScope, to object: inout [String: Any]) {
+        switch scope {
+        case .global:
+            object["scopeType"] = "global"
+        case .application(let bundleIdentifier):
+            object["scopeType"] = "application"
+            object["scopeValue"] = bundleIdentifier
+        }
+    }
+
+    private func scope(from object: [String: Any]) -> RuleScope {
+        guard object["scopeType"] as? String == "application",
+              let bundleIdentifier = object["scopeValue"] as? String,
+              !bundleIdentifier.isEmpty else {
+            return .global
+        }
+        return .application(bundleIdentifier: bundleIdentifier)
+    }
+
+    private func date(_ key: String, in object: [String: Any]) -> Date? {
+        (object[key] as? String).flatMap(Self.iso8601.date(from:))
+    }
+
+    private func requiredString(_ key: String, in object: [String: Any]) throws -> String {
+        guard let value = object[key] as? String else {
+            throw SettingsViewModelError.invalidImport
+        }
+        return value
     }
 
     func resetSettings() throws {

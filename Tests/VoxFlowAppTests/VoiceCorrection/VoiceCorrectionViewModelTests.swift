@@ -327,6 +327,78 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.recentLearningEvents.first?.title, "tokenhub")
     }
 
+    func testUndoLearningBatchDeletesOnlyRulesFromThatEvent() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let firstTarget = CorrectionTargetTerm(
+            text: "tokenhub",
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning
+        )
+        let secondTarget = CorrectionTargetTerm(
+            text: "token",
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning
+        )
+        let unrelated = CorrectionRule(
+            original: "另一个",
+            replacement: "other",
+            source: .automaticLearning
+        )
+        try environment.correctionTargetRepository.save(firstTarget)
+        try environment.correctionTargetRepository.save(secondTarget)
+        let firstRule = CorrectionRule(
+            targetID: firstTarget.id,
+            original: "投康 Hub",
+            replacement: firstTarget.text,
+            scope: firstTarget.scope,
+            source: .automaticLearning
+        )
+        let secondRule = CorrectionRule(
+            targetID: secondTarget.id,
+            original: "偷看",
+            replacement: secondTarget.text,
+            scope: secondTarget.scope,
+            source: .automaticLearning
+        )
+        try environment.correctionRuleRepository.save(firstRule)
+        try environment.correctionRuleRepository.save(secondRule)
+        try environment.correctionRuleRepository.save(unrelated)
+        let event = CorrectionObservationLearningEvent(items: [
+            CorrectionObservationLearningItem(rule: firstRule, targetID: firstTarget.id),
+            CorrectionObservationLearningItem(rule: secondRule, targetID: secondTarget.id),
+        ])
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        viewModel.undoLearningBatch(event)
+
+        XCTAssertEqual(try environment.correctionRuleRepository.list().map(\.id), [unrelated.id])
+        XCTAssertTrue(try environment.correctionTargetRepository.list().isEmpty)
+        XCTAssertEqual(viewModel.lastActionMessage, "已撤销本次自动学习")
+    }
+
+    func testUndoLearningBatchDoesNotDeleteRuleThatChangedAfterEvent() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let originalRule = CorrectionRule(
+            original: "偷看",
+            replacement: "token",
+            source: .automaticLearning
+        )
+        var changedRule = originalRule
+        changedRule.replacement = "Token"
+        try environment.correctionRuleRepository.save(changedRule)
+        let event = CorrectionObservationLearningEvent(items: [
+            CorrectionObservationLearningItem(rule: originalRule, targetID: UUID()),
+        ])
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        viewModel.undoLearningBatch(event)
+
+        XCTAssertEqual(try environment.correctionRuleRepository.list().map(\.replacement), ["Token"])
+        XCTAssertEqual(viewModel.lastActionMessage, "本次学习已变更，未执行撤销")
+    }
+
     func testReceivesAutomaticLearningEventNotification() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let notificationCenter = NotificationCenter()

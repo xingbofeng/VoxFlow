@@ -61,6 +61,7 @@ final class DictationOrchestrator {
     private let agentDispatchHandler: (any AgentDispatchHandling)?
     private let audioCaptureCoordinator: any AudioCaptureCoordinating
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
+    private let asrTermPromptProvider: (any ASRTermPromptProviding)?
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
     private let assetRepository: (any AssetRepository)?
     private let finalTimeoutNanoseconds: UInt64
@@ -97,6 +98,7 @@ final class DictationOrchestrator {
         agentDispatchHandler: (any AgentDispatchHandling)? = nil,
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
+        asrTermPromptProvider: (any ASRTermPromptProviding)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
         assetRepository: (any AssetRepository)? = nil
@@ -116,6 +118,7 @@ final class DictationOrchestrator {
         self.agentDispatchHandler = agentDispatchHandler
         self.audioCaptureCoordinator = audioCaptureCoordinator
         self.correctionObservationScheduler = correctionObservationScheduler
+        self.asrTermPromptProvider = asrTermPromptProvider
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
         self.assetRepository = assetRepository
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
@@ -236,6 +239,14 @@ final class DictationOrchestrator {
         currentEngine = engine
         audioBufferForwarder.attach(engine)
         engine.configure(locale: configuration.locale)
+        if let promptConfiguringEngine = engine as? any ASRTermPromptConfiguring {
+            promptConfiguringEngine.configureTermPrompt(
+                asrTermPromptProvider?.prompt(
+                    for: configuration.engineType,
+                    bundleIdentifier: currentTarget?.bundleID
+                )
+            )
+        }
         engine.onTranscription = { [weak self] text, isFinal in
             Task { @MainActor [weak self] in
                 self?.handleTranscription(
@@ -474,7 +485,8 @@ final class DictationOrchestrator {
             do {
                 try agentDispatchHandler?.completeFallbackInput(
                     finalText: rawText,
-                    outputResult: outputResult
+                    outputResult: outputResult,
+                    appliedCorrectionEvents: []
                 )
                 onAgentDispatchPresentation(.fallbackInput(text: rawText))
             } catch {
@@ -673,6 +685,10 @@ final class DictationOrchestrator {
             return
         }
         notifyStateChanged()
+        let correctionObservationAnchor = correctionObservationAnchorIfNeeded(
+            context: correctionContext,
+            targetProcessID: target?.pid
+        )
         let outputResult = await deliverFinalText(
             finalText,
             originalTarget: target,
@@ -699,7 +715,9 @@ final class DictationOrchestrator {
             insertedText: finalText,
             context: correctionContext,
             processingResult: processingResult,
-            outputResult: outputResult
+            outputResult: outputResult,
+            baseline: correctionObservationBaseline(from: correctionObservationAnchor),
+            targetProcessID: target?.pid
         )
 
         finishCurrentDictation()
@@ -806,9 +824,19 @@ final class DictationOrchestrator {
         agentDispatchFallbackInputAwaitingCorrection = text.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
+        let correctionContext = CorrectionContext(
+            mode: .dictation,
+            providerID: currentConfiguration?.asrProviderID ?? "unknown",
+            modelID: currentConfiguration?.modelID,
+            language: currentConfiguration?.languageIdentifier,
+            bundleIdentifier: target?.bundleID,
+            isFinalTranscript: true,
+            isSecureField: isFocusedTextFieldSecure()
+        )
         let processingResult = await textPipeline.process(
             text,
             target: target,
+            correctionContext: correctionContext,
             onRefinedTextUpdate: { [weak self] refinedText in
                 guard let self,
                       self.isCurrentSession(sessionID),
@@ -831,6 +859,11 @@ final class DictationOrchestrator {
             return
         }
         notifyStateChanged()
+        let observationTargetProcessID = target?.pid
+        let correctionObservationAnchor = correctionObservationAnchorIfNeeded(
+            context: correctionContext,
+            targetProcessID: observationTargetProcessID
+        )
         let outputResult = await deliverFinalText(
             finalText,
             originalTarget: target,
@@ -849,9 +882,18 @@ final class DictationOrchestrator {
         do {
             try agentDispatchHandler?.completeFallbackInput(
                 finalText: finalText,
-                outputResult: outputResult
+                outputResult: outputResult,
+                appliedCorrectionEvents: processingResult.appliedCorrectionEvents
             )
             onAgentDispatchPresentation(.fallbackInput(text: finalText))
+            scheduleCorrectionObservationIfNeeded(
+                insertedText: finalText,
+                context: correctionContext,
+                processingResult: processingResult,
+                outputResult: outputResult,
+                baseline: correctionObservationBaseline(from: correctionObservationAnchor),
+                targetProcessID: observationTargetProcessID
+            )
         } catch {
             AppLogger.general.error("Failed to complete Agent Dispatch fallback input: \(error.localizedDescription)")
         }
@@ -994,7 +1036,9 @@ final class DictationOrchestrator {
         insertedText: String,
         context: CorrectionContext,
         processingResult: TextProcessingResult,
-        outputResult: OutputResult
+        outputResult: OutputResult,
+        baseline: FocusedTextObservation?,
+        targetProcessID: Int?
     ) {
         guard case .injected = outputResult,
               !context.isSecureField else {
@@ -1007,8 +1051,23 @@ final class DictationOrchestrator {
         correctionObservationScheduler?.scheduleObservation(
             insertedText: insertedText,
             context: context,
-            appliedEvents: processingResult.appliedCorrectionEvents
+            appliedEvents: processingResult.appliedCorrectionEvents,
+            baseline: baseline,
+            targetProcessID: targetProcessID
         )
+    }
+
+    private func correctionObservationAnchorIfNeeded(
+        context: CorrectionContext,
+        targetProcessID: Int?
+    ) -> FocusedTextObservation? {
+        guard !context.isSecureField else { return nil }
+        return correctionObservationScheduler?.captureBaselineForObservation(targetProcessID: targetProcessID)
+    }
+
+    private func correctionObservationBaseline(from anchor: FocusedTextObservation?) -> FocusedTextObservation? {
+        guard let anchor else { return nil }
+        return correctionObservationScheduler?.recaptureBaselineForObservation(matching: anchor)
     }
 
     private func warningsJSON(_ warnings: [String]) -> String? {

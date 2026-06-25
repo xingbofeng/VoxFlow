@@ -23,7 +23,14 @@ public struct FocusedTextObservation: Codable, Sendable, Equatable {
 @MainActor
 public protocol FocusedTextObserving: AnyObject {
     func capture() -> FocusedTextObservation?
+    func capture(targetProcessID: Int?) -> FocusedTextObservation?
     func recapture(matching baseline: FocusedTextObservation) -> FocusedTextObservation?
+}
+
+public extension FocusedTextObserving {
+    func capture(targetProcessID: Int?) -> FocusedTextObservation? {
+        capture()
+    }
 }
 
 @MainActor
@@ -35,7 +42,11 @@ public final class FocusedTextObservationTracker {
     }
 
     public func captureBaseline() -> FocusedTextObservation? {
-        guard let observation = observer.capture(),
+        captureBaseline(targetProcessID: nil)
+    }
+
+    public func captureBaseline(targetProcessID: Int?) -> FocusedTextObservation? {
+        guard let observation = observer.capture(targetProcessID: targetProcessID),
               !observation.isSecureField,
               !observation.value.isEmpty
         else {

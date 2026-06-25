@@ -19,7 +19,7 @@ enum BufferedCloudASREngineError: Error, LocalizedError, Equatable {
     }
 }
 
-final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unchecked Sendable {
+final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRTermPromptConfiguring, @unchecked Sendable {
     var onTranscription: ((String, Bool) -> Void)?
     var onError: ((Error) -> Void)?
 
@@ -33,6 +33,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     private var generation: UUID?
     private var transcriptionTask: Task<Void, Never>?
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
+    private var termPrompt: String?
 
     init(
         client: any CloudASRProviderClient,
@@ -57,6 +58,12 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     func configure(locale: Locale) {
         lock.withLock {
             self.locale = locale
+        }
+    }
+
+    func configureTermPrompt(_ prompt: String?) {
+        lock.withLock {
+            termPrompt = prompt
         }
     }
 
@@ -108,13 +115,13 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     }
 
     func endAudio() {
-        let snapshot: (generation: UUID, fileURL: URL, durationMS: Int, locale: Locale)?
+        let snapshot: (generation: UUID, fileURL: URL, durationMS: Int, locale: Locale, prompt: String?)?
         do {
-            snapshot = try lock.withLock { () -> (UUID, URL, Int, Locale)? in
+            snapshot = try lock.withLock { () -> (UUID, URL, Int, Locale, String?)? in
                 guard let generation, let writer = audioWriter else { return nil }
                 let finished = try writer.finish()
                 audioWriter = nil
-                return (generation, finished.fileURL, finished.durationMS, locale)
+                return (generation, finished.fileURL, finished.durationMS, locale, termPrompt)
             }
         } catch {
             AppLogger.audio.error("BufferedCloudASREngine endAudio failed: \(error.localizedDescription)")
@@ -126,7 +133,7 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
             }
             return
         }
-        guard let (generation, fileURL, durationMS, locale) = snapshot else {
+        guard let (generation, fileURL, durationMS, locale, prompt) = snapshot else {
             AppLogger.audio.debug("BufferedCloudASREngine endAudio ignored: no active session")
             return
         }
@@ -142,7 +149,8 @@ final class BufferedCloudASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
                 let request = CloudASRFileRequest(
                     fileURL: fileURL,
                     locale: locale,
-                    configuration: configuration
+                    configuration: configuration,
+                    prompt: prompt
                 )
                 let startedAt = Date()
                 let result = try await client.transcribeFile(request) { _ in }

@@ -76,9 +76,7 @@ final class ClipboardAssetMonitor {
             return nil
         }
 
-        guard let candidate = items.lazy.compactMap({
-            ClipboardAssetCandidateExtractor.candidate(from: self.pasteboard, item: $0)
-        }).first else {
+        guard let candidate = firstSupportedCandidate(in: items) else {
             return nil
         }
 
@@ -95,5 +93,15 @@ final class ClipboardAssetMonitor {
         )
         try repository.save(asset)
         return asset
+    }
+
+    private func firstSupportedCandidate(in items: [NSPasteboardItem]) -> ClipboardAssetCandidate? {
+        // Keep this eager: lazy.compactMap(...).first can trap when leading pasteboard items map to nil.
+        for item in items {
+            if let candidate = ClipboardAssetCandidateExtractor.candidate(from: pasteboard, item: item) {
+                return candidate
+            }
+        }
+        return nil
     }
 }

@@ -97,6 +97,7 @@ final class PaletteViewModel: ObservableObject {
     @Published private(set) var selectedTypeFilter: PaletteAssetTypeFilter = .all
     @Published private(set) var assets: [AssetItem] = []
     @Published private(set) var selectedHomeResultIndex: Int = 0
+    @Published private(set) var selectedRootItemID: PaletteRootItemID?
     @Published private(set) var selectedAssetIndex: Int = 0
     @Published private(set) var selectedActionIndex: Int = 0
     @Published private(set) var searchText: String = ""
@@ -121,6 +122,7 @@ final class PaletteViewModel: ObservableObject {
         self.now = now
         self.rootItems = PaletteCommand.rootCommands.map(PaletteRootItem.command)
             + (applicationProvider?.scanInstalledApplications().map(PaletteRootItem.application) ?? [])
+        syncSelectedRootItemID()
     }
 
     var showsAskAI: Bool { false }
@@ -185,6 +187,7 @@ final class PaletteViewModel: ObservableObject {
         searchText = ""
         isActionPanelPresented = false
         isTypeFilterPresented = false
+        syncSelectedRootItemID()
     }
 
     func requestSearchFocus() {
@@ -195,6 +198,7 @@ final class PaletteViewModel: ObservableObject {
         searchText = text
         selectedHomeResultIndex = 0
         isActionPanelPresented = false
+        syncSelectedRootItemID()
         guard mode == .recentAssets else { return }
         try reloadAssets()
     }
@@ -210,6 +214,7 @@ final class PaletteViewModel: ObservableObject {
     func selectHomeResult(at index: Int) {
         guard visibleRootItems.indices.contains(index) else { return }
         selectedHomeResultIndex = index
+        syncSelectedRootItemID()
     }
 
     func selectAsset(at index: Int) {
@@ -223,6 +228,7 @@ final class PaletteViewModel: ObservableObject {
         switch mode {
         case .home:
             selectedHomeResultIndex = Self.wrappedIndex(after: selectedHomeResultIndex, count: visibleRootItems.count)
+            syncSelectedRootItemID()
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(after: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
@@ -233,6 +239,7 @@ final class PaletteViewModel: ObservableObject {
         switch mode {
         case .home:
             selectedHomeResultIndex = Self.wrappedIndex(before: selectedHomeResultIndex, count: visibleRootItems.count)
+            syncSelectedRootItemID()
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(before: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
@@ -340,12 +347,14 @@ final class PaletteViewModel: ObservableObject {
             return primaryKeyboardAction()
         case .addFavorite:
             favoritesStore.addFavorite(selectedRootItem.id)
+            syncSelectedRootItemID()
             selectedActionIndex = 0
             isActionPanelPresented = false
             return .none
         case .removeFavorite:
             favoritesStore.removeFavorite(selectedRootItem.id)
             selectedHomeResultIndex = min(selectedHomeResultIndex, max(visibleRootItems.count - 1, 0))
+            syncSelectedRootItemID()
             selectedActionIndex = 0
             isActionPanelPresented = false
             return .none
@@ -420,6 +429,10 @@ final class PaletteViewModel: ObservableObject {
         return visibleRootItems[selectedHomeResultIndex]
     }
 
+    func isRootItemSelected(_ item: PaletteRootItem) -> Bool {
+        selectedRootItemID == item.id
+    }
+
     var footerPrimaryActionTitle: String {
         guard let selectedAsset else {
             return "打开"
@@ -467,6 +480,10 @@ final class PaletteViewModel: ObservableObject {
         }
         actions.append(.delete)
         return actions
+    }
+
+    private func syncSelectedRootItemID() {
+        selectedRootItemID = selectedRootItem?.id
     }
 
     private static func wrappedIndex(after index: Int, count: Int) -> Int {

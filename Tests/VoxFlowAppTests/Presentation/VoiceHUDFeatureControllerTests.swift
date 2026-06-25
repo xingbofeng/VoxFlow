@@ -76,6 +76,32 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
+    func testLearningFeedbackShowsUndoableHUDAction() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+        var undoCount = 0
+        let event = CorrectionObservationLearningEvent(
+            original: "偷看",
+            replacement: "token",
+            lifecycle: .active,
+            scope: .global,
+            ruleID: UUID(),
+            targetID: UUID()
+        )
+
+        controller.handleCorrectionLearning(event) {
+            undoCount += 1
+        }
+        overlay.invokeLatestAction()
+
+        XCTAssertEqual(overlay.events.last, .showTemporaryMessage(
+            message: "已自动学习：偷看 → token，点此撤销",
+            duration: 8.0,
+            tone: .success
+        ))
+        XCTAssertEqual(undoCount, 1)
+    }
+
     func testDictationRecordingShowsDefaultHUDAndClearsText() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -301,6 +327,7 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
 
     private(set) var events: [Event] = []
     private(set) var actionBindingCount = 0
+    private var latestAction: (() -> Void)?
 
     func show() {
         events.append(.show)
@@ -347,6 +374,11 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
         if action != nil {
             actionBindingCount += 1
         }
+        latestAction = action
         events.append(.showTemporaryMessage(message: message, duration: duration, tone: tone))
+    }
+
+    func invokeLatestAction() {
+        latestAction?()
     }
 }

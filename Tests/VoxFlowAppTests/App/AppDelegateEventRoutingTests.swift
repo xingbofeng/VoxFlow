@@ -187,7 +187,7 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
     }
 
-    func testScreenshotOCRDismissesUpdatePromptBeforeCapture() throws {
+    func testScreenshotOCRGatesUpdatePromptDismissalBeforeCapture() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -198,16 +198,22 @@ final class AppDelegateEventRoutingTests: XCTestCase {
             ).map { String(source[$0]) }
         )
 
+        XCTAssertTrue(method.contains("NSWorkspace.shared.frontmostApplication?.processIdentifier"))
+        XCTAssertTrue(method.contains("NSRunningApplication.current.processIdentifier"))
+        let policy = try XCTUnwrap(
+            method.range(of: "AppPresentationPolicy.shouldDismissVoxFlowOverlaysBeforeScreenshotCapture")
+        )
         let dismiss = try XCTUnwrap(method.range(of: "updateCheckCoordinator.dismissActivePromptAsNextTime()"))
         let capture = try XCTUnwrap(method.range(of: "screenshotOCRService.captureAndRecognize()"))
+        XCTAssertLessThan(policy.lowerBound, dismiss.lowerBound)
         XCTAssertLessThan(
             dismiss.lowerBound,
             capture.lowerBound,
-            "Update prompt must be dismissed before screenshot capture so Command+Shift+A does not capture the update modal."
+            "When VoxFlow is not frontmost, the update prompt must be dismissed before screenshot capture so Command+Shift+A does not capture the update modal."
         )
     }
 
-    func testScreenshotOCRDismissesHomeDetailOverlayBeforeCapture() throws {
+    func testScreenshotOCRGatesHomeDetailOverlayDismissalBeforeCapture() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -218,12 +224,16 @@ final class AppDelegateEventRoutingTests: XCTestCase {
             ).map { String(source[$0]) }
         )
 
+        let policy = try XCTUnwrap(
+            method.range(of: "AppPresentationPolicy.shouldDismissVoxFlowOverlaysBeforeScreenshotCapture")
+        )
         let dismiss = try XCTUnwrap(method.range(of: "windowCoordinator.dismissHomeDetailOverlay()"))
         let capture = try XCTUnwrap(method.range(of: "screenshotOCRService.captureAndRecognize()"))
+        XCTAssertLessThan(policy.lowerBound, dismiss.lowerBound)
         XCTAssertLessThan(
             dismiss.lowerBound,
             capture.lowerBound,
-            "Home detail overlay must be dismissed before screenshot capture so Command+Shift+A does not capture the home modal."
+            "When VoxFlow is not frontmost, the home detail overlay must be dismissed before screenshot capture so Command+Shift+A does not capture the home modal."
         )
     }
 

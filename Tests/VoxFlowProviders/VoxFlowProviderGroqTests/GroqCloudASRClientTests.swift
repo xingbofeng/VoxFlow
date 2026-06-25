@@ -38,7 +38,8 @@ final class GroqCloudASRClientTests: XCTestCase {
             CloudASRFileRequest(
                 fileURL: audioURL,
                 locale: Locale(identifier: "zh_CN"),
-                configuration: configuration()
+                configuration: configuration(),
+                prompt: "VoxFlow, tokenhub"
             )
         ) { progress.append($0) }
 
@@ -53,6 +54,8 @@ final class GroqCloudASRClientTests: XCTestCase {
         XCTAssertTrue(bodyText.contains("whisper-large-v3-turbo"))
         XCTAssertTrue(bodyText.contains(#"name="language""#))
         XCTAssertTrue(bodyText.contains("zh"))
+        XCTAssertTrue(bodyText.contains(#"name="prompt""#))
+        XCTAssertTrue(bodyText.contains("VoxFlow, tokenhub"))
         XCTAssertTrue(bodyText.contains("audio-bytes"))
         XCTAssertEqual(progress.values, [0, 1])
         XCTAssertEqual(result.text, "识别结果")

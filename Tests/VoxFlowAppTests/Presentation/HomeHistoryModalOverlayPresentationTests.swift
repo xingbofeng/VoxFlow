@@ -69,6 +69,22 @@ final class HomeHistoryModalOverlayPresentationTests: XCTestCase {
         XCTAssertTrue(dashboardSource.contains("llmTraceMetadata(llmTrace, taskMode: detail.taskMode)"))
     }
 
+    func testHistoryDetailModalCanSaveEditedFinalTextForLearning() throws {
+        let root = try Self.repositoryRoot()
+        let dashboardSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/HomeDashboardView.swift"),
+            encoding: .utf8
+        )
+        let modalSource = try XCTUnwrap(
+            dashboardSource.components(separatedBy: "private struct HomeHistoryDetailModal").dropFirst().first
+        )
+
+        XCTAssertTrue(modalSource.contains("@State private var editedFinalText"))
+        XCTAssertTrue(modalSource.contains("text: $editedFinalText"))
+        XCTAssertTrue(modalSource.contains("TextEditor(text: $text)"))
+        XCTAssertTrue(modalSource.contains("viewModel.updateSelectedHistoryFinalText(editedFinalText)"))
+    }
+
     func testMainWindowCoordinatorCanDismissHomeDetailOverlayForScreenshotCapture() throws {
         let root = try Self.repositoryRoot()
         let coordinatorSource = try String(

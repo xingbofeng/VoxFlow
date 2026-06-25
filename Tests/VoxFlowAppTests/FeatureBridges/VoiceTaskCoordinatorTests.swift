@@ -414,13 +414,13 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
             pipeline: pipeline,
             outputService: CoordinatorStubOutputService(result: .injected),
             targetProvider: CoordinatorMutableTargetProvider(
-                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+                target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 4242)
             ),
             correctionObservationScheduler: observer
         )
         try coordinator.startTask(
             mode: .dictation,
-            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 4242)
         )
         try coordinator.updateASRMetadata(
             VoiceTaskASRMetadata(providerID: "apple", modelID: "local", language: "en"),
@@ -433,6 +433,8 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(observer.observations.map(\.insertedText), ["Qwen"])
         XCTAssertEqual(observer.observations.first?.context.bundleIdentifier, "com.example.editor")
         XCTAssertEqual(observer.observations.first?.appliedEvents, [event])
+        XCTAssertEqual(observer.observations.first?.targetProcessID, 4242)
+        XCTAssertEqual(observer.capturedTargetProcessIDs, [4242])
 
         let skippedObserver = CapturingCorrectionObservationScheduler()
         let skippedCoordinator = makeCoordinator(
@@ -833,6 +835,59 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(asset.captureReason, .dictationCompleted)
     }
 
+    func testAgentDispatchFallbackInputCompletionDoesNotScheduleBaselineLessObservation() throws {
+        let observer = CapturingCorrectionObservationScheduler()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let event = CorrectionEvent(
+            ruleID: UUID(),
+            original: "q 问",
+            replacement: "Qwen",
+            range: CorrectionTextRange(location: 0, length: 3),
+            scope: .global,
+            source: .manual
+        )
+        let coordinator = makeCoordinator(correctionObservationScheduler: observer)
+        try coordinator.startTask(
+            mode: .agentDispatch,
+            target: target,
+            asrMetadata: VoiceTaskASRMetadata(
+                providerID: "funasr",
+                modelID: "funasr-fp32",
+                language: "zh-CN"
+            )
+        )
+        try coordinator.recordRawTranscript("C端四的接口", kind: .agentDispatch)
+        try coordinator.completeAgentDispatch(
+            finalText: "C端四的接口",
+            presentation: .fallbackInput(text: "C端四的接口")
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "C端四的接口",
+            outputResult: .injected,
+            appliedCorrectionEvents: [event]
+        )
+
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
+    func testAgentDispatchSentToAssistantDoesNotScheduleCorrectionObservation() throws {
+        let observer = CapturingCorrectionObservationScheduler()
+        let coordinator = makeCoordinator(correctionObservationScheduler: observer)
+        try coordinator.startTask(
+            mode: .agentDispatch,
+            target: DictationTarget(bundleID: "com.mitchellh.ghostty", appName: "Ghostty")
+        )
+        try coordinator.recordRawTranscript("Codex 看下接口", kind: .agentDispatch)
+
+        try coordinator.completeAgentDispatch(
+            finalText: "看下接口",
+            presentation: .sent(agentName: "Codex")
+        )
+
+        XCTAssertTrue(observer.observations.isEmpty)
+    }
+
     func testAgentDispatchHandlerStoresActualSentMessageAsFinalText() async throws {
         let taskCoordinator = makeCoordinator()
         let dispatchCoordinator = AgentDispatchCoordinator(
@@ -961,7 +1016,11 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         try taskCoordinator.cancelTask(kind: .agentDispatch)
 
         XCTAssertThrowsError(
-            try handler.completeFallbackInput(finalText: "保留文本", outputResult: .injected)
+            try handler.completeFallbackInput(
+                finalText: "保留文本",
+                outputResult: .injected,
+                appliedCorrectionEvents: []
+            )
         )
         XCTAssertNil(handler.activeTarget)
     }
@@ -1419,14 +1478,36 @@ private final class CoordinatorCapturingContextPipeline: TextProcessing {
 
 @MainActor
 private final class CapturingCorrectionObservationScheduler: CorrectionObservationScheduling {
-    private(set) var observations: [(insertedText: String, context: CorrectionContext, appliedEvents: [CorrectionEvent])] = []
+    private(set) var observations: [
+        (
+            insertedText: String,
+            context: CorrectionContext,
+            appliedEvents: [CorrectionEvent],
+            baseline: FocusedTextObservation?,
+            targetProcessID: Int?
+        )
+    ] = []
+    private(set) var capturedTargetProcessIDs: [Int?] = []
+    var captureBaselineResult: FocusedTextObservation?
+    var recaptureBaselineResult: FocusedTextObservation?
 
     func scheduleObservation(
         insertedText: String,
         context: CorrectionContext,
-        appliedEvents: [CorrectionEvent]
+        appliedEvents: [CorrectionEvent],
+        baseline: FocusedTextObservation?,
+        targetProcessID: Int?
     ) {
-        observations.append((insertedText, context, appliedEvents))
+        observations.append((insertedText, context, appliedEvents, baseline, targetProcessID))
+    }
+
+    func captureBaselineForObservation(targetProcessID: Int?) -> FocusedTextObservation? {
+        capturedTargetProcessIDs.append(targetProcessID)
+        return captureBaselineResult
+    }
+
+    func recaptureBaselineForObservation(matching baseline: FocusedTextObservation) -> FocusedTextObservation? {
+        recaptureBaselineResult
     }
 }
 

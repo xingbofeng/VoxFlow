@@ -202,6 +202,11 @@ struct AppRuntime {
                     name: .correctionObservationLearningEvent,
                     object: event
                 )
+            },
+            onDiagnostic: { diagnostic in
+                AppLogger.dictation.info(
+                    "correction_auto_learning_diagnostic reason=\(String(describing: diagnostic.reason)) bundle=\(diagnostic.bundleIdentifier ?? "nil") insertedLen=\(diagnostic.insertedText.count)"
+                )
             }
         )
         let correctionObservationScheduler = CorrectionObservationScheduler(

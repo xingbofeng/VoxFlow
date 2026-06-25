@@ -132,7 +132,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         )
 
         let sleeps = await clock.recordedSleeps()
-        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(2), .seconds(1), .seconds(2)])
+        XCTAssertEqual(sleeps, [.seconds(2), .seconds(1), .seconds(2)])
         let learned = try XCTUnwrap(try environment.correctionRuleRepository.list().first)
         XCTAssertEqual(learned.original, "q 问")
         XCTAssertEqual(learned.replacement, "Qwen")

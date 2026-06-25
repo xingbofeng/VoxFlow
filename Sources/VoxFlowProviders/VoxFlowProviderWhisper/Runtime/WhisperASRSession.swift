@@ -20,6 +20,7 @@ final class WhisperASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
     private var hasStartedSpeech = false
     private var isClosed = false
     private var transcriberTask: Task<any WhisperKitTranscribing, Error>?
+    private var prompt: String?
 
     var revision: UInt64 {
         lock.withLock { currentRevision }
@@ -48,6 +49,12 @@ final class WhisperASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
             try await factory.makeTranscriber(for: variant, directoryURL: modelURL)
         }
         eventStream.yield(.ready(sessionID: sessionID, revision: nextRevision()))
+    }
+
+    func configurePrompt(_ prompt: String?) async throws {
+        lock.withLock {
+            self.prompt = prompt
+        }
     }
 
     func accept(_ frame: AudioFrame) async throws {
@@ -87,11 +94,13 @@ final class WhisperASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
                 throw WhisperProviderError.modelNotInstalled
             }
             let transcriber = try await transcriberTask.value
+            let prompt = lock.withLock { self.prompt }
             let text = try await transcriber.transcribe(
                 WhisperTranscriptionRequest(
                     audio: samples,
                     languageCode: languageCode,
-                    task: .transcribe
+                    task: .transcribe,
+                    prompt: prompt
                 ),
                 onPartial: nil
             )

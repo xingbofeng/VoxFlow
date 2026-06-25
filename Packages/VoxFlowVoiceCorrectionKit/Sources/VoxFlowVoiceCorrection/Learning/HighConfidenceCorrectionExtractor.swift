@@ -17,8 +17,15 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
         original: String,
         edited: String
     ) -> [LearnedCorrectionPair] {
-        let original = original.trimmingCharacters(in: .whitespacesAndNewlines)
-        let edited = edited.trimmingCharacters(in: .whitespacesAndNewlines)
+        let original = trimLearningBoundaryPunctuation(
+            original.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        let edited = trimLearningBoundaryPunctuation(
+            edited.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        if let tokenAlignedPairs = extractTokenAlignedPairs(original: original, edited: edited) {
+            return tokenAlignedPairs
+        }
         guard isHighConfidenceSubstitution(original: original, edited: edited) else {
             return []
         }
@@ -92,10 +99,93 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
         if originalTokens.count == 1,
            editedTokens.count == 1,
            (cjkScalarCount(in: original) > 3 || cjkScalarCount(in: edited) > 3) {
+            if isShortCJKPhraseToLatinName(original: original, edited: edited) {
+                return true
+            }
             return false
         }
 
         return !isPunctuationOnly(original) && !isPunctuationOnly(edited)
+    }
+
+    private func isShortCJKPhraseToLatinName(
+        original: String,
+        edited: String
+    ) -> Bool {
+        let originalCJKCount = cjkScalarCount(in: original)
+        let editedCJKCount = cjkScalarCount(in: edited)
+        let cjkCount = max(originalCJKCount, editedCJKCount)
+        guard (2...5).contains(cjkCount) else {
+            return false
+        }
+
+        if originalCJKCount > 0, editedCJKCount == 0 {
+            return containsASCIILetterOrDigit(edited)
+        }
+        if editedCJKCount > 0, originalCJKCount == 0 {
+            return containsASCIILetterOrDigit(original)
+        }
+        return false
+    }
+
+    private func extractTokenAlignedPairs(
+        original: String,
+        edited: String,
+        maxSuggestions: Int = 3
+    ) -> [LearnedCorrectionPair]? {
+        let originalTokens = learningTokens(in: original)
+        let editedTokens = learningTokens(in: edited)
+        guard maxSuggestions > 0,
+              !originalTokens.isEmpty,
+              originalTokens.count == editedTokens.count
+        else {
+            return nil
+        }
+
+        var pairs: [LearnedCorrectionPair] = []
+        var replacementsByOriginal: [String: String] = [:]
+        for (originalToken, editedToken) in zip(originalTokens, editedTokens) where originalToken != editedToken {
+            guard isHighConfidenceTokenSubstitution(original: originalToken, edited: editedToken) else {
+                return []
+            }
+
+            let originalKey = originalToken.lowercased()
+            let editedKey = editedToken.lowercased()
+            if let existing = replacementsByOriginal[originalKey] {
+                guard existing == editedKey else {
+                    return []
+                }
+                continue
+            }
+
+            replacementsByOriginal[originalKey] = editedKey
+            pairs.append(LearnedCorrectionPair(original: originalToken, replacement: editedToken))
+            guard pairs.count <= maxSuggestions else {
+                return []
+            }
+        }
+
+        return pairs
+    }
+
+    private func isHighConfidenceTokenSubstitution(
+        original: String,
+        edited: String
+    ) -> Bool {
+        guard !original.isEmpty,
+              !edited.isEmpty,
+              original != edited,
+              original.caseInsensitiveCompare(edited) != .orderedSame,
+              !isPunctuationOnly(original),
+              !isPunctuationOnly(edited)
+        else {
+            return false
+        }
+
+        if cjkScalarCount(in: original) > 3 || cjkScalarCount(in: edited) > 3 {
+            return isShortCJKPhraseToLatinName(original: original, edited: edited)
+        }
+        return true
     }
 
     private func changedRanges(
@@ -191,6 +281,15 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
         text.split(whereSeparator: \.isWhitespace).map(String.init)
     }
 
+    private func learningTokens(in text: String) -> [String] {
+        text.split { character in
+            character.isWhitespace || character.unicodeScalars.allSatisfy {
+                CharacterSet.punctuationCharacters.contains($0) ||
+                    CharacterSet.symbols.contains($0)
+            }
+        }.map(String.init)
+    }
+
     private func isTokenPrefix(_ prefix: [String], of values: [String]) -> Bool {
         guard prefix.count < values.count else {
             return false
@@ -204,6 +303,18 @@ public struct HighConfidenceCorrectionExtractor: Sendable {
                 CharacterSet.symbols.contains($0) ||
                 CharacterSet.whitespacesAndNewlines.contains($0)
         }
+    }
+
+    private func containsASCIILetterOrDigit(_ text: String) -> Bool {
+        text.unicodeScalars.contains {
+            (65...90).contains(Int($0.value)) ||
+                (97...122).contains(Int($0.value)) ||
+                (48...57).contains(Int($0.value))
+        }
+    }
+
+    private func trimLearningBoundaryPunctuation(_ text: String) -> String {
+        text.trimmingCharacters(in: CharacterSet(charactersIn: ".,!?;:，。！？；：、"))
     }
 
     private func cjkScalarCount(in text: String) -> Int {

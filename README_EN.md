@@ -18,7 +18,7 @@
     &nbsp;·&nbsp;
     ⬇️ <a href="https://github.com/xingbofeng/VoxFlow/releases/latest">Download</a>
     &nbsp;·&nbsp;
-    🎬 <a href="docs/voiceinput-demo-land.mp4">Intro Video</a>
+    🎬 <a href="docs/assets/voiceinput-demo-land.mp4"><img src="docs/assets/voiceinput-demo-land.gif" alt="Intro Video" width="100%"></a>
   </p>
 </div>
 
@@ -166,7 +166,7 @@ VoxFlow also includes a full asset workbench:
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.8.0-macOS.dmg`
+1. Open `VoxFlow-1.8.1-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 

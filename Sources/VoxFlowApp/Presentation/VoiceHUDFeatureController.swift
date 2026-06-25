@@ -240,6 +240,21 @@ final class VoiceHUDFeatureController {
         )
     }
 
+    func handleCorrectionLearning(
+        _ event: CorrectionObservationLearningEvent,
+        undo: @escaping () -> Void
+    ) {
+        let message = event.items.count == 1
+            ? "\(event.message)，点此撤销"
+            : event.message
+        showTemporaryMessage(
+            message,
+            duration: 8.0,
+            tone: .success,
+            action: undo
+        )
+    }
+
     func handleWorkflowFeedback(_ feedback: WorkflowFeedback) {
         Self.logger.debug("voice_hud_handle_workflow_feedback feedback=\(workflowFeedbackLogName(feedback))")
         switch feedback {

@@ -120,6 +120,7 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
                     ? Self.defaultModel
                     : request.configuration.model,
                 language: request.locale.language.languageCode?.identifier,
+                prompt: request.prompt,
                 boundary: boundary
             )
         } catch {
@@ -195,6 +196,7 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
         to outputURL: URL,
         model: String,
         language: String?,
+        prompt: String?,
         boundary: String
     ) throws {
         FileManager.default.createFile(atPath: outputURL.path, contents: nil)
@@ -205,6 +207,9 @@ public final class GroqCloudASRClient: CloudASRProviderClient, @unchecked Sendab
         try outputHandle.writeMultipartField(name: "response_format", value: "verbose_json", boundary: boundary)
         if let language, !language.isEmpty {
             try outputHandle.writeMultipartField(name: "language", value: language, boundary: boundary)
+        }
+        if let prompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
+            try outputHandle.writeMultipartField(name: "prompt", value: prompt, boundary: boundary)
         }
         try outputHandle.writeUTF8("--\(boundary)\r\n")
         try outputHandle.writeUTF8(

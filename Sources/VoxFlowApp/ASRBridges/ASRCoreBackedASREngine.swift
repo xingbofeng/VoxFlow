@@ -7,7 +7,7 @@ private final class ASRCoreBackedCallbackBox: @unchecked Sendable {
     var onError: ((Error) -> Void)?
 }
 
-final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unchecked Sendable {
+final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRTermPromptConfiguring, @unchecked Sendable {
     var onTranscription: ((String, Bool) -> Void)? {
         get { callbacks.onTranscription }
         set { callbacks.onTranscription = newValue }
@@ -32,6 +32,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
     private let lifecycleLock = NSLock()
     private let metadataLock = NSLock()
     private var configuredLanguage: ASRLanguageCapability?
+    private var configuredTermPrompt: String?
     private var sessionTask: Task<any ASRSession, Error>?
     private var eventTask: Task<Void, Never>?
     private var frameConsumerTask: Task<Void, Never>?
@@ -59,6 +60,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
         }
     }
 
+    func configureTermPrompt(_ prompt: String?) {
+        lifecycleLock.withLock {
+            configuredTermPrompt = prompt
+        }
+    }
+
     func start() throws {
         AppLogger.audio.debug(
             "ASRCoreBackedASREngine start requested available=\(isAvailable) configuredLanguage=\(configuredLanguage?.bcp47Tag ?? defaultLanguage.bcp47Tag)"
@@ -69,7 +76,11 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
         }
 
         let provider = provider
-        let language = lifecycleLock.withLock { configuredLanguage ?? defaultLanguage }
+        let configuration = lifecycleLock.withLock {
+            (configuredLanguage ?? defaultLanguage, configuredTermPrompt)
+        }
+        let language = configuration.0
+        let prompt = configuration.1
         let callbacks = callbacks
         metadataLock.withLock {
             runtimeMetadata = ASRRuntimeMetadataSnapshot()
@@ -88,6 +99,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, @unc
         }
         let sessionTask = Task<any ASRSession, Error> {
             let session = try await provider.makeSession(language: language)
+            try await session.configurePrompt(prompt)
             try await session.start()
             return session
         }

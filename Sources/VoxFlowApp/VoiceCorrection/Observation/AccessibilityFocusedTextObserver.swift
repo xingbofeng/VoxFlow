@@ -12,11 +12,15 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
     private var elementIdentityOrder: [String] = []
 
     func capture() -> FocusedTextObservation? {
+        capture(targetProcessID: nil)
+    }
+
+    func capture(targetProcessID: Int?) -> FocusedTextObservation? {
         guard AXIsProcessTrusted() else {
             logger.warning("AccessibilityFocusedTextObserver capture skipped: not trusted")
             return nil
         }
-        guard let element = focusedTextElement() else {
+        guard let element = focusedTextElement(targetProcessID: targetProcessID) else {
             logger.debug("AccessibilityFocusedTextObserver capture failed: no focused text element")
             return nil
         }
@@ -39,7 +43,7 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
 
     func focusedInputIsSecure() -> Bool {
         guard AXIsProcessTrusted(),
-              let element = focusedTextElement()
+              let element = focusedTextElement(targetProcessID: nil)
         else {
             logger.debug("AccessibilityFocusedTextObserver focusedInputIsSecure fallback false")
             return false
@@ -47,23 +51,55 @@ final class AccessibilityFocusedTextObserver: FocusedTextObserving {
         return isSecureField(element)
     }
 
-    private func focusedTextElement() -> AXUIElement? {
+    private func focusedTextElement(targetProcessID: Int?) -> AXUIElement? {
+        if let targetProcessID,
+           let element = applicationFocusedElement(processID: targetProcessID),
+           isTextElement(element) {
+            logger.debug("AccessibilityFocusedTextObserver focusedTextElement using target app pid=\(targetProcessID)")
+            return element
+        }
+
+        if let element = systemWideFocusedElement(), isTextElement(element) {
+            return element
+        }
+
+        if let element = frontmostApplicationFocusedElement(), isTextElement(element) {
+            logger.debug("AccessibilityFocusedTextObserver focusedTextElement using frontmost app fallback")
+            return element
+        }
+
+        logger.debug("AccessibilityFocusedTextObserver focusedTextElement failed: no focused text element")
+        return nil
+    }
+
+    private func systemWideFocusedElement() -> AXUIElement? {
         let systemWide = AXUIElementCreateSystemWide()
+        return focusedElement(from: systemWide)
+    }
+
+    private func frontmostApplicationFocusedElement() -> AXUIElement? {
+        guard let application = NSWorkspace.shared.frontmostApplication else {
+            logger.debug("AccessibilityFocusedTextObserver frontmost fallback failed: no frontmost application")
+            return nil
+        }
+        return applicationFocusedElement(processID: Int(application.processIdentifier))
+    }
+
+    private func applicationFocusedElement(processID: Int) -> AXUIElement? {
+        let app = AXUIElementCreateApplication(pid_t(processID))
+        return focusedElement(from: app)
+    }
+
+    private func focusedElement(from owner: AXUIElement) -> AXUIElement? {
         var focusedElement: AnyObject?
         guard AXUIElementCopyAttributeValue(
-            systemWide,
+            owner,
             kAXFocusedUIElementAttribute as CFString,
             &focusedElement
         ) == .success else {
-            logger.debug("AccessibilityFocusedTextObserver focusedTextElement failed: no focused element attribute")
             return nil
         }
-
         let element = focusedElement as! AXUIElement
-        guard isTextElement(element) else {
-            logger.debug("AccessibilityFocusedTextObserver focusedTextElement not text element")
-            return nil
-        }
         return element
     }
 

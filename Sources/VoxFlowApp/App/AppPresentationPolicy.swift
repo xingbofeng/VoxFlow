@@ -8,6 +8,12 @@ enum AppPresentationPolicy {
     static let opensWorkbenchOnLaunch = true
     static let restoresWorkbenchOnReopen = true
 
+    static func shouldDismissVoxFlowOverlaysBeforeScreenshotCapture(
+        appIsFrontmost: Bool
+    ) -> Bool {
+        !appIsFrontmost
+    }
+
     static func logConfiguration() {
         log.info(
             "AppPresentationPolicy usesMainMenu=\(usesMainMenu) " +

@@ -13,6 +13,22 @@ final class AppPresentationPolicyTests: XCTestCase {
         XCTAssertTrue(AppPresentationPolicy.restoresWorkbenchOnReopen)
     }
 
+    func testScreenshotCaptureKeepsVoxFlowOverlaysWhenAppIsFrontmost() {
+        XCTAssertFalse(
+            AppPresentationPolicy.shouldDismissVoxFlowOverlaysBeforeScreenshotCapture(
+                appIsFrontmost: true
+            )
+        )
+    }
+
+    func testScreenshotCaptureDismissesVoxFlowOverlaysWhenAppIsNotFrontmost() {
+        XCTAssertTrue(
+            AppPresentationPolicy.shouldDismissVoxFlowOverlaysBeforeScreenshotCapture(
+                appIsFrontmost: false
+            )
+        )
+    }
+
     func testInfoPlistUsesDefaultForegroundPresentationPolicy() throws {
         let plistURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Resources/Info.plist")

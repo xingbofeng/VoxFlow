@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowVoiceCorrection
 
 @MainActor
 protocol AgentDispatchHandling: AnyObject {
@@ -7,7 +8,11 @@ protocol AgentDispatchHandling: AnyObject {
     func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws
     func finish(rawTranscript: String) async throws -> AgentDispatchHUDPresentation
     func beginDefaultOutput()
-    func completeFallbackInput(finalText: String, outputResult: OutputResult) throws
+    func completeFallbackInput(
+        finalText: String,
+        outputResult: OutputResult,
+        appliedCorrectionEvents: [CorrectionEvent]
+    ) throws
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async
     func cancel()
     func fail(_ error: Error)
@@ -102,7 +107,11 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         return dispatchCoordinator.presentation
     }
 
-    func completeFallbackInput(finalText: String, outputResult: OutputResult) throws {
+    func completeFallbackInput(
+        finalText: String,
+        outputResult: OutputResult,
+        appliedCorrectionEvents: [CorrectionEvent] = []
+    ) throws {
         AppLogger.dictation.debug("AgentDispatchHandler completeFallbackInput finalLen=\(finalText.count) resultKind=\(outputResult.kind.rawValue)")
         cancelConfirmationTimeout()
         defer {
@@ -111,7 +120,8 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         }
         try taskCoordinator.completeAgentDispatchFallbackInput(
             finalText: finalText,
-            outputResult: outputResult
+            outputResult: outputResult,
+            appliedCorrectionEvents: appliedCorrectionEvents
         )
     }
 

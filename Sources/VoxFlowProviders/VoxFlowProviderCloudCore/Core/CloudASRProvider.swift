@@ -51,11 +51,18 @@ public struct CloudASRFileRequest: Equatable, Sendable {
     public let fileURL: URL
     public let locale: Locale
     public let configuration: CloudASRProviderConfiguration
+    public let prompt: String?
 
-    public init(fileURL: URL, locale: Locale, configuration: CloudASRProviderConfiguration) {
+    public init(
+        fileURL: URL,
+        locale: Locale,
+        configuration: CloudASRProviderConfiguration,
+        prompt: String? = nil
+    ) {
         self.fileURL = fileURL
         self.locale = locale
         self.configuration = configuration
+        self.prompt = prompt
     }
 }
 

@@ -697,6 +697,9 @@ private struct HomeHistoryDetailModal: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
     let detail: HomeHistoryDetail
     @State private var isRequestJSONExpanded = false
+    @State private var isEditingFinalText = false
+    @State private var editedFinalText = ""
+    @State private var editError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -727,6 +730,17 @@ private struct HomeHistoryDetailModal: View {
             Color(nsColor: .textBackgroundColor)
         )
         .tint(AppTheme.ColorToken.accent)
+        .onAppear {
+            resetFinalTextEditor()
+        }
+        .onChange(of: detail.id) { _, _ in
+            resetFinalTextEditor()
+        }
+        .onChange(of: detail.finalText) { _, _ in
+            if !isEditingFinalText {
+                editedFinalText = detail.finalText
+            }
+        }
     }
 
     private var header: some View {
@@ -745,6 +759,29 @@ private struct HomeHistoryDetailModal: View {
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
             Spacer()
+            if detail.taskMode == nil {
+                if isEditingFinalText {
+                    Button {
+                        cancelFinalTextEditing()
+                    } label: {
+                        Label("取消", systemImage: "xmark")
+                            .frame(height: 32)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Button {
+                    if isEditingFinalText {
+                        saveEditedFinalText()
+                    } else {
+                        beginFinalTextEditing()
+                    }
+                } label: {
+                    Label(isEditingFinalText ? "保存" : "编辑", systemImage: isEditingFinalText ? "checkmark" : "square.and.pencil")
+                        .frame(height: 32)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isEditingFinalText && editedFinalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
             if detail.taskMode != nil {
                 Button {
                     viewModel.copySelectedTaskDiagnostic()
@@ -793,16 +830,25 @@ private struct HomeHistoryDetailModal: View {
     private var textComparison: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 12) {
-                DetailTextBlock(
-                    title: "处理后",
-                    subtitle: detail.taskMode == .agentCompose
-                        ? "生成并写入当前输入框的文本"
-                        : detail.taskMode == .agentDispatch
-                            ? "发送到终端助手的语音指令"
-                        : "最终注入到当前应用的文本",
-                    text: detail.finalText,
-                    highlighted: true
-                )
+                if isEditingFinalText {
+                    EditableDetailTextBlock(
+                        title: "处理后",
+                        subtitle: "保存后会更新历史记录，并从本次修改学习易错词",
+                        text: $editedFinalText,
+                        error: editError
+                    )
+                } else {
+                    DetailTextBlock(
+                        title: "处理后",
+                        subtitle: detail.taskMode == .agentCompose
+                            ? "生成并写入当前输入框的文本"
+                            : detail.taskMode == .agentDispatch
+                                ? "发送到终端助手的语音指令"
+                            : "最终注入到当前应用的文本",
+                        text: detail.finalText,
+                        highlighted: true
+                    )
+                }
                 DetailTextBlock(
                     title: detail.taskMode == .agentCompose ? "语音意图" : "原文",
                     subtitle: detail.taskMode == .agentCompose
@@ -815,6 +861,32 @@ private struct HomeHistoryDetailModal: View {
         }
         .scrollIndicators(.hidden)
         .frame(maxHeight: HomeHistoryDetailLayout.textComparisonMaxHeight)
+    }
+
+    private func beginFinalTextEditing() {
+        editedFinalText = detail.finalText
+        editError = nil
+        isEditingFinalText = true
+    }
+
+    private func cancelFinalTextEditing() {
+        resetFinalTextEditor()
+    }
+
+    private func saveEditedFinalText() {
+        do {
+            try viewModel.updateSelectedHistoryFinalText(editedFinalText)
+            editError = nil
+            isEditingFinalText = false
+        } catch {
+            editError = error.localizedDescription
+        }
+    }
+
+    private func resetFinalTextEditor() {
+        editedFinalText = detail.finalText
+        editError = nil
+        isEditingFinalText = false
     }
 
     @ViewBuilder
@@ -1276,6 +1348,52 @@ private struct DetailTextBlock: View {
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
                 .stroke(highlighted ? AppTheme.ColorToken.selectionBorder : AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+    }
+}
+
+private struct EditableDetailTextBlock: View {
+    let title: String
+    let subtitle: String
+    @Binding var text: String
+    let error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            TextEditor(text: $text)
+                .font(.system(size: 13))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                .scrollContentBackground(.hidden)
+                .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+                .padding(6)
+                .background(Color(nsColor: .textBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.ColorToken.selectionBorder, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            if let error, !error.isEmpty {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
+        .background(AppTheme.ColorToken.accentSoft.opacity(0.5))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                .stroke(AppTheme.ColorToken.selectionBorder, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
     }

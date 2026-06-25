@@ -87,6 +87,30 @@ final class WhisperASRProviderTests: XCTestCase {
         XCTAssertEqual(requests.map(\.task), [.transcribe])
     }
 
+    func testSessionPassesConfiguredTermPromptToWhisperRequest() async throws {
+        let transcriber = CapturingWhisperKitTranscriber(result: "tokenhub")
+        let provider = WhisperASRProvider(
+            descriptor: WhisperProviderDescriptor.descriptor(
+                variant: .turbo,
+                modelInstallationState: .ready
+            ),
+            variant: .turbo,
+            modelURL: URL(fileURLWithPath: "/tmp/whisper-ready", isDirectory: true),
+            transcriberFactory: CapturingWhisperKitTranscriberFactory(transcriber: transcriber)
+        )
+        let session = try await provider.makeSession(
+            language: ASRLanguageCapability(bcp47Tag: "zh-CN")
+        )
+
+        try await session.configurePrompt("VoxFlow, tokenhub")
+        try await session.start()
+        try await session.accept(Self.frame(sequenceNumber: 4))
+        try await session.finish()
+
+        let requests = await transcriber.requests
+        XCTAssertEqual(requests.map(\.prompt), ["VoxFlow, tokenhub"])
+    }
+
     func testSessionDoesNotRunDecoderUntilFinishBecauseWhisperIsFinalOnly() async throws {
         let transcriber = CapturingWhisperKitTranscriber(
             result: "最终中文",

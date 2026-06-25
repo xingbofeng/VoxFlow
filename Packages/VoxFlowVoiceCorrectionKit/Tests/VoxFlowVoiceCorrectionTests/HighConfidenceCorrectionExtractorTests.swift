@@ -12,6 +12,20 @@ struct HighConfidenceCorrectionExtractorTests {
         ])
     }
 
+    @Test("extracts a short Chinese hallucination to a Latin product name")
+    func extractsShortChinesePhraseToLatinName() {
+        #expect(extractor.extract(original: "偷看案子。", edited: "tokenhub") == [
+            LearnedCorrectionPair(original: "偷看案子", replacement: "tokenhub"),
+        ])
+    }
+
+    @Test("extracts repeated short Chinese phrase to repeated Latin token")
+    func extractsRepeatedShortChinesePhraseToRepeatedLatinToken() {
+        #expect(extractor.extract(original: "偷看，偷看。", edited: "token token") == [
+            LearnedCorrectionPair(original: "偷看", replacement: "token"),
+        ])
+    }
+
     @Test("rejects a whole-sentence rewrite")
     func rejectsRewrite() {
         #expect(extractor.extract(
@@ -50,6 +64,41 @@ struct HighConfidenceCorrectionExtractorTests {
             baselineText: "use q 问 today",
             editedText: "please use q 问 today"
         ).isEmpty)
+    }
+
+    @Test("extracts terminal command edits before shell output is appended")
+    func extractsTerminalCommandEditBeforeShellOutput() {
+        #expect(extractor.extract(
+            insertedText: "偷看",
+            baselineText: "➜ 偷看",
+            editedText: "➜ token\nfish: Unknown command: token\n➜ "
+        ) == [
+            LearnedCorrectionPair(original: "偷看", replacement: "token"),
+        ])
+    }
+
+    @Test("extracts terminal edits from full AX text buffer")
+    func extractsTerminalEditsFromFullAXTextBuffer() {
+        let baselineText = """
+        counter repo $ token
+        fish: Unknown command: token
+        counter repo $
+        counter repo $ 偷看
+        """
+        let editedText = """
+        counter repo $ token
+        fish: Unknown command: token
+        counter repo $
+        counter repo $ token
+        """
+
+        #expect(extractor.extract(
+            insertedText: "偷看",
+            baselineText: baselineText,
+            editedText: editedText
+        ) == [
+            LearnedCorrectionPair(original: "偷看", replacement: "token"),
+        ])
     }
 
     @Test("rejects changes overlapping already applied correction ranges")

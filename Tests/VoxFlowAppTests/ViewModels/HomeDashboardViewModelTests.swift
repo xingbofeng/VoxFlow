@@ -1166,6 +1166,53 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
+    func testEditingSelectedHistoryItemLearnsCorrectionFromManualFinalTextChange() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_100)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "entry",
+                rawText: "use q 问 today",
+                finalText: "use q 问 today",
+                durationMS: 30_000,
+                createdAt: now,
+                targetAppBundleID: "com.cursor.Cursor"
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-entry",
+            source: .dictation,
+            contentType: .text,
+            title: "use q 问 today",
+            text: "use q 问 today",
+            createdAt: now
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+        viewModel.selectHistoryItem(id: "entry")
+
+        try viewModel.updateSelectedHistoryFinalText("use Qwen today")
+
+        let saved = try XCTUnwrap(environment.historyRepository.entry(id: "entry"))
+        XCTAssertEqual(saved.finalText, "use Qwen today")
+        XCTAssertEqual(saved.updatedAt, now)
+        XCTAssertEqual(viewModel.selectedDetail?.finalText, "use Qwen today")
+        let asset = try XCTUnwrap(try environment.assetRepository.asset(id: "dictation-entry"))
+        XCTAssertEqual(asset.title, "use Qwen today")
+        XCTAssertEqual(asset.text, "use Qwen today")
+
+        let rule = try XCTUnwrap(try environment.correctionRuleRepository.list().first)
+        XCTAssertEqual(rule.original, "q 问")
+        XCTAssertEqual(rule.replacement, "Qwen")
+        XCTAssertEqual(rule.scope, .application(bundleIdentifier: "com.cursor.Cursor"))
+        XCTAssertEqual(rule.lifecycle, .active)
+        XCTAssertEqual(rule.source, .automaticLearning)
+        XCTAssertEqual(rule.providerID, "apple_speech")
+        XCTAssertEqual(rule.language, "zh-CN")
+    }
+
     func testAssetPaginationPageSizeFilterResetDeleteFallbackAndClear() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -1286,6 +1333,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         charCount: Int? = nil,
         durationMS: Int = 1000,
         createdAt: Date = Date(timeIntervalSince1970: 1_800_000_000),
+        targetAppBundleID: String? = nil,
         processingWarningsJSON: String? = nil,
         processingTraceJSON: String? = nil
     ) -> DictationHistoryEntry {
@@ -1300,7 +1348,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             durationMS: durationMS,
             charCount: charCount ?? finalText.count,
             cpm: 120,
-            targetAppBundleID: nil,
+            targetAppBundleID: targetAppBundleID,
             targetAppName: "Editor",
             processingWarningsJSON: processingWarningsJSON,
             processingTraceJSON: processingTraceJSON,

@@ -1,7 +1,7 @@
 import Foundation
 import VoxFlowAudio
 
-enum ASREngineType: String, CaseIterable, Equatable {
+enum ASREngineType: String, CaseIterable, Equatable, Hashable {
     case apple = "Apple Speech"
     case funASR = "FunASR"
     case whisper = "Whisper"
@@ -57,6 +57,10 @@ protocol ASREngine: AnyObject {
     func endAudio()
     func stop()
     func cancel()
+}
+
+protocol ASRTermPromptConfiguring: AnyObject {
+    func configureTermPrompt(_ prompt: String?)
 }
 
 struct ASRRuntimeMetadataSnapshot: Equatable, Sendable {

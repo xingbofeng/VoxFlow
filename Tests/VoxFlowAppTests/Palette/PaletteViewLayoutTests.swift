@@ -58,14 +58,27 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("asset.id,"))
     }
 
+    func testPaletteHomeSearchRefreshesSelectionWhenFirstResultIdentityChanges() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains(".onChange(of: viewModel.selectedRootItemID)"))
+        XCTAssertTrue(source.contains(".id(viewModel.selectedRootItemID)"))
+        XCTAssertTrue(source.contains("viewModel.isRootItemSelected(item)"))
+        XCTAssertFalse(source.contains("viewModel.selectedHomeResultIndex == index))"))
+    }
+
     func testPaletteSelectedRowsUseVisibleHighlightWithoutPressedOnlyHighlight() throws {
         let sourceURL = Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("private func selectedRowHighlightColor(isPressed: Bool) -> Color"))
-        XCTAssertTrue(source.contains("return selectedRowHighlightColor(isPressed: isPressed)"))
-        XCTAssertFalse(source.contains("if isPressed || isSelected"))
+        XCTAssertTrue(source.contains("PaletteRowSelectionHighlight(isSelected: isSelected)"))
+        XCTAssertTrue(source.contains("let isSelected = viewModel.isRootItemSelected(item)"))
+        XCTAssertTrue(source.contains("let isSelected = viewModel.selectedAssetIndex == index"))
+        XCTAssertTrue(source.contains("Color.accentColor"))
+        XCTAssertFalse(source.contains("PaletteRowButtonStyle(isSelected:"))
     }
 
     func testPaletteWindowControllerUsesFloatingPanel() throws {
@@ -130,6 +143,29 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("focusSearchField()"))
         XCTAssertTrue(source.contains(".onChange(of: viewModel.searchFocusRequestID)"))
         XCTAssertTrue(source.contains("return \"应用\""))
+    }
+
+    func testPaletteSearchResultsRenderQueryHighlights() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("PaletteHighlightedText"))
+        XCTAssertTrue(source.contains("query: viewModel.searchText"))
+        XCTAssertTrue(source.contains("matcher.highlight"))
+        XCTAssertFalse(source.contains("matchedAliasSnippet"))
+        XCTAssertFalse(source.contains("匹配 \\("))
+    }
+
+    func testPaletteAssetPreviewUsesScrollableCompactText() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("ScrollView(.vertical"))
+        XCTAssertTrue(source.contains(".font(.system(size: 14))"))
+        XCTAssertTrue(source.contains(".textSelection(.enabled)"))
+        XCTAssertFalse(source.contains(".frame(maxWidth: .infinity, maxHeight: 210, alignment: .topLeading)"))
     }
 
     func testPaletteShortcutTogglesVisiblePanelInsteadOfOpeningMainWindow() throws {
