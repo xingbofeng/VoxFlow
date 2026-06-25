@@ -41,6 +41,11 @@
 - **Dictation History / 语音历史**: Completed dictation text saved after a voice input flow. It is one source of Asset records, not the umbrella term for all reusable history.
 - **Screenshot Record / 截图记录**: A saved screenshot image record. OCR text may be available as derived copyable text, but it is not a separate Asset.
 - **Clipboard Asset / 剪切板资产**: User-copied pasteboard content captured for reuse. VoxFlow's internal pasteboard writes are not Clipboard Assets.
+- **Palette Root Search / 启动台根搜索**: The home-level launcher surface that searches and opens Root Items such as VoxFlow commands and installed macOS applications. It is separate from the recent-assets second level.
+- **Palette Root Item / 启动台根项目**: A stable, searchable item on the Palette home surface. Current kinds are command and application; future extension entries should join through the same ID, activation, icon, and alias contract.
+- **Palette Favorites / 启动台最喜欢**: User-pinned Root Items shown at the top of Palette Root Search. Stored as lightweight UI preference metadata and not the same thing as Asset favorites or screenshot `is_favorited`.
+- **Palette Suggestions / 启动台建议**: Root Items ranked by recent use, usage count, and query selection history. Suggestions exclude items already shown in Favorites.
+- **Palette Root Action Panel / 启动台根动作面板**: The `Command+K` action panel for selected Root Items. V1 actions are open, add favorite, and remove favorite; asset rows continue to use `AssetAction`.
 
 ## Module Boundaries
 
@@ -83,6 +88,9 @@
 | `KnownApplicationRegistry` | Static versioned Bundle ID to style ID mapping, registry lookup and hit/miss reporting | LLM requests, user rule management |
 | `ApplicationStyleRecommendationService` | Merges registry hits and LLM classifications into preview-only recommendations; writes rules only on user confirmation | Direct rule persistence, prompt construction |
 | `ContextPipeline` | Parallel context collection (Accessibility text, window metadata, optional visual fallback), deduplication, trimming, timeout enforcement | ASR lifecycle, text injection |
+| `PaletteRootItem` / `PaletteRootSearchIndex` | Palette home command/application item modeling, fuzzy matching, Favorites/Suggestions sectioning, and ranking | Asset CRUD, AppKit window control, launching applications |
+| `PaletteFavoritesStore` / `PaletteUsageStore` | Lightweight Palette Root Search UI preferences and ranking statistics in UserDefaults | SQLite schema, asset favorite state, screenshot favorite state |
+| `PaletteApplicationLauncher` | Opening installed application paths through `NSWorkspace` behind a testable protocol | Search ranking, favorites persistence |
 | `Sources/VoxFlowProviders/VoxFlowProvider*` | Individual ASR provider runtime, descriptor, manifest/client, and provider-specific tests | AppKit UI, settings view layout, unrelated provider implementations |
 
 ## Architecture Decisions

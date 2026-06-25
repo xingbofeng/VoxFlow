@@ -73,4 +73,8 @@ final class WindowCoordinator {
     func refreshScreenshotRecords() {
         mainWindowController?.refreshScreenshotRecords()
     }
+
+    func dismissHomeDetailOverlay() {
+        mainWindowController?.dismissHomeDetailOverlay()
+    }
 }

@@ -311,7 +311,7 @@ final class KeyMonitorTests: XCTestCase {
     func testSelectionActionShortcutRoutesThroughHotKeyRouter() {
         XCTAssertEqual(
             HotKeyRouter.route(
-                keyCode: HotKeyShortcutRouting.dKeyCode,
+                keyCode: HotKeyShortcutRouting.fKeyCode,
                 flags: [.maskCommand, .maskShift],
                 dictationKeyCode: 54,
                 agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
@@ -424,16 +424,23 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
-    func testMiddleMouseButtonStateAlwaysReleasesInsteadOfShortPress() {
+    func testMiddleMouseButtonStateTogglesOnMouseDownAndIgnoresMouseUp() {
         var state = MouseShortcutButtonState()
 
         XCTAssertEqual(
             state.transition(buttonNumber: 2, isPressed: true),
             .pressed
         )
-        XCTAssertEqual(
+        XCTAssertNil(
             state.transition(buttonNumber: 2, isPressed: false),
+            "Mouse up belongs to the same click and must not immediately stop recording."
+        )
+        XCTAssertEqual(
+            state.transition(buttonNumber: 2, isPressed: true),
             .released
+        )
+        XCTAssertNil(
+            state.transition(buttonNumber: 2, isPressed: false)
         )
     }
 }

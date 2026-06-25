@@ -39,6 +39,54 @@ final class HomeHistoryModalOverlayPresentationTests: XCTestCase {
         XCTAssertTrue(dashboardSource.contains("\"搜索资产\""))
     }
 
+    func testHomeAssetRowsPreferSourceApplicationIconWhenApplicationIsRecorded() throws {
+        let root = try Self.repositoryRoot()
+        let dashboardSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/HomeDashboardView.swift"),
+            encoding: .utf8
+        )
+        let rowSource = try XCTUnwrap(
+            dashboardSource.components(separatedBy: "private struct HomeAssetDetailModal").first
+        )
+
+        XCTAssertTrue(rowSource.contains("if let sourceAppName = item.sourceAppName"))
+        XCTAssertTrue(rowSource.contains("SourceApplicationIcon("))
+        XCTAssertTrue(rowSource.contains("appName: sourceAppName"))
+        XCTAssertTrue(rowSource.contains("bundleID: item.sourceAppBundleID"))
+        XCTAssertTrue(rowSource.contains("size: 34"))
+    }
+
+    func testTraceMetadataKeepsServiceAddressAwayFromLocalPostProcessingCard() throws {
+        let root = try Self.repositoryRoot()
+        let dashboardSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/HomeDashboardView.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(dashboardSource.contains("private func llmTraceMetadata("))
+        XCTAssertTrue(dashboardSource.contains("DetailMetaItem(title: \"服务地址\", value: llmTrace.endpoint)"))
+        XCTAssertTrue(dashboardSource.contains(".padding(.bottom, 6)"))
+        XCTAssertTrue(dashboardSource.contains("llmTraceMetadata(llmTrace, taskMode: detail.taskMode)"))
+    }
+
+    func testMainWindowCoordinatorCanDismissHomeDetailOverlayForScreenshotCapture() throws {
+        let root = try Self.repositoryRoot()
+        let coordinatorSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/WindowCoordinator.swift"),
+            encoding: .utf8
+        )
+        let controllerSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/MainWindowController.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(coordinatorSource.contains("func dismissHomeDetailOverlay()"))
+        XCTAssertTrue(coordinatorSource.contains("mainWindowController?.dismissHomeDetailOverlay()"))
+        XCTAssertTrue(controllerSource.contains("private let homeViewModel: HomeDashboardViewModel"))
+        XCTAssertTrue(controllerSource.contains("func dismissHomeDetailOverlay()"))
+        XCTAssertTrue(controllerSource.contains("homeViewModel.clearSelectedHomeDetail()"))
+    }
+
     private static func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath)
         while directory.path != "/" {

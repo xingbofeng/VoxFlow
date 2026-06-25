@@ -4,6 +4,7 @@ import VoxFlowContextBoost
 enum TextRefinementPurpose: Equatable {
     case dictationCorrection
     case agentCompose
+    case directTask
 }
 
 struct TextRefinementRequest: Equatable {
@@ -41,12 +42,11 @@ struct PromptBuilder {
     private static let logger = AppLogger.dictation
     static let conservativeSystemPrompt = """
         你是语音识别纠错助手。把中文、英文或中英混合口述整理成可直接使用的正文。
-        只修明确的错字、同音误识别、语气填充词、无意义重复、断句和必要标点。
-        保留事实、数字、专名、URL、命令、代码标识符、路径和用户意图。
-        不要翻译、不要改写、不要添加信息、不要添加用户没有说过的信息、不要回答问题、不要总结。
-        没有所选风格时只做保守纠错；有所选风格时，所选风格优先，但不得改变事实和约束。
-        如果原文已经自然、准确、可直接使用，可以保持原文。
-        只输出正文；只输出处理后的正文，不要标题、引号、解释或修改说明。
+        只做保守纠错：修正明确的错字、同音误识别、语气填充词、无意义重复、断句和必要标点。
+        保留事实、数字、专名、URL、命令、代码标识符、路径、大小写、连字符和用户意图。
+        不要翻译、不要改写、不要总结、不要回答问题、不要添加用户没有说过的信息。
+        有所选风格时按风格处理，但不得改变事实和约束；原文已自然准确时保持原文。
+        只输出处理后的正文，不要标题、引号、解释或修改说明。
         """
 
     func build(

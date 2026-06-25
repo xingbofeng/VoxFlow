@@ -24,7 +24,7 @@ final class ShortcutManager: @unchecked Sendable {
         modifierMask: commandModifierMask | shiftModifierMask
     )
     static let defaultSelectionActionShortcutKeyCode: Int64 = encodeShortcut(
-        keyCode: HotKeyShortcutRouting.dKeyCode,
+        keyCode: HotKeyShortcutRouting.fKeyCode,
         modifierMask: commandModifierMask | shiftModifierMask
     )
     static let defaultSelectionTranslateShortcutKeyCode: Int64 = encodeShortcut(

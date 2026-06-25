@@ -51,8 +51,7 @@ struct SettingsQwenModelDownloadCoordinator {
         }
 
         try await readinessPreparer.prepare(modelURL: modelURL, size: size)
-        asrManager.markQwen3ModelReady(at: modelURL.path, size: size)
-        AppLogger.general.info("Settings Qwen3 model ready: size=\(size.rawValue), path=\(modelURL.path)")
+        AppLogger.general.info("Settings Qwen3 model validated: size=\(size.rawValue), path=\(modelURL.path)")
         return modelURL
     }
 }

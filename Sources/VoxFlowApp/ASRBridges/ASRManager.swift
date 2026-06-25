@@ -382,6 +382,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         defaults.set(size.rawValue, forKey: Keys.qwen3ValidatedModelSize)
     }
 
+    func markQwen3ModelDownloading(for size: ModelSize, progress: ModelDownloadProgress) {
+        guard let key = Self.qwen3ModelInstallKey(for: size),
+              let modelInstallationRepository else {
+            return
+        }
+        try? modelInstallationRepository.save(.downloading(progress: progress), for: key)
+    }
+
     func markWhisperModelReady(at path: String, variant: WhisperVariant) {
         guard let key = Self.whisperModelInstallKey(for: variant),
               let modelInstallationRepository else {
@@ -482,7 +490,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
             return
         case .qwen3:
-            clearQwen3ValidatedModelPath()
+            clearAllQwen3ModelInstallationStates()
         case .funASR:
             guard let key = Self.funASRModelInstallKey(for: funASRPrecision) else {
                 return
@@ -514,6 +522,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         }
         AppLogger.general.info("Marking model deleting: \(engineType.rawValue)")
         try? modelInstallationRepository.save(.deleting(installation), for: key)
+    }
+
+    func markModelDownloading(for engineType: ASREngineType, progress: ModelDownloadProgress) {
+        guard let key = self.modelInstallKey(for: engineType),
+              let modelInstallationRepository else {
+            return
+        }
+        try? modelInstallationRepository.save(.downloading(progress: progress), for: key)
     }
 
     func markModelDeletionFailed(for engineType: ASREngineType, message: String) {
@@ -1399,6 +1415,18 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
            let modelInstallationRepository {
             try? modelInstallationRepository.removeState(for: key)
         }
+        defaults.removeObject(forKey: Keys.qwen3ValidatedModelPath)
+        defaults.removeObject(forKey: Keys.qwen3ValidatedModelSize)
+    }
+
+    private func clearAllQwen3ModelInstallationStates() {
+        if let modelInstallationRepository {
+            for size in ModelSize.allCases {
+                guard let key = Self.qwen3ModelInstallKey(for: size) else { continue }
+                try? modelInstallationRepository.removeState(for: key)
+            }
+        }
+        defaults.removeObject(forKey: Keys.qwen3ModelPath)
         defaults.removeObject(forKey: Keys.qwen3ValidatedModelPath)
         defaults.removeObject(forKey: Keys.qwen3ValidatedModelSize)
     }

@@ -120,6 +120,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             clock: clock,
             repository: environment.correctionRuleRepository,
             targetRepository: environment.correctionTargetRepository,
+            pollOffsets: [.seconds(2), .seconds(3), .seconds(5)],
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { true }
         )
@@ -131,12 +132,51 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         )
 
         let sleeps = await clock.recordedSleeps()
-        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(2), .seconds(3), .seconds(5)])
+        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(2), .seconds(1), .seconds(2)])
         let learned = try XCTUnwrap(try environment.correctionRuleRepository.list().first)
         XCTAssertEqual(learned.original, "q 问")
         XCTAssertEqual(learned.replacement, "Qwen")
         XCTAssertEqual(learned.lifecycle, .active)
         XCTAssertEqual(learned.scope, .application(bundleIdentifier: "com.cursor.Cursor"))
+    }
+
+    func testAutomaticLearningLearnsTokenhubCorrectionAfterManualEdit() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub is ready")
+        observer.recaptureResults = [observation(value: "tokenhub is ready")]
+        let coordinator = CorrectionObservationCoordinator(
+            observer: observer,
+            clock: FakeCorrectionObservationClock(),
+            repository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
+            pollOffsets: [.seconds(1)],
+            isAutoLearningEnabled: { true },
+            autoLearningAppliesImmediately: { true }
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(mode: .dictation),
+            appliedEvents: []
+        )
+
+        let rules = try environment.correctionRuleRepository.list()
+        XCTAssertTrue(rules.contains { rule in
+            rule.original == "投康 Hub" &&
+                rule.replacement == "tokenhub" &&
+                rule.scope == .application(bundleIdentifier: "com.cursor.Cursor") &&
+                rule.lifecycle == .active
+        })
+
+        let repeatedResult = VoiceCorrectionTextProcessor(
+            snapshotProvider: environment.correctionSnapshotProvider,
+            settingsRepository: environment.settingsRepository
+        ).process(
+            "投康 Hub",
+            context: context(mode: .dictation)
+        )
+        XCTAssertEqual(repeatedResult.correctedText, "tokenhub")
     }
 
     func testObservationE2ECancelsWhenFocusChangesAndCanCreateCandidate() async throws {
@@ -178,6 +218,7 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             clock: FakeCorrectionObservationClock(),
             repository: environment.correctionRuleRepository,
             targetRepository: environment.correctionTargetRepository,
+            pollOffsets: [.seconds(2), .seconds(3), .seconds(5)],
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { false }
         )

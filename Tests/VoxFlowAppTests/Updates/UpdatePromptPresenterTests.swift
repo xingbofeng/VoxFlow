@@ -40,6 +40,58 @@ final class UpdatePromptPresenterTests: XCTestCase {
         XCTAssertFalse(source.contains("styleMask: [.titled, .closable]"))
     }
 
+    func testUpdatePromptUsesTomorrowReminderAndDismissesAsNextReminder() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Updates/UpdatePromptPresenter.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("case remindTomorrow"))
+        XCTAssertTrue(source.contains("secondaryTitle: \"明天提醒\""))
+        XCTAssertTrue(source.contains("destructiveTitle: \"跳过此版本\""))
+        XCTAssertTrue(source.contains("finish(.remindNextTime)"))
+        XCTAssertTrue(source.contains("onAction(.remindNextTime)"))
+        XCTAssertFalse(source.contains("稍后提醒"))
+        XCTAssertFalse(source.contains("忽略此版本"))
+    }
+
+    func testUpdatePromptShowsTopTrailingCloseButtonAsNextReminder() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Updates/UpdatePromptPresenter.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("Image(systemName: \"xmark\")"))
+        XCTAssertTrue(source.contains(".accessibilityLabel(\"关闭\")"))
+        XCTAssertTrue(source.contains(".help(\"关闭，下次提醒\")"))
+        XCTAssertTrue(source.contains("onAction(.remindNextTime)"))
+    }
+
+    func testUpdatePromptPresenterCanDismissOverlayAndCustomWindowBeforeScreenshotCapture() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Updates/UpdatePromptPresenter.swift"),
+            encoding: .utf8
+        )
+        let coordinatorSource = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Updates/UpdateCheckCoordinator.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("func dismissActivePromptAsNextTime()"))
+        XCTAssertTrue(source.contains("presentationStore?.finish(.remindNextTime)"))
+        XCTAssertTrue(source.contains("UpdatePromptWindowController.dismissActive(action: .remindNextTime)"))
+        XCTAssertTrue(source.contains("private static weak var activeController"))
+        XCTAssertTrue(source.contains("window.delegate = self"))
+        XCTAssertTrue(source.contains("func windowShouldClose(_ sender: NSWindow) -> Bool"))
+        XCTAssertTrue(source.contains("finish(.remindNextTime)"))
+        XCTAssertTrue(coordinatorSource.contains("func dismissActivePromptAsNextTime()"))
+        XCTAssertTrue(coordinatorSource.contains("presenter.dismissActivePromptAsNextTime()"))
+    }
+
     private static func repositoryRoot() throws -> URL {
         var directory = URL(fileURLWithPath: #filePath)
         while directory.path != "/" {

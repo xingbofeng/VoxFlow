@@ -12,21 +12,28 @@ final class RecordingAudioFeedbackController {
 
     private let soundFeedbackEnabled: () -> Bool
     private let muteWhileRecordingEnabled: () -> Bool
+    private let capsLockIndicatorEnabled: () -> Bool
     private let playSound: (SoundEvent) -> Void
     private let setMuted: (Bool) -> Void
+    private let setCapsLockIndicatorActive: (Bool) -> Void
     private var hasActiveSession = false
     private var mutedForSession = false
+    private var capsLockIndicatorActiveForSession = false
 
     init(
         soundFeedbackEnabled: @escaping () -> Bool,
         muteWhileRecordingEnabled: @escaping () -> Bool,
+        capsLockIndicatorEnabled: @escaping () -> Bool,
         playSound: @escaping (SoundEvent) -> Void,
-        setMuted: @escaping (Bool) -> Void
+        setMuted: @escaping (Bool) -> Void,
+        setCapsLockIndicatorActive: @escaping (Bool) -> Void
     ) {
         self.soundFeedbackEnabled = soundFeedbackEnabled
         self.muteWhileRecordingEnabled = muteWhileRecordingEnabled
+        self.capsLockIndicatorEnabled = capsLockIndicatorEnabled
         self.playSound = playSound
         self.setMuted = setMuted
+        self.setCapsLockIndicatorActive = setCapsLockIndicatorActive
     }
 
     func handle(_ state: DictationState) {
@@ -43,12 +50,19 @@ final class RecordingAudioFeedbackController {
                 setMuted(true)
                 mutedForSession = true
             }
+            if !capsLockIndicatorActiveForSession, capsLockIndicatorEnabled() {
+                Self.logger.debug("RecordingAudioFeedbackController enabling CapsLock recording indicator")
+                setCapsLockIndicatorActive(true)
+                capsLockIndicatorActiveForSession = true
+            }
         case .waitingForFinal, .processing, .injecting:
-            Self.logger.debug("RecordingAudioFeedbackController restoring audio while state=\(state)")
+            Self.logger.debug("RecordingAudioFeedbackController restoring feedback while state=\(state)")
             restoreAudioIfNeeded()
+            restoreCapsLockIndicatorIfNeeded()
         case .idle:
             Self.logger.debug("RecordingAudioFeedbackController handle idle hasActiveSession=\(hasActiveSession)")
             restoreAudioIfNeeded()
+            restoreCapsLockIndicatorIfNeeded()
             if hasActiveSession, soundFeedbackEnabled() {
                 playSound(.complete)
             }
@@ -56,6 +70,7 @@ final class RecordingAudioFeedbackController {
         case .failed:
             Self.logger.debug("RecordingAudioFeedbackController handle failed hasActiveSession=\(hasActiveSession)")
             restoreAudioIfNeeded()
+            restoreCapsLockIndicatorIfNeeded()
             if hasActiveSession, soundFeedbackEnabled() {
                 playSound(.error)
             }
@@ -68,5 +83,12 @@ final class RecordingAudioFeedbackController {
         Self.logger.debug("RecordingAudioFeedbackController restoreAudioIfNeeded")
         setMuted(false)
         mutedForSession = false
+    }
+
+    private func restoreCapsLockIndicatorIfNeeded() {
+        guard capsLockIndicatorActiveForSession else { return }
+        Self.logger.debug("RecordingAudioFeedbackController restoreCapsLockIndicatorIfNeeded")
+        setCapsLockIndicatorActive(false)
+        capsLockIndicatorActiveForSession = false
     }
 }

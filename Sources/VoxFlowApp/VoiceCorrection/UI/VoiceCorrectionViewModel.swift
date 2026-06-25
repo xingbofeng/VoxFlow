@@ -78,6 +78,14 @@ struct VoiceCorrectionTargetRow: Identifiable, Equatable {
     var aliases: [CorrectionRule] { projection.aliases }
 }
 
+private final class NotificationObserverToken: @unchecked Sendable {
+    let value: NSObjectProtocol
+
+    init(_ value: NSObjectProtocol) {
+        self.value = value
+    }
+}
+
 @MainActor
 final class VoiceCorrectionViewModel: ObservableObject {
     @Published private(set) var isEnabled = VoiceCorrectionSettingsKey.enabled.defaultValue
@@ -94,15 +102,26 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     private let environment: any AppServiceProviding
     private let targetProvider: any DictationTargetProviding
+    private let notificationCenter: NotificationCenter
+    private var learningEventObserver: NotificationObserverToken?
     private var hasLoaded = false
 
     init(
         environment: any AppServiceProviding,
-        targetProvider: any DictationTargetProviding = WorkspaceDictationTargetProvider()
+        targetProvider: any DictationTargetProviding = WorkspaceDictationTargetProvider(),
+        notificationCenter: NotificationCenter = .default
     ) {
         self.environment = environment
         self.targetProvider = targetProvider
+        self.notificationCenter = notificationCenter
+        observeAutomaticLearningEvents()
         load()
+    }
+
+    deinit {
+        if let learningEventObserver {
+            notificationCenter.removeObserver(learningEventObserver.value)
+        }
     }
 
     var activeRules: [CorrectionRule] {
@@ -457,6 +476,11 @@ final class VoiceCorrectionViewModel: ObservableObject {
         }
     }
 
+    func applyAutomaticLearningEvent(_ event: CorrectionObservationLearningEvent) {
+        load()
+        lastActionMessage = event.message
+    }
+
     func scopeTitle(for rule: CorrectionRule) -> String {
         switch rule.scope {
         case .global:
@@ -580,6 +604,21 @@ final class VoiceCorrectionViewModel: ObservableObject {
     private func report(_ error: Error) {
         lastError = error.localizedDescription
         lastActionMessage = nil
+    }
+
+    private func observeAutomaticLearningEvents() {
+        learningEventObserver = NotificationObserverToken(notificationCenter.addObserver(
+            forName: .correctionObservationLearningEvent,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let event = notification.object as? CorrectionObservationLearningEvent else {
+                return
+            }
+            Task { @MainActor [weak self] in
+                self?.applyAutomaticLearningEvent(event)
+            }
+        })
     }
 
     private func scopeTitle(for scope: RuleScope) -> String {

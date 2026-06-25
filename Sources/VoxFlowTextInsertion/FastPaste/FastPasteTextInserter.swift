@@ -33,15 +33,18 @@ public enum InputSourceClassifier {
 public final class FastPasteTextInserter: TextInserting {
     private let shouldRestoreClipboard: @MainActor () -> Bool
     private let allowsSystemInteraction: @MainActor () -> Bool
+    private let markInternalPasteboardChangeCount: (Int) -> Void
 
     public init(
         shouldRestoreClipboard: @escaping @MainActor () -> Bool = { true },
+        markInternalPasteboardChangeCount: @escaping (Int) -> Void = { _ in },
         allowsSystemInteraction: @escaping @MainActor () -> Bool = {
             !TextInsertionRuntimeEnvironment.isRunningUnderXCTest()
         }
     ) {
         self.shouldRestoreClipboard = shouldRestoreClipboard
         self.allowsSystemInteraction = allowsSystemInteraction
+        self.markInternalPasteboardChangeCount = markInternalPasteboardChangeCount
     }
 
     public func insert(_ text: String) async -> TextInsertionResult {
@@ -65,7 +68,10 @@ public final class FastPasteTextInserter: TextInserting {
         let pasteboard = NSPasteboard.general
         let pasteboardTransaction = PasteboardTransaction.begin(
             on: pasteboard,
-            replacementText: text
+            replacementText: text,
+            markInternalChangeCount: { [markInternalPasteboardChangeCount] changeCount in
+                markInternalPasteboardChangeCount(changeCount)
+            }
         )
 
         let source = CGEventSource(stateID: .combinedSessionState)

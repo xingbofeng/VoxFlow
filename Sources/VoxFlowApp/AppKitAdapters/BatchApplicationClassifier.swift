@@ -104,7 +104,8 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
                             text: userPrompt,
                             systemPrompt: systemPrompt,
                             model: nil,
-                            temperature: 0.1
+                            temperature: 0.1,
+                            purpose: .directTask
                         )
                     )
                 }

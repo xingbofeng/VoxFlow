@@ -19,6 +19,7 @@ private final class PalettePanel: NSPanel {
 final class PaletteWindowController: NSWindowController {
     private let viewModel: PaletteViewModel
     private let actionService: AssetActionService
+    private let applicationLauncher: any PaletteApplicationLaunching
     private let onCommand: (PaletteCommand) -> Void
     private var previousTarget: DictationTarget?
     private var localKeyMonitor: Any?
@@ -33,14 +34,22 @@ final class PaletteWindowController: NSWindowController {
     init(
         repository: any AssetRepository,
         actionService: AssetActionService,
+        applicationProvider: (any InstalledApplicationProviding)? = nil,
+        favoritesStore: (any PaletteFavoritesStoring)? = nil,
+        usageStore: (any PaletteUsageStoring)? = nil,
+        applicationLauncher: any PaletteApplicationLaunching = WorkspacePaletteApplicationLauncher(),
         onCommand: @escaping (PaletteCommand) -> Void
     ) {
         let viewModel = PaletteViewModel(
             repository: repository,
-            actionService: actionService
+            actionService: actionService,
+            applicationProvider: applicationProvider,
+            favoritesStore: favoritesStore,
+            usageStore: usageStore
         )
         self.viewModel = viewModel
         self.actionService = actionService
+        self.applicationLauncher = applicationLauncher
         self.onCommand = onCommand
 
         let panel = PalettePanel(
@@ -75,6 +84,9 @@ final class PaletteWindowController: NSWindowController {
                     Task { @MainActor in
                         await self?.performAssetAction(action, on: asset)
                     }
+                },
+                onOpenApplication: { [weak self] path, itemID in
+                    self?.performOpenApplication(path: path, itemID: itemID)
                 }
             )
         )
@@ -96,6 +108,7 @@ final class PaletteWindowController: NSWindowController {
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
         window?.makeKey()
+        viewModel.requestSearchFocus()
     }
 
     override func close() {
@@ -135,6 +148,25 @@ final class PaletteWindowController: NSWindowController {
         }
 
         if viewModel.isActionPanelPresented {
+            if viewModel.mode == .home {
+                if let shortcutAction = rootActionPanelShortcutAction(for: event, modifierFlags: modifierFlags) {
+                    performSelectedRootAction(shortcutAction)
+                    return true
+                }
+                switch event.keyCode {
+                case 125:
+                    viewModel.moveActionSelectionDown()
+                    return true
+                case 126:
+                    viewModel.moveActionSelectionUp()
+                    return true
+                case 36, 76:
+                    performSelectedRootAction(viewModel.selectedRootActionPanelAction())
+                    return true
+                default:
+                    return false
+                }
+            }
             if let shortcutAction = actionPanelShortcutAction(for: event, modifierFlags: modifierFlags) {
                 performSelectedAssetAction(shortcutAction)
                 return true
@@ -178,15 +210,23 @@ final class PaletteWindowController: NSWindowController {
     }
 
     private func performPrimaryKeyboardAction() {
-        switch viewModel.primaryKeyboardAction() {
+        performKeyboardAction(viewModel.primaryKeyboardAction())
+    }
+
+    private func performKeyboardAction(_ action: PaletteKeyboardAction) {
+        switch action {
         case .none:
             break
         case let .activateCommand(command):
             do {
                 try viewModel.activate(command)
+                viewModel.recordRootActivation(itemID: .command(command))
             } catch {
                 onCommand(command)
+                viewModel.recordRootActivation(itemID: .command(command))
             }
+        case let .openApplication(path, itemID):
+            performOpenApplication(path: path, itemID: itemID)
         case let .performAssetAction(defaultAction, assetID):
             guard let asset = viewModel.assets.first(where: { $0.id == assetID }) else {
                 return
@@ -202,6 +242,18 @@ final class PaletteWindowController: NSWindowController {
                 }
             }
         }
+    }
+
+    private func performOpenApplication(path: String, itemID: PaletteRootItemID) {
+        if applicationLauncher.openApplication(atPath: path) {
+            viewModel.recordRootActivation(itemID: itemID)
+            close()
+        }
+    }
+
+    private func performSelectedRootAction(_ action: PaletteRootAction?) {
+        guard let action else { return }
+        performKeyboardAction(viewModel.performRootAction(action))
     }
 
     private func performSelectedAssetAction(_ action: AssetAction?) {
@@ -235,6 +287,21 @@ final class PaletteWindowController: NSWindowController {
             return .delete
         }
         return nil
+    }
+
+    private func rootActionPanelShortcutAction(
+        for event: NSEvent,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> PaletteRootAction? {
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        guard modifierFlags.contains(.command),
+              modifierFlags.contains(.shift),
+              key == "f" else {
+            return nil
+        }
+        return viewModel.rootActionPanelActionsForSelectedRootItem().first {
+            $0 == .addFavorite || $0 == .removeFavorite
+        }
     }
 
     private func performAssetAction(_ action: AssetAction, on asset: AssetItem) async {

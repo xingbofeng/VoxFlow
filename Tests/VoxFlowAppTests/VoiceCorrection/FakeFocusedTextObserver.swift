@@ -6,6 +6,7 @@ final class FakeFocusedTextObserver: FocusedTextObserving {
     var captureResults: [FocusedTextObservation?] = []
     var recaptureResult: FocusedTextObservation?
     var recaptureResults: [FocusedTextObservation] = []
+    var onRecapture: (() -> Void)?
     private(set) var captureCallCount = 0
     private(set) var recaptureBaselines: [FocusedTextObservation] = []
 
@@ -19,10 +20,14 @@ final class FakeFocusedTextObserver: FocusedTextObserving {
 
     func recapture(matching baseline: FocusedTextObservation) -> FocusedTextObservation? {
         recaptureBaselines.append(baseline)
+        let observation: FocusedTextObservation?
         if !recaptureResults.isEmpty {
-            return recaptureResults.removeFirst()
+            observation = recaptureResults.removeFirst()
+        } else {
+            observation = recaptureResult
         }
-        return recaptureResult
+        onRecapture?()
+        return observation
     }
 }
 

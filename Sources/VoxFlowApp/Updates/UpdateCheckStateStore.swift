@@ -4,6 +4,8 @@ final class UpdateCheckStateStore {
     private enum Key {
         static let lastAutomaticCheckAt = "VoxFlow.UpdateCheck.lastAutomaticCheckAt"
         static let ignoredVersion = "VoxFlow.UpdateCheck.ignoredVersion"
+        static let deferredVersion = "VoxFlow.UpdateCheck.deferredVersion"
+        static let deferredUntil = "VoxFlow.UpdateCheck.deferredUntil"
     }
 
     private let defaults: UserDefaults
@@ -17,7 +19,7 @@ final class UpdateCheckStateStore {
             defaults.object(forKey: Key.lastAutomaticCheckAt) as? Date
         }
         set {
-            defaults.set(newValue, forKey: Key.lastAutomaticCheckAt)
+            setOptional(newValue, forKey: Key.lastAutomaticCheckAt)
         }
     }
 
@@ -26,7 +28,33 @@ final class UpdateCheckStateStore {
             defaults.string(forKey: Key.ignoredVersion)
         }
         set {
-            defaults.set(newValue, forKey: Key.ignoredVersion)
+            setOptional(newValue, forKey: Key.ignoredVersion)
+        }
+    }
+
+    var deferredVersion: String? {
+        get {
+            defaults.string(forKey: Key.deferredVersion)
+        }
+        set {
+            setOptional(newValue, forKey: Key.deferredVersion)
+        }
+    }
+
+    var deferredUntil: Date? {
+        get {
+            defaults.object(forKey: Key.deferredUntil) as? Date
+        }
+        set {
+            setOptional(newValue, forKey: Key.deferredUntil)
+        }
+    }
+
+    private func setOptional(_ value: Any?, forKey key: String) {
+        if let value {
+            defaults.set(value, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
         }
     }
 }

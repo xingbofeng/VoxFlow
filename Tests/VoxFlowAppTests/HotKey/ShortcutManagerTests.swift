@@ -43,14 +43,14 @@ final class ShortcutManagerTests: XCTestCase {
         )
     }
 
-    func testDefaultSelectionActionShortcutIsCommandShiftD() {
+    func testDefaultSelectionActionShortcutIsCommandShiftF() {
         XCTAssertEqual(
             sut.shortcutKeyCode(for: .selectionAction),
             ShortcutManager.defaultSelectionActionShortcutKeyCode
         )
         XCTAssertEqual(
             ShortcutManager.baseKeyCode(for: ShortcutManager.defaultSelectionActionShortcutKeyCode),
-            HotKeyShortcutRouting.dKeyCode
+            HotKeyShortcutRouting.fKeyCode
         )
         XCTAssertEqual(
             ShortcutManager.modifierMask(for: ShortcutManager.defaultSelectionActionShortcutKeyCode),

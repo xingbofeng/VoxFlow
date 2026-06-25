@@ -36,9 +36,14 @@ final class AppTextRuntime {
             settingsRepository: environment.settingsRepository
         )
         textOutputConfiguration = outputConfiguration
+        let clipboardGuard = ClipboardInternalWriteGuard()
+        clipboardInternalWriteGuard = clipboardGuard
         fastPasteTextInserter = FastPasteTextInserter(
             shouldRestoreClipboard: {
                 outputConfiguration.shouldRestoreClipboard()
+            },
+            markInternalPasteboardChangeCount: { changeCount in
+                clipboardGuard.markInternalWrite(changeCount: changeCount)
             }
         )
         textInsertionCoordinator = TextInsertionCoordinator(
@@ -46,8 +51,7 @@ final class AppTextRuntime {
             simulatedTypingInserter: SimulatedTypingInserter()
         )
         lastResultStore = InMemoryLastResultStore()
-        clipboardInternalWriteGuard = ClipboardInternalWriteGuard()
-        clipboardService = SystemClipboardService(internalWriteGuard: clipboardInternalWriteGuard)
+        clipboardService = SystemClipboardService(internalWriteGuard: clipboardGuard)
         outputService = DefaultOutputService(
             textInsertionCoordinator: textInsertionCoordinator,
             clipboardService: clipboardService,
@@ -174,11 +178,13 @@ struct AppRuntime {
         )
         let dictationTargetProvider = WorkspaceDictationTargetProvider()
         let focusedTextObserver = AccessibilityFocusedTextObserver()
+        let correctionCommitObserver = AppKitCorrectionObservationCommitObserver()
         AppLogger.general.debug("AppRuntime observers created")
         let correctionObservationCoordinator = CorrectionObservationCoordinator(
             observer: focusedTextObserver,
             repository: environment.correctionRuleRepository,
             targetRepository: environment.correctionTargetRepository,
+            commitObserver: correctionCommitObserver,
             isAutoLearningEnabled: {
                 (try? VoiceCorrectionSettingsStore.bool(
                     .autoLearningEnabled,
@@ -190,6 +196,12 @@ struct AppRuntime {
                     .autoLearningAppliesImmediately,
                     repository: environment.settingsRepository
                 )) ?? VoiceCorrectionSettingsKey.autoLearningAppliesImmediately.defaultValue
+            },
+            onLearningEvent: { event in
+                NotificationCenter.default.post(
+                    name: .correctionObservationLearningEvent,
+                    object: event
+                )
             }
         )
         let correctionObservationScheduler = CorrectionObservationScheduler(

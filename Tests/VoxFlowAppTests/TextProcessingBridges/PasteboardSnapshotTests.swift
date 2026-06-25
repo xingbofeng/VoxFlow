@@ -66,6 +66,7 @@ final class PasteboardSnapshotTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "user copied after paste")
     }
 
+    @MainActor
     func testPasteCompletionWaiterReturnsWhenPasteboardChangesDuringPolling() async throws {
         let pasteboard = try makePasteboard()
         pasteboard.clearContents()
@@ -91,6 +92,7 @@ final class PasteboardSnapshotTests: XCTestCase {
         XCTAssertEqual(sleeps, [10])
     }
 
+    @MainActor
     func testPasteCompletionWaiterPollsTransactionInsteadOfSingleFixedDelay() async throws {
         let pasteboard = try makePasteboard()
         pasteboard.clearContents()

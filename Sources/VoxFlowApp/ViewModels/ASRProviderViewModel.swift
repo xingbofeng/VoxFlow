@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import VoxFlowModelStore
 import VoxFlowProviderAliyunDashScope
 import VoxFlowProviderFunASR
 import VoxFlowProviderGroq
@@ -127,9 +128,16 @@ struct GroqASRModelOption: Identifiable, Equatable {
     let title: String
 }
 
+private struct ModelDownloadOperation: Equatable, Sendable {
+    let id = UUID()
+    let providerID: String
+    let qwenModelSize: ASRManager.ModelSize?
+}
+
 @MainActor
 final class ASRProviderViewModel: ObservableObject {
     private static let logger = AppLogger.general
+    private static let downloadLogger = AppLogger.modelDownload
 
     static let storedGroqAPIKeyMask = String(repeating: "•", count: 12)
     static let storedTencentSecretMask = String(repeating: "•", count: 12)
@@ -142,7 +150,7 @@ final class ASRProviderViewModel: ObservableObject {
     @Published private(set) var providers: [ASRProviderDescriptor] = []
     @Published private(set) var selectedTags: Set<String> = []
     @Published private(set) var providerScope: ASRProviderScope = .all
-    @Published private(set) var downloadProgress: Qwen3ModelDownloadProgress?
+    @Published private(set) var downloadProgress: ModelDownloadProgressViewState?
     @Published private(set) var isDownloading = false
     @Published private(set) var downloadingProviderID: String? = nil
     @Published private(set) var lastError: String?
@@ -176,7 +184,12 @@ final class ASRProviderViewModel: ObservableObject {
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
     private var providerRecordPersistenceTask: Task<Void, Never>?
-    private var cleanupRequestedProviderIDs = Set<String>()
+    private var activeDownloadOperation: ModelDownloadOperation?
+    private var cleanupRequestedDownloadIDs = Set<UUID>()
+    private var previousDownloadProgressBytes: Int64?
+    private var previousDownloadProgressDate: Date?
+    private var lastDownloadLogDate: Date?
+    private var lastDownloadLogProgress: Double?
     private var hasLoaded = false
 
     init(
@@ -699,7 +712,7 @@ final class ASRProviderViewModel: ObservableObject {
     func setQwenModelPath(_ path: String) {
         Self.logger.debug("asr_provider_vm_set_qwen_model_path_start pathLen=\(path.count)")
         let url = URL(fileURLWithPath: path, isDirectory: true)
-        guard Qwen3ModelManifest.supportedModelExists(at: url, fileManager: fileManager) else {
+        guard downloader.supportedModelExists(at: url, fileManager: fileManager) else {
             lastError = "所选目录不是可用的 Qwen3-ASR 模型。"
             Self.logger.warning("asr_provider_vm_set_qwen_model_path_rejected")
             return
@@ -780,41 +793,229 @@ final class ASRProviderViewModel: ObservableObject {
         }
     }
 
+    func localModelSizeSummary(providerID: String) -> String {
+        if let bytes = expectedLocalModelDownloadBytes(providerID: providerID) {
+            return "约 \(ModelDownloadProgressViewState.formatBytes(bytes))"
+        }
+        if let specification = localModelSpecification(providerID: providerID) {
+            return "\(specification)，下载时检测"
+        }
+        return "下载时检测"
+    }
+
+    private func beginDownloadTracking(providerID: String) {
+        previousDownloadProgressBytes = nil
+        previousDownloadProgressDate = nil
+        lastDownloadLogDate = nil
+        lastDownloadLogProgress = nil
+        let totalBytes = expectedLocalModelDownloadBytes(providerID: providerID)
+        Self.downloadLogger.info(
+            "model_download_started provider=\(providerID) totalBytes=\(totalBytes.map(String.init) ?? "unknown")"
+        )
+    }
+
+    private func finishDownloadTracking(providerID: String) {
+        Self.downloadLogger.info("model_download_completed provider=\(providerID)")
+        previousDownloadProgressBytes = nil
+        previousDownloadProgressDate = nil
+        lastDownloadLogDate = nil
+        lastDownloadLogProgress = nil
+    }
+
+    private func failDownloadTracking(providerID: String, error: Error) {
+        Self.downloadLogger.error(
+            "model_download_failed provider=\(providerID) error=\(error.localizedDescription)"
+        )
+    }
+
+    private func setDownloadProgress(
+        operation: ModelDownloadOperation,
+        providerID: String,
+        componentName: String,
+        statusText: String,
+        fractionCompleted: Double?,
+        bytesWritten: Int64? = nil,
+        totalBytes: Int64? = nil
+    ) {
+        guard activeDownloadOperation == operation else {
+            Self.logger.debug(
+                "asr_provider_vm_download_progress_ignored_stale id=\(providerID)"
+            )
+            return
+        }
+        let resolvedTotalBytes = totalBytes ?? expectedLocalModelDownloadBytes(providerID: providerID)
+        let resolvedBytesWritten = bytesWritten ?? fractionCompleted.flatMap { fraction in
+            resolvedTotalBytes.map { Int64((Double($0) * min(1, max(0, fraction))).rounded()) }
+        }
+        let now = Date()
+        let speed = downloadSpeedBytesPerSecond(bytesWritten: resolvedBytesWritten, now: now)
+        let state = ModelDownloadProgressViewState(
+            providerID: providerID,
+            componentName: componentName,
+            statusText: statusText,
+            fractionCompleted: fractionCompleted,
+            bytesWritten: resolvedBytesWritten,
+            totalBytes: resolvedTotalBytes,
+            totalModelBytes: expectedLocalModelDownloadBytes(providerID: providerID),
+            speedBytesPerSecond: speed
+        )
+        downloadProgress = state
+        persistDownloadProgress(operation: operation, state: state)
+        logDownloadProgressIfNeeded(state, now: now)
+        previousDownloadProgressBytes = resolvedBytesWritten
+        previousDownloadProgressDate = now
+    }
+
+    private func persistDownloadProgress(
+        operation: ModelDownloadOperation,
+        state: ModelDownloadProgressViewState
+    ) {
+        let bytesWritten = state.bytesWritten ?? 0
+        let progress = ModelDownloadProgress(
+            bytesWritten: bytesWritten,
+            totalBytes: state.totalBytes ?? state.totalModelBytes,
+            componentID: ModelComponentID(rawValue: state.componentName)
+        )
+        if state.providerID == ASRProviderID.qwen3, let qwenModelSize = operation.qwenModelSize {
+            asrManager.markQwen3ModelDownloading(for: qwenModelSize, progress: progress)
+            return
+        }
+        guard let engineType = fallbackEngine(for: state.providerID) else {
+            return
+        }
+        asrManager.markModelDownloading(for: engineType, progress: progress)
+    }
+
+    private func downloadSpeedBytesPerSecond(bytesWritten: Int64?, now: Date) -> Int64? {
+        guard let bytesWritten,
+              let previousBytes = previousDownloadProgressBytes,
+              let previousDate = previousDownloadProgressDate else {
+            return nil
+        }
+        let elapsed = now.timeIntervalSince(previousDate)
+        guard elapsed > 0.5, bytesWritten > previousBytes else {
+            return nil
+        }
+        return Int64(Double(bytesWritten - previousBytes) / elapsed)
+    }
+
+    private func logDownloadProgressIfNeeded(
+        _ state: ModelDownloadProgressViewState,
+        now: Date
+    ) {
+        let progress = state.progressValue ?? 0
+        let shouldLogByTime = lastDownloadLogDate.map { now.timeIntervalSince($0) >= 10 } ?? true
+        let shouldLogByProgress = lastDownloadLogProgress.map { progress - $0 >= 0.05 } ?? true
+        guard shouldLogByTime || shouldLogByProgress || progress >= 1 else {
+            return
+        }
+        lastDownloadLogDate = now
+        lastDownloadLogProgress = progress
+        Self.downloadLogger.info(
+            "model_download_progress provider=\(state.providerID) component=\(state.componentName) bytesWritten=\(state.bytesWritten.map(String.init) ?? "unknown") totalBytes=\(state.totalBytes.map(String.init) ?? "unknown") fraction=\(String(format: "%.4f", progress)) speedBps=\(state.speedBytesPerSecond.map(String.init) ?? "unknown")"
+        )
+    }
+
+    private func expectedLocalModelDownloadBytes(providerID: String) -> Int64? {
+        switch providerID {
+        case ASRProviderID.qwen3:
+            return downloader.expectedDownloadBytes(for: asrManager.qwen3ModelSize)
+        case ASRProviderID.whisper:
+            switch asrManager.whisperVariant {
+            case .turbo:
+                return 632_000_000
+            case .largeV3:
+                return 947_000_000
+            }
+        case ASRProviderID.funASR:
+            switch asrManager.funASRPrecision {
+            case .int8:
+                return 841_730_611
+            case .fp32:
+                return 1_317_656_544
+            }
+        case ASRProviderID.senseVoice:
+            return 1_649_994_200
+        case ASRProviderID.paraformer:
+            return 653_174_435
+        case ASRProviderID.nvidiaNemotron:
+            return 642_196_943
+        case ASRProviderID.parakeetStreaming:
+            return 118_097_523
+        case ASRProviderID.omnilingualASR:
+            return 326_905_047
+        default:
+            return nil
+        }
+    }
+
+    private func localModelSpecification(providerID: String) -> String? {
+        switch providerID {
+        case ASRProviderID.funASR:
+            return "Qwen3 0.6B \(asrManager.funASRPrecision.rawValue.uppercased())"
+        case ASRProviderID.senseVoice:
+            return "SenseVoice Small FP16"
+        case ASRProviderID.paraformer:
+            return "Paraformer Large zh INT8"
+        case ASRProviderID.nvidiaNemotron:
+            return "Nemotron 0.6B CoreML INT8"
+        case ASRProviderID.parakeetStreaming:
+            return "Parakeet 120M CoreML INT8"
+        case ASRProviderID.omnilingualASR:
+            return "Omnilingual 300M CoreML INT8"
+        default:
+            return nil
+        }
+    }
+
     func downloadModel(id: String) async {
         guard !isDownloading else {
             Self.logger.debug("asr_provider_vm_download_model_skipped alreadyDownloading=true id=\(id)")
             return
         }
         Self.logger.info("asr_provider_vm_download_model_start id=\(id)")
+        let operation = ModelDownloadOperation(
+            providerID: id,
+            qwenModelSize: id == ASRProviderID.qwen3 ? asrManager.qwen3ModelSize : nil
+        )
+        activeDownloadOperation = operation
         isDownloading = true
         downloadingProviderID = id
         downloadProgress = nil
         lastError = nil
+        beginDownloadTracking(providerID: id)
         defer {
-            isDownloading = false
-            downloadingProviderID = nil
+            if activeDownloadOperation == operation {
+                activeDownloadOperation = nil
+                isDownloading = false
+                downloadingProviderID = nil
+            }
         }
 
         do {
             if id == ASRProviderID.qwen3 {
-                let modelSize = asrManager.qwen3ModelSize
+                let modelSize = operation.qwenModelSize ?? asrManager.qwen3ModelSize
                 let coordinator = SettingsQwenModelDownloadCoordinator(
                     asrManager: asrManager,
                     downloader: downloader,
                     readinessPreparer: qwenReadinessPreparer,
                     fileManager: fileManager
                 )
-                _ = try await coordinator.downloadQwen3Model(size: modelSize) { [weak self] progress in
-                    self?.downloadProgress = progress
+                let installedURL = try await coordinator.downloadQwen3Model(size: modelSize) { [weak self] progress in
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: progress.fileName,
+                        statusText: "下载 \(progress.fileName)",
+                        fractionCompleted: progress.overallProgress,
+                        bytesWritten: progress.bytesWritten,
+                        totalBytes: progress.totalBytes
+                    )
                 }
-                if cleanupRequestedProviderIDs.remove(id) != nil {
-                    lastError = nil
-                    if lastActionMessage == nil {
-                        lastActionMessage = "已删除本地模型"
-                    }
-                    Self.logger.info("asr_provider_vm_download_model_ignored_after_cleanup id=\(id)")
+                guard shouldApplyDownloadResult(operation) else {
                     return
                 }
+                asrManager.markQwen3ModelReady(at: installedURL.path, size: modelSize)
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
@@ -824,15 +1025,19 @@ final class ASRProviderViewModel: ObservableObject {
                     variant: variant,
                     modelsDirectory: paths.modelsDirectory
                 ) { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard variant.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markWhisperModelReady(at: installedURL.path, variant: asrManager.whisperVariant)
                 load()
@@ -840,11 +1045,14 @@ final class ASRProviderViewModel: ObservableObject {
                 lastActionMessage = "本地模型下载完成"
             } else if let variant = sherpaVariant(for: id) {
                 let installedURL = try await sherpaModelDownloader.download(variant: variant) { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted ?? 0
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted,
+                        bytesWritten: update.bytesWritten,
+                        totalBytes: update.totalBytes
                     )
                 }
                 guard FunASRModelVariant(precision: asrManager.funASRPrecision).modelsExist(
@@ -853,21 +1061,28 @@ final class ASRProviderViewModel: ObservableObject {
                 ) else {
                     throw ASREngineError.modelNotLoaded
                 }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
+                }
                 asrManager.markFunASRModelReady(at: installedURL.path, precision: asrManager.funASRPrecision)
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
             } else if id == ASRProviderID.senseVoice {
                 let installedURL = try await senseVoiceModelDownloader.download { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard SenseVoiceModel.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markSenseVoiceModelReady(at: installedURL.path)
                 load()
@@ -875,15 +1090,19 @@ final class ASRProviderViewModel: ObservableObject {
                 lastActionMessage = "本地模型下载完成"
             } else if id == ASRProviderID.paraformer {
                 let installedURL = try await paraformerModelDownloader.download { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard ParaformerModel.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markParaformerModelReady(at: installedURL.path)
                 load()
@@ -891,15 +1110,19 @@ final class ASRProviderViewModel: ObservableObject {
                 lastActionMessage = "本地模型下载完成"
             } else if id == ASRProviderID.nvidiaNemotron {
                 let installedURL = try await nvidiaNemotronModelDownloader.download { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard NVIDIANemotronModel.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markNVIDIANemotronModelReady(at: installedURL.path)
                 load()
@@ -907,15 +1130,19 @@ final class ASRProviderViewModel: ObservableObject {
                 lastActionMessage = "本地模型下载完成"
             } else if id == ASRProviderID.parakeetStreaming {
                 let installedURL = try await parakeetModelDownloader.download { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard ParakeetModel.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markParakeetModelReady(at: installedURL.path)
                 load()
@@ -923,15 +1150,19 @@ final class ASRProviderViewModel: ObservableObject {
                 lastActionMessage = "本地模型下载完成"
             } else if id == ASRProviderID.omnilingualASR {
                 let installedURL = try await omnilingualModelDownloader.download { [weak self] update in
-                    self?.downloadProgress = Qwen3ModelDownloadProgress(
-                        fileIndex: 0,
-                        fileCount: 1,
-                        fileName: update.status,
-                        fileProgress: update.fractionCompleted
+                    self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.status,
+                        statusText: update.status,
+                        fractionCompleted: update.fractionCompleted
                     )
                 }
                 guard OmnilingualModel.modelsExist(at: installedURL, fileManager: fileManager) else {
                     throw ASREngineError.modelNotLoaded
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
                 }
                 asrManager.markOmnilingualModelReady(at: installedURL.path)
                 load()
@@ -942,18 +1173,55 @@ final class ASRProviderViewModel: ObservableObject {
                 return
             }
             Self.logger.info("asr_provider_vm_download_model_success id=\(id)")
+            finishDownloadTracking(providerID: id)
         } catch {
-            if cleanupRequestedProviderIDs.remove(id) != nil {
-                lastError = nil
-                if lastActionMessage == nil {
-                    lastActionMessage = "已删除本地模型"
-                }
-                Self.logger.info("asr_provider_vm_download_model_cancelled_after_cleanup id=\(id)")
+            if shouldIgnoreDownloadFailure(operation) {
                 return
             }
             lastError = error.localizedDescription
             Self.logger.error("asr_provider_vm_download_model_failed id=\(id) error=\(error.localizedDescription)")
+            failDownloadTracking(providerID: id, error: error)
         }
+    }
+
+    private func shouldApplyDownloadResult(_ operation: ModelDownloadOperation) -> Bool {
+        if cleanupRequestedDownloadIDs.remove(operation.id) != nil {
+            lastError = nil
+            if lastActionMessage == nil {
+                lastActionMessage = "已删除本地模型"
+            }
+            Self.logger.info(
+                "asr_provider_vm_download_model_ignored_after_cleanup id=\(operation.providerID)"
+            )
+            return false
+        }
+        guard activeDownloadOperation == operation else {
+            Self.logger.info(
+                "asr_provider_vm_download_model_ignored_stale_operation id=\(operation.providerID)"
+            )
+            return false
+        }
+        return true
+    }
+
+    private func shouldIgnoreDownloadFailure(_ operation: ModelDownloadOperation) -> Bool {
+        if cleanupRequestedDownloadIDs.remove(operation.id) != nil {
+            lastError = nil
+            if lastActionMessage == nil {
+                lastActionMessage = "已删除本地模型"
+            }
+            Self.logger.info(
+                "asr_provider_vm_download_model_cancelled_after_cleanup id=\(operation.providerID)"
+            )
+            return true
+        }
+        guard activeDownloadOperation == operation else {
+            Self.logger.info(
+                "asr_provider_vm_download_model_ignored_stale_failure id=\(operation.providerID)"
+            )
+            return true
+        }
+        return false
     }
 
     func deleteLocalQwenModel() {
@@ -968,14 +1236,56 @@ final class ASRProviderViewModel: ObservableObject {
         Self.logger.info("asr_provider_vm_delete_local_model_start id=\(id) engine=\(fallbackEngine.rawValue)")
         let urlsToDelete = modelDeletionURLs(id: id)
         if isDownloading, downloadingProviderID == id {
-            cleanupRequestedProviderIDs.insert(id)
-            isDownloading = false
-            downloadingProviderID = nil
-            downloadProgress = nil
-            if id == ASRProviderID.qwen3 {
-                Task { await downloader.cancelDownload() }
+            if let operation = activeDownloadOperation, operation.providerID == id {
+                cleanupRequestedDownloadIDs.insert(operation.id)
+                activeDownloadOperation = nil
             }
+            downloadProgress = ModelDownloadProgressViewState(
+                providerID: id,
+                componentName: "清理模型",
+                statusText: "正在取消下载并清理模型",
+                fractionCompleted: nil,
+                bytesWritten: nil,
+                totalBytes: nil,
+                totalModelBytes: nil,
+                speedBytesPerSecond: nil
+            )
+            Task { @MainActor in
+                await cancelActiveDownload(id: id)
+                completeLocalModelDeletion(
+                    id: id,
+                    fallbackEngine: fallbackEngine,
+                    urlsToDelete: urlsToDelete
+                )
+                isDownloading = false
+                downloadingProviderID = nil
+                downloadProgress = nil
+            }
+            return
         }
+        completeLocalModelDeletion(
+            id: id,
+            fallbackEngine: fallbackEngine,
+            urlsToDelete: urlsToDelete
+        )
+    }
+
+    private func cancelActiveDownload(id: String) async {
+        switch id {
+        case ASRProviderID.qwen3:
+            await downloader.cancelDownload()
+        case ASRProviderID.funASR:
+            await sherpaModelDownloader.cancelDownload()
+        default:
+            break
+        }
+    }
+
+    private func completeLocalModelDeletion(
+        id: String,
+        fallbackEngine: ASREngineType,
+        urlsToDelete: [URL]
+    ) {
         asrManager.markModelDeleting(for: fallbackEngine)
         load()
         do {
@@ -983,7 +1293,7 @@ final class ASRProviderViewModel: ObservableObject {
                 try fileManager.removeItem(at: url)
             }
             if id == ASRProviderID.qwen3 {
-                asrManager.qwen3ModelPath = nil
+                asrManager.clearModelInstallationState(for: .qwen3)
             } else {
                 asrManager.clearModelInstallationState(for: fallbackEngine)
             }
@@ -1006,9 +1316,21 @@ final class ASRProviderViewModel: ObservableObject {
 
     private func modelDeletionURLs(id: String) -> [URL] {
         if id == ASRProviderID.qwen3 {
-            return asrManager.qwen3ModelDeletionURLs(for: asrManager.qwen3ModelSize)
+            return ASRManager.ModelSize.allCases
+                .flatMap { asrManager.qwen3ModelDeletionURLs(for: $0) }
+                .reduce(into: []) { result, url in
+                    guard !result.contains(url) else { return }
+                    result.append(url)
+                }
         }
-        return modelPath(id: id).map { [URL(fileURLWithPath: $0, isDirectory: true)] } ?? []
+        var urls = modelPath(id: id).map { [URL(fileURLWithPath: $0, isDirectory: true)] } ?? []
+        if let sherpaVariant = sherpaVariant(for: id) {
+            urls.append(sherpaVariant.partialArchiveURL)
+        }
+        return urls.reduce(into: []) { result, url in
+            guard !result.contains(url) else { return }
+            result.append(url)
+        }
     }
 
     func clearFeedback() {

@@ -113,6 +113,7 @@ enum HotKeyRouter {
 enum HotKeyShortcutRouting {
     static let aKeyCode: Int64 = 0x00
     static let dKeyCode: Int64 = 0x02
+    static let fKeyCode: Int64 = 0x03
     static let vKeyCode: Int64 = 0x09
     static let lKeyCode: Int64 = 0x25
     static let jKeyCode: Int64 = 0x26

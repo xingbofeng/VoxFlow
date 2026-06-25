@@ -47,7 +47,14 @@ final class FocusedTextObservationTests: XCTestCase {
         XCTAssertNil(tracker.recapture(matching: secure))
     }
 
-    func testFakeClockSupportsDefaultTwoFiveTenSecondPollSchedule() async {
+    func testDefaultPollScheduleObservesEverySecondForThirtySeconds() {
+        XCTAssertEqual(
+            CorrectionObservationPollSchedule.defaultOffsets,
+            (1...30).map { .seconds($0) }
+        )
+    }
+
+    func testFakeClockSupportsDefaultThirtySecondPollSchedule() async {
         let clock = FakeCorrectionObservationClock()
 
         for offset in CorrectionObservationPollSchedule.defaultOffsets {
@@ -55,7 +62,7 @@ final class FocusedTextObservationTests: XCTestCase {
         }
 
         let sleeps = await clock.sleeps
-        XCTAssertEqual(sleeps, [.seconds(2), .seconds(5), .seconds(10)])
+        XCTAssertEqual(sleeps, (1...30).map { .seconds($0) })
     }
 
     func testAccessibilityObserverCapsElementCache() throws {

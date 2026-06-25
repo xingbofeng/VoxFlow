@@ -17,6 +17,7 @@ public struct PasteCompletionWaiter {
         self.maxPollCount = max(0, maxPollCount)
     }
 
+    @MainActor
     public func waitForPasteWindow(
         on pasteboard: NSPasteboard,
         transaction: PasteboardTransaction,

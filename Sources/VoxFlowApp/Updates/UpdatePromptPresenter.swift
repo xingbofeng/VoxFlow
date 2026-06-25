@@ -3,8 +3,17 @@ import SwiftUI
 
 enum UpdatePromptAction {
     case download
-    case remindLater
+    case remindNextTime
+    case remindTomorrow
     case ignore
+}
+
+@MainActor
+protocol UpdatePromptPresenting: AnyObject {
+    func presentUpdateAvailable(release: RemoteRelease, currentVersion: String) async -> UpdatePromptAction
+    func presentUpToDate(currentVersion: String) async
+    func presentFailure() async
+    func dismissActivePromptAsNextTime()
 }
 
 struct UpdatePromptPresentation: Identifiable {
@@ -25,7 +34,7 @@ final class UpdatePromptPresentationStore: ObservableObject {
     private var continuation: CheckedContinuation<UpdatePromptAction, Never>?
 
     func present(_ presentation: UpdatePromptPresentation) async -> UpdatePromptAction {
-        finish(.remindLater)
+        finish(.remindNextTime)
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
             self.presentation = presentation
@@ -40,7 +49,7 @@ final class UpdatePromptPresentationStore: ObservableObject {
 }
 
 @MainActor
-final class UpdatePromptPresenter {
+final class UpdatePromptPresenter: UpdatePromptPresenting {
     private let presentationStore: UpdatePromptPresentationStore?
 
     init(presentationStore: UpdatePromptPresentationStore? = nil) {
@@ -53,8 +62,8 @@ final class UpdatePromptPresenter {
             message: Self.informativeText(for: release, currentVersion: currentVersion),
             iconName: "arrow.down.circle.fill",
             primaryTitle: "下载更新",
-            secondaryTitle: "稍后提醒",
-            destructiveTitle: "忽略此版本"
+            secondaryTitle: "明天提醒",
+            destructiveTitle: "跳过此版本"
         )
         let action = await present(presentation)
         if action == .download {
@@ -89,6 +98,11 @@ final class UpdatePromptPresenter {
         )
     }
 
+    func dismissActivePromptAsNextTime() {
+        presentationStore?.finish(.remindNextTime)
+        UpdatePromptWindowController.dismissActive(action: .remindNextTime)
+    }
+
     private func present(_ presentation: UpdatePromptPresentation) async -> UpdatePromptAction {
         if let presentationStore, presentationStore.isHostVisible {
             return await presentationStore.present(presentation)
@@ -109,12 +123,17 @@ final class UpdatePromptPresenter {
 }
 
 @MainActor
-private final class UpdatePromptWindowController: NSWindowController {
-    private var selectedAction: UpdatePromptAction = .remindLater
+private final class UpdatePromptWindowController: NSWindowController, NSWindowDelegate {
+    private static weak var activeController: UpdatePromptWindowController?
+    private var selectedAction: UpdatePromptAction = .remindNextTime
 
     static func run(presentation: UpdatePromptPresentation) -> UpdatePromptAction {
         let controller = UpdatePromptWindowController(presentation: presentation)
         return controller.run()
+    }
+
+    static func dismissActive(action: UpdatePromptAction) {
+        activeController?.finish(action)
     }
 
     private init(presentation: UpdatePromptPresentation) {
@@ -127,6 +146,7 @@ private final class UpdatePromptWindowController: NSWindowController {
         window.title = "VoxFlow 更新"
         window.isReleasedWhenClosed = false
         super.init(window: window)
+        window.delegate = self
         window.contentViewController = NSHostingController(
             rootView: UpdatePromptView(
                 presentation: presentation,
@@ -146,7 +166,11 @@ private final class UpdatePromptWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         WindowPlacementPolicy.centerOnMainScreen(window)
         window.makeKeyAndOrderFront(nil)
+        Self.activeController = self
         NSApp.runModal(for: window)
+        if Self.activeController === self {
+            Self.activeController = nil
+        }
         window.orderOut(nil)
         return selectedAction
     }
@@ -157,6 +181,11 @@ private final class UpdatePromptWindowController: NSWindowController {
             NSApp.stopModal()
             window.orderOut(nil)
         }
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        finish(.remindNextTime)
+        return false
     }
 }
 
@@ -170,7 +199,7 @@ struct UpdatePromptOverlayView: View {
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    onAction(.remindLater)
+                    onAction(.remindNextTime)
                 }
 
             UpdatePromptView(
@@ -184,7 +213,7 @@ struct UpdatePromptOverlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onExitCommand {
-            onAction(.remindLater)
+            onAction(.remindNextTime)
         }
     }
 }
@@ -194,50 +223,67 @@ private struct UpdatePromptView: View {
     let onAction: (UpdatePromptAction) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: presentation.iconName)
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(AppTheme.ColorToken.accent)
-                    .frame(width: 44, height: 44)
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: presentation.iconName)
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                        .frame(width: 44, height: 44)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(presentation.title)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(AppTheme.ColorToken.primaryText)
-                    Text(presentation.message)
-                        .font(.system(size: 13))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                }
-            }
-
-            HStack(spacing: 10) {
-                if let destructiveTitle = presentation.destructiveTitle {
-                    Button(destructiveTitle) {
-                        onAction(.ignore)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(presentation.title)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        Text(presentation.message)
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
                     }
-                    .buttonStyle(.bordered)
+                    .padding(.trailing, 28)
                 }
 
-                if let secondaryTitle = presentation.secondaryTitle {
-                    Button(secondaryTitle) {
-                        onAction(.remindLater)
+                HStack(spacing: 10) {
+                    if let destructiveTitle = presentation.destructiveTitle {
+                        Button(destructiveTitle) {
+                            onAction(.ignore)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
-                }
 
-                Button(presentation.primaryTitle) {
-                    onAction(presentation.primaryTitle == "下载更新" ? .download : .remindLater)
+                    if let secondaryTitle = presentation.secondaryTitle {
+                        Button(secondaryTitle) {
+                            onAction(.remindTomorrow)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Button(presentation.primaryTitle) {
+                        onAction(presentation.primaryTitle == "下载更新" ? .download : .remindNextTime)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(24)
+
+            Button {
+                onAction(.remindNextTime)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭")
+            .help("关闭，下次提醒")
+            .padding(16)
         }
-        .padding(24)
         .frame(width: 480)
         .background(Color(nsColor: .textBackgroundColor))
         .tint(AppTheme.ColorToken.accent)

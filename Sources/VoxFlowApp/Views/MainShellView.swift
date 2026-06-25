@@ -68,7 +68,7 @@ struct MainShellView: View {
         }
         .onDisappear {
             updatePromptStore.isHostVisible = false
-            updatePromptStore.finish(.remindLater)
+            updatePromptStore.finish(.remindNextTime)
             removeApplicationPointerMonitor()
         }
         .onReceive(homeViewModel.openHistoryDetailRequests) { id in
@@ -189,7 +189,8 @@ private struct WorkbenchDetailView: View {
                 onOpenPermissions: {
                     settingsViewModel.selectedSection = .dataPrivacy
                     route = .settings
-                }
+                },
+                onCheckForUpdates: onCheckForUpdates
             )
         }
     }

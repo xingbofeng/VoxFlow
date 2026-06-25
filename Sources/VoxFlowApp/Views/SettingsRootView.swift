@@ -345,7 +345,7 @@ struct SettingsRootView: View {
 
                     SettingsToggleRow(
                         title: "鼠标中键录音",
-                        subtitle: "开启后，按住鼠标中键说话，松开后转写并输入",
+                        subtitle: "点击鼠标中键开始录音，再次点击结束并输入",
                         systemImage: "computermouse",
                         tint: .blue,
                         isOn: middleMouseRecordingBinding
@@ -623,54 +623,6 @@ struct SettingsRootView: View {
                     subtitle: "第一期不会自动弹出动作卡，避免打扰现有阅读和输入流程",
                     systemImage: "hand.tap",
                     tint: .teal
-                )
-            }
-
-            SettingsGroupCard(
-                title: "启用方式",
-                subtitle: "默认手动唤起，不自动弹出",
-                systemImage: "keyboard",
-                tint: .purple
-            ) {
-                workflowShortcutRow(
-                    shortcut: .selectionAction,
-                    title: "划词动作",
-                    subtitle: "选中文本后按快捷键打开动作卡",
-                    systemImage: "text.cursor",
-                    tint: .teal
-                )
-
-                Divider()
-                    .padding(.leading, 70)
-
-                workflowShortcutRow(
-                    shortcut: .selectionTranslate,
-                    title: "直接翻译",
-                    subtitle: "选中文本后按快捷键直接打开翻译结果",
-                    systemImage: "translate",
-                    tint: .teal
-                )
-
-                Divider()
-                    .padding(.leading, 70)
-
-                workflowShortcutRow(
-                    shortcut: .selectionSummarize,
-                    title: "直接总结",
-                    subtitle: "选中文本后按快捷键直接生成总结",
-                    systemImage: "text.alignleft",
-                    tint: .orange
-                )
-
-                Divider()
-                    .padding(.leading, 70)
-
-                workflowShortcutRow(
-                    shortcut: .selectionAgent,
-                    title: "直接发给任务助手",
-                    subtitle: "选中文本后按快捷键直接交给任务助手",
-                    systemImage: "terminal",
-                    tint: AppTheme.ColorToken.accent
                 )
             }
 

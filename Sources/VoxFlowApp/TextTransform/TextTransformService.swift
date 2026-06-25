@@ -68,7 +68,8 @@ enum TextTransformPromptBuilder {
             text: request.text,
             systemPrompt: request.systemPrompt ?? systemPrompt(for: request.operation),
             model: nil,
-            temperature: request.temperature
+            temperature: request.temperature,
+            purpose: .directTask
         )
     }
 

@@ -60,11 +60,7 @@ public final class FocusedTextObservationTracker {
 }
 
 public enum CorrectionObservationPollSchedule {
-    public static let defaultOffsets: [Duration] = [
-        .seconds(2),
-        .seconds(5),
-        .seconds(10),
-    ]
+    public static let defaultOffsets: [Duration] = (1...30).map { .seconds($0) }
 }
 
 public protocol CorrectionObservationClock: Sendable {

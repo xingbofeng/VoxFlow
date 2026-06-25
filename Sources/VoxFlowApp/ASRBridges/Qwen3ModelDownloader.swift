@@ -32,6 +32,13 @@ protocol Qwen3ModelDownloading: Sendable {
         at directory: URL,
         fileManager: FileManager
     ) -> [String]
+
+    func supportedModelExists(
+        at directory: URL,
+        fileManager: FileManager
+    ) -> Bool
+
+    func expectedDownloadBytes(for size: ASRManager.ModelSize) -> Int64?
 }
 
 extension Qwen3ModelDownloading {
@@ -61,6 +68,22 @@ extension Qwen3ModelDownloading {
     ) -> [String] {
         Qwen3ModelManifest.manifest(for: size)
             .missingRequiredLocalPaths(at: directory, fileManager: fileManager)
+    }
+
+    func supportedModelExists(
+        at directory: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        Qwen3ModelManifest.supportedModelExists(at: directory, fileManager: fileManager)
+    }
+
+    func expectedDownloadBytes(for size: ASRManager.ModelSize) -> Int64? {
+        let manifest = Qwen3ModelManifest.manifest(for: size)
+        guard let metadata = try? Qwen3ModelStoreMetadata.metadata(for: manifest),
+              let modelStoreManifest = try? manifest.modelStoreManifest(metadata: metadata) else {
+            return nil
+        }
+        return modelStoreManifest.components.reduce(Int64(0)) { $0 + $1.expectedSizeBytes }
     }
 }
 

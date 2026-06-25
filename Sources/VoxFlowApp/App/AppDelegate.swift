@@ -274,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
     private var recordingFeedbackController: RecordingAudioFeedbackController!
+    private var capsLockRecordingIndicator: CapsLockRecordingIndicator!
     private var permissionGuideController: PermissionGuideWindowController?
     private var dictationOrchestrator: DictationOrchestrator!
     private var agentComposeHandler: DefaultAgentComposeHandler!
@@ -349,11 +350,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startSelectionTargetTracking()
         logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
+        capsLockRecordingIndicator = CapsLockRecordingIndicator.live()
         recordingFeedbackController = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true) ?? true },
             muteWhileRecordingEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioMuteWhileRecordingEnabled, defaultValue: false) ?? false },
+            capsLockIndicatorEnabled: { [weak self] in
+                self?.isSettingEnabled(
+                    SettingsSystemOption.capsLockIndicator.rawValue,
+                    defaultValue: SettingsSystemOption.capsLockIndicator.defaultValue
+                ) ?? SettingsSystemOption.capsLockIndicator.defaultValue
+            },
             playSound: { [weak self] event in self?.playFeedbackSound(event) },
-            setMuted: { [weak self] muted in self?.systemOutputMuter.setMuted(muted) }
+            setMuted: { [weak self] muted in self?.systemOutputMuter.setMuted(muted) },
+            setCapsLockIndicatorActive: { [weak self] active in
+                self?.capsLockRecordingIndicator.setActive(active)
+            }
         )
 
         setupStatusItem()
@@ -399,6 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeyFeatureController.stop()
         audioRecorder.stop()
         dictationOrchestrator.cancel()
+        capsLockRecordingIndicator?.setActive(false)
         agentDefaultOutputTask?.cancel()
         agentDispatchHandler?.cancel()
         clipboardAssetMonitor.stop()
@@ -1079,6 +1091,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     internalWriteGuard: runtime!.clipboardInternalWriteGuard,
                     repository: appEnvironment.assetRepository
                 ),
+                applicationProvider: FileSystemInstalledApplicationProvider(),
+                favoritesStore: UserDefaultsPaletteFavoritesStore(),
+                usageStore: UserDefaultsPaletteUsageStore(),
+                applicationLauncher: WorkspacePaletteApplicationLauncher(),
                 onCommand: { [weak self] command in
                     self?.handlePaletteCommand(command)
                 }
@@ -1322,6 +1338,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceTaskCoordinator.completeEphemeralWorkflow(lease)
         }
 
+        updateCheckCoordinator.dismissActivePromptAsNextTime()
+        windowCoordinator.dismissHomeDetailOverlay()
         let outcome = await screenshotOCRService.captureAndRecognize()
         guard !Task.isCancelled else { return }
         guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {

@@ -3,17 +3,21 @@ import AppKit
 public struct PasteboardTransaction {
     public let originalSnapshot: PasteboardSnapshot
     public let replacementChangeCount: Int
+    private let markInternalChangeCount: (Int) -> Void
 
     public static func begin(
         on pasteboard: NSPasteboard,
-        replacementText: String
+        replacementText: String,
+        markInternalChangeCount: @escaping (Int) -> Void = { _ in }
     ) -> PasteboardTransaction {
         let originalSnapshot = PasteboardSnapshot(items: pasteboard.pasteboardItems ?? [])
         pasteboard.clearContents()
         pasteboard.setString(replacementText, forType: .string)
+        markInternalChangeCount(pasteboard.changeCount)
         return PasteboardTransaction(
             originalSnapshot: originalSnapshot,
-            replacementChangeCount: pasteboard.changeCount
+            replacementChangeCount: pasteboard.changeCount,
+            markInternalChangeCount: markInternalChangeCount
         )
     }
 
@@ -28,6 +32,7 @@ public struct PasteboardTransaction {
         if !items.isEmpty {
             pasteboard.writeObjects(items)
         }
+        markInternalChangeCount(pasteboard.changeCount)
         return true
     }
 

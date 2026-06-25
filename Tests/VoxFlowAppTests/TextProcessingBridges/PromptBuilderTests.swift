@@ -4,9 +4,13 @@ import VoxFlowContextBoost
 
 final class PromptBuilderTests: XCTestCase {
     func testConservativePromptStaysShortForFastCorrection() {
-        XCTAssertLessThan(PromptBuilder.conservativeSystemPrompt.count, 450)
-        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("只输出正文"))
-        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("不要添加信息"))
+        XCTAssertLessThan(PromptBuilder.conservativeSystemPrompt.count, 360)
+        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("只输出处理后的正文"))
+        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("不要添加用户没有说过的信息"))
+        XCTAssertEqual(
+            PromptBuilder.conservativeSystemPrompt.components(separatedBy: "只输出").count - 1,
+            1
+        )
     }
 
     func testBuildIncludesStylePrompt() throws {
@@ -18,7 +22,7 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertEqual(prompt.temperature, style.temperature)
         XCTAssertNil(prompt.llmProviderID)
         XCTAssertTrue(prompt.systemPrompt.contains(style.prompt))
-        XCTAssertTrue(prompt.systemPrompt.contains("所选风格优先"))
+        XCTAssertTrue(prompt.systemPrompt.contains("有所选风格时按风格处理"))
     }
 
     func testBuildUsesEnabledStyleModelAndTemperatureOverrides() throws {
@@ -49,11 +53,16 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertEqual(prompt.temperature, 0.2)
     }
 
-    func testBuiltInPromptsContainCompleteOutputConstraints() throws {
+    func testBuiltInPromptsStayRuntimeFocused() throws {
         for style in BuiltInStyleCatalog.profiles(now: Date()) {
-            XCTAssertGreaterThan(style.prompt.count, 100, style.id)
-            XCTAssertTrue(style.prompt.contains("输出"), style.id)
-            XCTAssertTrue(style.prompt.contains("不要"), style.id)
+            XCTAssertGreaterThan(style.prompt.count, 50, style.id)
+            XCTAssertTrue(style.prompt.contains("风格："), style.id)
+            XCTAssertTrue(style.prompt.contains("- "), style.id)
+            XCTAssertFalse(style.prompt.contains("**用途**"), style.id)
+            XCTAssertFalse(style.prompt.contains("**与 LLM 纠错的关系**"), style.id)
+            XCTAssertFalse(style.prompt.contains("**不会改写的情况**"), style.id)
+            XCTAssertFalse(style.prompt.contains("输出只包含"), style.id)
+            XCTAssertFalse(style.prompt.contains("不要添加任何解释"), style.id)
         }
     }
 
@@ -75,9 +84,9 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertFalse(result.systemPrompt.contains("必须执行以下任务"))
         XCTAssertFalse(result.systemPrompt.contains("强制检查"))
         XCTAssertFalse(result.systemPrompt.contains("输出不得与输入完全相同"))
-        XCTAssertTrue(result.systemPrompt.contains("如果原文已经自然、准确、可直接使用，可以保持原文"))
+        XCTAssertTrue(result.systemPrompt.contains("原文已自然准确时保持原文"))
         XCTAssertFalse(result.systemPrompt.contains("小兔子乖乖"))
-        XCTAssertTrue(result.systemPrompt.contains("所选风格优先"))
+        XCTAssertTrue(result.systemPrompt.contains("有所选风格时按风格处理"))
         XCTAssertEqual(result.temperature, 0.6)
     }
 

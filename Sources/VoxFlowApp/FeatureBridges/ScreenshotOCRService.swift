@@ -438,7 +438,8 @@ final class ScreenshotOCRService {
                         text: inputJSON,
                         systemPrompt: Self.lineTranslationSystemPrompt,
                         model: nil,
-                        temperature: 0.2
+                        temperature: 0.2,
+                        purpose: .directTask
                     )
                 )
                 if let parsed = Self.parseLineTranslationResponse(raw, expectedCount: lines.count) {
@@ -496,7 +497,8 @@ final class ScreenshotOCRService {
                                 text: line.text,
                                 systemPrompt: Self.translationSystemPrompt,
                                 model: nil,
-                                temperature: 0.2
+                                temperature: 0.2,
+                                purpose: .directTask
                             )
                         )
                         completed[index] = translated.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -557,7 +559,8 @@ final class ScreenshotOCRService {
                     text: inputJSON,
                     systemPrompt: Self.lineTranslationSystemPrompt,
                     model: nil,
-                    temperature: 0.2
+                    temperature: 0.2,
+                    purpose: .directTask
                 )
             )
             if let parsed = Self.parseLineTranslationResponseMap(
@@ -591,7 +594,8 @@ final class ScreenshotOCRService {
                         text: line.text,
                         systemPrompt: Self.translationSystemPrompt,
                         model: nil,
-                        temperature: 0.2
+                        temperature: 0.2,
+                        purpose: .directTask
                     )
                 )
                 translatedLines.append(translated.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -677,7 +681,8 @@ final class ScreenshotOCRService {
                     text: result.originalText,
                     systemPrompt: Self.translationSystemPrompt,
                     model: nil,
-                    temperature: 0.2
+                    temperature: 0.2,
+                    purpose: .directTask
                 )
             )
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -725,7 +730,8 @@ final class ScreenshotOCRService {
                     text: result.originalText,
                     systemPrompt: Self.summarySystemPrompt,
                     model: nil,
-                    temperature: 0.2
+                    temperature: 0.2,
+                    purpose: .directTask
                 )
             )
             .trimmingCharacters(in: .whitespacesAndNewlines)

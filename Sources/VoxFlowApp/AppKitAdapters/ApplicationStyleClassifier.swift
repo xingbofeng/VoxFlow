@@ -32,7 +32,8 @@ final class LLMApplicationStyleClassifier: ApplicationStyleClassifying, @uncheck
                 \(candidates)
                 """,
                 model: nil,
-                temperature: nil
+                temperature: nil,
+                purpose: .directTask
             )
         )
         let selectedID = response.trimmingCharacters(in: .whitespacesAndNewlines)

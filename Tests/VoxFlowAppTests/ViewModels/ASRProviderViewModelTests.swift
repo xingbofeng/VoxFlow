@@ -682,6 +682,68 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
     }
 
+    func testDeleteQwenModelRemovesStagingForOtherModelSizes() throws {
+        let suiteName = "test.ASRProviderViewModel.qwen-cross-size-delete.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenCrossSizeDeleteTests-\(UUID().uuidString)", isDirectory: true)
+        let modelStoreRoot = root.appendingPathComponent("Models", isDirectory: true)
+        let stateRepository = FileModelInstallationStateRepository(
+            fileURL: modelStoreRoot.appendingPathComponent("installation-states.json")
+        )
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let previousManifest = Qwen3ModelManifest.manifest(for: .size1_7B)
+        let previousMetadata = try Qwen3ModelStoreMetadata.metadata(for: previousManifest)
+        let previousKey = ModelInstallKey(
+            modelID: previousMetadata.modelID,
+            version: previousMetadata.version
+        )
+        let previousStagingURL = ResumableModelDownloader.stagingRoot(
+            for: previousKey,
+            storeRoot: modelStoreRoot
+        )
+        try FileManager.default.createDirectory(at: previousStagingURL, withIntermediateDirectories: true)
+        try Data("partial".utf8).write(to: previousStagingURL.appendingPathComponent("model.safetensors"))
+
+        let manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: stateRepository,
+            credentialStore: ASRProviderViewModelTestCredentialStore(),
+            qwen3RuntimePreflight: { _ in .supported },
+            modelStoreRoot: modelStoreRoot
+        )
+        manager.qwen3ModelSize = .size0_6B
+        try stateRepository.save(
+            .downloading(
+                progress: ModelDownloadProgress(
+                    bytesWritten: 42,
+                    totalBytes: 100,
+                    componentID: ModelComponentID(rawValue: "model.safetensors")
+                )
+            ),
+            for: previousKey
+        )
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        viewModel.deleteLocalQwenModel()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: previousStagingURL.path))
+        XCTAssertEqual(try stateRepository.state(for: previousKey), .notInstalled)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+    }
+
     func testDeleteLocalFunASRModelClearsModelStoreStateAndRefreshesProvider() throws {
         let manager = makeManager()
         manager.funASRPrecision = .int8
@@ -711,6 +773,31 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
     }
 
+    func testDeleteLocalFunASRModelRemovesPartialArchive() throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        let partialURL = manager.funASRModelVariant.partialArchiveURL
+        try FileManager.default.createDirectory(
+            at: partialURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("partial".utf8).write(to: partialURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: partialURL)
+        }
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        viewModel.deleteLocalModel(id: ASRProviderID.funASR)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partialURL.path))
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+    }
+
     func testDownloadDoesNotSaveIncompleteModelDirectory() async throws {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
@@ -736,6 +823,99 @@ final class ASRProviderViewModelTests: XCTestCase {
             viewModel.lastError,
             "模型下载完成但缺少必要文件：model.safetensors、model.safetensors.index.json"
         )
+    }
+
+    func testLocalModelSizeSummaryShowsQwenManifestDownloadSize() throws {
+        let manager = makeManager()
+        manager.qwen3ModelSize = .size0_6B
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        XCTAssertEqual(
+            viewModel.localModelSizeSummary(providerID: ASRProviderID.qwen3),
+            "约 712.8 MB"
+        )
+    }
+
+    func testLocalModelSizeSummaryShowsAllLocalASRDownloadSizes() throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        manager.whisperVariant = .turbo
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.funASR), "约 841.7 MB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.whisper), "约 632 MB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.senseVoice), "约 1.65 GB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.paraformer), "约 653.2 MB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.nvidiaNemotron), "约 642.2 MB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.parakeetStreaming), "约 118.1 MB")
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.omnilingualASR), "约 326.9 MB")
+    }
+
+    func testQwenPartialDownloadShowsResumeOnlyForSelectedModelSize() throws {
+        let manager = makeManager()
+        manager.qwen3ModelSize = .size1_7B
+        manager.markModelDownloading(for: .qwen3, progress: partialDownloadProgress())
+        manager.qwen3ModelSize = .size0_6B
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        var qwenProvider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.qwen3 })
+        XCTAssertEqual(qwenProvider.localModelAction, .download)
+        XCTAssertEqual(qwenProvider.statusMessage, "尚未安装本地模型")
+
+        manager.qwen3ModelSize = .size1_7B
+        viewModel.load()
+
+        qwenProvider = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.qwen3 })
+        XCTAssertEqual(qwenProvider.localModelAction, .resume)
+        XCTAssertEqual(qwenProvider.statusMessage, "已下载 42%，可继续下载")
+        XCTAssertFalse(qwenProvider.isAvailable)
+    }
+
+    func testPartialLocalModelDownloadsShowResumeActionAndProgress() throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        manager.whisperVariant = .turbo
+        let partialProgress = partialDownloadProgress()
+        let providers: [(String, ASREngineType)] = [
+            (ASRProviderID.funASR, .funASR),
+            (ASRProviderID.whisper, .whisper),
+            (ASRProviderID.senseVoice, .senseVoice),
+            (ASRProviderID.paraformer, .paraformer),
+            (ASRProviderID.nvidiaNemotron, .nvidiaNemotron),
+            (ASRProviderID.parakeetStreaming, .parakeetStreaming),
+            (ASRProviderID.omnilingualASR, .omnilingualASR),
+        ]
+        for (_, engineType) in providers {
+            manager.markModelDownloading(for: engineType, progress: partialProgress)
+        }
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        for (providerID, _) in providers {
+            let provider = try XCTUnwrap(viewModel.providers.first { $0.id == providerID })
+            XCTAssertEqual(provider.localModelAction, .resume, providerID)
+            XCTAssertEqual(provider.statusMessage, "已下载 42%，可继续下载", providerID)
+            XCTAssertFalse(provider.isAvailable, providerID)
+        }
     }
 
     func testDownloadSavesModelStoreValidatedQwenRootWithoutLegacyPathShape() async throws {
@@ -885,6 +1065,73 @@ final class ASRProviderViewModelTests: XCTestCase {
         await second.value
     }
 
+    func testQwenDownloadPersistsPartialProgressForRequestedModelSize() async throws {
+        let manager = makeManager()
+        manager.qwen3ModelSize = .size1_7B
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenPartialProgressTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingQwen3ModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            downloader: downloader,
+            qwenReadinessPreparer: CapturingQwen3ViewModelReadinessPreparer()
+        )
+
+        let downloadTask = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.qwen3)
+        }
+        await downloader.waitUntilRequestCount(1)
+        manager.qwen3ModelSize = .size0_6B
+
+        XCTAssertEqual(manager.qwen3ModelInstallationState(for: .size0_6B), .notInstalled)
+        guard case let .downloading(progress) = manager.qwen3ModelInstallationState(for: .size1_7B) else {
+            return XCTFail("Expected Qwen 1.7B partial download state")
+        }
+        XCTAssertEqual(progress.fractionCompleted ?? 0, 0.1, accuracy: 0.001)
+
+        await downloader.finishAll()
+        await downloadTask.value
+    }
+
+    func testWhisperDownloadPersistsPartialProgressForResumeDisplay() async throws {
+        let manager = makeManager()
+        manager.whisperVariant = .turbo
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("WhisperPartialProgressTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableWhisperModelDirectory(at: modelURL, variant: .turbo)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingWhisperKitModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            whisperKitModelDownloader: downloader
+        )
+
+        let downloadTask = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.whisper)
+        }
+        await downloader.waitUntilRequestCount(1)
+
+        guard case let .downloading(progress) = manager.whisperModelInstallationState(for: .turbo) else {
+            return XCTFail("Expected Whisper partial download state")
+        }
+        XCTAssertEqual(progress.fractionCompleted ?? 0, 0.1, accuracy: 0.001)
+
+        await downloader.finishAll()
+        await downloadTask.value
+    }
+
     func testDeleteQwenDuringDownloadReenablesCleanupAndDownloadControls() async throws {
         let manager = makeManager()
         manager.qwen3ModelSize = .size1_7B
@@ -912,6 +1159,7 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isDownloading)
 
         viewModel.deleteLocalQwenModel()
+        await waitUntil { !viewModel.isDownloading }
 
         XCTAssertFalse(viewModel.isDownloading)
         XCTAssertNil(viewModel.downloadingProviderID)
@@ -921,6 +1169,78 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         await downloader.finishAll()
         await downloadTask.value
+    }
+
+    func testDeletedQwenDownloadDoesNotMarkModelReadyAfterItFinishes() async throws {
+        let manager = makeManager()
+        manager.qwen3ModelSize = .size1_7B
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QwenDeletedDownloadCompletes-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingQwen3ModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            downloader: downloader,
+            qwenReadinessPreparer: CapturingQwen3ViewModelReadinessPreparer()
+        )
+
+        let downloadTask = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.qwen3)
+        }
+        await downloader.waitUntilRequestCount(1)
+
+        viewModel.deleteLocalQwenModel()
+        await waitUntil { !viewModel.isDownloading }
+        manager.qwen3ModelSize = .size0_6B
+        await downloader.finishAll()
+        await downloadTask.value
+
+        XCTAssertNil(manager.qwen3ModelPath)
+        XCTAssertEqual(manager.qwen3ModelSize, .size0_6B)
+        XCTAssertFalse(manager.isQwen3ModelAvailable)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
+    }
+
+    func testDeleteFunASRDuringDownloadCancelsAndIgnoresCompletedResult() async throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FunASRDeletedDownloadCompletes-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = BlockingSherpaASRModelDownloader(downloadedURL: modelURL)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            sherpaModelDownloader: downloader
+        )
+
+        let downloadTask = Task { @MainActor in
+            await viewModel.downloadModel(id: ASRProviderID.funASR)
+        }
+        await downloader.waitUntilRequestCount(1)
+
+        viewModel.deleteLocalModel(id: ASRProviderID.funASR)
+        await waitUntil { !viewModel.isDownloading }
+        let cancelCount = await downloader.cancelCountSnapshot()
+        XCTAssertEqual(cancelCount, 1)
+
+        await downloader.finishAll()
+        await downloadTask.value
+
+        XCTAssertFalse(manager.isFunASRModelAvailable)
+        XCTAssertEqual(manager.funASRModelInstallationState(for: .int8), .notInstalled)
+        XCTAssertEqual(viewModel.lastActionMessage, "已删除本地模型")
     }
 
     func testDownloadFunASRMarksModelStoreReadyState() async throws {
@@ -949,6 +1269,45 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.funASR })?.isAvailable ?? false)
         XCTAssertNil(viewModel.lastError)
         XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
+    }
+
+    func testDownloadFunASRPublishesDownloadedBytes() async throws {
+        let manager = makeManager()
+        manager.funASRPrecision = .int8
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FunASRProgressTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFunASRModelDirectory(at: modelURL, variant: .int8)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = StubSherpaASRModelDownloader(
+            downloadedURL: modelURL,
+            progressUpdates: [
+                .init(
+                    fractionCompleted: 0.42,
+                    status: "下载 sherpa-onnx-funasr-nano-int8-2025-12-30.tar.bz2",
+                    bytesWritten: 42,
+                    totalBytes: 100
+                ),
+            ]
+        )
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            sherpaModelDownloader: downloader
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.funASR)
+
+        let progress = try XCTUnwrap(viewModel.downloadProgress)
+        XCTAssertEqual(progress.bytesWritten, 42)
+        XCTAssertEqual(progress.totalBytes, 100)
+        XCTAssertTrue(progress.detailText.contains("42"))
+        XCTAssertTrue(progress.detailText.contains("100"))
+        XCTAssertTrue(progress.detailText.contains("42%"))
+        XCTAssertEqual(progress.modelSizeText, "模型大小 841.7 MB")
     }
 
     func testDownloadSenseVoiceMarksModelStoreReadyState() async throws {
@@ -1056,6 +1415,25 @@ final class ASRProviderViewModelTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
+    }
+
+    private func partialDownloadProgress() -> ModelDownloadProgress {
+        ModelDownloadProgress(
+            bytesWritten: 42,
+            totalBytes: 100,
+            componentID: ModelComponentID(rawValue: "model.safetensors")
+        )
+    }
+
+    private func waitUntil(
+        _ condition: () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        for _ in 0..<100 where !condition() {
+            await Task.yield()
+        }
+        XCTAssertTrue(condition(), file: file, line: line)
     }
 
     private func createIncompleteQwenDirectory(at modelURL: URL) throws {
@@ -1301,7 +1679,40 @@ private actor BlockingWhisperKitModelDownloader: WhisperKitModelDownloading {
 
 private actor StubSherpaASRModelDownloader: SherpaASRModelDownloading {
     private let downloadedURL: URL
+    private let progressUpdates: [SherpaASRModelDownloadProgress]
     private var variants: [SherpaASRModelVariant] = []
+
+    init(
+        downloadedURL: URL,
+        progressUpdates: [SherpaASRModelDownloadProgress] = [.init(fractionCompleted: 1, status: "模型已就绪")]
+    ) {
+        self.downloadedURL = downloadedURL
+        self.progressUpdates = progressUpdates
+    }
+
+    func download(
+        variant: SherpaASRModelVariant,
+        progress: @escaping @MainActor @Sendable (SherpaASRModelDownloadProgress) -> Void
+    ) async throws -> URL {
+        variants.append(variant)
+        for update in progressUpdates {
+            await progress(update)
+        }
+        return downloadedURL
+    }
+
+    func requestedVariants() -> [SherpaASRModelVariant] {
+        variants
+    }
+}
+
+private actor BlockingSherpaASRModelDownloader: SherpaASRModelDownloading {
+    private let downloadedURL: URL
+    private var requestCount = 0
+    private var cancelCount = 0
+    private var requestCountWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var released = false
 
     init(downloadedURL: URL) {
         self.downloadedURL = downloadedURL
@@ -1311,13 +1722,47 @@ private actor StubSherpaASRModelDownloader: SherpaASRModelDownloading {
         variant: SherpaASRModelVariant,
         progress: @escaping @MainActor @Sendable (SherpaASRModelDownloadProgress) -> Void
     ) async throws -> URL {
-        variants.append(variant)
-        await progress(.init(fractionCompleted: 1, status: "模型已就绪"))
+        requestCount += 1
+        resumeSatisfiedRequestCountWaiters()
+        await progress(.init(fractionCompleted: 0.1, status: "下载中", bytesWritten: 42, totalBytes: 100))
+        await waitForRelease()
+        await progress(.init(fractionCompleted: 1, status: "模型已就绪", bytesWritten: 100, totalBytes: 100))
         return downloadedURL
     }
 
-    func requestedVariants() -> [SherpaASRModelVariant] {
-        variants
+    func cancelDownload() async {
+        cancelCount += 1
+    }
+
+    func waitUntilRequestCount(_ expected: Int) async {
+        if requestCount >= expected { return }
+        await withCheckedContinuation { continuation in
+            requestCountWaiters.append((expected, continuation))
+        }
+    }
+
+    func cancelCountSnapshot() -> Int {
+        cancelCount
+    }
+
+    func finishAll() {
+        released = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
+    private func waitForRelease() async {
+        if released { return }
+        await withCheckedContinuation { continuation in
+            releaseContinuations.append(continuation)
+        }
+    }
+
+    private func resumeSatisfiedRequestCountWaiters() {
+        let satisfied = requestCountWaiters.filter { requestCount >= $0.0 }
+        requestCountWaiters.removeAll { requestCount >= $0.0 }
+        satisfied.forEach { $0.1.resume() }
     }
 }
 

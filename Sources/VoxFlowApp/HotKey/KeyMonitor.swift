@@ -103,17 +103,16 @@ struct MouseShortcutButtonState {
         buttonNumber: Int64,
         isPressed: Bool
     ) -> HotKeyTransition? {
+        guard isPressed else {
+            return nil
+        }
+
         guard let activeButtonNumber else {
-            guard isPressed else { return nil }
             self.activeButtonNumber = buttonNumber
             return .pressed
         }
 
         guard activeButtonNumber == buttonNumber else {
-            return nil
-        }
-
-        guard !isPressed else {
             return nil
         }
 

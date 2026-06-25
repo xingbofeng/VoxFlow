@@ -34,6 +34,26 @@ final class PasteboardTransactionTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "user copied after paste")
     }
 
+    func testTransactionReportsReplacementAndRestoreChangeCounts() throws {
+        let pasteboard = try makePasteboard()
+        var markedChangeCounts: [Int] = []
+        pasteboard.clearContents()
+        pasteboard.setString("original clipboard", forType: .string)
+
+        let transaction = PasteboardTransaction.begin(
+            on: pasteboard,
+            replacementText: "voxflow inserted text",
+            markInternalChangeCount: { markedChangeCounts.append($0) }
+        )
+        let replacementChangeCount = pasteboard.changeCount
+
+        XCTAssertEqual(markedChangeCounts, [replacementChangeCount])
+        XCTAssertTrue(transaction.restoreOriginalIfUnchanged(on: pasteboard))
+        XCTAssertEqual(markedChangeCounts, [replacementChangeCount, pasteboard.changeCount])
+        XCTAssertEqual(pasteboard.string(forType: .string), "original clipboard")
+    }
+
+    @MainActor
     func testWaiterReturnsWhenPasteboardChangesDuringPolling() async throws {
         let pasteboard = try makePasteboard()
         pasteboard.clearContents()

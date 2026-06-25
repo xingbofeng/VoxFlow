@@ -11,10 +11,11 @@
   --accent: #07806a;
   --accent-strong: #00a982;
   --accent-soft: #dcf4ec;
+  --accent-line: rgba(7, 128, 106, .22);
   --amber: #f7b928;
-  --shadow: 0 26px 80px rgba(8, 69, 54, .14);
-  --display: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-  --body: Avenir, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 24px 72px rgba(8, 69, 54, .13);
+  --display: "SF Pro Display", "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
   --shell: min(1220px, calc(100vw - 48px));
 }
 
@@ -28,8 +29,8 @@ body {
   overflow-x: hidden;
   color: var(--ink);
   background:
-    linear-gradient(180deg, rgba(255,255,255,.94), rgba(246,251,248,0) 580px),
-    radial-gradient(circle at 82% 16%, rgba(0,169,130,.12), transparent 32rem),
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(246,251,248,0) 560px),
+    radial-gradient(circle at 82% 16%, rgba(0,169,130,.105), transparent 32rem),
     var(--page);
   font-family: var(--body);
   -webkit-font-smoothing: antialiased;
@@ -119,6 +120,11 @@ button { font: inherit; }
   background: rgba(255,255,255,.72);
   box-shadow: 0 10px 28px rgba(8, 69, 54, .08);
   backdrop-filter: blur(18px);
+  transition:
+    transform .2s ease,
+    border-color .2s ease,
+    background .2s ease,
+    box-shadow .2s ease;
 }
 .nav-links a {
   padding: 0 16px;
@@ -148,6 +154,7 @@ button { font: inherit; }
 .language-switch:hover {
   border-color: rgba(7,128,106,.24);
   background: #fff;
+  box-shadow: 0 14px 32px rgba(8, 69, 54, .1);
   transform: translateY(-1px);
 }
 
@@ -176,6 +183,11 @@ h2 {
   font-family: var(--display);
   letter-spacing: -.058em;
 }
+html[lang="zh-CN"] h1,
+html[lang="zh-CN"] h2 {
+  font-family: "PingFang SC", "SF Pro Display", "Avenir Next", sans-serif;
+  letter-spacing: -.025em;
+}
 h1 {
   max-width: 10.8em;
   font-size: clamp(44px, 4.65vw, 64px);
@@ -185,6 +197,7 @@ h1 {
 html[lang="zh-CN"] h1 {
   max-width: 8.8em;
   font-size: clamp(43px, 4.25vw, 60px);
+  line-height: 1.04;
 }
 .lead {
   max-width: 520px;
@@ -192,6 +205,28 @@ html[lang="zh-CN"] h1 {
   color: var(--muted);
   font-size: clamp(17px, 1.55vw, 20px);
   line-height: 1.72;
+}
+.hero-badges {
+  max-width: 520px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 22px;
+}
+.hero-badges span {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(7, 128, 106, .14);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #33524b;
+  background: rgba(255, 255, 255, .64);
+  box-shadow: 0 10px 24px rgba(8, 69, 54, .06);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: .02em;
+  backdrop-filter: blur(14px);
 }
 .hero-actions {
   display: flex;
@@ -269,8 +304,8 @@ html[lang="zh-CN"] h1 {
   display: block;
   width: min(790px, 104%);
   height: auto;
-  filter: drop-shadow(0 34px 74px rgba(8, 69, 54, .14));
-  animation: floatPreview 7s ease-in-out infinite;
+  filter: drop-shadow(0 32px 68px rgba(8, 69, 54, .14));
+  animation: floatPreview 7.5s ease-in-out infinite;
 }
 
 .capabilities {
@@ -287,7 +322,7 @@ html[lang="zh-CN"] h1 {
 .privacy {
   border: 1px solid var(--line);
   background: var(--paper);
-  box-shadow: 0 18px 58px rgba(8, 69, 54, .08);
+  box-shadow: 0 16px 48px rgba(8, 69, 54, .075);
   backdrop-filter: blur(20px);
 }
 .capabilities article {
@@ -497,10 +532,10 @@ h2 {
 
 .motion {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translateY(20px);
   transition:
-    opacity .8s cubic-bezier(.22, 1, .36, 1),
-    transform .8s cubic-bezier(.22, 1, .36, 1);
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1);
 }
 .motion.is-visible {
   opacity: 1;
@@ -518,7 +553,7 @@ h2 {
 
 @keyframes floatPreview {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
 }
 
 @media (max-width: 1120px) {
@@ -555,108 +590,201 @@ h2 {
 
 @media (max-width: 760px) {
   :root {
-    --shell: min(100% - 28px, 620px);
+    --shell: min(100% - 32px, 620px);
   }
   .nav {
-    min-height: 112px;
-    gap: 10px;
-    padding: 12px 0;
+    min-height: 96px;
+    gap: 8px;
+    padding: 10px 0 8px;
   }
   .brand img {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
   }
   .brand span {
     display: grid;
     line-height: 1.08;
   }
   .nav-links {
-    gap: 7px;
+    gap: 6px;
   }
   .nav-links a {
-    min-height: 38px;
-    padding: 0 8px;
-    font-size: 12px;
+    min-height: 34px;
+    padding: 0 7px;
+    font-size: 11.5px;
+    box-shadow: 0 8px 20px rgba(8, 69, 54, .06);
   }
   .ghost-link {
     display: none;
   }
   .language-switch {
-    width: 40px;
-    min-height: 40px;
+    width: 38px;
+    min-height: 38px;
+    box-shadow: 0 8px 20px rgba(8, 69, 54, .06);
   }
   .hero {
-    gap: 28px;
-    padding: 24px 0 36px;
+    gap: 22px;
+    padding: 18px 0 30px;
+  }
+  .eyebrow {
+    margin-bottom: 12px;
+    font-size: 11px;
+    letter-spacing: .12em;
   }
   h1,
   html[lang="zh-CN"] h1 {
-    max-width: 9em;
-    font-size: clamp(38px, 10.8vw, 52px);
+    max-width: 9.4em;
+    font-size: clamp(34px, 9.8vw, 46px);
+    line-height: 1.04;
+    letter-spacing: -.046em;
   }
   .lead {
-    margin-top: 18px;
+    margin-top: 16px;
     font-size: 16px;
+    line-height: 1.66;
+  }
+  .hero-badges {
+    gap: 7px;
+    margin-top: 16px;
+  }
+  .hero-badges span {
+    min-height: 29px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    box-shadow: 0 8px 18px rgba(8, 69, 54, .055);
   }
   .hero-actions {
-    margin-top: 24px;
+    gap: 11px;
+    margin-top: 20px;
     align-items: flex-start;
     flex-direction: column;
   }
   .download-button {
-    width: min(100%, 312px);
+    width: min(100%, 304px);
     min-width: 0;
+    padding: 13px 18px;
+    box-shadow: 0 16px 44px rgba(8, 69, 54, .2);
+  }
+  .release-note {
+    margin-left: 2px;
   }
   .hero-stage {
-    width: 100vw;
-    margin: 0 calc(50% - 50vw);
+    width: calc(100% + 18px);
+    margin: 2px -9px 0;
+    border-radius: 22px;
+    background: rgba(255,255,255,.58);
+    box-shadow: 0 20px 54px rgba(8, 69, 54, .09);
     overflow: hidden;
   }
+  .hero-stage::after {
+    inset: auto 12% 4% 14%;
+    height: 18%;
+    filter: blur(24px);
+  }
   .hero-stage img {
-    width: 100vw;
+    width: 112%;
     max-width: none;
-    margin-left: 0;
+    margin-left: -6%;
+    filter: drop-shadow(0 18px 38px rgba(8, 69, 54, .12));
   }
   .capabilities {
     grid-template-columns: 1fr;
-    margin-top: -12px;
-    padding-bottom: 74px;
+    gap: 11px;
+    margin-top: 2px;
+    padding-bottom: 62px;
+  }
+  .capabilities article {
+    min-height: auto;
+    padding: 19px;
+    border-radius: 18px;
   }
   .section {
-    padding: 78px 0;
+    padding: 70px 0;
+  }
+  .section-heading {
+    margin-bottom: 26px;
   }
   h2 {
-    font-size: clamp(36px, 10vw, 50px);
+    font-size: clamp(32px, 8.8vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -.046em;
   }
   .workflow-grid,
   .shortcut-grid {
     grid-template-columns: 1fr;
   }
   .workflow-card {
-    min-height: 250px;
+    min-height: auto;
+    padding: 22px;
+    border-radius: 20px;
+  }
+  .workflow-card h3 {
+    margin: 42px 0 12px;
+    font-size: 22px;
+    line-height: 1.18;
   }
   .guide,
   .privacy {
     grid-template-columns: 1fr;
-    gap: 26px;
-    padding: 26px;
-    border-radius: 24px;
+    gap: 22px;
+    padding: 22px;
+    border-radius: 20px;
+  }
+  .guide-copy p:last-child,
+  .privacy p:last-child {
+    font-size: 16px;
+    line-height: 1.68;
+  }
+  .guide-list {
+    gap: 10px;
+  }
+  .guide-list li {
+    min-height: auto;
+    padding: 16px 16px 16px 58px;
+    border-radius: 16px;
+  }
+  .guide-list li::before {
+    left: 16px;
+    top: 16px;
+    width: 30px;
+    height: 30px;
   }
   .shortcuts {
-    min-height: 100dvh;
-    padding: 80px 0;
+    min-height: auto;
+    padding: 70px 0;
   }
   .shortcut-card {
-    min-height: 112px;
+    min-height: auto;
+    padding: 18px;
+    border-radius: 18px;
+  }
+  .shortcut-card kbd {
+    min-width: 34px;
+    height: 30px;
+    margin-bottom: 12px;
+    border-radius: 9px;
+    font-size: 13px;
   }
   .privacy {
-    margin-top: 76px;
+    margin-top: 64px;
   }
   .final-cta {
-    padding: 96px 0;
+    padding: 78px 0 84px;
+  }
+  .final-cta img {
+    width: 78px;
+    height: 78px;
+    margin-bottom: 22px;
+    border-radius: 20px;
+  }
+  .final-cta h2 {
+    margin-bottom: 28px;
+    font-size: clamp(34px, 9.5vw, 46px);
+    line-height: 1.06;
   }
   .footer {
     flex-direction: column;
+    padding-bottom: 34px;
   }
 }
 

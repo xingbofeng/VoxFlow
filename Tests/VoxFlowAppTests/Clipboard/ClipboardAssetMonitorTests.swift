@@ -1,6 +1,7 @@
 import AppKit
 import XCTest
 @testable import VoxFlowApp
+import VoxFlowTextInsertion
 
 final class ClipboardAssetMonitorTests: XCTestCase {
     func testInternalWriteGuardIgnoresMarkedChangeCount() {
@@ -52,6 +53,32 @@ final class ClipboardAssetMonitorTests: XCTestCase {
     }
 
     @MainActor
+    func testMonitorPersistsContentFromFirstSupportedPasteboardItem() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: ClipboardInternalWriteGuard()
+        )
+        let metadataItem = NSPasteboardItem()
+        metadataItem.setString(
+            "copy-button-metadata",
+            forType: NSPasteboard.PasteboardType("com.example.copy-button.metadata")
+        )
+        let textItem = NSPasteboardItem()
+        textItem.setString("copied from another app button", forType: .string)
+
+        pasteboard.clearContents()
+        pasteboard.writeObjects([metadataItem, textItem])
+
+        let item = try monitor.processIfChanged(now: date("2026-06-23T10:00:00Z"))
+
+        XCTAssertEqual(item?.text, "copied from another app button")
+        XCTAssertEqual(repository.savedItems.map(\.id), [item?.id])
+    }
+
+    @MainActor
     func testMonitorIgnoresInternalVoxFlowWrites() throws {
         let pasteboard = try makePasteboard()
         let repository = CapturingAssetRepository()
@@ -71,7 +98,80 @@ final class ClipboardAssetMonitorTests: XCTestCase {
     }
 
     @MainActor
-    func testMonitorIgnoresUniversalClipboardWrites() throws {
+    func testMonitorIgnoresFastPasteReplacementAndRestoreWrites() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        let guarder = ClipboardInternalWriteGuard()
+        pasteboard.clearContents()
+        pasteboard.setString("original clipboard", forType: .string)
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: guarder
+        )
+
+        let transaction = PasteboardTransaction.begin(
+            on: pasteboard,
+            replacementText: "corrected dictation text",
+            markInternalChangeCount: { guarder.markInternalWrite(changeCount: $0) }
+        )
+        let replacementItem = try monitor.processIfChanged(now: date("2026-06-23T10:00:00Z"))
+
+        XCTAssertNil(replacementItem)
+        XCTAssertTrue(repository.savedItems.isEmpty)
+
+        XCTAssertTrue(transaction.restoreOriginalIfUnchanged(on: pasteboard))
+        let restoredItem = try monitor.processIfChanged(now: date("2026-06-23T10:01:00Z"))
+
+        XCTAssertNil(restoredItem)
+        XCTAssertTrue(repository.savedItems.isEmpty)
+    }
+
+    @MainActor
+    func testFastPasteInternalWritesDoNotChangeHomeAssetStatistics() throws {
+        let pasteboard = try makePasteboard()
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        let guarder = ClipboardInternalWriteGuard()
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: environment.assetRepository,
+            internalWriteGuard: guarder
+        )
+        let viewModel = HomeDashboardViewModel(environment: environment)
+
+        pasteboard.clearContents()
+        pasteboard.setString("user clipboard before dictation", forType: .string)
+        try monitor.processIfChanged(now: date("2026-06-23T10:00:00Z"))
+
+        viewModel.load()
+        XCTAssertEqual(viewModel.stats.totalAssets, 1)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(clipboard: 1))
+
+        let transaction = PasteboardTransaction.begin(
+            on: pasteboard,
+            replacementText: "corrected dictation text",
+            markInternalChangeCount: { guarder.markInternalWrite(changeCount: $0) }
+        )
+        try monitor.processIfChanged(now: date("2026-06-23T10:01:00Z"))
+        XCTAssertTrue(transaction.restoreOriginalIfUnchanged(on: pasteboard))
+        try monitor.processIfChanged(now: date("2026-06-23T10:02:00Z"))
+
+        viewModel.load()
+        XCTAssertEqual(viewModel.stats.totalAssets, 1)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(clipboard: 1))
+
+        pasteboard.clearContents()
+        pasteboard.setString("user clipboard after dictation", forType: .string)
+        try monitor.processIfChanged(now: date("2026-06-23T10:03:00Z"))
+
+        viewModel.load()
+        XCTAssertEqual(viewModel.stats.totalAssets, 2)
+        XCTAssertEqual(viewModel.stats.sourceBreakdown, HomeSourceBreakdown(clipboard: 2))
+    }
+
+    @MainActor
+    func testMonitorPersistsUniversalClipboardWrites() throws {
         let pasteboard = try makePasteboard()
         let repository = CapturingAssetRepository()
         let monitor = ClipboardAssetMonitor(
@@ -88,8 +188,10 @@ final class ClipboardAssetMonitorTests: XCTestCase {
 
         let asset = try monitor.processIfChanged(now: date("2026-06-23T10:00:00Z"))
 
-        XCTAssertNil(asset)
-        XCTAssertTrue(repository.savedItems.isEmpty)
+        XCTAssertEqual(asset?.source, .clipboard)
+        XCTAssertEqual(asset?.contentType, .text)
+        XCTAssertEqual(asset?.text, "from another device")
+        XCTAssertEqual(repository.savedItems.map(\.id), [asset?.id])
     }
 
     @MainActor

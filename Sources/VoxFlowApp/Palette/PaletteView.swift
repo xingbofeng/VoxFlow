@@ -3,9 +3,11 @@ import SwiftUI
 
 struct PaletteView: View {
     @ObservedObject var viewModel: PaletteViewModel
+    @FocusState private var isSearchFocused: Bool
     var onCommand: (PaletteCommand) -> Void = { _ in }
     var onDefaultAction: (PaletteDefaultAction) -> Void = { _ in }
     var onAssetAction: (AssetAction, AssetItem) -> Void = { _, _ in }
+    var onOpenApplication: (String, PaletteRootItemID) -> Void = { _, _ in }
 
     private let homeSearchPlaceholder = "搜索应用、命令、资产..."
     private let assetSearchPlaceholder = "搜索资产..."
@@ -36,6 +38,12 @@ struct PaletteView: View {
             }
         }
         .frame(width: 760, height: 470)
+        .onAppear {
+            focusSearchField()
+        }
+        .onChange(of: viewModel.searchFocusRequestID) { _, _ in
+            focusSearchField()
+        }
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(nsColor: .windowBackgroundColor))
@@ -69,6 +77,7 @@ struct PaletteView: View {
             )
             .textFieldStyle(.plain)
             .font(.system(size: 23, weight: .regular))
+            .focused($isSearchFocused)
             .onSubmit {
                 performPrimaryAction()
             }
@@ -79,6 +88,13 @@ struct PaletteView: View {
         }
         .padding(.horizontal, 20)
         .frame(height: 58)
+    }
+
+    private func focusSearchField() {
+        isSearchFocused = false
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
     }
 
     @ViewBuilder
@@ -95,15 +111,17 @@ struct PaletteView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    SectionHeader("常用")
-                    if let firstResult = viewModel.homeResults.first {
-                        homeResultButton(firstResult, index: 0)
-                            .id(firstResult.id)
-                    }
-                    SectionHeader("建议")
-                    ForEach(Array(viewModel.homeResults.dropFirst().enumerated()), id: \.element.id) { offset, result in
-                        homeResultButton(result, index: offset + 1)
-                            .id(result.id)
+                    ForEach(Array(viewModel.rootSections.enumerated()), id: \.offset) { _, section in
+                        SectionHeader(title(for: section.kind))
+                        if section.kind == .favoriteHint {
+                            favoriteHintRow
+                        } else {
+                            ForEach(section.items) { item in
+                                let index = rootItemIndex(for: item)
+                                rootResultButton(item, index: index)
+                                    .id(item.id)
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -137,6 +155,50 @@ struct PaletteView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedHomeResultIndex == index))
+    }
+
+    private func rootResultButton(_ item: PaletteRootItem, index: Int) -> some View {
+        Button {
+            viewModel.selectHomeResult(at: index)
+            performPrimaryAction()
+        } label: {
+            HStack(spacing: 13) {
+                rootIcon(for: item)
+                Text(item.title)
+                    .font(.system(size: 16, weight: .medium))
+                    .lineLimit(1)
+                Text(item.subtitle)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                Text(kindTitle(for: item.kind))
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 15)
+            .frame(height: 45)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PaletteRowButtonStyle(isSelected: viewModel.selectedHomeResultIndex == index))
+    }
+
+    private var favoriteHintRow: some View {
+        HStack(spacing: 13) {
+            Image(systemName: "star")
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(.secondary)
+            Text("还没有固定项目")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+            Text("建议仍然会展示可用功能")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 15)
+        .frame(height: 45)
     }
 
     private var assetBrowser: some View {
@@ -200,14 +262,13 @@ struct PaletteView: View {
     }
 
     private func scrollHomeSelectionIntoView(_ proxy: ScrollViewProxy) {
-        guard viewModel.homeResults.indices.contains(viewModel.selectedHomeResultIndex) else { return }
-        let result = viewModel.homeResults[viewModel.selectedHomeResultIndex]
+        guard let item = viewModel.selectedRootItem else { return }
         withAnimation(.easeOut(duration: 0.12)) {
             proxy.scrollTo(
-                result.id,
+                item.id,
                 anchor: paletteScrollAnchor(
                     index: viewModel.selectedHomeResultIndex,
-                    count: viewModel.homeResults.count
+                    count: viewModel.visibleRootItems.count
                 )
             )
         }
@@ -260,9 +321,7 @@ struct PaletteView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Label("最近资产", systemImage: "tray.full")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
+            footerSelectionLabel
             Spacer()
             Button(viewModel.footerPrimaryActionTitle) {
                 performPrimaryAction()
@@ -291,6 +350,30 @@ struct PaletteView: View {
         .padding(.horizontal, 18)
         .frame(height: 44)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.65))
+    }
+
+    private var footerSelectionLabel: some View {
+        HStack(spacing: 8) {
+            footerSelectionIcon
+                .frame(width: 20, height: 20)
+            Text(viewModel.footerSelectionTitle)
+                .lineLimit(1)
+        }
+        .font(.system(size: 14, weight: .medium))
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var footerSelectionIcon: some View {
+        if viewModel.mode == .home, let item = viewModel.selectedRootItem {
+            rootIcon(for: item)
+                .scaleEffect(0.72)
+        } else if let asset = viewModel.selectedAsset {
+            assetIcon(asset)
+                .scaleEffect(0.67)
+        } else {
+            Image(systemName: "tray.full")
+        }
     }
 
     private var typeFilterMenu: some View {
@@ -345,7 +428,17 @@ struct PaletteView: View {
 
     private var actionMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let asset = viewModel.selectedAsset,
+            if viewModel.mode == .home {
+                ForEach(Array(viewModel.rootActionPanelActionsForSelectedRootItem().enumerated()), id: \.element.rawValue) { index, action in
+                    rootActionMenuRow(action: action) {
+                        performKeyboardAction(viewModel.performRootAction(action))
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(index == viewModel.selectedActionIndex ? Color(nsColor: .separatorColor).opacity(0.52) : .clear)
+                    )
+                }
+            } else if let asset = viewModel.selectedAsset,
                let actions = try? viewModel.actionPanelActionsForSelectedAsset() {
                 ForEach(Array(actions.enumerated()), id: \.element.rawValue) { index, action in
                     actionMenuRow(action: action) {
@@ -369,6 +462,28 @@ struct PaletteView: View {
                 .fill(Color(nsColor: .windowBackgroundColor))
                 .shadow(color: .black.opacity(0.14), radius: 22, x: 0, y: 12)
         )
+    }
+
+    private func rootActionMenuRow(action: PaletteRootAction, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            HStack(spacing: 12) {
+                Image(systemName: action.systemImageName)
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 24)
+                Text(action.displayTitle)
+                    .font(.system(size: 16, weight: .medium))
+                Spacer()
+                ForEach(action.shortcutBadges, id: \.self) { badge in
+                    Text(badge)
+                        .keyboardBadge()
+                }
+            }
+            .foregroundStyle(action == .removeFavorite ? .red : .primary)
+            .padding(.horizontal, 18)
+            .frame(height: 42)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PaletteActionMenuButtonStyle(isDestructive: action == .removeFavorite))
     }
 
     private func actionMenuRow(action: AssetAction, perform: @escaping () -> Void) -> some View {
@@ -402,6 +517,10 @@ struct PaletteView: View {
     }
 
     private func performPrimaryAction() {
+        if viewModel.mode == .home {
+            performKeyboardAction(viewModel.primaryKeyboardAction())
+            return
+        }
         guard let asset = viewModel.selectedAsset else {
             if let command = viewModel.selectedHomeResult?.command {
                 activate(command)
@@ -412,6 +531,23 @@ struct PaletteView: View {
         onDefaultAction(action)
         if case let .assetAction(assetAction) = action {
             onAssetAction(assetAction, asset)
+        }
+    }
+
+    private func performKeyboardAction(_ action: PaletteKeyboardAction) {
+        switch action {
+        case .none:
+            break
+        case let .activateCommand(command):
+            activate(command)
+        case let .openApplication(path, itemID):
+            onOpenApplication(path, itemID)
+        case let .performAssetAction(defaultAction, assetID):
+            guard let asset = viewModel.assets.first(where: { $0.id == assetID }) else { return }
+            onDefaultAction(defaultAction)
+            if case let .assetAction(assetAction) = defaultAction {
+                onAssetAction(assetAction, asset)
+            }
         }
     }
 
@@ -433,6 +569,54 @@ struct PaletteView: View {
             .font(.system(size: 17, weight: .medium))
             .frame(width: 28, height: 28)
             .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+    }
+
+    @ViewBuilder
+    private func rootIcon(for item: PaletteRootItem) -> some View {
+        switch item.icon {
+        case let .systemImage(systemName):
+            Image(systemName: systemName)
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        case let .applicationIcon(path):
+            if let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            } else {
+                Image(systemName: "app")
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+            }
+        }
+    }
+
+    private func rootItemIndex(for item: PaletteRootItem) -> Int {
+        viewModel.visibleRootItems.firstIndex { $0.id == item.id } ?? 0
+    }
+
+    private func title(for sectionKind: PaletteRootSectionKind) -> String {
+        switch sectionKind {
+        case .favorites, .favoriteHint:
+            return "最喜欢"
+        case .suggestions:
+            return "建议"
+        case .searchResults:
+            return "结果"
+        }
+    }
+
+    private func kindTitle(for kind: PaletteRootItemKind) -> String {
+        switch kind {
+        case .command:
+            return "命令"
+        case .application:
+            return "应用"
+        }
     }
 
     private func assetIcon(_ asset: AssetItem) -> some View {
@@ -566,10 +750,15 @@ private struct PaletteRowButtonStyle: ButtonStyle {
     }
 
     private func rowColor(isPressed: Bool) -> Color {
-        if isPressed || isSelected {
-            return Color(nsColor: .separatorColor).opacity(isPressed ? 0.68 : 0.52)
+        if isSelected {
+            return selectedRowHighlightColor(isPressed: isPressed)
         }
         return .clear
+    }
+
+    private func selectedRowHighlightColor(isPressed: Bool) -> Color {
+        Color(nsColor: .selectedContentBackgroundColor)
+            .opacity(isPressed ? 0.22 : 0.16)
     }
 }
 

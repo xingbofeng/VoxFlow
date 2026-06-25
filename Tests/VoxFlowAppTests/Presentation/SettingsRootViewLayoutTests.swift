@@ -23,6 +23,16 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertFalse(source.contains("GridItem(.adaptive(minimum: 320)"))
     }
 
+    func testMiddleMouseRecordingCopyDescribesClickToToggle() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("title: \"鼠标中键录音\""))
+        XCTAssertTrue(source.contains("点击鼠标中键开始录音，再次点击结束并输入"))
+        XCTAssertFalse(source.contains("开启后，按住鼠标中键说话，松开后转写并输入"))
+    }
+
     func testModelSettingsIncludeASRTTSTranslationAndCorrectionSections() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
@@ -117,27 +127,27 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("private var selectionActionsSection"))
         XCTAssertTrue(source.contains("title: \"划词动作\""))
         XCTAssertTrue(source.contains("subtitle: \"选中文本后翻译、总结或交给任务助手\""))
-        XCTAssertTrue(source.contains("title: \"启用方式\""))
         XCTAssertTrue(source.contains("title: \"动作卡\""))
         XCTAssertTrue(source.contains("title: \"结果面板\""))
     }
 
-    func testSelectionActionShortcutIsConfiguredOnlyInsideSelectionActionsSection() throws {
+    func testSelectionActionsSectionDoesNotDuplicateShortcutConfigurationRows() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         let section = try XCTUnwrap(
             source.range(
-                of: #"private var selectionActionsSection:[\s\S]*?\n    private func selectionActionCapabilityRow"#,
+                of: #"private var selectionActionsSection:[\s\S]*?\n    private var inputLanguageCard"#,
                 options: .regularExpression
             ).map { String(source[$0]) }
         )
 
-        XCTAssertTrue(section.contains("shortcut: .selectionAction"))
-        XCTAssertTrue(section.contains("shortcut: .selectionTranslate"))
-        XCTAssertTrue(section.contains("shortcut: .selectionSummarize"))
-        XCTAssertTrue(section.contains("shortcut: .selectionAgent"))
-        XCTAssertTrue(section.contains("title: \"启用方式\""))
+        XCTAssertFalse(section.contains("workflowShortcutRow("))
+        XCTAssertFalse(section.contains("shortcut: .selectionAction"))
+        XCTAssertFalse(section.contains("shortcut: .selectionTranslate"))
+        XCTAssertFalse(section.contains("shortcut: .selectionSummarize"))
+        XCTAssertFalse(section.contains("shortcut: .selectionAgent"))
+        XCTAssertFalse(section.contains("title: \"启用方式\""))
     }
 
     func testGeneralShortcutSettingsIncludeDirectSelectionActions() throws {

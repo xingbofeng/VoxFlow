@@ -215,7 +215,13 @@ private struct HomeAssetRow: View {
 
             Button(action: selectAction) {
                 HStack(alignment: .center, spacing: 12) {
-                    if let imagePath = item.imagePath,
+                    if let sourceAppName = item.sourceAppName {
+                        SourceApplicationIcon(
+                            appName: sourceAppName,
+                            bundleID: item.sourceAppBundleID,
+                            size: 34
+                        )
+                    } else if let imagePath = item.imagePath,
                        let image = NSImage(contentsOfFile: imagePath),
                        item.systemImage == "photo" {
                         Image(nsImage: image)
@@ -827,24 +833,7 @@ private struct HomeHistoryDetailModal: View {
                         .background((llmTrace.succeeded ? AppTheme.ColorToken.accent : Color.orange).opacity(0.10))
                         .clipShape(Capsule())
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 10)], spacing: 10) {
-                    DetailMetaItem(
-                        title: detail.taskMode == .agentCompose ? "生成服务" : "纠错服务",
-                        value: llmTrace.providerName
-                    )
-                    DetailMetaItem(title: "使用模型", value: llmTrace.model)
-                    DetailMetaItem(
-                        title: "处理用时",
-                        value: HomeHistoryDetailPresentation.durationText(milliseconds: llmTrace.durationMS)
-                    )
-                    DetailMetaItem(
-                        title: "调用结果",
-                        value: llmTrace.succeeded
-                            ? "成功\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
-                            : "失败\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
-                    )
-                    DetailMetaItem(title: "服务地址", value: llmTrace.endpoint)
-                }
+                llmTraceMetadata(llmTrace, taskMode: detail.taskMode)
                 if let contextBoostTrace = detail.trace?.contextBoost {
                     ContextBoostTraceBlock(trace: contextBoostTrace)
                 }
@@ -922,6 +911,44 @@ private struct HomeHistoryDetailModal: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .historyDetailPanel()
         }
+    }
+
+    private func llmTraceMetadata(
+        _ llmTrace: LLMRefinementTrace,
+        taskMode: VoiceTaskMode?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(minimum: 180),
+                        spacing: 10,
+                        alignment: .top
+                    )
+                ],
+                alignment: .leading,
+                spacing: 10
+            ) {
+                DetailMetaItem(
+                    title: taskMode == .agentCompose ? "生成服务" : "纠错服务",
+                    value: llmTrace.providerName
+                )
+                DetailMetaItem(title: "使用模型", value: llmTrace.model)
+                DetailMetaItem(
+                    title: "处理用时",
+                    value: HomeHistoryDetailPresentation.durationText(milliseconds: llmTrace.durationMS)
+                )
+                DetailMetaItem(
+                    title: "调用结果",
+                    value: llmTrace.succeeded
+                        ? "成功\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
+                        : "失败\(llmTrace.statusCode.map { "（\($0)）" } ?? "")"
+                )
+            }
+            DetailMetaItem(title: "服务地址", value: llmTrace.endpoint)
+        }
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dispatchSection: some View {

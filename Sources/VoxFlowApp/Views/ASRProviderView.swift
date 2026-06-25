@@ -565,16 +565,25 @@ struct ASRProviderView: View {
             Divider()
             providerConfigurationControls(provider)
             HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("模型状态")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text(localModelStatusText(provider, isDownloading: isDownloading))
-                        .font(.system(size: 14, weight: .semibold))
+                HStack(alignment: .top, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("模型状态")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        Text(localModelStatusText(provider, isDownloading: isDownloading))
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("模型大小")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        Text(viewModel.localModelSizeSummary(providerID: provider.id))
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                 }
                 Spacer()
                 switch provider.localModelAction {
-                case .download, .repair:
+                case .download, .resume, .repair:
                     HStack(spacing: 8) {
                         Button {
                             Task { await viewModel.downloadModel(id: provider.id) }
@@ -607,9 +616,25 @@ struct ASRProviderView: View {
                 }
             }
             if isDownloading, let progress = viewModel.downloadProgress {
-                ProgressView(value: progress.overallProgress) {
-                    Text(progress.fileName)
-                        .font(.system(size: 12))
+                VStack(alignment: .leading, spacing: 6) {
+                    if let progressValue = progress.progressValue {
+                        ProgressView(value: progressValue) {
+                            Text(progress.statusText)
+                                .font(.system(size: 12))
+                        }
+                    } else {
+                        ProgressView {
+                            Text(progress.statusText)
+                                .font(.system(size: 12))
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Text(progress.componentName)
+                        Text(progress.detailText)
+                        Text(progress.modelSizeText)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
             }
         }
@@ -627,6 +652,8 @@ struct ASRProviderView: View {
             return "就绪，可直接使用"
         case .repair:
             return "需要修复"
+        case .resume:
+            return "可继续下载"
         case .download:
             return "尚未下载"
         case .none:
@@ -641,7 +668,14 @@ struct ASRProviderView: View {
         if isDownloading {
             return provider.localModelAction == .repair ? "修复中" : "下载中"
         }
-        return provider.localModelAction == .repair ? "修复模型" : "下载模型"
+        switch provider.localModelAction {
+        case .repair:
+            return "修复模型"
+        case .resume:
+            return "继续下载"
+        case .none, .download, .delete:
+            return "下载模型"
+        }
     }
 
     private func localModelActionIcon(_ provider: ASRProviderDescriptor) -> String {

@@ -74,6 +74,7 @@ enum PaletteDefaultAction: Equatable, Sendable {
 enum PaletteKeyboardAction: Equatable, Sendable {
     case none
     case activateCommand(PaletteCommand)
+    case openApplication(path: String, itemID: PaletteRootItemID)
     case performAssetAction(PaletteDefaultAction, assetID: String)
 }
 
@@ -86,6 +87,11 @@ enum PaletteViewModelError: Error, Equatable {
 final class PaletteViewModel: ObservableObject {
     private let repository: any AssetRepository
     private let actionService: AssetActionService?
+    private let favoritesStore: any PaletteFavoritesStoring
+    private let usageStore: any PaletteUsageStoring
+    private let searchIndex: PaletteRootSearchIndex
+    private let now: () -> Date
+    private let rootItems: [PaletteRootItem]
 
     @Published private(set) var mode: PaletteMode = .home
     @Published private(set) var selectedTypeFilter: PaletteAssetTypeFilter = .all
@@ -94,15 +100,27 @@ final class PaletteViewModel: ObservableObject {
     @Published private(set) var selectedAssetIndex: Int = 0
     @Published private(set) var selectedActionIndex: Int = 0
     @Published private(set) var searchText: String = ""
+    @Published private(set) var searchFocusRequestID: Int = 0
     @Published var isActionPanelPresented = false
     @Published var isTypeFilterPresented = false
 
     init(
         repository: any AssetRepository,
-        actionService: AssetActionService? = nil
+        actionService: AssetActionService? = nil,
+        applicationProvider: (any InstalledApplicationProviding)? = nil,
+        favoritesStore: (any PaletteFavoritesStoring)? = nil,
+        usageStore: (any PaletteUsageStoring)? = nil,
+        searchIndex: PaletteRootSearchIndex = PaletteRootSearchIndex(),
+        now: @escaping () -> Date = Date.init
     ) {
         self.repository = repository
         self.actionService = actionService
+        self.favoritesStore = favoritesStore ?? UserDefaultsPaletteFavoritesStore()
+        self.usageStore = usageStore ?? UserDefaultsPaletteUsageStore()
+        self.searchIndex = searchIndex
+        self.now = now
+        self.rootItems = PaletteCommand.rootCommands.map(PaletteRootItem.command)
+            + (applicationProvider?.scanInstalledApplications().map(PaletteRootItem.application) ?? [])
     }
 
     var showsAskAI: Bool { false }
@@ -117,14 +135,24 @@ final class PaletteViewModel: ObservableObject {
     }
 
     var homeResults: [PaletteHomeResult] {
-        [
-            PaletteHomeResult(command: .recentAssets, title: "最近资产", subtitle: "打开最近的语音、截图和剪切板"),
-            PaletteHomeResult(command: .assetHistory, title: "历史资产", subtitle: "查看全部历史资产"),
-            PaletteHomeResult(command: .screenshotOCR, title: "截图 OCR", subtitle: "框选截图并识别文字"),
-            PaletteHomeResult(command: .startAgentCompose, title: "帮我说", subtitle: "口述需求，生成可直接输入的文本"),
-            PaletteHomeResult(command: .startAgentDispatch, title: "AI 编程", subtitle: "语音触发 AI 编程控制台"),
-            PaletteHomeResult(command: .startDictation, title: "开始听写", subtitle: "按住快捷键说话"),
-        ]
+        visibleRootItems.compactMap { item in
+            guard case let .command(command) = item.activation else { return nil }
+            return PaletteHomeResult(command: command, title: item.title, subtitle: item.subtitle)
+        }
+    }
+
+    var rootSections: [PaletteRootSection] {
+        searchIndex.sections(
+            for: rootItems,
+            query: searchText,
+            favoriteIDs: favoritesStore.favoriteIDs(),
+            usageStore: usageStore,
+            now: now()
+        )
+    }
+
+    var visibleRootItems: [PaletteRootItem] {
+        rootSections.flatMap(\.items)
     }
 
     var typeFilters: [PaletteAssetTypeFilter] {
@@ -159,8 +187,14 @@ final class PaletteViewModel: ObservableObject {
         isTypeFilterPresented = false
     }
 
+    func requestSearchFocus() {
+        searchFocusRequestID += 1
+    }
+
     func updateSearchText(_ text: String) throws {
         searchText = text
+        selectedHomeResultIndex = 0
+        isActionPanelPresented = false
         guard mode == .recentAssets else { return }
         try reloadAssets()
     }
@@ -174,7 +208,7 @@ final class PaletteViewModel: ObservableObject {
     }
 
     func selectHomeResult(at index: Int) {
-        guard homeResults.indices.contains(index) else { return }
+        guard visibleRootItems.indices.contains(index) else { return }
         selectedHomeResultIndex = index
     }
 
@@ -188,7 +222,7 @@ final class PaletteViewModel: ObservableObject {
     func moveSelectionDown() {
         switch mode {
         case .home:
-            selectedHomeResultIndex = Self.wrappedIndex(after: selectedHomeResultIndex, count: homeResults.count)
+            selectedHomeResultIndex = Self.wrappedIndex(after: selectedHomeResultIndex, count: visibleRootItems.count)
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(after: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
@@ -198,7 +232,7 @@ final class PaletteViewModel: ObservableObject {
     func moveSelectionUp() {
         switch mode {
         case .home:
-            selectedHomeResultIndex = Self.wrappedIndex(before: selectedHomeResultIndex, count: homeResults.count)
+            selectedHomeResultIndex = Self.wrappedIndex(before: selectedHomeResultIndex, count: visibleRootItems.count)
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(before: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
@@ -208,10 +242,15 @@ final class PaletteViewModel: ObservableObject {
     func primaryKeyboardAction() -> PaletteKeyboardAction {
         switch mode {
         case .home:
-            guard let command = selectedHomeResult?.command else {
+            guard let selectedRootItem else {
                 return .none
             }
-            return .activateCommand(command)
+            switch selectedRootItem.activation {
+            case let .command(command):
+                return .activateCommand(command)
+            case let .application(application):
+                return .openApplication(path: application.path, itemID: selectedRootItem.id)
+            }
         case .recentAssets:
             guard let selectedAsset else {
                 return .none
@@ -221,9 +260,17 @@ final class PaletteViewModel: ObservableObject {
     }
 
     func presentActionPanel() {
-        guard selectedAsset != nil else {
-            isActionPanelPresented = false
-            return
+        switch mode {
+        case .home:
+            guard selectedRootItem != nil else {
+                isActionPanelPresented = false
+                return
+            }
+        case .recentAssets:
+            guard selectedAsset != nil else {
+                isActionPanelPresented = false
+                return
+            }
         }
         selectedActionIndex = 0
         isActionPanelPresented = true
@@ -243,11 +290,23 @@ final class PaletteViewModel: ObservableObject {
     }
 
     func moveActionSelectionDown() {
+        if mode == .home {
+            let actions = rootActionPanelActionsForSelectedRootItem()
+            guard !actions.isEmpty else { return }
+            selectedActionIndex = Self.wrappedIndex(after: selectedActionIndex, count: actions.count)
+            return
+        }
         guard let actions = try? actionPanelActionsForSelectedAsset(), !actions.isEmpty else { return }
         selectedActionIndex = Self.wrappedIndex(after: selectedActionIndex, count: actions.count)
     }
 
     func moveActionSelectionUp() {
+        if mode == .home {
+            let actions = rootActionPanelActionsForSelectedRootItem()
+            guard !actions.isEmpty else { return }
+            selectedActionIndex = Self.wrappedIndex(before: selectedActionIndex, count: actions.count)
+            return
+        }
         guard let actions = try? actionPanelActionsForSelectedAsset(), !actions.isEmpty else { return }
         selectedActionIndex = Self.wrappedIndex(before: selectedActionIndex, count: actions.count)
     }
@@ -258,6 +317,44 @@ final class PaletteViewModel: ObservableObject {
             return nil
         }
         return actions[selectedActionIndex]
+    }
+
+    func rootActionPanelActionsForSelectedRootItem() -> [PaletteRootAction] {
+        guard let selectedRootItem else { return [] }
+        return [
+            .open,
+            favoritesStore.isFavorite(selectedRootItem.id) ? .removeFavorite : .addFavorite,
+        ]
+    }
+
+    func selectedRootActionPanelAction() -> PaletteRootAction? {
+        let actions = rootActionPanelActionsForSelectedRootItem()
+        guard actions.indices.contains(selectedActionIndex) else { return nil }
+        return actions[selectedActionIndex]
+    }
+
+    func performRootAction(_ action: PaletteRootAction) -> PaletteKeyboardAction {
+        guard let selectedRootItem else { return .none }
+        switch action {
+        case .open:
+            return primaryKeyboardAction()
+        case .addFavorite:
+            favoritesStore.addFavorite(selectedRootItem.id)
+            selectedActionIndex = 0
+            isActionPanelPresented = false
+            return .none
+        case .removeFavorite:
+            favoritesStore.removeFavorite(selectedRootItem.id)
+            selectedHomeResultIndex = min(selectedHomeResultIndex, max(visibleRootItems.count - 1, 0))
+            selectedActionIndex = 0
+            isActionPanelPresented = false
+            return .none
+        }
+    }
+
+    func recordRootActivation(itemID: PaletteRootItemID) {
+        usageStore.recordActivation(of: itemID, at: now())
+        usageStore.recordSelection(query: searchText, itemID: itemID, at: now())
     }
 
     func toggleTypeFilter() {
@@ -311,8 +408,16 @@ final class PaletteViewModel: ObservableObject {
     }
 
     var selectedHomeResult: PaletteHomeResult? {
-        guard homeResults.indices.contains(selectedHomeResultIndex) else { return nil }
-        return homeResults[selectedHomeResultIndex]
+        guard let selectedRootItem,
+              case let .command(command) = selectedRootItem.activation else {
+            return nil
+        }
+        return PaletteHomeResult(command: command, title: selectedRootItem.title, subtitle: selectedRootItem.subtitle)
+    }
+
+    var selectedRootItem: PaletteRootItem? {
+        guard visibleRootItems.indices.contains(selectedHomeResultIndex) else { return nil }
+        return visibleRootItems[selectedHomeResultIndex]
     }
 
     var footerPrimaryActionTitle: String {
@@ -331,6 +436,15 @@ final class PaletteViewModel: ObservableObject {
             default:
                 return action.displayTitle
             }
+        }
+    }
+
+    var footerSelectionTitle: String {
+        switch mode {
+        case .home:
+            return selectedRootItem?.title ?? ""
+        case .recentAssets:
+            return selectedAsset?.title ?? "最近资产"
         }
     }
 

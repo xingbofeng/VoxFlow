@@ -1,10 +1,10 @@
 {
-  "version": "1.7.0",
-  "tag": "v1.7.0",
-  "assetName": "VoxFlow-1.7.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.7.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.7.0/VoxFlow-1.7.0-macOS.dmg",
-  "releaseNotes": "全面更新 VoxFlow / 码上写品牌视觉，替换为新的工作台风格 Logo、App Icon 和中英文宣传图。",
+  "version": "1.8.0",
+  "tag": "v1.8.0",
+  "assetName": "VoxFlow-1.8.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.8.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.0/VoxFlow-1.8.0-macOS.dmg",
+  "releaseNotes": "启动台升级为可搜索的工作台入口：支持搜索并打开 macOS 应用、管理最喜欢项目，并通过 `⌘K` 执行打开/收藏等动作。",
   "draft": false,
   "prerelease": false
 }

@@ -13,6 +13,7 @@ enum UpdateCheckResult: Equatable {
     case updateAvailable(RemoteRelease)
     case upToDate
     case ignored(RemoteRelease)
+    case deferred(RemoteRelease)
     case failed(UpdateCheckError)
     case throttled
 }
@@ -66,6 +67,10 @@ final class UpdateCheckService {
             return .ignored(release)
         }
 
+        if mode == .automatic, isDeferred(release: release) {
+            return .deferred(release)
+        }
+
         return .updateAvailable(release)
     }
 
@@ -74,5 +79,13 @@ final class UpdateCheckService {
             return false
         }
         return now().timeIntervalSince(lastAutomaticCheckAt) < automaticCheckInterval
+    }
+
+    private func isDeferred(release: RemoteRelease) -> Bool {
+        guard stateStore.deferredVersion == release.version,
+              let deferredUntil = stateStore.deferredUntil else {
+            return false
+        }
+        return now() < deferredUntil
     }
 }

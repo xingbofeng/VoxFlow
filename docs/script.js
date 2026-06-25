@@ -1,7 +1,7 @@
 const release = {
-  version: "1.7.0",
-  tag: "v1.7.0",
-  assetName: "VoxFlow-1.7.0-macOS.dmg"
+  version: "1.8.0",
+  tag: "v1.8.0",
+  assetName: "VoxFlow-1.8.0-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -24,6 +24,11 @@ const copy = {
     eyebrow: "macOS 输入工作台",
     headline: "说出来、截下来、翻译好，全部沉淀成资产。",
     heroCopy: "VoxFlow 贴着当前应用工作：语音输入、截图 OCR、划词翻译、剪切板和 AI 助手调度，都会进入一个可搜索、可复用的本地工作台。",
+    heroBadgeVoice: "说话写入",
+    heroBadgeScreenshot: "截图识别",
+    heroBadgeSelection: "划词处理",
+    heroBadgeAssets: "资产沉淀",
+    heroBadgeAgent: "AI 调度",
     download: "下载 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · 免费开源`,
@@ -94,6 +99,11 @@ const copy = {
     eyebrow: "macOS input workspace",
     headline: "Speak, capture, translate, and keep the result.",
     heroCopy: "VoxFlow stays attached to the app you are already using: voice input, screenshot OCR, translation, clipboard history, and AI assistant routing all become searchable local assets.",
+    heroBadgeVoice: "Speak to write",
+    heroBadgeScreenshot: "Capture text",
+    heroBadgeSelection: "Process selection",
+    heroBadgeAssets: "Keep assets",
+    heroBadgeAgent: "Route AI",
     download: "Download for macOS",
     downloadMeta: "macOS 15+ · Apple Silicon",
     releaseNote: `${release.tag} · Free & open source`,

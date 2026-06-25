@@ -5,7 +5,7 @@ import VoxFlowProviderQwen3
 
 @MainActor
 final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
-    func testDownloadRunsPrewarmCanaryBeforeMarkingModelReady() async throws {
+    func testDownloadRunsPrewarmCanaryBeforeReturningInstalledRoot() async throws {
         let manager = makeManager()
         let modelURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
@@ -29,8 +29,8 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         let preparedModels = await readinessPreparer.preparedModelsSnapshot()
         XCTAssertEqual(preparedModels.map(\.url), [modelURL])
         XCTAssertEqual(preparedModels.map(\.size), [.size0_6B])
-        XCTAssertEqual(manager.qwen3ModelPath, modelURL.path)
-        XCTAssertTrue(manager.isQwen3ModelAvailable)
+        XCTAssertNil(manager.qwen3ModelPath)
+        XCTAssertFalse(manager.isQwen3ModelAvailable)
     }
 
     func testDownloadDoesNotMarkModelReadyWhenPrewarmCanaryFails() async throws {
@@ -86,8 +86,8 @@ final class SettingsQwenModelDownloadCoordinatorTests: XCTestCase {
         XCTAssertEqual(installedRoot, modelURL)
         let preparedModels = await readinessPreparer.preparedModelsSnapshot()
         XCTAssertEqual(preparedModels.map(\.size), [.size1_7B])
-        XCTAssertEqual(manager.qwen3ModelSize, .size1_7B)
-        XCTAssertEqual(manager.qwen3ModelPath, modelURL.path)
+        XCTAssertEqual(manager.qwen3ModelSize, .size0_6B)
+        XCTAssertNil(manager.qwen3ModelPath)
     }
 
     private func makeManager() -> ASRManager {

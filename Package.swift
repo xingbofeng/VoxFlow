@@ -11,6 +11,7 @@ let package = Package(
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.0.0"),
         .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21"),
+        .package(url: "https://github.com/ordo-one/FuzzyMatch.git", from: "1.4.0"),
         .package(path: "Packages/VoxFlowContextBoostKit"),
         .package(path: "Packages/VoxFlowVoiceCorrectionKit")
     ],
@@ -227,6 +228,7 @@ let package = Package(
                 .product(name: "VoxFlowContextBoost", package: "VoxFlowContextBoostKit"),
                 .product(name: "VoxFlowVoiceCorrection", package: "VoxFlowVoiceCorrectionKit"),
                 .product(name: "AudioCommon", package: "speech-swift"),
+                .product(name: "FuzzyMatch", package: "FuzzyMatch"),
                 .product(name: "CosyVoiceTTS", package: "speech-swift"),
                 .product(name: "KokoroTTS", package: "speech-swift"),
                 .product(name: "MADLADTranslation", package: "speech-swift"),
@@ -256,6 +258,9 @@ let package = Package(
                 .copy("Resources/ASRTencentCloud.png"),
                 .copy("Resources/ASRWhisper.png"),
                 .copy("Persistence/AppDatabaseSchema.sql")
+            ],
+            linkerSettings: [
+                .linkedFramework("IOKit")
             ]
         ),
         .testTarget(

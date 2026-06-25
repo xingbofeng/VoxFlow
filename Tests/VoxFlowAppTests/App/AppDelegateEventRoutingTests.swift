@@ -187,6 +187,46 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
     }
 
+    func testScreenshotOCRDismissesUpdatePromptBeforeCapture() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleScreenshotOCRShortcut\([\s\S]*?\n    private func saveScreenshotRecord"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        let dismiss = try XCTUnwrap(method.range(of: "updateCheckCoordinator.dismissActivePromptAsNextTime()"))
+        let capture = try XCTUnwrap(method.range(of: "screenshotOCRService.captureAndRecognize()"))
+        XCTAssertLessThan(
+            dismiss.lowerBound,
+            capture.lowerBound,
+            "Update prompt must be dismissed before screenshot capture so Command+Shift+A does not capture the update modal."
+        )
+    }
+
+    func testScreenshotOCRDismissesHomeDetailOverlayBeforeCapture() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleScreenshotOCRShortcut\([\s\S]*?\n    private func saveScreenshotRecord"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        let dismiss = try XCTUnwrap(method.range(of: "windowCoordinator.dismissHomeDetailOverlay()"))
+        let capture = try XCTUnwrap(method.range(of: "screenshotOCRService.captureAndRecognize()"))
+        XCTAssertLessThan(
+            dismiss.lowerBound,
+            capture.lowerBound,
+            "Home detail overlay must be dismissed before screenshot capture so Command+Shift+A does not capture the home modal."
+        )
+    }
+
     func testScreenshotOCRResultPanelOnlyOpensOCRTabWithoutAutoDismissForTextRecognitionCommand() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")

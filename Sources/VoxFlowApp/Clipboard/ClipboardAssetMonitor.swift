@@ -65,25 +65,20 @@ final class ClipboardAssetMonitor {
         changeCount: Int,
         now: Date = Date()
     ) throws -> AssetItem? {
-        guard let item = pasteboard.pasteboardItems?.first else {
+        guard let items = pasteboard.pasteboardItems, !items.isEmpty else {
             return nil
         }
 
         guard !internalWriteGuard.shouldIgnore(
             changeCount: changeCount,
-            types: item.types
+            types: items.flatMap(\.types)
         ) else {
             return nil
         }
 
-        guard !item.types.contains(.universalClipboard) else {
-            return nil
-        }
-
-        guard let candidate = ClipboardAssetCandidateExtractor.candidate(
-            from: pasteboard,
-            item: item
-        ) else {
+        guard let candidate = items.lazy.compactMap({
+            ClipboardAssetCandidateExtractor.candidate(from: self.pasteboard, item: $0)
+        }).first else {
             return nil
         }
 

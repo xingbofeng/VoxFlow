@@ -14,6 +14,97 @@ final class PaletteViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedHomeResult?.command, .recentAssets)
     }
 
+    func testSearchFocusRequestAdvancesForEveryPalettePresentation() {
+        let viewModel = PaletteViewModel(repository: CapturingPaletteAssetRepository())
+        let initialRequest = viewModel.searchFocusRequestID
+
+        viewModel.requestSearchFocus()
+        let firstPresentationRequest = viewModel.searchFocusRequestID
+        viewModel.requestSearchFocus()
+
+        XCTAssertNotEqual(firstPresentationRequest, initialRequest)
+        XCTAssertNotEqual(viewModel.searchFocusRequestID, firstPresentationRequest)
+    }
+
+    func testHomeRootSectionsShowFavoritesAndSuggestionsWithoutDuplicates() {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: [.command(.recentAssets)]),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.favorites, .suggestions])
+        XCTAssertEqual(viewModel.rootSections[0].items.map(\.title), ["最近资产"])
+        XCTAssertFalse(viewModel.rootSections[1].items.map(\.title).contains("最近资产"))
+        XCTAssertTrue(viewModel.rootSections[1].items.map(\.title).contains("截图 OCR"))
+    }
+
+    func testHomeRootSectionsShowFavoriteHintWhenNoFavoritesExist() {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.favoriteHint, .suggestions])
+        XCTAssertEqual(viewModel.rootSections[0].items, [])
+        XCTAssertEqual(viewModel.rootSections[1].items.first?.title, "最近资产")
+    }
+
+    func testHomeSearchReturnsMixedCommandAndApplicationResults() throws {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.tinyspeck.slackmacgap",
+                    name: "Slack",
+                    bundleID: "com.tinyspeck.slackmacgap",
+                    iconPath: nil,
+                    path: "/Applications/Slack.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        try viewModel.updateSearchText("slk")
+
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.searchResults])
+        XCTAssertEqual(viewModel.selectedRootItem?.title, "Slack")
+        XCTAssertEqual(
+            viewModel.primaryKeyboardAction(),
+            .openApplication(path: "/Applications/Slack.app", itemID: PaletteRootItemID(rawValue: "application:com.tinyspeck.slackmacgap"))
+        )
+    }
+
+    func testRootActivationRecordsUsageAndQuerySelection() throws {
+        let usageStore = InMemoryPaletteUsageStore()
+        let slackID = PaletteRootItemID(rawValue: "application:com.tinyspeck.slackmacgap")
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.tinyspeck.slackmacgap",
+                    name: "Slack",
+                    bundleID: "com.tinyspeck.slackmacgap",
+                    iconPath: nil,
+                    path: "/Applications/Slack.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: usageStore,
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+
+        try viewModel.updateSearchText(" SLK ")
+        viewModel.recordRootActivation(itemID: slackID)
+
+        XCTAssertEqual(usageStore.usage(for: slackID).useCount, 1)
+        XCTAssertEqual(usageStore.querySelection(for: "slk", itemID: slackID).selectionCount, 1)
+    }
+
     func testHomeKeyboardSelectionDefaultsToRecentAssetsAndWrapsWithArrowKeys() {
         let viewModel = PaletteViewModel(repository: CapturingPaletteAssetRepository())
 
@@ -198,6 +289,32 @@ final class PaletteViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.footerPrimaryActionTitle, "打开链接")
     }
 
+    func testFooterSelectionTitleFollowsSelectedHomeRootItem() throws {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.tinyspeck.slackmacgap",
+                    name: "Slack",
+                    bundleID: "com.tinyspeck.slackmacgap",
+                    iconPath: nil,
+                    path: "/Applications/Slack.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        XCTAssertEqual(viewModel.footerSelectionTitle, "最近资产")
+
+        viewModel.selectHomeResult(at: 1)
+        XCTAssertEqual(viewModel.footerSelectionTitle, "历史资产")
+
+        try viewModel.updateSearchText("slk")
+        XCTAssertEqual(viewModel.footerSelectionTitle, "Slack")
+    }
+
     func testPrimaryKeyboardActionOnAssetsUsesSelectedAssetDefaultAction() throws {
         let repository = CapturingPaletteAssetRepository(items: [
             makeAsset(id: "file", contentType: .file, filePath: "/tmp/a.pdf")
@@ -211,21 +328,73 @@ final class PaletteViewModelTests: XCTestCase {
         )
     }
 
-    func testCommandKTogglesActionPanelOnlyWhenAnAssetIsSelected() throws {
+    func testCommandKTogglesRootActionPanelOnHomeAndAssetActionPanelOnRecentAssets() throws {
         let repository = CapturingPaletteAssetRepository(items: [
             makeAsset(id: "text", contentType: .text, text: "hello")
         ])
         let viewModel = PaletteViewModel(repository: repository)
 
         viewModel.toggleActionPanel()
-        XCTAssertFalse(viewModel.isActionPanelPresented)
+        XCTAssertTrue(viewModel.isActionPanelPresented)
+        XCTAssertEqual(viewModel.selectedRootActionPanelAction(), .open)
 
         try viewModel.activate(.recentAssets)
         viewModel.toggleActionPanel()
         XCTAssertTrue(viewModel.isActionPanelPresented)
+        XCTAssertEqual(viewModel.selectedActionPanelAction(), .paste)
 
         viewModel.toggleActionPanel()
         XCTAssertFalse(viewModel.isActionPanelPresented)
+    }
+
+    func testRootActionPanelShowsOpenAndAddFavoriteForUnfavoritedItem() {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        viewModel.presentActionPanel()
+
+        XCTAssertEqual(viewModel.rootActionPanelActionsForSelectedRootItem(), [.open, .addFavorite])
+        XCTAssertEqual(viewModel.selectedRootActionPanelAction(), .open)
+    }
+
+    func testRootActionPanelShowsOpenAndRemoveFavoriteForFavoritedItem() {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: [.command(.recentAssets)]),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        viewModel.presentActionPanel()
+
+        XCTAssertEqual(viewModel.rootActionPanelActionsForSelectedRootItem(), [.open, .removeFavorite])
+    }
+
+    func testRootOpenActionReturnsCurrentPrimaryKeyboardAction() {
+        let viewModel = PaletteViewModel(repository: CapturingPaletteAssetRepository())
+        viewModel.selectHomeResult(at: 2)
+
+        XCTAssertEqual(viewModel.performRootAction(.open), .activateCommand(.screenshotOCR))
+    }
+
+    func testRootFavoriteActionsUpdateSectionsImmediately() {
+        let favoritesStore = InMemoryPaletteFavoritesStore(favoriteIDs: [])
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            favoritesStore: favoritesStore,
+            usageStore: InMemoryPaletteUsageStore()
+        )
+
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.favoriteHint, .suggestions])
+
+        _ = viewModel.performRootAction(.addFavorite)
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.favorites, .suggestions])
+        XCTAssertEqual(viewModel.rootSections.first?.items.first?.title, "最近资产")
+
+        _ = viewModel.performRootAction(.removeFavorite)
+        XCTAssertEqual(viewModel.rootSections.map(\.kind), [.favoriteHint, .suggestions])
     }
 }
 
@@ -259,6 +428,70 @@ private final class CapturingPaletteAssetRepository: AssetRepository {
     }
 
     func softDelete(id: String, deletedAt: Date) throws {}
+}
+
+private final class InMemoryPaletteFavoritesStore: PaletteFavoritesStoring {
+    private var ids: [PaletteRootItemID]
+
+    init(favoriteIDs: [PaletteRootItemID]) {
+        self.ids = favoriteIDs
+    }
+
+    func favoriteIDs() -> [PaletteRootItemID] {
+        ids
+    }
+
+    func isFavorite(_ id: PaletteRootItemID) -> Bool {
+        ids.contains(id)
+    }
+
+    func addFavorite(_ id: PaletteRootItemID) {
+        guard !ids.contains(id) else { return }
+        ids.append(id)
+    }
+
+    func removeFavorite(_ id: PaletteRootItemID) {
+        ids.removeAll { $0 == id }
+    }
+}
+
+private final class InMemoryPaletteUsageStore: PaletteUsageStoring {
+    private var usage: [PaletteRootItemID: PaletteUsageSnapshot] = [:]
+    private var querySelections: [String: [PaletteRootItemID: PaletteQuerySelectionSnapshot]] = [:]
+
+    func usage(for id: PaletteRootItemID) -> PaletteUsageSnapshot {
+        usage[id] ?? .empty
+    }
+
+    func recordActivation(of id: PaletteRootItemID, at date: Date) {
+        var snapshot = usage[id] ?? .empty
+        snapshot.useCount += 1
+        snapshot.lastUsedAt = date
+        usage[id] = snapshot
+    }
+
+    func querySelection(for query: String, itemID: PaletteRootItemID) -> PaletteQuerySelectionSnapshot {
+        guard let query = UserDefaultsPaletteUsageStore.normalizedQuery(query) else { return .empty }
+        return querySelections[query]?[itemID] ?? .empty
+    }
+
+    func recordSelection(query: String, itemID: PaletteRootItemID, at date: Date) {
+        guard let query = UserDefaultsPaletteUsageStore.normalizedQuery(query) else { return }
+        var itemSelections = querySelections[query] ?? [:]
+        var snapshot = itemSelections[itemID] ?? .empty
+        snapshot.selectionCount += 1
+        snapshot.lastSelectedAt = date
+        itemSelections[itemID] = snapshot
+        querySelections[query] = itemSelections
+    }
+}
+
+private struct FakeInstalledApplicationProvider: InstalledApplicationProviding {
+    let applications: [InstalledApplication]
+
+    func scanInstalledApplications() -> [InstalledApplication] {
+        applications
+    }
 }
 
 private func makeAsset(

@@ -8,6 +8,7 @@ struct AppLogger {
     static let database = AppLogger(category: "database")
     static let network = AppLogger(category: "network")
     static let injection = AppLogger(category: "injection")
+    static let modelDownload = AppLogger(category: "modelDownload")
 
     private let logger: Logger
 

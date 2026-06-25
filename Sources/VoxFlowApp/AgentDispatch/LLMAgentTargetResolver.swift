@@ -45,7 +45,8 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
                 不确定时 confidence 必须低于 0.60；target_agent_id 必须来自候选列表。
                 """,
                 model: nil,
-                temperature: 0
+                temperature: 0,
+                purpose: .directTask
             )
         )
         let json = response

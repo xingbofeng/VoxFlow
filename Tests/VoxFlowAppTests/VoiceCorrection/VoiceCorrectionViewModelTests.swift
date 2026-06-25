@@ -290,6 +290,86 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
         XCTAssertEqual(try environment.correctionRuleRepository.list().map(\.original), ["queue win"])
     }
 
+    func testApplyingAutomaticLearningEventRefreshesRecentLearningAndShowsMessage() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+        let target = CorrectionTargetTerm(
+            text: "tokenhub",
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning
+        )
+        try environment.correctionTargetRepository.save(target)
+        let rule = CorrectionRule(
+            targetID: target.id,
+            original: "投康 Hub",
+            replacement: "tokenhub",
+            matchPolicy: .boundary,
+            scope: target.scope,
+            lifecycle: .active,
+            source: .automaticLearning,
+            confidence: 0.90
+        )
+        try environment.correctionRuleRepository.save(rule)
+
+        viewModel.applyAutomaticLearningEvent(
+            CorrectionObservationLearningEvent(
+                original: "投康 Hub",
+                replacement: "tokenhub",
+                lifecycle: .active,
+                scope: target.scope,
+                ruleID: rule.id,
+                targetID: target.id
+            )
+        )
+
+        XCTAssertEqual(viewModel.lastActionMessage, "已自动学习：投康 Hub → tokenhub")
+        XCTAssertEqual(viewModel.recentLearningEvents.first?.title, "tokenhub")
+    }
+
+    func testReceivesAutomaticLearningEventNotification() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let notificationCenter = NotificationCenter()
+        let viewModel = VoiceCorrectionViewModel(
+            environment: environment,
+            notificationCenter: notificationCenter
+        )
+        let target = CorrectionTargetTerm(
+            text: "tokenhub",
+            scope: .application(bundleIdentifier: "com.cursor.Cursor"),
+            lifecycle: .active,
+            source: .automaticLearning
+        )
+        try environment.correctionTargetRepository.save(target)
+        let rule = CorrectionRule(
+            targetID: target.id,
+            original: "投康 Hub",
+            replacement: "tokenhub",
+            matchPolicy: .boundary,
+            scope: target.scope,
+            lifecycle: .active,
+            source: .automaticLearning,
+            confidence: 0.90
+        )
+        try environment.correctionRuleRepository.save(rule)
+
+        notificationCenter.post(
+            name: .correctionObservationLearningEvent,
+            object: CorrectionObservationLearningEvent(
+                original: "投康 Hub",
+                replacement: "tokenhub",
+                lifecycle: .active,
+                scope: target.scope,
+                ruleID: rule.id,
+                targetID: target.id
+            )
+        )
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.lastActionMessage, "已自动学习：投康 Hub → tokenhub")
+        XCTAssertEqual(viewModel.recentLearningEvents.first?.title, "tokenhub")
+    }
+
     func testProcessorHonorsDisabledAndShadowModeSettings() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)

@@ -501,7 +501,9 @@ final class DictationOrchestrator {
         } else if text.count < 40 {
             AppLogger.dictation.debug("received transient transcription=\(text)")
         }
-        onTranscriptionUpdate(text, false)
+        if !isFinal {
+            onTranscriptionUpdate(text, false)
+        }
         if let completedText = transcriptionSession.update(text: text, isFinal: isFinal) {
             AppLogger.dictation.debug("transcription session completed text length=\(completedText.count)")
             scheduleProcessing(for: completedText)

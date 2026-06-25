@@ -55,6 +55,64 @@ final class UpdateCheckServiceTests: XCTestCase {
         }
     }
 
+    func testAutomaticCheckDefersRemoteVersionUntilDeferredDate() async {
+        let now = Date(timeIntervalSince1970: 1_800_086_400)
+        let store = UpdateCheckStateStore(defaults: makeDefaults())
+        store.deferredVersion = "1.6.2"
+        store.deferredUntil = now.addingTimeInterval(60)
+        let service = makeService(
+            currentVersion: "1.6.1",
+            release: release(version: "1.6.2"),
+            store: store,
+            now: { now }
+        )
+
+        let result = await service.check(mode: .automatic)
+
+        guard case .deferred(let remote) = result else {
+            return XCTFail("Expected deferred, got \(result)")
+        }
+        XCTAssertEqual(remote.version, "1.6.2")
+    }
+
+    func testAutomaticCheckShowsDeferredVersionAfterDeferredDate() async {
+        let now = Date(timeIntervalSince1970: 1_800_086_400)
+        let store = UpdateCheckStateStore(defaults: makeDefaults())
+        store.deferredVersion = "1.6.2"
+        store.deferredUntil = now.addingTimeInterval(-60)
+        let service = makeService(
+            currentVersion: "1.6.1",
+            release: release(version: "1.6.2"),
+            store: store,
+            now: { now }
+        )
+
+        let result = await service.check(mode: .automatic)
+
+        guard case .updateAvailable = result else {
+            return XCTFail("Expected updateAvailable, got \(result)")
+        }
+    }
+
+    func testManualCheckBypassesDeferredVersion() async {
+        let now = Date(timeIntervalSince1970: 1_800_086_400)
+        let store = UpdateCheckStateStore(defaults: makeDefaults())
+        store.deferredVersion = "1.6.2"
+        store.deferredUntil = now.addingTimeInterval(60 * 60 * 24)
+        let service = makeService(
+            currentVersion: "1.6.1",
+            release: release(version: "1.6.2"),
+            store: store,
+            now: { now }
+        )
+
+        let result = await service.check(mode: .manual)
+
+        guard case .updateAvailable = result else {
+            return XCTFail("Expected updateAvailable, got \(result)")
+        }
+    }
+
     func testAutomaticCheckWithinThrottleWindowReturnsThrottled() async {
         let now = Date(timeIntervalSince1970: 1_800_086_400)
         let store = UpdateCheckStateStore(defaults: makeDefaults())

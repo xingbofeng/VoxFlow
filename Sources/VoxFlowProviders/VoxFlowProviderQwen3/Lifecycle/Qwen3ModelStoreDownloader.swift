@@ -6,17 +6,23 @@ public struct Qwen3ModelDownloadProgress: Equatable, Sendable {
     public let fileCount: Int
     public let fileName: String
     public let fileProgress: Double
+    public let bytesWritten: Int64?
+    public let totalBytes: Int64?
 
     public init(
         fileIndex: Int,
         fileCount: Int,
         fileName: String,
-        fileProgress: Double
+        fileProgress: Double,
+        bytesWritten: Int64? = nil,
+        totalBytes: Int64? = nil
     ) {
         self.fileIndex = fileIndex
         self.fileCount = fileCount
         self.fileName = fileName
         self.fileProgress = fileProgress
+        self.bytesWritten = bytesWritten
+        self.totalBytes = totalBytes
     }
 
     public var overallProgress: Double {
@@ -222,7 +228,9 @@ public struct Qwen3ModelStoreBackedDownloader: Sendable {
             fileIndex: fileIndex,
             fileCount: max(componentPaths.count, 1),
             fileName: progress.componentID.rawValue,
-            fileProgress: progress.fractionCompleted ?? 0
+            fileProgress: progress.fractionCompleted ?? 0,
+            bytesWritten: progress.bytesWritten,
+            totalBytes: progress.totalBytes
         )
     }
 }

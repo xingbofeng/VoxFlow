@@ -21,27 +21,15 @@ struct VoiceCorrectionView: View {
     @State private var isClearAllAlertPresented = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
-                    header
-                    summaryCards
-                    contentLayout
-                }
-                .padding(AppTheme.Spacing.page)
-                .frame(maxWidth: 1_360, alignment: .topLeading)
-                .frame(maxWidth: .infinity, alignment: .top)
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
+                header
+                summaryCards
+                contentLayout
             }
-
-            if let message = viewModel.lastActionMessage {
-                VoiceCorrectionToastView(
-                    message: message,
-                    onUndo: viewModel.undoRecentLearning,
-                    onDismiss: viewModel.clearFeedback
-                )
-                .padding(.trailing, AppTheme.Spacing.page)
-                .padding(.bottom, AppTheme.Spacing.page)
-            }
+            .padding(AppTheme.Spacing.page)
+            .frame(maxWidth: 1_360, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
@@ -55,7 +43,7 @@ struct VoiceCorrectionView: View {
             Text("会删除所有目标词下的误听写法，不会影响历史记录。")
         }
         .actionFeedbackOverlay(
-            message: nil,
+            message: viewModel.lastActionMessage,
             error: viewModel.lastError,
             onDismiss: viewModel.clearFeedback
         )
@@ -510,42 +498,5 @@ private struct VoiceCorrectionTargetPopover: View {
         }
         .padding(18)
         .frame(width: 340)
-    }
-}
-
-private struct VoiceCorrectionToastView: View {
-    let message: String
-    let onUndo: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(AppTheme.ColorToken.accent)
-            Text(message.hasPrefix("已学习：") ? message : "已学习：\(message)")
-                .font(.system(size: 13, weight: .medium))
-            Button("撤销", action: onUndo)
-                .buttonStyle(.borderless)
-            Button {
-                onDismiss()
-            } label: {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.borderless)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 42)
-        .background(AppTheme.ColorToken.panelBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
-                .stroke(AppTheme.ColorToken.accent.opacity(0.35))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
-        .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                onDismiss()
-            }
-        }
     }
 }

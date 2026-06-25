@@ -312,6 +312,31 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(orchestrator.state, .idle)
     }
 
+    func testFinalTranscriptAfterReleaseDoesNotEmitListeningHUDUpdateBeforeProcessing() async throws {
+        let engine = FakeASREngine()
+        let pipeline = FakeTextPipeline(result: TextProcessingResult(rawText: "raw", finalText: "corrected"))
+        let orchestrator = makeOrchestrator(engine: engine, pipeline: pipeline)
+        var transcriptionUpdates: [(text: String, isRefining: Bool)] = []
+        var processingTexts: [String] = []
+        orchestrator.onTranscriptionUpdate = { text, isRefining in
+            transcriptionUpdates.append((text, isRefining))
+        }
+        orchestrator.onProcessingStarted = { text in
+            processingTexts.append(text)
+        }
+
+        try orchestrator.start(configuration: .qwenEnglish)
+        orchestrator.release()
+        engine.emit(text: "raw", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertFalse(
+            transcriptionUpdates.contains { !$0.isRefining },
+            "A final transcript received after key release should not push the HUD back to the listening state."
+        )
+        XCTAssertEqual(processingTexts, ["raw"])
+    }
+
     func testLateFinalFromCancelledSessionDoesNotEnterNewSession() async throws {
         let oldEngine = FakeASREngine()
         let newEngine = FakeASREngine()
@@ -1126,8 +1151,7 @@ final class DictationOrchestratorTests: XCTestCase {
         engine.emit(text: "原始文本", isFinal: true)
         await drainMainActorTasks()
 
-        XCTAssertEqual(transcriptionUpdates.map(\.text), ["原始文本"])
-        XCTAssertEqual(transcriptionUpdates.map(\.isRefining), [false])
+        XCTAssertTrue(transcriptionUpdates.isEmpty)
         XCTAssertEqual(orchestrator.state, .idle)
     }
 

@@ -72,6 +72,7 @@ struct ASRProviderCapabilities: OptionSet, Hashable {
 enum ASRProviderLocalModelAction: Equatable {
     case none
     case download
+    case resume
     case delete
     case repair
 }
@@ -837,6 +838,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "请继续下载模型，或选择已有的模型文件夹。语音仅在本机处理，不会上传。"
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (
@@ -905,6 +912,64 @@ final class ASRProviderRegistry {
         }
     }
 
+    private func resumableLocalModelPresentation(
+        state: ModelInstallationState,
+        privacySummary: String
+    ) -> (
+        isAvailable: Bool,
+        localModelAction: ASRProviderLocalModelAction,
+        healthStatus: ASRProviderRecordHealthStatus,
+        statusMessage: String,
+        privacySummary: String
+    )? {
+        switch state {
+        case .downloading(let progress):
+            return (
+                false,
+                .resume,
+                .notInstalled,
+                "已下载 \(downloadProgressText(progress))，可继续下载",
+                privacySummary
+            )
+        case .paused(let progress):
+            return (
+                false,
+                .resume,
+                .notInstalled,
+                "已暂停在 \(downloadProgressText(progress))，可继续下载",
+                privacySummary
+            )
+        case .notInstalled,
+             .insufficientDisk,
+             .verifying,
+             .extracting,
+             .compiling,
+             .warmingUp,
+             .canaryTesting,
+             .deleting,
+             .ready,
+             .corrupt,
+             .runtimeUnsupported,
+             .hardwareUnsupported,
+             .failed:
+            return nil
+        }
+    }
+
+    private func downloadProgressText(_ progress: ModelDownloadProgress) -> String {
+        if let fraction = progress.fractionCompleted {
+            let percent = Int((fraction * 100).rounded())
+            return "\(min(100, max(0, percent)))%"
+        }
+        if progress.bytesWritten > 0 {
+            return ByteCountFormatter.string(fromByteCount: progress.bytesWritten, countStyle: .file)
+                .replacingOccurrences(of: "\u{2006}", with: " ")
+                .replacingOccurrences(of: "\u{202F}", with: " ")
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+        }
+        return "未完成进度"
+    }
+
     private func whisperLocalModelPresentation(
         variant: ASRManager.WhisperVariant,
         state: ModelInstallationState,
@@ -933,6 +998,12 @@ final class ASRProviderRegistry {
                 "本地模型已就绪",
                 "Whisper \(variant.rawValue) 多语言离线识别。"
             )
+        }
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "Whisper \(variant.rawValue) 多语言离线识别。"
+        ) {
+            return resumable
         }
         switch state {
         case .deleting(_):
@@ -1004,6 +1075,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "FunASR Nano \(asrManager.funASRPrecision.rawValue) 中文/English 离线识别。"
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (
@@ -1082,6 +1159,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "Paraformer Large zh 中文离线识别。语音仅在本机处理，不会上传。"
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (true, .delete, .ok, "本地模型已就绪", "Paraformer Large zh 中文离线识别。语音仅在本机处理，不会上传。")
@@ -1106,6 +1189,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "NVIDIA Nemotron 0.6B CoreML 多语言流式离线识别。"
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (true, .delete, .ok, "本地模型已就绪", "NVIDIA Nemotron 0.6B CoreML 多语言流式离线识别。")
@@ -1136,6 +1225,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: missingSummary
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (true, .delete, .ok, "本地模型已就绪", readySummary)
@@ -1164,6 +1259,12 @@ final class ASRProviderRegistry {
         statusMessage: String,
         privacySummary: String
     ) {
+        if let resumable = resumableLocalModelPresentation(
+            state: state,
+            privacySummary: "中文/English 离线识别，录音结束后在本机完成推理。"
+        ) {
+            return resumable
+        }
         switch state {
         case .ready where isAvailable:
             return (

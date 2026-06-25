@@ -5,24 +5,27 @@ final class UpdateCheckCoordinator {
     private let currentVersion: String
     private let service: UpdateCheckService
     private let stateStore: UpdateCheckStateStore
-    private let presenter: UpdatePromptPresenter
+    private let presenter: any UpdatePromptPresenting
+    private let now: () -> Date
     private var automaticCheckTask: Task<Void, Never>?
 
     init(
         currentVersion: String,
         service: UpdateCheckService,
         stateStore: UpdateCheckStateStore,
-        presenter: UpdatePromptPresenter = UpdatePromptPresenter()
+        presenter: any UpdatePromptPresenting = UpdatePromptPresenter(),
+        now: @escaping () -> Date = Date.init
     ) {
         self.currentVersion = currentVersion
         self.service = service
         self.stateStore = stateStore
         self.presenter = presenter
+        self.now = now
     }
 
     static func live(
         currentVersion: String,
-        presenter: UpdatePromptPresenter? = nil
+        presenter: (any UpdatePromptPresenting)? = nil
     ) -> UpdateCheckCoordinator {
         let stateStore = UpdateCheckStateStore()
         let client = makeReleaseClient(currentVersion: currentVersion)
@@ -55,12 +58,21 @@ final class UpdateCheckCoordinator {
         }
     }
 
+    func dismissActivePromptAsNextTime() {
+        presenter.dismissActivePromptAsNextTime()
+    }
+
     private func run(mode: UpdateCheckMode) async {
         let result = await service.check(mode: mode)
         switch result {
         case .updateAvailable(let release):
             let action = await presenter.presentUpdateAvailable(release: release, currentVersion: currentVersion)
-            if action == .ignore {
+            if action == .remindNextTime {
+                stateStore.lastAutomaticCheckAt = nil
+            } else if action == .remindTomorrow {
+                stateStore.deferredVersion = release.version
+                stateStore.deferredUntil = now().addingTimeInterval(24 * 60 * 60)
+            } else if action == .ignore {
                 stateStore.ignoredVersion = release.version
             }
         case .upToDate:
@@ -75,6 +87,8 @@ final class UpdateCheckCoordinator {
             }
         case .ignored:
             AppLogger.general.debug("automatic_update_check_ignored_version")
+        case .deferred:
+            AppLogger.general.debug("automatic_update_check_deferred_version")
         case .throttled:
             AppLogger.general.debug("automatic_update_check_throttled")
         }

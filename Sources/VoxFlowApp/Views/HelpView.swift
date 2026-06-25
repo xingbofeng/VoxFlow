@@ -13,18 +13,21 @@ struct HelpView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
     let onOpenPermissions: () -> Void
+    let onCheckForUpdates: () -> Void
     @State private var showingWeChatQRCode = false
 
     init(
         versionInfo: AppVersionInfo = .current(),
         settingsViewModel: SettingsViewModel,
         asrProviderViewModel: ASRProviderViewModel,
-        onOpenPermissions: @escaping () -> Void
+        onOpenPermissions: @escaping () -> Void,
+        onCheckForUpdates: @escaping () -> Void
     ) {
         self.versionInfo = versionInfo
         self.settingsViewModel = settingsViewModel
         self.asrProviderViewModel = asrProviderViewModel
         self.onOpenPermissions = onOpenPermissions
+        self.onCheckForUpdates = onCheckForUpdates
     }
 
     var body: some View {
@@ -59,8 +62,38 @@ struct HelpView: View {
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
+                        title: "命令面板",
+                        subtitle: "搜索应用、命令和最近资产",
+                        systemImage: "command.square",
+                        tint: AppTheme.ColorToken.accent
+                    )
+                    HelpFeatureCard(
+                        title: "截图 OCR",
+                        subtitle: "框选截图并识别文字",
+                        systemImage: "text.viewfinder",
+                        tint: AppTheme.ColorToken.accent
+                    )
+                    HelpFeatureCard(
+                        title: "AI 编程",
+                        subtitle: "语音触发终端助手工作流",
+                        systemImage: "terminal",
+                        tint: AppTheme.ColorToken.accent
+                    )
+                    HelpFeatureCard(
+                        title: "文件转写与笔记",
+                        subtitle: "导入音频文件，沉淀语音笔记",
+                        systemImage: "waveform.path.badge.plus",
+                        tint: AppTheme.ColorToken.accent
+                    )
+                    HelpFeatureCard(
+                        title: "易错词",
+                        subtitle: "维护本地热词和纠错规则",
+                        systemImage: "text.badge.checkmark",
+                        tint: AppTheme.ColorToken.accent
+                    )
+                    HelpFeatureCard(
                         title: "安全回退",
-                        subtitle: "识别或修正失败时保留原始文本",
+                        subtitle: "识别、修正或生成失败时保留原始文本",
                         systemImage: "arrow.uturn.backward.circle",
                         tint: AppTheme.ColorToken.accent
                     )
@@ -97,6 +130,13 @@ struct HelpView: View {
                         systemImage: "qrcode.viewfinder"
                     ) {
                         showingWeChatQRCode = true
+                    }
+                    HelpActionRow(
+                        title: "检查更新",
+                        subtitle: "立即检查是否有可用新版本",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    ) {
+                        onCheckForUpdates()
                     }
                     HelpLinkRow(
                         title: "版本发布",
@@ -184,7 +224,11 @@ struct HelpView: View {
     }
 
     private var shortcutDisplayName: String {
-        KeyCodeMapping.displayName(for: settingsViewModel.shortcutKeyCode)
+        let keyboardShortcut = KeyCodeMapping.displayName(for: settingsViewModel.shortcutKeyCode)
+        guard settingsViewModel.middleMouseRecordingEnabled else {
+            return keyboardShortcut
+        }
+        return "\(keyboardShortcut) / 鼠标中键"
     }
 
     private var shortcutIconName: String {
@@ -192,11 +236,20 @@ struct HelpView: View {
     }
 
     private var shortcutSubtitle: String {
-        switch settingsViewModel.shortPressBehavior {
-        case .toggleListening:
-            return "短按切换，长按按住说话"
-        case .none:
-            return "按住说话，松手输入"
+        if settingsViewModel.middleMouseRecordingEnabled {
+            switch settingsViewModel.shortPressBehavior {
+            case .toggleListening:
+                return "快捷键短按切换；中键点击开始，再次点击结束"
+            case .none:
+                return "快捷键按住说话；中键点击开始，再次点击结束"
+            }
+        } else {
+            switch settingsViewModel.shortPressBehavior {
+            case .toggleListening:
+                return "短按切换，长按按住说话"
+            case .none:
+                return "按住说话，松手输入"
+            }
         }
     }
 
@@ -279,6 +332,8 @@ private enum WeChatQRCodeImage {
 }
 
 private struct HelpFeatureCard: View {
+    private static let cardHeight: CGFloat = 132
+
     let title: String
     let subtitle: String
     let systemImage: String
@@ -297,9 +352,11 @@ private struct HelpFeatureCard: View {
             Text(subtitle)
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .lineLimit(2)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: Self.cardHeight, alignment: .topLeading)
+        .frame(height: Self.cardHeight)
         .appPanel(cornerRadius: 14)
     }
 }

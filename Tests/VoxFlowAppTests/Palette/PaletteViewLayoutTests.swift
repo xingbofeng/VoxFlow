@@ -11,13 +11,19 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("搜索应用、命令、资产..."))
         XCTAssertTrue(source.contains("搜索资产..."))
         XCTAssertTrue(source.contains(".frame(width: 760, height: 470)"))
-        XCTAssertTrue(source.contains("最近资产"))
+        XCTAssertTrue(source.contains("footerSelectionLabel"))
+        XCTAssertTrue(source.contains("footerSelectionTitle"))
+        XCTAssertTrue(source.contains("最喜欢"))
+        XCTAssertTrue(source.contains("建议"))
+        XCTAssertTrue(source.contains("还没有固定项目"))
         XCTAssertTrue(source.contains("动作"))
         XCTAssertTrue(source.contains("⌘"))
         XCTAssertTrue(source.contains("K"))
         XCTAssertTrue(source.contains(".keyboardShortcut(\"k\", modifiers: .command)"))
         XCTAssertTrue(source.contains("actionMenu"))
         XCTAssertTrue(source.contains("actionMenuRow"))
+        XCTAssertTrue(source.contains("rootActionMenuRow"))
+        XCTAssertTrue(source.contains("onOpenApplication"))
         XCTAssertTrue(source.contains("typeFilterMenu"))
         XCTAssertTrue(source.contains("typeFilterPanel"))
         XCTAssertTrue(source.contains("assetPreviewPane"))
@@ -28,6 +34,18 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertFalse(source.contains("Tab"))
     }
 
+    func testRootActionCopyMatchesFirstPhaseDesign() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteRootItem.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("case open"))
+        XCTAssertTrue(source.contains("加入最喜欢"))
+        XCTAssertTrue(source.contains("从最喜欢移除"))
+        XCTAssertTrue(source.contains("return [\"⇧\", \"⌘\", \"F\"]"))
+        XCTAssertTrue(source.contains("return [\"↩\"]"))
+    }
+
     func testPaletteListsScrollSelectedRowsIntoViewForKeyboardWraparound() throws {
         let sourceURL = Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
@@ -36,8 +54,18 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("ScrollViewReader"))
         XCTAssertTrue(source.contains("scrollHomeSelectionIntoView"))
         XCTAssertTrue(source.contains("scrollAssetSelectionIntoView"))
-        XCTAssertTrue(source.contains("result.id,"))
+        XCTAssertTrue(source.contains("item.id,"))
         XCTAssertTrue(source.contains("asset.id,"))
+    }
+
+    func testPaletteSelectedRowsUseVisibleHighlightWithoutPressedOnlyHighlight() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("private func selectedRowHighlightColor(isPressed: Bool) -> Color"))
+        XCTAssertTrue(source.contains("return selectedRowHighlightColor(isPressed: isPressed)"))
+        XCTAssertFalse(source.contains("if isPressed || isSelected"))
     }
 
     func testPaletteWindowControllerUsesFloatingPanel() throws {
@@ -62,10 +90,46 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("closeWhenClickingOutside"))
         XCTAssertTrue(source.contains("temporarilyHideForOriginalTargetAction"))
         XCTAssertTrue(source.contains("actionPanelShortcutAction"))
+        XCTAssertTrue(source.contains("PaletteApplicationLaunching"))
+        XCTAssertTrue(source.contains("WorkspacePaletteApplicationLauncher"))
+        XCTAssertTrue(source.contains("performOpenApplication"))
+        XCTAssertTrue(source.contains("recordRootActivation"))
+        XCTAssertTrue(source.contains("rootActionPanelShortcutAction"))
+        XCTAssertTrue(source.contains("key == \"f\""))
+        XCTAssertTrue(source.contains("viewModel.requestSearchFocus()"))
         XCTAssertTrue(source.contains("await DictationTargetActivation.activate(previousTarget)"))
         XCTAssertTrue(source.contains("handleKeyDown"))
         XCTAssertTrue(source.contains("keyCode == 53"))
         XCTAssertFalse(source.contains("NSApp.activate(ignoringOtherApps: true)"))
+    }
+
+    func testFailedApplicationLaunchDoesNotRecordUsageOrClosePalette() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteWindowController.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func performOpenApplication\(path: String, itemID: PaletteRootItemID\) \{[\s\S]*?\n    \}"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("if applicationLauncher.openApplication(atPath: path)"))
+        XCTAssertTrue(method.contains("viewModel.recordRootActivation(itemID: itemID)"))
+        XCTAssertTrue(method.contains("close()"))
+        XCTAssertFalse(method.contains("else"))
+    }
+
+    func testPaletteSearchFieldReceivesExplicitFocusRequests() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("@FocusState private var isSearchFocused"))
+        XCTAssertTrue(source.contains(".focused($isSearchFocused)"))
+        XCTAssertTrue(source.contains("focusSearchField()"))
+        XCTAssertTrue(source.contains(".onChange(of: viewModel.searchFocusRequestID)"))
+        XCTAssertTrue(source.contains("return \"应用\""))
     }
 
     func testPaletteShortcutTogglesVisiblePanelInsteadOfOpeningMainWindow() throws {
@@ -76,6 +140,7 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("paletteWindowController?.isVisible == true"))
         XCTAssertTrue(source.contains("paletteWindowController?.close()"))
         XCTAssertTrue(source.contains("paletteWindowController?.present()"))
+        XCTAssertTrue(source.contains("applicationProvider: FileSystemInstalledApplicationProvider()"))
     }
 
     func testPaletteVoiceCommandsUseToggleVoiceActionInsteadOfOneShotPress() throws {

@@ -8,8 +8,10 @@ final class RecordingAudioFeedbackControllerTests: XCTestCase {
         let controller = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { true },
             muteWhileRecordingEnabled: { true },
+            capsLockIndicatorEnabled: { false },
             playSound: { events.append("sound:\($0)") },
-            setMuted: { muted in events.append(muted ? "mute" : "restore") }
+            setMuted: { muted in events.append(muted ? "mute" : "restore") },
+            setCapsLockIndicatorActive: { active in events.append(active ? "caps:on" : "caps:off") }
         )
 
         controller.handle(.recording)
@@ -23,8 +25,10 @@ final class RecordingAudioFeedbackControllerTests: XCTestCase {
         let controller = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { false },
             muteWhileRecordingEnabled: { false },
+            capsLockIndicatorEnabled: { false },
             playSound: { events.append("sound:\($0)") },
-            setMuted: { muted in events.append(muted ? "mute" : "restore") }
+            setMuted: { muted in events.append(muted ? "mute" : "restore") },
+            setCapsLockIndicatorActive: { active in events.append(active ? "caps:on" : "caps:off") }
         )
 
         controller.handle(.recording)
@@ -38,8 +42,10 @@ final class RecordingAudioFeedbackControllerTests: XCTestCase {
         let controller = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { true },
             muteWhileRecordingEnabled: { true },
+            capsLockIndicatorEnabled: { false },
             playSound: { events.append("sound:\($0)") },
-            setMuted: { muted in events.append(muted ? "mute" : "restore") }
+            setMuted: { muted in events.append(muted ? "mute" : "restore") },
+            setCapsLockIndicatorActive: { active in events.append(active ? "caps:on" : "caps:off") }
         )
 
         controller.handle(.recording)
@@ -47,5 +53,40 @@ final class RecordingAudioFeedbackControllerTests: XCTestCase {
         controller.handle(.failed("test"))
 
         XCTAssertEqual(events, ["restore", "sound:error"])
+    }
+
+    func testCapsLockIndicatorTurnsOnDuringRecordingAndTurnsOffWhenRecordingEnds() {
+        var events: [String] = []
+        let controller = RecordingAudioFeedbackController(
+            soundFeedbackEnabled: { false },
+            muteWhileRecordingEnabled: { false },
+            capsLockIndicatorEnabled: { true },
+            playSound: { events.append("sound:\($0)") },
+            setMuted: { muted in events.append(muted ? "mute" : "restore") },
+            setCapsLockIndicatorActive: { active in events.append(active ? "caps:on" : "caps:off") }
+        )
+
+        controller.handle(.recording)
+        controller.handle(.processing)
+
+        XCTAssertEqual(events, ["caps:on", "caps:off"])
+    }
+
+    func testCapsLockIndicatorDoesNotRepeatStartForSameRecordingSession() {
+        var events: [String] = []
+        let controller = RecordingAudioFeedbackController(
+            soundFeedbackEnabled: { false },
+            muteWhileRecordingEnabled: { false },
+            capsLockIndicatorEnabled: { true },
+            playSound: { events.append("sound:\($0)") },
+            setMuted: { muted in events.append(muted ? "mute" : "restore") },
+            setCapsLockIndicatorActive: { active in events.append(active ? "caps:on" : "caps:off") }
+        )
+
+        controller.handle(.recording)
+        controller.handle(.recording)
+        controller.handle(.idle)
+
+        XCTAssertEqual(events, ["caps:on", "caps:off"])
     }
 }

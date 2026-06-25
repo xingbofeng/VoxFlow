@@ -181,6 +181,17 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains(".disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)"))
     }
 
+    func testProviderViewShowsLocalModelSizeAndDownloadedBytes() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("Text(\"模型大小\")"))
+        XCTAssertTrue(source.contains("viewModel.localModelSizeSummary(providerID: provider.id)"))
+        XCTAssertTrue(source.contains("progress.detailText"))
+        XCTAssertTrue(source.contains("progress.modelSizeText"))
+    }
+
     func testProviderViewOnlyShowsHeavyControlsInsideExpandedCards() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")

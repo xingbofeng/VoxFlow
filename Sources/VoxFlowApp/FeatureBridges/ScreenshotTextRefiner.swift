@@ -82,7 +82,8 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
                 text: text,
                 systemPrompt: ScreenshotOCRService.translationSystemPrompt,
                 model: nil,
-                temperature: nil
+                temperature: nil,
+                purpose: .directTask
             )
         )
     }
@@ -632,7 +633,8 @@ final class SoniqoQwen35SummaryRefiner: PromptAwareTextRefining, @unchecked Send
                 text: text,
                 systemPrompt: ScreenshotOCRService.summarySystemPrompt,
                 model: nil,
-                temperature: nil
+                temperature: nil,
+                purpose: .directTask
             )
         )
     }

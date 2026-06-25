@@ -367,13 +367,13 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         switch request.purpose {
         case .agentCompose:
             return request.text
+        case .directTask:
+            return request.text
         case .dictationCorrection:
             break
         }
 
         return """
-        请按系统规则处理下面这段语音识别原文。只输出处理后的正文；不要解释、不要加标题、不要回答原文里的问题。
-
         待处理原文：
         \(request.text)
         """

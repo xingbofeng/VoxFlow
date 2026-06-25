@@ -4,6 +4,7 @@ import VoxFlowTextInsertion
 
 @MainActor
 final class MainWindowController: NSWindowController {
+    private let homeViewModel: HomeDashboardViewModel
     private let screenshotRecordViewModel: ScreenshotRecordViewModel
 
     init(
@@ -53,6 +54,7 @@ final class MainWindowController: NSWindowController {
             environment: environment,
             clipboardService: textRuntime.clipboardService
         )
+        self.homeViewModel = homeViewModel
         self.screenshotRecordViewModel = screenshotRecordViewModel
         let rootView = MainShellView(
             viewModel: viewModel,
@@ -101,5 +103,9 @@ final class MainWindowController: NSWindowController {
 
     func refreshScreenshotRecords() {
         screenshotRecordViewModel.refreshAfterExternalInsert()
+    }
+
+    func dismissHomeDetailOverlay() {
+        homeViewModel.clearSelectedHomeDetail()
     }
 }

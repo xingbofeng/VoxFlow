@@ -62,6 +62,13 @@ enum SherpaASRModelVariant: String, CaseIterable, Sendable {
         return base.appendingPathComponent(directoryName, isDirectory: true)
     }
 
+    var partialArchiveURL: URL {
+        defaultDirectoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".downloads", isDirectory: true)
+            .appendingPathComponent("\(archiveName).partial", isDirectory: false)
+    }
+
     func modelsExist(
         at directory: URL? = nil,
         fileManager: FileManager = .default

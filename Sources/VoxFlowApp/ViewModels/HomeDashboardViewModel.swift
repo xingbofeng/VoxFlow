@@ -77,6 +77,14 @@ struct HomeAssetItem: Equatable, Identifiable {
             ?? ""
     }
     var imagePath: String? { asset.imagePath }
+    var sourceAppName: String? {
+        let trimmed = asset.sourceAppName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+    var sourceAppBundleID: String? {
+        let trimmed = asset.sourceAppBundleID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
     var createdAt: Date { asset.createdAt }
     var sourceTitle: String {
         if let voiceKind {

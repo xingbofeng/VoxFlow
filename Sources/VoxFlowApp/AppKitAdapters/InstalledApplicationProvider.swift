@@ -55,6 +55,7 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
             // Testable mode: only scan under the injected root
             var targets: [(String, AppSystemCategory)] = [
                 ("\(root)/Applications", .userApplication),
+                ("\(root)/System/Library/CoreServices/Applications", .systemApplication),
                 ("\(root)/System/Applications", .systemApplication),
             ]
             if let home = userHomePath {
@@ -65,6 +66,7 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
             // Production mode: scan real system directories
             var targets: [(String, AppSystemCategory)] = [
                 ("/Applications", .userApplication),
+                ("/System/Library/CoreServices/Applications", .systemApplication),
                 ("/System/Applications", .systemApplication),
             ]
             if let home = userHomePath ?? ProcessInfo.processInfo.environment["HOME"] {
@@ -186,8 +188,13 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
         }
 
         bundleID = plist["CFBundleIdentifier"] as? String
-        if let cfName = plist["CFBundleName"] as? String, !cfName.isEmpty {
+        if let displayName = plist["CFBundleDisplayName"] as? String, !displayName.isEmpty {
+            name = displayName
+        } else if let cfName = plist["CFBundleName"] as? String, !cfName.isEmpty {
             name = cfName
+        }
+        if let localizedName = localizedAppName(contentsPath: contentsPath) {
+            name = localizedName
         }
         if let iconFile = plist["CFBundleIconFile"] as? String {
             let iconFileWithExt = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
@@ -218,5 +225,56 @@ struct FileSystemInstalledApplicationProvider: InstalledApplicationProviding, @u
             path: path,
             systemCategory: category
         )
+    }
+
+    private func localizedAppName(contentsPath: String) -> String? {
+        let resourcesPath = (contentsPath as NSString).appendingPathComponent("Resources")
+        guard let entries = try? fileManager.contentsOfDirectory(atPath: resourcesPath) else {
+            return nil
+        }
+
+        let localizationDirectories = entries
+            .filter { ($0 as NSString).pathExtension == "lproj" }
+            .sorted(by: localizedDirectorySort)
+
+        for directory in localizationDirectories {
+            let stringsPath = (resourcesPath as NSString)
+                .appendingPathComponent(directory)
+                .appending("/InfoPlist.strings")
+            guard let data = fileManager.contents(atPath: stringsPath),
+                  let strings = try? PropertyListSerialization.propertyList(
+                    from: data,
+                    options: [],
+                    format: nil
+                  ) as? [String: Any] else {
+                continue
+            }
+            for key in ["CFBundleDisplayName", "CFBundleName"] {
+                if let value = strings[key] as? String, !value.isEmpty {
+                    return value
+                }
+            }
+        }
+        return nil
+    }
+
+    private func localizedDirectorySort(_ lhs: String, _ rhs: String) -> Bool {
+        let lhsPriority = localizationPriority(lhs)
+        let rhsPriority = localizationPriority(rhs)
+        if lhsPriority != rhsPriority {
+            return lhsPriority < rhsPriority
+        }
+        return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+    }
+
+    private func localizationPriority(_ directory: String) -> Int {
+        let tag = ((directory as NSString).deletingPathExtension).lowercased()
+        let preferredLanguages = Locale.preferredLanguages.map { $0.lowercased() }
+        for (index, language) in preferredLanguages.enumerated() {
+            if tag == language || tag.hasPrefix("\(language)-") || language.hasPrefix("\(tag)-") {
+                return index
+            }
+        }
+        return preferredLanguages.count
     }
 }

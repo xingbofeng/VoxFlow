@@ -408,6 +408,47 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertFalse(userContent.contains("待处理原文："))
     }
 
+    func testDirectTaskRequestUsesPromptDirectlyWithoutCorrectionWrapper() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse(#"{"com.apple.Terminal":"builtin.coding"}"#)
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.directTask")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.directTask")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+        let request = TextRefinementRequest(
+            text: #"{"app":"Terminal"}"#,
+            systemPrompt: "只输出 JSON，不要解释。",
+            model: nil,
+            temperature: 0.1,
+            purpose: .directTask
+        )
+
+        _ = try await refiner.refine(request)
+
+        let urlRequest = try XCTUnwrap(session.requests.first)
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(urlRequest.httpBody)) as? [String: Any]
+        )
+        let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
+        let userContent = try XCTUnwrap(messages.last?["content"] as? String)
+        XCTAssertEqual(userContent, request.text)
+        XCTAssertFalse(userContent.contains("语音识别原文"))
+        XCTAssertFalse(userContent.contains("待处理原文："))
+    }
+
     func testAgentComposeStreamingRequestUsesPromptDirectlyWithoutCorrectionWrapper() async throws {
         let credentials = TestCredentialStore()
         let environment = AppEnvironment(

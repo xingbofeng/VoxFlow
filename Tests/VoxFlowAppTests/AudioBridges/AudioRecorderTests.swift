@@ -124,6 +124,33 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(delegate.receivedRMSValues.count, 1)
     }
 
+    func testStopStopsEngineBeforeRemovingTapThenResets() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        var recorder: AudioRecorder!
+        engine.onStop = {
+            XCTAssertFalse(recorder.isRecording)
+        }
+        recorder = AudioRecorder(
+            engine: engine,
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { true }
+        )
+
+        try recorder.start()
+        order.removeAll()
+
+        recorder.stop()
+        recorder.stop()
+
+        XCTAssertEqual(order.events, [
+            "engine.stop",
+            "input.removeTap",
+            "engine.reset"
+        ])
+        XCTAssertFalse(recorder.isRecording)
+    }
+
     private func makeBuffer(samples: [Float]) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(
             AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)
@@ -172,5 +199,70 @@ private final class AudioRecorderDelegateProbe: AudioRecorder.Delegate {
 
     func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float) {
         receivedRMSValues.append(rms)
+    }
+}
+
+private final class AudioRecorderEngineCallOrder: @unchecked Sendable {
+    private(set) var events: [String] = []
+
+    func append(_ event: String) {
+        events.append(event)
+    }
+
+    func removeAll() {
+        events.removeAll()
+    }
+}
+
+private final class AudioRecorderEngineProbe: AudioEngineControlling, @unchecked Sendable {
+    let inputNode: any AudioInputNodeControlling
+    var onStop: (() -> Void)?
+    private let callOrder: AudioRecorderEngineCallOrder
+
+    init(callOrder: AudioRecorderEngineCallOrder) {
+        self.callOrder = callOrder
+        inputNode = AudioRecorderInputNodeProbe(callOrder: callOrder)
+    }
+
+    func prepare() {
+        callOrder.append("engine.prepare")
+    }
+
+    func start() throws {
+        callOrder.append("engine.start")
+    }
+
+    func stop() {
+        callOrder.append("engine.stop")
+        onStop?()
+    }
+
+    func reset() {
+        callOrder.append("engine.reset")
+    }
+}
+
+private final class AudioRecorderInputNodeProbe: AudioInputNodeControlling, @unchecked Sendable {
+    private let callOrder: AudioRecorderEngineCallOrder
+
+    init(callOrder: AudioRecorderEngineCallOrder) {
+        self.callOrder = callOrder
+    }
+
+    func outputFormat(forBus bus: AVAudioNodeBus) -> AVAudioFormat {
+        AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+    }
+
+    func installTap(
+        onBus bus: AVAudioNodeBus,
+        bufferSize: AVAudioFrameCount,
+        format: AVAudioFormat?,
+        block: @escaping AVAudioNodeTapBlock
+    ) {
+        callOrder.append("input.installTap")
+    }
+
+    func removeTap(onBus bus: AVAudioNodeBus) {
+        callOrder.append("input.removeTap")
     }
 }

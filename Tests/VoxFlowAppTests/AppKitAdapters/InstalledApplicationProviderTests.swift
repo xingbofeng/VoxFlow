@@ -62,6 +62,49 @@ final class InstalledApplicationProviderTests: XCTestCase {
         XCTAssertTrue(apps.contains { $0.bundleID == "com.system.app" })
     }
 
+    func testScansCoreServicesApplicationsDirectory() throws {
+        let coreServicesApps = tempDir
+            .appendingPathComponent("System/Library/CoreServices/Applications", isDirectory: true)
+        try createFakeAppBundle(
+            at: coreServicesApps.appendingPathComponent("Archive Utility.app", isDirectory: true),
+            bundleID: "com.apple.archiveutility",
+            name: "Archive Utility"
+        )
+
+        let provider = FileSystemInstalledApplicationProvider(
+            fileManager: fm,
+            applicationsRootPath: tempDir.path
+        )
+        let apps = provider.scanInstalledApplications()
+
+        let app = apps.first { $0.bundleID == "com.apple.archiveutility" }
+        XCTAssertEqual(app?.name, "Archive Utility")
+        XCTAssertEqual(app?.systemCategory, .systemApplication)
+    }
+
+    func testScansSymbolicLinkedAppBundles() throws {
+        let applications = tempDir.appendingPathComponent("Applications", isDirectory: true)
+        let linkedTarget = tempDir.appendingPathComponent("LinkedTargets/RealApp.app", isDirectory: true)
+        try createFakeAppBundle(
+            at: linkedTarget,
+            bundleID: "com.linked.real",
+            name: "Real App"
+        )
+        try fm.createDirectory(at: applications, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            at: applications.appendingPathComponent("LinkedApp.app", isDirectory: true),
+            withDestinationURL: linkedTarget
+        )
+
+        let provider = FileSystemInstalledApplicationProvider(
+            fileManager: fm,
+            applicationsRootPath: tempDir.path
+        )
+        let apps = provider.scanInstalledApplications()
+
+        XCTAssertEqual(apps.first { $0.bundleID == "com.linked.real" }?.name, "Real App")
+    }
+
     func testDeduplicatesByBundleID() throws {
         let applications = tempDir.appendingPathComponent("Applications", isDirectory: true)
         try createFakeAppBundle(
@@ -171,14 +214,34 @@ final class InstalledApplicationProviderTests: XCTestCase {
         XCTAssertEqual(apps.first?.name, "Custom Name From Plist")
     }
 
+    func testPrefersLocalizedInfoPlistDisplayName() throws {
+        let applications = tempDir.appendingPathComponent("Applications", isDirectory: true)
+        try createFakeAppBundle(
+            at: applications.appendingPathComponent("Localized.app", isDirectory: true),
+            bundleID: "com.localized.app",
+            name: "English Name",
+            localizedDisplayName: "本地化名称"
+        )
+
+        let provider = FileSystemInstalledApplicationProvider(
+            fileManager: fm,
+            applicationsRootPath: tempDir.path
+        )
+        let apps = provider.scanInstalledApplications()
+
+        XCTAssertEqual(apps.first?.name, "本地化名称")
+    }
+
     // MARK: - Helpers
 
     private func createFakeAppBundle(
         at url: URL,
         bundleID: String?,
-        name: String
+        name: String,
+        localizedDisplayName: String? = nil
     ) throws {
         let contentsURL = url.appendingPathComponent("Contents", isDirectory: true)
+        let resourcesURL = contentsURL.appendingPathComponent("Resources", isDirectory: true)
         try fm.createDirectory(at: contentsURL, withIntermediateDirectories: true)
 
         var plist: [String: Any] = ["CFBundleName": name]
@@ -195,5 +258,14 @@ final class InstalledApplicationProviderTests: XCTestCase {
             atPath: contentsURL.appendingPathComponent("Info.plist").path,
             contents: data
         )
+        if let localizedDisplayName {
+            let localizationURL = resourcesURL.appendingPathComponent("zh-Hans.lproj", isDirectory: true)
+            try fm.createDirectory(at: localizationURL, withIntermediateDirectories: true)
+            let strings = "\"CFBundleDisplayName\" = \"\(localizedDisplayName)\";\n"
+            fm.createFile(
+                atPath: localizationURL.appendingPathComponent("InfoPlist.strings").path,
+                contents: Data(strings.utf8)
+            )
+        }
     }
 }

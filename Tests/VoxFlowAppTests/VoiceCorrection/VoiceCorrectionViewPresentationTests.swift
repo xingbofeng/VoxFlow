@@ -2,6 +2,19 @@ import XCTest
 @testable import VoxFlowApp
 
 final class VoiceCorrectionViewPresentationTests: XCTestCase {
+    func testAutomaticLearningFeedbackUsesStandardVisibleOverlay() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/VoxFlowApp/VoiceCorrection/UI/VoiceCorrectionView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("message: viewModel.lastActionMessage"))
+        XCTAssertFalse(source.contains("VoiceCorrectionToastView"))
+    }
+
     func testNavigationContainsTopLevelVoiceCorrectionTab() {
         XCTAssertTrue(NavigationRoute.allCases.contains(.voiceCorrection))
         XCTAssertEqual(NavigationRoute.voiceCorrection.title, "易错词")
@@ -25,7 +38,6 @@ final class VoiceCorrectionViewPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("新增目标词"))
         XCTAssertTrue(source.contains("常见误听写法"))
         XCTAssertTrue(source.contains("最近学习"))
-        XCTAssertTrue(source.contains("已学习："))
         XCTAssertTrue(source.contains("撤销"))
         XCTAssertFalse(source.contains("规则列表"))
         XCTAssertFalse(source.contains("原文"))

@@ -3,6 +3,76 @@ import CoreAudio
 import Foundation
 import VoxFlowObjCExceptionSupport
 
+protocol AudioInputNodeControlling: AnyObject {
+    func outputFormat(forBus bus: AVAudioNodeBus) -> AVAudioFormat
+    func installTap(
+        onBus bus: AVAudioNodeBus,
+        bufferSize: AVAudioFrameCount,
+        format: AVAudioFormat?,
+        block: @escaping AVAudioNodeTapBlock
+    )
+    func removeTap(onBus bus: AVAudioNodeBus)
+}
+
+protocol AudioEngineControlling: AnyObject {
+    var inputNode: any AudioInputNodeControlling { get }
+
+    func prepare()
+    func start() throws
+    func stop()
+    func reset()
+}
+
+private final class LiveAudioInputNodeController: AudioInputNodeControlling {
+    private let node: AVAudioInputNode
+
+    init(node: AVAudioInputNode) {
+        self.node = node
+    }
+
+    func outputFormat(forBus bus: AVAudioNodeBus) -> AVAudioFormat {
+        node.outputFormat(forBus: bus)
+    }
+
+    func installTap(
+        onBus bus: AVAudioNodeBus,
+        bufferSize: AVAudioFrameCount,
+        format: AVAudioFormat?,
+        block: @escaping AVAudioNodeTapBlock
+    ) {
+        node.installTap(onBus: bus, bufferSize: bufferSize, format: format, block: block)
+    }
+
+    func removeTap(onBus bus: AVAudioNodeBus) {
+        node.removeTap(onBus: bus)
+    }
+}
+
+private final class LiveAudioEngineController: AudioEngineControlling {
+    private let engine = AVAudioEngine()
+    private lazy var liveInputNode = LiveAudioInputNodeController(node: engine.inputNode)
+
+    var inputNode: any AudioInputNodeControlling {
+        liveInputNode
+    }
+
+    func prepare() {
+        engine.prepare()
+    }
+
+    func start() throws {
+        try engine.start()
+    }
+
+    func stop() {
+        engine.stop()
+    }
+
+    func reset() {
+        engine.reset()
+    }
+}
+
 /// Manages audio capture from the default microphone with real-time RMS level metering.
 final class AudioRecorder: NSObject, @unchecked Sendable {
     // MARK: - Types
@@ -73,19 +143,22 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
 
     // MARK: - Properties
 
-    private let engine = AVAudioEngine()
+    private let engine: any AudioEngineControlling
     private let eventDispatcher: EventDispatcher
     private let permissionStatus: @Sendable () -> PermissionStatus
     private let inputDeviceAvailability: @Sendable () -> Bool
+    private let lifecycleLock = NSLock()
     private(set) var isRecording = false
     var voiceEnhancementEnabled = false
     weak var delegate: Delegate?
 
     init(
+        engine: any AudioEngineControlling = LiveAudioEngineController(),
         eventDispatcher: EventDispatcher = .audioQueue(),
         permissionStatus: @escaping @Sendable () -> PermissionStatus = AudioRecorder.checkPermission,
         inputDeviceAvailability: @escaping @Sendable () -> Bool = AudioRecorder.hasUsableSystemInputDevice
     ) {
+        self.engine = engine
         self.eventDispatcher = eventDispatcher
         self.permissionStatus = permissionStatus
         self.inputDeviceAvailability = inputDeviceAvailability
@@ -123,6 +196,9 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
     // MARK: - Lifecycle
 
     func start() throws {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
         guard !isRecording else {
             AppLogger.audio.debug("AudioRecorder start skipped: already recording")
             return
@@ -162,8 +238,9 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             try engine.start()
             isRecording = true
         } catch {
-            inputNode.removeTap(onBus: 0)
             engine.stop()
+            inputNode.removeTap(onBus: 0)
+            engine.reset()
             if permissionStatus() != .granted {
                 AppLogger.audio.error("AudioRecorder start failed: microphone permission denied")
                 throw AudioRecorderError.microphonePermissionDenied
@@ -238,11 +315,14 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
     }
 
     func stop() {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
         guard isRecording else { return }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
-        engine.reset()
         isRecording = false
+        engine.stop()
+        engine.inputNode.removeTap(onBus: 0)
+        engine.reset()
         AppLogger.audio.debug("AudioRecorder stopped")
     }
 

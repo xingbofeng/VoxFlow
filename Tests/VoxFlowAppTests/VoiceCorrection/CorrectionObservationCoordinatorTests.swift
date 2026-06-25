@@ -4,14 +4,11 @@ import XCTest
 
 @MainActor
 final class CorrectionObservationCoordinatorTests: XCTestCase {
-    func testPollsAtTwoFiveAndTenSecondsAndCreatesActiveAppScopedRule() async throws {
+    func testPollsUntilThirtySecondsAndCreatesActiveAppScopedRule() async throws {
         let observer = FakeFocusedTextObserver()
         observer.captureResult = observation(value: "use q 问 today")
-        observer.recaptureResults = [
-            observation(value: "use q 问 today"),
-            observation(value: "use q 问 today"),
-            observation(value: "use Qwen today"),
-        ]
+        observer.recaptureResults = (1...29).map { _ in observation(value: "use q 问 today") }
+            + [observation(value: "use Qwen today")]
         let clock = FakeCorrectionObservationClock()
         let repository = CapturingCorrectionRuleRepository()
         let targetRepository = CapturingCorrectionTargetRepository()
@@ -20,6 +17,7 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
             clock: clock,
             repository: repository,
             targetRepository: targetRepository,
+            pollOffsets: CorrectionObservationPollSchedule.defaultOffsets,
             appliesImmediately: true
         )
 
@@ -30,7 +28,7 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
         )
 
         let sleeps = await clock.recordedSleeps()
-        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(2), .seconds(3), .seconds(5)])
+        XCTAssertEqual(sleeps, [.milliseconds(150)] + Array(repeating: .seconds(1), count: 30))
         let saved = try XCTUnwrap(repository.savedRules.first)
         XCTAssertEqual(saved.original, "q 问")
         XCTAssertEqual(saved.replacement, "Qwen")
@@ -92,6 +90,36 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(observer.captureCallCount, 0)
         XCTAssertTrue(repository.savedRules.isEmpty)
+    }
+
+    func testSecureFieldDoesNotCaptureOrLearn() async {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub")
+        let repository = CapturingCorrectionRuleRepository()
+        var diagnostics: [CorrectionObservationDiagnostic] = []
+        let coordinator = makeCoordinator(
+            observer: observer,
+            repository: repository,
+            onDiagnostic: { diagnostics.append($0) }
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: CorrectionContext(
+                mode: .dictation,
+                providerID: "apple",
+                modelID: nil,
+                language: "zh-Hans",
+                bundleIdentifier: "com.apple.TextEdit",
+                isFinalTranscript: true,
+                isSecureField: true
+            ),
+            appliedEvents: []
+        )
+
+        XCTAssertEqual(observer.captureCallCount, 0)
+        XCTAssertTrue(repository.savedRules.isEmpty)
+        XCTAssertEqual(diagnostics.last?.reason, .unsupportedContext)
     }
 
     func testDirectApplyDisabledCreatesCandidateRule() async throws {
@@ -201,13 +229,161 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
         XCTAssertEqual(reportedErrors, [TestRepositoryError.saveFailed.localizedDescription])
     }
 
+    func testReturnSignalCommitsLatestHighConfidenceCorrectionBeforeThirtySecondWindowEnds() async throws {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub works")
+        observer.recaptureResults = [
+            observation(value: "tokenhub works"),
+            observation(value: "tokenhub works"),
+            observation(value: "tokenhub works"),
+        ]
+        let commitObserver = FakeCorrectionObservationCommitObserver()
+        observer.onRecapture = {
+            commitObserver.emit(.returnKey)
+        }
+        let clock = FakeCorrectionObservationClock()
+        let repository = CapturingCorrectionRuleRepository()
+        let coordinator = makeCoordinator(
+            observer: observer,
+            clock: clock,
+            repository: repository,
+            pollOffsets: [.seconds(1), .seconds(2), .seconds(3)],
+            commitObserver: commitObserver
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(),
+            appliedEvents: []
+        )
+
+        let saved = try XCTUnwrap(repository.savedRules.first)
+        XCTAssertEqual(saved.original, "投康 Hub")
+        XCTAssertEqual(saved.replacement, "tokenhub")
+        XCTAssertEqual(saved.lifecycle, .active)
+        let sleeps = await clock.recordedSleeps()
+        XCTAssertEqual(sleeps, [.milliseconds(150), .seconds(1)])
+        XCTAssertTrue(commitObserver.didStart)
+        XCTAssertTrue(commitObserver.didStop)
+    }
+
+    func testReturnSignalRecapturesEditMadeAfterPreviousPollBeforeCommitting() async throws {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub works")
+        observer.recaptureResults = [observation(value: "tokenhub works")]
+        let commitObserver = FakeCorrectionObservationCommitObserver()
+        let clock = SignalingCorrectionObservationClock { duration in
+            guard duration == .seconds(1) else { return }
+            await commitObserver.emit(.returnKey)
+        }
+        let repository = CapturingCorrectionRuleRepository()
+        let coordinator = makeCoordinator(
+            observer: observer,
+            clock: clock,
+            repository: repository,
+            pollOffsets: [.seconds(1), .seconds(2)],
+            commitObserver: commitObserver
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(),
+            appliedEvents: []
+        )
+
+        let saved = try XCTUnwrap(repository.savedRules.first)
+        XCTAssertEqual(saved.original, "投康 Hub")
+        XCTAssertEqual(saved.replacement, "tokenhub")
+        XCTAssertEqual(observer.recaptureBaselines.count, 1)
+    }
+
+    func testActiveApplicationChangedCommitsLatestSuggestionBeforeFocusIsLost() async throws {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub works")
+        observer.recaptureResults = [
+            observation(value: "tokenhub works"),
+            observation(value: "tokenhub works"),
+        ]
+        let commitObserver = FakeCorrectionObservationCommitObserver()
+        observer.onRecapture = {
+            commitObserver.emit(.activeApplicationChanged)
+        }
+        let repository = CapturingCorrectionRuleRepository()
+        let coordinator = makeCoordinator(
+            observer: observer,
+            repository: repository,
+            pollOffsets: [.seconds(1), .seconds(2)],
+            commitObserver: commitObserver
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(),
+            appliedEvents: []
+        )
+
+        XCTAssertEqual(repository.savedRules.first?.original, "投康 Hub")
+        XCTAssertEqual(repository.savedRules.first?.replacement, "tokenhub")
+    }
+
+    func testSaveSuccessReportsUserVisibleLearningEvent() async throws {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResult = observation(value: "投康 Hub works")
+        observer.recaptureResults = [observation(value: "tokenhub works")]
+        let repository = CapturingCorrectionRuleRepository()
+        var events: [CorrectionObservationLearningEvent] = []
+        let coordinator = makeCoordinator(
+            observer: observer,
+            repository: repository,
+            pollOffsets: [.seconds(1)],
+            onLearningEvent: { events.append($0) }
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(),
+            appliedEvents: []
+        )
+
+        let event = try XCTUnwrap(events.first)
+        XCTAssertEqual(event.original, "投康 Hub")
+        XCTAssertEqual(event.replacement, "tokenhub")
+        XCTAssertEqual(event.lifecycle, .active)
+        XCTAssertEqual(event.message, "已自动学习：投康 Hub → tokenhub")
+    }
+
+    func testBaselineCaptureFailureReportsDiagnostic() async {
+        let observer = FakeFocusedTextObserver()
+        observer.captureResults = [nil, nil, nil]
+        var diagnostics: [CorrectionObservationDiagnostic] = []
+        let coordinator = makeCoordinator(
+            observer: observer,
+            repository: CapturingCorrectionRuleRepository(),
+            onDiagnostic: { diagnostics.append($0) }
+        )
+
+        await coordinator.observeInsertedText(
+            "投康 Hub",
+            context: context(),
+            appliedEvents: []
+        )
+
+        XCTAssertEqual(diagnostics.last?.reason, .baselineMissingInsertedText)
+        XCTAssertEqual(diagnostics.last?.insertedText, "投康 Hub")
+        XCTAssertEqual(diagnostics.last?.bundleIdentifier, "com.cursor.Cursor")
+    }
+
     private func makeCoordinator(
         observer: FakeFocusedTextObserver,
-        clock: FakeCorrectionObservationClock = FakeCorrectionObservationClock(),
+        clock: any CorrectionObservationClock = FakeCorrectionObservationClock(),
         repository: any CorrectionRuleRepository,
         targetRepository: any CorrectionTargetRepository = CapturingCorrectionTargetRepository(),
+        pollOffsets: [Duration] = [.seconds(1), .seconds(2), .seconds(3)],
+        commitObserver: (any CorrectionObservationCommitObserving)? = nil,
         autoLearningEnabled: Bool = true,
         appliesImmediately: Bool = true,
+        onLearningEvent: @escaping (CorrectionObservationLearningEvent) -> Void = { _ in },
+        onDiagnostic: @escaping (CorrectionObservationDiagnostic) -> Void = { _ in },
         onSaveFailure: @escaping (Error) -> Void = { _ in }
     ) -> CorrectionObservationCoordinator {
         CorrectionObservationCoordinator(
@@ -215,8 +391,12 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
             clock: clock,
             repository: repository,
             targetRepository: targetRepository,
+            pollOffsets: pollOffsets,
+            commitObserver: commitObserver,
             isAutoLearningEnabled: { autoLearningEnabled },
             autoLearningAppliesImmediately: { appliesImmediately },
+            onLearningEvent: onLearningEvent,
+            onDiagnostic: onDiagnostic,
             onSaveFailure: onSaveFailure
         )
     }
@@ -241,6 +421,37 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
             bundleIdentifier: "com.cursor.Cursor",
             isSecureField: false
         )
+    }
+}
+
+@MainActor
+private final class FakeCorrectionObservationCommitObserver: CorrectionObservationCommitObserving {
+    var onSignal: ((CorrectionObservationCommitSignal) -> Void)?
+    private(set) var didStart = false
+    private(set) var didStop = false
+
+    func start() {
+        didStart = true
+    }
+
+    func stop() {
+        didStop = true
+    }
+
+    func emit(_ signal: CorrectionObservationCommitSignal) {
+        onSignal?(signal)
+    }
+}
+
+private actor SignalingCorrectionObservationClock: CorrectionObservationClock {
+    private let onSleep: @Sendable (Duration) async -> Void
+
+    init(onSleep: @escaping @Sendable (Duration) async -> Void) {
+        self.onSleep = onSleep
+    }
+
+    func sleep(for duration: Duration) async {
+        await onSleep(duration)
     }
 }
 
