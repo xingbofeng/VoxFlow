@@ -39,6 +39,10 @@ final class ShortcutManager: @unchecked Sendable {
         keyCode: HotKeyShortcutRouting.lKeyCode,
         modifierMask: commandModifierMask | shiftModifierMask
     )
+    static let defaultSelectionAskAIShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.pKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
     static let defaultLongPressThreshold: TimeInterval = 0.5
     static let supportedModifierKeyCodes: Set<Int64> = [54, 55, 56, 60, 58, 61, 59, 62]
     private static let modifierEncodingShift: Int64 = 16
@@ -204,6 +208,8 @@ final class ShortcutManager: @unchecked Sendable {
         static let selectionSummarizeShortcutDisabled = "SelectionSummarizeShortcutDisabled"
         static let selectionAgentShortcutKeyCode = "SelectionAgentShortcutKeyCode"
         static let selectionAgentShortcutDisabled = "SelectionAgentShortcutDisabled"
+        static let selectionAskAIShortcutKeyCode = "SelectionAskAIShortcutKeyCode"
+        static let selectionAskAIShortcutDisabled = "SelectionAskAIShortcutDisabled"
         static let middleMouseRecordingEnabled = "MiddleMouseRecordingEnabled"
         static let migrationDone = "ShortcutManager_MigrationDone_V2"
     }
@@ -402,6 +408,14 @@ final class ShortcutManager: @unchecked Sendable {
                 return Self.defaultSelectionAgentShortcutKeyCode
             }
             return Int64(defaults.integer(forKey: Keys.selectionAgentShortcutKeyCode))
+        case .selectionAskAI:
+            guard !defaults.bool(forKey: Keys.selectionAskAIShortcutDisabled) else {
+                return nil
+            }
+            guard defaults.object(forKey: Keys.selectionAskAIShortcutKeyCode) != nil else {
+                return Self.defaultSelectionAskAIShortcutKeyCode
+            }
+            return Int64(defaults.integer(forKey: Keys.selectionAskAIShortcutKeyCode))
         case .cancel:
             return HotKeyShortcutRouting.escapeKeyCode
         }
@@ -482,6 +496,14 @@ final class ShortcutManager: @unchecked Sendable {
                 defaults.set(true, forKey: Keys.selectionAgentShortcutDisabled)
                 defaults.removeObject(forKey: Keys.selectionAgentShortcutKeyCode)
             }
+        case .selectionAskAI:
+            if let keyCode {
+                defaults.set(false, forKey: Keys.selectionAskAIShortcutDisabled)
+                defaults.set(keyCode, forKey: Keys.selectionAskAIShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.selectionAskAIShortcutDisabled)
+                defaults.removeObject(forKey: Keys.selectionAskAIShortcutKeyCode)
+            }
         case .cancel:
             break
         }
@@ -508,6 +530,8 @@ final class ShortcutManager: @unchecked Sendable {
         defaults.removeObject(forKey: Keys.selectionSummarizeShortcutDisabled)
         defaults.removeObject(forKey: Keys.selectionAgentShortcutKeyCode)
         defaults.removeObject(forKey: Keys.selectionAgentShortcutDisabled)
+        defaults.removeObject(forKey: Keys.selectionAskAIShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.selectionAskAIShortcutDisabled)
         defaults.removeObject(forKey: Keys.middleMouseRecordingEnabled)
     }
 
@@ -614,6 +638,8 @@ final class ShortcutManager: @unchecked Sendable {
             return "selectionSummarize"
         case .selectionAgent:
             return "selectionAgent"
+        case .selectionAskAI:
+            return "selectionAskAI"
         case .cancel:
             return "cancel"
         }

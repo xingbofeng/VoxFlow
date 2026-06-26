@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import VoxFlowTextInsertion
 
 enum AssetAction: String, CaseIterable, Equatable, Sendable {
@@ -77,6 +78,12 @@ enum AssetActionError: Error, Equatable {
     case unsupportedAction
     case pasteFailed
     case pasteboardWriteFailed
+}
+
+struct AssetFileSaveRequest: Equatable {
+    let suggestedFileName: String
+    let sourceURL: URL?
+    let allowedContentTypes: [UTType]
 }
 
 @MainActor
@@ -255,15 +262,17 @@ final class AssetActionService {
 
     private func saveAsFile(_ asset: AssetItem) async throws {
         NSApp.activate(ignoringOtherApps: true)
+        let request = try fileSaveRequest(for: asset)
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = suggestedFileName(for: asset)
+        panel.nameFieldStringValue = request.suggestedFileName
+        panel.allowedContentTypes = request.allowedContentTypes
+        panel.isExtensionHidden = false
         guard panel.runModal() == .OK, let destinationURL = panel.url else {
             return
         }
 
-        if let sourcePath = asset.filePath ?? asset.imagePath {
-            let sourceURL = URL(fileURLWithPath: sourcePath)
+        if let sourceURL = request.sourceURL {
             if FileManager.default.fileExists(atPath: destinationURL.path) {
                 try FileManager.default.removeItem(at: destinationURL)
             }
@@ -273,6 +282,15 @@ final class AssetActionService {
 
         let text = try textForFileExport(asset)
         try text.write(to: destinationURL, atomically: true, encoding: .utf8)
+    }
+
+    func fileSaveRequest(for asset: AssetItem) throws -> AssetFileSaveRequest {
+        let sourceURL = (asset.filePath ?? asset.imagePath).map(URL.init(fileURLWithPath:))
+        return AssetFileSaveRequest(
+            suggestedFileName: suggestedFileName(for: asset),
+            sourceURL: sourceURL,
+            allowedContentTypes: allowedContentTypes(for: asset, sourceURL: sourceURL)
+        )
     }
 
     private func textForFileExport(_ asset: AssetItem) throws -> String {
@@ -291,6 +309,23 @@ final class AssetActionService {
             .joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return (sanitizedTitle.isEmpty ? "VoxFlow Asset" : sanitizedTitle) + ".txt"
+    }
+
+    private func allowedContentTypes(for asset: AssetItem, sourceURL: URL?) -> [UTType] {
+        if asset.contentType == .image {
+            guard let sourceURL,
+                  let type = UTType(filenameExtension: sourceURL.pathExtension),
+                  type.conforms(to: .image) else {
+                return [.png]
+            }
+            return [type]
+        }
+        if asset.contentType == .file,
+           let sourceURL,
+           let type = UTType(filenameExtension: sourceURL.pathExtension) {
+            return [type]
+        }
+        return [.plainText]
     }
 
     private func postPasteShortcut() throws {

@@ -251,6 +251,8 @@ final class HotKeyFeatureController {
             shouldConsume = performWorkflowShortcut(shortcut)
         case .selectionAgent:
             shouldConsume = performWorkflowShortcut(shortcut)
+        case .selectionAskAI:
+            shouldConsume = performWorkflowShortcut(shortcut)
         }
         AppLogger.general.info(
             "hotkey_workflow_decision shortcut=\(shortcut.logName) decision=\(shouldConsume ? "consume" : "passThrough")"
@@ -330,6 +332,8 @@ private extension HotKeyWorkflowShortcut {
             return "selectionSummarize"
         case .selectionAgent:
             return "selectionAgent"
+        case .selectionAskAI:
+            return "selectionAskAI"
         case .cancel:
             return "cancel"
         }

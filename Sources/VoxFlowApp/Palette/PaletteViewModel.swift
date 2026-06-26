@@ -76,6 +76,10 @@ enum PaletteKeyboardAction: Equatable, Sendable {
     case activateCommand(PaletteCommand)
     case openApplication(path: String, itemID: PaletteRootItemID)
     case performAssetAction(PaletteDefaultAction, assetID: String)
+    case askAI(prompt: String)
+    case translate(text: String)
+    case activateQuicklink(PaletteQuicklink, query: String)
+    case openURL(String)
 }
 
 enum PaletteViewModelError: Error, Equatable {
@@ -90,8 +94,13 @@ final class PaletteViewModel: ObservableObject {
     private let favoritesStore: any PaletteFavoritesStoring
     private let usageStore: any PaletteUsageStoring
     private let searchIndex: PaletteRootSearchIndex
+    private let composer: PaletteRootComposer
     private let now: () -> Date
     private let rootItems: [PaletteRootItem]
+
+    /// 是否启用 Palette 动态能力（问 AI / Quicklinks / URL 打开）。
+    /// 默认 false 保留纯 launcher 行为；生产环境由装配层显式传 true 启用。
+    let showsAskAI: Bool
 
     @Published private(set) var mode: PaletteMode = .home
     @Published private(set) var selectedTypeFilter: PaletteAssetTypeFilter = .all
@@ -112,6 +121,7 @@ final class PaletteViewModel: ObservableObject {
         favoritesStore: (any PaletteFavoritesStoring)? = nil,
         usageStore: (any PaletteUsageStoring)? = nil,
         searchIndex: PaletteRootSearchIndex = PaletteRootSearchIndex(),
+        showsAskAI: Bool = false,
         now: @escaping () -> Date = Date.init
     ) {
         self.repository = repository
@@ -119,13 +129,13 @@ final class PaletteViewModel: ObservableObject {
         self.favoritesStore = favoritesStore ?? UserDefaultsPaletteFavoritesStore()
         self.usageStore = usageStore ?? UserDefaultsPaletteUsageStore()
         self.searchIndex = searchIndex
+        self.showsAskAI = showsAskAI
+        self.composer = PaletteRootComposer(searchIndex: searchIndex, now: now)
         self.now = now
         self.rootItems = PaletteCommand.rootCommands.map(PaletteRootItem.command)
             + (applicationProvider?.scanInstalledApplications().map(PaletteRootItem.application) ?? [])
         syncSelectedRootItemID()
     }
-
-    var showsAskAI: Bool { false }
 
     var searchPlaceholder: String {
         switch mode {
@@ -144,17 +154,21 @@ final class PaletteViewModel: ObservableObject {
     }
 
     var rootSections: [PaletteRootSection] {
-        searchIndex.sections(
+        composer.sections(
             for: rootItems,
             query: searchText,
             favoriteIDs: favoritesStore.favoriteIDs(),
             usageStore: usageStore,
-            now: now()
+            includesDynamic: showsAskAI
         )
     }
 
     var visibleRootItems: [PaletteRootItem] {
         rootSections.flatMap(\.items)
+    }
+
+    var homeResultListIdentity: String {
+        visibleRootItems.map(\.id.rawValue).joined(separator: "|")
     }
 
     var typeFilters: [PaletteAssetTypeFilter] {
@@ -257,6 +271,14 @@ final class PaletteViewModel: ObservableObject {
                 return .activateCommand(command)
             case let .application(application):
                 return .openApplication(path: application.path, itemID: selectedRootItem.id)
+            case let .askAI(prompt):
+                return .askAI(prompt: prompt)
+            case let .translate(text):
+                return .translate(text: text)
+            case let .quicklink(link, query):
+                return .activateQuicklink(link, query: query)
+            case let .openURL(url):
+                return .openURL(url)
             }
         case .recentAssets:
             guard let selectedAsset else {
@@ -427,10 +449,6 @@ final class PaletteViewModel: ObservableObject {
     var selectedRootItem: PaletteRootItem? {
         guard visibleRootItems.indices.contains(selectedHomeResultIndex) else { return nil }
         return visibleRootItems[selectedHomeResultIndex]
-    }
-
-    func isRootItemSelected(_ item: PaletteRootItem) -> Bool {
-        selectedRootItemID == item.id
     }
 
     var footerPrimaryActionTitle: String {

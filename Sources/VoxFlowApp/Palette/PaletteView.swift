@@ -9,6 +9,10 @@ struct PaletteView: View {
     var onDefaultAction: (PaletteDefaultAction) -> Void = { _ in }
     var onAssetAction: (AssetAction, AssetItem) -> Void = { _, _ in }
     var onOpenApplication: (String, PaletteRootItemID) -> Void = { _, _ in }
+    var onAskAI: (String) -> Void = { _ in }
+    var onTranslate: (String) -> Void = { _ in }
+    var onActivateQuicklink: (PaletteQuicklink, String) -> Void = { _, _ in }
+    var onOpenURL: (String) -> Void = { _ in }
 
     private let homeSearchPlaceholder = "搜索应用、命令、资产..."
     private let assetSearchPlaceholder = "搜索资产..."
@@ -96,6 +100,12 @@ struct PaletteView: View {
         DispatchQueue.main.async {
             isSearchFocused = true
         }
+        Task { @MainActor in
+            await Task.yield()
+            isSearchFocused = true
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            isSearchFocused = true
+        }
     }
 
     @ViewBuilder
@@ -127,19 +137,16 @@ struct PaletteView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 14)
-                .id(viewModel.selectedRootItemID)
+                .id(viewModel.homeResultListIdentity)
             }
             .onChange(of: viewModel.selectedHomeResultIndex) { _, _ in
-                scrollHomeSelectionIntoView(proxy)
-            }
-            .onChange(of: viewModel.selectedRootItemID) { _, _ in
                 scrollHomeSelectionIntoView(proxy)
             }
         }
     }
 
     private func rootResultButton(_ item: PaletteRootItem, index: Int) -> some View {
-        let isSelected = viewModel.isRootItemSelected(item)
+        let isSelected = viewModel.selectedHomeResultIndex == index
         return Button {
             viewModel.selectHomeResult(at: index)
             performPrimaryAction()
@@ -540,6 +547,14 @@ struct PaletteView: View {
             if case let .assetAction(assetAction) = defaultAction {
                 onAssetAction(assetAction, asset)
             }
+        case let .askAI(prompt):
+            onAskAI(prompt)
+        case let .translate(text):
+            onTranslate(text)
+        case let .activateQuicklink(link, query):
+            onActivateQuicklink(link, query)
+        case let .openURL(urlString):
+            onOpenURL(urlString)
         }
     }
 
@@ -571,6 +586,36 @@ struct PaletteView: View {
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 28, height: 28)
                 .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        case let .quicklinkImage(name):
+            if let url = quicklinkIconURL(named: name),
+            let image = NSImage(contentsOf: url) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
+            } else {
+                Image(systemName: "globe")
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+            }
+        case let .websiteIcon(pageURL):
+            AsyncImage(url: faviconURL(for: pageURL)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                        .frame(width: 28, height: 28)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                case .empty, .failure:
+                    websiteIconPlaceholder(for: pageURL)
+                @unknown default:
+                    websiteIconPlaceholder(for: pageURL)
+                }
+            }
         case let .applicationIcon(path):
             if let image = NSImage(contentsOfFile: path) {
                 Image(nsImage: image)
@@ -585,6 +630,43 @@ struct PaletteView: View {
                     .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
             }
         }
+    }
+
+    private func quicklinkIconURL(named name: String) -> URL? {
+        VoxFlowAppResourceBundle.url(
+            forResource: name,
+            withExtension: "png",
+            subdirectory: "QuicklinkIcons"
+        ) ?? VoxFlowAppResourceBundle.url(
+            forResource: name,
+            withExtension: "png"
+        )
+    }
+
+    private func faviconURL(for pageURL: String) -> URL? {
+        guard let url = URL(string: pageURL),
+              let host = url.host else {
+            return nil
+        }
+        let encodedHost = host.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? host
+        return URL(string: "https://www.google.com/s2/favicons?domain=\(encodedHost)&sz=64")
+    }
+
+    private func websiteIconPlaceholder(for pageURL: String) -> some View {
+        let host = URL(string: pageURL)?.host ?? pageURL
+        let initial = host
+            .replacingOccurrences(of: "www.", with: "")
+            .prefix(1)
+            .uppercased()
+        return ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color(red: 0.03, green: 0.46, blue: 0.38).opacity(0.11))
+            Text(initial.isEmpty ? "?" : initial)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        }
+        .frame(width: 22, height: 22)
+        .frame(width: 28, height: 28)
     }
 
     private func rootItemIndex(for item: PaletteRootItem) -> Int {
@@ -608,6 +690,12 @@ struct PaletteView: View {
             return "命令"
         case .application:
             return "应用"
+        case .ai:
+            return "AI"
+        case .quicklink:
+            return "搜索"
+        case .link:
+            return "链接"
         }
     }
 

@@ -15,22 +15,46 @@ struct PaletteRootItemID: RawRepresentable, Hashable, Codable, Sendable, CustomS
         PaletteRootItemID(rawValue: "application:\(application.id)")
     }
 
+    static let askAI = PaletteRootItemID(rawValue: "askAI")
+
+    static func quicklink(_ link: PaletteQuicklink) -> PaletteRootItemID {
+        PaletteRootItemID(rawValue: "quicklink:\(link.id)")
+    }
+
+    static func openURL(_ normalizedURL: String) -> PaletteRootItemID {
+        PaletteRootItemID(rawValue: "openURL:\(normalizedURL)")
+    }
+
+    var openURLString: String? {
+        guard rawValue.hasPrefix("openURL:") else { return nil }
+        return String(rawValue.dropFirst("openURL:".count))
+    }
+
     var description: String { rawValue }
 }
 
 enum PaletteRootItemKind: Equatable, Sendable {
     case command
     case application
+    case ai
+    case quicklink
+    case link
 }
 
 enum PaletteRootIcon: Equatable, Sendable {
     case systemImage(String)
     case applicationIcon(path: String)
+    case quicklinkImage(name: String)
+    case websiteIcon(pageURL: String)
 }
 
 enum PaletteRootActivation: Equatable, Sendable {
     case command(PaletteCommand)
     case application(InstalledApplication)
+    case askAI(prompt: String)
+    case translate(text: String)
+    case quicklink(PaletteQuicklink, query: String)
+    case openURL(String)
 }
 
 enum PaletteRootAction: String, Equatable, Sendable {
@@ -101,6 +125,65 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
             icon: application.iconPath.map { .applicationIcon(path: $0) } ?? .systemImage("app"),
             activation: .application(application)
         )
+    }
+
+    static func askAI(prompt: String) -> PaletteRootItem {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subtitle = trimmed.isEmpty ? "直接向已配置模型提问" : "询问 \(Self.truncated(trimmed))"
+        return PaletteRootItem(
+            id: .askAI,
+            kind: .ai,
+            title: "问 AI",
+            subtitle: subtitle,
+            aliases: ["ai", "问ai", "问", "ask", "提问"],
+            icon: .systemImage("sparkles"),
+            activation: .askAI(prompt: trimmed)
+        )
+    }
+
+    static func translate(text: String) -> PaletteRootItem {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subtitle = trimmed.isEmpty ? "翻译输入框内容" : "翻译 \(Self.truncated(trimmed))"
+        return PaletteRootItem(
+            id: PaletteRootItemID(rawValue: "translateInput"),
+            kind: .command,
+            title: "翻译",
+            subtitle: subtitle,
+            aliases: ["translate", "translation", "翻译", "译"],
+            icon: .systemImage("translate"),
+            activation: .translate(text: trimmed)
+        )
+    }
+
+    static func quicklink(_ link: PaletteQuicklink, query: String) -> PaletteRootItem {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = trimmed.isEmpty ? link.title : "\(link.title)搜索"
+        let subtitle = trimmed.isEmpty ? link.homepageURL : "搜索 \(Self.truncated(trimmed))"
+        return PaletteRootItem(
+            id: .quicklink(link),
+            kind: .quicklink,
+            title: title,
+            subtitle: subtitle,
+            aliases: link.aliases,
+            icon: .quicklinkImage(name: link.iconResourceName),
+            activation: .quicklink(link, query: trimmed)
+        )
+    }
+
+    static func openURL(normalizedURL: String) -> PaletteRootItem {
+        PaletteRootItem(
+            id: .openURL(normalizedURL),
+            kind: .link,
+            title: "打开网址",
+            subtitle: normalizedURL,
+            aliases: [],
+            icon: .websiteIcon(pageURL: normalizedURL),
+            activation: .openURL(normalizedURL)
+        )
+    }
+
+    private static func truncated(_ text: String, limit: Int = 60) -> String {
+        text.count <= limit ? text : String(text.prefix(limit)) + "…"
     }
 }
 

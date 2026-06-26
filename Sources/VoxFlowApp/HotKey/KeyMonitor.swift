@@ -375,7 +375,8 @@ final class KeyMonitor: @unchecked Sendable {
             selectionActionKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAction),
             selectionTranslateKeyCode: shortcutManager.shortcutKeyCode(for: .selectionTranslate),
             selectionSummarizeKeyCode: shortcutManager.shortcutKeyCode(for: .selectionSummarize),
-            selectionAgentKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAgent)
+            selectionAgentKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAgent),
+            selectionAskAIKeyCode: shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         )
 
         if !isPressed,

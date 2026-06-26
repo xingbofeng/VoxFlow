@@ -75,4 +75,19 @@ final class PaletteRootItemTests: XCTestCase {
         XCTAssertEqual(item.id.rawValue, "application:path:/applications/local.app")
         XCTAssertEqual(item.icon, .systemImage("app"))
     }
+
+    func testOpenURLRootItemUsesWebsiteIcon() {
+        let item = PaletteRootItem.openURL(normalizedURL: "https://miora.design")
+
+        XCTAssertEqual(item.icon, .websiteIcon(pageURL: "https://miora.design"))
+    }
+
+    func testTranslateRootItemCarriesText() {
+        let item = PaletteRootItem.translate(text: "hello")
+
+        XCTAssertEqual(item.id.rawValue, "translateInput")
+        XCTAssertEqual(item.title, "翻译")
+        XCTAssertEqual(item.subtitle, "翻译 hello")
+        XCTAssertEqual(item.activation, .translate(text: "hello"))
+    }
 }

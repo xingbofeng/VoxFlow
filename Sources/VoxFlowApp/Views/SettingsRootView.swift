@@ -419,7 +419,7 @@ struct SettingsRootView: View {
 
                     shortcutGroupHeader(
                         title: "划词动作快捷键",
-                        subtitle: "选中文本后打开动作 HUD，或直接翻译、总结、发给任务助手"
+                        subtitle: "选中文本后打开动作 HUD，或直接翻译、总结、发给任务助手、问 AI"
                     )
 
                     workflowShortcutRow(
@@ -461,6 +461,17 @@ struct SettingsRootView: View {
                         subtitle: "选中文本后按快捷键直接交给任务助手",
                         systemImage: "terminal",
                         tint: AppTheme.ColorToken.accent
+                    )
+
+                    Divider()
+                        .padding(.leading, 70)
+
+                    workflowShortcutRow(
+                        shortcut: .selectionAskAI,
+                        title: "划词问 AI",
+                        subtitle: "选中文本后按快捷键直接发给问 AI 聊天",
+                        systemImage: "sparkles",
+                        tint: .purple
                     )
                 }
             }
@@ -1121,6 +1132,8 @@ struct SettingsRootView: View {
             return viewModel.selectionSummarizeShortcutKeyCode
         case .selectionAgent:
             return viewModel.selectionAgentShortcutKeyCode
+        case .selectionAskAI:
+            return viewModel.selectionAskAIShortcutKeyCode
         case .cancel:
             return HotKeyShortcutRouting.escapeKeyCode
         }

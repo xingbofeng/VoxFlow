@@ -260,12 +260,23 @@ dmg: require-release-signing-identity build
 	@ln -s /Applications dist/staging/
 	@rm -f "$(DMG_FILE)"
 	@dmg_size_mb=$$(du -sm dist/staging | awk '{ print $$1 + 256 }'); \
-	hdiutil create -volname "$(DMG_NAME)" \
-		-srcfolder dist/staging \
-		-size $${dmg_size_mb}m \
-		-ov -format UDZO \
-		-imagekey zlib-level=9 \
-		"$(DMG_FILE)" > /dev/null
+	for attempt in 1 2 3; do \
+		if hdiutil create -volname "$(DMG_NAME)" \
+			-srcfolder dist/staging \
+			-size $${dmg_size_mb}m \
+			-ov -format UDZO \
+			-imagekey zlib-level=9 \
+			"$(DMG_FILE)" > /dev/null; then \
+			break; \
+		fi; \
+		if [ "$$attempt" = "3" ]; then \
+			exit 1; \
+		fi; \
+		echo "hdiutil create failed, retrying ($$attempt/3)..."; \
+		hdiutil detach "/Volumes/$(DMG_NAME)" -force >/dev/null 2>&1 || true; \
+		rm -f "$(DMG_FILE)"; \
+		sleep 5; \
+	done
 	@rm -rf dist/staging
 	@shasum -a 256 "$(DMG_FILE)" > "$(DMG_FILE).sha256"
 	@echo "✅ DMG created: $(DMG_FILE)"

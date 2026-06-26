@@ -12,6 +12,7 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.0.0"),
         .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21"),
         .package(url: "https://github.com/ordo-one/FuzzyMatch.git", from: "1.4.0"),
+        .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.0.2"),
         .package(path: "Packages/VoxFlowContextBoostKit"),
         .package(path: "Packages/VoxFlowVoiceCorrectionKit")
     ],
@@ -233,7 +234,8 @@ let package = Package(
                 .product(name: "KokoroTTS", package: "speech-swift"),
                 .product(name: "MADLADTranslation", package: "speech-swift"),
                 .product(name: "Qwen3TTS", package: "speech-swift"),
-                .product(name: "Qwen3Chat", package: "speech-swift")
+                .product(name: "Qwen3Chat", package: "speech-swift"),
+                .product(name: "MarkdownUI", package: "swift-markdown-ui")
             ],
             path: "Sources/VoxFlowApp",
             exclude: ["Resources/Info.plist"],
@@ -257,6 +259,7 @@ let package = Package(
                 .copy("Resources/ASRSenseVoice.png"),
                 .copy("Resources/ASRTencentCloud.png"),
                 .copy("Resources/ASRWhisper.png"),
+                .copy("Resources/QuicklinkIcons"),
                 .copy("Persistence/AppDatabaseSchema.sql")
             ],
             linkerSettings: [

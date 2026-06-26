@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import VoxFlowTextInsertion
 import XCTest
 @testable import VoxFlowApp
@@ -117,6 +118,23 @@ final class AssetActionServiceTests: XCTestCase {
         XCTAssertNil(pasteboard.string(forType: .string))
         XCTAssertEqual(inserter.insertedTexts, [])
         XCTAssertEqual(pasteShortcutPoster.postCallCount, 2)
+    }
+
+    func testImageSaveAsFileRequestPreservesImageFileType() throws {
+        let service = makeService()
+        let imagePath = try makeImageFile()
+        let asset = makeAsset(
+            source: .screenshot,
+            contentType: .image,
+            text: "OCR text",
+            imagePath: imagePath
+        )
+
+        let request = try service.fileSaveRequest(for: asset)
+
+        XCTAssertEqual(request.suggestedFileName, URL(fileURLWithPath: imagePath).lastPathComponent)
+        XCTAssertEqual(request.sourceURL?.path, imagePath)
+        XCTAssertEqual(request.allowedContentTypes, [.png])
     }
 
     func testPasteAndCopyFileUseFilePayloadNotPathText() async throws {
