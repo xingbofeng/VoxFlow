@@ -103,7 +103,7 @@ final class PaletteViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.visibleRootItems.first?.title, "Slack")
         XCTAssertEqual(viewModel.selectedRootItemID, viewModel.visibleRootItems.first?.id)
         XCTAssertNotEqual(viewModel.selectedRootItemID, initialSelectionID)
-        XCTAssertTrue(viewModel.visibleRootItems.first.map(viewModel.isRootItemSelected) ?? false)
+        XCTAssertEqual(viewModel.selectedRootItem, viewModel.visibleRootItems.first)
     }
 
     func testHomeSearchPublishesFirstResultSelectionWhenIndexStaysZero() throws {
@@ -131,6 +131,38 @@ final class PaletteViewModelTests: XCTestCase {
 
         XCTAssertEqual(publishedSelectionIDs.last, viewModel.visibleRootItems.first?.id)
         withExtendedLifetime(selectionCancellable) {}
+    }
+
+    func testHomeResultListIdentityChangesForSearchResultsButNotArrowSelection() throws {
+        let viewModel = PaletteViewModel(
+            repository: CapturingPaletteAssetRepository(),
+            applicationProvider: FakeInstalledApplicationProvider(applications: [
+                InstalledApplication(
+                    id: "com.tinyspeck.slackmacgap",
+                    name: "Slack",
+                    bundleID: "com.tinyspeck.slackmacgap",
+                    iconPath: nil,
+                    path: "/Applications/Slack.app",
+                    systemCategory: .userApplication
+                )
+            ]),
+            favoritesStore: InMemoryPaletteFavoritesStore(favoriteIDs: []),
+            usageStore: InMemoryPaletteUsageStore()
+        )
+        let initialIdentity = viewModel.homeResultListIdentity
+
+        viewModel.moveSelectionDown()
+
+        XCTAssertEqual(viewModel.homeResultListIdentity, initialIdentity)
+
+        try viewModel.updateSearchText("slk")
+        let searchIdentity = viewModel.homeResultListIdentity
+
+        XCTAssertNotEqual(searchIdentity, initialIdentity)
+
+        viewModel.moveSelectionDown()
+
+        XCTAssertEqual(viewModel.homeResultListIdentity, searchIdentity)
     }
 
     func testRootActivationRecordsUsageAndQuerySelection() throws {

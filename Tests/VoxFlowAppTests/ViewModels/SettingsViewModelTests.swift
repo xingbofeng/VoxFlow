@@ -427,6 +427,74 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertNil(shortcutManager.shortcutKeyCode(for: .selectionTranslate))
     }
 
+    func testLoadsDefaultSelectionAskAIShortcut() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertEqual(
+            viewModel.selectionAskAIShortcutKeyCode,
+            ShortcutManager.defaultSelectionAskAIShortcutKeyCode
+        )
+    }
+
+    func testUpdatesSelectionAskAIWorkflowShortcut() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        let customShortcut = ShortcutManager.encodeShortcut(
+            keyCode: 0x10,
+            modifierMask: ShortcutManager.commandModifierMask | ShortcutManager.optionModifierMask
+        )
+
+        try viewModel.updateWorkflowShortcut(.selectionAskAI, keyCode: customShortcut)
+
+        XCTAssertEqual(viewModel.selectionAskAIShortcutKeyCode, customShortcut)
+        XCTAssertEqual(shortcutManager.shortcutKeyCode(for: .selectionAskAI), customShortcut)
+
+        try viewModel.updateWorkflowShortcut(.selectionAskAI, keyCode: nil)
+
+        XCTAssertNil(viewModel.selectionAskAIShortcutKeyCode)
+        XCTAssertNil(shortcutManager.shortcutKeyCode(for: .selectionAskAI))
+    }
+
+    func testUpdateSelectionAskAIRejectsConflictingWorkflowShortcut() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let shortcutManager = makeShortcutManager()
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: shortcutManager,
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        // selectionAction default is Cmd+Shift+F, conflict if askAI tries to use same keyCode
+        let conflicting = ShortcutManager.defaultSelectionActionShortcutKeyCode
+
+        XCTAssertThrowsError(try viewModel.updateWorkflowShortcut(.selectionAskAI, keyCode: conflicting)) { error in
+            guard case SettingsViewModelError.conflictingBindings = error else {
+                XCTFail("expected conflictingBindings error, got \(error)")
+                return
+            }
+        }
+
+        // Original binding should remain unchanged
+        XCTAssertEqual(
+            viewModel.selectionAskAIShortcutKeyCode,
+            ShortcutManager.defaultSelectionAskAIShortcutKeyCode
+        )
+    }
+
     func testClearHistoryClearCacheExportImportAndResetSettings() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let tempRoot = FileManager.default.temporaryDirectory

@@ -86,7 +86,7 @@ private enum AgentDispatchConfirmationLayout {
 }
 
 private enum SelectionActionCardLayout {
-    static let width: CGFloat = 292
+    static let width: CGFloat = 380
     static let height: CGFloat = 154
     static let tileHeight: CGFloat = 82
     static let anchorGap: CGFloat = 12
@@ -179,7 +179,7 @@ final class OverlayWindowController: NSWindowController {
     // MARK: - Window Setup
 
     private func setupWindow() {
-        guard let window = window as? OverlayPanel else { return }
+        guard let window = window else { return }
 
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -1103,6 +1103,8 @@ final class OverlayWindowController: NSWindowController {
             return "list.bullet"
         case .agent:
             return "terminal"
+        case .askAI:
+            return "sparkles"
         }
     }
 
@@ -1196,9 +1198,8 @@ final class OverlayWindowController: NSWindowController {
         cancelSelectionActionPresentation()
     }
 
-    /// Shows the overlay in the default dictation state (waveform + "听写中").
     func show() {
-        guard let window = window else { return }
+        guard let window = window as? OverlayPanel else { return }
         logger.debug(
             "overlay_show generation=\(presentationGeneration + 1) "
                 + "hasTemporaryMessage=\(isShowingTemporaryMessage)"

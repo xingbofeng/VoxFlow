@@ -364,7 +364,7 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
     }
 
-    func testSelectionActionCardUsesExistingHUDWithThreeActions() throws {
+    func testSelectionActionCardUsesExistingHUDWithFourActions() throws {
         let controller = OverlayWindowController()
 
         controller.showSelectionActions(
@@ -382,9 +382,10 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertTrue(labels.contains("翻译"))
         XCTAssertTrue(labels.contains("总结"))
         XCTAssertTrue(labels.contains("任务助手"))
+        XCTAssertTrue(labels.contains("问 AI"))
         XCTAssertFalse(labels.contains("朗读"))
-        XCTAssertEqual(actionTiles.count, 3)
-        XCTAssertLessThanOrEqual(controller.window?.frame.width ?? 0, 300)
+        XCTAssertEqual(actionTiles.count, 4)
+        XCTAssertLessThanOrEqual(controller.window?.frame.width ?? 0, 400)
         XCTAssertLessThanOrEqual(controller.window?.frame.height ?? 0, 260)
         let tileFrames = actionTiles.map { $0.convert($0.bounds, to: actionCard) }
         let firstMidY = try XCTUnwrap(tileFrames.first?.midY)
@@ -396,6 +397,7 @@ final class OverlayAppearanceTests: XCTestCase {
         }
         XCTAssertLessThan(tileFrames[0].maxX, tileFrames[1].minX)
         XCTAssertLessThan(tileFrames[1].maxX, tileFrames[2].minX)
+        XCTAssertLessThan(tileFrames[2].maxX, tileFrames[3].minX)
         XCTAssertTrue(contentView.descendantViews(withIdentifier: "agentCandidateRow").isEmpty)
     }
 

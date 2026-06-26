@@ -626,6 +626,15 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         XCTAssertFalse(method.contains("正在总结选中文本"))
     }
 
+    func testLateTranscriptionUpdatesAfterRecordingRenderAsLoading() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("let shouldShowLoading = isRefining || self.dictationOrchestrator.state != .recording"))
+        XCTAssertTrue(source.contains("self.hudFeatureController.updateTranscription(text, isRefining: shouldShowLoading)"))
+    }
+
     func testSelectionAgentContextRestoresExternalTargetBeforeStartingAgentDispatch() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
@@ -650,6 +659,55 @@ final class AppDelegateEventRoutingTests: XCTestCase {
             startRange.lowerBound,
             "Clicking the selection action card can focus VoxFlow, so Agent dispatch must restore the original external target before capturing fallback output."
         )
+    }
+
+    func testPerformWorkflowShortcutHandlesSelectionAskAI() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func performWorkflowShortcut\(_ shortcut: HotKeyWorkflowShortcut\) -> Bool \{[\s\S]*?\n    private func performSelectionAction"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("case .selectionAskAI:"))
+        XCTAssertTrue(method.contains("performSelectionAction(.askAI)"))
+    }
+
+    func testHandleSelectionActionSelectedRoutesAskAIContextToAIChat() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleSelectionActionSelected\([\s\S]*?\n    private func shouldStartEphemeralWorkflow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("case let .askAIContext(text):"))
+        XCTAssertTrue(method.contains("handleSelectionAskAI(prompt: text)"))
+        // Make sure askAI does NOT route to agentContext
+        XCTAssertTrue(method.contains("case let .askAIContext(text):"))
+    }
+
+    func testHandleSelectionAskAIOpensAIChatPanelHUD() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleSelectionAskAI\(prompt: String\) \{[\s\S]*?\n    private func "#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(method.contains("aiChatPanelController.present(viewModel: aiChatViewModel, prompt: prompt)"))
     }
 
     private static func repositoryRoot() throws -> URL {

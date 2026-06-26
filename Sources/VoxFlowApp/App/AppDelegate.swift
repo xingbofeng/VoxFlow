@@ -166,6 +166,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var paletteWindowController: PaletteWindowController?
     private let overlayController = OverlayWindowController()
     private lazy var hudFeatureController = VoiceHUDFeatureController(overlay: overlayController)
+    private lazy var aiChatService: OpenAICompatibleChatService = OpenAICompatibleChatService(
+        providerRepository: appEnvironment.llmProviderRepository,
+        credentialStore: appEnvironment.credentialStore
+    )
+    private lazy var aiChatViewModel: AIChatSessionViewModel = AIChatSessionViewModel(service: aiChatService)
+    private lazy var aiChatPanelController = AIChatPanelController()
     private var pendingASRSelectionFallbackNotice: ASRManager.SelectionFallbackNotice?
     private let systemOutputMuter = SystemOutputMuter()
     private lazy var hotKeyDecisionPerformer = HotKeyDecisionPerformer(
@@ -537,7 +543,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleDictationStateChange(state)
         }
         dictationOrchestrator.onTranscriptionUpdate = { [weak self] text, isRefining in
-            self?.hudFeatureController.updateTranscription(text, isRefining: isRefining)
+            guard let self else { return }
+            let shouldShowLoading = isRefining || self.dictationOrchestrator.state != .recording
+            self.hudFeatureController.updateTranscription(text, isRefining: shouldShowLoading)
         }
         dictationOrchestrator.onProcessingStarted = { [weak self] text in
             self?.hudFeatureController.processingStarted(text)
@@ -1042,6 +1050,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             performSelectionAction(.agent)
             return true
+        case .selectionAskAI:
+            logger.debug("workflow_shortcut_selection_ask_ai")
+            guard shouldStartEphemeralWorkflow(shortcut) else {
+                return true
+            }
+            performSelectionAction(.askAI)
+            return true
         case .cancel:
             logger.debug("workflow_shortcut_cancel")
             if pendingCorrectionFallback.hasPending {
@@ -1109,12 +1124,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 favoritesStore: UserDefaultsPaletteFavoritesStore(),
                 usageStore: UserDefaultsPaletteUsageStore(),
                 applicationLauncher: WorkspacePaletteApplicationLauncher(),
+                showsAskAI: true,
                 onCommand: { [weak self] command in
                     self?.handlePaletteCommand(command)
+                },
+                onAskAI: { [weak self] prompt in
+                    self?.handlePaletteAskAI(prompt: prompt)
+                },
+                onTranslate: { [weak self] text in
+                    self?.handlePaletteTranslate(text: text)
                 }
             )
         }
         paletteWindowController?.present()
+    }
+
+    private func handlePaletteAskAI(prompt: String) {
+        logger.debug("palette_ask_ai_requested promptLen=\(prompt.count)")
+        paletteWindowController?.close()
+        aiChatPanelController.present(viewModel: aiChatViewModel, prompt: prompt)
+    }
+
+    private func handlePaletteTranslate(text: String) {
+        logger.debug("palette_translate_requested textLen=\(text.count)")
+        paletteWindowController?.close()
+        selectionResultPanelController.present(
+            selectedText: text,
+            operation: .translation
+        )
+    }
+
+    private func handleSelectionAskAI(prompt: String) {
+        logger.debug("selection_ask_ai_requested promptLen=\(prompt.count)")
+        aiChatPanelController.present(viewModel: aiChatViewModel, prompt: prompt)
     }
 
     private func handlePaletteCommand(_ command: PaletteCommand) {
@@ -1323,6 +1365,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
             }
+        case let .askAIContext(text):
+            logger.debug("selection_action_ask_ai_context textLen=\(text.count)")
+            handleSelectionAskAI(prompt: text)
         }
     }
 

@@ -32,6 +32,7 @@ enum HotKeyWorkflowShortcut: Equatable {
     case selectionTranslate
     case selectionSummarize
     case selectionAgent
+    case selectionAskAI
     case cancel
 }
 
@@ -80,7 +81,8 @@ enum HotKeyRouter {
         selectionActionKeyCode: Int64? = ShortcutManager.defaultSelectionActionShortcutKeyCode,
         selectionTranslateKeyCode: Int64? = ShortcutManager.defaultSelectionTranslateShortcutKeyCode,
         selectionSummarizeKeyCode: Int64? = ShortcutManager.defaultSelectionSummarizeShortcutKeyCode,
-        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode
+        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode,
+        selectionAskAIKeyCode: Int64? = ShortcutManager.defaultSelectionAskAIShortcutKeyCode
     ) -> HotKeyRouterResult {
         if let workflowShortcut = HotKeyShortcutRouting.workflowShortcut(
             keyCode: keyCode,
@@ -91,7 +93,8 @@ enum HotKeyRouter {
             selectionActionKeyCode: selectionActionKeyCode,
             selectionTranslateKeyCode: selectionTranslateKeyCode,
             selectionSummarizeKeyCode: selectionSummarizeKeyCode,
-            selectionAgentKeyCode: selectionAgentKeyCode
+            selectionAgentKeyCode: selectionAgentKeyCode,
+            selectionAskAIKeyCode: selectionAskAIKeyCode
         ) {
             return .workflowShortcut(workflowShortcut)
         }
@@ -116,6 +119,7 @@ enum HotKeyShortcutRouting {
     static let fKeyCode: Int64 = 0x03
     static let vKeyCode: Int64 = 0x09
     static let lKeyCode: Int64 = 0x25
+    static let pKeyCode: Int64 = 0x23
     static let jKeyCode: Int64 = 0x26
     static let kKeyCode: Int64 = 0x28
     static let spaceKeyCode: Int64 = 0x31
@@ -130,7 +134,8 @@ enum HotKeyShortcutRouting {
         selectionActionKeyCode: Int64? = ShortcutManager.defaultSelectionActionShortcutKeyCode,
         selectionTranslateKeyCode: Int64? = ShortcutManager.defaultSelectionTranslateShortcutKeyCode,
         selectionSummarizeKeyCode: Int64? = ShortcutManager.defaultSelectionSummarizeShortcutKeyCode,
-        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode
+        selectionAgentKeyCode: Int64? = ShortcutManager.defaultSelectionAgentShortcutKeyCode,
+        selectionAskAIKeyCode: Int64? = ShortcutManager.defaultSelectionAskAIShortcutKeyCode
     ) -> HotKeyWorkflowShortcut? {
         if keyCode == escapeKeyCode {
             return flags.intersection([
@@ -202,6 +207,15 @@ enum HotKeyShortcutRouting {
                flags: flags
            ) {
             return .selectionAgent
+        }
+
+        if let selectionAskAIKeyCode,
+           ShortcutManager.shortcutMatches(
+               selectionAskAIKeyCode,
+               keyCode: keyCode,
+               flags: flags
+           ) {
+            return .selectionAskAI
         }
 
         return nil
@@ -292,7 +306,7 @@ enum HotKeyWorkflowRoutingPolicy {
             result = dictationState.isIdle
         case .screenshotOCR:
             result = true
-        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent:
+        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent, .selectionAskAI:
             result = dictationState.isIdle
         case .cancel:
             result = false
@@ -316,7 +330,7 @@ enum HotKeyWorkflowRoutingPolicy {
             result = dictationState.isIdle
         case .screenshotOCR:
             result = false
-        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent:
+        case .selectionAction, .selectionTranslate, .selectionSummarize, .selectionAgent, .selectionAskAI:
             result = false
         case .cancel:
             result = false

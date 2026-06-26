@@ -259,6 +259,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var selectionTranslateShortcutKeyCode: Int64? = nil
     @Published private(set) var selectionSummarizeShortcutKeyCode: Int64? = nil
     @Published private(set) var selectionAgentShortcutKeyCode: Int64? = nil
+    @Published private(set) var selectionAskAIShortcutKeyCode: Int64? = nil
     @Published private(set) var middleMouseRecordingEnabled = false
     @Published private(set) var agentDispatchEnabled = false
     @Published private(set) var agentDispatchExactDirectEnabled = true
@@ -376,6 +377,7 @@ final class SettingsViewModel: ObservableObject {
             selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
             selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
             selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
+            selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
             middleMouseRecordingEnabled = shortcutManager.middleMouseRecordingEnabled
             agentDispatchEnabled = try readBool(
                 SettingsKey.agentDispatchEnabled,
@@ -485,6 +487,7 @@ final class SettingsViewModel: ObservableObject {
         self.selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
         self.selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
         self.selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
+        self.selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新快捷键设置"
@@ -515,6 +518,7 @@ final class SettingsViewModel: ObservableObject {
         selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
         selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
         selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
+        selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = false
         lastError = nil
         lastActionMessage = "已更新\(action.displayName)快捷键"
@@ -542,6 +546,7 @@ final class SettingsViewModel: ObservableObject {
         selectionTranslateShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionTranslate)
         selectionSummarizeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionSummarize)
         selectionAgentShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAgent)
+        selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
         lastActionMessage = "已更新\(shortcut.displayName) 快捷键"
@@ -1383,6 +1388,7 @@ final class SettingsViewModel: ObservableObject {
             .selectionTranslate,
             .selectionSummarize,
             .selectionAgent,
+            .selectionAskAI,
         ]
         return shortcuts.compactMap { shortcut in
             guard shortcut != workflowShortcut else { return nil }
@@ -1507,6 +1513,8 @@ private extension HotKeyWorkflowShortcut {
             return "划词总结"
         case .selectionAgent:
             return "发给任务助手"
+        case .selectionAskAI:
+            return "划词问 AI"
         case .cancel:
             return "取消"
         }

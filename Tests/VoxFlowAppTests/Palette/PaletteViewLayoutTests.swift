@@ -63,10 +63,11 @@ final class PaletteViewLayoutTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains(".onChange(of: viewModel.selectedRootItemID)"))
-        XCTAssertTrue(source.contains(".id(viewModel.selectedRootItemID)"))
-        XCTAssertTrue(source.contains("viewModel.isRootItemSelected(item)"))
-        XCTAssertFalse(source.contains("viewModel.selectedHomeResultIndex == index))"))
+        XCTAssertTrue(source.contains(".id(viewModel.homeResultListIdentity)"))
+        XCTAssertTrue(source.contains("let isSelected = viewModel.selectedHomeResultIndex == index"))
+        XCTAssertFalse(source.contains("viewModel.isRootItemSelected(item)"))
+        XCTAssertFalse(source.contains(".onChange(of: viewModel.selectedRootItemID)"))
+        XCTAssertFalse(source.contains(".id(viewModel.selectedRootItemID)"))
     }
 
     func testPaletteSelectedRowsUseVisibleHighlightWithoutPressedOnlyHighlight() throws {
@@ -75,7 +76,7 @@ final class PaletteViewLayoutTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("PaletteRowSelectionHighlight(isSelected: isSelected)"))
-        XCTAssertTrue(source.contains("let isSelected = viewModel.isRootItemSelected(item)"))
+        XCTAssertTrue(source.contains("let isSelected = viewModel.selectedHomeResultIndex == index"))
         XCTAssertTrue(source.contains("let isSelected = viewModel.selectedAssetIndex == index"))
         XCTAssertTrue(source.contains("Color.accentColor"))
         XCTAssertFalse(source.contains("PaletteRowButtonStyle(isSelected:"))
@@ -142,7 +143,20 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains(".focused($isSearchFocused)"))
         XCTAssertTrue(source.contains("focusSearchField()"))
         XCTAssertTrue(source.contains(".onChange(of: viewModel.searchFocusRequestID)"))
+        XCTAssertTrue(source.contains("await Task.yield()"))
+        XCTAssertTrue(source.contains("Task.sleep(nanoseconds: 50_000_000)"))
         XCTAssertTrue(source.contains("return \"应用\""))
+    }
+
+    func testWebsiteIconsUseFaviconServiceAndHostPlaceholder() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Palette/PaletteView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("https://www.google.com/s2/favicons?domain="))
+        XCTAssertTrue(source.contains("websiteIconPlaceholder(for: pageURL)"))
+        XCTAssertTrue(source.contains("replacingOccurrences(of: \"www.\", with: \"\")"))
+        XCTAssertFalse(source.contains("case .empty, .failure:\n                    Image(systemName: \"link\")"))
     }
 
     func testPaletteSearchResultsRenderQueryHighlights() throws {
@@ -211,6 +225,18 @@ final class PaletteViewLayoutTests: XCTestCase {
 
         XCTAssertTrue(method.contains("togglePaletteVoiceAction(.dictation)"))
         XCTAssertFalse(method.contains("togglePaletteVoiceAction(primaryPaletteVoiceAction())"))
+    }
+
+    func testPaletteTranslateRoutesInputTextToSelectionResultPanel() throws {
+        let sourceURL = Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("onTranslate: { [weak self] text in"))
+        XCTAssertTrue(source.contains("self?.handlePaletteTranslate(text: text)"))
+        XCTAssertTrue(source.contains("private func handlePaletteTranslate(text: String)"))
+        XCTAssertTrue(source.contains("selectionResultPanelController.present("))
+        XCTAssertTrue(source.contains("operation: .translation"))
     }
 
     private static func repositoryRoot() -> URL {

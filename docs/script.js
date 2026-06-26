@@ -1,7 +1,7 @@
 const release = {
-  version: "1.8.1",
-  tag: "v1.8.1",
-  assetName: "VoxFlow-1.8.1-macOS.dmg"
+  version: "1.8.2",
+  tag: "v1.8.2",
+  assetName: "VoxFlow-1.8.2-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -62,7 +62,7 @@ const copy = {
     guideStep2Title: "设置听写热键",
     guideStep2Copy: "选择一个按住触发的快捷键，在任意输入框里说话并松开回填。",
     guideStep3Title: "打开启动台",
-    guideStep3Copy: "用 Option + Space 查看最近资产、搜索历史、复制内容或执行动作。",
+    guideStep3Copy: "用 ⌥Space 查看最近资产、搜索历史、复制内容或执行动作。",
     guideStep4Title: "处理截图和选中文本",
     guideStep4Copy: "用截图 OCR 或划词动作打开结果面板，再翻译、总结、朗读或发送给任务助手。",
     shortcutsLabel: "快捷键",
@@ -137,7 +137,7 @@ const copy = {
     guideStep2Title: "Set a dictation shortcut",
     guideStep2Copy: "Choose a hold-to-talk shortcut, speak in any editable field, and release to insert.",
     guideStep3Title: "Open the launcher",
-    guideStep3Copy: "Use Option + Space to view recent assets, search history, copy content, or run actions.",
+    guideStep3Copy: "Use ⌥Space to view recent assets, search history, copy content, or run actions.",
     guideStep4Title: "Process screenshots and selections",
     guideStep4Copy: "Open the result panel from Screenshot OCR or selection actions, then translate, summarize, read aloud, or send to an assistant.",
     shortcutsLabel: "Shortcuts",

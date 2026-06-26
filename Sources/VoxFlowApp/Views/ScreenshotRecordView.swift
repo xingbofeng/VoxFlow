@@ -196,7 +196,7 @@ struct ScreenshotRecordView: View {
                     Text("暂无截图记录")
                         .font(.system(size: 15))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text("使用 Cmd+Shift+A 截图后，记录将自动保存到这里")
+                    Text("使用 ⌘⇧A 截图后，记录将自动保存到这里")
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.7))
                 }

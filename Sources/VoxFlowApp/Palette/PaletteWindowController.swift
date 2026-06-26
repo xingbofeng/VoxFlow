@@ -21,6 +21,8 @@ final class PaletteWindowController: NSWindowController {
     private let actionService: AssetActionService
     private let applicationLauncher: any PaletteApplicationLaunching
     private let onCommand: (PaletteCommand) -> Void
+    private let onAskAI: (String) -> Void
+    private let onTranslate: (String) -> Void
     private var previousTarget: DictationTarget?
     private var localKeyMonitor: Any?
     private var localMouseMonitor: Any?
@@ -38,19 +40,25 @@ final class PaletteWindowController: NSWindowController {
         favoritesStore: (any PaletteFavoritesStoring)? = nil,
         usageStore: (any PaletteUsageStoring)? = nil,
         applicationLauncher: any PaletteApplicationLaunching = WorkspacePaletteApplicationLauncher(),
-        onCommand: @escaping (PaletteCommand) -> Void
+        showsAskAI: Bool = false,
+        onCommand: @escaping (PaletteCommand) -> Void,
+        onAskAI: @escaping (String) -> Void = { _ in },
+        onTranslate: @escaping (String) -> Void = { _ in }
     ) {
         let viewModel = PaletteViewModel(
             repository: repository,
             actionService: actionService,
             applicationProvider: applicationProvider,
             favoritesStore: favoritesStore,
-            usageStore: usageStore
+            usageStore: usageStore,
+            showsAskAI: showsAskAI
         )
         self.viewModel = viewModel
         self.actionService = actionService
         self.applicationLauncher = applicationLauncher
         self.onCommand = onCommand
+        self.onAskAI = onAskAI
+        self.onTranslate = onTranslate
 
         let panel = PalettePanel(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 470),
@@ -87,6 +95,18 @@ final class PaletteWindowController: NSWindowController {
                 },
                 onOpenApplication: { [weak self] path, itemID in
                     self?.performOpenApplication(path: path, itemID: itemID)
+                },
+                onAskAI: { [weak self] prompt in
+                    self?.performAskAI(prompt: prompt)
+                },
+                onTranslate: { [weak self] text in
+                    self?.performTranslate(text: text)
+                },
+                onActivateQuicklink: { [weak self] link, query in
+                    self?.performQuicklink(link: link, query: query)
+                },
+                onOpenURL: { [weak self] urlString in
+                    self?.performOpenRootURL(urlString)
                 }
             )
         )
@@ -241,7 +261,45 @@ final class PaletteWindowController: NSWindowController {
                     await performAssetAction(action, on: asset)
                 }
             }
+        case let .askAI(prompt):
+            performAskAI(prompt: prompt)
+        case let .translate(text):
+            performTranslate(text: text)
+        case let .activateQuicklink(link, query):
+            performQuicklink(link: link, query: query)
+        case let .openURL(urlString):
+            performOpenRootURL(urlString)
         }
+    }
+
+    private func performAskAI(prompt: String) {
+        let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+        onAskAI(prompt)
+        viewModel.recordRootActivation(itemID: .askAI)
+        close()
+    }
+
+    private func performTranslate(text: String) {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        onTranslate(text)
+        viewModel.recordRootActivation(itemID: PaletteRootItemID(rawValue: "translateInput"))
+        close()
+    }
+
+    private func performQuicklink(link: PaletteQuicklink, query: String) {
+        guard let url = URL(string: link.searchURL(for: query)) else { return }
+        NSWorkspace.shared.open(url)
+        viewModel.recordRootActivation(itemID: .quicklink(link))
+        close()
+    }
+
+    private func performOpenRootURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+        viewModel.recordRootActivation(itemID: .openURL(urlString))
+        close()
     }
 
     private func performOpenApplication(path: String, itemID: PaletteRootItemID) {

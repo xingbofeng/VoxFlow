@@ -354,6 +354,32 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testSelectionAskAIShortcutRoutesThroughHotKeyRouter() {
+        XCTAssertEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.pKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionAskAIKeyCode: ShortcutManager.defaultSelectionAskAIShortcutKeyCode
+            ),
+            .workflowShortcut(.selectionAskAI)
+        )
+    }
+
+    func testSelectionAskAIShortcutPassesThroughWhenDisabled() {
+        XCTAssertNotEqual(
+            HotKeyRouter.route(
+                keyCode: HotKeyShortcutRouting.pKeyCode,
+                flags: [.maskCommand, .maskShift],
+                dictationKeyCode: 54,
+                agentComposeKeyCode: ShortcutManager.defaultAgentComposeShortcutKeyCode,
+                selectionAskAIKeyCode: nil
+            ),
+            .workflowShortcut(.selectionAskAI)
+        )
+    }
+
     func testModifierShortcutRequiresOnlyThatModifierFlag() {
         XCTAssertTrue(
             ShortcutModifierRouting.isPureModifierShortcut(
