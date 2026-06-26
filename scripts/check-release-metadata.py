@@ -51,7 +51,7 @@ def main() -> int:
         "docs/index.html download fallback is stale",
         failures,
     )
-    require(f"{tag} · 免费开源" in docs_index, "docs/index.html release note fallback is stale", failures)
+    require(f"{tag} · Free & open source" in docs_index, "docs/index.html release note fallback is stale", failures)
 
     release_json = json.loads(read_text(ROOT / "docs/release.json"))
     require(release_json.get("version") == version, "docs/release.json version is stale", failures)
@@ -68,7 +68,7 @@ def main() -> int:
         failures,
     )
 
-    for relative in ["README.md", "README_EN.md"]:
+    for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
         text = read_text(ROOT / relative)
         found = re.findall(r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", text)
         require(found == [dmg_name], f"{relative} DMG reference is stale: {found}", failures)

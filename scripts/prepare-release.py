@@ -54,7 +54,7 @@ def update_docs(version: str) -> None:
         r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg",
         release_url,
     )
-    replace(index, r"v[0-9]+\.[0-9]+\.[0-9]+ · 免费开源", f"{tag} · 免费开源")
+    replace(index, r"v[0-9]+\.[0-9]+\.[0-9]+ · Free & open source", f"{tag} · Free & open source")
 
     release_notes = release_notes_summary(version)
     release_json = {
@@ -86,7 +86,7 @@ def release_notes_summary(version: str) -> str:
 
 def update_readmes(version: str) -> None:
     dmg = f"VoxFlow-{version}-macOS.dmg"
-    for relative in ["README.md", "README_EN.md"]:
+    for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
         replace(ROOT / relative, r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", dmg)
 
 

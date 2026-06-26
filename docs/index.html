@@ -1,16 +1,16 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6fbf8">
-  <meta name="description" content="码上写 VoxFlow - 把语音输入、截图 OCR、翻译总结、剪切板和 AI 助手调度收进同一个 macOS 工作台。">
+  <meta name="description" content="VoxFlow brings voice input, screenshot OCR, clipboard history, and local agent routing into one macOS workspace.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="码上写 VoxFlow - 语音、OCR、翻译都进工作台">
+  <meta property="og:title" content="VoxFlow - Voice, OCR, and local agent workflows in one workspace">
   <meta property="og:description" content="A macOS workspace for voice input, screenshot OCR, translation, asset history, and local AI assistant routing.">
-  <meta property="og:image" content="https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-zh.png">
+  <meta property="og:image" content="https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-en.png">
   <meta name="twitter:card" content="summary_large_image">
-  <title>码上写 VoxFlow - 语音、OCR、翻译都进工作台</title>
+  <title>VoxFlow - Voice, OCR, and local agent workflows in one workspace</title>
   <link rel="icon" href="assets/voiceinput-logo.png">
   <link rel="apple-touch-icon" href="assets/voiceinput-logo.png">
   <link rel="stylesheet" href="styles.css?v=20260625-v171-font-polish">
@@ -25,18 +25,22 @@
   <header class="nav shell">
     <a class="brand" href="#top" aria-label="VoxFlow home">
       <img src="assets/voiceinput-logo.png" alt="">
-      <span data-i18n="brand">码上写 <small>VoxFlow</small></span>
+      <span data-i18n="brand">VoxFlow</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
-      <a href="#features" data-i18n="navFeatures">功能</a>
-      <a href="#workflow" data-i18n="navWorkflow">工作流</a>
-      <a href="#guide" data-i18n="navGuide">使用文档</a>
-      <a href="#shortcuts" data-i18n="navShortcuts">快捷键</a>
+      <a href="#features" data-i18n="navFeatures">Features</a>
+      <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
+      <a href="#guide" data-i18n="navGuide">Guide</a>
+      <a href="#shortcuts" data-i18n="navShortcuts">Shortcuts</a>
     </nav>
     <div class="nav-actions">
-      <button class="language-switch" type="button" aria-label="Switch language">
-        <span data-lang-label>EN</span>
-      </button>
+      <select class="language-switch" aria-label="Switch language">
+        <option value="en">English</option>
+        <option value="zh">简体中文</option>
+        <option value="zh-Hant">繁體中文</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+      </select>
       <a class="ghost-link" href="https://github.com/xingbofeng/VoxFlow" aria-label="View VoxFlow on GitHub">GitHub</a>
     </div>
   </header>
@@ -44,34 +48,34 @@
   <main id="top">
     <section class="hero shell">
       <div class="hero-copy motion">
-        <p class="eyebrow" data-i18n="eyebrow">macOS 输入工作台</p>
-        <h1 data-i18n="headline">说出来、截下来、翻译好，全部沉淀成资产。</h1>
-        <p class="lead" data-i18n="heroCopy">VoxFlow 贴着当前应用工作：语音输入、截图 OCR、划词翻译、剪切板和 AI 助手调度，都会进入一个可搜索、可复用的本地工作台。</p>
+        <p class="eyebrow" data-i18n="eyebrow">macOS input workspace</p>
+        <h1 data-i18n="headline">Speak, capture, translate, and keep the result.</h1>
+        <p class="lead" data-i18n="heroCopy">VoxFlow stays attached to the app you are already using: voice input, screenshot OCR, translation, clipboard history, and AI assistant routing all become searchable local assets.</p>
         <div class="hero-badges" aria-label="VoxFlow highlights">
-          <span data-i18n="heroBadgeVoice">说话写入</span>
-          <span data-i18n="heroBadgeScreenshot">截图识别</span>
-          <span data-i18n="heroBadgeSelection">划词处理</span>
-          <span data-i18n="heroBadgeAssets">资产沉淀</span>
-          <span data-i18n="heroBadgeAgent">AI 调度</span>
+          <span data-i18n="heroBadgeVoice">Speak to write</span>
+          <span data-i18n="heroBadgeScreenshot">Capture text</span>
+          <span data-i18n="heroBadgeSelection">Process selection</span>
+          <span data-i18n="heroBadgeAssets">Keep assets</span>
+          <span data-i18n="heroBadgeAgent">Route AI</span>
         </div>
         <div class="hero-actions">
           <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.2/VoxFlow-1.8.2-macOS.dmg">
             <span class="download-icon" aria-hidden="true">⌘</span>
             <span>
-              <strong data-i18n="download">下载 macOS App</strong>
+              <strong data-i18n="download">Download for macOS</strong>
               <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
             </span>
           </a>
-          <span class="release-note" data-i18n="releaseNote">v1.8.2 · 免费开源</span>
+          <span class="release-note" data-i18n="releaseNote">v1.8.2 · Free & open source</span>
         </div>
       </div>
       <div class="hero-stage motion" aria-label="VoxFlow preview">
         <img
           data-hero-preview
-          src="assets/voxflow-hero-workbench-promo-zh.png"
+          src="assets/voxflow-hero-workbench-promo-en.png"
           width="1536"
           height="1024"
-          alt="码上写 VoxFlow 语音、截图 OCR、翻译和历史资产工作台预览"
+          alt="VoxFlow workspace preview for voice input, screenshot OCR, translation, and asset history"
         >
       </div>
     </section>
@@ -181,8 +185,8 @@
   </main>
 
   <footer class="footer shell">
-    <span data-i18n="footerBrand">码上写 VoxFlow © 2026</span>
-    <span data-i18n="footer">Swift & AppKit · 开源</span>
+    <span data-i18n="footerBrand">VoxFlow © 2026</span>
+    <span data-i18n="footer">Swift & AppKit · Open source</span>
   </footer>
 
   <script src="script.js?v=20260625-v170-hero-badges"></script>

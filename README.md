@@ -1,9 +1,9 @@
 <div align="center">
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
-  <h1>码上写 · VoxFlow</h1>
-  <p><strong>语音、截图、剪切板和 coding-agent 指令的 macOS 资产工作台。</strong></p>
-  <p>按 <code>⌥Space</code> 打开启动台，找回最近语音、截图和剪切板资产；按住说话、框选截图、复制内容都会沉淀为可搜索、可复制、可复用的历史资产。</p>
+  <h1>VoxFlow</h1>
+  <p><strong>A macOS asset workbench for voice, screenshots, clipboard history, and coding-agent instructions.</strong></p>
+  <p>Press <code>⌥Space</code> to open the launcher and recover recent voice, screenshot, and clipboard assets. Dictation, captures, and copied content become searchable, copyable, reusable local history.</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 15+">
@@ -11,311 +11,310 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-10B981?style=flat-square" alt="License"></a>
   </p>
   <p>
-    🌐 <a href="https://xingbofeng.github.io/VoxFlow/">官方网站</a>
+    🌐 <a href="https://xingbofeng.github.io/VoxFlow/">Website</a>
     &nbsp;·&nbsp;
-    ⬇️ <a href="https://github.com/xingbofeng/VoxFlow/releases/latest">下载最新版</a>
+    ⬇️ <a href="https://github.com/xingbofeng/VoxFlow/releases/latest">Download</a>
     &nbsp;·&nbsp;
-    <a href="README_EN.md">English</a>
+    <a href="README.md">English</a>
+    &nbsp;·&nbsp;
+    <a href="README.zh-CN.md">中文</a>
+    &nbsp;·&nbsp;
+    <a href="README.zh-TW.md">繁體中文</a>
+    &nbsp;·&nbsp;
+    <a href="README.ja.md">日本語</a>
+    &nbsp;·&nbsp;
+    <a href="README.ko.md">한국어</a>
   </p>
   <p>
-    <a href="docs/assets/voiceinput-demo-land.mp4"><img src="docs/assets/voiceinput-demo-land.gif" alt="介绍视频" width="100%"></a>
+    <a href="docs/assets/voiceinput-demo-land.mp4"><img src="docs/assets/voiceinput-demo-land.gif" alt="Intro Video" width="100%"></a>
   </p>
 </div>
 
+## At A Glance
 
-## 核心能力速览
+VoxFlow is an asset workbench and fast launcher for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns voice, screenshots, clipboard items, and agent commands into searchable, previewable, reusable local assets that return to your current workspace.
 
-码上写是一个贴在当前应用上的资产工作台和快速启动台。它不是语音助手，不接管窗口，不自动发送内容；它把语音、截图、剪切板和 Agent 指令沉淀为可检索、可预览、可复用的本地资产，再送回你正在工作的地方。
-
-| 你想做什么 | 怎么触发 | 输出到哪里 | 边界 |
+| What You Want To Do | Trigger | Output | Boundary |
 | --- | --- | --- | --- |
-| 打开启动台 | `⌥Space` | Raycast 风格启动台 | 首屏默认选中“最近资产”，可键盘导航 |
-| 找回最近资产 | 启动台 → 最近资产 | 二级资产浏览器 | 语音、截图、剪切板统一搜索和筛选 |
-| 语音输入 | 按住快捷键说话，松开 | 当前光标位置 | 不抢焦点，不自动发送 |
-| 管理剪切板资产 | 复制文本、图片、文件、链接或颜色 | 历史资产 | 避免噪音规则仍会过滤不需要保存的内容 |
-| 易错词纠错 | ASR final 和可选 LLM 后自动运行 | 插入前文本 | 本地确定性规则，候选是否启用由你决定 |
-| 剪贴板图片 OCR | 复制图片后按 `⌘⇧V` | 当前光标位置 | 只处理剪贴板图片，不启动普通听写 |
-| 框选截图处理 | 按 `⌘⇧A` 框选屏幕 | OCR 结果面板 | 可继续翻译、总结、朗读；识别结果可回看 |
-| 划词动作 | 选中文本后按 `⌘⇧F/J/K/L/P` | 动作 HUD 或结果面板 | F 打开动作卡；J 翻译、K 总结、L 发给任务助手、P 发给问 AI |
-| 启动台问 AI | 启动台输入问题后选「问 AI」 | 问 AI 聊天 HUD | 复用已配置 LLM Provider，多轮对话，流式回复，Markdown 渲染 |
-| 启动台快速搜索 | 启动台输入关键词后选 Quicklink | 默认浏览器 | 内置 Google、Bing、Perplexity、GitHub、StackOverflow、YouTube、Bilibili、X、小红书、淘宝、京东 |
-| 启动台打开网址 | 启动台输入 URL 或裸域名 | 默认浏览器 | 自动识别 http/https/裸域名/localhost/IP+端口，第一项即「打开网址」 |
-| 截图记录回看 | 工作台 → 截图 | 本地截图历史与 OCR 文本 | 本地保存，可搜索、收藏、分页、复制与删除 |
-| 任务助手 | 读取当前窗口上下文 + 口述意图 | 可复制提示词 | 只复制，不注入，不自动提交 |
-| AI Coding 助手控制台 | 说出任务助手名称和任务 | 本地 Codex / Claude / CodeBuddy / 终端 Agent | 只投递已注册会话 |
+| Open the launcher | `⌥Space` | Raycast-style launcher | Recent Assets is selected by default; keyboard navigation first |
+| Recover recent assets | Launcher -> Recent Assets | Second-level asset browser | Voice, screenshots, and clipboard share search and filters |
+| Dictate text | Hold the shortcut, speak, release | Current cursor position | No focus stealing, no auto-submit |
+| Manage clipboard assets | Copy text, images, files, links, or colors | Asset history | Noise filters still skip content that should not be saved |
+| Fix misrecognized terms | Runs after ASR final output and optional LLM correction | Text before insertion | Local deterministic rules; learned candidates stay user-controlled |
+| OCR a clipboard image | Copy an image, press `⌘⇧V` | Current cursor position | Image-only workflow; does not start normal dictation |
+| Capture and process a screenshot | Press `⌘⇧A`, select a region | OCR result panel | Translation, summary, and speech playback are optional |
+| Run selection actions | Select text, press `⌘⇧F/J/K/L/P` | Action HUD or result panel | F opens the action card; J translates, K summarizes, L sends to Task Assistant, P sends to Ask AI |
+| Ask AI from the launcher | Type a question in the launcher, choose "Ask AI" | Ask AI chat HUD | Reuses your configured LLM provider; multi-turn, streaming, Markdown |
+| Search the web from the launcher | Type a keyword, choose a Quicklink | Default browser | Built-in Google, Bing, Perplexity, GitHub, StackOverflow, YouTube, Bilibili, X, Xiaohongshu, Taobao, JD |
+| Open a URL from the launcher | Type a URL or bare domain | Default browser | Auto-detects http/https/bare domain/localhost/IP+port; first result is "Open URL" |
+| Review screenshot records | Open Workbench → Screenshot | Local screenshot history and OCR text | Stored locally; records can be searched, favorited, copied, and deleted |
+| Compose an AI prompt | Combine current-window context with spoken intent | Copyable prompt | Copy only, no injection, no auto-submit |
+| Command local coding agents | Speak a task assistant name and task | Codex / Claude / CodeBuddy / terminal agent session | Dispatches only to registered sessions |
 
-## 适合谁
+## Who It Is For
 
-- 经常和 ChatGPT、Claude、Codex、Cursor 或其他 AI 工具沟通，需要快速描述需求、上下文和修改意见。
-- 同时开着 Codex、Claude、CodeBuddy 或其他终端 Agent，希望用语音把指令派给对应任务助手。
-- 写代码时常要解释 bug、补充注释、写提交说明、记录排查过程。
-- 经常需要从截图、网页、报错弹窗或图片里提取文字，并进一步翻译或总结。
-- 中英文混说比较多，希望技术词、产品名和专有名词更稳定。
+- You often talk to ChatGPT, Claude, Codex, Cursor, or other AI tools and need to describe intent, context, or revision requests quickly.
+- You run Codex, Claude, CodeBuddy, or other terminal agents and want to dispatch spoken instructions to the right local session.
+- You write code and frequently explain bugs, add notes, draft commit messages, or document investigation steps.
+- You extract text from screenshots, web pages, error dialogs, or images, then translate or summarize it.
+- You speak mixed Chinese and English, where technical terms and product names are easy to misrecognize.
 
-## 阅读路线
+## Reading Map
 
-| 如果你想... | 直接看 |
+| If You Want To... | Start Here |
 | --- | --- |
-| 先装起来用 | [快速开始](#快速开始) |
-| 了解启动台和历史资产 | [纠错、OCR 和 Agent 工作流](#纠错ocr-和-agent-工作流) |
-| 了解语音模型 | [语音输入与识别模型](#语音输入与识别模型) |
-| 了解 OCR、翻译、总结和 Agent | [纠错、OCR 和 Agent 工作流](#纠错ocr-和-agent-工作流) |
-| 确认数据会去哪 | [隐私说明](#隐私说明) |
-| 了解技术栈和开源依赖 | [技术栈与开源依赖](#技术栈与开源依赖) |
-| 从源码开发 | [从源码运行](#从源码运行) |
+| Install and try it | [Quick Start](#quick-start) |
+| Understand the launcher and assets | [Corrections, OCR, And Agent Workflows](#corrections-ocr-and-agent-workflows) |
+| Understand speech models | [Dictation And Speech Models](#dictation-and-speech-models) |
+| Understand OCR, translation, summary, and agents | [Corrections, OCR, And Agent Workflows](#corrections-ocr-and-agent-workflows) |
+| Check where data goes | [Privacy](#privacy) |
+| Understand the stack and open-source dependencies | [Tech Stack And Open-Source Dependencies](#tech-stack-and-open-source-dependencies) |
+| Build from source | [Run From Source](#run-from-source) |
 
-## 语音输入与识别模型
+## Dictation And Speech Models
 
-### 按住说话，松开输入
+### Hold To Speak, Release To Insert
 
-码上写默认使用快捷键触发听写。按住说话时，屏幕上会出现一个轻量的转写浮层；松开后，最终文字会自动输入到当前光标位置。
+VoxFlow works like a keyboard layer. Hold your dictation shortcut, speak, and release. A small transcription overlay appears while you are speaking, then the final text is inserted into the current cursor position.
 
-你不需要切换应用，也不需要手动复制粘贴。它就像键盘一样，服务于当前正在使用的 App。
+There is no need to switch apps or manually copy text back.
 
-### 实时转写
+### Live Transcription
 
-说话过程中可以看到实时文本。短句、长段说明、中文、英文和中英混合内容都会即时显示，方便你边说边确认方向。
+While you speak, VoxFlow shows recognized text in real time so you can stay oriented. It works for short commands, long explanations, Chinese, English, and mixed Chinese-English speech.
 
-码上写内置系统语音识别，也支持本地和在线 ASR Provider。系统自带模型开箱可用；本地 Qwen3-ASR、Whisper、FunASR、SenseVoice、NVIDIA Nemotron、Parakeet、Omnilingual 等路线适合更重视离线能力、隐私和可控性的场景；在线 Groq、腾讯云、阿里云适合不想下载本地模型或需要云端能力的场景。模型页会明确标注“离线 / 在线”“流式 / 非流式”“中文 / 英文 / 多语言”等标签。
+VoxFlow includes the system speech recognizer plus local and cloud ASR providers. Apple Speech works out of the box; Qwen3-ASR, Whisper, FunASR, SenseVoice, NVIDIA Nemotron, Parakeet, and Omnilingual cover local workflows, while Groq, Tencent Cloud, and Alibaba Cloud provide online recognition. The Models page labels local versus online, streaming capability, and language coverage explicitly.
 
-### 支持的语音模型
+### Supported Speech Models
 
-码上写不会把所有模型强行塞进同一个运行时。不同模型的上游格式、流式能力、语言覆盖和隐私边界不同，所以会按模型选择最合适的 Provider target 或云端 runtime。
+VoxFlow does not force every local model into the same runtime. Each provider follows the route that best matches its upstream model format and latency target:
 
-#### 离线 / 本地模型
-
-这些 Provider 的音频不上传到第三方云服务；除“系统自带”可能依赖 Apple 系统服务外，本地模型都在本机完成推理。
-
-| 模型 | 状态 | 流式能力 | 运行路线 | 语言侧重 | 适合场景 |
-| --- | --- | --- | --- | --- | --- |
-| 系统自带 | 开箱可用 | 流式 | Apple Speech / SFSpeechRecognizer | 取决于 macOS 语音识别语言 | 不下载模型、先快速开始 |
-| Qwen3-ASR 0.6B | 已支持 | 流式 partial + final | speech-swift `Qwen3ASR` / MLX 4bit | 中文、英文、多语言 | 默认推荐本地听写，体积和速度更均衡 |
-| Qwen3-ASR 1.7B | 已支持 | 流式 partial + final | speech-swift `Qwen3ASR` / MLX 8bit | 中文、英文、多语言 | 更高准确率本地听写，需要更高内存 |
-| FunASR Nano INT8 / FP32 | 已支持 | 流式片段确认 | Sherpa-ONNX | 中文、英文 | 中文本地备选，不依赖 CoreML |
-| Whisper Turbo / Large V3 | 已支持 | 非流式 | WhisperKit | 多语言 | 录音结束后的高质量完整转写 |
-| SenseVoice | 已支持 | 当前按非流式/短句使用 | FluidAudio / CoreML | 中文、英文、多语言 | 本地多语种短句转写 |
-| Paraformer Large zh | 已支持 | 流式片段确认 | FluidAudio / CoreML int8 | 中文 | 中文本地转写 |
-| NVIDIA Nemotron 0.6B | 已支持 | 原生流式 | speech-swift `NemotronStreamingASR` / CoreML | 多语言 | 本地流式转写候选 |
-| Parakeet Streaming | 已支持 | 原生流式 | speech-swift `ParakeetStreamingASR` / CoreML | 英文和欧洲语种 | 英文低延迟听写 |
-| Omnilingual ASR | 已支持 | 非流式 | speech-swift `OmnilingualASR` / CoreML | 超多语言 | 广语言覆盖、文件/实验场景 |
-
-#### 在线 / 云端模型
-
-在线 Provider 会把录音发送到对应服务商。API Key、SecretId、SecretKey 等凭据保存在本地 SQLite 设置表中，设置页支持用“眼睛”按钮临时显示或隐藏。
-
-| Provider | 状态 | 流式能力 | 默认模型 / 接口 | 配置项 | 适合场景 |
-| --- | --- | --- | --- | --- | --- |
-| Groq（免费） | 已支持 | 非流式 | OpenAI-compatible audio transcription，默认 `whisper-large-v3-turbo` | API Key、模型名 | 不下载本地模型，松开后快速返回最终文本 |
-| 腾讯云 | 已支持 | 实时流式 | 腾讯云实时语音识别 WebSocket，默认 `16k_zh` | AppID、SecretId、SecretKey | 中文普通话实时云端听写 |
-| 阿里云 | 已支持 | 实时流式 | DashScope WebSocket，默认 `fun-asr-realtime` | 百炼 API Key | 中文和多语言实时云端听写 |
-| 火山云 | 待实现 | 计划流式 | 豆包语音大模型流式 ASR WebSocket | 待定 | 后续接入火山云实时 ASR |
-| Mistral Voxtral | 待实现 | 待定 | 官方 Voxtral 语音能力 | 待定 | 预留在线 Provider |
-| AssemblyAI | 待实现 | 待定 | AssemblyAI Transcription | 待定 | 预留在线 Provider |
-| ElevenLabs Scribe | 待实现 | 待定 | ElevenLabs Scribe | 待定 | 预留在线 Provider |
-
-## 纠错、OCR 和 Agent 工作流
-
-### 易错词与可选 LLM 纠错
-
-语音识别在技术词上容易出错，例如把 Python、JSON、TypeScript 识别成谐音或拆开的词。码上写可以在听写完成后，用你配置的 OpenAI 兼容模型做一次保守纠错。
-
-新版“易错词”是独立一级页面，会在 ASR final 和可选 LLM 之后做本地确定性修正；也可以从你后续手动修改的内容中学习候选规则。LLM 纠错不会替你润色或改写，只修明显听错的词，你仍然掌控原文语气和表达。
-
-### 剪贴板 OCR、框选截图、翻译和总结
-
-复制截图后按 `⌘⇧V`，码上写会识别剪贴板图片里的文字并粘贴到当前光标。按 `⌘⇧A` 框选屏幕区域时，会打开结果面板，支持原图、OCR、翻译和总结视图。
-
-这个能力适合处理网页、报错弹窗、截图、设计稿和聊天记录。OCR 结果可以继续复制、朗读、翻译或总结，但不会进入易错词的永久学习链路。
-
-### 任务助手与 AI Coding 助手控制台
-
-“任务助手”适合把当前窗口的可见上下文、OCR 文本和你的口述意图整理成一段可复制的提示词；它只复制结果，不自动发送。
-
-AI Coding 助手控制台面向本地 coding-agent 终端。开启后，你可以按住语音快捷键说出任务助手名称和指令，码上写会解析目标 Agent、展示确认状态，并把指令投递到对应的 Codex、Claude、CodeBuddy 或任意已注册终端会话。
-
-### 工作台
-
-除了菜单栏快速输入，码上写也提供完整资产工作台：
-
-| 页面 | 可以做什么 |
-| --- | --- |
-| 首页 | 查看历史资产、今日新增、来源分布和可复用内容；搜索、复制或删除语音、截图和剪切板资产 |
-| 易错词 | 管理本地确定性纠错规则、候选学习、启用状态和最近事件 |
-| 风格 | 为不同应用或场景设置输出风格，比如原文、正式、邮件、编程说明 |
-| 文件转写 | 导入音频或视频，排队转写，导出 txt、md、srt，或保存为笔记 |
-| 笔记 | 直接录音记笔记，也可以编辑、搜索和回看记录 |
-| 截图 | 浏览截图记录，查看原图和 OCR 文本，支持收藏、搜索、分页和快捷复制/删除 |
-| AI Coding 助手 | 查看已注册 Agent 任务助手、别名、工作目录、分支和调度记录 |
-| 设置 | 管理输入设备、快捷键、模型、翻译模型、权限、隐私和数据 |
-| 帮助 | 查看权限提示、版本信息、项目链接和常见入口 |
-
-## 功能亮点
-
-- **VoxFlow Palette 启动台**：`⌥Space` 打开 Raycast 风格入口，默认选中“最近资产”，支持上下键、回车和 `⌘K` 动作面板。
-- **历史资产工作台**：语音 ASR 成功结果、截图、剪切板文本/图片/文件/链接/颜色统一进入资产体系，首页按资产数量、来源分布和可复用内容展示。
-- **全局听写**：在任意可编辑输入框里使用，不局限于码上写自己的窗口。
-- **不抢焦点的浮层**：听写时只显示轻量浮层，不打断当前应用。
-- **多 Provider ASR**：系统语音识别开箱可用，本地 Qwen3-ASR、Whisper、FunASR、SenseVoice、NVIDIA Nemotron、Parakeet、Omnilingual 等 Provider 逐步接入统一运行时；暂不支持实时流式的 Provider 会在模型页标注“非流式”。
-- **稳定文本插入**：粘贴前临时切换输入源，完成后恢复输入源和剪贴板，减少 CJK 输入法干扰。
-- **输入设备选择**：支持选择麦克风，长设备名会自动收纳，不挤爆界面。
-- **快捷键录制**：在设置里直接录制想用的触发键，并配置短按行为。
-- **剪贴板图片 OCR**：复制截图或图片后按 `⌘⇧V`，自动识别图片文字并粘贴到当前输入框。
-- **框选截图 OCR**：按 `⌘⇧A` 框选屏幕区域，结果面板支持查看原图、OCR、翻译和总结。
-- **AI Coding 助手控制台**：用语音把指令投递给本地终端里的 Codex、Claude、CodeBuddy 或其他已注册 Agent。
-- **任务助手**：结合当前窗口 OCR 上下文和口述意图生成提示词，只复制结果，不自动发送。
-- **OpenAI 兼容模型**：可添加、测试、编辑和删除 Provider，LLM API Key 保存到 macOS Keychain。
-- **易错词和上下文热词**：用本地规则修正常见误识别，也可从当前窗口 OCR 提取临时上下文词。
-- **历史和笔记**：输入、截图和复制内容不只是一闪而过，后续可以搜索、复制、整理和复用。
-- **文件转写**：把录音、视频、会议音频转成文字，适合复盘和归档。
-- **截图记录库**：所有截图记录（原图 + OCR 文本）都可回看，支持收藏、搜索、分页、复制与删除。
-- **内联截图标注**：框选截图支持画笔、形状、文字、马赛克等标注与撤销重做，并支持滚动长图回看。
-- **数据可控**：历史、词汇、设置和笔记保存在本机；是否启用 LLM 由你决定。
-
-## 快速开始
-
-### 下载安装
-
-从 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) 下载最新版本：
-
-1. 打开 `VoxFlow-1.8.2-macOS.dmg`
-2. 将 `VoxFlow` 拖入 `Applications` 文件夹
-3. 首次启动时，如果 macOS 提示无法验证，请按住 Control 点击应用，选择“打开”
-
-安装后可直接打开工作台里的“截图”页，确认截图记录与 OCR 回看是否可用。
-
-> 如果你想体验当前 `main` 分支上的易错词、AI Coding 助手 或截图 OCR 最新实现，请从源码运行；这些能力可能晚于最新稳定版 Release。
-
-### 系统要求
-
-- macOS 15 Sequoia 或更高版本
-- 一台带麦克风的 Mac
-
-### 首次授权
-
-码上写需要几个系统权限才能正常工作：
-
-| 权限 | 用途 | 位置 |
+| Provider / Model | Current Runtime Route | Recommended Use |
 | --- | --- | --- |
-| 辅助功能 | 监听全局快捷键，并把文字输入到当前应用 | 系统设置 -> 隐私与安全性 -> 辅助功能 |
-| 麦克风 | 录制你的声音 | 系统设置 -> 隐私与安全性 -> 麦克风 |
-| 语音识别 | 使用系统自带语音识别模型 | 系统设置 -> 隐私与安全性 -> 语音识别 |
-| 屏幕录制 | 为“任务助手”和截图 OCR 读取当前窗口文字与截图；截图记录保存在本机便于回看 | 系统设置 -> 隐私与安全性 -> 屏幕录制 |
+| Apple Speech | Apple Speech / SFSpeechRecognizer | Out-of-the-box dictation without downloading a model |
+| Qwen3-ASR 0.6B | speech-swift Qwen3ASR MLX 4bit | Default local route using the unified speech-swift runtime |
+| Qwen3-ASR 1.7B | speech-swift Qwen3ASR MLX 8bit | Higher-accuracy local route sharing the same speech-swift loading and session path as 0.6B |
+| Whisper Turbo / Large V3 | WhisperKit `.mlmodelc` | High-quality full-recording transcription after capture ends |
+| FunASR | Sherpa-ONNX | Local Chinese fallback path; not CoreML |
+| SenseVoice | FluidAudio / CoreML | Local multilingual and short-utterance transcription |
+| Paraformer | FluidAudio / CoreML int8 | Local Chinese transcription |
+| NVIDIA Nemotron 0.6B | speech-swift NemotronStreamingASR / CoreML | Local multilingual streaming transcription |
+| Parakeet Streaming | speech-swift ParakeetStreamingASR / CoreML | Low-latency local streaming dictation for English and European languages |
+| Omnilingual ASR | speech-swift OmnilingualASR / CoreML | Broad-language offline transcription and experimental workflows |
 
-如果你选择本地 Qwen3-ASR 模型，语音识别权限不是必须的；麦克风权限仍然需要。
+Cloud providers send recorded audio to the selected service. Groq returns a final transcript after recording; Tencent Cloud and Alibaba Cloud support real-time WebSocket transcription.
 
-授权后如果快捷键没有响应，退出码上写后重新打开即可。
+| Cloud Provider | Status | Streaming | Default Model / API | Configuration |
+| --- | --- | --- | --- | --- |
+| Groq (Free) | Supported | No | `whisper-large-v3-turbo` audio transcription | API Key, model |
+| Tencent Cloud | Supported | Yes | Realtime Speech Recognition WebSocket, `16k_zh` | AppID, SecretId, SecretKey |
+| Alibaba Cloud | Supported | Yes | DashScope WebSocket, `fun-asr-realtime` | Bailian API Key |
+| Volcengine Cloud | Planned | Planned | Doubao streaming ASR | To be determined |
+| Mistral Voxtral, AssemblyAI, ElevenLabs Scribe | Not yet supported | To be determined | Reserved providers | None |
 
-### 默认快捷键
+## Corrections, OCR, And Agent Workflows
 
-| 快捷键 | 作用 |
+### Personal Corrections And Optional LLM Correction
+
+Speech recognition can struggle with technical terms such as Python, JSON, TypeScript, framework names, or product names. VoxFlow can run a conservative correction pass through your own OpenAI-compatible provider after dictation finishes.
+
+The new **Personal Corrections** page runs deterministic local fixes after ASR final output and optional LLM correction. It can also learn candidate rules from edits you make after insertion. The LLM pass remains intentionally restrained: it fixes obvious recognition mistakes instead of rewriting your tone or polishing your content.
+
+### Clipboard OCR, Screenshot Capture, Translation, And Summary
+
+Copy a screenshot and press `⌘⇧V` to OCR the clipboard image and paste the recognized text into the current cursor position. Press `⌘⇧A` to select a screen region and open a result panel with **Original Image**, **OCR**, **Translation**, and **Summary** tabs.
+
+This is useful for web pages, error dialogs, screenshots, design mockups, and chat history. OCR text can be copied, spoken, translated, or summarized, but it does not feed the permanent Personal Corrections learning loop.
+
+### Agent Compose And AI Coding 助手 Command Center
+
+**Agent Compose** combines visible window context, OCR text, and your spoken intent into a prompt you can paste into an AI tool. It only copies the result; it does not inject, submit, or press Enter for you.
+
+**AI Coding 助手 Command Center** is for local coding-agent terminals. After you enable it, speak a task assistant name and instruction, and VoxFlow resolves the target agent, shows confirmation state, and dispatches the instruction to the matching Codex, Claude, CodeBuddy, or other registered terminal session.
+
+### Workbench
+
+VoxFlow also includes a full asset workbench:
+
+| Page | What You Can Do |
 | --- | --- |
-| `⌥Space` | 打开 VoxFlow Palette 启动台 |
-| 听写快捷键 | 按住说话，松开后输入到当前光标位置；可在设置里修改 |
-| `⌘⇧V` | 识别剪贴板图片并粘贴 OCR 文本 |
-| `⌘⇧A` | 框选截图并打开 OCR 结果面板 |
-| `⌘⇧F` | 对当前选中文本打开划词动作 HUD（翻译 / 总结 / 任务助手 / 问 AI） |
-| `⌘⇧J` | 直接翻译当前选中文本 |
-| `⌘⇧K` | 直接总结当前选中文本 |
-| `⌘⇧L` | 直接把当前选中文本发给任务助手 |
-| `⌘⇧P` | 直接把当前选中文本发给问 AI 聊天 HUD |
+| Home | Review asset history, today's additions, source breakdown, and reusable content; search, copy, or delete voice, screenshot, and clipboard assets |
+| Personal Corrections | Manage deterministic correction rules, learned candidates, enablement, and recent events |
+| Styles | Choose output styles such as original, formal, email, or coding notes |
+| File Transcription | Import audio or video files, transcribe them, export txt/md/srt, or save as notes |
+| Notes | Record voice notes, edit Markdown, search, and review recent notes |
+| Screenshot | Browse captured screenshots with OCR text, favorites, search, and paging |
+| AI Coding 助手 | Review registered agents, aliases, working directories, branches, and dispatch logs |
+| Settings | Manage input devices, shortcuts, models, translation models, permissions, privacy, and data |
+| Help | Find permission guidance, version information, and project links |
 
-划词动作相关快捷键都可以在“设置 → 划词动作 → 启用方式”里单独修改或清空。
+## Highlights
 
-## 怎么使用
+- **VoxFlow Palette launcher**: Press `⌥Space` for a Raycast-style launcher with Recent Assets selected by default, arrow-key navigation, Enter, and `⌘K` actions.
+- **Asset history workbench**: Successful ASR text, screenshots, and clipboard text/images/files/links/colors share one asset system; Home shows asset counts, source breakdown, and reusable content.
+- **Global dictation**: Works in any editable text field, not only inside VoxFlow.
+- **Non-intrusive overlay**: Shows live text and voice activity without taking focus.
+- **Multiple ASR providers**: Start with the built-in system recognizer; local Qwen3-ASR, Whisper, FunASR, SenseVoice, NVIDIA Nemotron, Parakeet, and Omnilingual providers are being unified under the same runtime model; providers without real-time streaming are marked as **Non-streaming** in Models.
+- **Stable text insertion**: Temporarily switches input source before paste, then restores both input source and clipboard to reduce CJK input-method interference.
+- **Input device selection**: Choose your microphone; long device names are handled gracefully.
+- **Shortcut recording**: Record the key you want to use and configure short-press behavior.
+- **Clipboard image OCR**: Copy a screenshot or image, press `⌘⇧V`, and VoxFlow recognizes the image text and pastes it into the current field.
+- **Screenshot OCR**: Press `⌘⇧A`, select a screen region, then review the original image, OCR text, translation, and summary in a result panel.
+- **Screenshot record library**: Captured screenshots are kept in the Screenshot page with OCR text, favorites, search, and one-click copy/delete actions.
+- **Inline screenshot annotation**: Region capture supports pen/shape/text/mosaic/scroll tools, undo/redo, and quick translate/summary flow before final insert/output.
+- **AI Coding 助手 Command Center**: Dispatch spoken instructions to Codex, Claude, CodeBuddy, or other registered local terminal agents.
+- **Agent Compose**: Turn current-window OCR context plus spoken intent into a prompt; it only copies the result and never auto-submits.
+- **OpenAI-compatible providers**: Add, test, edit, and delete providers; LLM API keys are stored in macOS Keychain.
+- **Personal corrections and context hotwords**: Fix repeated misrecognitions with local rules, and use current-window OCR to extract temporary context terms.
+- **History and notes**: Search, copy, edit, and reuse previous input, screenshots, and copied content.
+- **File transcription**: Turn recordings, videos, or meeting audio into text.
+- **Local-first data**: History, personal corrections, settings, notes, and jobs live locally; LLM correction is opt-in.
 
-### 语音输入
+## Quick Start
 
-1. 把光标放到任意输入框。
-2. 按住听写快捷键。
-3. 开始说话，浮层会实时显示识别结果。
-4. 松开快捷键，文字会自动输入到光标所在位置。
+### Download & Install
 
-### 录音记笔记
+Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-打开工作台里的“笔记”，点击录音按钮即可开始记录。说话过程中会实时转写，完成后可以继续编辑，也可以在最近记录中回看。
+1. Open `VoxFlow-1.8.2-macOS.dmg`
+2. Drag `VoxFlow` into the `Applications` folder
+3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
-### 文件转写
+After installation, open Workbench -> Screenshot to verify your screenshot records and OCR history at first use.
 
-打开“文件转写”，选择音频或视频文件。码上写会显示任务进度，完成后可以复制、导出，或保存为笔记。
+> To try the latest main-branch implementations of Personal Corrections, AI Coding 助手, or Screenshot OCR, run from source; these capabilities may be newer than the latest stable Release.
 
-### 剪贴板图片 OCR
+### Requirements
 
-复制一张截图或图片后，按 `⌘⇧V`。码上写会读取剪贴板中的图片，自动 OCR 识别其中的文字，并粘贴到当前光标所在位置。
+- macOS 15 Sequoia or later
+- A Mac with a microphone
 
-如果剪贴板里没有图片，这个快捷键不会启动普通语音听写；它只用于剪贴板图片 OCR 工作流。
+### First Permissions
 
-### 框选截图 OCR、翻译和总结
+VoxFlow needs a few macOS permissions:
 
-按 `⌘⇧A` 后框选屏幕区域。码上写会用系统截图读取画面、运行 OCR，并打开结果面板。你可以在“原图 / OCR / 翻译 / 总结”之间切换，也可以复制或朗读对应内容。
+| Permission | Why It Is Needed | Where |
+| --- | --- | --- |
+| Accessibility | Listen for the global shortcut and insert text into the current app | System Settings -> Privacy & Security -> Accessibility |
+| Microphone | Record your voice | System Settings -> Privacy & Security -> Microphone |
+| Speech Recognition | Use the system speech recognizer | System Settings -> Privacy & Security -> Speech Recognition |
+| Screen Recording | OCR the current window for Agent Compose and screenshot OCR | System Settings -> Privacy & Security -> Screen Recording |
 
-翻译模型可以使用 Apple 系统翻译、已配置的 LLM，或本地翻译模型；总结可以走已配置 LLM 或本地总结模型。没有可用模型时，OCR 原文仍然可用。
+If you use a local Qwen3-ASR model, Speech Recognition permission is not required. Microphone permission is still required.
 
-### 截图记录库
+If the shortcut does not respond after granting permissions, quit and reopen VoxFlow.
 
-每次 `⌘⇧A` 触发的截图都会被保留为本地截图记录，便于后续回看。你可以在工作台打开“截图”页面，使用关键词搜索、收藏筛选、分页浏览，并复制 OCR 文本、复制原图或删除记录。
+### Default Shortcuts
 
-图片预览来自本地文件，不会同步到云端、不上传到服务端。
-
-### 任务助手
-
-“任务助手”会读取当前窗口的可见文字和可选 OCR 上下文，再结合你的语音意图生成一段可复制提示词。它遵守只复制、不注入、不自动发送的边界，适合在 ChatGPT、Claude、Codex、Cursor 等工具里整理复杂请求。
-
-### AI Coding 助手控制台
-
-在设置里启用 AI Coding 助手控制台后，现有语音输入快捷键可以进入调度 HUD。说出任务助手名称和任务，例如“前端检查按钮状态”，码上写会解析目标 Agent，必要时让你确认候选，并把指令投递到对应终端会话。
-
-### 启动台：问 AI、Quicklinks 与打开网址
-
-`⌥Space` 打开启动台后，除了搜索应用、命令和资产，还可以：
-
-- **问 AI**：输入任意问题，选「问 AI」回车，启动台关闭，右侧 HUD 进入问 AI 聊天态。复用你已配置的 LLM Provider，支持多轮对话、流式回复和 Markdown 渲染。会话保存在内存中，重新打开问 AI 可继续追问。未配置 Provider 时 HUD 会显示配置提示，不发起请求。
-- **Quicklinks**：内置 Google、Bing、Perplexity、GitHub、StackOverflow、YouTube、Bilibili、X、小红书、淘宝、京东。输入站点名、中文名或别名（如 `gh`、`tb`、`b站`）会优先匹配对应站点，回车用默认浏览器打开搜索结果。
-- **打开网址**：输入完整 URL、裸域名（如 `github.com/openai/codex`）、`localhost:3000` 或 `127.0.0.1:8080` 时，第一项自动选中「打开网址」，回车用默认浏览器打开。裸域名会自动补 `https://`。
-
-划词动作面板（`⌘⇧F`）和划词问 AI 直达快捷键（`⌘⇧P`）都会把选中文本送进同一个问 AI 聊天 HUD，不需要先打开启动台。
-
-### 让专有名词更准
-
-在“易错词”里添加确定性纠错规则，或启用当前窗口 OCR 上下文增强，让项目名、人名、产品名和技术词作为临时热词参与后续纠错。
-
-### 配置 LLM 纠错
-
-打开“设置 -> 模型”，添加 OpenAI 兼容 Provider，填写 Base URL、Model 和 API Key。测试通过后，打开“启用 LLM 纠错”即可。
-
-LLM API Key 会保存在 macOS Keychain，不会写入普通配置文件。Groq、腾讯云和阿里云等云端 ASR 凭据按当前产品设计保存在本地 SQLite 设置表中，可在模型设置里显示、隐藏或删除。
-
-## 隐私说明
-
-码上写的默认原则是：能留在本机的，就留在本机。
-
-- 历史记录、易错词规则、笔记、任务和非敏感设置保存在本机。
-- 截图记录（原图 + OCR 文本）本地保存，用于后续回看，不会上传到云端。
-- 剪切板资产在本地保存，用于启动台和首页回看；噪音过滤规则会避免无意义的频繁变更长期占用历史。
-- 剪贴板图片 OCR 仍可作为一次性识别入口；区域截图（`⌘⇧A`）会保存原图与 OCR 文本到本机以便回看。
-- LLM API Key 保存到 macOS Keychain；云端 ASR 凭据保存在本地 SQLite 设置表中。
-- 系统自带语音识别可能由 Apple 处理音频，取决于系统能力和语言。
-- 本地 Qwen3-ASR 模型下载后在本机运行。
-- LLM 纠错默认关闭；开启后，只会把识别出的文本发到你配置的 API 服务。
-- 选择云端 ASR 时，录音会发送给对应服务商；选择本地模型时，音频留在本机。码上写不会主动上传笔记、历史资产或剪切板内容。
-
-更完整的说明见 [隐私说明](docs/PRIVACY.md)。
-
-## 常见问题
-
-| 问题 | 处理方式 |
+| Shortcut | Action |
 | --- | --- |
-| 按快捷键没反应 | 检查辅助功能权限，退出后重新打开码上写 |
-| 浮层出现但没有文字 | 检查麦克风权限、语音识别权限或当前模型状态 |
-| 截图记录找不到 | 去设置 → 数据与隐私 → 数据管理检查存储状态；点击“打开数据目录”确认 `Application Support/VoxFlow/Screenshots/` 下是否有记录文件；并确认已授权屏幕录制 |
-| 想关闭截图标注默认工具？ | 当前版本没有持久化“默认标注工具”开关；在截图标注面板里手动切换到“选择/光标”工具即可避免默认进入标注模式。 |
-| LLM 纠错没有生效 | 确认已在设置中启用，并且默认 Provider 测试成功 |
-| API Key 看不到明文 | 这是正常的，编辑时可点击显示按钮临时查看 |
-| 想离线使用 | 下载并选择 Qwen3-ASR 本地模型 |
-| 误删了历史或笔记 | 当前删除是本地操作，请谨慎确认后再删除 |
+| `⌥Space` | Open the VoxFlow Palette launcher |
+| Dictation shortcut | Hold to speak, release to insert at the current cursor; configurable in Settings |
+| `⌘⇧V` | OCR the clipboard image and paste recognized text |
+| `⌘⇧A` | Capture a screen region and open the OCR result panel |
+| `⌘⇧F` | Open the selection action HUD for the selected text (Translate / Summarize / Task Assistant / Ask AI) |
+| `⌘⇧J` | Translate the selected text directly |
+| `⌘⇧K` | Summarize the selected text directly |
+| `⌘⇧L` | Send the selected text directly to Task Assistant |
+| `⌘⇧P` | Send the selected text directly to the Ask AI chat HUD |
 
-## 从源码运行
+Selection-action shortcuts can be changed or cleared individually in **Settings → Selection Actions → Activation**.
 
-如果你想自己构建：
+## How To Use
+
+### Dictation
+
+1. Place your cursor in any text field.
+2. Hold the dictation shortcut.
+3. Speak. The overlay shows live recognition.
+4. Release the shortcut. The final text is inserted at the cursor.
+
+### Voice Notes
+
+Open the workbench and go to **Notes**. Click the record button to start a quick note. VoxFlow transcribes as you speak, then lets you edit and review the note afterward.
+
+### File Transcription
+
+Open **File Transcription**, select an audio or video file, and let VoxFlow process it. Completed jobs can be copied, exported, or saved as notes.
+
+### Clipboard Image OCR
+
+Copy a screenshot or image, then press `⌘⇧V`. VoxFlow reads the image from your clipboard, runs OCR, and pastes the recognized text into the current cursor position.
+
+If the clipboard does not contain an image, this shortcut does not start normal dictation; it is reserved for the clipboard image OCR workflow.
+
+### Screenshot OCR, Translation, And Summary
+
+Press `⌘⇧A`, then select a region of the screen. VoxFlow captures that region, runs OCR, and opens a result panel with **Original Image**, **OCR**, **Translation**, and **Summary** tabs. You can copy or speak the available text from the panel.
+
+Translation can use Apple system translation, a configured LLM, or a local translation model. Summary can use a configured LLM or a local summarizer. If no translation or summary model is available, the OCR text still remains usable.
+
+### Screenshot Record Library
+
+Every screenshot captured with `⌘⇧A` is saved as a local screenshot record so you can review it later in **Workbench → Screenshot**.
+You can search, filter by favorites, switch page size, copy recognized text, and delete entries.
+Image previews are loaded from local files and are not synced or uploaded.
+
+### Agent Compose
+
+Agent Compose reads visible text and optional OCR context from the current window, combines it with your spoken intent, and produces a prompt for AI tools such as ChatGPT, Claude, Codex, or Cursor. It preserves the safety boundary: copy only, no injection, no auto-submit.
+
+### AI Coding 助手 Command Center
+
+Enable AI Coding 助手 Command Center in Settings, then use the existing voice shortcut to enter the command HUD. Say an agent name and task, such as “frontend, check the button state,” and VoxFlow resolves the target, asks for confirmation when needed, and dispatches the instruction to that terminal agent session.
+
+### Launcher: Ask AI, Quicklinks, and Open URL
+
+Press `⌥Space` to open the launcher. In addition to searching apps, commands, and assets, you can also:
+
+- **Ask AI**: Type any question, select "Ask AI", and press Enter. The launcher closes and the right-side HUD enters Ask AI chat mode. It reuses your configured LLM provider and supports multi-turn conversation, streaming replies, and Markdown rendering. The session stays in memory, so reopening Ask AI lets you continue asking follow-ups. When no provider is configured, the HUD shows a configuration hint instead of sending a request.
+- **Quicklinks**: Built-in sites include Google, Bing, Perplexity, GitHub, StackOverflow, YouTube, Bilibili, X, Xiaohongshu, Taobao, and JD. Typing a site name, Chinese name, or alias (such as `gh`, `tb`, or `b站`) prioritizes that site; pressing Enter opens the search results in your default browser.
+- **Open URL**: When you type a full URL, a bare domain (such as `github.com/openai/codex`), `localhost:3000`, or `127.0.0.1:8080`, the first result is automatically selected as "Open URL" and Enter opens it in the default browser. Bare domains are normalized to `https://`.
+
+The selection action panel (`⌘⇧F`) and the direct selection Ask AI shortcut (`⌘⇧P`) both send the selected text into the same Ask AI chat HUD, so you don't need to open the launcher first.
+
+### Improve Names And Terms
+
+Use **Personal Corrections** for deterministic fixes, or enable current-window OCR context boost so project names, people names, product names, and technical terms can become temporary hotwords for the current task.
+
+### Enable LLM Correction
+
+Open **Settings -> Models**, add an OpenAI-compatible provider, fill in Base URL, Model, and API Key, then test the connection. Once it works, enable **LLM Correction** in the same settings page.
+
+LLM API keys are stored in macOS Keychain. Cloud ASR credentials for Groq, Tencent Cloud, and Alibaba Cloud are stored in the local SQLite settings database and can be revealed, hidden, or removed from Models.
+
+## Privacy
+
+VoxFlow is local-first by default.
+
+- Asset history, personal correction rules, notes, transcription jobs, and non-secret settings are stored locally.
+- LLM API keys are stored in macOS Keychain; cloud ASR credentials are stored in the local SQLite settings database.
+- Apple Speech may process audio according to macOS system behavior.
+- Local Qwen3-ASR runs on-device after the model is downloaded.
+- LLM correction is disabled by default. When enabled, only recognized text is sent to your configured API provider.
+- When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device. VoxFlow does not proactively upload notes, asset history, or clipboard content.
+- Clipboard assets are saved locally for launcher and Home review; noise filters skip meaningless high-frequency changes.
+- Clipboard image OCR can still be used as a one-off OCR entry.
+- Screenshot records (OCR text + screenshot files captured via `⌘⇧A`) are stored locally and are never uploaded.
+
+See [Privacy](docs/PRIVACY.md) for more details.
+
+## FAQ
+
+| Question | Answer |
+| --- | --- |
+| The shortcut does nothing | Check Accessibility permission, then quit and reopen VoxFlow |
+| The overlay appears but no text shows up | Check Microphone, Speech Recognition, or the selected model state |
+| Screenshot records are missing | Go to Settings → Data & Privacy → Data Management, then check storage health and open the data folder to confirm `Application Support/VoxFlow/Screenshots/` has image records. Also verify Screen Recording permission. |
+| How do I disable a default screenshot annotation tool? | The current version does not expose a persistent "default annotation tool" setting; switch to the Select/Cursor tool in each capture panel to avoid entering annotation mode by default. |
+| LLM correction does not run | Make sure it is enabled in Settings and the default provider passes the connection test |
+| Why is my API key hidden? | That is expected. Use the reveal button while editing if you need to inspect it |
+| Can I use it offline? | Download and select a local Qwen3-ASR model |
+| Can deleted history or notes be restored? | Deletion is local and immediate, so please confirm before deleting |
+
+## Run From Source
+
+If you want to build the app yourself:
 
 ```bash
 git clone https://github.com/xingbofeng/VoxFlow.git
@@ -323,82 +322,85 @@ cd VoxFlow
 make run-dev
 ```
 
-常用命令：
+Common commands:
 
 ```bash
-make run-dev      # 日常开发：Debug + 本机架构，打包并启动 .app
-make run-native   # 本机架构 Release，用于接近发布表现的本地验证
-make build        # arm64 Release，发布/DMG 使用
-make install      # 安装到 /Applications
-swift test        # 运行测试
+make run-dev      # Daily development: Debug + native arch, package and launch .app
+make run-native   # Native Release for local checks close to shipped behavior
+make build        # arm64 Release, used for release/DMG
+make install      # Install into /Applications
+swift test        # Run tests
 ```
 
-## 技术栈与开源依赖
+## Tech Stack And Open-Source Dependencies
 
-码上写是原生 macOS 应用，不是 Electron 壳。核心工程按 SwiftPM target 拆分，运行时尽量本地优先，云端能力都通过用户显式配置的 Provider 接入。
+VoxFlow is a native macOS app, not an Electron wrapper. The codebase is split into SwiftPM targets, keeps local-first paths local by default, and only uses cloud providers that the user explicitly configures.
 
-| 模块 | 技术栈 / 开源依赖 | 用在哪里 |
+| Area | Stack / Open-Source Dependency | Used For |
 | --- | --- | --- |
-| App 壳层 | Swift 6、SwiftUI、AppKit、SwiftPM | 菜单栏 App、主工作台、设置、HUD、窗口生命周期 |
-| 系统能力 | AVFoundation、Speech、Vision、Accessibility、Pasteboard | 录音、Apple Speech、截图/剪贴板 OCR、文本插入和当前窗口上下文 |
-| 截图采集与标注 | VoxFlowScreenshotKit、ScreenCaptureKit、CoreGraphics、Vision | 区域截图、标注工具链、长图滚动截图、图片预览渲染 |
-| 本地 ASR | speech-swift Qwen3ASR / Nemotron、WhisperKit、FluidAudio、Sherpa-ONNX vendor runtime | Qwen3-ASR、NVIDIA Nemotron、Whisper、SenseVoice、Paraformer、FunASR 等本地识别路线 |
-| 云端 ASR / LLM | OpenAI-compatible HTTP、Groq、腾讯云实时 ASR、阿里云 DashScope | 在线转写、LLM 纠错、翻译 fallback、总结和“任务助手”生成 |
-| 易错词纠错 | `Packages/VoxFlowVoiceCorrectionKit`，借鉴 TypeWhisper 的确定性后处理和 focused text observation 思路 | 本地规则匹配、冲突消解、自动学习候选、benchmark fixtures |
-| 上下文热词 | `Packages/VoxFlowContextBoostKit`、Vision OCR、NaturalLanguage | 从当前窗口 OCR 文本提取临时 Top-K 热词，只进入本次 prompt |
-| AI Coding 助手 | Rust `agent-cli/` helper/router、JSON IPC、MCP 自报身份 | 把语音指令投递给本地 Codex、Claude、CodeBuddy 或终端 Agent |
-| 验证工具 | XCTest、Makefile、GitHub Actions、JiWER 交叉检查脚本 | 单元测试、发布构建、ASR/纠错 benchmark 和指标复核 |
+| App shell | Swift 6, SwiftUI, AppKit, SwiftPM | Menu-bar app, Workbench, Settings, HUD, and macOS window lifecycle |
+| System APIs | AVFoundation, Speech, Vision, Accessibility, Pasteboard | Recording, Apple Speech, screenshot/clipboard OCR, text insertion, and current-window context |
+| Screenshot capture & annotation | VoxFlowScreenshotKit, ScreenCaptureKit, CoreGraphics, Vision | Region capture, annotation tools, scroll capture, and screenshot rendering |
+| Local ASR | speech-swift Qwen3ASR / Nemotron, WhisperKit, FluidAudio, Sherpa-ONNX vendor runtime | Qwen3-ASR, NVIDIA Nemotron, Whisper, SenseVoice, Paraformer, and FunASR routes |
+| Cloud ASR / LLM | OpenAI-compatible HTTP, Groq, Tencent Cloud realtime ASR, Alibaba DashScope | Online transcription, LLM correction, translation fallback, summary, and Agent Compose |
+| Personal Corrections | `Packages/VoxFlowVoiceCorrectionKit`, inspired by TypeWhisper deterministic post-processing and focused text observation | Local rule matching, conflict resolution, learned candidates, and benchmark fixtures |
+| Context hotwords | `Packages/VoxFlowContextBoostKit`, Vision OCR, NaturalLanguage | Extract temporary Top-K hotwords from current-window OCR text for the current prompt only |
+| AI Coding 助手 | Rust `agent-cli/` helper/router, JSON IPC, MCP self-reporting | Dispatch spoken instructions to local Codex, Claude, CodeBuddy, or terminal agents |
+| Verification | XCTest, Makefile, GitHub Actions, JiWER cross-check scripts | Unit tests, release builds, ASR/correction benchmarks, and metric validation |
 
-关键引用和许可说明集中在对应目录内：`Packages/VoxFlowVoiceCorrectionKit/NOTICE.md`、`SOURCE_ATTRIBUTION.md`、`MODIFICATIONS.md` 记录 TypeWhisper 相关来源与改写边界；`Vendor/` 保存打包所需的本地 runtime/vendor 资源；AI Coding 助手 只维护 Rust helper，不再分发旧 Python CLI。
+Attribution and licensing notes live next to the relevant modules: `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md`, `SOURCE_ATTRIBUTION.md`, and `MODIFICATIONS.md` document TypeWhisper references and adaptation boundaries; `Vendor/` contains packaged local runtime/vendor assets; AI Coding 助手 keeps only the Rust helper and no longer ships the old Python CLI.
 
-### 源码目录分层
+### Source Layout
 
 ```
-Sources/                         # Swift 应用源码、领域模块、ASR Provider、文本插入等 SwiftPM targets
-Packages/VoxFlowVoiceCorrectionKit/ # 易错词纠错引擎、benchmark fixtures 和独立测试
-agent-cli/                       # AI Coding 助手 的 Rust helper/router 源码，产物为 bundled `voxflow` 和 `vox` shim
-Tests/                           # Swift 单元测试，以及 ASR benchmark Python 测试
-Resources/                       # App 图标等资源
-Vendor/                          # 打包所需的本地 runtime/vendor 资源
-docs/                            # GitHub Pages 落地页、隐私说明、设计文档和方案资料
-scripts/                         # 构建、ASR benchmark、架构检查等开发脚本
-tools/                           # 辅助验证工具；当前只保留易错词 JiWER 交叉检查脚本，不包含 agent CLI
-.github/                         # CI、Pages、Release workflow 和发布日志
+Sources/                         # Swift app code, domain modules, ASR providers, text insertion, and other SwiftPM targets
+Packages/VoxFlowVoiceCorrectionKit/ # Personal Corrections engine, benchmark fixtures, and package tests
+agent-cli/                       # Rust helper/router source for AI Coding 助手; builds the bundled `voxflow` binary and `vox` shim
+Tests/                           # Swift unit tests plus Python tests for ASR benchmark tooling
+Resources/                       # App icon and bundled resources
+Vendor/                          # Local runtime/vendor assets required by packaged builds
+docs/                            # GitHub Pages site, privacy docs, design notes, and implementation plans
+scripts/                         # Build, ASR benchmark, and architecture-check helper scripts
+tools/                           # Auxiliary verification tools; currently JiWER cross-check only, not an agent CLI
+.github/                         # CI, Pages, Release workflows, and release notes
 ```
 
-AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。旧 Python 版 `vf-agent` / `agent-cli` 参考 helper 已删除；仓库里剩余的 Python 文件用于 benchmark、架构检查或易错词指标交叉验证，不参与 App 运行时，也不作为用户 CLI 分发。
+AI Coding 助手 has a single maintained CLI implementation: the Rust source in root-level `agent-cli/`. The old Python `vf-agent` / `agent-cli` reference helper has been removed. Remaining Python files are for benchmarks, architecture checks, or Personal Corrections metric cross-checks; they are not part of the app runtime and are not distributed as the user-facing CLI.
 
-## 第三方模块与开源协议
+## Third-Party Modules And Open-Source Licenses
 
-### 开源许可证
+### License
 
-VoxFlow 以 GPLv3 分发。第三方组件仍保留各自许可证和归属说明，详见 `docs/third-party-licenses.md`。
+VoxFlow is distributed under GPLv3. Third-party components keep their original
+license notices and attribution. See `docs/third-party-licenses.md`.
 
-### 模块与参考来源（统一）
+### Third-Party Modules
 
-| 类型 | 模块/来源 | 链接 | 用途 / 参考方向 |
+### Unified Modules and References
+
+| Type | Module / Source | Link | What It Is Used For |
 | --- | --- | --- | --- |
-| 第三方依赖 | `speech-swift`（`Qwen3ASR`、`NemotronStreamingASR`、`ParakeetStreamingASR`、`OmnilingualASR`、`Qwen3TTS`、`Qwen3Chat`、`KokoroTTS`、`MADLADTranslation`） | [GitHub](https://github.com/soniqo/speech-swift.git) | 本地 ASR、TTS、翻译与聊天模型运行时 |
-| 第三方依赖 | `WhisperKit` | [GitHub](https://github.com/argmaxinc/WhisperKit.git) | Whisper 本地转写 |
-| 第三方依赖 | `FluidAudio` | [GitHub](https://github.com/FluidInference/FluidAudio.git) | Paraformer / SenseVoice 本地推理加速与音频处理 |
-| 第三方依赖 | `Sherpa-ONNX` | [GitHub](https://github.com/k2-fsa/sherpa-onnx.git) | FunASR 本地推理引擎 |
-| 第三方依赖 | `onnxruntime`（`Vendor/CSherpaOnnx`） | [GitHub](https://github.com/microsoft/onnxruntime) | 与 Sherpa-ONNX 联用的本地推理 runtime |
-| 仓库内组件 | `VoxFlowContextBoostKit` | [仓库路径](Packages/VoxFlowContextBoostKit) | OCR 上下文热词抽取 |
-| 仓库内组件 | `VoxFlowVoiceCorrectionKit` | [仓库路径](Packages/VoxFlowVoiceCorrectionKit) | 易错词规则与基准 |
-| 仓库内组件 | `agent-cli`（Rust） | [仓库路径](agent-cli) | 本地终端 AI Agent 调度入口 |
-| 参考来源 | TypeWhisper | [GitHub](https://github.com/TypeWhisper/typewhisper-mac) | 易错词后处理与 focused observation 机制（概念借鉴，未逐字复刻） |
-| 参考来源 | FlashText | [GitHub](https://github.com/vi3k6i5/flashtext) | 替换与匹配思路参考（非运行时源码复用） |
-| 参考来源 | JiWER | [GitHub](https://github.com/jitsi/jiwer) | 评测与 benchmark 交叉校验 |
-| 参考来源 | OpenAI Evals | [GitHub](https://github.com/openai/evals) | benchmark 与测试结构参考 |
-| 参考来源 | LanguageTool | [GitHub](https://github.com/languagetool-org/languagetool) | 纠错 fixture 与测试风格参考 |
+| Third-party dependency | `speech-swift` (`Qwen3ASR`, `NemotronStreamingASR`, `ParakeetStreamingASR`, `OmnilingualASR`, `Qwen3TTS`, `Qwen3Chat`, `KokoroTTS`, `MADLADTranslation`) | [GitHub](https://github.com/soniqo/speech-swift.git) | Local ASR/TTS/translation/chat runtime |
+| Third-party dependency | `WhisperKit` | [GitHub](https://github.com/argmaxinc/WhisperKit.git) | Local Whisper transcription |
+| Third-party dependency | `FluidAudio` | [GitHub](https://github.com/FluidInference/FluidAudio.git) | Local ASR pipeline for Paraformer/SenseVoice |
+| Third-party dependency | `Sherpa-ONNX` | [GitHub](https://github.com/k2-fsa/sherpa-onnx.git) | FunASR local inference runtime |
+| Third-party dependency | `onnxruntime` (`Vendor/CSherpaOnnx`) | [GitHub](https://github.com/microsoft/onnxruntime) | Inference runtime bundled with Sherpa-ONNX |
+| In-repo module | `VoxFlowContextBoostKit` | [Repo path](Packages/VoxFlowContextBoostKit) | OCR context hotword extraction |
+| In-repo module | `VoxFlowVoiceCorrectionKit` | [Repo path](Packages/VoxFlowVoiceCorrectionKit) | Deterministic correction engine and benchmarks |
+| In-repo module | `agent-cli` (Rust) | [Repo path](agent-cli) | Local terminal AI agent dispatching helper |
+| Reference source | TypeWhisper | [GitHub](https://github.com/TypeWhisper/typewhisper-mac) | Deterministic correction flow + focused observation learning (conceptual only; no source copy) |
+| Reference source | FlashText | [GitHub](https://github.com/vi3k6i5/flashtext) | Matching/replacement approach inspiration (no runtime reuse) |
+| Reference source | JiWER | [GitHub](https://github.com/jitsi/jiwer) | Evaluation and benchmark cross-check reference |
+| Reference source | OpenAI Evals | [GitHub](https://github.com/openai/evals) | Benchmark/test-case organization style reference |
+| Reference source | LanguageTool | [GitHub](https://github.com/languagetool-org/languagetool) | Error-correction fixture and testing style reference |
 
-### 开源许可与归属文件
+### License and Attribution References
 
-| 路径 | 内容 |
+| Path | What It Covers |
 | --- | --- |
-| `LICENSE` | 项目主许可 |
-| `SOURCE_ATTRIBUTION.md` | 第三方来源与改造边界 |
-| `MODIFICATIONS.md` | 上游差异与改动说明 |
-| `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md` | TypeWhisper 衍生与许可说明 |
-| `Vendor/` | 打包 runtime 的许可信息 |
-| `Sources/` / `Packages/` 目录内的 `Package.swift` 与 `NOTICE/LICENSE` | 各组件的依赖与许可声明 |
+| `LICENSE` | Project-level license |
+| `SOURCE_ATTRIBUTION.md` | Third-party source references and adaptation scope |
+| `MODIFICATIONS.md` | Upstream adaptation notes |
+| `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md` | TypeWhisper-derived source licensing |
+| `Vendor/` | Vendored runtime license declarations |
+| `Package.swift` + `NOTICE/LICENSE` in `Sources/` and `Packages/` | Component dependency and license declarations |
