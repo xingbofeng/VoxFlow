@@ -2,13 +2,13 @@ import AppKit
 import SwiftUI
 
 struct ScreenshotRecordDetailView: View {
-    let initialRecord: ScreenshotRecord
+    let initialRecord: MediaRecord
     @ObservedObject var viewModel: ScreenshotRecordViewModel
     let onClose: () -> Void
 
     @State private var escapeMonitor: Any?
 
-    private var record: ScreenshotRecord {
+    private var record: MediaRecord {
         viewModel.records.first(where: { $0.id == initialRecord.id }) ?? initialRecord
     }
 
@@ -36,8 +36,13 @@ struct ScreenshotRecordDetailView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Text("截图详情")
-                .font(.system(size: 16, weight: .semibold))
+            if record.mediaType == .screenRecording {
+                Text("录屏详情")
+                    .font(.system(size: 16, weight: .semibold))
+            } else {
+                Text("截图详情")
+                    .font(.system(size: 16, weight: .semibold))
+            }
             Spacer()
             Button(action: { onClose() }) {
                 Image(systemName: "xmark")
@@ -58,11 +63,43 @@ struct ScreenshotRecordDetailView: View {
 
     private var content: some View {
         HStack(spacing: 0) {
-            imagePanel
+            mediaPanel
             Divider()
             infoPanel
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var mediaPanel: some View {
+        Group {
+            if record.mediaType == .screenRecording {
+                videoPanel
+            } else {
+                imagePanel
+            }
+        }
+    }
+
+    private var videoPanel: some View {
+        GeometryReader { proxy in
+            ZStack {
+                AppTheme.ColorToken.controlBackground.opacity(0.22)
+                if let videoPath = record.videoPath {
+                    MediaVideoPlayerView(url: URL(fileURLWithPath: videoPath))
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: "video.slash")
+                            .font(.system(size: 40))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.3))
+                        Text("视频不可用")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                }
+            }
+        }
     }
 
     private var imagePanel: some View {
@@ -115,7 +152,14 @@ struct ScreenshotRecordDetailView: View {
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
             metaRow(label: "时间", value: ScreenshotRecordView.dateFormatter.string(from: record.createdAt))
-            metaRow(label: "字数", value: "\(record.charCount)")
+            if record.mediaType == .screenRecording {
+                metaRow(label: "时长", value: formatDuration(record.durationMs))
+                metaRow(label: "分辨率", value: formatResolution(record.width, record.height))
+                metaRow(label: "文件大小", value: formatFileSize(record.fileSizeBytes))
+                metaRow(label: "声音", value: audioModeTitle(record.audioMode))
+            } else {
+                metaRow(label: "字数", value: "\(record.charCount)")
+            }
             metaRow(label: "收藏", value: record.isFavorited ? "已收藏" : "未收藏")
         }
     }
@@ -176,12 +220,24 @@ struct ScreenshotRecordDetailView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 2) {
-            recordActionIcon("photo.on.rectangle", help: "复制图片") {
-                viewModel.copyImage(id: record.id)
-            }
-            if !record.ocrText.isEmpty {
-                recordActionIcon("doc.on.doc", help: "复制文字") {
-                    viewModel.copyText(id: record.id)
+            if record.mediaType == .screenRecording {
+                recordActionIcon("arrow.up.right.square", help: "打开文件") {
+                    viewModel.openFile(id: record.id)
+                }
+                recordActionIcon("doc.on.doc", help: "复制文件") {
+                    viewModel.copyFile(id: record.id)
+                }
+                recordActionIcon("folder", help: "在 Finder 中显示") {
+                    viewModel.revealInFinder(id: record.id)
+                }
+            } else {
+                recordActionIcon("photo.on.rectangle", help: "复制图片") {
+                    viewModel.copyImage(id: record.id)
+                }
+                if !record.ocrText.isEmpty {
+                    recordActionIcon("doc.on.doc", help: "复制文字") {
+                        viewModel.copyText(id: record.id)
+                    }
                 }
             }
             recordActionIcon(
@@ -214,6 +270,34 @@ struct ScreenshotRecordDetailView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+
+    private func formatDuration(_ durationMs: Int) -> String {
+        let totalSeconds = max(0, durationMs / 1_000)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private func formatResolution(_ width: Int, _ height: Int) -> String {
+        guard width > 0, height > 0 else { return "未知分辨率" }
+        return "\(width)×\(height)"
+    }
+
+    private func formatFileSize(_ bytes: Int) -> String {
+        guard bytes > 0 else { return "未知大小" }
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+
+    private func audioModeTitle(_ audioMode: MediaAudioMode) -> String {
+        switch audioMode {
+        case .none:
+            return "无声"
+        case .microphone:
+            return "麦克风"
+        }
     }
 
     private func attachEscapeMonitorIfNeeded() {

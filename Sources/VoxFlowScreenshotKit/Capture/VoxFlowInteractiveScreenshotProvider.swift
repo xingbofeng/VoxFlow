@@ -134,6 +134,9 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
                 image: croppedImage,
                 completionKind: .translate
             )
+        case .acceptedScreenRecording:
+            // 录屏结果由 app 层 ScreenRecordingCoordinator 处理，不应进入截图 provider 流程。
+            throw InteractiveScreenshotError.cancelled
         }
     }
 

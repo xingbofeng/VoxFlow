@@ -73,6 +73,52 @@ enum AppDatabase {
                 DatabaseMigration(id: 15, name: "voice_tasks_asset_repair") { connection in
                     try applyBundledSchema(on: connection)
                     try connection.execute(voiceTaskAssetBackfillSQL)
+                },
+                DatabaseMigration(id: 16, name: "screenshot_records_media_columns") { connection in
+                    // 先为老库幂等补齐媒体列，再应用 bundled schema。
+                    // 顺序很重要：schema 快照包含引用 media_type 的索引，
+                    // 必须在列存在后才能成功创建索引。
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "media_type",
+                        definition: "TEXT NOT NULL DEFAULT 'screenshot'"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "video_path",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "thumbnail_path",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "duration_ms",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "width",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "height",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "file_size_bytes",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "audio_mode",
+                        definition: "TEXT NOT NULL DEFAULT 'none'"
+                    )
+                    try applyBundledSchema(on: connection)
                 }
             ],
             clock: clock

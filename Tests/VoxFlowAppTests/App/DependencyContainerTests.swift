@@ -91,4 +91,29 @@ final class DependencyContainerTests: XCTestCase {
 
         XCTAssertTrue(credentialStore is AppLocalCredentialStore)
     }
+
+    func testStartupCleanupRemovesStaleScreenRecordingTemporaryFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DependencyContainerRecCleanup-\(UUID().uuidString)", isDirectory: true)
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: root)
+        try paths.ensureDirectories()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let stale = paths.screenRecordingTemporaryDirectory.appendingPathComponent("stale.tmp.mp4")
+        try Data("stale".utf8).write(to: stale)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 1_700_000_000)],
+            ofItemAtPath: stale.path
+        )
+        let fresh = paths.screenRecordingTemporaryDirectory.appendingPathComponent("fresh.tmp.mp4")
+        try Data("fresh".utf8).write(to: fresh)
+
+        DependencyContainer.cleanupStaleScreenRecordingTemporaryFiles(
+            paths: paths,
+            now: Date(timeIntervalSince1970: 1_700_000_000 + 25 * 60 * 60)
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fresh.path))
+    }
 }

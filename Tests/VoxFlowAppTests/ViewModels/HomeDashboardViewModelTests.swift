@@ -1276,6 +1276,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             transcriptionJobRepository: base.transcriptionJobRepository,
             noteRepository: base.noteRepository,
             screenshotRecordRepository: base.screenshotRecordRepository,
+            mediaRecordRepository: base.mediaRecordRepository,
             settingsRepository: base.settingsRepository,
             correctionTargetRepository: base.correctionTargetRepository,
             correctionRuleRepository: base.correctionRuleRepository,

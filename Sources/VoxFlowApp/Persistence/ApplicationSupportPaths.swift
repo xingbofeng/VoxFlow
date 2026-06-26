@@ -45,6 +45,23 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("Screenshots", isDirectory: true)
     }
 
+    var screenRecordingsDirectory: URL {
+        rootDirectory.appendingPathComponent("ScreenRecordings", isDirectory: true)
+    }
+
+    var screenRecordingTemporaryDirectory: URL {
+        rootDirectory.appendingPathComponent("ScreenRecordings", isDirectory: true)
+            .appendingPathComponent("Temporary", isDirectory: true)
+    }
+
+    func screenRecordingURL(forID id: String) -> URL {
+        screenRecordingsDirectory.appendingPathComponent("\(id).mp4", isDirectory: false)
+    }
+
+    func screenRecordingTemporaryURL(forID id: String) -> URL {
+        screenRecordingTemporaryDirectory.appendingPathComponent("\(id).tmp.mp4", isDirectory: false)
+    }
+
     var clipboardAssetsDirectory: URL {
         rootDirectory.appendingPathComponent("ClipboardAssets", isDirectory: true)
     }
@@ -69,6 +86,8 @@ struct ApplicationSupportPaths: Equatable {
             modelsDirectory,
             voiceTaskAudioDirectory,
             screenshotsDirectory,
+            screenRecordingsDirectory,
+            screenRecordingTemporaryDirectory,
             clipboardAssetsDirectory,
             agentRouterDirectory,
             cliBinDirectory,

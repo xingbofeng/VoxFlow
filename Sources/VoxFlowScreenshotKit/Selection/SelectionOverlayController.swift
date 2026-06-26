@@ -69,6 +69,34 @@ enum SelectionOverlaySnapshotSampler {
     }
 }
 
+public enum ScreenRecordingAudioMode: String, CaseIterable, Equatable, Sendable {
+    case none
+    case microphone
+
+    public var title: String {
+        switch self {
+        case .none: return "无声"
+        case .microphone: return "麦克风"
+        }
+    }
+}
+
+public enum ScreenRecordingPreparationAction: Equatable, Sendable {
+    case audioMode(ScreenRecordingAudioMode)
+    case start
+    case cancel
+}
+
+public struct ScreenRecordingPreparationState: Equatable, Sendable {
+    public let audioMode: ScreenRecordingAudioMode
+    public let countdownRemaining: Int?
+
+    public init(audioMode: ScreenRecordingAudioMode = .none, countdownRemaining: Int? = nil) {
+        self.audioMode = audioMode
+        self.countdownRemaining = countdownRemaining
+    }
+}
+
 public enum SelectionOverlayResult: Equatable, Sendable {
     case cancelled
     case accepted(SelectionState)
@@ -77,6 +105,8 @@ public enum SelectionOverlayResult: Equatable, Sendable {
     case acceptedTextRecognition(SelectionState)
     case acceptedAnnotatedTextRecognition(SelectionState, AnnotationDocument)
     case acceptedTranslation(SelectionState)
+    /// 区域录屏：overlay 只回传选区状态与匹配到的显示器，不持有任何录屏逻辑。
+    case acceptedScreenRecording(SelectionState, ScreenshotDisplay, ScreenRecordingAudioMode)
 }
 
 public enum SelectionOverlayCompletionKind: Equatable, Sendable {
@@ -106,6 +136,13 @@ public struct SelectionAnnotationOverlayState: Equatable, Sendable {
     public let inlineTranslationStatus: SelectionInlineTranslationStatus
     /// 当前正在展示 popover 的按钮（.color / .lineWidth / .fontSize），nil 表示无 popover。
     public let popoverRole: SelectionToolbarRole?
+    /// 区域录屏资格。toolbar 据此对录屏按钮做禁用灰显，不影响截图/OCR/标注/翻译。
+    public let screenRecordingEligibility: ScreenRecordingEligibility
+    /// 区域录屏准备态。非 nil 时 overlay 应展示声音模式、开始和取消控件。
+    public let screenRecordingPreparation: ScreenRecordingPreparationState?
+    public var shouldShowToolbar: Bool {
+        screenRecordingPreparation == nil
+    }
 
     public init(
         document: AnnotationDocument = AnnotationDocument(),
@@ -116,7 +153,9 @@ public struct SelectionAnnotationOverlayState: Equatable, Sendable {
         currentStyle: ScreenshotAnnotationStyle = .default,
         currentFontSize: CGFloat = 14,
         inlineTranslationStatus: SelectionInlineTranslationStatus = .idle,
-        popoverRole: SelectionToolbarRole? = nil
+        popoverRole: SelectionToolbarRole? = nil,
+        screenRecordingEligibility: ScreenRecordingEligibility = .disabled(reason: .tooSmall),
+        screenRecordingPreparation: ScreenRecordingPreparationState? = nil
     ) {
         self.document = document
         self.translatedOverlay = translatedOverlay
@@ -127,6 +166,8 @@ public struct SelectionAnnotationOverlayState: Equatable, Sendable {
         self.currentFontSize = currentFontSize
         self.inlineTranslationStatus = inlineTranslationStatus
         self.popoverRole = popoverRole
+        self.screenRecordingEligibility = screenRecordingEligibility
+        self.screenRecordingPreparation = screenRecordingPreparation
     }
 }
 
@@ -199,6 +240,7 @@ public enum SelectionOverlayWindowEvent: Sendable {
     case selectionEnded(CGPoint)
     /// 用户点击了 popover 中的某个选项（颜色/线宽/字号）。index 是选项在对应候选数组中的位置。
     case popoverOptionSelected(SelectionToolbarRole, Int)
+    case screenRecordingPreparationAction(ScreenRecordingPreparationAction)
     /// 用户点击了 popover 之外的区域，应关闭 popover。
     case popoverDismissed
 }
@@ -365,6 +407,7 @@ public final class SelectionOverlayController {
     private var cachedTranslatedOverlay: TranslatedOverlayAnnotationElement?
     /// 当前正在展示 popover 的按钮（.color / .lineWidth / .fontSize），nil 表示无 popover。
     private var popoverRole: SelectionToolbarRole?
+    private var screenRecordingPreparation: ScreenRecordingPreparationState?
     private var activeAnnotationMovePoint: CGPoint?
     private var hasRecordedAnnotationMoveUndo = false
     private var activeAnnotationResizeHandle: AnnotationResizeHandle?
@@ -473,6 +516,7 @@ public final class SelectionOverlayController {
             currentPoint: point
         )
         currentSelectionState = state
+        screenRecordingPreparation = nil
         resetAnnotations()
         windowRecords.forEach {
             $0.window.setAllowsTargetedSelectionReplacement(false)
@@ -492,6 +536,7 @@ public final class SelectionOverlayController {
             currentPoint: point
         )
         currentSelectionState = state
+        screenRecordingPreparation = nil
         currentSelectionOrigin = .manual
         windowRecords.forEach {
             $0.window.setAllowsTargetedSelectionReplacement(false)
@@ -526,6 +571,8 @@ public final class SelectionOverlayController {
             completeSelection(kind: .textRecognition)
         case .translate:
             translateSelectionInlineOrComplete()
+        case .screenRecording:
+            requestScreenRecording()
         case .scrollCapture:
             beginScrollingCapture()
         case .select:
@@ -590,6 +637,7 @@ public final class SelectionOverlayController {
         windowRecords.removeAll()
         activeSelection = nil
         currentSelectionState = nil
+        screenRecordingPreparation = nil
         isIgnoringSelectionInteriorClick = false
         activeSelectionMovePoint = nil
         activeSelectionResizeHandle = nil
@@ -597,6 +645,7 @@ public final class SelectionOverlayController {
         currentSelectionOrigin = .manual
         pointerDragSession = nil
         popoverRole = nil
+        screenRecordingPreparation = nil
         inlineTranslationStatus = .idle
     }
 
@@ -743,6 +792,15 @@ public final class SelectionOverlayController {
             }
             popoverRole = nil
             pushAnnotationState()
+        case .screenRecordingPreparationAction(let action):
+            switch action {
+            case .audioMode(let audioMode):
+                setScreenRecordingPreparationAudioMode(audioMode)
+            case .start:
+                handleScreenRecordingPreparationStart()
+            case .cancel:
+                cancelScreenRecordingPreparation()
+            }
         case .popoverDismissed:
             if popoverRole != nil {
                 popoverRole = nil
@@ -885,6 +943,74 @@ public final class SelectionOverlayController {
             // 翻译按钮立即完成选区，annotation 文档不参与翻译流程
             onResult(.acceptedTranslation(state))
         }
+    }
+
+    /// 区域录屏入口：先进入准备态；overlay 仍只负责 UI 状态与选区结果，不持有录屏逻辑。
+    /// 资格不满足时静默忽略（toolbar 层应已禁用），不影响截图/OCR/标注/翻译。
+    private func requestScreenRecording() {
+        windowRecords.forEach { $0.window.commitInlineTextEditing() }
+        guard let state = currentSelectionState,
+              state.isValidSelection else {
+            return
+        }
+        let displays = windowRecords.map(\.display)
+        guard case .eligible = ScreenRecordingEligibility.evaluate(
+            selection: state,
+            displays: displays
+        ) else {
+            return
+        }
+        screenRecordingPreparation = ScreenRecordingPreparationState(audioMode: .none)
+        activeAnnotationRole = nil
+        activeAnnotationTool = nil
+        activeBrushPreview = nil
+        popoverRole = nil
+        pushAnnotationState()
+    }
+
+    public func setScreenRecordingPreparationAudioMode(_ audioMode: ScreenRecordingAudioMode) {
+        guard screenRecordingPreparation != nil else { return }
+        screenRecordingPreparation = ScreenRecordingPreparationState(audioMode: audioMode)
+        pushAnnotationState()
+    }
+
+    public func updateScreenRecordingCountdown(_ remaining: Int) {
+        guard let preparation = screenRecordingPreparation else { return }
+        screenRecordingPreparation = ScreenRecordingPreparationState(
+            audioMode: preparation.audioMode,
+            countdownRemaining: remaining
+        )
+        pushAnnotationState()
+    }
+
+    public func enterActiveScreenRecordingOverlay() {
+        guard let state = currentSelectionState, state.isValidSelection else { return }
+        screenRecordingPreparation = nil
+        pushAnnotationState()
+        windowRecords.forEach { $0.window.setScrollCaptureActive(true, selection: state) }
+    }
+
+    public func cancelScreenRecordingPreparation() {
+        guard screenRecordingPreparation != nil else { return }
+        screenRecordingPreparation = nil
+        pushAnnotationState()
+    }
+
+    public func handleScreenRecordingPreparationStart() {
+        windowRecords.forEach { $0.window.commitInlineTextEditing() }
+        guard let preparation = screenRecordingPreparation,
+              let state = currentSelectionState,
+              state.isValidSelection else {
+            return
+        }
+        let displays = windowRecords.map(\.display)
+        guard case .eligible(let display) = ScreenRecordingEligibility.evaluate(
+            selection: state,
+            displays: displays
+        ) else {
+            return
+        }
+        onResult(.acceptedScreenRecording(state, display, preparation.audioMode))
     }
 
     private func documentForCompletion() -> AnnotationDocument {
@@ -1173,6 +1299,15 @@ public final class SelectionOverlayController {
     }
 
     private func pushAnnotationState() {
+        let eligibility: ScreenRecordingEligibility
+        if let state = currentSelectionState, state.isValidSelection {
+            eligibility = ScreenRecordingEligibility.evaluate(
+                selection: state,
+                displays: windowRecords.map(\.display)
+            )
+        } else {
+            eligibility = .disabled(reason: .tooSmall)
+        }
         let state = SelectionAnnotationOverlayState(
             document: annotationDocument,
             translatedOverlay: currentTranslatedOverlay,
@@ -1182,7 +1317,9 @@ public final class SelectionOverlayController {
             currentStyle: currentAnnotationStyle,
             currentFontSize: currentAnnotationFontSize,
             inlineTranslationStatus: inlineTranslationStatus,
-            popoverRole: popoverRole
+            popoverRole: popoverRole,
+            screenRecordingEligibility: eligibility,
+            screenRecordingPreparation: screenRecordingPreparation
         )
         windowRecords.forEach { $0.window.updateAnnotationState(state) }
     }
@@ -1887,7 +2024,7 @@ private extension Optional where Wrapped == SelectionToolbarRole {
         switch self {
         case .pen, .circle, .rectangle, .arrow, .dotMarker, .numberedMarker, .mosaic:
             return true
-        case .select, .text, .scrollCapture, .textRecognition, .translate, .color, .lineWidth, .fontSize, .download,
+        case .select, .text, .scrollCapture, .textRecognition, .translate, .screenRecording, .color, .lineWidth, .fontSize, .download,
              .copy, .paste, .duplicate, .undo, .redo, .cancel, .complete, nil:
             return false
         }
@@ -2070,6 +2207,14 @@ final class SelectionOverlayContentView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         if event.clickCount >= 2 {
             eventHandler(.doubleClick(point))
+            return
+        }
+
+        if let action = screenRecordingPreparationAction(at: point) {
+            eventHandler(.screenRecordingPreparationAction(action))
+            return
+        }
+        if screenRecordingPreparationContains(point) {
             return
         }
 
@@ -2294,7 +2439,10 @@ final class SelectionOverlayContentView: NSView {
             drawAnnotations(in: selectionRect, displayScale: selectionState.displayScale)
         }
         drawSelection(selectionRect, presentation: presentation)
-        if !isScrollCapturing, shouldDrawSelectionChrome {
+        if !isScrollCapturing, shouldDrawSelectionChrome, annotationState.screenRecordingPreparation != nil {
+            drawScreenRecordingPreparation(near: selectionRect)
+        }
+        if !isScrollCapturing, shouldDrawSelectionChrome, annotationState.shouldShowToolbar {
             drawToolbar(SelectionToolbarPresentation.default, near: selectionRect)
             drawInlineTranslationStatusIfNeeded(near: selectionRect)
             drawToolbarTooltipIfNeeded()
@@ -3043,6 +3191,181 @@ final class SelectionOverlayContentView: NSView {
         NSGraphicsContext.restoreGraphicsState()
     }
 
+    private struct ScreenRecordingPreparationLayout {
+        let frame: CGRect
+        let noneRect: CGRect
+        let microphoneRect: CGRect
+        let startRect: CGRect
+        let cancelRect: CGRect
+    }
+
+    private enum PreparationButtonKind {
+        case primary
+        case secondary
+        case plain
+    }
+
+    private func screenRecordingPreparationLayout(near selectionRect: CGRect) -> ScreenRecordingPreparationLayout {
+        let padding: CGFloat = 8
+        let gap: CGFloat = 8
+        let buttonHeight: CGFloat = 30
+        let audioWidth: CGFloat = 64
+        let startWidth: CGFloat = 62
+        let cancelWidth: CGFloat = 46
+        let spacing: CGFloat = 6
+        let width = padding * 2 + audioWidth * 2 + startWidth + cancelWidth + spacing * 3
+        let height = padding * 2 + buttonHeight
+        let preferredY = selectionRect.maxY + gap
+        let fallbackY = selectionRect.minY - gap - height
+        let y = preferredY + height <= bounds.maxY ? preferredY : max(bounds.minY + 8, fallbackY)
+        let x = min(
+            max(selectionRect.midX - width / 2, bounds.minX + 8),
+            bounds.maxX - width - 8
+        )
+        let frame = CGRect(x: x, y: y, width: width, height: height)
+        var nextX = frame.minX + padding
+        let buttonY = frame.minY + padding
+        let noneRect = CGRect(x: nextX, y: buttonY, width: audioWidth, height: buttonHeight)
+        nextX += audioWidth + spacing
+        let microphoneRect = CGRect(x: nextX, y: buttonY, width: audioWidth, height: buttonHeight)
+        nextX += audioWidth + spacing
+        let startRect = CGRect(x: nextX, y: buttonY, width: startWidth, height: buttonHeight)
+        nextX += startWidth + spacing
+        let cancelRect = CGRect(x: nextX, y: buttonY, width: cancelWidth, height: buttonHeight)
+        return ScreenRecordingPreparationLayout(
+            frame: frame,
+            noneRect: noneRect,
+            microphoneRect: microphoneRect,
+            startRect: startRect,
+            cancelRect: cancelRect
+        )
+    }
+
+    private func drawScreenRecordingPreparation(near selectionRect: CGRect) {
+        guard let preparation = annotationState.screenRecordingPreparation else {
+            return
+        }
+        if let countdownRemaining = preparation.countdownRemaining {
+            drawScreenRecordingCountdown(countdownRemaining, near: selectionRect)
+            return
+        }
+        let layout = screenRecordingPreparationLayout(near: selectionRect)
+        let path = NSBezierPath(roundedRect: layout.frame, xRadius: 9, yRadius: 9)
+        NSColor.white.withAlphaComponent(0.94).setFill()
+        path.fill()
+        NSColor.systemGreen.withAlphaComponent(0.32).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+
+        drawPreparationButton(
+            "无声",
+            in: layout.noneRect,
+            isSelected: preparation.audioMode == .none,
+            kind: .secondary
+        )
+        drawPreparationButton(
+            "麦克风",
+            in: layout.microphoneRect,
+            isSelected: preparation.audioMode == .microphone,
+            kind: .secondary
+        )
+        drawPreparationButton("开始", in: layout.startRect, isSelected: false, kind: .primary)
+        drawPreparationButton("取消", in: layout.cancelRect, isSelected: false, kind: .plain)
+    }
+
+    private func drawScreenRecordingCountdown(_ remaining: Int, near selectionRect: CGRect) {
+        let visibleSelectionRect = selectionRect.intersection(bounds)
+        guard visibleSelectionRect.width > 0, visibleSelectionRect.height > 0 else {
+            return
+        }
+        let center = CGPoint(x: visibleSelectionRect.midX, y: visibleSelectionRect.midY)
+        let boxSize = CGSize(width: 92, height: 98)
+        let boxRect = CGRect(
+            x: center.x - boxSize.width / 2,
+            y: center.y - boxSize.height / 2,
+            width: boxSize.width,
+            height: boxSize.height
+        )
+        let path = NSBezierPath(roundedRect: boxRect, xRadius: 16, yRadius: 16)
+        NSColor.black.withAlphaComponent(0.48).setFill()
+        path.fill()
+
+        let number = "\(max(1, remaining))" as NSString
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 46, weight: .bold),
+            .foregroundColor: NSColor.white
+        ]
+        let numberSize = number.size(withAttributes: numberAttributes)
+        number.draw(
+            at: CGPoint(
+                x: boxRect.midX - numberSize.width / 2,
+                y: boxRect.minY + 18
+            ),
+            withAttributes: numberAttributes
+        )
+
+        let caption = "准备录屏" as NSString
+        let captionAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.86)
+        ]
+        let captionSize = caption.size(withAttributes: captionAttributes)
+        caption.draw(
+            at: CGPoint(
+                x: boxRect.midX - captionSize.width / 2,
+                y: boxRect.maxY - captionSize.height - 14
+            ),
+            withAttributes: captionAttributes
+        )
+    }
+
+    private func drawPreparationButton(
+        _ title: String,
+        in rect: CGRect,
+        isSelected: Bool,
+        kind: PreparationButtonKind
+    ) {
+        let fillColor: NSColor
+        let textColor: NSColor
+        switch kind {
+        case .primary:
+            fillColor = NSColor.systemGreen.withAlphaComponent(0.92)
+            textColor = .white
+        case .secondary:
+            fillColor = isSelected
+                ? NSColor.systemGreen.withAlphaComponent(0.22)
+                : NSColor.black.withAlphaComponent(0.04)
+            textColor = .labelColor
+        case .plain:
+            fillColor = NSColor.black.withAlphaComponent(0.04)
+            textColor = .labelColor
+        }
+        let path = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
+        fillColor.setFill()
+        path.fill()
+        if isSelected {
+            NSColor.systemGreen.withAlphaComponent(0.72).setStroke()
+            path.lineWidth = 1.2
+            path.stroke()
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: textColor
+        ]
+        let attributed = title as NSString
+        let size = attributed.size(withAttributes: attributes)
+        attributed.draw(
+            in: CGRect(
+                x: rect.midX - size.width / 2,
+                y: rect.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            ),
+            withAttributes: attributes
+        )
+    }
+
     private func drawInlineTranslationSpinner(in selectionRect: CGRect) {
         let visibleSelectionRect = selectionRect.intersection(bounds)
         guard visibleSelectionRect.width > 0, visibleSelectionRect.height > 0 else {
@@ -3329,6 +3652,9 @@ final class SelectionOverlayContentView: NSView {
 
     /// 返回 popover 命中的选项 index（0-based），未命中返回 nil。
     private func popoverOption(at point: CGPoint) -> (SelectionToolbarRole, Int)? {
+        guard annotationState.shouldShowToolbar else {
+            return nil
+        }
         guard let popoverRole = annotationState.popoverRole,
               let toolbarFrame = toolbarFrame(),
               let popoverFrame = popoverFrame(role: popoverRole, toolbarFrame: toolbarFrame),
@@ -3363,6 +3689,9 @@ final class SelectionOverlayContentView: NSView {
     }
 
     private func popoverContains(_ point: CGPoint) -> Bool {
+        guard annotationState.shouldShowToolbar else {
+            return false
+        }
         guard let popoverRole = annotationState.popoverRole,
               let toolbarFrame = toolbarFrame(),
               let popoverFrame = popoverFrame(role: popoverRole, toolbarFrame: toolbarFrame) else {
@@ -3371,12 +3700,65 @@ final class SelectionOverlayContentView: NSView {
         return popoverFrame.contains(point)
     }
 
+    private func screenRecordingPreparationAction(at point: CGPoint) -> ScreenRecordingPreparationAction? {
+        guard let preparation = annotationState.screenRecordingPreparation,
+              let selectionState else {
+            return nil
+        }
+        guard preparation.countdownRemaining == nil else {
+            return nil
+        }
+        let selectionRect = SelectionOverlayDisplayGeometry.localSelectionRect(
+            for: selectionState,
+            on: configuration.display
+        )
+        guard SelectionOverlayDisplayGeometry.shouldDrawSelectionChrome(
+            localSelectionRect: selectionRect,
+            visibleBounds: bounds
+        ) else {
+            return nil
+        }
+        let layout = screenRecordingPreparationLayout(near: selectionRect)
+        if layout.noneRect.contains(point) {
+            return .audioMode(.none)
+        }
+        if layout.microphoneRect.contains(point) {
+            return .audioMode(.microphone)
+        }
+        if layout.startRect.contains(point) {
+            return .start
+        }
+        if layout.cancelRect.contains(point) {
+            return .cancel
+        }
+        return nil
+    }
+
+    private func screenRecordingPreparationContains(_ point: CGPoint) -> Bool {
+        guard let preparation = annotationState.screenRecordingPreparation,
+              let selectionState else {
+            return false
+        }
+        if preparation.countdownRemaining != nil {
+            return bounds.contains(point)
+        }
+        let selectionRect = SelectionOverlayDisplayGeometry.localSelectionRect(
+            for: selectionState,
+            on: configuration.display
+        )
+        return screenRecordingPreparationLayout(near: selectionRect).frame.contains(point)
+    }
+
     private func drawToolbarIcon(_ item: SelectionToolbarItem, in rect: CGRect) {
         let itemPath = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
         let isActiveTool = annotationState.activeRole == item.role
         let isPressed = pressedToolbarRole == item.role
+        let isScreenRecordingDisabled = item.role == .screenRecording
+            && !annotationState.screenRecordingEligibility.isEligible
         let fillColor: NSColor
-        if isPressed {
+        if isScreenRecordingDisabled {
+            fillColor = NSColor.black.withAlphaComponent(0.02)
+        } else if isPressed {
             fillColor = item.role == .complete
                 ? NSColor.systemGreen.withAlphaComponent(0.22)
                 : item.role == .cancel
@@ -3452,7 +3834,11 @@ final class SelectionOverlayContentView: NSView {
             height: iconSize.height
         )
         NSGraphicsContext.saveGraphicsState()
-        NSColor.labelColor.set()
+        if isScreenRecordingDisabled {
+            NSColor.secondaryLabelColor.withAlphaComponent(0.35).set()
+        } else {
+            NSColor.labelColor.set()
+        }
         image?.draw(in: iconRect)
         NSGraphicsContext.restoreGraphicsState()
     }
@@ -3500,6 +3886,9 @@ final class SelectionOverlayContentView: NSView {
     }
 
     private func toolbarFrame() -> CGRect? {
+        guard annotationState.shouldShowToolbar else {
+            return nil
+        }
         guard let selectionState else {
             return nil
         }

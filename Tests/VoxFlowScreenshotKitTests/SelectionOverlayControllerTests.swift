@@ -2163,7 +2163,7 @@ private extension NSView {
 }
 
 @MainActor
-private final class FakeSelectionOverlayWindowFactory: SelectionOverlayWindowMaking {
+final class FakeSelectionOverlayWindowFactory: SelectionOverlayWindowMaking {
     private(set) var configurations: [SelectionOverlayWindowConfiguration] = []
     private(set) var windows: [FakeSelectionOverlayWindow] = []
 
@@ -2179,7 +2179,7 @@ private final class FakeSelectionOverlayWindowFactory: SelectionOverlayWindowMak
 }
 
 @MainActor
-private final class FakeSelectionOverlayWindow: SelectionOverlayWindowControlling {
+final class FakeSelectionOverlayWindow: SelectionOverlayWindowControlling {
     private let eventHandler: @MainActor (SelectionOverlayWindowEvent) -> Void
     private(set) var orderFrontCallCount = 0
     private(set) var closeCallCount = 0
@@ -2223,6 +2223,9 @@ private final class FakeSelectionOverlayWindow: SelectionOverlayWindowControllin
 
     func setScrollCaptureActive(_ isActive: Bool, selection: SelectionState?) {
         scrollCaptureStates.append(isActive)
+        if let selection {
+            selectionStates.append(selection)
+        }
     }
 
     func updateAnnotationState(_ state: SelectionAnnotationOverlayState) {

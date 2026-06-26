@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import SwiftUI
+import VoxFlowScreenshotKit
 import VoxFlowTextInsertion
 
 @MainActor
@@ -78,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var textPipeline: DefaultTextProcessingPipeline { runtime!.textPipeline }
     private var capabilityModelDownloader: SoniqoCapabilityModelDownloader { runtime!.capabilityModelDownloader }
     private var screenshotOCRService: ScreenshotOCRService { runtime!.screenshotOCRService }
+    private var screenRecordingCoordinator: ScreenRecordingCoordinator { runtime!.screenRecordingCoordinator }
     private var voiceTaskCoordinator: VoiceTaskCoordinator { runtime!.voiceTaskCoordinator }
     private var clipboardAssetMonitor: ClipboardAssetMonitor { runtime!.clipboardAssetMonitor }
     private var agentHelperManager: AgentHelperManager? { runtime!.agentHelperManager }
@@ -163,9 +165,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         translationCoordinator: runtime!.appleTranslationCoordinator,
         historyRecorder: selectionHistoryRecorder
     )
+    private lazy var screenRecordingResultPanelController = ScreenRecordingResultPanelController(
+        repository: appEnvironment.mediaRecordRepository,
+        clock: appEnvironment.clock,
+        onDelete: { [weak self] in
+            self?.windowCoordinator.refreshScreenshotRecords()
+            self?.appEnvironment.notifyHistoryDidChange()
+        }
+    )
     private var paletteWindowController: PaletteWindowController?
     private let overlayController = OverlayWindowController()
     private lazy var hudFeatureController = VoiceHUDFeatureController(overlay: overlayController)
+    private var screenRecordingHUDPanel: ScreenRecordingHUDPanel?
+    private var screenRecordingElapsedTask: Task<Void, Never>?
+    private var activeScreenRecordingStartDate: Date?
+    private var activeScreenRecordingOverlayClose: (@MainActor () -> Void)?
     private lazy var aiChatService: OpenAICompatibleChatService = OpenAICompatibleChatService(
         providerRepository: appEnvironment.llmProviderRepository,
         credentialStore: appEnvironment.credentialStore
@@ -351,6 +365,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        runtime!.screenRecordingSelectionBridge.onSelection = { [weak self] state, display, audioMode, overlayControls in
+            self?.handleScreenRecordingSelection(
+                state: state,
+                display: display,
+                audioMode: audioMode,
+                overlayControls: overlayControls
+            )
+        }
         startCorrectionLearningFeedback()
         windowCoordinator.onCheckForUpdates = { [weak self] in
             self?.checkForUpdates(nil)
@@ -1432,6 +1454,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func handleScreenRecordingSelection(
+        state: SelectionState,
+        display: ScreenshotDisplay,
+        audioMode: ScreenRecordingAudioMode,
+        overlayControls: ScreenRecordingOverlayControls
+    ) {
+        let id = UUID().uuidString
+        let selectionRect = state.normalizedRect.intersection(display.frame)
+        let hudPanel = ScreenRecordingHUDPanel()
+        hudPanel.position(relativeTo: selectionRect, display: display)
+        hudPanel.update(status: ScreenRecordingHUDStatus(elapsedSeconds: 0, audioMode: audioMode))
+        let excludedWindowIDs = ScreenCaptureWindowExclusion.currentProcessWindowIDs()
+            + [CGWindowID(hudPanel.windowNumber)]
+        let request = ScreenRecordingRequest(
+            displayID: display.id,
+            displayFrame: display.frame,
+            selectionRect: selectionRect,
+            scale: display.scale,
+            audioMode: MediaAudioMode(screenRecordingAudioMode: audioMode),
+            excludedWindowIDs: excludedWindowIDs
+        )
+        hudPanel.setStopHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.stopActiveScreenRecording()
+            }
+        }
+        screenRecordingHUDPanel?.close()
+        screenRecordingHUDPanel = hudPanel
+        activeScreenRecordingOverlayClose = overlayControls.close
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.screenRecordingCoordinator.start(
+                    id: id,
+                    request: request,
+                    onCountdown: overlayControls.showCountdown,
+                    beforeStartCapture: overlayControls.showRecordingFrame,
+                    afterStartCapture: { [weak self] in
+                        self?.showActiveScreenRecordingHUD(audioMode: audioMode)
+                    }
+                )
+            } catch {
+                self.clearActiveScreenRecordingUI()
+                self.hudFeatureController.showTemporaryMessage(
+                    "录屏启动失败：\(error.localizedDescription)",
+                    duration: 3.0
+                )
+            }
+        }
+    }
+
+    private func stopActiveScreenRecording() async {
+        do {
+            let record = try await screenRecordingCoordinator.stop()
+            clearActiveScreenRecordingUI()
+            screenRecordingResultPanelController.present(record: record)
+            windowCoordinator.refreshScreenshotRecords()
+            appEnvironment.notifyHistoryDidChange()
+            hudFeatureController.showTemporaryMessage("录屏已保存", duration: 1.8, tone: .success)
+        } catch {
+            clearActiveScreenRecordingUI()
+            hudFeatureController.showTemporaryMessage(
+                "录屏保存失败：\(error.localizedDescription)",
+                duration: 3.0
+            )
+        }
+    }
+
     private func handleScreenshotOCRShortcut(
         lease: VoiceWorkflowLease,
         shouldPresentHUD: Bool
@@ -1538,6 +1629,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func showActiveScreenRecordingHUD(audioMode: ScreenRecordingAudioMode) {
+        activeScreenRecordingStartDate = appEnvironment.clock.now
+        screenRecordingHUDPanel?.update(status: ScreenRecordingHUDStatus(elapsedSeconds: 0, audioMode: audioMode))
+        screenRecordingHUDPanel?.orderFront(nil)
+        screenRecordingElapsedTask?.cancel()
+        screenRecordingElapsedTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, let startDate = self.activeScreenRecordingStartDate else { return }
+                self.screenRecordingHUDPanel?.update(
+                    status: ScreenRecordingHUDStatus(
+                        elapsedSeconds: self.appEnvironment.clock.now.timeIntervalSince(startDate),
+                        audioMode: audioMode
+                    )
+                )
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    private func clearActiveScreenRecordingUI() {
+        screenRecordingElapsedTask?.cancel()
+        screenRecordingElapsedTask = nil
+        activeScreenRecordingStartDate = nil
+        screenRecordingHUDPanel?.close()
+        screenRecordingHUDPanel = nil
+        activeScreenRecordingOverlayClose?()
+        activeScreenRecordingOverlayClose = nil
+    }
+
     private func copyLastResultToClipboardForRecovery() {
         guard let text = lastResultStore.lastResultText else {
             hudFeatureController.handleWorkflowFeedback(.noCopyableResult)
@@ -1613,6 +1733,17 @@ extension AppDelegate: AudioRecorder.Delegate {
     nonisolated func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float) {
         Task { @MainActor [weak self] in
             self?.hudFeatureController.updateRMS(rms)
+        }
+    }
+}
+
+private extension MediaAudioMode {
+    init(screenRecordingAudioMode: ScreenRecordingAudioMode) {
+        switch screenRecordingAudioMode {
+        case .none:
+            self = .none
+        case .microphone:
+            self = .microphone
         }
     }
 }

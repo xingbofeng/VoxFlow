@@ -11,6 +11,9 @@ final class ApplicationSupportPathsTests: XCTestCase {
         XCTAssertEqual(paths.databaseURL.path, "/tmp/Application Support/VoxFlow/voxflow.sqlite")
         XCTAssertEqual(paths.exportsDirectory.path, "/tmp/Application Support/VoxFlow/Exports")
         XCTAssertEqual(paths.modelsDirectory.path, "/tmp/Application Support/VoxFlow/Models")
+        XCTAssertEqual(paths.screenRecordingsDirectory.path, "/tmp/Application Support/VoxFlow/ScreenRecordings")
+        XCTAssertEqual(paths.screenRecordingTemporaryDirectory.path, "/tmp/Application Support/VoxFlow/ScreenRecordings/Temporary")
+        XCTAssertEqual(paths.screenRecordingURL(forID: "abc").path, "/tmp/Application Support/VoxFlow/ScreenRecordings/abc.mp4")
     }
 
     func testEnsureDirectoriesCreatesRequiredDirectories() throws {
@@ -25,6 +28,8 @@ final class ApplicationSupportPathsTests: XCTestCase {
         XCTAssertTrue(FileManager.default.directoryExists(at: paths.rootDirectory))
         XCTAssertTrue(FileManager.default.directoryExists(at: paths.exportsDirectory))
         XCTAssertTrue(FileManager.default.directoryExists(at: paths.modelsDirectory))
+        XCTAssertTrue(FileManager.default.directoryExists(at: paths.screenRecordingsDirectory))
+        XCTAssertTrue(FileManager.default.directoryExists(at: paths.screenRecordingTemporaryDirectory))
     }
 }
 

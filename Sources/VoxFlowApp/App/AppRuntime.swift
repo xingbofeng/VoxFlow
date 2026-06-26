@@ -3,6 +3,10 @@ import Foundation
 import VoxFlowScreenshotKit
 import VoxFlowTextInsertion
 
+private final class WeakSelectionOverlayControllerBox {
+    weak var controller: SelectionOverlayController?
+}
+
 @MainActor
 final class AppASRRuntime {
     let manager: ASRManager
@@ -91,6 +95,8 @@ struct AppRuntime {
     let appleTranslationCoordinator: AppleTranslationCoordinator
     let screenshotTextRefiner: ScreenshotTextRefiner
     let screenshotOCRService: ScreenshotOCRService
+    let screenRecordingCoordinator: ScreenRecordingCoordinator
+    let screenRecordingSelectionBridge: ScreenRecordingSelectionBridge
     let dictationTargetProvider: WorkspaceDictationTargetProvider
     let voiceTaskCoordinator: VoiceTaskCoordinator
     let focusedTextObserver: AccessibilityFocusedTextObserver
@@ -145,6 +151,7 @@ struct AppRuntime {
             translator: screenshotTextRefiner,
             lastResultStore: textRuntime.lastResultStore
         )
+        let screenRecordingSelectionBridge = ScreenRecordingSelectionBridge()
         let overlayControllerFactory: VoxFlowInteractiveScreenshotProvider.OverlayControllerFactory = { onResult in
             let windowFactory = AppKitSelectionOverlayWindowFactory(
                 accessoryViewProvider: { configuration in
@@ -154,11 +161,30 @@ struct AppRuntime {
                     )
                 }
             )
-            return SelectionOverlayController(
+            let overlayControllerBox = WeakSelectionOverlayControllerBox()
+            let controller = SelectionOverlayController(
                 windowFactory: windowFactory,
                 inlineTranslator: screenshotInlineTranslator,
-                onResult: onResult
+                onResult: { [overlayControllerBox] result in
+                    if let controller = overlayControllerBox.controller {
+                        let controls = ScreenRecordingOverlayControls(
+                            showCountdown: { remaining in
+                                controller.updateScreenRecordingCountdown(remaining)
+                            },
+                            showRecordingFrame: {
+                                controller.enterActiveScreenRecordingOverlay()
+                            },
+                            close: {
+                                controller.close()
+                            }
+                        )
+                        screenRecordingSelectionBridge.handle(result, overlayControls: controls)
+                    }
+                    onResult(result)
+                }
             )
+            overlayControllerBox.controller = controller
+            return controller
         }
 
         let screenshotOCRService = ScreenshotOCRService(
@@ -175,6 +201,21 @@ struct AppRuntime {
             lastResultStore: textRuntime.lastResultStore,
             assetRepository: environment.assetRepository,
             assetImageDirectory: environment.paths?.screenshotsDirectory
+        )
+        let screenRecordingPaths = environment.paths ?? ApplicationSupportPaths(
+            applicationSupportDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("VoxFlowScreenRecording.\(UUID().uuidString)", isDirectory: true)
+        )
+        try? screenRecordingPaths.ensureDirectories()
+        let screenRecordingFileStorage = ScreenRecordingFileStorage(paths: screenRecordingPaths)
+        let screenRecordingCoordinator = ScreenRecordingCoordinator(
+            service: ScreenRecordingService(fileStorage: screenRecordingFileStorage),
+            fileStorage: screenRecordingFileStorage,
+            committer: ScreenRecordingCompletionCommitter(
+                fileStorage: screenRecordingFileStorage,
+                repository: environment.mediaRecordRepository,
+                now: { environment.clock.now }
+            )
         )
         let dictationTargetProvider = WorkspaceDictationTargetProvider()
         let focusedTextObserver = AccessibilityFocusedTextObserver()
@@ -266,6 +307,8 @@ struct AppRuntime {
             appleTranslationCoordinator: appleTranslationCoordinator,
             screenshotTextRefiner: screenshotTextRefiner,
             screenshotOCRService: screenshotOCRService,
+            screenRecordingCoordinator: screenRecordingCoordinator,
+            screenRecordingSelectionBridge: screenRecordingSelectionBridge,
             dictationTargetProvider: dictationTargetProvider,
             voiceTaskCoordinator: voiceTaskCoordinator,
             focusedTextObserver: focusedTextObserver,

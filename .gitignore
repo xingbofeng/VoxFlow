@@ -12,4 +12,7 @@ xcuserdata/
 .codegraph/
 openspec/
 .workbuddy/
+.claude/
+.codebuddy/
+.codex/
 Vendor/sherpa-onnx.xcframework/

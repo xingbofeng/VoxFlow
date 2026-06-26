@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ScreenshotRecordView: View {
     @ObservedObject var viewModel: ScreenshotRecordViewModel
-    @State private var selectedRecord: ScreenshotRecord?
+    @State private var selectedRecord: MediaRecord?
 
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -78,7 +78,7 @@ struct ScreenshotRecordView: View {
 
     private var pageHeader: some View {
         HStack {
-            Label("截图", systemImage: "photo.on.rectangle.angled.fill")
+            Label("多媒体", systemImage: "rectangle.stack.fill")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
             Spacer()
@@ -93,28 +93,28 @@ struct ScreenshotRecordView: View {
             spacing: AppTheme.Spacing.grid
         ) {
             ScreenshotStatCard(
-                title: "累计截图",
-                value: "\(viewModel.stats?.totalRecords ?? 0)",
-                unit: "张",
-                systemImage: "photo.stack.fill"
+                title: "全部媒体",
+                value: "\(viewModel.mediaStats?.totalMedia ?? 0)",
+                unit: "项",
+                systemImage: "rectangle.stack.fill"
             )
             ScreenshotStatCard(
-                title: "今日截图",
-                value: "\(viewModel.stats?.todayRecords ?? 0)",
-                unit: "张",
+                title: "今日媒体",
+                value: "\(viewModel.mediaStats?.todayMedia ?? 0)",
+                unit: "项",
                 systemImage: "calendar"
             )
             ScreenshotStatCard(
-                title: "已识别文字",
-                value: formatNumber(viewModel.stats?.totalCharacters ?? 0),
-                unit: "字",
-                systemImage: "textformat.size"
+                title: "截图",
+                value: "\(viewModel.mediaStats?.screenshotCount ?? 0)",
+                unit: "张",
+                systemImage: "photo.on.rectangle.angled"
             )
             ScreenshotStatCard(
-                title: "收藏截图",
-                value: "\(viewModel.stats?.favoritedRecords ?? 0)",
-                unit: "张",
-                systemImage: "star.fill"
+                title: "录屏",
+                value: "\(viewModel.mediaStats?.recordingCount ?? 0)",
+                unit: "段",
+                systemImage: "record.circle"
             )
         }
     }
@@ -123,19 +123,19 @@ struct ScreenshotRecordView: View {
 
     private var paginationBar: some View {
         HStack(spacing: 8) {
-            // 全部 / 收藏 切换
-            Picker("", selection: Binding(
-                get: { viewModel.onlyFavorites },
-                set: { viewModel.onlyFavorites = $0 }
+            Picker("类型", selection: Binding(
+                get: { viewModel.selectedFilter },
+                set: { viewModel.selectedFilter = $0 }
             )) {
-                Text("全部").tag(false)
-                Text("收藏").tag(true)
+                ForEach(MediaRecordFilter.allCases) { filter in
+                    Text(filter.title).tag(filter)
+                }
             }
             .pickerStyle(.segmented)
-            .frame(width: 120)
+            .frame(width: 240)
 
             TextField(
-                "搜索截图或识别文本…",
+                "搜索媒体或识别文本…",
                 text: Binding(
                     get: { viewModel.searchText },
                     set: { viewModel.updateSearch($0) }
@@ -193,10 +193,10 @@ struct ScreenshotRecordView: View {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 40))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.4))
-                    Text("暂无截图记录")
+                    Text("暂无多媒体记录")
                         .font(.system(size: 15))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text("使用 ⌘⇧A 截图后，记录将自动保存到这里")
+                    Text("使用 ⌘⇧A 截图或录屏后，记录将自动保存到这里")
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.7))
                 }
@@ -265,16 +265,18 @@ private struct ScreenshotStatCard: View {
 // MARK: - Record Card
 
 private struct ScreenshotRecordCard: View {
-    let record: ScreenshotRecord
+    let record: MediaRecord
     @ObservedObject var viewModel: ScreenshotRecordViewModel
     let onTap: () -> Void
     private let thumbnailHeight: CGFloat = 150
+    private let contentHeight: CGFloat = 132
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             thumbnailPreview
             cardContent
         }
+        .frame(height: thumbnailHeight + contentHeight)
         .appPanel(cornerRadius: AppTheme.Radius.card)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
@@ -284,7 +286,9 @@ private struct ScreenshotRecordCard: View {
 
     private var thumbnailPreview: some View {
         Group {
-            if let image = viewModel.loadImage(for: record) {
+            if record.mediaType == .screenRecording {
+                recordingThumbnail
+            } else if let image = viewModel.loadImage(for: record) {
                 ZStack {
                     AppTheme.ColorToken.controlBackground.opacity(0.34)
                     Image(nsImage: image)
@@ -299,6 +303,45 @@ private struct ScreenshotRecordCard: View {
                 placeholderThumbnail
             }
         }
+    }
+
+    private var recordingThumbnail: some View {
+        ZStack {
+            AppTheme.ColorToken.controlBackground.opacity(0.5)
+            if let thumbnail = viewModel.loadVideoThumbnail(for: record) {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(8)
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "video.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                    Text(formatDuration(record.durationMs))
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                }
+            }
+
+            VStack {
+                Spacer()
+                HStack {
+                    Label(formatDuration(record.durationMs), systemImage: "video.fill")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.58))
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                    Spacer()
+                }
+                .padding(10)
+            }
+        }
+        .frame(height: thumbnailHeight)
+        .frame(maxWidth: .infinity)
+        .clipped()
     }
 
     private var placeholderThumbnail: some View {
@@ -329,34 +372,63 @@ private struct ScreenshotRecordCard: View {
                 Spacer()
             }
 
-            if !record.ocrText.isEmpty {
-                Text(record.ocrText)
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppTheme.ColorToken.primaryText)
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-            }
+            Text(primaryText)
+                .font(.system(size: 13))
+                .foregroundStyle(record.ocrText.isEmpty ? AppTheme.ColorToken.secondaryText : AppTheme.ColorToken.primaryText)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .frame(height: 34, alignment: .topLeading)
 
             HStack(spacing: 4) {
-                Text("\(record.charCount) 字")
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                Spacer()
+                if record.mediaType == .screenRecording {
+                    Text(formatResolution(record.width, record.height))
+                    Text("·")
+                    Text(formatFileSize(record.fileSizeBytes))
+                    Text("·")
+                    Text(audioModeTitle(record.audioMode))
+                } else {
+                    Text("\(record.charCount) 字")
+                }
             }
+            .font(.system(size: 12))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
             actionIcons
         }
         .padding(14)
+        .frame(height: contentHeight, alignment: .top)
+    }
+
+    private var primaryText: String {
+        if !record.ocrText.isEmpty {
+            return record.ocrText
+        }
+        if record.mediaType == .screenRecording {
+            return formatDuration(record.durationMs)
+        }
+        return "未识别到文字"
     }
 
     private var actionIcons: some View {
         HStack(spacing: 0) {
-            actionIcon("photo.on.rectangle", help: "复制图片") {
-                viewModel.copyImage(id: record.id)
-            }
-            if !record.ocrText.isEmpty {
-                actionIcon("doc.on.doc", help: "复制文字") {
-                    viewModel.copyText(id: record.id)
+            if record.mediaType == .screenRecording {
+                actionIcon("arrow.up.right.square", help: "打开文件") {
+                    viewModel.openFile(id: record.id)
+                }
+                actionIcon("doc.on.doc", help: "复制文件") {
+                    viewModel.copyFile(id: record.id)
+                }
+                actionIcon("folder", help: "在 Finder 中显示") {
+                    viewModel.revealInFinder(id: record.id)
+                }
+            } else {
+                actionIcon("photo.on.rectangle", help: "复制图片") {
+                    viewModel.copyImage(id: record.id)
+                }
+                if !record.ocrText.isEmpty {
+                    actionIcon("doc.on.doc", help: "复制文字") {
+                        viewModel.copyText(id: record.id)
+                    }
                 }
             }
             actionIcon(record.isFavorited ? "star.fill" : "star", help: "收藏", tint: record.isFavorited ? .yellow : nil) {
@@ -366,6 +438,34 @@ private struct ScreenshotRecordCard: View {
                 viewModel.deleteRecord(id: record.id)
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    private func formatDuration(_ durationMs: Int) -> String {
+        let totalSeconds = max(0, durationMs / 1_000)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private func formatResolution(_ width: Int, _ height: Int) -> String {
+        guard width > 0, height > 0 else { return "未知分辨率" }
+        return "\(width)×\(height)"
+    }
+
+    private func formatFileSize(_ bytes: Int) -> String {
+        guard bytes > 0 else { return "未知大小" }
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+
+    private func audioModeTitle(_ audioMode: MediaAudioMode) -> String {
+        switch audioMode {
+        case .none:
+            return "无声"
+        case .microphone:
+            return "麦克风"
         }
     }
 

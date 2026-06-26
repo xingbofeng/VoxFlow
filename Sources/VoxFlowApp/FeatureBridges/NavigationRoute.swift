@@ -22,7 +22,7 @@ enum NavigationRoute: String, CaseIterable, Identifiable {
         case .styles: return "风格"
         case .fileTranscription: return "文件转写"
         case .notes: return "笔记"
-        case .screenshotRecord: return "截图"
+        case .screenshotRecord: return "多媒体"
         case .settings: return "设置"
         case .help: return "帮助"
         }

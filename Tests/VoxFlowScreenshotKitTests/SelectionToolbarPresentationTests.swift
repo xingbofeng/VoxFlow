@@ -21,6 +21,7 @@ final class SelectionToolbarPresentationTests: XCTestCase {
                     .scrollCapture,
                     .textRecognition,
                     .translate,
+                    .screenRecording,
                     .color,
                     .lineWidth,
                     .fontSize,

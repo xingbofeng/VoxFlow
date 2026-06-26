@@ -13,6 +13,7 @@ public enum SelectionToolbarRole: CaseIterable, Equatable, Sendable {
     case scrollCapture
     case textRecognition
     case translate
+    case screenRecording
     case color
     case lineWidth
     case fontSize
@@ -52,6 +53,7 @@ public struct SelectionToolbarPresentation: Equatable, Sendable {
             SelectionToolbarItem(role: .scrollCapture, systemImageName: "arrow.up.and.down.text.horizontal", tooltip: "滚动长图"),
             SelectionToolbarItem(role: .textRecognition, systemImageName: "text.viewfinder", tooltip: "文字识别"),
             SelectionToolbarItem(role: .translate, systemImageName: "character.bubble", tooltip: "翻译"),
+            SelectionToolbarItem(role: .screenRecording, systemImageName: "record.circle", tooltip: "区域录屏"),
             SelectionToolbarItem(role: .color, systemImageName: "paintpalette", tooltip: "颜色"),
             SelectionToolbarItem(role: .lineWidth, systemImageName: "lineweight", tooltip: "线宽"),
             SelectionToolbarItem(role: .fontSize, systemImageName: "textformat.size", tooltip: "字号"),

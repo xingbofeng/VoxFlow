@@ -271,6 +271,34 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         XCTAssertLessThan(save.lowerBound, refresh.lowerBound)
     }
 
+    func testScreenRecordingSelectionUsesRuntimeCoordinatorAndRefreshesMultimediaHistory() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let startMethod = try XCTUnwrap(
+            source.range(
+                of: #"private func handleScreenRecordingSelection\([\s\S]*?\n    private func stopActiveScreenRecording"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+        let stopMethod = try XCTUnwrap(
+            source.range(
+                of: #"private func stopActiveScreenRecording\([\s\S]*?\n    private func handleScreenshotOCRShortcut"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(source.contains("private var screenRecordingCoordinator: ScreenRecordingCoordinator"))
+        XCTAssertTrue(source.contains("private var screenRecordingHUDPanel: ScreenRecordingHUDPanel?"))
+        XCTAssertTrue(startMethod.contains("ScreenRecordingRequest("))
+        XCTAssertTrue(startMethod.contains("screenRecordingCoordinator.start("))
+        XCTAssertTrue(startMethod.contains("screenRecordingHUDPanel"))
+        XCTAssertTrue(stopMethod.contains("try await screenRecordingCoordinator.stop()"))
+        XCTAssertTrue(stopMethod.contains("windowCoordinator.refreshScreenshotRecords()"))
+        XCTAssertTrue(stopMethod.contains("appEnvironment.notifyHistoryDidChange()"))
+        XCTAssertTrue(stopMethod.contains("showTemporaryMessage(\"录屏已保存\""))
+    }
+
     func testRefreshingScreenshotRecordsSurfacesNewestRecordOnFirstPage() throws {
         let controllerSource = try String(
             contentsOf: Self.repositoryRoot()

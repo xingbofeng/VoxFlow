@@ -32,6 +32,7 @@ struct DependencyContainer {
     let transcriptionJobRepository: any TranscriptionJobRepository
     let noteRepository: any NoteRepository
     let screenshotRecordRepository: any ScreenshotRecordRepository
+    let mediaRecordRepository: any MediaRecordRepository
     let settingsRepository: any SettingsRepository
     let correctionTargetRepository: any CorrectionTargetRepository
     let correctionRuleRepository: any CorrectionRuleRepository
@@ -47,6 +48,7 @@ struct DependencyContainer {
         let paths = try ApplicationSupportPaths.live()
         AppLogger.general.debug("DependencyContainer paths ready: \(paths.rootDirectory.path)")
         try paths.ensureDirectories()
+        cleanupStaleScreenRecordingTemporaryFiles(paths: paths, now: clock.now)
         let databaseQueue = try DatabaseQueue(connection: SQLiteConnection(url: paths.databaseURL))
         AppLogger.general.debug("DependencyContainer databaseQueue created")
         #if DEBUG
@@ -101,6 +103,15 @@ struct DependencyContainer {
         AppLocalCredentialStore(fileURL: paths.credentialsURL)
     }
 
+    static func cleanupStaleScreenRecordingTemporaryFiles(
+        paths: ApplicationSupportPaths,
+        now: Date,
+        staleAge: TimeInterval = 24 * 60 * 60
+    ) {
+        ScreenRecordingFileStorage(paths: paths)
+            .cleanupStaleTemporaryFiles(olderThan: now.addingTimeInterval(-staleAge))
+    }
+
     private static func make(
         databaseQueue: DatabaseQueue,
         clock: any AppClock,
@@ -119,6 +130,10 @@ struct DependencyContainer {
         let transcriptionJobRepository = SQLiteTranscriptionJobRepository(databaseQueue: databaseQueue)
         let noteRepository = SQLiteNoteRepository(databaseQueue: databaseQueue)
         let screenshotRecordRepository = SQLiteScreenshotRecordRepository(databaseQueue: databaseQueue)
+        let mediaRecordRepository = SQLiteMediaRecordRepository(
+            databaseQueue: databaseQueue,
+            now: { clock.now }
+        )
         let settingsRepository = SQLiteSettingsRepository(databaseQueue: databaseQueue, clock: clock)
         let correctionTargetRepository = SQLiteCorrectionTargetRepository(databaseQueue: databaseQueue)
         let correctionRuleRepository = SQLiteCorrectionRuleRepository(databaseQueue: databaseQueue)
@@ -157,6 +172,7 @@ struct DependencyContainer {
             transcriptionJobRepository: transcriptionJobRepository,
             noteRepository: noteRepository,
             screenshotRecordRepository: screenshotRecordRepository,
+            mediaRecordRepository: mediaRecordRepository,
             settingsRepository: settingsRepository,
             correctionTargetRepository: correctionTargetRepository,
             correctionRuleRepository: correctionRuleRepository,

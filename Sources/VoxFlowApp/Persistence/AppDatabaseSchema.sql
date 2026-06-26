@@ -166,7 +166,16 @@ CREATE TABLE IF NOT EXISTS screenshot_records (
     is_favorited INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    deleted_at TEXT
+    deleted_at TEXT,
+    -- 多媒体扩展列：旧截图行通过默认值自动归为 screenshot 类型。
+    media_type TEXT NOT NULL DEFAULT 'screenshot',
+    video_path TEXT,
+    thumbnail_path TEXT,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    width INTEGER NOT NULL DEFAULT 0,
+    height INTEGER NOT NULL DEFAULT 0,
+    file_size_bytes INTEGER NOT NULL DEFAULT 0,
+    audio_mode TEXT NOT NULL DEFAULT 'none'
 );
 
 CREATE INDEX IF NOT EXISTS idx_screenshot_records_created_at
@@ -175,6 +184,8 @@ CREATE INDEX IF NOT EXISTS idx_screenshot_records_deleted_created
 ON screenshot_records(deleted_at, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_screenshot_records_favorited
 ON screenshot_records(is_favorited, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_screenshot_records_media_type
+ON screenshot_records(media_type, deleted_at);
 
 CREATE TABLE IF NOT EXISTS asset_items (
     id TEXT PRIMARY KEY,

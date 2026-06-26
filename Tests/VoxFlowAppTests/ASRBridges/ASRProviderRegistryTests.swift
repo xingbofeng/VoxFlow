@@ -8,6 +8,7 @@ import VoxFlowProviderWhisper
 
 final class ASRProviderRegistryTests: XCTestCase {
     private var defaults: UserDefaults!
+    private var defaultsSuiteName: String!
     private var manager: ASRManager!
     private var registry: ASRProviderRegistry!
 
@@ -24,8 +25,9 @@ final class ASRProviderRegistryTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        defaults = UserDefaults(suiteName: "test.ASRProviderRegistry")!
-        defaults.removePersistentDomain(forName: "test.ASRProviderRegistry")
+        defaultsSuiteName = "test.ASRProviderRegistry.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: defaultsSuiteName)!
+        defaults.removePersistentDomain(forName: defaultsSuiteName)
         manager = ASRManager(
             defaults: defaults,
             credentialStore: ASRProviderRegistryTestCredentialStore(),
@@ -35,7 +37,11 @@ final class ASRProviderRegistryTests: XCTestCase {
     }
 
     override func tearDown() {
-        defaults.removePersistentDomain(forName: "test.ASRProviderRegistry")
+        defaults.removePersistentDomain(forName: defaultsSuiteName)
+        defaults = nil
+        defaultsSuiteName = nil
+        manager = nil
+        registry = nil
         super.tearDown()
     }
 

@@ -1,20 +1,29 @@
 import AppKit
+import AVFoundation
 import Combine
 import Foundation
 
 @MainActor
 final class ScreenshotRecordViewModel: ObservableObject {
-    @Published var records: [ScreenshotRecord] = []
+    @Published var records: [MediaRecord] = []
     @Published var searchText: String = ""
+    @Published var selectedFilter: MediaRecordFilter = .all {
+        didSet {
+            guard oldValue != selectedFilter else { return }
+            onlyFavorites = selectedFilter == .favorites
+            currentPage = 1
+            load()
+        }
+    }
     @Published var onlyFavorites: Bool = false {
         didSet {
             if oldValue != onlyFavorites {
-                currentPage = 1
-                load()
+                selectedFilter = onlyFavorites ? .favorites : .all
             }
         }
     }
     @Published var stats: ScreenshotRecordStats?
+    @Published var mediaStats: MediaRecordStats?
     @Published var lastError: String?
     @Published var lastActionMessage: String?
     @Published private(set) var currentPage = 1
@@ -24,6 +33,9 @@ final class ScreenshotRecordViewModel: ObservableObject {
     private let environment: any AppServiceProviding
     private let clipboardService: SystemClipboardService
     private let imageCache = NSCache<NSString, NSImage>()
+    private let videoThumbnailCache = NSCache<NSString, NSImage>()
+    private var pendingVideoThumbnailIDs: Set<String> = []
+    private var videoThumbnailGenerators: [String: AVAssetImageGenerator] = [:]
     private var hasLoaded = false
 
     init(environment: any AppServiceProviding, clipboardService: SystemClipboardService) {
@@ -31,6 +43,8 @@ final class ScreenshotRecordViewModel: ObservableObject {
         self.clipboardService = clipboardService
         imageCache.countLimit = 60
         imageCache.totalCostLimit = 120 * 1024 * 1024
+        videoThumbnailCache.countLimit = 60
+        videoThumbnailCache.totalCostLimit = 80 * 1024 * 1024
     }
 
     var totalPages: Int { max(1, Int(ceil(Double(totalRecords) / Double(pageSize)))) }
@@ -39,15 +53,16 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     func load() {
         do {
-            let page = try environment.screenshotRecordRepository.page(
+            let page = try environment.mediaRecordRepository.page(
                 limit: pageSize,
                 offset: (currentPage - 1) * pageSize,
-                search: searchText.isEmpty ? nil : searchText,
-                onlyFavorites: onlyFavorites
+                filter: selectedFilter,
+                search: searchText.isEmpty ? nil : searchText
             )
             records = page.records
             totalRecords = page.totalCount
             stats = try environment.screenshotRecordRepository.stats()
+            mediaStats = try environment.mediaRecordRepository.stats()
             hasLoaded = true
             lastError = nil
         } catch {
@@ -62,6 +77,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     func refreshAfterExternalInsert() {
         searchText = ""
+        selectedFilter = .all
         onlyFavorites = false
         currentPage = 1
         load()
@@ -99,7 +115,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
         guard let record = records.first(where: { $0.id == id }) else { return }
         let newValue = !record.isFavorited
         do {
-            try environment.screenshotRecordRepository.toggleFavorite(
+            try environment.mediaRecordRepository.toggleFavorite(
                 id: id,
                 isFavorited: newValue,
                 updatedAt: environment.clock.now
@@ -113,14 +129,21 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     func deleteRecord(id: String) {
         do {
-            let imagePath = try environment.screenshotRecordRepository.record(id: id)?.imagePath
-            try environment.screenshotRecordRepository.softDelete(
+            let media = try environment.mediaRecordRepository.record(id: id)
+            try environment.mediaRecordRepository.softDelete(
                 id: id,
                 deletedAt: environment.clock.now
             )
             imageCache.removeObject(forKey: id as NSString)
-            if let imagePath {
+            videoThumbnailCache.removeObject(forKey: id as NSString)
+            pendingVideoThumbnailIDs.remove(id)
+            videoThumbnailGenerators[id]?.cancelAllCGImageGeneration()
+            videoThumbnailGenerators[id] = nil
+            if let imagePath = media?.imagePath {
                 try ScreenshotImageStorage.deleteImage(at: imagePath)
+            }
+            if let videoPath = media?.videoPath {
+                try? FileManager.default.removeItem(atPath: videoPath)
             }
             load()
             lastActionMessage = "已删除"
@@ -151,7 +174,30 @@ final class ScreenshotRecordViewModel: ObservableObject {
         lastActionMessage = "已复制图片"
     }
 
-    func loadImage(for record: ScreenshotRecord) -> NSImage? {
+    func openFile(id: String) {
+        guard let url = fileURL(for: id) else { return }
+        NSWorkspace.shared.open(url)
+        lastActionMessage = "已打开文件"
+    }
+
+    func copyFile(id: String) {
+        guard let url = fileURL(for: id) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        if pasteboard.writeObjects([url as NSURL]) {
+            lastActionMessage = "已复制文件"
+        } else {
+            lastError = "复制文件失败"
+        }
+    }
+
+    func revealInFinder(id: String) {
+        guard let url = fileURL(for: id) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+        lastActionMessage = "已在 Finder 中显示"
+    }
+
+    func loadImage(for record: MediaRecord) -> NSImage? {
         if let cached = imageCache.object(forKey: record.id as NSString) {
             return cached
         }
@@ -167,6 +213,62 @@ final class ScreenshotRecordViewModel: ObservableObject {
             )
         }
         return image
+    }
+
+    func loadVideoThumbnail(for record: MediaRecord) -> NSImage? {
+        if let cached = videoThumbnailCache.object(forKey: record.id as NSString) {
+            return cached
+        }
+        guard record.mediaType == .screenRecording,
+              let path = record.videoPath else {
+            return nil
+        }
+        guard !pendingVideoThumbnailIDs.contains(record.id) else {
+            return nil
+        }
+        pendingVideoThumbnailIDs.insert(record.id)
+
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 640, height: 360)
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        videoThumbnailGenerators[record.id] = generator
+
+        let recordID = record.id
+        let time = CMTime(seconds: 0.1, preferredTimescale: 600)
+        generator.generateCGImageAsynchronously(for: time) { [weak self] cgImage, _, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.pendingVideoThumbnailIDs.remove(recordID)
+                self.videoThumbnailGenerators[recordID] = nil
+
+                guard let cgImage else {
+                    return
+                }
+                let image = NSImage(
+                    cgImage: cgImage,
+                    size: NSSize(width: cgImage.width, height: cgImage.height)
+                )
+                self.videoThumbnailCache.setObject(
+                    image,
+                    forKey: recordID as NSString,
+                    cost: max(1, cgImage.width * cgImage.height * 4)
+                )
+                self.objectWillChange.send()
+            }
+        }
+        return nil
+    }
+
+    private func fileURL(for id: String) -> URL? {
+        guard let record = records.first(where: { $0.id == id }),
+              let path = record.videoPath ?? record.imagePath else {
+            lastError = "该记录无可用文件"
+            return nil
+        }
+        return URL(fileURLWithPath: path)
     }
 
     func clearFeedback() {

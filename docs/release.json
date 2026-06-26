@@ -1,10 +1,10 @@
 {
-  "version": "1.8.2",
-  "tag": "v1.8.2",
-  "assetName": "VoxFlow-1.8.2-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.8.2",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.2/VoxFlow-1.8.2-macOS.dmg",
-  "releaseNotes": "VoxFlow Palette 新增问 AI、翻译、Quicklinks 和网址打开能力，支持多轮 AI HUD、网站搜索、收藏网址和统一图标展示。",
+  "version": "1.8.3",
+  "tag": "v1.8.3",
+  "assetName": "VoxFlow-1.8.3-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.8.3",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.3/VoxFlow-1.8.3-macOS.dmg",
+  "releaseNotes": "VoxFlow 1.8.3 新增录屏保存和多媒体管理体验，录屏结果可即时预览、默认复制并下载，同时修复 CI 并行测试稳定性问题。",
   "draft": false,
   "prerelease": false
 }

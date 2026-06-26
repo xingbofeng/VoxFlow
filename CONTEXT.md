@@ -14,12 +14,12 @@
 - **ASR Provider**: A descriptor and runtime entry for a speech recognition backend, including capabilities, privacy summary, availability, and fallback behavior.
 - **Provider target**: A SwiftPM target that owns one ASR backend implementation. Provider targets live under the `Sources/VoxFlowProviders/` directory, but they remain separate targets rather than one large provider module.
 - **Capability tag**: A user-facing and filterable ASR Provider label such as local, streaming, cloud, multilingual, or punctuation.
-- **Injection**: Temporarily placing text on the pasteboard and posting Command-V to the focused application.
+- **Injection**: Temporarily placing text on the pasteboard and posting ⌘V to the focused application.
 - **Voice HUD / 语音 HUD**: The bottom-centered non-activating capsule shown during voice recording, recognition, refinement, and output status.
 - **Agent Confirmation HUD / 任务助手确认 HUD**: The non-activating confirmation surface that lets a user choose an Agent session or fall back to direct input for an Agent Dispatch request.
 - **Selection Action Card / 划词动作卡**: The compact surface opened for selected text that offers first-level actions such as translate, summarize, or send to Agent Dispatch.
 - **Text Result Panel / 文本结果面板**: The reusable panel for showing obtained text and derived results such as translation or summary, regardless of whether the source text came from screenshot OCR, selected text, or another text source.
-- **Workbench window**: The regular macOS application window shown in Dock, `Command+Tab`, and Force Quit while the menu-bar dictation controls remain available.
+- **Workbench window**: The regular macOS application window shown in Dock, `⌘Tab`, and Force Quit while the menu-bar dictation controls remain available.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
 - **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
 - **VoiceTask mode**: One of `dictation` (right-Command transcription with optional style correction), `agentCompose` ("任务助手" - context-aware LLM generation from user dictation plus window context), or `agentDispatch` (voice-routed instruction delivery to an Agent session).
@@ -45,7 +45,14 @@
 - **Palette Root Item / 启动台根项目**: A stable, searchable item on the Palette home surface. Current kinds are command and application; future extension entries should join through the same ID, activation, icon, and alias contract.
 - **Palette Favorites / 启动台最喜欢**: User-pinned Root Items shown at the top of Palette Root Search. Stored as lightweight UI preference metadata and not the same thing as Asset favorites or screenshot `is_favorited`.
 - **Palette Suggestions / 启动台建议**: Root Items ranked by recent use, usage count, and query selection history. Suggestions exclude items already shown in Favorites.
-- **Palette Root Action Panel / 启动台根动作面板**: The `Command+K` action panel for selected Root Items. V1 actions are open, add favorite, and remove favorite; asset rows continue to use `AssetAction`.
+- **Palette Root Action Panel / 启动台根动作面板**: The `⌘K` action panel for selected Root Items. V1 actions are open, add favorite, and remove favorite; asset rows continue to use `AssetAction`.
+- **Palette Quicklink / 启动台快捷链接**: A built-in searchable site-search entry on the Palette home surface (Google, Bing, Perplexity, GitHub, StackOverflow, YouTube, Bilibili, X, 小红书, 淘宝, 京东). Quicklinks are bundled in code, support alias matching and frequency sorting, and reuse the existing favorite/usage mechanism. They do not support user-defined entries.
+- **Palette URL Detector / 启动台 URL 检测**: Detects whether Palette input is an openable URL (scheme URL, bare domain, www, localhost, IP+port) and produces an `打开网址` root result ranked first. Bare domains are normalized to `https://`.
+- **Ask AI / 问 AI**: A Palette root result and selection action that sends user text (typed or selected) as a user prompt to a dedicated OpenAI-compatible chat service. Ask AI does not inject the correction system prompt used by voice refinement.
+- **AI Chat HUD / 问 AI 聊天 HUD**: The right-side `TextResultPanelController` surface hosting the SwiftUI `AIChatHUDView` content: multi-turn messages, Markdown rendering (via `MarkdownUI`), streaming stop button, and bottom input. It reuses the same panel shell as translation/summary results while keeping the Ask AI conversation component separate. The conversation is held in memory only for the app process lifetime.
+- **AIChatSessionViewModel**: In-memory chat session state holding `AIChatMessage` history, streaming status, and error state. Drives `AIChatHUDView` and delegates streaming to `AIChatServicing`.
+- **OpenAICompatibleChatService**: Dedicated chat service that reuses `LLMProviderRepository`, `CredentialStore`, `OpenAICompatibleClient`, and `SSEParser` but builds multi-turn `messages` payloads without the correction system prompt. Streams accumulated text snapshots to the view model.
+- **Selection Ask AI / 划词问 AI**: The `⌘⇧P` workflow shortcut that reads selected text from the frontmost app and sends it directly to the AI Chat HUD, bypassing the selection action card. The `问 AI` tile in the `⌘⇧F` selection action card routes through the same `askAIContext` dispatcher path. Like other selection workflow shortcuts, it is gated on dictation idle.
 
 ## Module Boundaries
 
@@ -89,6 +96,12 @@
 | `ApplicationStyleRecommendationService` | Merges registry hits and LLM classifications into preview-only recommendations; writes rules only on user confirmation | Direct rule persistence, prompt construction |
 | `ContextPipeline` | Parallel context collection (Accessibility text, window metadata, optional visual fallback), deduplication, trimming, timeout enforcement | ASR lifecycle, text injection |
 | `PaletteRootItem` / `PaletteRootSearchIndex` | Palette home command/application item modeling, fuzzy matching, Favorites/Suggestions sectioning, and ranking | Asset CRUD, AppKit window control, launching applications |
+| `PaletteRootComposer` | Composes URL/Ask AI/Quicklink root items with existing command/application items into a single ranked list | ASR, audio, pasteboard, network requests |
+| `PaletteQuicklink` / `PaletteQuicklinkCatalog` | Built-in Quicklink model and catalog with aliases, search URL templates, and default ordering | UI layout, network downloads, persistence beyond usage/favorites |
+| `PaletteURLDetector` | Pure URL/裸域名/localhost/IP+port detection and normalization for Palette input | Palette ranking, AppKit, network |
+| `AIChatSessionViewModel` / `AIChatServicing` / `OpenAICompatibleChatService` | In-memory multi-turn chat session state, OpenAI-compatible streaming chat requests without correction system prompt, SSE parsing reuse | HUD window lifecycle, voice refinement prompt, agent dispatch |
+| `AIChatHUDView` | SwiftUI message list, Markdown rendering via `MarkdownUI`, streaming stop button, bottom input | Network requests, pasteboard, persistence |
+| `SelectionActionDispatcher` (askAI route) | Routes `.askAI` selection action to `.askAIContext(text:)` route, separate from `.agentContext` | LLM calls, HUD presentation |
 | `PaletteFavoritesStore` / `PaletteUsageStore` | Lightweight Palette Root Search UI preferences and ranking statistics in UserDefaults | SQLite schema, asset favorite state, screenshot favorite state |
 | `PaletteApplicationLauncher` | Opening installed application paths through `NSWorkspace` behind a testable protocol | Search ranking, favorites persistence |
 | `Sources/VoxFlowProviders/VoxFlowProvider*` | Individual ASR provider runtime, descriptor, manifest/client, and provider-specific tests | AppKit UI, settings view layout, unrelated provider implementations |
@@ -97,7 +110,7 @@
 
 ### ADR-001: Paste Instead Of Accessibility Value Mutation
 
-Text is injected with the clipboard and Command-V because it works across more native, Electron, browser, and custom text controls than direct Accessibility value mutation.
+Text is injected with the clipboard and ⌘V because it works across more native, Electron, browser, and custom text controls than direct Accessibility value mutation.
 
 ### ADR-002: Switch CJK Input Sources Before Paste
 
@@ -137,7 +150,7 @@ The existing PromptBuilder produces conservative correction prompts for dictatio
 
 ### ADR-011: Copy-Only Agent Compose Output
 
-Agent compose output is copy-only (clipboard write). No Command-V injection, no Enter simulation, no app-specific send actions. This is a firm v1 boundary: automatic sending introduces reliability and safety risks that require per-app adapters and extensive testing.
+Agent compose output is copy-only (clipboard write). No ⌘V injection, no Enter simulation, no app-specific send actions. This is a firm v1 boundary: automatic sending introduces reliability and safety risks that require per-app adapters and extensive testing.
 
 ### ADR-012: Agent Dispatch Uses Registered PTY Sessions
 

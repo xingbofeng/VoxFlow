@@ -21,6 +21,7 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
     var transcriptionJobRepository: any TranscriptionJobRepository { container.transcriptionJobRepository }
     var noteRepository: any NoteRepository { container.noteRepository }
     var screenshotRecordRepository: any ScreenshotRecordRepository { container.screenshotRecordRepository }
+    var mediaRecordRepository: any MediaRecordRepository { container.mediaRecordRepository }
     var settingsRepository: any SettingsRepository { container.settingsRepository }
     var correctionTargetRepository: any CorrectionTargetRepository { container.correctionTargetRepository }
     var correctionRuleRepository: any CorrectionRuleRepository { container.correctionRuleRepository }

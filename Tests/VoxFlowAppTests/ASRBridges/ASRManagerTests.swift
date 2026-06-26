@@ -9,16 +9,21 @@ import VoxFlowProviderWhisper
 final class ASRManagerTests: XCTestCase {
     var manager: ASRManager!
     var defaults: UserDefaults!
+    private var defaultsSuiteName: String!
 
     override func setUp() {
         super.setUp()
-        defaults = UserDefaults(suiteName: "test.ASRManager")!
-        defaults.removePersistentDomain(forName: "test.ASRManager")
+        defaultsSuiteName = "test.ASRManager.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: defaultsSuiteName)!
+        defaults.removePersistentDomain(forName: defaultsSuiteName)
         manager = ASRManager(defaults: defaults, qwen3RuntimePreflight: { _ in .supported })
     }
 
     override func tearDown() {
-        defaults.removePersistentDomain(forName: "test.ASRManager")
+        defaults.removePersistentDomain(forName: defaultsSuiteName)
+        defaults = nil
+        defaultsSuiteName = nil
+        manager = nil
         super.tearDown()
     }
 

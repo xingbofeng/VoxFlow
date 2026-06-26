@@ -310,7 +310,7 @@ final class BrandIdentityTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(index.contains("<title>码上写 VoxFlow"))
+        XCTAssertTrue(index.contains("<title>VoxFlow"))
         XCTAssertTrue(index.contains("https://github.com/xingbofeng/VoxFlow"))
         XCTAssertFalse(index.contains("github.com/xingbofeng/VoiceInput"))
         XCTAssertTrue(readme.contains("VoxFlow"))
@@ -328,6 +328,8 @@ final class BrandIdentityTests: XCTestCase {
         )
 
         XCTAssertTrue(ci.contains("swift test"))
+        XCTAssertTrue(ci.contains("swift_test_workers=8"))
+        XCTAssertTrue(ci.contains("swift_build_jobs=\"$(sysctl -n hw.logicalcpu)\""))
         XCTAssertTrue(ci.contains("make architecture-check"))
         XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertTrue(ci.contains("cancel-in-progress: true"))
@@ -351,6 +353,8 @@ final class BrandIdentityTests: XCTestCase {
         )
 
         XCTAssertTrue(release.contains("swift test"))
+        XCTAssertTrue(release.contains("swift_test_workers=8"))
+        XCTAssertTrue(release.contains("swift_build_jobs=\"$(sysctl -n hw.logicalcpu)\""))
         XCTAssertTrue(release.contains("make architecture-check"))
         XCTAssertTrue(release.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertLessThan(

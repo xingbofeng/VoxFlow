@@ -94,7 +94,9 @@ enum AppDatabaseSchemaValidator {
             name: "screenshot_records",
             columns: [
                 "id", "ocr_text", "translated_text", "summary_text", "image_path",
-                "char_count", "is_favorited", "created_at", "updated_at", "deleted_at"
+                "char_count", "is_favorited", "created_at", "updated_at", "deleted_at",
+                "media_type", "video_path", "thumbnail_path", "duration_ms", "width", "height",
+                "file_size_bytes", "audio_mode"
             ]
         ),
         ExpectedTable(
@@ -142,6 +144,7 @@ enum AppDatabaseSchemaValidator {
         ExpectedIndex(table: "screenshot_records", name: "idx_screenshot_records_created_at"),
         ExpectedIndex(table: "screenshot_records", name: "idx_screenshot_records_deleted_created"),
         ExpectedIndex(table: "screenshot_records", name: "idx_screenshot_records_favorited"),
+        ExpectedIndex(table: "screenshot_records", name: "idx_screenshot_records_media_type"),
         ExpectedIndex(table: "asset_items", name: "idx_asset_items_deleted_created_at"),
         ExpectedIndex(table: "asset_items", name: "idx_asset_items_source_deleted_created_at"),
         ExpectedIndex(table: "asset_items", name: "idx_asset_items_content_hash"),

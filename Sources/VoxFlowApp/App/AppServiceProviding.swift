@@ -15,6 +15,7 @@ protocol AppServiceProviding {
     var transcriptionJobRepository: any TranscriptionJobRepository { get }
     var noteRepository: any NoteRepository { get }
     var screenshotRecordRepository: any ScreenshotRecordRepository { get }
+    var mediaRecordRepository: any MediaRecordRepository { get }
     var settingsRepository: any SettingsRepository { get }
     var correctionTargetRepository: any CorrectionTargetRepository { get }
     var correctionRuleRepository: any CorrectionRuleRepository { get }

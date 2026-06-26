@@ -371,7 +371,7 @@ Benchmarks/
 6. `TypeWhisper/Services/TextInsertionService.swift`
    - AX focused element；
    - AX value / selected text / selected range；
-   - clipboard + Cmd+V；
+   - clipboard + ⌘V；
    - Accessibility 写入后验证；
    - active app context；
    - clipboard 保存恢复。
@@ -902,7 +902,7 @@ CJK：
 典型：
 
 ```text
-command shift v → Cmd + Shift + V
+⌘⇧V → ⌘⇧V
 open ai dot com → openai.com
 ```
 
