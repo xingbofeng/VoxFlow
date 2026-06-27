@@ -37,12 +37,16 @@ final class WindowCoordinator {
                 audioCaptureCoordinator: audioCaptureCoordinator,
                 navigationRouter: navigationRouter,
                 updatePromptStore: updatePromptStore,
-                onCheckForUpdates: onCheckForUpdates
+                onCheckForUpdates: onCheckForUpdates,
+                onClose: { [weak self] in
+                    self?.hideDockAfterWorkbenchCloses()
+                }
             )
         }
         guard let window = mainWindowController?.window else { return }
         let shouldCenterBeforeFirstReveal = createdWindow
         Self.logger.debug("show_main_window windowIsNil=\(mainWindowController?.window == nil) shouldCenter=\(shouldCenterBeforeFirstReveal)")
+        NSApp.setActivationPolicy(AppPresentationPolicy.workbenchActivationPolicy)
         NSApp.activate(ignoringOtherApps: true)
         if createdWindow {
             // AppKit can adjust a newly ordered SwiftUI window on its first pass.
@@ -76,5 +80,25 @@ final class WindowCoordinator {
 
     func dismissHomeDetailOverlay() {
         mainWindowController?.dismissHomeDetailOverlay()
+    }
+
+    private func hideDockAfterWorkbenchCloses() {
+        let shouldHide = shouldHideDockWhenWorkbenchCloses()
+        Self.logger.debug("hide_dock_after_workbench_closes shouldHide=\(shouldHide)")
+        NSApp.setActivationPolicy(
+            AppPresentationPolicy.presentationPolicyAfterWorkbenchClose(
+                hideDockWhenWorkbenchCloses: shouldHide
+            )
+        )
+    }
+
+    private func shouldHideDockWhenWorkbenchCloses() -> Bool {
+        let option = SettingsSystemOption.hideDockIconWhenWorkbenchCloses
+        guard let jsonString = try? environment.settingsRepository.value(forKey: option.rawValue),
+              let data = jsonString.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data) else {
+            return option.defaultValue
+        }
+        return decoded.value
     }
 }

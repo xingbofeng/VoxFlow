@@ -3,9 +3,10 @@ import SwiftUI
 import VoxFlowTextInsertion
 
 @MainActor
-final class MainWindowController: NSWindowController {
+final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let homeViewModel: HomeDashboardViewModel
     private let screenshotRecordViewModel: ScreenshotRecordViewModel
+    private let onClose: () -> Void
 
     init(
         environment: AppEnvironment,
@@ -14,7 +15,8 @@ final class MainWindowController: NSWindowController {
         audioCaptureCoordinator: AudioCaptureCoordinator,
         navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter(),
         updatePromptStore: UpdatePromptPresentationStore = UpdatePromptPresentationStore(),
-        onCheckForUpdates: @escaping () -> Void = {}
+        onCheckForUpdates: @escaping () -> Void = {},
+        onClose: @escaping () -> Void = {}
     ) {
         let viewModel = WorkbenchViewModel(environment: environment)
         let internalClipboardWriter = GeneralPasteboardWriter(
@@ -56,6 +58,7 @@ final class MainWindowController: NSWindowController {
         )
         self.homeViewModel = homeViewModel
         self.screenshotRecordViewModel = screenshotRecordViewModel
+        self.onClose = onClose
         let rootView = MainShellView(
             viewModel: viewModel,
             homeViewModel: homeViewModel,
@@ -95,6 +98,7 @@ final class MainWindowController: NSWindowController {
             window.center()
         }
         super.init(window: window)
+        window.delegate = self
     }
 
     required init?(coder: NSCoder) {
@@ -107,5 +111,9 @@ final class MainWindowController: NSWindowController {
 
     func dismissHomeDetailOverlay() {
         homeViewModel.clearSelectedHomeDetail()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }

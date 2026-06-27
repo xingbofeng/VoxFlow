@@ -8,7 +8,6 @@ import VoxFlowVoiceCorrection
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case vibeCoding
-    case selectionActions
     case system
     case dictationModels
     case correctionModels
@@ -22,7 +21,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "通用"
         case .vibeCoding: return "AI 编程"
-        case .selectionActions: return "划词动作"
         case .system: return "系统"
         case .dictationModels: return "语音识别"
         case .correctionModels: return "纠错与上下文"
@@ -36,7 +34,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "slider.horizontal.3"
         case .vibeCoding: return "terminal"
-        case .selectionActions: return "text.cursor"
         case .dictationModels: return "waveform"
         case .correctionModels: return "sparkles"
         case .ttsModels: return "speaker.wave.2"
@@ -86,11 +83,17 @@ enum SettingsSystemOption: String, CaseIterable, Sendable {
     case launchAtLogin = "settings.appearance.launchAtLogin"
     case grayMenuBarIcon = "settings.appearance.grayMenuBarIcon"
     case capsLockIndicator = "settings.appearance.capsLockIndicator"
+    case hideDockIconWhenWorkbenchCloses = "settings.appearance.hideDockIconWhenWorkbenchCloses"
     case crashLogs = "settings.privacy.crashLogs"
     case llmTraceDiagnostics = "settings.privacy.llmTraceDiagnostics"
 
     var defaultValue: Bool {
-        self == .restoreClipboard || self == .clipboardImageOCR
+        switch self {
+        case .restoreClipboard, .clipboardImageOCR, .hideDockIconWhenWorkbenchCloses:
+            return true
+        default:
+            return false
+        }
     }
 }
 

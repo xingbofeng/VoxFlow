@@ -66,7 +66,7 @@ P0 来源已在 2026-06-23 逐项确认：Easydict 当前 HEAD 为 `1376005e8455
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Pot Desktop | GPL-3.0 | `src-tauri/src/hotkey.rs` | hotkey -> action 分发表、动作命名方式、禁用/启用策略 | `Sources/VoxFlowApp/HotKey/HotKeyRoutingPolicy.swift` | 上游是 Rust/Tauri 全局热键体系，不能直接进入现有 Swift/AppKit HotKey 管理器 | 搬命名、分发表和测试场景；Swift 侧接现有快捷键注册 | `⌘⇧D` 与现有 `⌘⇧A`/`⌘⇧V`/语音快捷键冲突检测 |
 | Pot Desktop | GPL-3.0 | `src-tauri/src/server.rs` | `/selection_translate` 等动作入口的路由思想 | v1 不落地；后续外部 API/URL scheme 再用 | v1 明确不做外部 HTTP/API；直接搬会新增攻击面和后台服务生命周期 | 只记录 endpoint 命名，后续做外部 API 时再评估源码搬运 | 确认 v1 无外部接口暴露 |
-| Pot Desktop | GPL-3.0 | `src-tauri/src/config.rs` / action 配置相关文件 | action enable/disable、默认行为设置 | `Sources/VoxFlowApp/ViewModels/SettingsViewModel.swift` | 上游配置模型绑定 Tauri store；VoxFlow 已有 SettingsRepository / UserDefaults 边界 | 搬配置字段分组和默认值思路；实现按 VoxFlow 设置体系 | 应用设置新增“划词动作”页，不影响 AI 编程/通用 |
+| Pot Desktop | GPL-3.0 | `src-tauri/src/config.rs` / action 配置相关文件 | action enable/disable、默认行为设置 | `Sources/VoxFlowApp/ViewModels/SettingsViewModel.swift` | 上游配置模型绑定 Tauri store；VoxFlow 已有 SettingsRepository / UserDefaults 边界 | 搬配置字段分组和默认值思路；实现按 VoxFlow 设置体系 | 相关快捷键留在通用设置，不新增独立设置页 |
 | Easydict | GPL-3.0 | Wiki / FAQ force selection 说明 | 强制获取选中文本的风险提示 | `Sources/VoxFlowApp/Views/SettingsRootView.swift` | 文档内容不应整段复制到 UI；需要压缩成 VoxFlow 设置页短提示 | 搬风险提示信息点，不照搬长文 | 设置页说明“可能短暂使用复制 fallback，会恢复剪贴板” |
 
 ### P2：只参考，不搬代码，原因必须可审计

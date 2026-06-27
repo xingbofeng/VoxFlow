@@ -416,7 +416,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已清空资产")
     }
 
-    func testSearchFiltersHomeAssetsFromAssetLedger() throws {
+    func testSearchFiltersHomeAssetsFromAssetLedger() async throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
         try environment.assetRepository.save(homeAsset(
@@ -440,6 +440,11 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
         viewModel.updateSearch("构建")
+
+        await waitUntil {
+            viewModel.totalAssetCount == 1
+                && viewModel.assetGroups.flatMap(\.items).map(\.id) == ["screenshot"]
+        }
 
         XCTAssertEqual(viewModel.totalAssetCount, 1)
         XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["screenshot"])
@@ -1259,6 +1264,41 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.assetGroups.isEmpty)
     }
 
+    func testSearchInputReturnsBeforeSlowAssetQueryCompletes() throws {
+        let base = try DependencyContainer.inMemory()
+        let repository = SlowSearchAssetRepository(pageDelay: 0.2)
+        let container = DependencyContainer(
+            clock: base.clock,
+            paths: base.paths,
+            storageHealth: base.storageHealth,
+            databaseQueue: base.databaseQueue,
+            credentialStore: base.credentialStore,
+            historyRepository: base.historyRepository,
+            assetRepository: repository,
+            styleRepository: base.styleRepository,
+            asrProviderRepository: base.asrProviderRepository,
+            llmProviderRepository: base.llmProviderRepository,
+            transcriptionJobRepository: base.transcriptionJobRepository,
+            noteRepository: base.noteRepository,
+            screenshotRecordRepository: base.screenshotRecordRepository,
+            mediaRecordRepository: base.mediaRecordRepository,
+            settingsRepository: base.settingsRepository,
+            correctionTargetRepository: base.correctionTargetRepository,
+            correctionRuleRepository: base.correctionRuleRepository,
+            correctionSnapshotProvider: base.correctionSnapshotProvider,
+            voiceCorrectionProcessor: base.voiceCorrectionProcessor
+        )
+        let viewModel = HomeDashboardViewModel(
+            environment: AppEnvironment(container: container),
+            calendar: testCalendar
+        )
+
+        let startedAt = Date()
+        viewModel.updateSearch("needle")
+
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.05)
+    }
+
     func testLoadUsesDatabaseAggregateWithoutCallingHistoryListRecent() throws {
         let base = try DependencyContainer.inMemory()
         let historyRepository = CapturingListHistoryRepository(base: base.historyRepository)
@@ -1405,6 +1445,19 @@ final class HomeDashboardViewModelTests: XCTestCase {
         return testCalendar.date(from: components)!
     }
 
+    private func waitUntil(
+        timeout: TimeInterval = 1,
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+    }
+
     private var testCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -1534,4 +1587,31 @@ private final class CapturingListHistoryRepository: HistoryRepository {
     func softDelete(id: String, deletedAt: Date) throws {
         try base.softDelete(id: id, deletedAt: deletedAt)
     }
+}
+
+private final class SlowSearchAssetRepository: AssetRepository {
+    private let pageDelay: TimeInterval
+
+    init(pageDelay: TimeInterval) {
+        self.pageDelay = pageDelay
+    }
+
+    func save(_ item: AssetItem) throws {}
+
+    func asset(id: String) throws -> AssetItem? {
+        nil
+    }
+
+    func page(query: AssetQuery) throws -> AssetPage {
+        if !query.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Thread.sleep(forTimeInterval: pageDelay)
+        }
+        return AssetPage(items: [], totalCount: 0)
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {}
+
+    func softDelete(ids: [String], deletedAt: Date) throws {}
+
+    func clearAll(deletedAt: Date) throws {}
 }

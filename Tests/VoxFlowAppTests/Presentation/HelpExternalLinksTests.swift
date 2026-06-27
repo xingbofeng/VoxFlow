@@ -35,6 +35,16 @@ final class HelpExternalLinksTests: XCTestCase {
         XCTAssertTrue(source.contains("onCheckForUpdates()"))
     }
 
+    func testHelpViewDocumentsSupportProjectAndCommunityEntry() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/HelpView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("支持项目 / 加入社区"))
+        XCTAssertTrue(source.contains("给项目点个 Star"))
+        XCTAssertTrue(source.contains("扫码添加作者微信"))
+    }
+
     func testHelpFeatureCardsUseAConsistentFixedHeight() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/HelpView.swift")

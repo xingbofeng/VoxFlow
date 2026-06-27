@@ -175,7 +175,14 @@ CREATE TABLE IF NOT EXISTS screenshot_records (
     width INTEGER NOT NULL DEFAULT 0,
     height INTEGER NOT NULL DEFAULT 0,
     file_size_bytes INTEGER NOT NULL DEFAULT 0,
-    audio_mode TEXT NOT NULL DEFAULT 'none'
+    audio_mode TEXT NOT NULL DEFAULT 'none',
+    -- 字幕扩展列：旧截图/旧录屏行通过默认值自动归为 none 状态。
+    subtitle_status TEXT NOT NULL DEFAULT 'none',
+    subtitle_draft_path TEXT,
+    subtitle_srt_path TEXT,
+    subtitled_video_path TEXT,
+    subtitle_error_message TEXT,
+    subtitle_updated_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_screenshot_records_created_at
@@ -215,6 +222,116 @@ CREATE INDEX IF NOT EXISTS idx_asset_items_source_deleted_created_at
 ON asset_items(source, deleted_at, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_asset_items_content_hash
 ON asset_items(content_hash);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS asset_items_fts
+USING fts5(
+    title,
+    preview_text,
+    text,
+    source_app_name,
+    url,
+    file_path,
+    color_value,
+    content='asset_items',
+    content_rowid='rowid',
+    tokenize='trigram'
+);
+
+CREATE TRIGGER IF NOT EXISTS asset_items_fts_after_insert
+AFTER INSERT ON asset_items BEGIN
+    INSERT INTO asset_items_fts(
+        rowid,
+        title,
+        preview_text,
+        text,
+        source_app_name,
+        url,
+        file_path,
+        color_value
+    )
+    VALUES (
+        new.rowid,
+        new.title,
+        new.preview_text,
+        new.text,
+        new.source_app_name,
+        new.url,
+        new.file_path,
+        new.color_value
+    );
+END;
+
+CREATE TRIGGER IF NOT EXISTS asset_items_fts_after_delete
+AFTER DELETE ON asset_items BEGIN
+    INSERT INTO asset_items_fts(
+        asset_items_fts,
+        rowid,
+        title,
+        preview_text,
+        text,
+        source_app_name,
+        url,
+        file_path,
+        color_value
+    )
+    VALUES (
+        'delete',
+        old.rowid,
+        old.title,
+        old.preview_text,
+        old.text,
+        old.source_app_name,
+        old.url,
+        old.file_path,
+        old.color_value
+    );
+END;
+
+CREATE TRIGGER IF NOT EXISTS asset_items_fts_after_update
+AFTER UPDATE ON asset_items BEGIN
+    INSERT INTO asset_items_fts(
+        asset_items_fts,
+        rowid,
+        title,
+        preview_text,
+        text,
+        source_app_name,
+        url,
+        file_path,
+        color_value
+    )
+    VALUES (
+        'delete',
+        old.rowid,
+        old.title,
+        old.preview_text,
+        old.text,
+        old.source_app_name,
+        old.url,
+        old.file_path,
+        old.color_value
+    );
+    INSERT INTO asset_items_fts(
+        rowid,
+        title,
+        preview_text,
+        text,
+        source_app_name,
+        url,
+        file_path,
+        color_value
+    )
+    VALUES (
+        new.rowid,
+        new.title,
+        new.preview_text,
+        new.text,
+        new.source_app_name,
+        new.url,
+        new.file_path,
+        new.color_value
+    );
+END;
 
 CREATE TABLE IF NOT EXISTS voice_correction_rules (
     id TEXT PRIMARY KEY,

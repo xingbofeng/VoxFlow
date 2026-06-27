@@ -2166,13 +2166,18 @@ private extension NSView {
 final class FakeSelectionOverlayWindowFactory: SelectionOverlayWindowMaking {
     private(set) var configurations: [SelectionOverlayWindowConfiguration] = []
     private(set) var windows: [FakeSelectionOverlayWindow] = []
+    private var nextWindowID: CGWindowID = 1_000
 
     func makeWindow(
         configuration: SelectionOverlayWindowConfiguration,
         eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void
     ) -> any SelectionOverlayWindowControlling {
         configurations.append(configuration)
-        let window = FakeSelectionOverlayWindow(eventHandler: eventHandler)
+        let window = FakeSelectionOverlayWindow(
+            screenCaptureExclusionWindowID: nextWindowID,
+            eventHandler: eventHandler
+        )
+        nextWindowID += 1
         windows.append(window)
         return window
     }
@@ -2191,8 +2196,13 @@ final class FakeSelectionOverlayWindow: SelectionOverlayWindowControlling {
     private(set) var scrollCaptureStates: [Bool] = []
     private(set) var annotationStates: [SelectionAnnotationOverlayState] = []
     let savePanelHostWindow = NSWindow()
+    let screenCaptureExclusionWindowID: CGWindowID?
 
-    init(eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void) {
+    init(
+        screenCaptureExclusionWindowID: CGWindowID? = nil,
+        eventHandler: @escaping @MainActor (SelectionOverlayWindowEvent) -> Void
+    ) {
+        self.screenCaptureExclusionWindowID = screenCaptureExclusionWindowID
         self.eventHandler = eventHandler
     }
 

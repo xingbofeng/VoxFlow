@@ -23,6 +23,39 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "rust_agent=true" >> "$GITHUB_OUTPUT"
+            echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
+            echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only --diff-filter=ACMRT HEAD^1 HEAD > "$RUNNER_TEMP/changed-files.txt"
+
+          if grep -E '^(agent-cli/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
+            echo "rust_agent=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust_agent=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -E '^(Packages/VoxFlowVoiceCorrectionKit/|Package\.(swift|resolved)$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
+            echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "voice_correction_benchmark=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -E '^(Packages/VoxFlowContextBoostKit/|Package\.(swift|resolved)$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
+            echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "context_boost_benchmark=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check release metadata
         run: make release-check
@@ -64,6 +97,7 @@ jobs:
           echo "| swift test --parallel --num-workers $swift_test_workers --jobs $swift_build_jobs | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run voice correction benchmark
+        if: steps.changes.outputs.voice_correction_benchmark == 'true'
         run: |
           swift run --package-path Packages/VoxFlowVoiceCorrectionKit VoxFlowVoiceCorrectionBench \
             --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
@@ -71,15 +105,18 @@ jobs:
             --output .build/voice-correction-benchmark
 
       - name: Run context boost benchmark
+        if: steps.changes.outputs.context_boost_benchmark == 'true'
         run: swift run --package-path Packages/VoxFlowContextBoostKit VoxFlowContextBoostBench
 
       - name: Show Rust toolchain
+        if: steps.changes.outputs.rust_agent == 'true'
         run: |
           rustc --version
           cargo --version
           rustup component add rustfmt clippy
 
       - name: Check Rust agent router
+        if: steps.changes.outputs.rust_agent == 'true'
         working-directory: agent-cli
         run: |
           start=$(date +%s)

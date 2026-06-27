@@ -174,6 +174,9 @@ struct AppRuntime {
                             showRecordingFrame: {
                                 controller.enterActiveScreenRecordingOverlay()
                             },
+                            excludedWindowIDs: {
+                                controller.currentScreenCaptureExclusionWindowIDs()
+                            },
                             close: {
                                 controller.close()
                             }

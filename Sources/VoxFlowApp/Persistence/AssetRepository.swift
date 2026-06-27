@@ -96,33 +96,91 @@ final class SQLiteAssetRepository: AssetRepository {
             "查询资产分页：limit=\(query.limit), offset=\(query.offset), searchLen=\(query.searchText.count)"
         )
         return try databaseQueue.read { connection in
-            let filter = filterSQL(for: query)
-            let countStatement = try connection.prepare(
-                "SELECT COUNT(*) FROM asset_items \(filter)"
-            )
-            try bindFilters(query, to: countStatement)
-            _ = try countStatement.step()
-            let totalCount = countStatement.columnInt(at: 0)
-
-            let pageStatement = try connection.prepare(
-                """
-                SELECT \(Self.selectedColumns)
-                FROM asset_items
-                \(filter)
-                ORDER BY created_at DESC, id ASC
-                LIMIT ? OFFSET ?
-                """
-            )
-            let nextIndex = try bindFilters(query, to: pageStatement)
-            try pageStatement.bind(max(1, query.limit), at: nextIndex)
-            try pageStatement.bind(max(0, query.offset), at: nextIndex + 1)
-
-            var items: [AssetItem] = []
-            while try pageStatement.step() {
-                items.append(try item(from: pageStatement))
+            let searchText = query.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if shouldUseFTS(for: searchText) {
+                return try ftsPage(query: query, searchText: searchText, connection: connection)
             }
-            return AssetPage(items: items, totalCount: totalCount)
+            return try likePage(query: query, connection: connection)
         }
+    }
+
+    private func likePage(query: AssetQuery, connection: SQLiteConnection) throws -> AssetPage {
+        let filter = filterSQL(for: query)
+        let countStatement = try connection.prepare(
+            "SELECT COUNT(*) FROM asset_items \(filter)"
+        )
+        try bindFilters(query, to: countStatement)
+        _ = try countStatement.step()
+        let totalCount = countStatement.columnInt(at: 0)
+
+        let pageStatement = try connection.prepare(
+            """
+            SELECT \(Self.selectedColumns)
+            FROM asset_items
+            \(filter)
+            ORDER BY created_at DESC, id ASC
+            LIMIT ? OFFSET ?
+            """
+        )
+        let nextIndex = try bindFilters(query, to: pageStatement)
+        try pageStatement.bind(max(1, query.limit), at: nextIndex)
+        try pageStatement.bind(max(0, query.offset), at: nextIndex + 1)
+
+        var items: [AssetItem] = []
+        while try pageStatement.step() {
+            items.append(try item(from: pageStatement))
+        }
+        return AssetPage(items: items, totalCount: totalCount)
+    }
+
+    private func ftsPage(
+        query: AssetQuery,
+        searchText: String,
+        connection: SQLiteConnection
+    ) throws -> AssetPage {
+        let filter = filterSQL(for: query, includesSearch: false, tableName: "asset_items")
+        let matchExpression = ftsMatchExpression(for: searchText)
+        let countStatement = try connection.prepare(
+            """
+            SELECT COUNT(*)
+            FROM asset_items_fts
+            JOIN asset_items ON asset_items.rowid = asset_items_fts.rowid
+            \(filter) AND asset_items_fts MATCH ?
+            """
+        )
+        var nextIndex = try bindFilters(query, to: countStatement, includesSearch: false)
+        try countStatement.bind(matchExpression, at: nextIndex)
+        _ = try countStatement.step()
+        let totalCount = countStatement.columnInt(at: 0)
+
+        let pageStatement = try connection.prepare(
+            """
+            SELECT \(Self.selectedColumns(tableName: "asset_items"))
+            FROM asset_items_fts
+            JOIN asset_items ON asset_items.rowid = asset_items_fts.rowid
+            \(filter) AND asset_items_fts MATCH ?
+            ORDER BY bm25(asset_items_fts), asset_items.created_at DESC, asset_items.id ASC
+            LIMIT ? OFFSET ?
+            """
+        )
+        nextIndex = try bindFilters(query, to: pageStatement, includesSearch: false)
+        try pageStatement.bind(matchExpression, at: nextIndex)
+        try pageStatement.bind(max(1, query.limit), at: nextIndex + 1)
+        try pageStatement.bind(max(0, query.offset), at: nextIndex + 2)
+
+        var items: [AssetItem] = []
+        while try pageStatement.step() {
+            items.append(try item(from: pageStatement))
+        }
+        return AssetPage(items: items, totalCount: totalCount)
+    }
+
+    private func shouldUseFTS(for searchText: String) -> Bool {
+        searchText.count >= 3
+    }
+
+    private func ftsMatchExpression(for searchText: String) -> String {
+        "\"\(searchText.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
 
     func softDelete(id: String, deletedAt: Date) throws {
@@ -193,41 +251,49 @@ final class SQLiteAssetRepository: AssetRepository {
         try statement.bind(item.deletedAt.map(formatter.string(from:)), at: 19)
     }
 
-    private func filterSQL(for query: AssetQuery) -> String {
-        var conditions = ["deleted_at IS NULL"]
-        if !query.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    private func filterSQL(
+        for query: AssetQuery,
+        includesSearch: Bool = true,
+        tableName: String? = nil
+    ) -> String {
+        var conditions = ["\(column("deleted_at", tableName: tableName)) IS NULL"]
+        if includesSearch && !query.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             conditions.append(
                 """
-                (title LIKE ? COLLATE NOCASE
-                 OR preview_text LIKE ? COLLATE NOCASE
-                 OR text LIKE ? COLLATE NOCASE
-                 OR source_app_name LIKE ? COLLATE NOCASE
-                 OR url LIKE ? COLLATE NOCASE
-                 OR file_path LIKE ? COLLATE NOCASE
-                 OR color_value LIKE ? COLLATE NOCASE)
+                (\(column("title", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("preview_text", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("text", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("source_app_name", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("url", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("file_path", tableName: tableName)) LIKE ? COLLATE NOCASE
+                 OR \(column("color_value", tableName: tableName)) LIKE ? COLLATE NOCASE)
                 """
             )
         }
         if !query.sources.isEmpty {
-            conditions.append("source IN (\(placeholders(count: query.sources.count)))")
+            conditions.append("\(column("source", tableName: tableName)) IN (\(placeholders(count: query.sources.count)))")
         }
         if !query.contentTypes.isEmpty {
-            conditions.append("content_type IN (\(placeholders(count: query.contentTypes.count)))")
+            conditions.append("\(column("content_type", tableName: tableName)) IN (\(placeholders(count: query.contentTypes.count)))")
         }
         if query.startDate != nil {
-            conditions.append("created_at >= ?")
+            conditions.append("\(column("created_at", tableName: tableName)) >= ?")
         }
         if query.endDate != nil {
-            conditions.append("created_at < ?")
+            conditions.append("\(column("created_at", tableName: tableName)) < ?")
         }
         return "WHERE " + conditions.joined(separator: " AND ")
     }
 
     @discardableResult
-    private func bindFilters(_ query: AssetQuery, to statement: SQLiteStatement) throws -> Int32 {
+    private func bindFilters(
+        _ query: AssetQuery,
+        to statement: SQLiteStatement,
+        includesSearch: Bool = true
+    ) throws -> Int32 {
         var index: Int32 = 1
         let searchText = query.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !searchText.isEmpty {
+        if includesSearch && !searchText.isEmpty {
             let pattern = "%\(searchText)%"
             for _ in 0..<7 {
                 try statement.bind(pattern, at: index)
@@ -251,6 +317,11 @@ final class SQLiteAssetRepository: AssetRepository {
             index += 1
         }
         return index
+    }
+
+    private func column(_ name: String, tableName: String?) -> String {
+        guard let tableName else { return name }
+        return "\(tableName).\(name)"
     }
 
     private func item(from statement: SQLiteStatement) throws -> AssetItem {
@@ -296,10 +367,23 @@ final class SQLiteAssetRepository: AssetRepository {
         Array(repeating: "?", count: count).joined(separator: ", ")
     }
 
-    private static let selectedColumns = """
-    id, source, content_type, title, preview_text, text, raw_text,
-    image_path, file_path, url, color_value, source_app_name,
-    source_app_bundle_id, content_hash, capture_reason, metadata_json,
-    created_at, updated_at, deleted_at
-    """
+    private static var selectedColumns: String {
+        selectedColumns()
+    }
+
+    private static func selectedColumns(tableName: String? = nil) -> String {
+        selectedColumnNames
+            .map { column in
+                guard let tableName else { return column }
+                return "\(tableName).\(column)"
+            }
+            .joined(separator: ", ")
+    }
+
+    private static let selectedColumnNames = [
+        "id", "source", "content_type", "title", "preview_text", "text", "raw_text",
+        "image_path", "file_path", "url", "color_value", "source_app_name",
+        "source_app_bundle_id", "content_hash", "capture_reason", "metadata_json",
+        "created_at", "updated_at", "deleted_at",
+    ]
 }

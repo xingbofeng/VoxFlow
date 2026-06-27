@@ -5,6 +5,8 @@ import XCTest
 final class AppPresentationPolicyTests: XCTestCase {
     func testAppUsesRegularForegroundActivationPolicy() {
         XCTAssertEqual(AppPresentationPolicy.activationPolicy, .regular)
+        XCTAssertEqual(AppPresentationPolicy.workbenchActivationPolicy, .regular)
+        XCTAssertEqual(AppPresentationPolicy.menuBarOnlyActivationPolicy, .accessory)
         XCTAssertTrue(AppPresentationPolicy.usesMainMenu)
     }
 
@@ -118,6 +120,53 @@ final class AppPresentationPolicyTests: XCTestCase {
         XCTAssertTrue(makefile.contains("NSStatusItem Visible "))
         XCTAssertTrue(makefile.contains("NSStatusItem VisibleCC"))
         XCTAssertTrue(makefile.contains("killall ControlCenter"))
+    }
+
+    func testWindowCoordinatorRestoresDockBeforeActivationAndGatesCloseHidingOnSetting() throws {
+        let coordinatorSource = try String(
+            contentsOf: try Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/WindowCoordinator.swift"),
+            encoding: .utf8
+        )
+        let mainWindowSource = try String(
+            contentsOf: try Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/MainWindowController.swift"),
+            encoding: .utf8
+        )
+
+        let restoreRange = try XCTUnwrap(
+            coordinatorSource.range(of: "NSApp.setActivationPolicy(AppPresentationPolicy.workbenchActivationPolicy)")
+        )
+        let activateRange = try XCTUnwrap(
+            coordinatorSource.range(of: "NSApp.activate(ignoringOtherApps: true)")
+        )
+
+        XCTAssertLessThan(
+            restoreRange.lowerBound,
+            activateRange.lowerBound,
+            "Showing the workbench must restore the regular Dock presentation before activating the app."
+        )
+        XCTAssertTrue(coordinatorSource.contains("hideDockAfterWorkbenchCloses()"))
+        XCTAssertTrue(coordinatorSource.contains("onClose: { [weak self] in"))
+        XCTAssertTrue(coordinatorSource.contains("SettingsSystemOption.hideDockIconWhenWorkbenchCloses"))
+        XCTAssertTrue(coordinatorSource.contains("AppPresentationPolicy.presentationPolicyAfterWorkbenchClose"))
+        XCTAssertTrue(mainWindowSource.contains("NSWindowDelegate"))
+        XCTAssertTrue(mainWindowSource.contains("func windowWillClose"))
+        XCTAssertTrue(mainWindowSource.contains("onClose()"))
+    }
+
+    func testPresentationPolicyAfterWorkbenchCloseHidesDockWhenEnabled() {
+        XCTAssertEqual(
+            AppPresentationPolicy.presentationPolicyAfterWorkbenchClose(hideDockWhenWorkbenchCloses: true),
+            AppPresentationPolicy.menuBarOnlyActivationPolicy
+        )
+    }
+
+    func testPresentationPolicyAfterWorkbenchCloseKeepsRegularDockWhenDisabled() {
+        XCTAssertEqual(
+            AppPresentationPolicy.presentationPolicyAfterWorkbenchClose(hideDockWhenWorkbenchCloses: false),
+            AppPresentationPolicy.workbenchActivationPolicy
+        )
     }
 
     private static func repositoryRoot() throws -> URL {

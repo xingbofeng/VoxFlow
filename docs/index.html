@@ -13,7 +13,7 @@
   <title>VoxFlow - Voice, OCR, and local agent workflows in one workspace</title>
   <link rel="icon" href="assets/voiceinput-logo.png">
   <link rel="apple-touch-icon" href="assets/voiceinput-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260625-v171-font-polish">
+  <link rel="stylesheet" href="styles.css?v=20260627-v172-language-menu">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -34,13 +34,42 @@
       <a href="#shortcuts" data-i18n="navShortcuts">Shortcuts</a>
     </nav>
     <div class="nav-actions">
-      <select class="language-switch" aria-label="Switch language">
-        <option value="en">English</option>
-        <option value="zh">简体中文</option>
-        <option value="zh-Hant">繁體中文</option>
-        <option value="ja">日本語</option>
-        <option value="ko">한국어</option>
-      </select>
+      <div class="language-switcher" data-language-switcher>
+        <button
+          type="button"
+          class="language-switch"
+          data-language-switch-button
+          aria-label="Switch language"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls="language-menu"
+        >
+          <span data-language-switch-label>English</span>
+          <span class="language-switch-caret" aria-hidden="true"></span>
+        </button>
+        <div class="language-menu" id="language-menu" data-language-menu role="menu" aria-label="Switch language" hidden>
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="en" aria-checked="true">
+            <span>English</span>
+            <span class="language-option-indicator" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="zh" aria-checked="false">
+            <span>简体中文</span>
+            <span class="language-option-indicator" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="zh-Hant" aria-checked="false">
+            <span>繁體中文</span>
+            <span class="language-option-indicator" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="ja" aria-checked="false">
+            <span>日本語</span>
+            <span class="language-option-indicator" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="ko" aria-checked="false">
+            <span>한국어</span>
+            <span class="language-option-indicator" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
       <a class="ghost-link" href="https://github.com/xingbofeng/VoxFlow" aria-label="View VoxFlow on GitHub">GitHub</a>
     </div>
   </header>
@@ -59,14 +88,14 @@
           <span data-i18n="heroBadgeAgent">Route AI</span>
         </div>
         <div class="hero-actions">
-          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.3/VoxFlow-1.8.3-macOS.dmg">
+          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.9.0/VoxFlow-1.9.0-macOS.dmg">
             <span class="download-icon" aria-hidden="true">⌘</span>
             <span>
               <strong data-i18n="download">Download for macOS</strong>
               <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
             </span>
           </a>
-          <span class="release-note" data-i18n="releaseNote">v1.8.3 · Free & open source</span>
+          <span class="release-note" data-i18n="releaseNote">v1.9.0 · Free & open source</span>
         </div>
       </div>
       <div class="hero-stage motion" aria-label="VoxFlow preview">
@@ -175,7 +204,7 @@
     <section class="final-cta shell">
       <img src="assets/voiceinput-logo.png" alt="" loading="lazy">
       <h2 data-i18n="ctaTitle">让下一句话、下一张截图、下一次翻译都进入工作台。</h2>
-      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.8.3/VoxFlow-1.8.3-macOS.dmg">
+      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.9.0/VoxFlow-1.9.0-macOS.dmg">
         <span>
           <strong data-i18n="download">下载 macOS App</strong>
           <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
@@ -189,6 +218,6 @@
     <span data-i18n="footer">Swift & AppKit · Open source</span>
   </footer>
 
-  <script src="script.js?v=20260625-v170-hero-badges"></script>
+  <script src="script.js?v=20260627-v172-language-menu"></script>
 </body>
 </html>

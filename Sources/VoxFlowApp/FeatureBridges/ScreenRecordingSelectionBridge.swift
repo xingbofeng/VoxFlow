@@ -1,8 +1,10 @@
+import CoreGraphics
 import VoxFlowScreenshotKit
 
 struct ScreenRecordingOverlayControls {
     let showCountdown: @MainActor (Int) -> Void
     let showRecordingFrame: @MainActor () -> Void
+    let excludedWindowIDs: @MainActor () -> [CGWindowID]
     let close: @MainActor () -> Void
 }
 

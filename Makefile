@@ -4,6 +4,10 @@ BUILD_DIR := .build
 BUNDLE_DIR := $(BUILD_DIR)/release/$(APP_NAME).app
 DEV_BUNDLE_DIR := $(BUILD_DIR)/dev/$(APP_NAME).app
 RESOURCE_BUNDLE_NAME := $(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle
+VOXFLOW_DEVELOPER_DIR ?= $(HOME)/Applications/Xcode-16.4.0.app/Contents/Developer
+ifneq ($(wildcard $(VOXFLOW_DEVELOPER_DIR)),)
+export DEVELOPER_DIR ?= $(VOXFLOW_DEVELOPER_DIR)
+endif
 ARM_RELEASE_BIN_DIR := $(BUILD_DIR)/arm64-apple-macosx/release
 SWIFT_NATIVE_ARCH := $(shell uname -m)
 NATIVE_RELEASE_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release
@@ -26,7 +30,7 @@ DEV_DISPLAY_NAME := 码上写 Dev
 LEGACY_APP_NAME := VoiceInput
 LEGACY_BUNDLE_ID := com.voiceinput.app
 REQUESTED_BUNDLE_ID := com.VoxFlow.app
-STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
+STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV5 VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F\" '/Apple Development/ { print $$2; exit }')
 DEVELOPMENT_CODE_SIGN_IDENTITY ?= $(if $(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),$(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),-)

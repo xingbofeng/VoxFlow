@@ -34,6 +34,7 @@ final class SelectionResultViewModel: ObservableObject {
     private let textInserter: any TextInserting
     private let historyRecorder: any SelectionHistoryRecording
     private var activeTransformTask: Task<Void, Never>?
+    private var transformGeneration = 0
     private var didRecordHistory = false
 
     init(
@@ -65,13 +66,17 @@ final class SelectionResultViewModel: ObservableObject {
 
     func startTransformTask() {
         activeTransformTask?.cancel()
+        transformGeneration += 1
+        let generation = transformGeneration
         activeTransformTask = Task { [weak self] in
-            await self?.startTransform()
+            await self?.startTransform(generation: generation)
+            guard self?.transformGeneration == generation else { return }
             self?.activeTransformTask = nil
         }
     }
 
     func cancelTransform() {
+        transformGeneration += 1
         activeTransformTask?.cancel()
         activeTransformTask = nil
         guard isTransforming else { return }
@@ -81,6 +86,11 @@ final class SelectionResultViewModel: ObservableObject {
     }
 
     func startTransform() async {
+        transformGeneration += 1
+        await startTransform(generation: transformGeneration)
+    }
+
+    private func startTransform(generation: Int) async {
         guard !isTransforming else { return }
         let text = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
@@ -92,11 +102,14 @@ final class SelectionResultViewModel: ObservableObject {
         isTransforming = true
         statusMessage = operation.runningMessage
         defer {
-            isTransforming = false
+            if transformGeneration == generation {
+                isTransforming = false
+            }
         }
 
         let request = TextTransformRequest(text: selectedText, operation: operation)
         for await event in transformService.events(for: request) {
+            guard transformGeneration == generation, !Task.isCancelled else { return }
             switch event {
             case .started:
                 statusMessage = operation.runningMessage

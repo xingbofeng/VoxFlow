@@ -8,9 +8,7 @@ final class SettingsViewModelTests: XCTestCase {
     func testSettingsSectionsExposeVibeCoding() {
         XCTAssertTrue(SettingsSection.allCases.contains(.vibeCoding))
         XCTAssertEqual(SettingsSection.vibeCoding.title, "AI 编程")
-        XCTAssertTrue(SettingsSection.allCases.contains(.selectionActions))
-        XCTAssertEqual(SettingsSection.selectionActions.title, "划词动作")
-        XCTAssertEqual(SettingsSection.selectionActions.systemImage, "text.cursor")
+        XCTAssertFalse(SettingsSection.allCases.map(\.rawValue).contains("selectionActions"))
     }
 
     func testLoadBuildsSettingsSectionsDevicesShortcutAndPermissions() throws {
@@ -24,7 +22,7 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             SettingsSection.allCases.map(\.title),
-            ["通用", "AI 编程", "划词动作", "系统", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
+            ["通用", "AI 编程", "系统", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
         )
         XCTAssertEqual(viewModel.selectedSection, .general)
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
@@ -1032,6 +1030,34 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastError, "开机自动启动设置失败：系统拒绝了登录项更新")
     }
 
+    func testHideDockIconWhenWorkbenchClosesDefaultsEnabledAndPersists() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertTrue(viewModel.systemOption(.hideDockIconWhenWorkbenchCloses))
+
+        try viewModel.setSystemOption(.hideDockIconWhenWorkbenchCloses, enabled: false)
+
+        XCTAssertFalse(viewModel.systemOption(.hideDockIconWhenWorkbenchCloses))
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsSystemOption.hideDockIconWhenWorkbenchCloses.rawValue),
+            #"{"value":false}"#
+        )
+
+        let reloaded = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        XCTAssertFalse(reloaded.systemOption(.hideDockIconWhenWorkbenchCloses))
+    }
+
     func testExtendedSystemAndPrivacyOptionsPersist() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let launchAtLoginManager = FakeLaunchAtLoginManager(isEnabled: false)
@@ -1054,6 +1080,7 @@ final class SettingsViewModelTests: XCTestCase {
         try viewModel.setSystemOption(.capsLockIndicator, enabled: true)
         try viewModel.setSystemOption(.crashLogs, enabled: true)
         try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: true)
+        try viewModel.setSystemOption(.hideDockIconWhenWorkbenchCloses, enabled: false)
 
         XCTAssertTrue(viewModel.systemOption(.keepMicrophoneActive))
         XCTAssertTrue(viewModel.systemOption(.localModelLivePreview))
@@ -1066,6 +1093,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.systemOption(.capsLockIndicator))
         XCTAssertTrue(viewModel.systemOption(.crashLogs))
         XCTAssertTrue(viewModel.systemOption(.llmTraceDiagnostics))
+        XCTAssertFalse(viewModel.systemOption(.hideDockIconWhenWorkbenchCloses))
     }
 
     private func makeShortcutManager() -> ShortcutManager {

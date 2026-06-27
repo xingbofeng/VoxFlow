@@ -1,10 +1,28 @@
 import AppKit
 import SwiftUI
 
+enum ScreenshotOCRResultPresentationRoute: Equatable {
+    case expanded(initialTab: ScreenshotOCRResultTab, autoDismiss: Bool)
+    case thumbnail(initialTab: ScreenshotOCRResultTab)
+}
+
+enum ScreenshotOCRResultPresentationPolicy {
+    static func route(for result: ScreenshotOCRResult) -> ScreenshotOCRResultPresentationRoute {
+        switch result.captureCompletionKind {
+        case .complete:
+            return .thumbnail(initialTab: .originalImage)
+        case .textRecognition:
+            return .expanded(initialTab: .ocr, autoDismiss: false)
+        case .scrollingScreenshot:
+            return .thumbnail(initialTab: .originalImage)
+        case .translate:
+            return .expanded(initialTab: .originalImage, autoDismiss: false)
+        }
+    }
+}
+
 @MainActor
 final class ScreenshotOCRResultPanelController {
-    private static let logger = AppLogger.general
-
     private let service: ScreenshotOCRService
     private let clipboard: any ScreenshotOCRResultClipboard
     private let autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling
@@ -30,9 +48,6 @@ final class ScreenshotOCRResultPanelController {
         autoDismiss: Bool = true,
         overlayImage: CGImage? = nil
     ) {
-        Self.logger.debug(
-            "ScreenshotOCRResultPanelController present requested initialTab=\(initialTab) autoDismiss=\(autoDismiss) image=\(result.originalImage != nil)"
-        )
         ContextBoostSuppression.setSuppressed(true, reason: Self.contextBoostSuppressionReason)
 
         let viewModel = ScreenshotOCRResultViewModel(
@@ -50,7 +65,6 @@ final class ScreenshotOCRResultPanelController {
             }
         )
 
-        Self.logger.debug("ScreenshotOCRResultPanelController using window")
         panelController.present(
             rootView: rootView,
             contentSize: NSSize(width: 440, height: 560),
@@ -70,9 +84,6 @@ final class ScreenshotOCRResultPanelController {
         initialTab: ScreenshotOCRResultTab = .originalImage,
         overlayImage: CGImage? = nil
     ) {
-        Self.logger.debug(
-            "ScreenshotOCRResultPanelController presentThumbnail requested initialTab=\(initialTab) image=\(result.originalImage != nil)"
-        )
         autoDismissToken?.cancel()
         autoDismissToken = nil
         ContextBoostSuppression.setSuppressed(true, reason: Self.contextBoostSuppressionReason)
@@ -93,7 +104,10 @@ final class ScreenshotOCRResultPanelController {
         panelController.present(
             rootView: rootView,
             contentSize: NSSize(width: 260, height: 150),
-            bottomMargin: 28,
+            placement: .bottomTrailing(
+                bottomMargin: 28,
+                visualOutset: 24
+            ),
             onCancel: { [weak self] in self?.close() }
         )
         autoDismissToken = autoDismissScheduler.schedule(after: 3) { [weak self] in
@@ -102,7 +116,6 @@ final class ScreenshotOCRResultPanelController {
     }
 
     func close() {
-        Self.logger.debug("ScreenshotOCRResultPanelController close")
         autoDismissToken?.cancel()
         autoDismissToken = nil
         ContextBoostSuppression.setSuppressed(false, reason: Self.contextBoostSuppressionReason)
@@ -112,14 +125,12 @@ final class ScreenshotOCRResultPanelController {
 
     private func scheduleAutoDismiss() {
         autoDismissToken?.cancel()
-        Self.logger.debug("ScreenshotOCRResultPanelController scheduleAutoDismiss")
         autoDismissToken = autoDismissScheduler.schedule(after: 5) { [weak self] in
             self?.close()
         }
     }
 
     private func cancelAutoDismissForInteraction() {
-        Self.logger.debug("ScreenshotOCRResultPanelController cancelAutoDismissForInteraction")
         autoDismissToken?.cancel()
         autoDismissToken = nil
     }

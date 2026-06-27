@@ -40,6 +40,18 @@ struct MediaRecord: Equatable, Identifiable {
     let audioMode: MediaAudioMode
     let charCount: Int
     var isFavorited: Bool
+    /// 字幕状态；截图与无声录屏为 `.none`。
+    let subtitleStatus: RecordingSubtitleStatus
+    /// 字幕草稿 JSON 路径。
+    let subtitleDraftPath: String?
+    /// 导出的 SRT 路径。
+    let subtitleSrtPath: String?
+    /// 带字幕视频路径；未烧录为 nil。
+    let subtitledVideoPath: String?
+    /// 最近一次字幕失败原因。
+    let subtitleErrorMessage: String?
+    /// 字幕状态最近更新时间。
+    let subtitleUpdatedAt: Date?
     let createdAt: Date
     let updatedAt: Date
     let deletedAt: Date?
@@ -60,6 +72,12 @@ struct MediaRecord: Equatable, Identifiable {
         audioMode: MediaAudioMode = .none,
         charCount: Int = 0,
         isFavorited: Bool = false,
+        subtitleStatus: RecordingSubtitleStatus = .none,
+        subtitleDraftPath: String? = nil,
+        subtitleSrtPath: String? = nil,
+        subtitledVideoPath: String? = nil,
+        subtitleErrorMessage: String? = nil,
+        subtitleUpdatedAt: Date? = nil,
         createdAt: Date,
         updatedAt: Date,
         deletedAt: Date? = nil
@@ -79,6 +97,12 @@ struct MediaRecord: Equatable, Identifiable {
         self.audioMode = audioMode
         self.charCount = charCount
         self.isFavorited = isFavorited
+        self.subtitleStatus = subtitleStatus
+        self.subtitleDraftPath = subtitleDraftPath
+        self.subtitleSrtPath = subtitleSrtPath
+        self.subtitledVideoPath = subtitledVideoPath
+        self.subtitleErrorMessage = subtitleErrorMessage
+        self.subtitleUpdatedAt = subtitleUpdatedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
@@ -106,6 +130,51 @@ struct MediaRecord: Equatable, Identifiable {
             updatedAt: record.updatedAt,
             deletedAt: record.deletedAt
         )
+    }
+
+    /// 返回替换字幕状态后的新记录，便于 UI/测试基于现有记录刷新字幕字段。
+    func withSubtitleState(_ state: RecordingSubtitleState) -> MediaRecord {
+        MediaRecord(
+            id: id,
+            mediaType: mediaType,
+            ocrText: ocrText,
+            translatedText: translatedText,
+            summaryText: summaryText,
+            imagePath: imagePath,
+            videoPath: videoPath,
+            thumbnailPath: thumbnailPath,
+            durationMs: durationMs,
+            width: width,
+            height: height,
+            fileSizeBytes: fileSizeBytes,
+            audioMode: audioMode,
+            charCount: charCount,
+            isFavorited: isFavorited,
+            subtitleStatus: state.status,
+            subtitleDraftPath: state.draftPath,
+            subtitleSrtPath: state.srtPath,
+            subtitledVideoPath: state.subtitledVideoPath,
+            subtitleErrorMessage: state.errorMessage,
+            subtitleUpdatedAt: state.updatedAt,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt
+        )
+    }
+
+    /// UI 主播放路径：字幕烧录完成后优先展示带字幕视频，原视频仍通过显式入口保留。
+    var primaryVideoPath: String? {
+        if mediaType == .screenRecording,
+           subtitleStatus == .burned,
+           let subtitledVideoPath {
+            return subtitledVideoPath
+        }
+        return videoPath
+    }
+
+    /// UI 主文件路径：截图使用图片；录屏烧录完成后优先使用带字幕视频。
+    var primaryFilePath: String? {
+        primaryVideoPath ?? imagePath
     }
 }
 
@@ -148,6 +217,7 @@ protocol MediaRecordRepository {
     func record(id: String) throws -> MediaRecord?
     func page(limit: Int, offset: Int, filter: MediaRecordFilter, search: String?) throws -> MediaRecordPage
     func toggleFavorite(id: String, isFavorited: Bool, updatedAt: Date) throws
+    func updateSubtitleState(id: String, state: RecordingSubtitleState, updatedAt: Date) throws
     func softDelete(id: String, deletedAt: Date) throws
     func stats() throws -> MediaRecordStats
 }

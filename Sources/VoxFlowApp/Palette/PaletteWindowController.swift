@@ -1,6 +1,34 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+protocol PaletteMarkedTextProviding: AnyObject {
+    func hasMarkedText() -> Bool
+}
+
+@MainActor
+extension NSTextView: PaletteMarkedTextProviding {}
+
+@MainActor
+enum PaletteKeyEventTextInputGuard {
+    static func shouldDeferToMarkedText(keyCode: UInt16, firstResponder: Any?) -> Bool {
+        guard shouldDeferKeyCodeToTextInput(keyCode),
+              let markedTextProvider = firstResponder as? PaletteMarkedTextProviding else {
+            return false
+        }
+        return markedTextProvider.hasMarkedText()
+    }
+
+    private static func shouldDeferKeyCodeToTextInput(_ keyCode: UInt16) -> Bool {
+        switch keyCode {
+        case 36, 76, 53, 125, 126:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 private final class PalettePanel: NSPanel {
     var keyDownHandler: ((NSEvent) -> Bool)?
 
@@ -146,6 +174,13 @@ final class PaletteWindowController: NSWindowController {
 
     @discardableResult
     private func handleKeyDown(_ event: NSEvent) -> Bool {
+        if PaletteKeyEventTextInputGuard.shouldDeferToMarkedText(
+            keyCode: event.keyCode,
+            firstResponder: window?.firstResponder
+        ) {
+            return false
+        }
+
         if event.keyCode == 53 {
             if viewModel.isActionPanelPresented {
                 viewModel.dismissActionPanel()

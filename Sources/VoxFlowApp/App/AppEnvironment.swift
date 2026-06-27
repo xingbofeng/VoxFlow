@@ -22,6 +22,8 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
     var noteRepository: any NoteRepository { container.noteRepository }
     var screenshotRecordRepository: any ScreenshotRecordRepository { container.screenshotRecordRepository }
     var mediaRecordRepository: any MediaRecordRepository { container.mediaRecordRepository }
+    /// 字幕协调器；在 App 启动时由 AppDelegate 注入，供多媒体详情页使用。
+    var subtitleCoordinator: RecordingSubtitleCoordinator?
     var settingsRepository: any SettingsRepository { container.settingsRepository }
     var correctionTargetRepository: any CorrectionTargetRepository { container.correctionTargetRepository }
     var correctionRuleRepository: any CorrectionRuleRepository { container.correctionRuleRepository }

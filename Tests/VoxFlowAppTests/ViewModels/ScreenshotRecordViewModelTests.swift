@@ -75,6 +75,116 @@ final class ScreenshotRecordViewModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: videoURL.path))
     }
 
+    func testDeleteRecordingRemovesSubtitleArtifactsAndIgnoresMissingArtifact() throws {
+        let container = try DependencyContainer.inMemory()
+        let viewModel = ScreenshotRecordViewModel(
+            environment: AppEnvironment(container: container),
+            clipboardService: SystemClipboardService()
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoxFlowSubtitleDelete-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let videoURL = root.appendingPathComponent("recording.mp4")
+        let draftURL = root.appendingPathComponent("recording.subtitle.json")
+        let subtitledURL = root.appendingPathComponent("recording.subtitled.mp4")
+        let missingSRTURL = root.appendingPathComponent("missing.subtitle.srt")
+        for url in [videoURL, draftURL, subtitledURL] {
+            try Data([0, 1, 2, 3]).write(to: url)
+        }
+        let record = MediaRecord(
+            id: "with-subtitle-artifacts",
+            mediaType: .screenRecording,
+            videoPath: videoURL.path,
+            durationMs: 1_000,
+            width: 800,
+            height: 600,
+            fileSizeBytes: 4,
+            audioMode: .microphone,
+            subtitleStatus: .burned,
+            subtitleDraftPath: draftURL.path,
+            subtitleSrtPath: missingSRTURL.path,
+            subtitledVideoPath: subtitledURL.path,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        try container.mediaRecordRepository.save(record)
+        viewModel.load()
+
+        viewModel.deleteRecord(id: "with-subtitle-artifacts")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: videoURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: draftURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missingSRTURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: subtitledURL.path))
+        XCTAssertNil(viewModel.lastError)
+    }
+
+    func testRevealBurnedRecordingFallsBackToOriginalWhenSubtitledVideoIsMissing() throws {
+        let container = try DependencyContainer.inMemory()
+        let viewModel = ScreenshotRecordViewModel(
+            environment: AppEnvironment(container: container),
+            clipboardService: SystemClipboardService()
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoxFlowRevealFallback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let originalURL = root.appendingPathComponent("recording.mp4")
+        let missingSubtitledURL = root.appendingPathComponent("recording.subtitled.mp4")
+        try Data([0, 1, 2, 3]).write(to: originalURL)
+        let record = MediaRecord(
+            id: "burned-missing-subtitled",
+            mediaType: .screenRecording,
+            videoPath: originalURL.path,
+            durationMs: 1_000,
+            width: 800,
+            height: 600,
+            fileSizeBytes: 4,
+            audioMode: .microphone,
+            subtitleStatus: .burned,
+            subtitledVideoPath: missingSubtitledURL.path,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        try container.mediaRecordRepository.save(record)
+        viewModel.load()
+
+        viewModel.revealInFinder(id: record.id)
+
+        XCTAssertEqual(viewModel.lastActionMessage, "已在 Finder 中显示")
+        XCTAssertNil(viewModel.lastError)
+    }
+
+    func testFileActionsReportMissingFileInsteadOfSilentlyDoingNothing() throws {
+        let container = try DependencyContainer.inMemory()
+        let viewModel = ScreenshotRecordViewModel(
+            environment: AppEnvironment(container: container),
+            clipboardService: SystemClipboardService()
+        )
+        let record = MediaRecord(
+            id: "missing-file",
+            mediaType: .screenRecording,
+            videoPath: "/tmp/VoxFlowMissing-\(UUID().uuidString).mp4",
+            durationMs: 1_000,
+            width: 800,
+            height: 600,
+            fileSizeBytes: 4,
+            audioMode: .none,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        try container.mediaRecordRepository.save(record)
+        viewModel.load()
+
+        viewModel.revealInFinder(id: record.id)
+
+        XCTAssertEqual(viewModel.lastError, "文件不存在")
+        XCTAssertNil(viewModel.lastActionMessage)
+    }
+
     func testMediaFiltersReturnAllScreenshotsRecordingsAndFavorites() throws {
         let container = try DependencyContainer.inMemory()
         let viewModel = ScreenshotRecordViewModel(

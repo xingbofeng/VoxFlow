@@ -7,11 +7,12 @@ enum StatusBarIcon {
     static let visibleTitle = ""
     static let imagePosition: NSControl.ImagePosition = .imageOnly
     static let tooltip: String? = nil
-    static let autosaveName = "VoxFlowStatusItem"
+    static let autosaveName = "VoxFlowStatusItemMenuExtraV5"
     static let buttonIdentifier = NSUserInterfaceItemIdentifier("VoxFlowStatusBarButton")
     static let preferredLength = NSStatusItem.squareLength
     static let persistedAutosaveNames = [
         autosaveName,
+        "VoxFlowStatusItemMenuExtraV4",
         "VoxFlowStatusItem",
         "VoxFlowStatusItemV2",
         "VoxFlowStatusItemRuntime",
@@ -54,11 +55,11 @@ enum StatusBarIcon {
 
     static func makeImage(bundle: Bundle = .main) -> NSImage? {
         let image = NSImage(
-            systemSymbolName: "mic.circle.fill",
+            systemSymbolName: "mic.fill",
             accessibilityDescription: accessibilityName
         )
             ?? NSImage(
-                systemSymbolName: "mic.fill",
+                systemSymbolName: "mic.circle.fill",
                 accessibilityDescription: accessibilityName
             )
             ?? bundle.url(
@@ -66,7 +67,7 @@ enum StatusBarIcon {
                 withExtension: "icns"
             ).flatMap(NSImage.init(contentsOf:))
 
-        image?.size = NSSize(width: 18, height: 18)
+        image?.size = NSSize(width: 16, height: 16)
         image?.isTemplate = true
         image?.accessibilityDescription = accessibilityName
         return image

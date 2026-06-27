@@ -119,6 +119,44 @@ enum AppDatabase {
                         definition: "TEXT NOT NULL DEFAULT 'none'"
                     )
                     try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 17, name: "screenshot_records_subtitle_columns") { connection in
+                    // 为老库幂等补齐字幕字段，再应用 bundled schema 快照。
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitle_status",
+                        definition: "TEXT NOT NULL DEFAULT 'none'"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitle_draft_path",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitle_srt_path",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitled_video_path",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitle_error_message",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "screenshot_records",
+                        column: "subtitle_updated_at",
+                        definition: "TEXT"
+                    )
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 18, name: "asset_items_fts") { connection in
+                    try applyBundledSchema(on: connection)
+                    try rebuildAssetItemsFTS(on: connection)
                 }
             ],
             clock: clock
@@ -169,6 +207,10 @@ enum AppDatabase {
 
     private static func applyBundledSchema(on connection: SQLiteConnection) throws {
         try connection.execute(try loadBundledSchemaSQL())
+    }
+
+    private static func rebuildAssetItemsFTS(on connection: SQLiteConnection) throws {
+        try connection.execute("INSERT INTO asset_items_fts(asset_items_fts) VALUES('rebuild')")
     }
 
     static func ensureRequiredRuntimeTables(_ databaseQueue: DatabaseQueue) throws {

@@ -77,9 +77,9 @@ final class PaletteRootItemTests: XCTestCase {
     }
 
     func testOpenURLRootItemUsesWebsiteIcon() {
-        let item = PaletteRootItem.openURL(normalizedURL: "https://miora.design")
+        let item = PaletteRootItem.openURL(normalizedURL: "https://qq.com")
 
-        XCTAssertEqual(item.icon, .websiteIcon(pageURL: "https://miora.design"))
+        XCTAssertEqual(item.icon, .websiteIcon(pageURL: "https://qq.com"))
     }
 
     func testTranslateRootItemCarriesText() {

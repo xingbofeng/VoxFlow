@@ -43,6 +43,59 @@ final class WindowPlacementPolicyTests: XCTestCase {
         XCTAssertEqual(frame.size.height, 800)
     }
 
+    func testBottomTrailingFrameAccountsForVisualOutset() {
+        let frame = WindowPlacementPolicy.bottomTrailingFrame(
+            windowSize: NSSize(width: 260, height: 150),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800),
+            trailingMargin: 28,
+            bottomMargin: 28,
+            visualOutset: 24
+        )
+
+        XCTAssertEqual(frame.origin.x, 988)
+        XCTAssertEqual(frame.origin.y, 252)
+        XCTAssertEqual(frame.size.width, 260)
+        XCTAssertEqual(frame.size.height, 150)
+    }
+
+    func testClampedFrameMovesPartiallyOffscreenThumbnailBackInsideVisibleFrame() {
+        let frame = WindowPlacementPolicy.clampedFrame(
+            NSRect(x: 1_120, y: 140, width: 260, height: 150),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800)
+        )
+
+        XCTAssertEqual(frame.origin.x, 1_040)
+        XCTAssertEqual(frame.origin.y, 200)
+        XCTAssertEqual(frame.size.width, 260)
+        XCTAssertEqual(frame.size.height, 150)
+    }
+
+    func testRightSideCenteredFrameUsesVisibleFrameRightMiddle() {
+        let frame = WindowPlacementPolicy.rightSideCenteredFrame(
+            windowSize: NSSize(width: 440, height: 560),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800),
+            trailingMargin: 28
+        )
+
+        XCTAssertEqual(frame.origin.x, 832)
+        XCTAssertEqual(frame.origin.y, 320)
+        XCTAssertEqual(frame.size.width, 440)
+        XCTAssertEqual(frame.size.height, 560)
+    }
+
+    func testRightSideCenteredFrameStaysInsideVisibleFrameWhenWindowNearlyFillsScreen() {
+        let frame = WindowPlacementPolicy.rightSideCenteredFrame(
+            windowSize: NSSize(width: 1_200, height: 800),
+            visibleFrame: NSRect(x: 100, y: 200, width: 1_200, height: 800),
+            trailingMargin: 28
+        )
+
+        XCTAssertEqual(frame.origin.x, 100)
+        XCTAssertEqual(frame.origin.y, 200)
+        XCTAssertEqual(frame.size.width, 1_200)
+        XCTAssertEqual(frame.size.height, 800)
+    }
+
     func testWindowSpanningTwoDisplaysIsNotConsideredFullyVisible() {
         let window = NSRect(x: 800, y: 100, width: 600, height: 400)
         let screens = [

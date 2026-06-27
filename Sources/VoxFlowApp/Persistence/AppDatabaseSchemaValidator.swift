@@ -96,7 +96,9 @@ enum AppDatabaseSchemaValidator {
                 "id", "ocr_text", "translated_text", "summary_text", "image_path",
                 "char_count", "is_favorited", "created_at", "updated_at", "deleted_at",
                 "media_type", "video_path", "thumbnail_path", "duration_ms", "width", "height",
-                "file_size_bytes", "audio_mode"
+                "file_size_bytes", "audio_mode",
+                "subtitle_status", "subtitle_draft_path", "subtitle_srt_path",
+                "subtitled_video_path", "subtitle_error_message", "subtitle_updated_at"
             ]
         ),
         ExpectedTable(
@@ -106,6 +108,13 @@ enum AppDatabaseSchemaValidator {
                 "image_path", "file_path", "url", "color_value", "source_app_name",
                 "source_app_bundle_id", "content_hash", "capture_reason", "metadata_json",
                 "created_at", "updated_at", "deleted_at"
+            ]
+        ),
+        ExpectedTable(
+            name: "asset_items_fts",
+            columns: [
+                "title", "preview_text", "text", "source_app_name",
+                "url", "file_path", "color_value"
             ]
         ),
         ExpectedTable(

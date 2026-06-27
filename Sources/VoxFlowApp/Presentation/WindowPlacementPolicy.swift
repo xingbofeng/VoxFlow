@@ -21,7 +21,29 @@ enum WindowPlacementPolicy {
         windowSize: NSSize,
         visibleFrame: NSRect,
         trailingMargin: CGFloat,
-        bottomMargin: CGFloat
+        bottomMargin: CGFloat,
+        visualOutset: CGFloat = 0
+    ) -> NSRect {
+        let fittedSize = NSSize(
+            width: min(windowSize.width, visibleFrame.width),
+            height: min(windowSize.height, visibleFrame.height)
+        )
+        let maxX = visibleFrame.maxX - fittedSize.width
+        let maxY = visibleFrame.maxY - fittedSize.height
+        let effectiveTrailingMargin = trailingMargin + visualOutset
+        let effectiveBottomMargin = bottomMargin + visualOutset
+        return NSRect(
+            x: max(visibleFrame.minX, min(maxX, maxX - effectiveTrailingMargin)),
+            y: max(visibleFrame.minY, min(maxY, visibleFrame.minY + effectiveBottomMargin)),
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+
+    static func rightSideCenteredFrame(
+        windowSize: NSSize,
+        visibleFrame: NSRect,
+        trailingMargin: CGFloat
     ) -> NSRect {
         let fittedSize = NSSize(
             width: min(windowSize.width, visibleFrame.width),
@@ -31,7 +53,27 @@ enum WindowPlacementPolicy {
         let maxY = visibleFrame.maxY - fittedSize.height
         return NSRect(
             x: max(visibleFrame.minX, min(maxX, maxX - trailingMargin)),
-            y: max(visibleFrame.minY, min(maxY, visibleFrame.minY + bottomMargin)),
+            y: max(visibleFrame.minY, min(maxY, visibleFrame.midY - fittedSize.height / 2)),
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+
+    static func clampedFrame(
+        _ frame: NSRect,
+        visibleFrame: NSRect
+    ) -> NSRect {
+        let fittedSize = NSSize(
+            width: min(frame.width, visibleFrame.width),
+            height: min(frame.height, visibleFrame.height)
+        )
+        let minX = visibleFrame.minX
+        let maxX = visibleFrame.maxX - fittedSize.width
+        let minY = visibleFrame.minY
+        let maxY = visibleFrame.maxY - fittedSize.height
+        return NSRect(
+            x: max(minX, min(maxX, frame.origin.x)),
+            y: max(minY, min(maxY, frame.origin.y)),
             width: fittedSize.width,
             height: fittedSize.height
         )

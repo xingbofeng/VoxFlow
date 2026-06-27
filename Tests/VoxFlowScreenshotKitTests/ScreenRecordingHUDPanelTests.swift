@@ -21,6 +21,7 @@ final class ScreenRecordingHUDPanelTests: XCTestCase {
         XCTAssertTrue(labels.contains { $0.stringValue == "麦克风开启" })
         XCTAssertEqual(redDot.layer?.backgroundColor, NSColor.systemRed.cgColor)
         XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.screenSaver.rawValue)
+        XCTAssertEqual(panel.sharingType, .none)
         XCTAssertEqual(panel.contentView?.frame.size.width ?? 0, panel.hudView.frame.width, accuracy: 1)
         XCTAssertEqual(panel.contentView?.frame.size.height ?? 0, panel.hudView.frame.height, accuracy: 1)
     }

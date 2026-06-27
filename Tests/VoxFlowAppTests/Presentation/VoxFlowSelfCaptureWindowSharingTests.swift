@@ -18,7 +18,7 @@ final class VoxFlowSelfCaptureWindowSharingTests: XCTestCase {
         XCTAssertTrue(voiceHUD.contains("window.sharingType = .readOnly"))
     }
 
-    func testScreenRecordingRequestExcludesCurrentProcessWindowsAndRecordingHUD() throws {
+    func testScreenRecordingRequestExcludesOnlyOverlayControlsAndRecordingHUD() throws {
         let root = try Self.repositoryRoot()
         let appDelegate = try source(
             at: root.appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
@@ -31,12 +31,13 @@ final class VoxFlowSelfCaptureWindowSharingTests: XCTestCase {
         )
 
         let hud = try XCTUnwrap(method.range(of: "let hudPanel = ScreenRecordingHUDPanel()"))
-        let exclusions = try XCTUnwrap(method.range(of: "ScreenCaptureWindowExclusion.currentProcessWindowIDs()"))
+        let exclusions = try XCTUnwrap(method.range(of: "overlayControls.excludedWindowIDs()"))
         let request = try XCTUnwrap(method.range(of: "ScreenRecordingRequest("))
         XCTAssertLessThan(hud.lowerBound, exclusions.lowerBound)
         XCTAssertLessThan(exclusions.lowerBound, request.lowerBound)
         XCTAssertTrue(method.contains("CGWindowID(hudPanel.windowNumber)"))
         XCTAssertTrue(method.contains("excludedWindowIDs: excludedWindowIDs"))
+        XCTAssertFalse(method.contains("ScreenCaptureWindowExclusion.currentProcessWindowIDs()"))
     }
 
     private func source(at url: URL) throws -> String {

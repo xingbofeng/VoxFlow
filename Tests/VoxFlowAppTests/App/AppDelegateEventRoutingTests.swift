@@ -128,6 +128,27 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         }
     }
 
+    func testScreenshotOCRResultPresentationPolicyShowsCompleteAsThumbnailBeforeExpansion() {
+        XCTAssertEqual(
+            ScreenshotOCRResultPresentationPolicy.route(
+                for: ScreenshotOCRResult(originalText: "text", captureCompletionKind: .complete)
+            ),
+            .thumbnail(initialTab: .originalImage)
+        )
+        XCTAssertEqual(
+            ScreenshotOCRResultPresentationPolicy.route(
+                for: ScreenshotOCRResult(originalText: "text", captureCompletionKind: .textRecognition)
+            ),
+            .expanded(initialTab: .ocr, autoDismiss: false)
+        )
+        XCTAssertEqual(
+            ScreenshotOCRResultPresentationPolicy.route(
+                for: ScreenshotOCRResult(originalText: "text", captureCompletionKind: .scrollingScreenshot)
+            ),
+            .thumbnail(initialTab: .originalImage)
+        )
+    }
+
     func testSelectionActionOnlyStartsWhileIdleAndNeverPresentsEphemeralHUD() {
         for shortcut in [
             HotKeyWorkflowShortcut.selectionAction,
@@ -237,7 +258,7 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
     }
 
-    func testScreenshotOCRResultPanelOnlyOpensOCRTabWithoutAutoDismissForTextRecognitionCommand() throws {
+    func testScreenshotOCRResultPanelUsesPolicySoCompleteCanShowThumbnailBeforeExpansion() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -250,9 +271,11 @@ final class AppDelegateEventRoutingTests: XCTestCase {
 
         XCTAssertTrue(method.contains("screenshotOCRResultPanelController.present("))
         XCTAssertTrue(method.contains("screenshotOCRResultPanelController.presentThumbnail("))
-        XCTAssertTrue(method.contains("result.captureCompletionKind == .textRecognition"))
-        XCTAssertTrue(method.contains("initialTab: .ocr"))
-        XCTAssertTrue(method.contains("autoDismiss: false"))
+        XCTAssertTrue(method.contains("ScreenshotOCRResultPresentationPolicy.route(for: result)"))
+        XCTAssertTrue(method.contains("case let .expanded(initialTab, autoDismiss):"))
+        XCTAssertTrue(method.contains("case let .thumbnail(initialTab):"))
+        XCTAssertTrue(method.contains("initialTab: initialTab"))
+        XCTAssertTrue(method.contains("autoDismiss: autoDismiss"))
     }
 
     func testSavedScreenshotRecordRefreshesVisibleScreenshotTab() throws {
@@ -293,6 +316,8 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         XCTAssertTrue(startMethod.contains("ScreenRecordingRequest("))
         XCTAssertTrue(startMethod.contains("screenRecordingCoordinator.start("))
         XCTAssertTrue(startMethod.contains("screenRecordingHUDPanel"))
+        XCTAssertTrue(startMethod.contains("overlayControls.excludedWindowIDs()"))
+        XCTAssertFalse(startMethod.contains("ScreenCaptureWindowExclusion.currentProcessWindowIDs()"))
         XCTAssertTrue(stopMethod.contains("try await screenRecordingCoordinator.stop()"))
         XCTAssertTrue(stopMethod.contains("windowCoordinator.refreshScreenshotRecords()"))
         XCTAssertTrue(stopMethod.contains("appEnvironment.notifyHistoryDidChange()"))
@@ -736,6 +761,41 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
 
         XCTAssertTrue(method.contains("aiChatPanelController.present(viewModel: aiChatViewModel, prompt: prompt)"))
+    }
+
+    func testRecordingSubtitleCoordinatorIsWiredToHUDDetailAndEditor() throws {
+        let root = try Self.repositoryRoot()
+        let appDelegate = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift"),
+            encoding: .utf8
+        )
+        let appEnvironment = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/App/AppEnvironment.swift"),
+            encoding: .utf8
+        )
+        let viewModel = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/ViewModels/ScreenshotRecordViewModel.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(appDelegate.contains("private lazy var recordingSubtitleCoordinator: RecordingSubtitleCoordinator"))
+        XCTAssertTrue(appDelegate.contains("RecordingSubtitleDraftStore(paths: paths)"))
+        XCTAssertTrue(appDelegate.contains("LiveSystemRecordingSubtitleTranscriber("))
+        XCTAssertTrue(appDelegate.contains("LiveRecordingSubtitleBurner()"))
+        XCTAssertTrue(appDelegate.contains("appEnvironment.subtitleCoordinator = recordingSubtitleCoordinator"))
+        XCTAssertTrue(appDelegate.contains("ScreenRecordingResultPanelController("))
+        XCTAssertTrue(appDelegate.contains("coordinator: recordingSubtitleCoordinator"))
+        XCTAssertTrue(appDelegate.contains("RecordingSubtitleEditorWindowController("))
+        XCTAssertTrue(appDelegate.contains("onDraftReady: { [weak self] id in"))
+        XCTAssertTrue(appDelegate.contains("self?.openSubtitleEditor(recordID: id)"))
+        XCTAssertTrue(appDelegate.contains("subtitleEditorWindowController.present("))
+        XCTAssertTrue(appDelegate.contains("recordID: recordID,"))
+        XCTAssertTrue(appDelegate.contains("preferredScreen: screenRecordingResultPanelController.presentationScreen ?? NSApp.keyWindow?.screen"))
+        XCTAssertTrue(appDelegate.contains("\"录屏保存失败：\\(error.localizedDescription)\""))
+        XCTAssertTrue(appEnvironment.contains("var subtitleCoordinator: RecordingSubtitleCoordinator?"))
+        XCTAssertTrue(viewModel.contains("coordinator.addSubtitle(recordID: id)"))
+        XCTAssertTrue(viewModel.contains("coordinator.openEditor(recordID: id)"))
+        XCTAssertTrue(viewModel.contains("coordinator.startBurn(recordID: id)"))
     }
 
     private static func repositoryRoot() throws -> URL {

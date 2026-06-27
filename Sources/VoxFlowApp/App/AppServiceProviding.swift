@@ -16,6 +16,7 @@ protocol AppServiceProviding {
     var noteRepository: any NoteRepository { get }
     var screenshotRecordRepository: any ScreenshotRecordRepository { get }
     var mediaRecordRepository: any MediaRecordRepository { get }
+    var subtitleCoordinator: RecordingSubtitleCoordinator? { get }
     var settingsRepository: any SettingsRepository { get }
     var correctionTargetRepository: any CorrectionTargetRepository { get }
     var correctionRuleRepository: any CorrectionRuleRepository { get }

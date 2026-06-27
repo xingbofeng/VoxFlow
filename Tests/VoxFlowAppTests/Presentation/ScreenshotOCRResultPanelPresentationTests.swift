@@ -72,6 +72,63 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("Image(systemName: \"xmark\")"))
     }
 
+    func testExpandedScreenshotSelectionAndAIChatPanelsUseSharedRightSidePlacementWhileThumbnailIsBottomTrailing() throws {
+        let screenshotSource = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenshotOCRResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let selectionSource = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/SelectionResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let sharedControllerSource = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/TextResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let aiChatSource = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/AIChatPanelController.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(screenshotSource.contains("contentSize: NSSize(width: 440, height: 560)"))
+        XCTAssertTrue(screenshotSource.contains("contentSize: NSSize(width: 260, height: 150)"))
+        XCTAssertTrue(screenshotSource.contains("placement: .bottomTrailing("))
+        XCTAssertTrue(screenshotSource.contains("bottomMargin: 28"))
+        XCTAssertTrue(screenshotSource.contains("visualOutset: 24"))
+        XCTAssertTrue(selectionSource.contains("panelController.present(\n            rootView: rootView,"))
+        XCTAssertTrue(aiChatSource.contains("TextResultPanelController(title: \"问 AI\")"))
+
+        XCTAssertTrue(sharedControllerSource.contains("placement: TextResultPanelPlacement = .rightSideCentered"))
+        XCTAssertTrue(sharedControllerSource.contains("position(window, placement: placement)"))
+        XCTAssertTrue(sharedControllerSource.contains("WindowPlacementPolicy.rightSideCenteredFrame("))
+        XCTAssertTrue(sharedControllerSource.contains("WindowPlacementPolicy.clampedFrame("))
+        XCTAssertTrue(sharedControllerSource.contains("panel.isMovableByWindowBackground = true"))
+        XCTAssertFalse(sharedControllerSource.contains("interactionReferenceFrame"))
+        XCTAssertFalse(sharedControllerSource.contains("layoutSubtreeIfNeeded"))
+        XCTAssertFalse(sharedControllerSource.contains("masksToBounds"))
+        XCTAssertFalse(screenshotSource.contains("placementReference"))
+        XCTAssertFalse(screenshotSource.contains("WindowPlacementReference"))
+        XCTAssertFalse(selectionSource.contains("placement:"))
+        XCTAssertFalse(aiChatSource.contains("placement:"))
+    }
+
+    func testWindowPlacementPolicyKeepsOnlyGenericRightSidePlacementWithoutScreenshotReferenceState() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Presentation/WindowPlacementPolicy.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("rightSideCenteredFrame"))
+        XCTAssertFalse(source.contains("WindowPlacementReference"))
+        XCTAssertFalse(source.contains("interactionReferenceFrame"))
+        XCTAssertFalse(source.contains("focusedWindowFrameInAppKitCoordinates"))
+    }
+
     func testPanelCanPresentOCRTabWithoutAutoDismiss() throws {
         let source = try String(
             contentsOf: Self.repositoryRoot()
@@ -86,21 +143,53 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("cancelAutoDismissForInteraction()"))
     }
 
-    func testAppDelegateOnlyTextRecognitionCommandOpensOCRTabWithoutAutoDismiss() throws {
+    func testTemporaryScreenshotResultPlacementDiagnosticsAreRemoved() throws {
+        let root = Self.repositoryRoot()
+        let appDelegateSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift"),
+            encoding: .utf8
+        )
+        let screenshotSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenshotOCRResultPanelController.swift"),
+            encoding: .utf8
+        )
+        let sharedControllerSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/TextResultPanelController.swift"),
+            encoding: .utf8
+        )
+
+        [
+            appDelegateSource,
+            screenshotSource,
+            sharedControllerSource
+        ].forEach { source in
+            XCTAssertFalse(source.contains("screenshot_ocr_route_decision"))
+            XCTAssertFalse(source.contains("screenshot_ocr_present_expanded"))
+            XCTAssertFalse(source.contains("screenshot_ocr_present_thumbnail"))
+            XCTAssertFalse(source.contains("screenshot_ocr_thumbnail_open_requested"))
+            XCTAssertFalse(source.contains("text_result_panel_present_start"))
+            XCTAssertFalse(source.contains("text_result_panel_position_apply"))
+            XCTAssertFalse(source.contains("text_result_panel_keep_visible"))
+            XCTAssertFalse(source.contains("text_result_panel_active_screen"))
+        }
+    }
+
+    func testAppDelegateUsesPresentationPolicyForScreenshotOCRResults() throws {
         let source = try String(
             contentsOf: Self.repositoryRoot()
                 .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift"),
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("opensFromTextRecognitionCommand"))
-        XCTAssertTrue(source.contains("result.captureCompletionKind == .textRecognition"))
-        XCTAssertTrue(source.contains("initialTab: .ocr"))
+        XCTAssertTrue(source.contains("ScreenshotOCRResultPresentationPolicy.route(for: result)"))
+        XCTAssertTrue(source.contains("case let .expanded(initialTab, autoDismiss):"))
+        XCTAssertTrue(source.contains("case let .thumbnail(initialTab):"))
         XCTAssertTrue(source.contains("screenshotOCRResultPanelController.presentThumbnail("))
-        XCTAssertFalse(source.contains("autoDismiss: !opensFromTextRecognitionCommand"))
+        XCTAssertFalse(source.contains("opensFromTextRecognitionCommand"))
+        XCTAssertFalse(source.contains("result.captureCompletionKind == .textRecognition"))
     }
 
-    func testScrollingScreenshotUsesThumbnailAndKeepsExpandedCompletionCopy() throws {
+    func testCompleteAndScrollingScreenshotUseThumbnailAndKeepExpandedCompletionCopy() throws {
         let appDelegateSource = try String(
             contentsOf: Self.repositoryRoot()
                 .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift"),
@@ -112,6 +201,7 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
             encoding: .utf8
         )
 
+        XCTAssertTrue(appDelegateSource.contains("ScreenshotOCRResultPresentationPolicy.route(for: result)"))
         XCTAssertTrue(appDelegateSource.contains("screenshotOCRResultPanelController.presentThumbnail("))
         XCTAssertFalse(appDelegateSource.contains("let completionMessage = result.captureCompletionKind == .scrollingScreenshot"))
         XCTAssertTrue(panelSource.contains("viewModel.result.captureCompletionKind == .scrollingScreenshot ? \"截图完成\" : \"识别完成\""))
@@ -148,6 +238,7 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(sharedControllerSource.contains("window.makeKey()"))
         XCTAssertFalse(source.contains("window.makeKeyAndOrderFront(nil)"))
         XCTAssertFalse(source.contains("NSApp.activate(ignoringOtherApps: true)"))
+        XCTAssertFalse(sharedControllerSource.contains("NSApp.activate(ignoringOtherApps: true)"))
     }
 
     func testPanelUsesProjectAccentInsteadOfSystemBlueOrGreen() throws {

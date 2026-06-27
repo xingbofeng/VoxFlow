@@ -101,6 +101,8 @@ private final class CapturingMediaRecordRepository: MediaRecordRepository {
 
     func toggleFavorite(id: String, isFavorited: Bool, updatedAt: Date) throws {}
 
+    func updateSubtitleState(id: String, state: RecordingSubtitleState, updatedAt: Date) throws {}
+
     func softDelete(id: String, deletedAt: Date) throws {}
 
     func stats() throws -> MediaRecordStats {

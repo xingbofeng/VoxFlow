@@ -30,6 +30,18 @@ final class AssetRepositoryTests: XCTestCase {
         XCTAssertEqual(count, 1)
     }
 
+    func testMigrationCreatesAssetItemsFTSTable() throws {
+        let count = try queue.read { connection -> Int in
+            let statement = try connection.prepare(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'asset_items_fts'"
+            )
+            _ = try statement.step()
+            return statement.columnInt(at: 0)
+        }
+
+        XCTAssertEqual(count, 1)
+    }
+
     func testSaveAndFetchAsset() throws {
         let asset = try AssetItem.makeText(
             id: "dictation-1",
@@ -129,6 +141,21 @@ final class AssetRepositoryTests: XCTestCase {
         XCTAssertEqual(try repository.page(query: .init(searchText: "github", limit: 10, offset: 0)).items.map(\.id), ["url"])
         XCTAssertEqual(try repository.page(query: .init(searchText: "report", limit: 10, offset: 0)).items.map(\.id), ["file"])
         XCTAssertEqual(try repository.page(query: .init(searchText: "08745f", limit: 10, offset: 0)).items.map(\.id), ["color"])
+    }
+
+    func testSearchIndexUpdatesWhenAssetIsSavedAgainOrDeleted() throws {
+        try repository.save(makeAsset(id: "note", title: "Draft", text: "initial phrase"))
+
+        XCTAssertEqual(try repository.page(query: .init(searchText: "initial", limit: 10, offset: 0)).items.map(\.id), ["note"])
+
+        try repository.save(makeAsset(id: "note", title: "Draft", text: "updated phrase"))
+
+        XCTAssertEqual(try repository.page(query: .init(searchText: "initial", limit: 10, offset: 0)).items.map(\.id), [])
+        XCTAssertEqual(try repository.page(query: .init(searchText: "updated", limit: 10, offset: 0)).items.map(\.id), ["note"])
+
+        try repository.softDelete(id: "note", deletedAt: date("2026-06-23T10:00:00Z"))
+
+        XCTAssertEqual(try repository.page(query: .init(searchText: "updated", limit: 10, offset: 0)).items.map(\.id), [])
     }
 
     func testFiltersBySourceAndContentType() throws {

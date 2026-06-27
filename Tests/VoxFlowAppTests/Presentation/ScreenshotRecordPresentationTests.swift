@@ -10,8 +10,14 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
 
         XCTAssertTrue(source.contains("recordActionIcon("))
         XCTAssertTrue(source.contains("viewModel.copyImage(id: record.id)"))
-        XCTAssertTrue(source.contains(".buttonStyle(.plain)"))
-        XCTAssertFalse(source.contains(".buttonStyle(.bordered)"))
+        let actionIconHelper = try XCTUnwrap(
+            source.range(
+                of: #"private func recordActionIcon\([\s\S]*?\n    private func formatDuration"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+        XCTAssertTrue(actionIconHelper.contains(".buttonStyle(.plain)"))
+        XCTAssertFalse(actionIconHelper.contains(".buttonStyle(.bordered)"))
         XCTAssertFalse(source.contains("Label(\"复制文字\""))
     }
 
@@ -161,19 +167,26 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
 
         XCTAssertTrue(source.contains("final class ScreenRecordingResultPanelController"))
         XCTAssertTrue(source.contains("MediaVideoPlayerView(url: URL(fileURLWithPath: videoPath))"))
-        XCTAssertTrue(source.contains("let didCopyFile = copyFile(record)"))
-        XCTAssertTrue(source.contains("initialDidCopyFile: didCopyFile"))
-        XCTAssertTrue(source.contains("resultActionButton(\"打开\", systemImage: \"arrow.up.right.square\""))
+        XCTAssertFalse(source.contains("let didCopyFile = copyFile(record)"))
+        XCTAssertTrue(source.contains("initialDidCopyFile: false"))
+        XCTAssertTrue(source.contains("ScreenRecordingResultHUDPresentation.actions("))
+        XCTAssertTrue(source.contains("kind: .open"))
+        XCTAssertTrue(source.contains("systemImage: \"arrow.up.right.square\""))
         XCTAssertTrue(source.contains("didCopyFile ? \"已复制\" : \"复制\""))
         XCTAssertTrue(source.contains("resultActionButton("))
         XCTAssertTrue(source.contains("didDownloadFile ? \"已下载\" : \"下载\""))
         XCTAssertTrue(source.contains("systemImage: didDownloadFile ? \"checkmark\" : \"square.and.arrow.down\""))
         XCTAssertTrue(source.contains("private func download(_ record: MediaRecord)"))
-        XCTAssertTrue(source.contains("FileManager.default.urls(for: .downloadsDirectory"))
-        XCTAssertTrue(source.contains("resultActionButton(\"Finder\", systemImage: \"folder\""))
-        XCTAssertTrue(source.contains("resultActionButton(\"删除\", systemImage: \"trash\""))
+        XCTAssertTrue(source.contains("let panel = NSSavePanel()"))
+        XCTAssertTrue(source.contains("panel.nameFieldStringValue = url.lastPathComponent"))
+        XCTAssertTrue(source.contains("kind: .revealInFinder"))
+        XCTAssertTrue(source.contains("systemImage: \"folder\""))
+        XCTAssertTrue(source.contains("kind: .delete"))
+        XCTAssertTrue(source.contains("systemImage: isDeleteConfirmationPending ? \"trash.fill\" : \"trash\""))
+        XCTAssertTrue(source.contains("ForEach(actionPresentations)"))
         XCTAssertTrue(source.contains(".labelStyle(.iconOnly)"))
-        XCTAssertTrue(source.contains(".frame(width: 42, height: 32)"))
+        XCTAssertTrue(source.contains("width: CGFloat = 42"))
+        XCTAssertTrue(source.contains("height: CGFloat = 32"))
         XCTAssertFalse(source.contains(".labelStyle(.titleAndIcon)"))
         XCTAssertFalse(source.contains("Image(systemName: \"play.circle\")"))
         XCTAssertTrue(appDelegate.contains("screenRecordingResultPanelController.present(record: record)"))

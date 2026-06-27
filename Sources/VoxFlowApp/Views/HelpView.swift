@@ -14,7 +14,7 @@ struct HelpView: View {
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
     let onOpenPermissions: () -> Void
     let onCheckForUpdates: () -> Void
-    @State private var showingWeChatQRCode = false
+    @State private var showingSupportCommunityPanel = false
 
     init(
         versionInfo: AppVersionInfo = .current(),
@@ -107,7 +107,7 @@ struct HelpView: View {
 
                 HelpSectionCard(
                     title: "常用入口",
-                    subtitle: "获取更新、提交反馈和查看隐私说明",
+                    subtitle: "获取更新、支持项目、加入社区和查看隐私说明",
                     systemImage: "link",
                     tint: AppTheme.ColorToken.accent
                 ) {
@@ -125,11 +125,11 @@ struct HelpView: View {
                         url: HelpExternalLinks.githubRepository
                     )
                     HelpActionRow(
-                        title: "添加作者微信交流",
-                        subtitle: "扫码添加作者微信",
-                        systemImage: "qrcode.viewfinder"
+                        title: "支持项目 / 加入社区",
+                        subtitle: "给项目点个 Star，扫码添加作者微信",
+                        systemImage: "star"
                     ) {
-                        showingWeChatQRCode = true
+                        showingSupportCommunityPanel = true
                     }
                     HelpActionRow(
                         title: "检查更新",
@@ -214,9 +214,9 @@ struct HelpView: View {
             asrProviderViewModel.loadIfNeeded()
         }
         .overlay {
-            if showingWeChatQRCode {
-                WeChatQRCodeOverlay {
-                    showingWeChatQRCode = false
+            if showingSupportCommunityPanel {
+                SupportCommunityOverlay {
+                    showingSupportCommunityPanel = false
                 }
                 .transition(.opacity)
             }
@@ -255,7 +255,7 @@ struct HelpView: View {
 
 }
 
-private struct WeChatQRCodeOverlay: View {
+private struct SupportCommunityOverlay: View {
     let dismiss: () -> Void
 
     var body: some View {
@@ -270,9 +270,9 @@ private struct WeChatQRCodeOverlay: View {
             VStack(spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("添加作者微信交流")
+                        Text("支持项目 / 加入社区")
                             .font(.system(size: 18, weight: .semibold))
-                        Text("扫码添加作者微信，反馈问题或交流使用体验。")
+                        Text("给项目点个 Star，或扫码添加作者微信，反馈问题和交流使用体验。")
                             .font(.system(size: 12))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -286,6 +286,14 @@ private struct WeChatQRCodeOverlay: View {
                     .keyboardShortcut(.cancelAction)
                     .appControlSurface(cornerRadius: 8)
                 }
+
+                HelpLinkRow(
+                    title: "去 GitHub 点个 Star",
+                    subtitle: "支持项目并查看源码和开发进度",
+                    systemImage: "star",
+                    iconStyle: .github,
+                    url: HelpExternalLinks.githubRepository
+                )
 
                 if let image = WeChatQRCodeImage.load() {
                     Image(nsImage: image)

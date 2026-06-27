@@ -31,9 +31,11 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
                     id, ocr_text, translated_text, summary_text, image_path,
                     char_count, is_favorited, created_at, updated_at, deleted_at,
                     media_type, video_path, thumbnail_path, duration_ms, width, height,
-                    file_size_bytes, audio_mode
+                    file_size_bytes, audio_mode,
+                    subtitle_status, subtitle_draft_path, subtitle_srt_path,
+                    subtitled_video_path, subtitle_error_message, subtitle_updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     ocr_text = excluded.ocr_text,
                     translated_text = excluded.translated_text,
@@ -50,7 +52,13 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
                     width = excluded.width,
                     height = excluded.height,
                     file_size_bytes = excluded.file_size_bytes,
-                    audio_mode = excluded.audio_mode
+                    audio_mode = excluded.audio_mode,
+                    subtitle_status = excluded.subtitle_status,
+                    subtitle_draft_path = excluded.subtitle_draft_path,
+                    subtitle_srt_path = excluded.subtitle_srt_path,
+                    subtitled_video_path = excluded.subtitled_video_path,
+                    subtitle_error_message = excluded.subtitle_error_message,
+                    subtitle_updated_at = excluded.subtitle_updated_at
                 """
             )
             try statement.bind(record.id, at: 1)
@@ -71,6 +79,12 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
             try statement.bind(record.height, at: 16)
             try statement.bind(record.fileSizeBytes, at: 17)
             try statement.bind(record.audioMode.rawValue, at: 18)
+            try statement.bind(record.subtitleStatus.rawValue, at: 19)
+            try statement.bind(record.subtitleDraftPath, at: 20)
+            try statement.bind(record.subtitleSrtPath, at: 21)
+            try statement.bind(record.subtitledVideoPath, at: 22)
+            try statement.bind(record.subtitleErrorMessage, at: 23)
+            try statement.bind(record.subtitleUpdatedAt.map(formatter.string(from:)), at: 24)
             _ = try statement.step()
         }
         AppLogger.database.info("多媒体记录已保存：id=\(record.id), type=\(record.mediaType.rawValue)")
@@ -84,7 +98,9 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
                 SELECT id, ocr_text, translated_text, summary_text, image_path,
                        char_count, is_favorited, created_at, updated_at, deleted_at,
                        media_type, video_path, thumbnail_path, duration_ms, width, height,
-                       file_size_bytes, audio_mode
+                       file_size_bytes, audio_mode,
+                       subtitle_status, subtitle_draft_path, subtitle_srt_path,
+                       subtitled_video_path, subtitle_error_message, subtitle_updated_at
                 FROM screenshot_records
                 WHERE id = ?
                 """
@@ -127,7 +143,9 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
             SELECT id, ocr_text, translated_text, summary_text, image_path,
                    char_count, is_favorited, created_at, updated_at, deleted_at,
                    media_type, video_path, thumbnail_path, duration_ms, width, height,
-                   file_size_bytes, audio_mode
+                   file_size_bytes, audio_mode,
+                   subtitle_status, subtitle_draft_path, subtitle_srt_path,
+                   subtitled_video_path, subtitle_error_message, subtitle_updated_at
             FROM screenshot_records
             \(whereClause)
             ORDER BY created_at DESC
@@ -179,6 +197,37 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
             _ = try statement.step()
         }
         AppLogger.database.info("多媒体收藏已更新：id=\(id), favorite=\(isFavorited)")
+    }
+
+    func updateSubtitleState(id: String, state: RecordingSubtitleState, updatedAt: Date) throws {
+        AppLogger.database.debug(
+            "更新字幕状态：id=\(id), status=\(state.status.rawValue)"
+        )
+        try databaseQueue.write { connection in
+            let statement = try connection.prepare(
+                """
+                UPDATE screenshot_records
+                SET subtitle_status = ?,
+                    subtitle_draft_path = ?,
+                    subtitle_srt_path = ?,
+                    subtitled_video_path = ?,
+                    subtitle_error_message = ?,
+                    subtitle_updated_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """
+            )
+            try statement.bind(state.status.rawValue, at: 1)
+            try statement.bind(state.draftPath, at: 2)
+            try statement.bind(state.srtPath, at: 3)
+            try statement.bind(state.subtitledVideoPath, at: 4)
+            try statement.bind(state.errorMessage, at: 5)
+            try statement.bind(formatter.string(from: updatedAt), at: 6)
+            try statement.bind(formatter.string(from: updatedAt), at: 7)
+            try statement.bind(id, at: 8)
+            _ = try statement.step()
+        }
+        AppLogger.database.info("字幕状态已更新：id=\(id), status=\(state.status.rawValue)")
     }
 
     func softDelete(id: String, deletedAt: Date) throws {
@@ -242,6 +291,10 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
         let deletedAt = statement.columnString(at: 9).flatMap(formatter.date(from:))
         let mediaType = MediaType(rawValue: statement.columnString(at: 10) ?? MediaType.screenshot.rawValue) ?? .screenshot
         let audioMode = MediaAudioMode(rawValue: statement.columnString(at: 17) ?? MediaAudioMode.none.rawValue) ?? .none
+        let subtitleStatus = RecordingSubtitleStatus(
+            rawValue: statement.columnString(at: 18) ?? RecordingSubtitleStatus.none.rawValue
+        ) ?? .none
+        let subtitleUpdatedAt = statement.columnString(at: 23).flatMap(formatter.date(from:))
 
         return MediaRecord(
             id: id,
@@ -259,6 +312,12 @@ final class SQLiteMediaRecordRepository: MediaRecordRepository {
             audioMode: audioMode,
             charCount: statement.columnInt(at: 5),
             isFavorited: statement.columnInt(at: 6) != 0,
+            subtitleStatus: subtitleStatus,
+            subtitleDraftPath: statement.columnString(at: 19),
+            subtitleSrtPath: statement.columnString(at: 20),
+            subtitledVideoPath: statement.columnString(at: 21),
+            subtitleErrorMessage: statement.columnString(at: 22),
+            subtitleUpdatedAt: subtitleUpdatedAt,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt

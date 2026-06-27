@@ -134,6 +134,8 @@ final class ScreenshotRecordViewModel: ObservableObject {
                 id: id,
                 deletedAt: environment.clock.now
             )
+            // 取消进行中的字幕任务，避免删除后仍写入文件。
+            environment.subtitleCoordinator?.cancelInFlightTasks(recordID: id)
             imageCache.removeObject(forKey: id as NSString)
             videoThumbnailCache.removeObject(forKey: id as NSString)
             pendingVideoThumbnailIDs.remove(id)
@@ -145,10 +147,21 @@ final class ScreenshotRecordViewModel: ObservableObject {
             if let videoPath = media?.videoPath {
                 try? FileManager.default.removeItem(atPath: videoPath)
             }
+            // 删除录屏时同步清理字幕草稿、SRT、带字幕视频；缺失文件不导致失败。
+            removeSubtitleArtifacts(for: media)
             load()
             lastActionMessage = "已删除"
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    /// 删除字幕相关文件；任意文件缺失都静默忽略。
+    private func removeSubtitleArtifacts(for media: MediaRecord?) {
+        guard let media else { return }
+        let paths = [media.subtitleDraftPath, media.subtitleSrtPath, media.subtitledVideoPath].compactMap { $0 }
+        for path in paths {
+            try? FileManager.default.removeItem(atPath: path)
         }
     }
 
@@ -197,6 +210,51 @@ final class ScreenshotRecordViewModel: ObservableObject {
         lastActionMessage = "已在 Finder 中显示"
     }
 
+    // MARK: - 字幕
+
+    func addSubtitle(id: String) {
+        guard let coordinator = environment.subtitleCoordinator else {
+            lastError = "字幕功能未就绪"
+            return
+        }
+        coordinator.addSubtitle(recordID: id)
+    }
+
+    func openSubtitleEditor(id: String) {
+        guard let coordinator = environment.subtitleCoordinator else { return }
+        coordinator.openEditor(recordID: id)
+    }
+
+    func startSubtitleBurn(id: String) {
+        guard let coordinator = environment.subtitleCoordinator else { return }
+        coordinator.startBurn(recordID: id)
+        lastActionMessage = "开始烧录字幕"
+    }
+
+    func openSubtitledVideo(id: String) {
+        guard let record = records.first(where: { $0.id == id }),
+              let path = record.subtitledVideoPath else {
+            lastError = "带字幕视频不可用"
+            return
+        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        lastActionMessage = "已打开带字幕视频"
+    }
+
+    func openOriginalVideo(id: String) {
+        guard let record = records.first(where: { $0.id == id }),
+              let path = record.videoPath else {
+            lastError = "原视频不可用"
+            return
+        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        lastActionMessage = "已打开原视频"
+    }
+
+    func retrySubtitle(id: String) {
+        addSubtitle(id: id)
+    }
+
     func loadImage(for record: MediaRecord) -> NSImage? {
         if let cached = imageCache.object(forKey: record.id as NSString) {
             return cached
@@ -220,7 +278,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
             return cached
         }
         guard record.mediaType == .screenRecording,
-              let path = record.videoPath else {
+              let path = record.primaryVideoPath else {
             return nil
         }
         guard !pendingVideoThumbnailIDs.contains(record.id) else {
@@ -263,12 +321,28 @@ final class ScreenshotRecordViewModel: ObservableObject {
     }
 
     private func fileURL(for id: String) -> URL? {
-        guard let record = records.first(where: { $0.id == id }),
-              let path = record.videoPath ?? record.imagePath else {
+        guard let record = records.first(where: { $0.id == id }) else {
             lastError = "该记录无可用文件"
             return nil
         }
-        return URL(fileURLWithPath: path)
+        let paths = [
+            record.primaryFilePath,
+            record.videoPath,
+            record.imagePath
+        ]
+        .compactMap { $0 }
+        .reduce(into: [String]()) { result, path in
+            if !result.contains(path) {
+                result.append(path)
+            }
+        }
+
+        guard let existingPath = paths.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
+            lastError = paths.isEmpty ? "该记录无可用文件" : "文件不存在"
+            lastActionMessage = nil
+            return nil
+        }
+        return URL(fileURLWithPath: existingPath)
     }
 
     func clearFeedback() {

@@ -530,6 +530,7 @@ private struct CountingVoiceCorrectionEnvironment: AppServiceProviding {
     var noteRepository: any NoteRepository { wrapped.noteRepository }
     var screenshotRecordRepository: any ScreenshotRecordRepository { wrapped.screenshotRecordRepository }
     var mediaRecordRepository: any MediaRecordRepository { wrapped.mediaRecordRepository }
+    var subtitleCoordinator: RecordingSubtitleCoordinator? { wrapped.subtitleCoordinator }
     var settingsRepository: any SettingsRepository { wrapped.settingsRepository }
     var correctionTargetRepository: any CorrectionTargetRepository { wrapped.correctionTargetRepository }
     var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { wrapped.correctionSnapshotProvider }

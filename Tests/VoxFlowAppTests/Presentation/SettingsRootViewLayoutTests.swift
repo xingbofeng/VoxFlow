@@ -109,45 +109,27 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertFalse(source.contains("agent.status.rawValue"))
     }
 
-    func testSelectionActionsSettingsPageLivesInApplicationSettingsGroup() throws {
+    func testSettingsSidebarDoesNotExposeSelectionActionsAsStandalonePage() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let viewModelSourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/ViewModels/SettingsViewModel.swift")
+        let viewModelSource = try String(contentsOf: viewModelSourceURL, encoding: .utf8)
 
         let appGroup = try XCTUnwrap(
             source.range(
-                of: #"sidebarGroupTitle\("应用设置"\)[\s\S]*?sidebarGroupTitle\("数据与隐私"\)"#,
-                options: .regularExpression
-            ).map { String(source[$0]) }
-        )
-        let vibeCoding = try XCTUnwrap(appGroup.range(of: "settingsSidebarButton(.vibeCoding)"))
-        let selectionActions = try XCTUnwrap(appGroup.range(of: "settingsSidebarButton(.selectionActions)"))
-
-        XCTAssertLessThan(vibeCoding.lowerBound, selectionActions.lowerBound)
-        XCTAssertTrue(source.contains("private var selectionActionsSection"))
-        XCTAssertTrue(source.contains("title: \"划词动作\""))
-        XCTAssertTrue(source.contains("subtitle: \"选中文本后翻译、总结或交给任务助手\""))
-        XCTAssertTrue(source.contains("title: \"动作卡\""))
-        XCTAssertTrue(source.contains("title: \"结果面板\""))
-    }
-
-    func testSelectionActionsSectionDoesNotDuplicateShortcutConfigurationRows() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        let section = try XCTUnwrap(
-            source.range(
-                of: #"private var selectionActionsSection:[\s\S]*?\n    private var inputLanguageCard"#,
+                of: #"sidebarGroupTitle\("应用设置"\)[\s\S]*?sidebarGroupTitle\("模型配置"\)"#,
                 options: .regularExpression
             ).map { String(source[$0]) }
         )
 
-        XCTAssertFalse(section.contains("workflowShortcutRow("))
-        XCTAssertFalse(section.contains("shortcut: .selectionAction"))
-        XCTAssertFalse(section.contains("shortcut: .selectionTranslate"))
-        XCTAssertFalse(section.contains("shortcut: .selectionSummarize"))
-        XCTAssertFalse(section.contains("shortcut: .selectionAgent"))
-        XCTAssertFalse(section.contains("title: \"启用方式\""))
+        XCTAssertTrue(appGroup.contains("settingsSidebarButton(.general)"))
+        XCTAssertTrue(appGroup.contains("settingsSidebarButton(.vibeCoding)"))
+        XCTAssertTrue(appGroup.contains("settingsSidebarButton(.system)"))
+        XCTAssertFalse(appGroup.contains("settingsSidebarButton(.selectionActions)"))
+        XCTAssertFalse(source.contains("private var selectionActionsSection"))
+        XCTAssertFalse(viewModelSource.contains("case selectionActions"))
     }
 
     func testGeneralShortcutSettingsIncludeDirectSelectionActions() throws {
@@ -267,6 +249,18 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains(".confirmationDialog("))
         XCTAssertTrue(source.contains("try viewModel.deleteAllLocalModels()"))
         XCTAssertFalse(source.contains("Button(\"清空缓存\", role: .destructive)"))
+    }
+
+    func testSystemAppearanceGroupExposesHideDockToggleWithMenuBarCopy() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("systemToggle(.hideDockIconWhenWorkbenchCloses"))
+        XCTAssertTrue(source.contains("关闭工作台后隐藏 Dock 图标"))
+        XCTAssertTrue(source.contains("菜单栏图标仍可使用"))
+        XCTAssertTrue(source.contains("\"dock.rectangle\""))
+        XCTAssertFalse(source.contains("\"dock.arrow\""))
     }
 
     private static func repositoryRoot() throws -> URL {

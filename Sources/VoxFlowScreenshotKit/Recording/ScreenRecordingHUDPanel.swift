@@ -163,6 +163,7 @@ public final class ScreenRecordingHUDPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
+        sharingType = .none
         level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 2)
         hidesOnDeactivate = false
         contentView = NSView(frame: contentRect(forFrameRect: frame))

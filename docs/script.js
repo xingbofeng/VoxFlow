@@ -1,7 +1,7 @@
 const release = {
-  version: "1.8.3",
-  tag: "v1.8.3",
-  assetName: "VoxFlow-1.8.3-macOS.dmg"
+  version: "1.9.0",
+  tag: "v1.9.0",
+  assetName: "VoxFlow-1.9.0-macOS.dmg"
 };
 
 const releaseDownloadURL =
@@ -9,6 +9,13 @@ const releaseDownloadURL =
 
 const storageKey = "voxflow-docs-language";
 const validLanguages = ["en", "zh", "zh-Hant", "ja", "ko"];
+const languageNames = {
+  en: "English",
+  zh: "简体中文",
+  "zh-Hant": "繁體中文",
+  ja: "日本語",
+  ko: "한국어"
+};
 const languageMeta = {
   en: { htmlLang: "en" },
   zh: { htmlLang: "zh-CN" },
@@ -400,7 +407,11 @@ const copy = {
   }
 };
 
-const languageSelect = document.querySelector(".language-switch");
+const languageSwitcher = document.querySelector("[data-language-switcher]");
+const languageSwitchButton = languageSwitcher?.querySelector("[data-language-switch-button]");
+const languageSwitchLabel = languageSwitcher?.querySelector("[data-language-switch-label]");
+const languageMenu = languageSwitcher?.querySelector("[data-language-menu]");
+const languageOptions = [...document.querySelectorAll("[data-language-option]")];
 const heroPreview = document.querySelector("[data-hero-preview]");
 
 function parseLanguage(raw) {
@@ -432,6 +443,49 @@ function setMeta(selector, value) {
   if (element) element.setAttribute("content", value);
 }
 
+function setLanguageSwitcherState(language) {
+  if (languageSwitchLabel) {
+    languageSwitchLabel.textContent = languageNames[language] || languageNames.en;
+  }
+
+  languageOptions.forEach((option) => {
+    const isSelected = option.dataset.languageOption === language;
+    option.setAttribute("aria-checked", String(isSelected));
+  });
+}
+
+function closeLanguageMenu({ focusButton = false } = {}) {
+  if (languageMenu) {
+    languageMenu.hidden = true;
+  }
+  if (languageSwitchButton) {
+    languageSwitchButton.setAttribute("aria-expanded", "false");
+    if (focusButton) {
+      languageSwitchButton.focus();
+    }
+  }
+}
+
+function openLanguageMenu({ focusSelected = false } = {}) {
+  if (!languageMenu || !languageSwitchButton) return;
+  languageMenu.hidden = false;
+  languageSwitchButton.setAttribute("aria-expanded", "true");
+
+  if (focusSelected) {
+    const selected = languageOptions.find((option) => option.getAttribute("aria-checked") === "true");
+    (selected || languageOptions[0])?.focus();
+  }
+}
+
+function toggleLanguageMenu() {
+  if (!languageMenu || !languageSwitchButton) return;
+  if (languageMenu.hidden) {
+    openLanguageMenu({ focusSelected: true });
+  } else {
+    closeLanguageMenu({ focusButton: false });
+  }
+}
+
 function setLanguage(language, { pushState = true, persist = true } = {}) {
   const selected = copy[language] || copy.en;
   const meta = languageMeta[language] || languageMeta.en;
@@ -453,9 +507,7 @@ function setLanguage(language, { pushState = true, persist = true } = {}) {
     heroPreview.alt = selected.heroAlt;
   }
 
-  if (languageSelect) {
-    languageSelect.value = language;
-  }
+  setLanguageSwitcherState(language);
 
   if (persist) {
     window.localStorage.setItem(storageKey, language);
@@ -469,9 +521,49 @@ document.querySelectorAll("[data-download-link]").forEach((element) => {
   element.href = releaseDownloadURL;
 });
 
-if (languageSelect) {
-  languageSelect.addEventListener("change", (event) => {
-    setLanguage(event.target.value);
+if (languageSwitchButton && languageMenu) {
+  languageSwitchButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    toggleLanguageMenu();
+  });
+
+  languageSwitchButton.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openLanguageMenu({ focusSelected: true });
+    } else if (event.key === "Escape") {
+      closeLanguageMenu({ focusButton: false });
+    }
+  });
+
+  languageMenu.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-language-option]");
+    if (!option) return;
+    setLanguage(option.dataset.languageOption);
+    closeLanguageMenu({ focusButton: true });
+  });
+
+  languageMenu.addEventListener("keydown", (event) => {
+    const currentIndex = languageOptions.findIndex((option) => option === document.activeElement);
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeLanguageMenu({ focusButton: true });
+      return;
+    }
+
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = (currentIndex + direction + languageOptions.length) % languageOptions.length;
+    languageOptions[nextIndex]?.focus();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!languageSwitcher.contains(event.target)) {
+      closeLanguageMenu();
+    }
   });
 }
 

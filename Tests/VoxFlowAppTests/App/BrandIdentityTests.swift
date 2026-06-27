@@ -19,6 +19,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleDisplayName"] as? String, "码上写")
         XCTAssertTrue((plist["NSMicrophoneUsageDescription"] as? String)?.contains("码上写") == true)
         XCTAssertTrue((plist["NSSpeechRecognitionUsageDescription"] as? String)?.contains("码上写") == true)
+        XCTAssertTrue((plist["NSSpeechRecognitionUsageDescription"] as? String)?.contains("生成字幕") == true)
     }
 
     func testMakefileProducesVoxFlowBundleAndDMG() throws {

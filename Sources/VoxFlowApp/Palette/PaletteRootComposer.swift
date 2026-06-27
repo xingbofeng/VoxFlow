@@ -58,8 +58,16 @@ struct PaletteRootComposer {
             )
         }
 
+        let favoriteURLItems = favoriteURLItems(from: favoriteIDs)
         let staticRanked = searchIndex.sections(
             for: staticItems,
+            query: normalized,
+            favoriteIDs: favoriteIDs,
+            usageStore: usageStore,
+            now: now()
+        ).flatMap(\.items)
+        let favoriteURLRanked = searchIndex.sections(
+            for: favoriteURLItems,
             query: normalized,
             favoriteIDs: favoriteIDs,
             usageStore: usageStore,
@@ -74,16 +82,18 @@ struct PaletteRootComposer {
 
         if let firstStatic = staticRanked.first, isStrongStaticMatch(firstStatic, query: normalized) {
             items.append(contentsOf: staticRanked)
+            items.append(contentsOf: favoriteURLRanked)
             items.append(PaletteRootItem.askAI(prompt: normalized))
             items.append(PaletteRootItem.translate(text: translationText(from: normalized)))
             items.append(contentsOf: quicklinkRanked)
         } else {
+            items.append(contentsOf: favoriteURLRanked)
             items.append(PaletteRootItem.askAI(prompt: normalized))
             items.append(PaletteRootItem.translate(text: translationText(from: normalized)))
             items.append(contentsOf: quicklinkRanked)
             items.append(contentsOf: staticRanked)
         }
-        return [PaletteRootSection(kind: .searchResults, items: items)]
+        return [PaletteRootSection(kind: .searchResults, items: deduplicated(items))]
     }
 
     private func isStrongStaticMatch(_ item: PaletteRootItem, query: String) -> Bool {
@@ -155,6 +165,13 @@ struct PaletteRootComposer {
         favoriteIDs.compactMap { id in
             guard let url = id.openURLString else { return nil }
             return PaletteRootItem.openURL(normalizedURL: url)
+        }
+    }
+
+    private func deduplicated(_ items: [PaletteRootItem]) -> [PaletteRootItem] {
+        var seenIDs = Set<PaletteRootItemID>()
+        return items.filter { item in
+            seenIDs.insert(item.id).inserted
         }
     }
 

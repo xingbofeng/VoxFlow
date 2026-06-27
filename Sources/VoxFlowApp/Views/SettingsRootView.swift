@@ -158,7 +158,6 @@ struct SettingsRootView: View {
 
             settingsSidebarButton(.general)
             settingsSidebarButton(.vibeCoding)
-            settingsSidebarButton(.selectionActions)
             settingsSidebarButton(.system)
 
             sidebarGroupTitle("模型配置")
@@ -191,8 +190,6 @@ struct SettingsRootView: View {
             generalSection
         case .vibeCoding:
             vibeCodingSection
-        case .selectionActions:
-            selectionActionsSection
         case .dictationModels:
             dictationModelsSection
         case .correctionModels:
@@ -621,76 +618,6 @@ struct SettingsRootView: View {
         }
     }
 
-    private var selectionActionsSection: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SettingsGroupCard(
-                title: "划词动作",
-                subtitle: "选中文本后翻译、总结或交给任务助手",
-                systemImage: "text.cursor",
-                tint: .teal
-            ) {
-                selectionActionCapabilityRow(
-                    title: "手动唤起",
-                    subtitle: "第一期不会自动弹出动作卡，避免打扰现有阅读和输入流程",
-                    systemImage: "hand.tap",
-                    tint: .teal
-                )
-            }
-
-            SettingsGroupCard(
-                title: "动作卡",
-                subtitle: "保持轻量，只显示第一期三个动作",
-                systemImage: "rectangle.3.group",
-                tint: .teal
-            ) {
-                selectionActionCapabilityRow(
-                    title: "翻译",
-                    subtitle: "自动翻译或润色选中文本",
-                    systemImage: "translate",
-                    tint: .teal
-                )
-                selectionActionCapabilityRow(
-                    title: "总结",
-                    subtitle: "把长段文本压缩成简洁要点",
-                    systemImage: "text.alignleft",
-                    tint: .orange
-                )
-                selectionActionCapabilityRow(
-                    title: "任务助手",
-                    subtitle: "把选中文本作为上下文交给现有任务助手 HUD",
-                    systemImage: "terminal",
-                    tint: AppTheme.ColorToken.accent
-                )
-            }
-
-            SettingsGroupCard(
-                title: "结果面板",
-                subtitle: "复用截图结果卡的文本操作体验",
-                systemImage: "rectangle.and.text.magnifyingglass",
-                tint: .indigo
-            ) {
-                selectionActionCapabilityRow(
-                    title: "流式结果",
-                    subtitle: "长文本翻译和总结会逐步显示已生成内容",
-                    systemImage: "text.line.first.and.arrowtriangle.forward",
-                    tint: .indigo
-                )
-                selectionActionCapabilityRow(
-                    title: "写回与复制",
-                    subtitle: "支持复制、替换原文、插入下一行；写入失败时自动复制",
-                    systemImage: "doc.on.doc",
-                    tint: .green
-                )
-                selectionActionCapabilityRow(
-                    title: "朗读",
-                    subtitle: "朗读原文、译文或总结结果",
-                    systemImage: "speaker.wave.2",
-                    tint: .blue
-                )
-            }
-        }
-    }
-
     private var inputLanguageCard: some View {
         SettingsGroupCard(
             title: "输入与语言",
@@ -850,6 +777,7 @@ struct SettingsRootView: View {
                 systemToggle(.launchAtLogin, "开机自动启动", "登录系统时自动启动码上写", "power", tint: .pink)
                 systemToggle(.grayMenuBarIcon, "灰色菜单栏图标", "让菜单栏图标使用低对比灰色", "paintpalette", tint: .pink)
                 systemToggle(.capsLockIndicator, "CapsLock 指示灯", "使用 CapsLock LED 指示录音状态", "lightbulb", tint: .pink)
+                systemToggle(.hideDockIconWhenWorkbenchCloses, "关闭工作台后隐藏 Dock 图标", "关闭主窗口后从 Dock 与 Command-Tab 隐藏，菜单栏图标仍可使用", "dock.rectangle", tint: .pink)
             }
         }
     }
@@ -1433,28 +1361,6 @@ struct SettingsRootView: View {
         .settingsRow()
     }
 
-    private func selectionActionCapabilityRow(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        tint: Color
-    ) -> some View {
-        HStack(spacing: 14) {
-            SettingsRowIcon(systemImage: systemImage, tint: tint)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.ColorToken.primaryText)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 16)
-        }
-        .settingsRow()
-    }
-
     private func shortcutGroupHeader(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
@@ -1715,7 +1621,6 @@ private extension SettingsSection {
         switch self {
         case .general: return "通用"
         case .vibeCoding: return "AI 编程"
-        case .selectionActions: return "划词动作"
         case .dictationModels: return "语音识别"
         case .correctionModels: return "纠错与上下文"
         case .ttsModels: return "朗读"

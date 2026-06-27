@@ -2,13 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>VoxFlow</h1>
-  <p><strong>A macOS asset workbench for voice, screenshots, clipboard history, and coding-agent instructions.</strong></p>
-  <p>Press <code>⌥Space</code> to open the launcher and recover recent voice, screenshot, and clipboard assets. Dictation, captures, and copied content become searchable, copyable, reusable local history.</p>
+  <p><strong>A macOS asset workbench for voice, screenshots, screen recordings, clipboard history, and coding-agent instructions.</strong></p>
+  <p>Press <code>⌥Space</code> to open the launcher and recover recent voice, screenshot, screen recording, and clipboard assets. Dictation, captures, recordings, and copied content become searchable, copyable, reusable local history.</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 15+">
     <a href="https://github.com/xingbofeng/VoxFlow/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoxFlow?style=flat-square&label=release" alt="Latest release"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-10B981?style=flat-square" alt="License"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-10B981?style=flat-square" alt="License: GPL-3.0-or-later"></a>
   </p>
   <p>
     🌐 <a href="https://xingbofeng.github.io/VoxFlow/">Website</a>
@@ -32,7 +32,7 @@
 
 ## At A Glance
 
-VoxFlow is an asset workbench and fast launcher for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns voice, screenshots, clipboard items, and agent commands into searchable, previewable, reusable local assets that return to your current workspace.
+VoxFlow is an asset workbench and fast launcher for the app you are already using. It is not a voice assistant: it does not take over the window, submit messages, or move you into another input box. It turns voice, screenshots, screen recordings, clipboard items, and agent commands into searchable, previewable, reusable local assets that return to your current workspace.
 
 | What You Want To Do | Trigger | Output | Boundary |
 | --- | --- | --- | --- |
@@ -42,12 +42,12 @@ VoxFlow is an asset workbench and fast launcher for the app you are already usin
 | Manage clipboard assets | Copy text, images, files, links, or colors | Asset history | Noise filters still skip content that should not be saved |
 | Fix misrecognized terms | Runs after ASR final output and optional LLM correction | Text before insertion | Local deterministic rules; learned candidates stay user-controlled |
 | OCR a clipboard image | Copy an image, press `⌘⇧V` | Current cursor position | Image-only workflow; does not start normal dictation |
-| Capture and process a screenshot | Press `⌘⇧A`, select a region | OCR result panel | Translation, summary, and speech playback are optional |
+| Capture and process a screenshot or screen recording | Press `⌘⇧A`, select a region | OCR result panel | Translation, summary, and speech playback are optional |
 | Run selection actions | Select text, press `⌘⇧F/J/K/L/P` | Action HUD or result panel | F opens the action card; J translates, K summarizes, L sends to Task Assistant, P sends to Ask AI |
 | Ask AI from the launcher | Type a question in the launcher, choose "Ask AI" | Ask AI chat HUD | Reuses your configured LLM provider; multi-turn, streaming, Markdown |
 | Search the web from the launcher | Type a keyword, choose a Quicklink | Default browser | Built-in Google, Bing, Perplexity, GitHub, StackOverflow, YouTube, Bilibili, X, Xiaohongshu, Taobao, JD |
 | Open a URL from the launcher | Type a URL or bare domain | Default browser | Auto-detects http/https/bare domain/localhost/IP+port; first result is "Open URL" |
-| Review screenshot records | Open Workbench → Screenshot | Local screenshot history and OCR text | Stored locally; records can be searched, favorited, copied, and deleted |
+| Review screenshot and recording records | Open Workbench → Screenshot | Local screenshot and recording history and OCR text | Stored locally; records can be searched, favorited, copied, and deleted |
 | Compose an AI prompt | Combine current-window context with spoken intent | Copyable prompt | Copy only, no injection, no auto-submit |
 | Command local coding agents | Speak a task assistant name and task | Codex / Claude / CodeBuddy / terminal agent session | Dispatches only to registered sessions |
 
@@ -143,7 +143,7 @@ VoxFlow also includes a full asset workbench:
 | Styles | Choose output styles such as original, formal, email, or coding notes |
 | File Transcription | Import audio or video files, transcribe them, export txt/md/srt, or save as notes |
 | Notes | Record voice notes, edit Markdown, search, and review recent notes |
-| Screenshot | Browse captured screenshots with OCR text, favorites, search, and paging |
+| Screenshot | Browse captured screenshots and screen recordings with OCR text, favorites, search, and paging |
 | AI Coding 助手 | Review registered agents, aliases, working directories, branches, and dispatch logs |
 | Settings | Manage input devices, shortcuts, models, translation models, permissions, privacy, and data |
 | Help | Find permission guidance, version information, and project links |
@@ -160,7 +160,7 @@ VoxFlow also includes a full asset workbench:
 - **Shortcut recording**: Record the key you want to use and configure short-press behavior.
 - **Clipboard image OCR**: Copy a screenshot or image, press `⌘⇧V`, and VoxFlow recognizes the image text and pastes it into the current field.
 - **Screenshot OCR**: Press `⌘⇧A`, select a screen region, then review the original image, OCR text, translation, and summary in a result panel.
-- **Screenshot record library**: Captured screenshots are kept in the Screenshot page with OCR text, favorites, search, and one-click copy/delete actions.
+- **Screenshot and recording library**: Captured screenshots and screen recordings are kept in the Screenshot page with OCR text, favorites, search, and one-click copy/delete actions.
 - **Inline screenshot annotation**: Region capture supports pen/shape/text/mosaic/scroll tools, undo/redo, and quick translate/summary flow before final insert/output.
 - **AI Coding 助手 Command Center**: Dispatch spoken instructions to Codex, Claude, CodeBuddy, or other registered local terminal agents.
 - **Agent Compose**: Turn current-window OCR context plus spoken intent into a prompt; it only copies the result and never auto-submits.
@@ -176,11 +176,11 @@ VoxFlow also includes a full asset workbench:
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.8.3-macOS.dmg`
+1. Open `VoxFlow-1.9.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
-After installation, open Workbench -> Screenshot to verify your screenshot records and OCR history at first use.
+After installation, open Workbench -> Screenshot to verify your screenshot and recording records and OCR history at first use.
 
 > To try the latest main-branch implementations of Personal Corrections, AI Coding 助手, or Screenshot OCR, run from source; these capabilities may be newer than the latest stable Release.
 
@@ -198,7 +198,7 @@ VoxFlow needs a few macOS permissions:
 | Accessibility | Listen for the global shortcut and insert text into the current app | System Settings -> Privacy & Security -> Accessibility |
 | Microphone | Record your voice | System Settings -> Privacy & Security -> Microphone |
 | Speech Recognition | Use the system speech recognizer | System Settings -> Privacy & Security -> Speech Recognition |
-| Screen Recording | OCR the current window for Agent Compose and screenshot OCR | System Settings -> Privacy & Security -> Screen Recording |
+| Screen Recording | OCR the current window for Agent Compose, screenshot OCR, and screen recording | System Settings -> Privacy & Security -> Screen Recording |
 
 If you use a local Qwen3-ASR model, Speech Recognition permission is not required. Microphone permission is still required.
 
@@ -295,7 +295,7 @@ VoxFlow is local-first by default.
 - When you select a cloud ASR provider, recorded audio is sent to that provider. Local models keep audio on-device. VoxFlow does not proactively upload notes, asset history, or clipboard content.
 - Clipboard assets are saved locally for launcher and Home review; noise filters skip meaningless high-frequency changes.
 - Clipboard image OCR can still be used as a one-off OCR entry.
-- Screenshot records (OCR text + screenshot files captured via `⌘⇧A`) are stored locally and are never uploaded.
+- Screenshot and recording records (OCR text + screenshot files captured via `⌘⇧A`) are stored locally and are never uploaded.
 
 See [Privacy](docs/PRIVACY.md) for more details.
 
@@ -305,7 +305,7 @@ See [Privacy](docs/PRIVACY.md) for more details.
 | --- | --- |
 | The shortcut does nothing | Check Accessibility permission, then quit and reopen VoxFlow |
 | The overlay appears but no text shows up | Check Microphone, Speech Recognition, or the selected model state |
-| Screenshot records are missing | Go to Settings → Data & Privacy → Data Management, then check storage health and open the data folder to confirm `Application Support/VoxFlow/Screenshots/` has image records. Also verify Screen Recording permission. |
+| Screenshot and recording records are missing | Go to Settings → Data & Privacy → Data Management, then check storage health and open the data folder to confirm `Application Support/VoxFlow/Screenshots/` has image records. Also verify Screen Recording permission. |
 | How do I disable a default screenshot annotation tool? | The current version does not expose a persistent "default annotation tool" setting; switch to the Select/Cursor tool in each capture panel to avoid entering annotation mode by default. |
 | LLM correction does not run | Make sure it is enabled in Settings and the default provider passes the connection test |
 | Why is my API key hidden? | That is expected. Use the reveal button while editing if you need to inspect it |
@@ -371,8 +371,8 @@ AI Coding 助手 has a single maintained CLI implementation: the Rust source in 
 
 ### License
 
-VoxFlow is distributed under GPLv3. Third-party components keep their original
-license notices and attribution. See `docs/third-party-licenses.md`.
+VoxFlow is distributed under GPL-3.0-or-later. Third-party components keep their
+original license notices and attribution. See `docs/third-party-licenses.md`.
 
 ### Third-Party Modules
 
@@ -404,3 +404,15 @@ license notices and attribution. See `docs/third-party-licenses.md`.
 | `Packages/VoxFlowVoiceCorrectionKit/NOTICE.md` | TypeWhisper-derived source licensing |
 | `Vendor/` | Vendored runtime license declarations |
 | `Package.swift` + `NOTICE/LICENSE` in `Sources/` and `Packages/` | Component dependency and license declarations |
+
+## Connect
+
+Follow me on X: [@Counterxing](https://x.com/Counterxing)
+
+## WeChat
+
+Scan the QR code below to add the author on WeChat and share feedback or usage notes.
+
+<p align="center">
+  <img src="Sources/VoxFlowApp/Resources/AuthorWeChatQRCode.jpg" alt="Author WeChat QR code" width="320">
+</p>

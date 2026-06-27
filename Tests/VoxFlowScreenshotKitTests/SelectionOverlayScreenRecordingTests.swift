@@ -64,6 +64,29 @@ final class SelectionOverlayScreenRecordingTests: XCTestCase {
         XCTAssertEqual(factory.windows.first?.closeCallCount, 0)
     }
 
+    func testScreenRecordingExclusionWindowIDsComeFromOverlayWindows() {
+        let primaryDisplay = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2,
+            isPrimary: true
+        )
+        let externalDisplay = ScreenshotDisplay(
+            id: 2,
+            name: "External",
+            frame: CGRect(x: 1440, y: 0, width: 1024, height: 768),
+            scale: 1,
+            isPrimary: false
+        )
+        let factory = FakeSelectionOverlayWindowFactory()
+        let controller = SelectionOverlayController(windowFactory: factory)
+
+        controller.present(displays: [primaryDisplay, externalDisplay])
+
+        XCTAssertEqual(controller.currentScreenCaptureExclusionWindowIDs(), [1_000, 1_001])
+    }
+
     func testScreenRecordingPreparationCanSelectMicrophoneMode() {
         let display = ScreenshotDisplay(
             id: 1,

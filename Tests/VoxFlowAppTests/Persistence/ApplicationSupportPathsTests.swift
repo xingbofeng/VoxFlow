@@ -16,6 +16,18 @@ final class ApplicationSupportPathsTests: XCTestCase {
         XCTAssertEqual(paths.screenRecordingURL(forID: "abc").path, "/tmp/Application Support/VoxFlow/ScreenRecordings/abc.mp4")
     }
 
+    func testSubtitleArtifactPathsAreIsolatedFromOriginalRecording() {
+        let applicationSupportURL = URL(fileURLWithPath: "/tmp/Application Support", isDirectory: true)
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: applicationSupportURL)
+
+        XCTAssertEqual(paths.recordingSubtitleArtifactsDirectory.path, "/tmp/Application Support/VoxFlow/ScreenRecordings/Subtitles")
+        XCTAssertEqual(paths.recordingSubtitleDraftURL(forID: "abc").path, "/tmp/Application Support/VoxFlow/ScreenRecordings/Subtitles/abc.subtitle.json")
+        XCTAssertEqual(paths.recordingSubtitleSRTURL(forID: "abc").path, "/tmp/Application Support/VoxFlow/ScreenRecordings/Subtitles/abc.srt")
+        XCTAssertEqual(paths.recordingSubtitledVideoURL(forID: "abc").path, "/tmp/Application Support/VoxFlow/ScreenRecordings/Subtitles/abc.subtitled.mp4")
+        // 带字幕视频路径必须独立于原录屏，不能覆盖原 mp4。
+        XCTAssertNotEqual(paths.recordingSubtitledVideoURL(forID: "abc").path, paths.screenRecordingURL(forID: "abc").path)
+    }
+
     func testEnsureDirectoriesCreatesRequiredDirectories() throws {
         let temporaryRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoxFlowPaths-\(UUID().uuidString)", isDirectory: true)

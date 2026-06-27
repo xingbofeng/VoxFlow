@@ -10,6 +10,33 @@ struct HomeDashboardStats: Equatable {
     var reusableAssets = 0
 }
 
+private struct HomeAssetPageQuery {
+    let pageNumber: Int
+    let assetQuery: AssetQuery
+}
+
+private final class UncheckedSendableBox<Value>: @unchecked Sendable {
+    let value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
+
+private extension AssetQuery {
+    func replacingOffset(_ offset: Int) -> AssetQuery {
+        AssetQuery(
+            searchText: searchText,
+            sources: sources,
+            contentTypes: contentTypes,
+            startDate: startDate,
+            endDate: endDate,
+            limit: limit,
+            offset: offset
+        )
+    }
+}
+
 struct HomeSourceBreakdown: Equatable {
     var dictation = 0
     var screenshot = 0
@@ -250,6 +277,8 @@ final class HomeDashboardViewModel: ObservableObject {
     private let voiceTaskRepository: VoiceTaskRepository
     private var cancellables: Set<AnyCancellable> = []
     private var hasLoaded = false
+    private var assetSearchGeneration = 0
+    private var assetSearchTask: Task<Void, Never>?
 
     var openHistoryDetailRequests: AnyPublisher<String, Never> {
         environment.openHistoryDetailPublisher
@@ -320,7 +349,7 @@ final class HomeDashboardViewModel: ObservableObject {
     func updateSearch(_ query: String) {
         searchText = query
         assetCurrentPage = 1
-        refreshAssetPage()
+        scheduleAssetSearch()
     }
 
     func selectActivityDay(_ date: Date) {
@@ -702,11 +731,55 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func refreshAssetPage() {
+        assetSearchTask?.cancel()
+        assetSearchGeneration += 1
         do {
             try reloadAssetPage()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    private func scheduleAssetSearch() {
+        assetSearchTask?.cancel()
+        assetSearchGeneration += 1
+
+        let generation = assetSearchGeneration
+        let query = assetPageQuery()
+        let repository = UncheckedSendableBox(environment.assetRepository)
+        let pageSize = self.pageSize
+        assetSearchTask = Task.detached(priority: .userInitiated) { [weak self, repository] in
+            do {
+                guard !Task.isCancelled else { return }
+                var resolvedPageNumber = query.pageNumber
+                var page = try repository.value.page(query: query.assetQuery)
+                let lastPage = Self.assetPageCount(totalCount: page.totalCount, pageSize: pageSize)
+                if resolvedPageNumber > lastPage {
+                    resolvedPageNumber = lastPage
+                    page = try repository.value.page(
+                        query: query.assetQuery.replacingOffset((resolvedPageNumber - 1) * pageSize)
+                    )
+                }
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self] in
+                    guard let self, self.assetSearchGeneration == generation else {
+                        return
+                    }
+                    self.assetCurrentPage = resolvedPageNumber
+                    self.totalAssetCount = page.totalCount
+                    self.assetGroups = self.makeAssetGroups(items: page.items)
+                    self.lastError = nil
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self] in
+                    guard let self, self.assetSearchGeneration == generation else {
+                        return
+                    }
+                    self.lastError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -791,12 +864,30 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func reloadAssetPage() throws {
+        let query = assetPageQuery()
+        var page = try environment.assetRepository.page(
+            query: query.assetQuery
+        )
+        totalAssetCount = page.totalCount
+        let lastPage = totalAssetPages
+        if assetCurrentPage > lastPage {
+            assetCurrentPage = lastPage
+            page = try environment.assetRepository.page(
+                query: query.assetQuery.replacingOffset((assetCurrentPage - 1) * pageSize)
+            )
+            totalAssetCount = page.totalCount
+        }
+        assetGroups = makeAssetGroups(items: page.items)
+    }
+
+    private func assetPageQuery() -> HomeAssetPageQuery {
         let dateRange = selectedActivityDate.map { day -> (Date, Date?) in
             let start = calendar.startOfDay(for: day)
             return (start, calendar.date(byAdding: .day, value: 1, to: start))
         }
-        var page = try environment.assetRepository.page(
-            query: AssetQuery(
+        return HomeAssetPageQuery(
+            pageNumber: assetCurrentPage,
+            assetQuery: AssetQuery(
                 searchText: searchText,
                 startDate: dateRange?.0,
                 endDate: dateRange?.1,
@@ -804,22 +895,10 @@ final class HomeDashboardViewModel: ObservableObject {
                 offset: (assetCurrentPage - 1) * pageSize
             )
         )
-        totalAssetCount = page.totalCount
-        let lastPage = totalAssetPages
-        if assetCurrentPage > lastPage {
-            assetCurrentPage = lastPage
-            page = try environment.assetRepository.page(
-                query: AssetQuery(
-                    searchText: searchText,
-                    startDate: dateRange?.0,
-                    endDate: dateRange?.1,
-                    limit: pageSize,
-                    offset: (assetCurrentPage - 1) * pageSize
-                )
-            )
-            totalAssetCount = page.totalCount
-        }
-        assetGroups = makeAssetGroups(items: page.items)
+    }
+
+    nonisolated private static func assetPageCount(totalCount: Int, pageSize: Int) -> Int {
+        max(1, Int(ceil(Double(totalCount) / Double(max(1, pageSize)))))
     }
 
     private func selectVoiceDetailIfAvailable(for asset: AssetItem) -> Bool {

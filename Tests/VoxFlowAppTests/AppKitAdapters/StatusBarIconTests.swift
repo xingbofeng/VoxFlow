@@ -9,8 +9,9 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertEqual(StatusBarIcon.accessibilityName, "码上写")
         XCTAssertEqual(StatusBarIcon.imagePosition, .imageOnly)
         XCTAssertNil(StatusBarIcon.tooltip)
-        XCTAssertEqual(StatusBarIcon.autosaveName, "VoxFlowStatusItem")
+        XCTAssertEqual(StatusBarIcon.autosaveName, "VoxFlowStatusItemMenuExtraV5")
         XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains(StatusBarIcon.autosaveName))
+        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("VoxFlowStatusItemMenuExtraV4"))
         XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("Item-0"))
         XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("VoxFlowStatusItemRuntime"))
         XCTAssertEqual(StatusBarIcon.buttonIdentifier.rawValue, "VoxFlowStatusBarButton")
@@ -42,7 +43,7 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertEqual(button.title, "")
         XCTAssertNotNil(button.image)
         XCTAssertEqual(button.image?.accessibilityDescription, "码上写")
-        XCTAssertEqual(button.image?.size, NSSize(width: 18, height: 18))
+        XCTAssertEqual(button.image?.size, NSSize(width: 16, height: 16))
         XCTAssertEqual(button.image?.isTemplate, true)
         XCTAssertEqual(button.imagePosition, .imageOnly)
         XCTAssertEqual(button.identifier, StatusBarIcon.buttonIdentifier)
@@ -58,6 +59,18 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertFalse(
             try statusBarIconSource().contains("highlightsBy = []"),
             "Custom highlight masks make the menu bar item diverge from the native status item behavior."
+        )
+    }
+
+    func testStatusBarIconPrefersPlainMicSymbolOverCircleVariant() throws {
+        let source = try statusBarIconSource()
+        let plainMicRange = try XCTUnwrap(source.range(of: #"systemSymbolName: "mic.fill""#))
+        let circleMicRange = try XCTUnwrap(source.range(of: #"systemSymbolName: "mic.circle.fill""#))
+
+        XCTAssertLessThan(
+            plainMicRange.lowerBound,
+            circleMicRange.lowerBound,
+            "The menu bar icon should use the compact plain mic first; the circular symbol reads too large in the system menu bar."
         )
     }
 
@@ -163,6 +176,9 @@ final class StatusBarIconTests: XCTestCase {
             defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemV2")
             defaults.set(44, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemRuntime")
             defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
+            defaults.set(47, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV4")
+            defaults.set(false, forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV4")
+            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
             defaults.set(46, forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)")
             defaults.set(false, forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
             defaults.set(false, forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)")
@@ -182,6 +198,9 @@ final class StatusBarIconTests: XCTestCase {
             XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemV2"))
             XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemRuntime"))
             XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime"))
+            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV4"))
+            XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV4"))
+            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4"))
             XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)"))
             XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)"))
             XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)"))
@@ -199,6 +218,7 @@ final class StatusBarIconTests: XCTestCase {
         defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItem")
         defaults.set(false, forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
         defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
+        defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
         defaults.set(false, forKey: "NSStatusItem VisibleCC Item-0")
         defaults.set(true, forKey: "VoxFlowStatusItemPlacementResetV1")
         defer {
@@ -206,6 +226,7 @@ final class StatusBarIconTests: XCTestCase {
             defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItem")
             defaults.removeObject(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
             defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
+            defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
             defaults.removeObject(forKey: "NSStatusItem VisibleCC Item-0")
             defaults.removeObject(forKey: "VoxFlowStatusItemPlacementResetV1")
         }
@@ -224,6 +245,7 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItem"))
         XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)"))
         XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime"))
+        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4"))
         XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC Item-0"))
         XCTAssertNil(defaults.object(forKey: "VoxFlowStatusItemPlacementResetV1"))
     }

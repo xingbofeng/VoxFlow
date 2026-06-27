@@ -54,12 +54,32 @@ struct ApplicationSupportPaths: Equatable {
             .appendingPathComponent("Temporary", isDirectory: true)
     }
 
+    /// 字幕产物目录：草稿 JSON、SRT、带字幕视频统一存放于此。
+    var recordingSubtitleArtifactsDirectory: URL {
+        screenRecordingsDirectory.appendingPathComponent("Subtitles", isDirectory: true)
+    }
+
     func screenRecordingURL(forID id: String) -> URL {
         screenRecordingsDirectory.appendingPathComponent("\(id).mp4", isDirectory: false)
     }
 
     func screenRecordingTemporaryURL(forID id: String) -> URL {
         screenRecordingTemporaryDirectory.appendingPathComponent("\(id).tmp.mp4", isDirectory: false)
+    }
+
+    /// 字幕草稿 JSON 路径。
+    func recordingSubtitleDraftURL(forID id: String) -> URL {
+        recordingSubtitleArtifactsDirectory.appendingPathComponent("\(id).subtitle.json", isDirectory: false)
+    }
+
+    /// 导出 SRT 路径。
+    func recordingSubtitleSRTURL(forID id: String) -> URL {
+        recordingSubtitleArtifactsDirectory.appendingPathComponent("\(id).srt", isDirectory: false)
+    }
+
+    /// 带字幕视频路径（独立于原视频，永不覆盖原录屏）。
+    func recordingSubtitledVideoURL(forID id: String) -> URL {
+        recordingSubtitleArtifactsDirectory.appendingPathComponent("\(id).subtitled.mp4", isDirectory: false)
     }
 
     var clipboardAssetsDirectory: URL {
@@ -88,6 +108,7 @@ struct ApplicationSupportPaths: Equatable {
             screenshotsDirectory,
             screenRecordingsDirectory,
             screenRecordingTemporaryDirectory,
+            recordingSubtitleArtifactsDirectory,
             clipboardAssetsDirectory,
             agentRouterDirectory,
             cliBinDirectory,

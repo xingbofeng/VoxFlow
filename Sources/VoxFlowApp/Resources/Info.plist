@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.8.3</string>
+    <string>1.9.0</string>
     <key>CFBundleVersion</key>
-    <string>16</string>
+    <string>17</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>LSMultipleInstancesProhibited</key>
@@ -33,7 +33,7 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>码上写需要使用麦克风来捕获语音输入，以便将你说的话转录为文字。</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>码上写需要使用语音识别功能将你的语音实时转录为文字。</string>
+    <string>码上写需要使用语音识别功能将你的语音转录为文字，并为麦克风录屏生成字幕。</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 VoxFlow contributors.</string>
 </dict>

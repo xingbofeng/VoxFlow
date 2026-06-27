@@ -364,6 +364,7 @@ enum SelectionOverlayCursorResolver {
 @MainActor
 public protocol SelectionOverlayWindowControlling: AnyObject {
     var savePanelHostWindow: NSWindow { get }
+    var screenCaptureExclusionWindowID: CGWindowID? { get }
     func orderFront()
     func setVisibleForModalPresentation(_ isVisible: Bool)
     func updateSelection(_ state: SelectionState?)
@@ -373,6 +374,16 @@ public protocol SelectionOverlayWindowControlling: AnyObject {
     func setAllowsTargetedSelectionReplacement(_ isEnabled: Bool)
     func setScrollCaptureActive(_ isActive: Bool, selection: SelectionState?)
     func close()
+}
+
+public extension SelectionOverlayWindowControlling {
+    var screenCaptureExclusionWindowID: CGWindowID? {
+        let windowNumber = savePanelHostWindow.windowNumber
+        guard windowNumber > 0 else {
+            return nil
+        }
+        return CGWindowID(windowNumber)
+    }
 }
 
 @MainActor
@@ -988,6 +999,10 @@ public final class SelectionOverlayController {
         screenRecordingPreparation = nil
         pushAnnotationState()
         windowRecords.forEach { $0.window.setScrollCaptureActive(true, selection: state) }
+    }
+
+    public func currentScreenCaptureExclusionWindowIDs() -> [CGWindowID] {
+        windowRecords.compactMap { $0.window.screenCaptureExclusionWindowID }
     }
 
     public func cancelScreenRecordingPreparation() {

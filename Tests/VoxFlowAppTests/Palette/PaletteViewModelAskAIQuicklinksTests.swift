@@ -276,7 +276,7 @@ final class PaletteViewModelAskAIQuicklinksTests: XCTestCase {
             usageStore: InMemoryPaletteUsageStore(),
             showsAskAI: true
         )
-        try viewModel.updateSearchText("miora.design")
+        try viewModel.updateSearchText("qq.com")
 
         XCTAssertEqual(viewModel.selectedRootItem?.title, "打开网址")
         _ = viewModel.performRootAction(.addFavorite)
@@ -285,9 +285,21 @@ final class PaletteViewModelAskAIQuicklinksTests: XCTestCase {
         XCTAssertEqual(viewModel.rootSections.first?.kind, .favorites)
         XCTAssertTrue(
             viewModel.rootSections.first?.items.contains {
-                $0.title == "打开网址" && $0.subtitle == "https://miora.design"
+                $0.title == "打开网址" && $0.subtitle == "https://qq.com"
             } ?? false
         )
+    }
+
+    func testOpenURLFavoriteRanksFirstWhenSearchMatchesURL() throws {
+        let favoriteURL = "https://qq.com"
+        let viewModel = makeViewModel(
+            favorites: [PaletteRootItemID.openURL(favoriteURL)]
+        )
+
+        try viewModel.updateSearchText("qq")
+
+        XCTAssertEqual(viewModel.visibleRootItems.first?.title, "打开网址")
+        XCTAssertEqual(viewModel.visibleRootItems.first?.subtitle, favoriteURL)
     }
 
     // MARK: - No "匹配 xxx" text shown

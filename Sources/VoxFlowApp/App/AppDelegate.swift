@@ -165,9 +165,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         translationCoordinator: runtime!.appleTranslationCoordinator,
         historyRecorder: selectionHistoryRecorder
     )
+    private lazy var recordingSubtitlePaths: ApplicationSupportPaths = {
+        if let paths = appEnvironment.paths { return paths }
+        return (try? ApplicationSupportPaths.live())
+            ?? ApplicationSupportPaths(applicationSupportDirectory: FileManager.default.temporaryDirectory)
+    }()
+    private lazy var subtitleEditorWindowController = RecordingSubtitleEditorWindowController(
+        coordinator: recordingSubtitleCoordinator
+    )
+    private lazy var recordingSubtitleCoordinator: RecordingSubtitleCoordinator = {
+        let paths = recordingSubtitlePaths
+        let draftStore = RecordingSubtitleDraftStore(paths: paths)
+        let transcriber = LiveSystemRecordingSubtitleTranscriber(
+            recognizer: LiveRecordingSpeechRecognizer(),
+            extractor: LiveRecordingAudioTrackExtractor()
+        )
+        let burner = LiveRecordingSubtitleBurner()
+        return RecordingSubtitleCoordinator(
+            repository: appEnvironment.mediaRecordRepository,
+            draftStore: draftStore,
+            transcriber: transcriber,
+            burner: burner,
+            paths: paths,
+            clock: appEnvironment.clock,
+            onStateChange: { [weak self] id in
+                self?.handleSubtitleStateChange(recordID: id)
+            },
+            onDraftReady: { [weak self] id in
+                self?.openSubtitleEditor(recordID: id)
+            },
+            onBurnedVideoReady: { url in
+                NSWorkspace.shared.open(url)
+            }
+        )
+    }()
     private lazy var screenRecordingResultPanelController = ScreenRecordingResultPanelController(
         repository: appEnvironment.mediaRecordRepository,
         clock: appEnvironment.clock,
+        coordinator: recordingSubtitleCoordinator,
         onDelete: { [weak self] in
             self?.windowCoordinator.refreshScreenshotRecords()
             self?.appEnvironment.notifyHistoryDidChange()
@@ -365,6 +400,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
         runtime = AppRuntime.bootstrap()
+        // 字幕协调器：HUD/详情页/编辑界面共享同一实例，回调由 AppDelegate 接管 UI 刷新与编辑器。
+        appEnvironment.subtitleCoordinator = recordingSubtitleCoordinator
         runtime!.screenRecordingSelectionBridge.onSelection = { [weak self] state, display, audioMode, overlayControls in
             self?.handleScreenRecordingSelection(
                 state: state,
@@ -1465,7 +1502,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hudPanel = ScreenRecordingHUDPanel()
         hudPanel.position(relativeTo: selectionRect, display: display)
         hudPanel.update(status: ScreenRecordingHUDStatus(elapsedSeconds: 0, audioMode: audioMode))
-        let excludedWindowIDs = ScreenCaptureWindowExclusion.currentProcessWindowIDs()
+        let excludedWindowIDs = overlayControls.excludedWindowIDs()
             + [CGWindowID(hudPanel.windowNumber)]
         let request = ScreenRecordingRequest(
             displayID: display.id,
@@ -1523,6 +1560,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 字幕协调器状态变化：刷新 HUD 与多媒体历史。
+    private func handleSubtitleStateChange(recordID: String) {
+        screenRecordingResultPanelController.handleSubtitleStateChange(recordID: recordID)
+        windowCoordinator.refreshScreenshotRecords()
+        appEnvironment.notifyHistoryDidChange()
+    }
+
+    /// 字幕草稿就绪：打开字幕编辑确认界面（不自动烧录）。
+    private func openSubtitleEditor(recordID: String) {
+        subtitleEditorWindowController.present(
+            recordID: recordID,
+            preferredScreen: screenRecordingResultPanelController.presentationScreen ?? NSApp.keyWindow?.screen
+        )
+    }
+
     private func handleScreenshotOCRShortcut(
         lease: VoiceWorkflowLease,
         shouldPresentHUD: Bool
@@ -1547,17 +1599,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         switch outcome {
         case .recognized(let result):
-            let opensFromTextRecognitionCommand = result.captureCompletionKind == .textRecognition
-            if opensFromTextRecognitionCommand {
+            let presentationRoute = ScreenshotOCRResultPresentationPolicy.route(for: result)
+            switch presentationRoute {
+            case let .expanded(initialTab, autoDismiss):
                 screenshotOCRResultPanelController.present(
                     result: result,
-                    initialTab: .ocr,
-                    autoDismiss: false
+                    initialTab: initialTab,
+                    autoDismiss: autoDismiss
                 )
-            } else {
+            case let .thumbnail(initialTab):
                 screenshotOCRResultPanelController.presentThumbnail(
                     result: result,
-                    initialTab: .originalImage
+                    initialTab: initialTab
                 )
             }
             saveScreenshotRecord(result: result)

@@ -1,6 +1,15 @@
 import AppKit
 import SwiftUI
 
+enum TextResultPanelPlacement {
+    case rightSideCentered
+    case bottomTrailing(
+        bottomMargin: CGFloat,
+        trailingMargin: CGFloat = 28,
+        visualOutset: CGFloat = 0
+    )
+}
+
 @MainActor
 final class TextResultPanelController {
     private let title: String
@@ -13,7 +22,7 @@ final class TextResultPanelController {
     func present<Content: View>(
         rootView: Content,
         contentSize: NSSize = NSSize(width: 440, height: 560),
-        bottomMargin: CGFloat = 36,
+        placement: TextResultPanelPlacement = .rightSideCentered,
         accessoryView: NSView? = nil,
         onCancel: @escaping () -> Void,
         onInteraction: (@MainActor () -> Void)? = nil
@@ -24,14 +33,12 @@ final class TextResultPanelController {
         guard let window else { return }
         window.onCancel = onCancel
         window.onInteraction = onInteraction
-        window.setContentSize(contentSize)
         window.contentView = makeContentView(rootView: rootView, accessoryView: accessoryView)
-        position(window, bottomMargin: bottomMargin)
-        if accessoryView != nil {
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        resize(window, to: contentSize)
+        position(window, placement: placement)
         window.orderFrontRegardless()
         window.makeKey()
+        keepVisible(window)
     }
 
     func close() {
@@ -59,6 +66,7 @@ final class TextResultPanelController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
+        panel.isMovableByWindowBackground = true
         panel.sharingType = .readOnly
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
@@ -94,15 +102,51 @@ final class TextResultPanelController {
         return container
     }
 
-    private func position(_ window: NSWindow, bottomMargin: CGFloat) {
-        let screenFrame = activeScreenFrame()
+    private func resize(_ window: NSWindow, to contentSize: NSSize) {
         window.setFrame(
-            WindowPlacementPolicy.bottomTrailingFrame(
+            NSRect(origin: window.frame.origin, size: contentSize),
+            display: window.isVisible,
+            animate: false
+        )
+    }
+
+    private func position(_ window: NSWindow, placement: TextResultPanelPlacement) {
+        let screenFrame = activeScreenFrame()
+        let frame: NSRect
+        switch placement {
+        case .rightSideCentered:
+            frame = WindowPlacementPolicy.rightSideCenteredFrame(
                 windowSize: window.frame.size,
                 visibleFrame: screenFrame,
-                trailingMargin: 28,
-                bottomMargin: bottomMargin
-            ),
+                trailingMargin: 28
+            )
+        case let .bottomTrailing(bottomMargin, trailingMargin, visualOutset):
+            frame = WindowPlacementPolicy.bottomTrailingFrame(
+                windowSize: window.frame.size,
+                visibleFrame: screenFrame,
+                trailingMargin: trailingMargin,
+                bottomMargin: bottomMargin,
+                visualOutset: visualOutset
+            )
+        }
+        window.setFrame(frame, display: window.isVisible, animate: false)
+    }
+
+    private func keepVisible(_ window: NSWindow) {
+        let screens = NSScreen.screens
+        let visibleFrames = screens.map(\.visibleFrame)
+        let fullyVisible = WindowPlacementPolicy.isFullyVisible(window.frame, in: visibleFrames)
+        guard !fullyVisible else {
+            return
+        }
+        let visibleFrame = WindowPlacementPolicy.visibleFrame(
+            containing: window.frame,
+            screenFrames: screens.map(\.frame),
+            visibleFrames: visibleFrames
+        ) ?? activeScreenFrame()
+        let targetFrame = WindowPlacementPolicy.clampedFrame(window.frame, visibleFrame: visibleFrame)
+        window.setFrame(
+            targetFrame,
             display: window.isVisible,
             animate: false
         )
@@ -110,8 +154,12 @@ final class TextResultPanelController {
 
     private func activeScreenFrame() -> CGRect {
         let mouseLocation = NSEvent.mouseLocation
-        if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) {
-            return screen.visibleFrame
+        let screens = NSScreen.screens
+        if let selectedIndex = screens.firstIndex(where: { $0.frame.contains(mouseLocation) }) {
+            return screens[selectedIndex].visibleFrame
+        }
+        if let main = NSScreen.main {
+            return main.visibleFrame
         }
         return NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 440, height: 560)
     }
