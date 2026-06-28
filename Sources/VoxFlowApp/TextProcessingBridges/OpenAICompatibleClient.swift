@@ -116,8 +116,8 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         try validate(response: response, data: data)
         _ = try LLMRefiner.parseChatCompletion(data)
         AppLogger.network.info("连通性测试成功")
-        return LLMProviderConnectionResult(
-            message: "连接成功",
+            return LLMProviderConnectionResult(
+            message: L10n.localize("llm.connection.success", comment: "LLM connection success message"),
             latencyMS: max(0, Int(Date().timeIntervalSince(startedAt) * 1000))
         )
     }

@@ -1,0 +1,4 @@
+/* VoxFlow Info.plist localization overrides (Korean). */
+
+NSMicrophoneUsageDescription = "VoxFlow는 음성을 캡처하여 텍스트로 변환하기 위해 마이크 접근 권한이 필요합니다.";
+NSSpeechRecognitionUsageDescription = "VoxFlow는 음성을 텍스트로 변환하고 마이크 화면 녹화의 자막을 생성하기 위해 음성 인식 기능이 필요합니다.";

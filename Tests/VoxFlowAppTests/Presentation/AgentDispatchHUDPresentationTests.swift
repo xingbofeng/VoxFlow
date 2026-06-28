@@ -5,20 +5,23 @@ final class AgentDispatchHUDPresentationTests: XCTestCase {
     func testListeningExactConfirmationSuccessAndFailureCopy() {
         XCTAssertEqual(
             AgentDispatchHUDPresentation.listening(agentNames: ["前端", "后端", "数据库"]).title,
-            "正在听你说"
+            L10n.localize("hud.title.listening", comment: "")
         )
         XCTAssertEqual(
             AgentDispatchHUDPresentation.exact(agentName: "前端", message: "检查按钮").badge,
-            "100% 直接发送"
+            L10n.localize("hud.badge.exact_send", comment: "")
         )
         XCTAssertEqual(
             AgentDispatchHUDPresentation.confirmation(utterance: "看一下", candidates: []).title,
-            "选择发送目标"
+            L10n.localize("hud.title.confirmation", comment: "")
         )
-        XCTAssertEqual(AgentDispatchHUDPresentation.sent(agentName: "前端").title, "已发送给前端")
+        XCTAssertEqual(
+            AgentDispatchHUDPresentation.sent(agentName: "前端").title,
+            String(format: L10n.localize("hud.feedback.sent_to_agent_format", comment: ""), "前端")
+        )
         XCTAssertEqual(
             AgentDispatchHUDPresentation.failure(message: "任务助手已退出", retainedText: "检查按钮").detail,
-            "任务助手已退出\n指令已保留：检查按钮"
+            String(format: L10n.localize("hud.detail.failure_with_retained", comment: ""), "任务助手已退出", "检查按钮")
         )
     }
 

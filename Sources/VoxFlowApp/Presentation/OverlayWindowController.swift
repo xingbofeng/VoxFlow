@@ -254,7 +254,7 @@ final class OverlayWindowController: NSWindowController {
         statusLabel.alignment = .center
         statusLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
         statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-        statusLabel.stringValue = "听写中"
+        statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
         statusLabel.wantsLayer = true
         statusLabel.layer?.cornerRadius = 10
         statusLabel.layer?.backgroundColor = NSColor(
@@ -334,7 +334,7 @@ final class OverlayWindowController: NSWindowController {
         confirmationStatusLabel.alignment = .center
         confirmationStatusLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
         confirmationStatusLabel.textColor = NSColor(red: 0.690, green: 0.370, blue: 0.090, alpha: 1.0)
-        confirmationStatusLabel.stringValue = "需要确认"
+        confirmationStatusLabel.stringValue = L10n.localize("hud.status.confirmation", comment: "")
         confirmationStatusLabel.wantsLayer = true
         confirmationStatusLabel.layer?.cornerRadius = 10
         confirmationStatusLabel.layer?.backgroundColor = NSColor(
@@ -409,7 +409,7 @@ final class OverlayWindowController: NSWindowController {
         confirmationFooterLabel.drawsBackground = false
         confirmationFooterLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
         confirmationFooterLabel.textColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.85)
-        confirmationFooterLabel.stringValue = "按 1-9 选择任务助手，按 0 直接写入当前输入框"
+        confirmationFooterLabel.stringValue = L10n.localize("hud.confirmation.footer_hint", comment: "")
         confirmationContainer.addSubview(confirmationFooterLabel)
 
         confirmationLayoutConstraints = [
@@ -467,7 +467,7 @@ final class OverlayWindowController: NSWindowController {
         selectionActionTitleLabel.drawsBackground = false
         selectionActionTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
         selectionActionTitleLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 0.92)
-        selectionActionTitleLabel.stringValue = "划词动作"
+        selectionActionTitleLabel.stringValue = L10n.localize("hud.selection_action.title", comment: "")
         selectionActionCard.addSubview(selectionActionTitleLabel)
 
         selectionActionCloseButton.translatesAutoresizingMaskIntoConstraints = false
@@ -475,7 +475,7 @@ final class OverlayWindowController: NSWindowController {
         selectionActionCloseButton.isBordered = false
         selectionActionCloseButton.image = NSImage(
             systemSymbolName: "xmark",
-            accessibilityDescription: "关闭"
+            accessibilityDescription: L10n.localize("hud.selection_action.close", comment: "")
         )
         selectionActionCloseButton.imagePosition = .imageOnly
         selectionActionCloseButton.contentTintColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.75)
@@ -674,9 +674,9 @@ final class OverlayWindowController: NSWindowController {
         statusLabel.isHidden = true
         statusLabel.stringValue = ""
         confirmationContainer.isHidden = false
-        confirmationStatusLabel.stringValue = "需要确认"
+        confirmationStatusLabel.stringValue = L10n.localize("hud.status.confirmation", comment: "")
         confirmationUtteranceIconLabel.stringValue = "“"
-        confirmationFooterLabel.stringValue = "按 1-9 选择任务助手，按 0 直接写入当前输入框"
+        confirmationFooterLabel.stringValue = L10n.localize("hud.confirmation.footer_hint", comment: "")
         NSLayoutConstraint.activate(confirmationLayoutConstraints)
         confirmationUtteranceLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(utterance)
         confirmationUtteranceLabel.toolTip = utterance
@@ -1005,7 +1005,11 @@ final class OverlayWindowController: NSWindowController {
         nameLabel.lineBreakMode = .byTruncatingTail
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let confidenceLabel = confirmationRowText("置信度", size: 12, weight: .medium)
+        let confidenceLabel = confirmationRowText(
+            L10n.localize("hud.label.confidence", comment: ""),
+            size: 12,
+            weight: .medium
+        )
         confidenceLabel.textColor = NSColor(red: 0.425, green: 0.475, blue: 0.450, alpha: 0.95)
 
         let confidenceView = confidenceBarView(confidenceBar)
@@ -1046,7 +1050,11 @@ final class OverlayWindowController: NSWindowController {
             alpha: 0.12
         ).cgColor
 
-        let nameLabel = confirmationRowText("直接写入当前输入框", size: 14, weight: .semibold)
+        let nameLabel = confirmationRowText(
+            L10n.localize("hud.output.default_label", comment: ""),
+            size: 14,
+            weight: .semibold
+        )
         nameLabel.lineBreakMode = .byTruncatingTail
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
@@ -1068,7 +1076,11 @@ final class OverlayWindowController: NSWindowController {
         number: Int,
         action: SelectionActionKind
     ) {
-        button.toolTip = "按 \(number) \(action.title)"
+        button.toolTip = String(
+            format: L10n.localize("hud.selection_action_button_tooltip_format", comment: ""),
+            String(number),
+            action.title
+        )
 
         let iconView = NSImageView()
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -1219,7 +1231,7 @@ final class OverlayWindowController: NSWindowController {
         waveformView.isHidden = false
         waveformView.reset()
         waveformView.startAnimation()
-        statusLabel.stringValue = "听写中"
+        statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
         statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
         refiningSpinner.isHidden = true
         refiningSpinner.stopAnimation(nil)
@@ -1285,17 +1297,19 @@ final class OverlayWindowController: NSWindowController {
         hideAgentConfirmationPresentation()
         let displayText: String
         if isRefining {
-            displayText = text.isEmpty ? "正在识别文本" : text
+            displayText = text.isEmpty
+                ? L10n.localize("hud.transcription.empty_refinement_text", comment: "")
+                : text
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
-            statusLabel.stringValue = "纠错中"
+            statusLabel.stringValue = L10n.localize("hud.status.refining", comment: "")
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         } else {
-            displayText = text.isEmpty ? "正在聆听..." : text
+            displayText = text.isEmpty ? L10n.localize("hud.transcription.empty_listening_text", comment: "") : text
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
-            statusLabel.stringValue = "听写中"
+            statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
             waveformView.isHidden = false
             waveformView.startAnimation()
             refiningSpinner.isHidden = true
@@ -1389,11 +1403,11 @@ final class OverlayWindowController: NSWindowController {
     private func applyTemporaryMessageTone(_ tone: HUDTemporaryMessageTone) {
         switch tone {
         case .info:
-            statusLabel.stringValue = "提示"
+            statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
             statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
             textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
         case .success:
-            statusLabel.stringValue = "成功"
+            statusLabel.stringValue = L10n.localize("hud.message.success", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
         }
@@ -1544,50 +1558,50 @@ final class OverlayWindowController: NSWindowController {
         hideAgentConfirmationPresentation()
         switch stage {
         case .readingWindow:
-            statusLabel.stringValue = "读取窗口"
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_title", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = "正在读取窗口上下文..."
+            textLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_detail", comment: "")
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .transcribing:
-            statusLabel.stringValue = "转写中"
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.transcribing", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = "正在识别语音..."
+            textLabel.stringValue = L10n.localize("hud.agent_compose.transcribing_detail", comment: "")
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .generating:
-            statusLabel.stringValue = "生成中"
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.generating", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = "正在生成文本..."
+            textLabel.stringValue = L10n.localize("hud.agent_compose.generating_detail", comment: "")
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .copied:
-            statusLabel.stringValue = "已复制"
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.copied", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = "已复制到剪贴板"
+            textLabel.stringValue = L10n.localize("hud.agent_compose.copied_detail", comment: "")
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case .inserted:
-            statusLabel.stringValue = "已写入"
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.inserted", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = "已写入当前输入框"
+            textLabel.stringValue = L10n.localize("hud.agent_compose.inserted_detail", comment: "")
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case .contextUnavailable:
-            statusLabel.stringValue = "提示"
+            statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
             statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
-            textLabel.stringValue = "上下文不可用，仅使用口述"
+            textLabel.stringValue = L10n.localize("hud.agent_compose.context_unavailable", comment: "")
             textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
@@ -1602,7 +1616,12 @@ final class OverlayWindowController: NSWindowController {
         )
         if case let .confirmation(utterance, candidates) = presentation {
             guard !candidates.isEmpty else {
-                updateAgentDispatch(.failure(message: "没有可用任务助手", retainedText: utterance))
+                updateAgentDispatch(
+                    .failure(
+                        message: L10n.localize("hud.no_agent_available", comment: ""),
+                        retainedText: utterance
+                    )
+                )
                 return
             }
             agentConfirmationCandidates = candidates
@@ -1619,7 +1638,7 @@ final class OverlayWindowController: NSWindowController {
         textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
         statusLabel.stringValue = presentation.badge ?? presentation.title
         if case .listening = presentation {
-            textLabel.stringValue = "说出要交给任务助手的任务"
+            textLabel.stringValue = L10n.localize("hud.prompt.dictate_to_agent", comment: "")
             textLabel.toolTip = nil
         } else if case let .clipboardFallback(text) = presentation {
             textLabel.stringValue = AgentDispatchConfirmationUtteranceFormatter.displayText(text)

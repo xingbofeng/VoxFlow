@@ -65,11 +65,11 @@ enum PaletteRootAction: String, Equatable, Sendable {
     var displayTitle: String {
         switch self {
         case .open:
-            return "打开"
+            return L10n.localize("palette.root_item.action.open", comment: "")
         case .addFavorite:
-            return "加入最喜欢"
+            return L10n.localize("palette.root_item.action.add_favorite", comment: "")
         case .removeFavorite:
-            return "从最喜欢移除"
+            return L10n.localize("palette.root_item.action.remove_favorite", comment: "")
         }
     }
 
@@ -120,7 +120,7 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
             id: .application(application),
             kind: .application,
             title: application.name,
-            subtitle: "应用",
+            subtitle: L10n.localize("palette.root_item.subtitle.application", comment: ""),
             aliases: [application.bundleID].compactMap(\.self),
             icon: application.iconPath.map { .applicationIcon(path: $0) } ?? .systemImage("app"),
             activation: .application(application)
@@ -129,11 +129,16 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
 
     static func askAI(prompt: String) -> PaletteRootItem {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        let subtitle = trimmed.isEmpty ? "直接向已配置模型提问" : "询问 \(Self.truncated(trimmed))"
+        let subtitle = trimmed.isEmpty
+            ? L10n.localize("palette.root_item.ask_ai.subtitle_empty", comment: "")
+            : String(
+                format: L10n.localize("palette.root_item.ask_ai.subtitle_with_query", comment: ""),
+                Self.truncated(trimmed)
+            )
         return PaletteRootItem(
             id: .askAI,
             kind: .ai,
-            title: "问 AI",
+            title: L10n.localize("palette.root_item.title.ask_ai", comment: ""),
             subtitle: subtitle,
             aliases: ["ai", "问ai", "问", "ask", "提问"],
             icon: .systemImage("sparkles"),
@@ -143,11 +148,16 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
 
     static func translate(text: String) -> PaletteRootItem {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let subtitle = trimmed.isEmpty ? "翻译输入框内容" : "翻译 \(Self.truncated(trimmed))"
+        let subtitle = trimmed.isEmpty
+            ? L10n.localize("palette.root_item.translate.subtitle_empty", comment: "")
+            : String(
+                format: L10n.localize("palette.root_item.translate.subtitle_with_query", comment: ""),
+                Self.truncated(trimmed)
+            )
         return PaletteRootItem(
             id: PaletteRootItemID(rawValue: "translateInput"),
             kind: .command,
-            title: "翻译",
+            title: L10n.localize("palette.root_item.title.translate", comment: ""),
             subtitle: subtitle,
             aliases: ["translate", "translation", "翻译", "译"],
             icon: .systemImage("translate"),
@@ -157,8 +167,18 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
 
     static func quicklink(_ link: PaletteQuicklink, query: String) -> PaletteRootItem {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = trimmed.isEmpty ? link.title : "\(link.title)搜索"
-        let subtitle = trimmed.isEmpty ? link.homepageURL : "搜索 \(Self.truncated(trimmed))"
+        let title = trimmed.isEmpty
+            ? link.title
+            : String(
+                format: L10n.localize("palette.root_item.quicklink.search_title_format", comment: ""),
+                link.title
+            )
+        let subtitle = trimmed.isEmpty
+            ? link.homepageURL
+            : String(
+                format: L10n.localize("palette.root_item.quicklink.search_subtitle_format", comment: ""),
+                Self.truncated(trimmed)
+            )
         return PaletteRootItem(
             id: .quicklink(link),
             kind: .quicklink,
@@ -174,7 +194,7 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
         PaletteRootItem(
             id: .openURL(normalizedURL),
             kind: .link,
-            title: "打开网址",
+            title: L10n.localize("palette.root_item.title.open_website", comment: ""),
             subtitle: normalizedURL,
             aliases: [],
             icon: .websiteIcon(pageURL: normalizedURL),
@@ -200,34 +220,34 @@ extension PaletteCommand {
     var rootTitle: String {
         switch self {
         case .recentAssets:
-            return "最近资产"
+            return L10n.localize("palette.root_item.title.recent_assets", comment: "")
         case .assetHistory:
-            return "历史资产"
+            return L10n.localize("palette.root_item.title.asset_history", comment: "")
         case .screenshotOCR:
-            return "截图 OCR"
+            return L10n.localize("palette.root_item.title.screenshot_ocr", comment: "")
         case .startAgentCompose:
-            return "帮我说"
+            return L10n.localize("palette.root_item.title.agent_compose", comment: "")
         case .startAgentDispatch:
-            return "AI 编程"
+            return L10n.localize("palette.root_item.title.agent_dispatch", comment: "")
         case .startDictation:
-            return "开始听写"
+            return L10n.localize("palette.root_item.title.start_dictation", comment: "")
         }
     }
 
     var rootSubtitle: String {
         switch self {
         case .recentAssets:
-            return "打开最近的语音、截图和剪切板"
+            return L10n.localize("palette.root_item.subtitle.recent_assets", comment: "")
         case .assetHistory:
-            return "查看全部历史资产"
+            return L10n.localize("palette.root_item.subtitle.asset_history", comment: "")
         case .screenshotOCR:
-            return "框选截图并识别文字"
+            return L10n.localize("palette.root_item.subtitle.screenshot_ocr", comment: "")
         case .startAgentCompose:
-            return "口述需求，生成可直接输入的文本"
+            return L10n.localize("palette.root_item.subtitle.agent_compose", comment: "")
         case .startAgentDispatch:
-            return "语音触发 AI 编程控制台"
+            return L10n.localize("palette.root_item.subtitle.agent_dispatch", comment: "")
         case .startDictation:
-            return "按住快捷键说话"
+            return L10n.localize("palette.root_item.subtitle.start_dictation", comment: "")
         }
     }
 

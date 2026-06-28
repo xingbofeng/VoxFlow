@@ -97,11 +97,11 @@ final class PasteLastResultService {
     func pasteClipboardImageOCR() async -> PasteLastResultOutcome {
         guard isImageOCREnabled() else {
             AppLogger.dictation.warning("paste_clipboard_image_ocr disabled")
-            return .ocrFailed("剪贴板图片识别未启用")
+            return .ocrFailed(L10n.localize("app.clipboard_ocr.error.disabled", comment: ""))
         }
         guard let image = clipboardImageProvider.currentImage() else {
             AppLogger.dictation.warning("paste_clipboard_image_ocr no image")
-            return .ocrFailed("剪贴板里没有可识别的图片")
+            return .ocrFailed(L10n.localize("app.clipboard_ocr.error.no_image", comment: ""))
         }
         let originalTarget = targetProvider.currentTarget()
         return await pasteOCRText(from: image, originalTarget: originalTarget)
@@ -120,7 +120,7 @@ final class PasteLastResultService {
             try Task.checkCancellation()
             guard !text.isEmpty else {
                 AppLogger.dictation.warning("paste_clipboard_image_ocr empty text")
-                return .ocrFailed("未识别到图片文字")
+                return .ocrFailed(L10n.localize("app.clipboard_ocr.error.no_text", comment: ""))
             }
             AppLogger.general.debug("paste_clipboard_image_ocr recognized length=\(text.count)")
             return try await pasteText(
@@ -131,7 +131,7 @@ final class PasteLastResultService {
             )
         } catch is CancellationError {
             AppLogger.general.debug("paste_clipboard_image_ocr cancelled")
-            return .ocrFailed("已取消")
+            return .ocrFailed(L10n.localize("app.clipboard_ocr.error.cancelled", comment: ""))
         } catch {
             AppLogger.general.error("paste_clipboard_image_ocr failed: \(error.localizedDescription)")
             return .ocrFailed(error.localizedDescription)

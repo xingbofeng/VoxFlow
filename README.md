@@ -176,7 +176,7 @@ VoxFlow also includes a full asset workbench:
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.9.0-macOS.dmg`
+1. Open `VoxFlow-1.10.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 

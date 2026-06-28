@@ -32,19 +32,19 @@ final class ScrollingScreenshotHUDView: NSView {
             autoScrollButton,
             symbolName: "play.fill",
             action: #selector(autoScrollClicked),
-            help: "自动滚动"
+            help: ScreenshotL10n.ScreenshotKit.Scrolling.Help.autoScroll
         )
         configureIconButton(
             cancelButton,
             symbolName: "xmark",
             action: #selector(cancelClicked),
-            help: "取消"
+            help: ScreenshotL10n.ScreenshotKit.Toolbar.cancel
         )
         configureIconButton(
             stopButton,
             symbolName: "checkmark",
             action: #selector(stopClicked),
-            help: "完成"
+            help: ScreenshotL10n.ScreenshotKit.Toolbar.complete
         )
     }
 
@@ -105,19 +105,19 @@ final class ScrollingScreenshotHUDView: NSView {
         isPermissionBlocked: Bool
     ) -> String {
         if isPermissionBlocked {
-            return "需要辅助功能权限才能自动滚动"
+            return ScreenshotL10n.ScreenshotKit.Scrolling.Help.accessibilityRequired
         }
         switch status.health {
         case .good:
-            return status.isAutoScrolling ? "暂停自动滚动" : "自动滚动"
+            return status.isAutoScrolling ? ScreenshotL10n.ScreenshotKit.Scrolling.Help.pauseAutoScroll : ScreenshotL10n.ScreenshotKit.Scrolling.Help.autoScroll
         case .unstable:
-            return "匹配不稳定，当前仍可继续滚动"
+            return ScreenshotL10n.ScreenshotKit.Scrolling.Help.unstable
         case .paused:
-            return "已暂停，匹配不稳定"
+            return ScreenshotL10n.ScreenshotKit.Scrolling.Help.pausedUnstable
         case .reachedEnd:
-            return "已到末尾"
+            return ScreenshotL10n.ScreenshotKit.Scrolling.Help.reachedEnd
         case .reachedHeightLimit:
-            return "已达高度上限"
+            return ScreenshotL10n.ScreenshotKit.Scrolling.Help.heightLimit
         }
     }
 

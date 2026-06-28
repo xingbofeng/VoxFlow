@@ -1,3 +1,4 @@
+import Foundation
 import VoxFlowDomain
 
 typealias VoiceAction = VoxFlowDomain.VoiceAction
@@ -5,9 +6,9 @@ typealias VoiceAction = VoxFlowDomain.VoiceAction
 extension VoiceAction {
     var displayName: String {
         switch self {
-        case .dictation: return "听写"
-        case .agentCompose: return "任务助手"
-        case .agentDispatch: return "AI 编程"
+        case .agentCompose: return L10n.localize("menu.voice_action.agent_compose", comment: "")
+        case .agentDispatch: return L10n.localize("menu.voice_action.agent_dispatch", comment: "")
+        case .dictation: return L10n.localize("menu.voice_action.dictation", comment: "")
         }
     }
 

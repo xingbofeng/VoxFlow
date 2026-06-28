@@ -84,7 +84,7 @@ struct TextResultPanelHeader: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
-            .help("关闭")
+            .help(L10n.localize("hud.text_result.close", comment: ""))
         }
     }
 }
@@ -133,7 +133,7 @@ struct TextResultPlaybackBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("正在朗读")
+            Text(L10n.localize("hud.text_result.reading", comment: ""))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.accent)
                 .padding(.horizontal, 8)
@@ -150,7 +150,7 @@ struct TextResultPlaybackBar: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
-            .help("停止朗读")
+            .help(L10n.localize("hud.text_result.stop_reading", comment: ""))
         }
         .padding(10)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.74))

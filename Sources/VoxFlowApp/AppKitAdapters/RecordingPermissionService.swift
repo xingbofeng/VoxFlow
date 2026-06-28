@@ -85,6 +85,10 @@ final class RecordingPermissionService {
         )
     }
 
+    func requestSpeechPermissionForPrompt() async -> AudioRecorder.PermissionStatus {
+        await speechPermissionRequester()
+    }
+
     private func makeSnapshot(
         engineType: ASREngineType,
         microphonePermission: AudioRecorder.PermissionStatus,

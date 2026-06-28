@@ -17,14 +17,14 @@ enum KeyCodeMapping {
 
     private static func displayName(forBaseKeyCode keyCode: Int64) -> String {
         switch keyCode {
-        case 54: return "右 Command"
-        case 55: return "左 Command"
-        case 56: return "左 Shift"
-        case 60: return "右 Shift"
-        case 58: return "左 Option"
-        case 61: return "右 Option"
-        case 59: return "左 Control"
-        case 62: return "右 Control"
+        case 54: return L10n.localize("hotkey.key.right_command", comment: "")
+        case 55: return L10n.localize("hotkey.key.left_command", comment: "")
+        case 56: return L10n.localize("hotkey.key.left_shift", comment: "")
+        case 60: return L10n.localize("hotkey.key.right_shift", comment: "")
+        case 58: return L10n.localize("hotkey.key.left_option", comment: "")
+        case 61: return L10n.localize("hotkey.key.right_option", comment: "")
+        case 59: return L10n.localize("hotkey.key.left_control", comment: "")
+        case 62: return L10n.localize("hotkey.key.right_control", comment: "")
         case 36: return "Return"
         case 49: return "Space"
         case 53: return "Escape"
@@ -56,7 +56,7 @@ enum KeyCodeMapping {
         case 46: return "M"
         default:
             logger.debug("KeyCodeMapping fallback base keyCode=\(keyCode)")
-            return "按键 \(keyCode)"
+            return String(format: L10n.localize("hotkey.key.unknown_format", comment: ""), keyCode)
         }
     }
 
@@ -99,7 +99,7 @@ enum KeyCodeMapping {
 
     private static func modifierKeycapLabels(for mask: Int64) -> [String] {
         var labels: [String] = []
-        if mask & ShortcutManager.commandModifierMask != 0 { labels.append("⌘") }
+        if mask & ShortcutManager.commandModifierMask != 0 { labels.append(L10n.localize("hotkey.keycap.command", comment: "")) }
         if mask & ShortcutManager.shiftModifierMask != 0 { labels.append("⇧") }
         if mask & ShortcutManager.optionModifierMask != 0 { labels.append("⌥") }
         if mask & ShortcutManager.controlModifierMask != 0 { labels.append("⌃") }
@@ -108,14 +108,14 @@ enum KeyCodeMapping {
 
     private static func keycapLabel(forBaseKeyCode keyCode: Int64) -> String {
         switch keyCode {
-        case 54: return "右 ⌘"
-        case 55: return "左 ⌘"
-        case 56: return "左 ⇧"
-        case 60: return "右 ⇧"
-        case 58: return "左 ⌥"
-        case 61: return "右 ⌥"
-        case 59: return "左 ⌃"
-        case 62: return "右 ⌃"
+        case 54: return L10n.localize("hotkey.keycap.command", comment: "")
+        case 55: return L10n.localize("hotkey.keycap.command", comment: "")
+        case 56: return L10n.localize("hotkey.keycap.left_shift", comment: "")
+        case 60: return L10n.localize("hotkey.keycap.right_shift", comment: "")
+        case 58: return L10n.localize("hotkey.keycap.left_option", comment: "")
+        case 61: return L10n.localize("hotkey.keycap.right_option", comment: "")
+        case 59: return L10n.localize("hotkey.keycap.left_control", comment: "")
+        case 62: return L10n.localize("hotkey.keycap.right_control", comment: "")
         case 36: return "↩"
         case 49: return "Space"
         case 53: return "Esc"

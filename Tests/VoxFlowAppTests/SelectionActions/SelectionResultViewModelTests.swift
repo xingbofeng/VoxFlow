@@ -21,7 +21,7 @@ final class SelectionResultViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedTab, .result)
         XCTAssertEqual(viewModel.resultText, "人工智能正在改变工作方式。")
         XCTAssertEqual(viewModel.displayedText, "人工智能正在改变工作方式。")
-        XCTAssertEqual(viewModel.statusMessage, "翻译完成")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.operation.translation_completed", comment: ""))
         XCTAssertFalse(viewModel.isTransforming)
         XCTAssertEqual(refiner.streamingRequestCount, 1)
     }
@@ -40,7 +40,7 @@ final class SelectionResultViewModelTests: XCTestCase {
         await viewModel.startTransform()
 
         XCTAssertEqual(viewModel.resultText, "- 要点")
-        XCTAssertEqual(viewModel.statusMessage, "总结完成")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.operation.summary_completed", comment: ""))
     }
 
     func testCompletedTranslationRecordsSelectionHistory() async {
@@ -121,7 +121,7 @@ final class SelectionResultViewModelTests: XCTestCase {
         viewModel.copySelectedText()
 
         XCTAssertEqual(clipboard.copiedTexts, ["result"])
-        XCTAssertEqual(viewModel.statusMessage, "已复制")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.status.copied", comment: ""))
     }
 
     func testSpeakSelectedTextUsesCurrentTabText() {
@@ -141,7 +141,7 @@ final class SelectionResultViewModelTests: XCTestCase {
 
         XCTAssertEqual(speech.spokenTexts, ["summary"])
         XCTAssertEqual(viewModel.playbackState?.text, "summary")
-        XCTAssertEqual(viewModel.statusMessage, "正在朗读")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.status.reading", comment: ""))
     }
 
     func testReplaceOriginalInsertsCurrentTabText() async {
@@ -160,7 +160,7 @@ final class SelectionResultViewModelTests: XCTestCase {
         await viewModel.replaceOriginal()
 
         XCTAssertEqual(textInserter.insertedTexts, ["译文"])
-        XCTAssertEqual(viewModel.statusMessage, "已替换原文")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.status.replaced_original", comment: ""))
     }
 
     func testInsertAfterSelectionPrefixesNewlineBeforeCurrentTabText() async {
@@ -179,7 +179,7 @@ final class SelectionResultViewModelTests: XCTestCase {
         await viewModel.insertAfterSelection()
 
         XCTAssertEqual(textInserter.insertedTexts, ["\n- 要点"])
-        XCTAssertEqual(viewModel.statusMessage, "已插入下一行")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.status.inserted_newline", comment: ""))
     }
 
     func testInsertFailureFallsBackToCopyingCurrentTabText() async {
@@ -200,7 +200,7 @@ final class SelectionResultViewModelTests: XCTestCase {
 
         XCTAssertEqual(textInserter.insertedTexts, ["译文"])
         XCTAssertEqual(clipboard.copiedTexts, ["译文"])
-        XCTAssertEqual(viewModel.statusMessage, "无法写入，已复制")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.status.write_fallback_copied", comment: ""))
     }
 
     func testCancelTransformKeepsPartialResultAndStopsStreaming() async {
@@ -226,7 +226,7 @@ final class SelectionResultViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.resultText, "部分译文")
         XCTAssertFalse(viewModel.isTransforming)
-        XCTAssertEqual(viewModel.statusMessage, "已取消翻译")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.operation.translation_cancelled", comment: ""))
     }
 
     func testSwitchingAwayFromResultTabCancelsActiveTransform() async {
@@ -249,7 +249,7 @@ final class SelectionResultViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.resultText, "部分译文")
         XCTAssertFalse(viewModel.isTransforming)
-        XCTAssertEqual(viewModel.statusMessage, "已取消翻译")
+        XCTAssertEqual(viewModel.statusMessage, L10n.localize("selection.operation.translation_cancelled", comment: ""))
     }
 
     private func waitUntil(

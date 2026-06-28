@@ -16,15 +16,15 @@ enum NavigationRoute: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: return "首页"
-        case .vibeCoding: return "AI 编程"
-        case .voiceCorrection: return "易错词"
-        case .styles: return "风格"
-        case .fileTranscription: return "文件转写"
-        case .notes: return "笔记"
-        case .screenshotRecord: return "多媒体"
-        case .settings: return "设置"
-        case .help: return "帮助"
+        case .home: return L10n.localize("navigation.route.home", comment: "")
+        case .vibeCoding: return L10n.localize("navigation.route.vibe_coding", comment: "")
+        case .voiceCorrection: return L10n.localize("navigation.route.voice_correction", comment: "")
+        case .styles: return L10n.localize("navigation.route.styles", comment: "")
+        case .fileTranscription: return L10n.localize("navigation.route.file_transcription", comment: "")
+        case .notes: return L10n.localize("navigation.route.notes", comment: "")
+        case .screenshotRecord: return L10n.localize("navigation.route.screenshot_record", comment: "")
+        case .settings: return L10n.localize("navigation.route.settings", comment: "")
+        case .help: return L10n.localize("navigation.route.help", comment: "")
         }
     }
 

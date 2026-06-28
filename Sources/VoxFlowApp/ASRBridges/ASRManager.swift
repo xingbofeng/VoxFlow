@@ -68,6 +68,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         static let groqModel = "ASRManager.groqModel"
         static let tencentRealtimeEngineModelType = "ASRManager.tencentRealtimeEngineModelType"
         static let aliyunDashScopeModel = "ASRManager.aliyunDashScopeModel"
+        static let aliyunDashScopeVocabularyID = "ASRManager.aliyunDashScopeVocabularyID"
     }
 
     static let groqAPIKeyAccount = "asr.groq.api-key"
@@ -226,6 +227,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         set { defaults.set(newValue, forKey: Keys.aliyunDashScopeModel) }
     }
 
+    var aliyunDashScopeVocabularyID: String {
+        get {
+            defaults.string(forKey: Keys.aliyunDashScopeVocabularyID) ?? ""
+        }
+        set {
+            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Keys.aliyunDashScopeVocabularyID)
+        }
+    }
+
     var isGroqConfigured: Bool {
         cloudCredentials.isConfigured(account: Self.groqAPIKeyAccount)
     }
@@ -305,7 +315,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     func aliyunDashScopeConfiguration() throws -> AliyunDashScopeRealtimeASRConfiguration {
         let configuration = AliyunDashScopeRealtimeASRConfiguration(
             apiKey: storedAliyunDashScopeAPIKey(),
-            model: aliyunDashScopeModel
+            model: aliyunDashScopeModel,
+            vocabularyID: aliyunDashScopeVocabularyID
         )
         guard configuration.isComplete else {
             throw AliyunDashScopeRealtimeASRError.missingCredential
@@ -824,6 +835,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         groqModel = GroqCloudASRClient.defaultModel
         tencentRealtimeEngineModelType = TencentRealtimeASRConfiguration.defaultEngineModelType
         aliyunDashScopeModel = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+        aliyunDashScopeVocabularyID = ""
     }
 
     func deleteAllLocalModels(

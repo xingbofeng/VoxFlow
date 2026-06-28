@@ -4,6 +4,35 @@ import VoxFlowProviderGroq
 import XCTest
 
 final class GroqCloudASRClientTests: XCTestCase {
+    func testLiveGroqTranscriptionAcceptsPromptWhenConfigured() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        try XCTSkipUnless(
+            environment["VOICEINPUT_TEST_GROQ_LIVE"] == "1",
+            "Set VOICEINPUT_TEST_GROQ_LIVE=1 to run the real Groq transcription smoke test."
+        )
+        let apiKey = try Self.liveAPIKey(environment: environment)
+        let credentials = InMemoryGroqCredentialStore(values: ["groq-key": apiKey])
+        let client = GroqCloudASRClient(credentialStore: credentials)
+        let audioURL = try Self.repositoryRoot()
+            .appendingPathComponent("TestResources/ASRSmoke/Audio/zh_short.wav")
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: audioURL.path),
+            "Groq live smoke audio fixture is missing at \(audioURL.path)."
+        )
+
+        let result = try await client.transcribeFile(
+            CloudASRFileRequest(
+                fileURL: audioURL,
+                locale: Locale(identifier: "zh_CN"),
+                configuration: configuration(timeoutSeconds: 60),
+                prompt: "码上写, 随声写, 语音输入, VoxFlow"
+            )
+        ) { _ in }
+
+        XCTAssertFalse(result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertEqual(result.providerID, GroqCloudASRClient.defaultProviderID)
+    }
+
     func testConnectionReadsCredentialAndCallsOfficialModelsEndpoint() async throws {
         let credentials = InMemoryGroqCredentialStore(values: ["groq-key": "secret"])
         let transport = CapturingCloudASRTransport(
@@ -151,14 +180,44 @@ final class GroqCloudASRClientTests: XCTestCase {
         }
     }
 
-    private func configuration() -> CloudASRProviderConfiguration {
-            CloudASRProviderConfiguration(
+    private static func liveAPIKey(environment: [String: String]) throws -> String {
+        if let value = environment["VOICEINPUT_TEST_GROQ_API_KEY"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !value.isEmpty {
+            return value
+        }
+        let credentialsURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/VoxFlow/credentials.json")
+        let data = try Data(contentsOf: credentialsURL)
+        guard
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let value = object["asr.groq.api-key"] as? String,
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw XCTSkip("Groq API key not found in VOICEINPUT_TEST_GROQ_API_KEY or VoxFlow credentials.json.")
+        }
+        return value
+    }
+
+    private static func repositoryRoot() throws -> URL {
+        var directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        while directory.path != "/" {
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) {
+                return directory
+            }
+            directory.deleteLastPathComponent()
+        }
+        throw XCTSkip("Could not locate repository root.")
+    }
+
+    private func configuration(timeoutSeconds: Double = 30) -> CloudASRProviderConfiguration {
+        CloudASRProviderConfiguration(
             providerID: GroqCloudASRClient.defaultProviderID,
             displayName: "Groq（免费）",
             baseURL: GroqCloudASRClient.defaultBaseURL,
             model: GroqCloudASRClient.defaultModel,
             apiKeyRef: "groq-key",
-            timeoutSeconds: 30
+            timeoutSeconds: timeoutSeconds
         )
     }
 }

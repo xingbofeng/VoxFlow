@@ -4,8 +4,13 @@ import XCTest
 
 final class BrandIdentityTests: XCTestCase {
     func testProductBrandUsesVoxFlowAndChineseDisplayName() {
-        XCTAssertEqual(ProductBrand.englishName, "VoxFlow")
-        XCTAssertEqual(ProductBrand.chineseDisplayName, "码上写")
+        XCTAssertEqual(ProductBrand.englishName, Bundle.main.localizedString(forKey: "product.brand.english_name", value: "VoxFlow", table: "Localizable"))
+        XCTAssertEqual(ProductBrand.chineseDisplayName, Bundle.main.localizedString(forKey: "product.brand.chinese_display_name", value: "码上写", table: "Localizable"))
+        let preferredLocale = Bundle.main.preferredLocalizations.first ?? "en"
+        let expectedDisplayName = preferredLocale.lowercased().hasPrefix("zh")
+            ? Bundle.main.localizedString(forKey: "product.brand.chinese_display_name", value: "码上写", table: "Localizable")
+            : ProductBrand.englishName
+        XCTAssertEqual(ProductBrand.displayName, expectedDisplayName)
         XCTAssertEqual(ProductBrand.bundleIdentifier, "com.voxflow.app")
         XCTAssertEqual(ProductBrand.legacyBundleIdentifier, "com.voiceinput.app")
     }
@@ -60,16 +65,16 @@ final class BrandIdentityTests: XCTestCase {
         )
 
         XCTAssertTrue(makefile.contains("SWIFT_NATIVE_ARCH := $(shell uname -m)"))
-        XCTAssertTrue(makefile.contains("NATIVE_RELEASE_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release"))
+        XCTAssertTrue(makefile.contains("NATIVE_RELEASE_BIN_DIR := $(SWIFTPM_BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release"))
         XCTAssertTrue(makefile.contains(".PHONY:"))
         XCTAssertTrue(makefile.contains("build-native: prepare-runtime"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
         XCTAssertTrue(makefile.contains("\"$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)\""))
         XCTAssertTrue(makefile.contains("run-native: prelaunch-cleanup build-native"))
         XCTAssertTrue(makefile.contains("lipo \"$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)\" -verify_arch $(SWIFT_NATIVE_ARCH)"))
 
         XCTAssertTrue(makefile.contains("build: prepare-runtime"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch arm64"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch arm64"))
         XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
         XCTAssertTrue(makefile.contains("lipo \"$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)\" -verify_arch arm64"))
         XCTAssertTrue(makefile.contains("run: prelaunch-cleanup build"))
@@ -83,9 +88,9 @@ final class BrandIdentityTests: XCTestCase {
         let buildDevBody = try Self.makeTargetBody("build-dev", in: makefile)
 
         XCTAssertTrue(makefile.contains("SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors"))
-        XCTAssertTrue(makefile.contains("NATIVE_DEBUG_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug"))
+        XCTAssertTrue(makefile.contains("NATIVE_DEBUG_BIN_DIR := $(SWIFTPM_BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug"))
         XCTAssertTrue(makefile.contains("build-dev: prepare-runtime"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
         XCTAssertTrue(makefile.contains("\"$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)\""))
         XCTAssertTrue(makefile.contains("run-dev: prelaunch-cleanup build-dev"))
         XCTAssertTrue(buildDevBody.contains("Set :CFBundleIdentifier $(DEV_BUNDLE_ID)"))
@@ -94,10 +99,24 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("debug: prepare-runtime"))
 
         XCTAssertTrue(makefile.contains("build-native: prepare-runtime"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)"))
         XCTAssertTrue(makefile.contains("build: prepare-runtime"))
-        XCTAssertTrue(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch arm64"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch arm64"))
         XCTAssertFalse(makefile.contains("swift build $(SWIFT_RELEASE_FLAGS) --arch x86_64"))
+    }
+
+    func testAppBundleBuildsFailFastWhenPrivacyUsageDescriptionsAreMissing() throws {
+        let makefile = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
+            encoding: .utf8
+        )
+
+        for target in ["build", "build-native", "build-dev"] {
+            let body = try Self.makeTargetBody(target, in: makefile)
+
+            XCTAssertTrue(body.contains("Print :NSMicrophoneUsageDescription"))
+            XCTAssertTrue(body.contains("Print :NSSpeechRecognitionUsageDescription"))
+        }
     }
 
     func testMakefileSeparatesDevelopmentAndReleaseAppBundles() throws {
@@ -116,7 +135,9 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(buildBody.contains("$(DEV_BUNDLE_DIR)"))
         XCTAssertTrue(buildDevBody.contains("\"$(DEV_BUNDLE_DIR)/Contents/MacOS"))
         XCTAssertFalse(buildDevBody.contains("\"$(BUNDLE_DIR)/Contents/MacOS"))
-        XCTAssertTrue(runDevBody.contains("open \"$(DEV_BUNDLE_DIR)\""))
+        XCTAssertTrue(runDevBody.contains("open -n \"$(CURDIR)/$(DEV_BUNDLE_DIR)\""))
+        XCTAssertTrue(runDevBody.contains("$(CURDIR)/$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"))
+        XCTAssertTrue(runDevBody.contains("Expected dev app to launch from $(CURDIR)/$(DEV_BUNDLE_DIR)"))
         XCTAssertTrue(cleanupBody.contains("\"$(BUNDLE_DIR)\""))
         XCTAssertTrue(cleanupBody.contains("\"$(DEV_BUNDLE_DIR)\""))
         XCTAssertTrue(cleanupBody.contains("rm -rf \".build/$(APP_NAME).app\""))
@@ -222,11 +243,15 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: scriptURL.path))
         XCTAssertTrue(makefile.contains("MLX_METALLIB_SCRIPT := scripts/build-mlx-metallib.sh"))
         XCTAssertTrue(makefile.contains("MLX_METALLIB := mlx.metallib"))
+        XCTAssertTrue(makefile.contains("MLX_DEFAULT_METALLIB := default.metallib"))
         XCTAssertTrue(makefile.contains("bash \"$(MLX_METALLIB_SCRIPT)\" release"))
         XCTAssertTrue(makefile.contains("bash \"$(MLX_METALLIB_SCRIPT)\" debug"))
         XCTAssertTrue(makefile.contains("\"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("\"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)\""))
         XCTAssertTrue(makefile.contains("@test -f \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("@test -f \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)\""))
         XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)\""))
+        XCTAssertTrue(makefile.contains("codesign --force --sign \"$(CODE_SIGN_IDENTITY)\" $(CODE_SIGN_KEYCHAIN_OPTION) \"$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)\""))
     }
 
     func testMakefileSkipsSherpaBootstrapWhenRuntimeLibrariesExist() throws {
@@ -271,6 +296,8 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(makefile.contains("RENAMED_BUNDLE_ID"))
         XCTAssertTrue(makefile.contains("REQUESTED_BUNDLE_ID := com.VoxFlow.app"))
         XCTAssertTrue(makefile.contains("STATUS_ITEM_AUTOSAVE_NAMES :="))
+        XCTAssertTrue(makefile.contains("VoxFlowStatusItemMenuExtraV6"))
+        XCTAssertTrue(makefile.contains("VoxFlowStatusItemMenuExtraV5"))
         XCTAssertTrue(makefile.contains("VoxFlowStatusItem"))
         XCTAssertTrue(makefile.contains("VoxFlowStatusItemRuntime"))
         XCTAssertTrue(makefile.contains("Item-0"))

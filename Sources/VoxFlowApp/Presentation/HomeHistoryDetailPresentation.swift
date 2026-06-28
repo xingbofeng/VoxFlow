@@ -2,26 +2,26 @@ import Foundation
 import VoxFlowVoiceCorrection
 
 enum HomeHistoryDetailPresentation {
-    static let missingTraceMessage = "这条记录没有模型纠错信息。可能是当时没有开启文本纠错，或者它是在追踪功能上线前生成的。点击右上角“重新处理”，即可查看是否调用模型、发送内容和返回结果。"
+    static let missingTraceMessage = L10n.localize("home.detail.trace.missing_dictation", comment: "Missing dictation trace message")
 
     static func missingTraceMessage(for taskMode: VoiceTaskMode?) -> String {
         if taskMode == .agentDispatch {
-            return "这条AI 编程记录不会调用文本纠错模型；语音原文和生成结果已单独保留。"
+            return L10n.localize("home.detail.trace.missing_agent_dispatch", comment: "Missing agent dispatch trace message")
         }
         guard taskMode == .agentCompose else {
             return missingTraceMessage
         }
-        return "这条“任务助手”记录没有保存模型调用过程，但识别原文和生成结果仍已保留。可以使用右上角“复制结果”。"
+        return L10n.localize("home.detail.trace.missing_agent_compose", comment: "Missing agent compose trace message")
     }
 
     static func languageName(for identifier: String) -> String {
         switch identifier {
         case "zh-CN":
-            return "中文（简体）"
+            return L10n.localize("home.detail.language.zh_cn", comment: "Simplified Chinese")
         case "zh-TW":
-            return "中文（繁体）"
+            return L10n.localize("home.detail.language.zh_tw", comment: "Traditional Chinese")
         case "en-US":
-            return "英语（美国）"
+            return L10n.localize("home.detail.language.en_us", comment: "US English")
         default:
             return identifier
         }
@@ -30,41 +30,41 @@ enum HomeHistoryDetailPresentation {
     static func recognitionProviderName(for identifier: String?) -> String {
         switch identifier {
         case ASRProviderID.appleSpeech:
-            return "系统语音识别"
+            return L10n.localize("home.detail.asr.apple_speech", comment: "Apple Speech provider")
         case ASRProviderID.funASR:
-            return "FunASR 本地识别"
+            return L10n.localize("home.detail.asr.funasr", comment: "FunASR provider")
         case ASRProviderID.whisper:
-            return "Whisper 本地识别"
+            return L10n.localize("home.detail.asr.whisper", comment: "Whisper provider")
         case ASRProviderID.qwen3:
-            return "Qwen3 本地识别"
+            return L10n.localize("home.detail.asr.qwen3", comment: "Qwen3 provider")
         case ASRProviderID.paraformer:
-            return "Paraformer 本地识别"
+            return L10n.localize("home.detail.asr.paraformer", comment: "Paraformer provider")
         case ASRProviderID.senseVoice:
-            return "SenseVoice 本地识别"
+            return L10n.localize("home.detail.asr.sense_voice", comment: "SenseVoice provider")
         case ASRProviderID.nvidiaNemotron:
-            return "NVIDIA Nemotron 本地识别"
+            return L10n.localize("home.detail.asr.nvidia_nemotron", comment: "NVIDIA Nemotron provider")
         case ASRProviderID.parakeetStreaming:
-            return "Parakeet 本地识别"
+            return L10n.localize("home.detail.asr.parakeet", comment: "Parakeet provider")
         case ASRProviderID.omnilingualASR:
-            return "Omnilingual 本地识别"
+            return L10n.localize("home.detail.asr.omnilingual", comment: "Omnilingual provider")
         case ASRProviderID.groqWhisper:
-            return "Groq 云端识别"
+            return L10n.localize("home.detail.asr.groq", comment: "Groq provider")
         case ASRProviderID.tencentCloudASR:
-            return "腾讯云语音识别"
+            return L10n.localize("home.detail.asr.tencent", comment: "Tencent Cloud ASR provider")
         case ASRProviderID.qwenCloudASR:
-            return "阿里云语音识别"
+            return L10n.localize("home.detail.asr.aliyun", comment: "Aliyun ASR provider")
         case ASRProviderID.mistralVoxtral:
-            return "Mistral Voxtral 语音识别"
+            return L10n.localize("home.detail.asr.mistral_voxtral", comment: "Mistral Voxtral provider")
         case ASRProviderID.assemblyAI:
-            return "AssemblyAI 语音识别"
+            return L10n.localize("home.detail.asr.assemblyai", comment: "AssemblyAI provider")
         case ASRProviderID.volcengineDoubao:
-            return "火山云语音识别"
+            return L10n.localize("home.detail.asr.volcengine", comment: "Volcengine ASR provider")
         case ASRProviderID.elevenLabsScribe:
-            return "ElevenLabs Scribe 语音识别"
+            return L10n.localize("home.detail.asr.elevenlabs", comment: "ElevenLabs provider")
         case nil, "":
-            return "未记录"
+            return L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
         default:
-            return identifier ?? "未记录"
+            return identifier ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
         }
     }
 
@@ -77,67 +77,67 @@ enum HomeHistoryDetailPresentation {
         }
         switch providerID {
         case "legacy-openai-compatible":
-            return "智能模型纠错服务"
+            return L10n.localize("home.detail.correction.legacy_openai", comment: "Legacy OpenAI compatible correction service")
         case nil, "":
-            return "未启用"
+            return L10n.localize("home.detail.correction.disabled", comment: "Correction disabled")
         default:
-            return providerID ?? "未启用"
+            return providerID ?? L10n.localize("home.detail.correction.disabled", comment: "Correction disabled")
         }
     }
 
     static func styleName(for identifier: String?) -> String {
         switch identifier {
         case "builtin.original":
-            return "原文风格"
+            return L10n.localize("home.detail.style.original", comment: "Original style")
         case "builtin.formal":
-            return "正式风格"
+            return L10n.localize("home.detail.style.formal", comment: "Formal style")
         case "builtin.casual":
-            return "日常风格"
+            return L10n.localize("home.detail.style.casual", comment: "Casual style")
         case "builtin.energetic":
-            return "元气风格"
+            return L10n.localize("home.detail.style.energetic", comment: "Energetic style")
         case "builtin.coding":
-            return "编程风格"
+            return L10n.localize("home.detail.style.coding", comment: "Coding style")
         case "builtin.email":
-            return "邮件风格"
+            return L10n.localize("home.detail.style.email", comment: "Email style")
         case nil, "":
-            return "未选择"
+            return L10n.localize("home.detail.style.not_selected", comment: "No style selected")
         default:
-            return identifier ?? "未选择"
+            return identifier ?? L10n.localize("home.detail.style.not_selected", comment: "No style selected")
         }
     }
 
     static func durationText(milliseconds: Int?) -> String {
-        guard let milliseconds else { return "未记录" }
+        guard let milliseconds else { return L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded") }
         let seconds = Double(max(milliseconds, 0)) / 1_000
-        return String(format: "%.1f 秒", seconds)
+        return String(format: L10n.localize("home.detail.duration_seconds_format", comment: "Duration in seconds"), seconds)
     }
 
     static func contextBoostStatusText(appliedToPrompt: Bool) -> String {
-        appliedToPrompt ? "已加入提示词" : "未应用"
+        appliedToPrompt ? L10n.localize("home.detail.context.applied", comment: "Context applied") : L10n.localize("home.detail.context.not_applied", comment: "Context not applied")
     }
 
     static func contextBoostSourceName(for source: String) -> String {
         switch source {
         case "current_window_ocr":
-            return "当前窗口识别文字"
+            return L10n.localize("home.detail.context.source_current_window_ocr", comment: "Current window OCR source")
         case "screenshot_ocr":
-            return "截图识别文字"
+            return L10n.localize("home.detail.context.source_screenshot_ocr", comment: "Screenshot OCR source")
         default:
             return source
         }
     }
 
     static func contextBoostHotwordsText(_ hotwords: [String]) -> String {
-        guard !hotwords.isEmpty else { return "未提取到可用热词" }
+        guard !hotwords.isEmpty else { return L10n.localize("home.detail.context.no_hotwords", comment: "No hotwords extracted") }
         return hotwords.joined(separator: "、")
     }
 
     static func contextBoostFailureReasonText(_ reason: String) -> String {
         switch reason {
         case "no_ocr_context":
-            return "未在当前窗口识别到可用关键词"
+            return L10n.localize("home.detail.context.failure_no_ocr_context", comment: "No OCR context failure")
         case "context_boost_timeout":
-            return "图片文字识别上下文采集超时，已继续纠错"
+            return L10n.localize("home.detail.context.failure_timeout", comment: "Context boost timeout")
         default:
             return reason
         }
@@ -149,23 +149,23 @@ enum HomeHistoryDetailPresentation {
         failed: Bool
     ) -> String {
         if failed {
-            return "处理失败"
+            return L10n.localize("home.detail.voice_correction.status_failed", comment: "Voice correction failed")
         }
         if appliedCount > 0 {
-            return "已替换 \(appliedCount) 处"
+            return String(format: L10n.localize("home.detail.voice_correction.status_applied_format", comment: "Applied replacements status"), appliedCount)
         }
         if candidateCount > 0 {
-            return "命中 \(candidateCount) 条，未改写"
+            return String(format: L10n.localize("home.detail.voice_correction.status_candidates_format", comment: "Candidate hits status"), candidateCount)
         }
-        return "已检查，未命中"
+        return L10n.localize("home.detail.voice_correction.status_no_hits", comment: "No voice correction hits status")
     }
 
     static func voiceCorrectionScopeText(_ scope: RuleScope) -> String {
         switch scope {
         case .global:
-            return "全局"
+            return L10n.localize("home.detail.voice_correction.scope_global", comment: "Global scope")
         case .application(let bundleIdentifier):
-            return "应用：\(bundleIdentifier)"
+            return String(format: L10n.localize("home.detail.voice_correction.scope_application_format", comment: "Application scope"), bundleIdentifier)
         }
     }
 
@@ -173,22 +173,22 @@ enum HomeHistoryDetailPresentation {
         switch code {
         case "vision_not_supported":
             return taskMode == .agentCompose
-                ? "当前模型配置暂不支持截图视觉上下文，已仅根据口述和可读取文本生成。"
-                : "当前模型配置暂不支持视觉上下文。"
+                ? L10n.localize("home.detail.warning.vision_not_supported_agent", comment: "Vision not supported for agent compose")
+                : L10n.localize("home.detail.warning.vision_not_supported", comment: "Vision not supported")
         case "visual_fallback_timeout":
-            return "截图视觉上下文读取超时，已继续处理。"
+            return L10n.localize("home.detail.warning.visual_fallback_timeout", comment: "Visual fallback timeout")
         case "screen_recording_not_authorized":
-            return "未获得屏幕录制权限，无法读取截图视觉上下文；已仅根据口述和可读取文本生成。"
+            return L10n.localize("home.detail.warning.screen_recording_not_authorized", comment: "Screen recording not authorized")
         case "agent_llm_failed":
-            return "生成模型调用失败；原始口述已保留，可在详情中重试或复制。"
+            return L10n.localize("home.detail.warning.agent_llm_failed", comment: "Agent LLM failed")
         case "llm_refinement_failed":
-            return "模型调用失败，已保留原始识别文本。"
+            return L10n.localize("home.detail.warning.llm_refinement_failed", comment: "LLM refinement failed")
         case "llm_refinement_cancelled_by_user":
-            return "已取消文本纠错，直接使用原始识别文本。"
+            return L10n.localize("home.detail.warning.llm_refinement_cancelled", comment: "LLM refinement cancelled")
         case "context_collection_timeout":
-            return "读取当前窗口上下文超时，已仅根据口述继续。"
+            return L10n.localize("home.detail.warning.context_collection_timeout", comment: "Context collection timeout")
         case "secure_text_field_detected":
-            return "检测到安全输入区域，已跳过窗口内容读取。"
+            return L10n.localize("home.detail.warning.secure_text_field_detected", comment: "Secure text field detected")
         default:
             return code
         }
@@ -209,7 +209,7 @@ enum HomeHistoryDetailPresentation {
             return requestBodyJSON
         }
         if content.hasPrefix("[redacted:") {
-            return "默认隐私模式未保存完整请求正文。"
+            return L10n.localize("home.detail.request_json.redacted", comment: "Redacted request body")
         }
         return content
     }
@@ -226,5 +226,45 @@ enum HomeHistoryDetailPresentation {
             }
         }
         return requestBodyPreview(from: requestBodyJSON, taskMode: taskMode)
+    }
+
+    static func modelOutputPreview(
+        responseText: String?,
+        errorMessage: String?
+    ) -> String {
+        if let errorMessage, !errorMessage.isEmpty {
+            return errorMessage
+        }
+        guard let responseText, !responseText.isEmpty else {
+            return L10n.localize("home.detail.trace.empty_response", comment: "Empty model response")
+        }
+        guard let data = responseText.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return responseText
+        }
+        if let polished = json["polished"] as? String, !polished.isEmpty {
+            let correctionsCount = (json["corrections"] as? [Any])?.count ?? 0
+            let keyTermsCount = (json["key_terms"] as? [Any])?.count ?? 0
+            return [
+                "\(L10n.localize("home.detail.llm.polished", comment: "Polished result label")) \(polished)",
+                "\(L10n.localize("home.detail.llm.corrections", comment: "Corrections label")) \(correctionsCount)",
+                "\(L10n.localize("home.detail.llm.key_terms", comment: "Key terms label")) \(keyTermsCount)"
+            ].joined(separator: "\n")
+        }
+        return responseText
+    }
+
+    static func learningPair(
+        originalText: String,
+        editedText: String
+    ) -> LearnedCorrectionPair? {
+        HighConfidenceCorrectionExtractor()
+            .extract(
+                insertedText: originalText,
+                baselineText: originalText,
+                editedText: editedText,
+                appliedCorrectionRanges: []
+            )
+            .first
     }
 }

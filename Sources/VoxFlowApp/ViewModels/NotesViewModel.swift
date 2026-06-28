@@ -139,7 +139,7 @@ final class NotesViewModel: ObservableObject {
         selectedNoteID = note.id
         search(searchQuery)
         lastError = nil
-        lastActionMessage = "已创建笔记"
+        lastActionMessage = L10n.localize("notes.feedback.created", comment: "Created note")
         return note
     }
 
@@ -166,7 +166,7 @@ final class NotesViewModel: ObservableObject {
         try environment.noteRepository.save(note)
         search(searchQuery)
         lastError = nil
-        lastActionMessage = "已保存笔记"
+        lastActionMessage = L10n.localize("notes.feedback.saved", comment: "Note saved")
     }
 
     func deleteNote(id: String) throws {
@@ -182,7 +182,7 @@ final class NotesViewModel: ObservableObject {
         }
         search(searchQuery)
         lastError = nil
-        lastActionMessage = "已删除笔记"
+        lastActionMessage = L10n.localize("notes.feedback.deleted", comment: "Note deleted")
     }
 
     func selectNote(id: String) {
@@ -226,7 +226,7 @@ final class NotesViewModel: ObservableObject {
         draftBodyMarkdown = ""
         draftTagsText = ""
         lastError = nil
-        lastActionMessage = "已新建空白草稿"
+        lastActionMessage = L10n.localize("notes.feedback.created_empty_draft", comment: "Created an empty note draft")
     }
 
     @discardableResult
@@ -235,7 +235,9 @@ final class NotesViewModel: ObservableObject {
             throw NotesViewModelError.sourceNotFound
         }
         let now = environment.clock.now
-        let title = entry.targetAppName.map { "\($0) 听写" } ?? "听写记录"
+        let title = entry.targetAppName.map {
+            String(format: L10n.localize("notes.note_title.from_app_format", comment: "Note title from app name"), $0)
+        } ?? L10n.localize("notes.note_title.recording_fallback", comment: "Fallback note title for history")
         let note = NoteRecord(
             id: UUID().uuidString,
             title: title,
@@ -250,7 +252,7 @@ final class NotesViewModel: ObservableObject {
         try environment.noteRepository.save(note)
         search(searchQuery)
         lastError = nil
-        lastActionMessage = "已从历史保存笔记"
+        lastActionMessage = L10n.localize("notes.feedback.saved_from_history", comment: "Saved note from history")
         return note
     }
 
@@ -275,7 +277,7 @@ final class NotesViewModel: ObservableObject {
         try environment.noteRepository.save(note)
         search(searchQuery)
         lastError = nil
-        lastActionMessage = "已从转写保存笔记"
+        lastActionMessage = L10n.localize("notes.feedback.saved_from_transcription", comment: "Saved note from transcription")
         return note
     }
 
@@ -286,7 +288,7 @@ final class NotesViewModel: ObservableObject {
         let markdown = "# \(note.title)\n\n\(note.bodyMarkdown)"
         lastExport = markdown
         lastError = nil
-        lastActionMessage = "已生成 Markdown 导出内容"
+        lastActionMessage = L10n.localize("notes.feedback.exported_markdown", comment: "Generated markdown export content")
         return markdown
     }
 
@@ -342,7 +344,7 @@ final class NotesViewModel: ObservableObject {
         recordingState = .idle
         let text = draftBodyMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            lastError = "没有识别到可保存的内容，请重试。"
+            lastError = L10n.localize("notes.error.no_content_to_save", comment: "No recognized content to save")
             return
         }
         do {
@@ -354,7 +356,7 @@ final class NotesViewModel: ObservableObject {
             )
             draftTitle = title
             draftBodyMarkdown = text
-            lastActionMessage = "录音已保存到最近记录"
+            lastActionMessage = L10n.localize("notes.feedback.recording_saved_recently", comment: "Recording text saved to recent notes")
         } catch {
             report(error: error)
         }
@@ -374,11 +376,11 @@ final class NotesViewModel: ObservableObject {
              .copyFailed(let reason):
             return reason
         case .cancelled:
-            return "录音输出已取消。"
+            return L10n.localize("notes.error.output_cancelled", comment: "Recording output cancelled")
         case .copied:
-            return "录音文本未写入笔记。"
+            return L10n.localize("notes.error.output_not_written", comment: "Recording text not written to note")
         case .injected:
-            return "录音输出失败。"
+            return L10n.localize("notes.error.output_failed", comment: "Recording output failed")
         }
     }
 
@@ -394,7 +396,9 @@ final class NotesViewModel: ObservableObject {
 
     private func normalizedTitle(_ title: String) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "未命名笔记" : trimmed
+        return trimmed.isEmpty
+            ? L10n.localize("notes.note_title.untitled", comment: "Default note title")
+            : trimmed
     }
 
     private func normalizedTags(_ tags: [String]) -> [String] {
@@ -420,9 +424,9 @@ enum NotesViewModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noteNotFound:
-            return "笔记不存在。"
+            return L10n.localize("notes.error.not_found", comment: "Note does not exist")
         case .sourceNotFound:
-            return "来源内容不存在。"
+            return L10n.localize("notes.error.source_not_found", comment: "Source content not found")
         }
     }
 }

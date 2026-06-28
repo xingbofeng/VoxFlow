@@ -51,6 +51,18 @@ final class UpdatePromptPresentationStore: ObservableObject {
 @MainActor
 final class UpdatePromptPresenter: UpdatePromptPresenting {
     private let presentationStore: UpdatePromptPresentationStore?
+    private var actionDownloadTitle: String {
+        L10n.localize("updates.prompt.action.download", comment: "Download update button title")
+    }
+    private var actionRemindTomorrowTitle: String {
+        L10n.localize("updates.prompt.action.remind_tomorrow", comment: "Remind tomorrow button title")
+    }
+    private var actionIgnoreTitle: String {
+        L10n.localize("updates.prompt.action.ignore", comment: "Ignore this version button title")
+    }
+    private var actionDismissTitle: String {
+        L10n.localize("updates.prompt.action.ok", comment: "Generic OK button title")
+    }
 
     init(presentationStore: UpdatePromptPresentationStore? = nil) {
         self.presentationStore = presentationStore
@@ -58,12 +70,12 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
 
     func presentUpdateAvailable(release: RemoteRelease, currentVersion: String) async -> UpdatePromptAction {
         let presentation = UpdatePromptPresentation(
-            title: "发现新版本 VoxFlow \(release.version)",
+            title: "\(L10n.localize("updates.prompt.available_title", comment: "Update available title")) \(release.version)",
             message: Self.informativeText(for: release, currentVersion: currentVersion),
             iconName: "arrow.down.circle.fill",
-            primaryTitle: "下载更新",
-            secondaryTitle: "明天提醒",
-            destructiveTitle: "跳过此版本"
+            primaryTitle: actionDownloadTitle,
+            secondaryTitle: actionRemindTomorrowTitle,
+            destructiveTitle: actionIgnoreTitle
         )
         let action = await present(presentation)
         if action == .download {
@@ -75,10 +87,10 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
     func presentUpToDate(currentVersion: String) async {
         _ = await present(
             UpdatePromptPresentation(
-                title: "当前已是最新版",
-                message: "VoxFlow \(currentVersion) 已是当前稳定版本。",
+                title: L10n.localize("updates.prompt.up_to_date_title", comment: "Up to date title"),
+                message: "\(L10n.localize("updates.prompt.up_to_date_message", comment: "Up to date message")) \(currentVersion)",
                 iconName: "checkmark.circle.fill",
-                primaryTitle: "好",
+                primaryTitle: actionDismissTitle,
                 secondaryTitle: nil,
                 destructiveTitle: nil
             )
@@ -88,10 +100,10 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
     func presentFailure() async {
         _ = await present(
             UpdatePromptPresentation(
-                title: "检查更新失败",
-                message: "暂时无法获取最新版本信息，请稍后再试。",
+                title: L10n.localize("updates.prompt.failure_title", comment: "Update check failed title"),
+                message: L10n.localize("updates.prompt.failure_message", comment: "Update check failed message"),
                 iconName: "exclamationmark.triangle.fill",
-                primaryTitle: "好",
+                primaryTitle: actionDismissTitle,
                 secondaryTitle: nil,
                 destructiveTitle: nil
             )
@@ -112,10 +124,13 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
 
     private static func informativeText(for release: RemoteRelease, currentVersion: String) -> String {
         let notes = release.releaseNotes.trimmingCharacters(in: .whitespacesAndNewlines)
-        let summary = notes.isEmpty ? "打开发布页查看详细更新内容。" : String(notes.prefix(600))
+        let noNotesMessage = L10n.localize("updates.prompt.no_summary_fallback", comment: "No release notes fallback message")
+        let summary = notes.isEmpty ? noNotesMessage : String(notes.prefix(600))
+        let currentVersionLine = "\(L10n.localize("updates.prompt.current_version_prefix", comment: "Current version label")) \(currentVersion)"
+        let latestVersionLine = "\(L10n.localize("updates.prompt.latest_version_prefix", comment: "Latest version label")) \(release.version)"
         return """
-        当前版本：\(currentVersion)
-        最新版本：\(release.version)
+        \(currentVersionLine)
+        \(latestVersionLine)
 
         \(summary)
         """
@@ -143,7 +158,7 @@ private final class UpdatePromptWindowController: NSWindowController, NSWindowDe
             backing: .buffered,
             defer: false
         )
-        window.title = "VoxFlow 更新"
+        window.title = L10n.localize("updates.prompt.window_title", comment: "Update prompt window title")
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.delegate = self
@@ -261,7 +276,8 @@ private struct UpdatePromptView: View {
                     }
 
                     Button(presentation.primaryTitle) {
-                        onAction(presentation.primaryTitle == "下载更新" ? .download : .remindNextTime)
+                        let localizedDownloadTitle = L10n.localize("updates.prompt.action.download", comment: "Download update button title")
+                        onAction(presentation.primaryTitle == localizedDownloadTitle ? .download : .remindNextTime)
                     }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
@@ -280,8 +296,8 @@ private struct UpdatePromptView: View {
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("关闭")
-            .help("关闭，下次提醒")
+            .accessibilityLabel(L10n.localize("updates.prompt.close_accessibility", comment: "Close button accessibility text"))
+            .help(L10n.localize("updates.prompt.close_help", comment: "Close button helper text"))
             .padding(16)
         }
         .frame(width: 480)

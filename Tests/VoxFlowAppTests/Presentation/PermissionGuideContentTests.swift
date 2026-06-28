@@ -11,9 +11,17 @@ final class PermissionGuideContentTests: XCTestCase {
             engineType: .qwen3
         )
 
-        XCTAssertEqual(items.map(\.title), ["辅助功能", "麦克风", "语音识别", "屏幕录制"])
+        XCTAssertEqual(
+            items.map(\.title),
+            [
+                L10n.localize("permission.item.accessibility_title"),
+                L10n.localize("permission.item.microphone_title"),
+                L10n.localize("permission.item.speech_title"),
+                L10n.localize("permission.item.screen_recording_title")
+            ]
+        )
         XCTAssertEqual(items.map(\.granted), [true, true, false, false])
-        XCTAssertEqual(items[2].status, "未授权")
+        XCTAssertEqual(items[2].status, L10n.localize("permission.status.denied"))
         XCTAssertEqual(
             items[0].settingsURL,
             PermissionGuideContent.systemSettingsURL(for: .accessibility)
@@ -30,8 +38,14 @@ final class PermissionGuideContentTests: XCTestCase {
             speechPermission: .granted
         )
 
-        XCTAssertEqual(items.map(\.title), ["麦克风", "语音识别"])
-        XCTAssertEqual(items.map(\.status), ["未授权", "已授权"])
+        XCTAssertEqual(items.map(\.title), [
+            L10n.localize("permission.item.microphone_title"),
+            L10n.localize("permission.item.speech_title"),
+        ])
+        XCTAssertEqual(items.map(\.status), [
+            L10n.localize("permission.status.denied"),
+            L10n.localize("permission.status.granted"),
+        ])
         XCTAssertEqual(items.map(\.granted), [false, true])
     }
 

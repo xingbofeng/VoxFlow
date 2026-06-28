@@ -14,12 +14,12 @@ VoxFlow 将工作台相关数据保存在 SQLite 中，默认路径为：
 
 LLM Provider 的 API Key 通过 `KeychainCredentialStore` 存入 macOS Keychain。
 
-Groq、腾讯云、阿里云等云端 ASR 凭据按当前产品设计保存在本地 SQLite 设置表中，便于在模型设置页直接查看、更新和删除。它们不会写入 UserDefaults、日志、测试快照或导出归档。
+Groq、腾讯云、阿里云等云端 ASR 凭据按当前产品设计保存在本地凭据文件 `~/Library/Application Support/VoxFlow/credentials.json` 中，便于在模型设置页直接查看、更新和删除。它们不会写入 UserDefaults、SQLite、日志、测试快照或导出归档。
 
 VoxFlow 不应把 API Key 存到以下位置：
 
 - `UserDefaults`
-- SQLite（云端 ASR 凭据除外）
+- SQLite
 - 日志
 - 测试快照
 - 导出归档

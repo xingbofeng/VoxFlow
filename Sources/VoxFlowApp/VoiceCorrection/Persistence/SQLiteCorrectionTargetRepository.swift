@@ -21,8 +21,9 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
                 INSERT INTO voice_correction_targets (
                     id, text, normalized_text, scope_type, scope_value,
                     lifecycle, source, observed_count, applied_count, reverted_count,
-                    created_at, updated_at, last_applied_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, last_applied_at,
+                    hit_count, is_blocklisted, last_hit_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     text = excluded.text,
                     normalized_text = excluded.normalized_text,
@@ -34,7 +35,10 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
                     applied_count = excluded.applied_count,
                     reverted_count = excluded.reverted_count,
                     updated_at = excluded.updated_at,
-                    last_applied_at = excluded.last_applied_at
+                    last_applied_at = excluded.last_applied_at,
+                    hit_count = excluded.hit_count,
+                    is_blocklisted = excluded.is_blocklisted,
+                    last_hit_at = excluded.last_hit_at
                 """
             )
             try bind(record, to: statement)
@@ -85,6 +89,175 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
         Self.logger.info("correction_target_repo_delete_success id=\(id)")
     }
 
+    // MARK: - Hotword methods
+
+    func listHotwords() throws -> [CorrectionTargetTerm] {
+        Self.logger.debug("hotword_repo_list_start")
+        let hotwords = try databaseQueue.read { connection in
+            let statement = try connection.prepare(
+                selectSQL + """
+                 WHERE lifecycle = 'active' AND is_blocklisted = 0
+                 ORDER BY
+                    (CASE source WHEN 'manual' THEN 0 WHEN 'imported' THEN 1 ELSE 2 END) ASC,
+                    hit_count DESC,
+                    last_hit_at DESC,
+                    updated_at DESC,
+                    text COLLATE NOCASE ASC
+                """
+            )
+            var hotwords: [CorrectionTargetTerm] = []
+            while try statement.step() {
+                hotwords.append(try row(from: statement))
+            }
+            return hotwords
+        }
+        Self.logger.debug("hotword_repo_list_done count=\(hotwords.count)")
+        return hotwords
+    }
+
+    func blocklist(id: UUID) throws {
+        Self.logger.debug("hotword_repo_blocklist_start id=\(id)")
+        try databaseQueue.write { connection in
+            let statement = try connection.prepare(
+                """
+                UPDATE voice_correction_targets
+                SET is_blocklisted = 1, updated_at = ?
+                WHERE id = ?
+                """
+            )
+            try statement.bind(formatter.string(from: Date()), at: 1)
+            try statement.bind(id.uuidString, at: 2)
+            _ = try statement.step()
+        }
+        Self.logger.info("hotword_repo_blocklist_success id=\(id)")
+    }
+
+    @discardableResult
+    func saveHotwordIfNotBlocklisted(_ target: CorrectionTargetTerm) throws -> Bool {
+        let normalized = target.normalizedText
+        let existing = try existingTarget(normalizedText: normalized, scope: target.scope)
+        if existing?.isBlocklisted == true {
+            Self.logger.info("hotword_repo_save_skipped_blocklisted normalized=\(normalized)")
+            return false
+        }
+        if var existing {
+            existing.text = target.text
+            existing.lifecycle = .active
+            existing.source = target.source
+            existing.observedCount = max(existing.observedCount, target.observedCount)
+            existing.updatedAt = Date()
+            try save(existing)
+            return true
+        }
+        try save(target)
+        return true
+    }
+
+    func listLearningCandidates(limit: Int) throws -> [CorrectionTargetTerm] {
+        Self.logger.debug("hotword_repo_learning_candidates_start limit=\(limit)")
+        guard limit > 0 else { return [] }
+        let candidates = try databaseQueue.read { connection in
+            let statement = try connection.prepare(
+                selectSQL + """
+                 WHERE lifecycle = 'candidate'
+                   AND source = 'automaticLearning'
+                   AND is_blocklisted = 0
+                 ORDER BY observed_count DESC, updated_at DESC, text COLLATE NOCASE ASC
+                 LIMIT ?
+                """
+            )
+            try statement.bind(limit, at: 1)
+            var candidates: [CorrectionTargetTerm] = []
+            while try statement.step() {
+                candidates.append(try row(from: statement))
+            }
+            return candidates
+        }
+        Self.logger.debug("hotword_repo_learning_candidates_done count=\(candidates.count)")
+        return candidates
+    }
+
+    @discardableResult
+    func recordKeyTermObservation(_ term: String, now: Date) throws -> CorrectionTargetTerm? {
+        let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = CorrectionTargetTerm.normalize(trimmed)
+        if let existing = try existingTarget(normalizedText: normalized, scope: .global),
+           existing.isBlocklisted {
+            Self.logger.info("hotword_repo_observation_skipped_blocklisted normalized=\(normalized)")
+            return existing
+        }
+
+        let nowText = formatter.string(from: now)
+        try databaseQueue.write { connection in
+            let statement = try connection.prepare(
+                """
+                INSERT INTO voice_correction_targets (
+                    id, text, normalized_text, scope_type, scope_value,
+                    lifecycle, source, observed_count, applied_count, reverted_count,
+                    created_at, updated_at, last_applied_at,
+                    hit_count, is_blocklisted, last_hit_at
+                ) VALUES (?, ?, ?, 'global', NULL, 'candidate', 'automaticLearning', 1, 0, 0, ?, ?, NULL, 0, 0, NULL)
+                ON CONFLICT(scope_type, IFNULL(scope_value, ''), normalized_text) DO UPDATE SET
+                    text = excluded.text,
+                    observed_count = observed_count + 1,
+                    updated_at = excluded.updated_at
+                """
+            )
+            try statement.bind(UUID().uuidString, at: 1)
+            try statement.bind(trimmed, at: 2)
+            try statement.bind(normalized, at: 3)
+            try statement.bind(nowText, at: 4)
+            try statement.bind(nowText, at: 5)
+            _ = try statement.step()
+        }
+        return try existingTarget(normalizedText: normalized, scope: .global)
+    }
+
+    func unblocklist(normalizedText: String) throws {
+        Self.logger.debug("hotword_repo_unblocklist_start normalized=\(normalizedText)")
+        try databaseQueue.write { connection in
+            let statement = try connection.prepare(
+                """
+                UPDATE voice_correction_targets
+                SET is_blocklisted = 0, updated_at = ?
+                WHERE normalized_text = ?
+                """
+            )
+            try statement.bind(formatter.string(from: Date()), at: 1)
+            try statement.bind(normalizedText, at: 2)
+            _ = try statement.step()
+        }
+        Self.logger.info("hotword_repo_unblocklist_success normalized=\(normalizedText)")
+    }
+
+    private func existingTarget(
+        normalizedText: String,
+        scope: RuleScope
+    ) throws -> CorrectionTargetTerm? {
+        try databaseQueue.read { connection -> CorrectionTargetTerm? in
+            let statement = try connection.prepare(
+                selectSQL + """
+                 WHERE scope_type = ?
+                   AND IFNULL(scope_value, '') = ?
+                   AND normalized_text = ? COLLATE NOCASE
+                 LIMIT 1
+                """
+            )
+            switch scope {
+            case .global:
+                try statement.bind("global", at: 1)
+                try statement.bind("", at: 2)
+            case .application(let bundleIdentifier):
+                try statement.bind("application", at: 1)
+                try statement.bind(bundleIdentifier, at: 2)
+            }
+            try statement.bind(normalizedText, at: 3)
+            guard try statement.step() else { return nil }
+            return try row(from: statement)
+        }
+    }
+
     private func bind(
         _ record: CorrectionTargetRecord,
         to statement: SQLiteStatement
@@ -103,6 +276,9 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
         try statement.bind(formatter.string(from: target.createdAt), at: 11)
         try statement.bind(formatter.string(from: target.updatedAt), at: 12)
         try statement.bind(target.lastAppliedAt.map(formatter.string(from:)), at: 13)
+        try statement.bind(target.hitCount, at: 14)
+        try statement.bind(target.isBlocklisted ? 1 : 0, at: 15)
+        try statement.bind(target.lastHitAt.map(formatter.string(from:)), at: 16)
     }
 
     private func row(from statement: SQLiteStatement) throws -> CorrectionTargetTerm {
@@ -151,7 +327,10 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
             revertedCount: statement.columnInt(at: 9),
             createdAt: createdAt,
             updatedAt: updatedAt,
-            lastAppliedAt: statement.columnString(at: 12).flatMap(formatter.date(from:))
+            lastAppliedAt: statement.columnString(at: 12).flatMap(formatter.date(from:)),
+            hitCount: statement.columnInt(at: 13),
+            isBlocklisted: statement.columnInt(at: 14) != 0,
+            lastHitAt: statement.columnString(at: 15).flatMap(formatter.date(from:))
         )
     }
 
@@ -159,7 +338,8 @@ final class SQLiteCorrectionTargetRepository: CorrectionTargetRepository {
         """
         SELECT id, text, normalized_text, scope_type, scope_value,
                lifecycle, source, observed_count, applied_count, reverted_count,
-               created_at, updated_at, last_applied_at
+               created_at, updated_at, last_applied_at,
+               hit_count, is_blocklisted, last_hit_at
         FROM voice_correction_targets
         """
     }

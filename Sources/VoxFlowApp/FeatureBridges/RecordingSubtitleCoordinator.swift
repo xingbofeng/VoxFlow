@@ -119,7 +119,7 @@ final class RecordingSubtitleCoordinator {
             return
         }
         guard let videoPath = record.videoPath else {
-            await failGeneration(recordID: recordID, message: "录屏视频文件缺失")
+            await failGeneration(recordID: recordID, message: L10n.localize("subtitle.error.recording_video_missing", comment: ""))
             return
         }
 
@@ -243,11 +243,11 @@ final class RecordingSubtitleCoordinator {
     private func performBurn(recordID: String) async {
         guard let record = try? repository.record(id: recordID) else { return }
         guard let draft = try? draftStore.load(mediaID: recordID) else {
-            await failBurn(recordID: recordID, message: "字幕草稿缺失")
+            await failBurn(recordID: recordID, message: L10n.localize("subtitle.error.draft_missing", comment: ""))
             return
         }
         guard let videoPath = record.videoPath else {
-            await failBurn(recordID: recordID, message: "录屏视频文件缺失")
+            await failBurn(recordID: recordID, message: L10n.localize("subtitle.error.recording_video_missing", comment: ""))
             return
         }
         let outputURL = paths.recordingSubtitledVideoURL(forID: recordID)

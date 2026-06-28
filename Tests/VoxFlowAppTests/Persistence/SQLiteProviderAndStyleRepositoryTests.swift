@@ -53,6 +53,31 @@ final class SQLiteProviderAndStyleRepositoryTests: XCTestCase {
         XCTAssertEqual(try styles.list(category: "work").map(\.id), ["coding"])
     }
 
+    func testStyleRepositoryReadsLegacyRowWithFractionalSecondTimestamp() throws {
+        // 历史上 style_profiles 可能被外部（旧版代码、Python 维护脚本等）写过带毫秒的 ISO8601 时间戳，
+        // 仅靠默认 ISO8601DateFormatter 解析会失败并让整个持久化层标 unavailable。
+        // 读取路径必须兼容这种历史脏数据。
+        try queue.write { connection in
+            try connection.execute(
+                """
+                INSERT INTO style_profiles (id, name, category, subtitle, mode, prompt, sample_input,
+                                            sample_output, llm_provider_id, model, temperature, enabled,
+                                            built_in, is_default, created_at, updated_at)
+                VALUES ('legacy', 'legacy', 'work', NULL, 'conservative', 'p', NULL, NULL, NULL, NULL, 0.0, 1, 0, 0,
+                        '2026-06-18T06:31:59Z', '2026-06-28T19:07:59.200Z')
+                """
+            )
+        }
+
+        let profiles = try styles.list(category: nil)
+        let legacy = try XCTUnwrap(profiles.first { $0.id == "legacy" })
+        XCTAssertEqual(
+            legacy.updatedAt.timeIntervalSince1970,
+            Date(timeIntervalSince1970: 1_782_673_679).timeIntervalSince1970,
+            accuracy: 1
+        )
+    }
+
     func testProviderRepositoriesStoreProviderMetadataWithoutPlaintextKey() throws {
         try asrProviders.save(
             ASRProviderRecord(

@@ -11,13 +11,25 @@ enum ScreenshotImageStorageError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .bitmapRepCreationFailed:
-            return "无法创建图片位图表示"
+            return L10n.localize("screenshot.image_storage.error.bitmap_rep_failed", comment: "")
         case .pngEncodingFailed:
-            return "PNG 编码失败"
+            return L10n.localize("screenshot.image_storage.error.png_encode_failed", comment: "")
         case .writeFailed(let reason):
-            return "写入截图文件失败: \(reason)"
+            return String(
+                format: L10n.localize(
+                    "screenshot.image_storage.error.write_failed",
+                    comment: ""
+                ),
+                reason
+            )
         case .deleteFailed(let reason):
-            return "删除截图文件失败: \(reason)"
+            return String(
+                format: L10n.localize(
+                    "screenshot.image_storage.error.delete_failed",
+                    comment: ""
+                ),
+                reason
+            )
         }
     }
 }

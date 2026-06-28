@@ -19,9 +19,11 @@ protocol AppServiceProviding {
     var subtitleCoordinator: RecordingSubtitleCoordinator? { get }
     var settingsRepository: any SettingsRepository { get }
     var correctionTargetRepository: any CorrectionTargetRepository { get }
+    var correctionEvidenceRepository: any CorrectionEvidenceRepository { get }
     var correctionRuleRepository: any CorrectionRuleRepository { get }
     var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { get }
     var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { get }
+    var hotwordFileSyncService: HotwordFileSyncService? { get }
 }
 
 protocol AppEventRouting {

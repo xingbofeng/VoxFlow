@@ -255,31 +255,31 @@ public struct AnnotationEditorView: View {
 
     private var toolbar: some View {
         HStack(spacing: 4) {
-            toolButton(.select, systemName: "cursorarrow", help: "选择")
-            toolButton(.pen, systemName: "pencil.tip", help: "画笔")
-            toolButton(.ellipse, systemName: "circle", help: "圈注")
-            toolButton(.rectangle, systemName: "rectangle", help: "矩形")
-            toolButton(.arrow, systemName: "arrow.up.right", help: "箭头")
-            toolButton(.dotMarker, systemName: "smallcircle.filled.circle", help: "标记点")
-            toolButton(.numberedMarker, systemName: "1.circle", help: "数字点")
-            toolButton(.text, systemName: "t.square", help: "文字")
-            toolButton(.mosaic, systemName: "checkerboard.rectangle", help: "马赛克")
+            toolButton(.select, systemName: "cursorarrow", help: ScreenshotL10n.ScreenshotKit.Toolbar.select)
+            toolButton(.pen, systemName: "pencil.tip", help: ScreenshotL10n.ScreenshotKit.Toolbar.pen)
+            toolButton(.ellipse, systemName: "circle", help: ScreenshotL10n.ScreenshotKit.Toolbar.circle)
+            toolButton(.rectangle, systemName: "rectangle", help: ScreenshotL10n.ScreenshotKit.Toolbar.rectangle)
+            toolButton(.arrow, systemName: "arrow.up.right", help: ScreenshotL10n.ScreenshotKit.Toolbar.arrow)
+            toolButton(.dotMarker, systemName: "smallcircle.filled.circle", help: ScreenshotL10n.ScreenshotKit.Toolbar.pointMarker)
+            toolButton(.numberedMarker, systemName: "1.circle", help: ScreenshotL10n.ScreenshotKit.Toolbar.numberedMarker)
+            toolButton(.text, systemName: "t.square", help: ScreenshotL10n.ScreenshotKit.Toolbar.text)
+            toolButton(.mosaic, systemName: "checkerboard.rectangle", help: ScreenshotL10n.ScreenshotKit.Toolbar.mosaic)
             Divider().frame(height: 18)
             colorButton
             lineWidthButton
             fontSizeButton
-            commandButton(systemName: "doc.on.doc", help: "复制", action: viewModel.copySelectedElement)
-            commandButton(systemName: "doc.on.clipboard", help: "粘贴") {
+            commandButton(systemName: "doc.on.doc", help: ScreenshotL10n.ScreenshotKit.Toolbar.copy, action: viewModel.copySelectedElement)
+            commandButton(systemName: "doc.on.clipboard", help: ScreenshotL10n.ScreenshotKit.Toolbar.paste) {
                 viewModel.pasteCopiedElement()
             }
-            commandButton(systemName: "plus.square.on.square", help: "复制一份") {
+            commandButton(systemName: "plus.square.on.square", help: ScreenshotL10n.ScreenshotKit.Toolbar.duplicate) {
                 viewModel.duplicateSelectedElement()
             }
-            commandButton(systemName: "square.and.arrow.down", help: "下载", action: download)
-            commandButton(systemName: "arrow.uturn.backward", help: "撤销", action: viewModel.undo)
-            commandButton(systemName: "arrow.uturn.forward", help: "重做", action: viewModel.redo)
-            commandButton(systemName: "xmark", help: "取消", action: cancel)
-            commandButton(systemName: "checkmark", help: "完成", action: complete)
+            commandButton(systemName: "square.and.arrow.down", help: ScreenshotL10n.ScreenshotKit.Toolbar.download, action: download)
+            commandButton(systemName: "arrow.uturn.backward", help: ScreenshotL10n.ScreenshotKit.Toolbar.undo, action: viewModel.undo)
+            commandButton(systemName: "arrow.uturn.forward", help: ScreenshotL10n.ScreenshotKit.Toolbar.redo, action: viewModel.redo)
+            commandButton(systemName: "xmark", help: ScreenshotL10n.ScreenshotKit.Toolbar.cancel, action: cancel)
+            commandButton(systemName: "checkmark", help: ScreenshotL10n.ScreenshotKit.Toolbar.complete, action: complete)
         }
         .buttonStyle(.plain)
         .font(.system(size: 14, weight: .semibold))
@@ -322,7 +322,7 @@ public struct AnnotationEditorView: View {
     }
 
     private var colorButton: some View {
-        styleStateButton(help: "颜色", action: cycleColor) {
+        styleStateButton(help: ScreenshotL10n.ScreenshotKit.Toolbar.color, action: cycleColor) {
             Circle()
                 .fill(viewModel.currentStyle.color.swiftUIColor)
                 .frame(width: 16, height: 16)
@@ -333,7 +333,7 @@ public struct AnnotationEditorView: View {
     }
 
     private var lineWidthButton: some View {
-        styleStateButton(help: "线宽", action: cycleLineWidth) {
+        styleStateButton(help: ScreenshotL10n.ScreenshotKit.Toolbar.lineWidth, action: cycleLineWidth) {
             Text("\(Int(viewModel.currentStyle.lineWidth))")
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: Self.toolbarItemSize, height: Self.toolbarItemSize)
@@ -341,7 +341,7 @@ public struct AnnotationEditorView: View {
     }
 
     private var fontSizeButton: some View {
-        styleStateButton(help: "字号", action: cycleFontSize) {
+        styleStateButton(help: ScreenshotL10n.ScreenshotKit.Toolbar.fontSize, action: cycleFontSize) {
             Text(Self.fontSizeLabel(for: viewModel.currentTextStyle.fontSize))
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: Self.toolbarItemSize, height: Self.toolbarItemSize)
@@ -381,7 +381,13 @@ public struct AnnotationEditorView: View {
 
     /// 与 SelectionOverlayController.popoverFontSizes / popoverFontSizeLabels 保持同步。
     static let fontSizeOptions: [CGFloat] = [14, 24, 32]
-    static let fontSizeOptionLabels: [String] = ["小", "中", "大"]
+    static var fontSizeOptionLabels: [String] {
+        [
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.small,
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.medium,
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.large,
+        ]
+    }
 
     static func fontSizeLabel(for size: CGFloat) -> String {
         if let idx = fontSizeOptions.firstIndex(where: { abs($0 - size) < 0.01 }) {
@@ -483,7 +489,7 @@ public struct AnnotationEditorView: View {
     private func textEditorSize(for draft: TextEditingDraft) -> CGSize {
         let font = NSFont(name: draft.style.fontName, size: draft.style.fontSize)
             ?? .systemFont(ofSize: draft.style.fontSize)
-        let displayText = draft.displayText.isEmpty ? "中文标注" : draft.displayText
+        let displayText = draft.displayText.isEmpty ? ScreenshotL10n.ScreenshotKit.Annotation.Text.placeholder : draft.displayText
         let width = (displayText as NSString).size(withAttributes: [.font: font]).width + 28
         return CGSize(
             width: max(140, ceil(width)),

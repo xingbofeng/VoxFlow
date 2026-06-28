@@ -31,11 +31,11 @@ enum ScreenshotRecordFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: return "全部"
-        case .today: return "今天"
-        case .thisWeek: return "本周"
-        case .thisMonth: return "本月"
-        case .favorites: return "收藏"
+        case .all: return L10n.localize("asset.screenshot_filter.all", comment: "")
+        case .today: return L10n.localize("asset.screenshot_filter.today", comment: "")
+        case .thisWeek: return L10n.localize("asset.screenshot_filter.this_week", comment: "")
+        case .thisMonth: return L10n.localize("asset.screenshot_filter.this_month", comment: "")
+        case .favorites: return L10n.localize("asset.screenshot_filter.favorites", comment: "")
         }
     }
 }

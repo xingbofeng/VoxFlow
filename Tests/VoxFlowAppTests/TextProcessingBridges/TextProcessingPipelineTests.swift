@@ -82,7 +82,7 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(refiner.requests.map(\.text), ["配森"])
         XCTAssertEqual(refiner.requests.first?.model, "model-a")
         XCTAssertEqual(refiner.requests.first?.temperature, 0.2)
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("编程") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Vibe Coding") == true)
     }
 
     func testPipelineSelectsStyleByTargetApplicationRule() async throws {
@@ -109,7 +109,8 @@ final class TextProcessingPipelineTests: XCTestCase {
         )
 
         XCTAssertEqual(result.styleID, "builtin.email")
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("邮件") == true)
+        let emailStyle = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.email"))
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(emailStyle.prompt) == true)
     }
 
     func testPipelineUsesRequestLocalTraceWhenRefinerProvidesIt() async {
@@ -516,8 +517,283 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertTrue(result.warnings.contains("llm_refinement_rejected"))
     }
 
+    func testStructuredPipelineUsesPolishedTextAndInjectsHotwordsIntoPrompt() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        try repository.save(CorrectionTargetTerm(text: "VoxFlow", lifecycle: .active, source: .manual))
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"使用 VoxFlow","corrections":[],"key_terms":[]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            correctionTargetRepository: repository
+        )
+
+        let result = await pipeline.process(
+            "使用 vox flow",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(result.finalText, "使用 VoxFlow")
+        XCTAssertEqual(result.warnings, [])
+        let systemPrompt = try XCTUnwrap(refiner.requests.first?.systemPrompt)
+        XCTAssertTrue(systemPrompt.contains("user_terms"))
+        XCTAssertTrue(systemPrompt.contains("VoxFlow"))
+        XCTAssertTrue(systemPrompt.contains("应用：Editor"))
+    }
+
+    func testStructuredPipelineInjectsRelevantKnownCorrectionsIntoPrompt() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let evidenceRepository = SQLiteCorrectionEvidenceRepository(databaseQueue: queue)
+        try evidenceRepository.upsert(
+            StructuredCorrection(original: "口子空间", corrected: "扣子空间", type: .term)
+        )
+        try evidenceRepository.upsert(
+            StructuredCorrection(original: "陈瑞", corrected: "陈睿", type: .homophone)
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"打开扣子空间","corrections":[],"key_terms":[]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            correctionEvidenceRepository: evidenceRepository
+        )
+
+        _ = await pipeline.process(
+            "打开口子空间",
+            target: nil,
+            correctionContext: Self.dictationContext()
+        )
+
+        let systemPrompt = try XCTUnwrap(refiner.requests.first?.systemPrompt)
+        XCTAssertTrue(systemPrompt.contains("known_corrections"))
+        XCTAssertTrue(systemPrompt.contains("口子空间 -> 扣子空间"))
+        XCTAssertFalse(systemPrompt.contains("陈瑞 -> 陈睿"))
+    }
+
+    func testStructuredPipelinePromotesRepeatedKeyTermsToHotwords() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        let learningService = StructuredCorrectionLearningService(
+            repository: repository,
+            termCounter: RepositoryBackedKeyTermCounter(repository: repository)
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"PostgreSQL","corrections":[],"key_terms":["PostgreSQL"]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: learningService,
+            correctionTargetRepository: repository
+        )
+
+        for _ in 0..<StructuredCorrectionLearningService.promotionThreshold {
+            _ = await pipeline.process(
+                "post grace q l",
+                target: nil,
+                correctionContext: Self.dictationContext()
+            )
+        }
+
+        let hotwords = try repository.listHotwords().map(\.text)
+        XCTAssertTrue(hotwords.contains("PostgreSQL"))
+    }
+
+    func testStructuredPipelinePostsVocabularyChangeWhenKeyTermEntersDrawer() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        let learningService = StructuredCorrectionLearningService(
+            repository: repository,
+            termCounter: RepositoryBackedKeyTermCounter(repository: repository)
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"PostgreSQL","corrections":[],"key_terms":["PostgreSQL"]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: learningService,
+            correctionTargetRepository: repository
+        )
+
+        _ = await pipeline.process(
+            "post grace q l",
+            target: nil,
+            correctionContext: Self.dictationContext()
+        )
+
+        let didNotify = expectation(description: "structured learning notifies vocabulary UI")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .correctionVocabularyDidChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            didNotify.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        _ = await pipeline.process(
+            "post grace q l",
+            target: nil,
+            correctionContext: Self.dictationContext()
+        )
+
+        await fulfillment(of: [didNotify], timeout: 1)
+        XCTAssertEqual(try repository.listLearningCandidates(limit: 10).map(\.text), ["PostgreSQL"])
+    }
+
+    func testStructuredPipelinePostsVocabularyChangeWhenFirstKeyTermObservationCreatesCandidate() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        let learningService = StructuredCorrectionLearningService(
+            repository: repository,
+            termCounter: RepositoryBackedKeyTermCounter(repository: repository)
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"QQ","corrections":[],"key_terms":["QQ"]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: learningService,
+            correctionTargetRepository: repository
+        )
+
+        let didNotify = expectation(description: "first structured key term observation notifies vocabulary UI")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .correctionVocabularyDidChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            didNotify.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        _ = await pipeline.process(
+            "扣扣",
+            target: nil,
+            correctionContext: Self.dictationContext()
+        )
+
+        await fulfillment(of: [didNotify], timeout: 1)
+        XCTAssertEqual(try repository.listLearningCandidates(limit: 10).map(\.text), ["QQ"])
+    }
+
+    func testStructuredPipelineWritesPromotedHotwordsToFile() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        let learningService = StructuredCorrectionLearningService(
+            repository: repository,
+            termCounter: InMemoryKeyTermCounter()
+        )
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let fileSyncService = HotwordFileSyncService(
+            fileURL: tempDirectory.appendingPathComponent("hotwords.txt"),
+            repository: repository,
+            writebackQueue: DispatchQueue(label: "test.hotwords.pipeline.writeback"),
+            writebackDelay: 0
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"PostgreSQL","corrections":[],"key_terms":["PostgreSQL"]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: learningService,
+            correctionTargetRepository: repository,
+            hotwordFileSyncService: fileSyncService
+        )
+
+        for _ in 0..<StructuredCorrectionLearningService.promotionThreshold {
+            _ = await pipeline.process(
+                "post grace q l",
+                target: nil,
+                correctionContext: Self.dictationContext()
+            )
+        }
+
+        let fileURL = tempDirectory.appendingPathComponent("hotwords.txt")
+        let content = try await waitForFileContent(at: fileURL, containing: "PostgreSQL")
+        XCTAssertTrue(content.contains("PostgreSQL"))
+    }
+
+    func testStructuredPipelineDoesNotLearnWhenAutoLearningDisabled() async throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator().migrate(queue)
+        let repository = SQLiteCorrectionTargetRepository(databaseQueue: queue)
+        let learningService = StructuredCorrectionLearningService(
+            repository: repository,
+            termCounter: InMemoryKeyTermCounter()
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"PostgreSQL","corrections":[],"key_terms":["PostgreSQL"]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: learningService,
+            correctionTargetRepository: repository,
+            structuredLearningEnabled: { false }
+        )
+
+        for _ in 0..<StructuredCorrectionLearningService.promotionThreshold {
+            _ = await pipeline.process(
+                "post grace q l",
+                target: nil,
+                correctionContext: Self.dictationContext()
+            )
+        }
+
+        let hotwords = try repository.listHotwords().map(\.text)
+        XCTAssertFalse(hotwords.contains("PostgreSQL"))
+    }
+
     private enum TestError: Error {
         case expected
+    }
+
+    private func waitForFileContent(
+        at url: URL,
+        containing expected: String,
+        timeoutNanoseconds: UInt64 = 1_000_000_000
+    ) async throws -> String {
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while DispatchTime.now().uptimeNanoseconds < deadline {
+            if let content = try? String(contentsOf: url, encoding: .utf8),
+               content.contains(expected) {
+                return content
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private static func dictationContext(
+        isFinalTranscript: Bool = true,
+        isSecureField: Bool = false
+    ) -> CorrectionContext {
+        CorrectionContext(
+            mode: .dictation,
+            providerID: "test-provider",
+            modelID: "test-model",
+            language: "zh-CN",
+            bundleIdentifier: "com.example.editor",
+            isFinalTranscript: isFinalTranscript,
+            isSecureField: isSecureField
+        )
     }
 
     private static func trace(providerID: String, model: String) -> LLMRefinementTrace {

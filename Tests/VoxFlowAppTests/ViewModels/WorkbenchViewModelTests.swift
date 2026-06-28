@@ -19,7 +19,7 @@ final class WorkbenchViewModelTests: XCTestCase {
     func testNavigationRoutesCoverRequiredWorkbenchPages() {
         XCTAssertEqual(
             NavigationRoute.allCases.map(\.title),
-            ["首页", "多媒体", "AI 编程", "易错词", "风格", "文件转写", "笔记", "设置", "帮助"]
+            ["首页", "多媒体", "AI 编程", "词汇表", "风格", "文件转写", "笔记", "设置", "帮助"]
         )
     }
 

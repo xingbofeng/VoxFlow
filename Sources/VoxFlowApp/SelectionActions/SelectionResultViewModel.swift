@@ -94,7 +94,7 @@ final class SelectionResultViewModel: ObservableObject {
         guard !isTransforming else { return }
         let text = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            statusMessage = "没有可处理的文本"
+            statusMessage = L10n.localize("selection.status.no_processable_text", comment: "")
             return
         }
 
@@ -143,41 +143,41 @@ final class SelectionResultViewModel: ObservableObject {
 
     func copySelectedText() {
         if clipboard.setString(displayedText) {
-            statusMessage = "已复制"
+            statusMessage = L10n.localize("selection.status.copied", comment: "")
         } else {
-            statusMessage = "复制失败"
+            statusMessage = L10n.localize("selection.status.copy_failed", comment: "")
         }
     }
 
     func replaceOriginal() async {
-        await insertDisplayedText(prefix: "", successMessage: "已替换原文")
+        await insertDisplayedText(prefix: "", successMessage: L10n.localize("selection.status.replaced_original", comment: ""))
     }
 
     func insertAfterSelection() async {
-        await insertDisplayedText(prefix: "\n", successMessage: "已插入下一行")
+        await insertDisplayedText(prefix: "\n", successMessage: L10n.localize("selection.status.inserted_newline", comment: ""))
     }
 
     func speakSelectedText() {
         let text = displayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            statusMessage = "没有可朗读内容"
+            statusMessage = L10n.localize("selection.status.no_text_to_read", comment: "")
             return
         }
         speech.speak(text) { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
                 self.playbackState = nil
-                self.statusMessage = "朗读完成"
+                self.statusMessage = L10n.localize("selection.status.read_complete", comment: "")
             }
         }
         playbackState = SelectionResultPlaybackState(text: text)
-        statusMessage = "正在朗读"
+        statusMessage = L10n.localize("selection.status.reading", comment: "")
     }
 
     func stopSpeaking() {
         speech.stop()
         playbackState = nil
-        statusMessage = "已停止朗读"
+        statusMessage = L10n.localize("selection.status.stop_reading", comment: "")
     }
 
     func close() {
@@ -189,7 +189,7 @@ final class SelectionResultViewModel: ObservableObject {
     private func insertDisplayedText(prefix: String, successMessage: String) async {
         let text = displayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            statusMessage = "没有可写入内容"
+            statusMessage = L10n.localize("selection.status.no_text_to_write", comment: "")
             return
         }
 
@@ -200,9 +200,9 @@ final class SelectionResultViewModel: ObservableObject {
         }
 
         if clipboard.setString(displayedText) {
-            statusMessage = "无法写入，已复制"
+            statusMessage = L10n.localize("selection.status.write_fallback_copied", comment: "")
         } else {
-            statusMessage = "写入失败"
+            statusMessage = L10n.localize("selection.status.write_failed", comment: "")
         }
     }
 
@@ -232,36 +232,36 @@ private extension TextTransformOperation {
     var runningMessage: String {
         switch self {
         case .translation:
-            return "正在翻译..."
+            return L10n.localize("selection.operation.translation_running", comment: "")
         case .summary:
-            return "正在总结..."
+            return L10n.localize("selection.operation.summary_running", comment: "")
         }
     }
 
     var completedMessage: String {
         switch self {
         case .translation:
-            return "翻译完成"
+            return L10n.localize("selection.operation.translation_completed", comment: "")
         case .summary:
-            return "总结完成"
+            return L10n.localize("selection.operation.summary_completed", comment: "")
         }
     }
 
     var cancelledMessage: String {
         switch self {
         case .translation:
-            return "已取消翻译"
+            return L10n.localize("selection.operation.translation_cancelled", comment: "")
         case .summary:
-            return "已取消总结"
+            return L10n.localize("selection.operation.summary_cancelled", comment: "")
         }
     }
 
     var failedPrefix: String {
         switch self {
         case .translation:
-            return "翻译失败"
+            return L10n.localize("selection.operation.translation_failed_prefix", comment: "")
         case .summary:
-            return "总结失败"
+            return L10n.localize("selection.operation.summary_failed_prefix", comment: "")
         }
     }
 

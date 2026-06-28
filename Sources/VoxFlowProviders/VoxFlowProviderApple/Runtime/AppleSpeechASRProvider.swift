@@ -36,6 +36,7 @@ protocol AppleSpeechRecognitionEngine: AnyObject, Sendable {
     var onError: (@Sendable (Error) -> Void)? { get set }
     var isAvailable: Bool { get }
 
+    func configureContextualStrings(_ strings: [String])
     func start() throws
     func accept(_ frame: AudioFrame)
     func finish()
@@ -135,6 +136,7 @@ final class AppleSpeechASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendabl
     private var processedSampleCount: UInt64 = 0
     private var sampleRate: Int = 16_000
     private var hasStartedSpeech = false
+    private var contextualStrings: [String] = []
 
     var revision: UInt64 {
         lock.withLock { currentRevision }
@@ -164,6 +166,14 @@ final class AppleSpeechASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendabl
             emitFailure(error)
             throw error
         }
+    }
+
+    func configurePrompt(_ prompt: String?) async throws {
+        let terms = Self.terms(from: prompt)
+        lock.withLock {
+            contextualStrings = terms
+        }
+        engine.configureContextualStrings(terms)
     }
 
     func accept(_ frame: AudioFrame) async throws {
@@ -235,6 +245,20 @@ final class AppleSpeechASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendabl
         )
     }
 
+    private static func terms(from prompt: String?) -> [String] {
+        guard let prompt else { return [] }
+        var seen = Set<String>()
+        return prompt
+            .components(separatedBy: CharacterSet(charactersIn: ",，\n"))
+            .compactMap { raw -> String? in
+                let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !term.isEmpty else { return nil }
+                let key = term.lowercased()
+                guard seen.insert(key).inserted else { return nil }
+                return term
+            }
+    }
+
     private func emitFailure(_ error: Error) {
         eventStream.yield(
             .failure(
@@ -287,6 +311,8 @@ private final class SystemAppleSpeechRecognitionEngine: NSObject, AppleSpeechRec
     private let recognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private let lock = NSLock()
+    private var contextualStrings: [String] = []
 
     init(locale: Locale) {
         recognizer = SFSpeechRecognizer(locale: locale)
@@ -309,6 +335,7 @@ private final class SystemAppleSpeechRecognitionEngine: NSObject, AppleSpeechRec
         request.shouldReportPartialResults = true
         request.requiresOnDeviceRecognition = false
         request.taskHint = .dictation
+        request.contextualStrings = lock.withLock { contextualStrings }
         recognitionRequest = request
 
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
@@ -321,6 +348,12 @@ private final class SystemAppleSpeechRecognitionEngine: NSObject, AppleSpeechRec
 
             guard let result else { return }
             onTranscription?(result.bestTranscription.formattedString, result.isFinal)
+        }
+    }
+
+    func configureContextualStrings(_ strings: [String]) {
+        lock.withLock {
+            contextualStrings = strings
         }
     }
 

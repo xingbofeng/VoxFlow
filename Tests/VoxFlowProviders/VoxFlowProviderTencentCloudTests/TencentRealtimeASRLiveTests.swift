@@ -11,10 +11,48 @@ final class TencentRealtimeASRLiveTests: XCTestCase {
         let environment = AppEnvironment(container: try DependencyContainer.live())
         let manager = ASRManager(settingsRepository: environment.settingsRepository)
         let configuration = try manager.tencentCloudConfiguration()
+
+        let text = try await Self.transcribe(configuration: configuration)
+
+        XCTAssertFalse(text.isEmpty)
+    }
+
+    func testConfiguredTencentRealtimeASRAcceptsHotwordList() async throws {
+        guard ProcessInfo.processInfo.environment["VOICEINPUT_TEST_TENCENT_LIVE"] == "1" else {
+            throw XCTSkip("Set VOICEINPUT_TEST_TENCENT_LIVE=1 to run Tencent Cloud realtime ASR live smoke test.")
+        }
+        let environment = AppEnvironment(container: try DependencyContainer.live())
+        let manager = ASRManager(settingsRepository: environment.settingsRepository)
+        let base = try manager.tencentCloudConfiguration()
+        let configuration = TencentRealtimeASRConfiguration(
+            appID: base.appID,
+            secretID: base.secretID,
+            secretKey: base.secretKey,
+            engineModelType: base.engineModelType,
+            voiceFormat: base.voiceFormat,
+            needVAD: base.needVAD,
+            timeoutSeconds: base.timeoutSeconds,
+            hotwordList: "随声写|11,语音输入|10,VoxFlow|9"
+        )
+
+        let text = try await Self.transcribe(configuration: configuration)
+
+        XCTAssertFalse(text.isEmpty)
+    }
+
+    private static func pcmPayload(from wavURL: URL) throws -> Data {
+        let data = try Data(contentsOf: wavURL)
+        guard data.count > 44 else {
+            throw TencentRealtimeASRError.invalidMessage
+        }
+        return data.subdata(in: 44..<data.count)
+    }
+
+    private static func transcribe(configuration: TencentRealtimeASRConfiguration) async throws -> String {
         let client = TencentRealtimeASRClient()
         let finalText = LockedTencentLiveTranscript()
-        let pcm = try Self.pcmPayload(
-            from: Self.repositoryRoot()
+        let pcm = try pcmPayload(
+            from: repositoryRoot()
                 .appendingPathComponent("TestResources/ASRSmoke/Audio/zh_short.wav")
         )
         let stream = AsyncStream<Data> { continuation in
@@ -32,16 +70,7 @@ final class TencentRealtimeASRLiveTests: XCTestCase {
                 finalText.append(message.transcript)
             }
         }
-
-        XCTAssertFalse(finalText.value.isEmpty)
-    }
-
-    private static func pcmPayload(from wavURL: URL) throws -> Data {
-        let data = try Data(contentsOf: wavURL)
-        guard data.count > 44 else {
-            throw TencentRealtimeASRError.invalidMessage
-        }
-        return data.subdata(in: 44..<data.count)
+        return finalText.value
     }
 
     private static func repositoryRoot() -> URL {

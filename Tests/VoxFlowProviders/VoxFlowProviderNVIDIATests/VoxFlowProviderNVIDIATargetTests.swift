@@ -76,6 +76,44 @@ final class VoxFlowProviderNVIDIATargetTests: XCTestCase {
         XCTAssertEqual(languageCode, "zh-CN")
     }
 
+    func testConfiguredPromptPassesWordBoostingPhrasesToTranscriber() async throws {
+        let transcriber = CapturingNVIDIANemotronTranscriber(finalText: "最终文本")
+        let provider = NVIDIANemotronASRProvider.live(
+            descriptor: NVIDIANemotronProviderDescriptor.descriptor(modelInstallationState: .ready),
+            modelURL: URL(fileURLWithPath: "/tmp/nvidia-ready", isDirectory: true),
+            transcriberFactory: CapturingNVIDIANemotronTranscriberFactory(transcriber: transcriber)
+        )
+
+        let session = try await provider.makeSession(language: ASRLanguageCapability(bcp47Tag: "zh-CN"))
+
+        try await session.configurePrompt("PostgreSQL, speech-swift\nNemotron")
+        try await session.start()
+
+        let wordBoostingPhrases = await transcriber.wordBoostingPhrases
+        XCTAssertEqual(wordBoostingPhrases, ["PostgreSQL", "speech-swift", "Nemotron"])
+        await session.cancel()
+    }
+
+    func testConfiguredPromptPrunesWordBoostingPhrasesAtNemotronLimit() async throws {
+        let transcriber = CapturingNVIDIANemotronTranscriber(finalText: "最终文本")
+        let provider = NVIDIANemotronASRProvider.live(
+            descriptor: NVIDIANemotronProviderDescriptor.descriptor(modelInstallationState: .ready),
+            modelURL: URL(fileURLWithPath: "/tmp/nvidia-ready", isDirectory: true),
+            transcriberFactory: CapturingNVIDIANemotronTranscriberFactory(transcriber: transcriber)
+        )
+        let terms = (0..<105).map { "term-\($0)" }.joined(separator: ",")
+        let session = try await provider.makeSession(language: ASRLanguageCapability(bcp47Tag: "zh-CN"))
+
+        try await session.configurePrompt(terms)
+        try await session.start()
+
+        let wordBoostingPhrases = await transcriber.wordBoostingPhrases
+        XCTAssertEqual(wordBoostingPhrases.count, 100)
+        XCTAssertEqual(wordBoostingPhrases.first, "term-0")
+        XCTAssertEqual(wordBoostingPhrases.last, "term-99")
+        await session.cancel()
+    }
+
     func testStartWaitsForTranscriberBeforeEmittingReady() async throws {
         let factory = GatedNVIDIANemotronTranscriberFactory()
         let provider = NVIDIANemotronASRProvider.live(
@@ -230,6 +268,7 @@ private actor CapturingNVIDIANemotronTranscriber: NVIDIANemotronTranscribing {
     let finalText: String
     private var partialHandler: (@Sendable (String) -> Void)?
     private(set) var languageCode: String?
+    private(set) var wordBoostingPhrases: [String] = []
 
     init(finalText: String) {
         self.finalText = finalText
@@ -237,6 +276,10 @@ private actor CapturingNVIDIANemotronTranscriber: NVIDIANemotronTranscribing {
 
     func setPartialHandler(_ handler: @escaping @Sendable (String) -> Void) async {
         partialHandler = handler
+    }
+
+    func setWordBoostingPhrases(_ phrases: [String]) async {
+        wordBoostingPhrases = phrases
     }
 
     func setLanguage(_ languageCode: String?) async {

@@ -15,14 +15,14 @@ struct LLMProviderView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
             HStack {
                 if !embedded {
-                    Label("智能模型服务", systemImage: "network")
+                    Label(L10n.localize("model.llm_provider.title", comment: ""), systemImage: "network")
                         .font(.system(size: 24, weight: .semibold))
                 }
                 Spacer()
                 Button {
                     editorRequest = LLMProviderEditorRequest(provider: nil)
                 } label: {
-                    Label("添加", systemImage: "plus")
+                    Label(L10n.localize("model.llm_provider.add_button", comment: ""), systemImage: "plus")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.accent)
                         .padding(.horizontal, 14)
@@ -36,11 +36,11 @@ struct LLMProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("添加模型服务")
+                .help(L10n.localize("model.llm_provider.add_service_help", comment: ""))
             }
 
             if viewModel.providers.isEmpty {
-                Text("暂无模型服务")
+                Text(L10n.localize("model.llm_provider.empty_state", comment: ""))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 180)
                     .background(AppTheme.ColorToken.panelBackground)
@@ -102,7 +102,7 @@ struct LLMProviderView: View {
 
             VStack(alignment: .trailing, spacing: 8) {
                 if provider.isDefault {
-                    Text("当前使用")
+                    Text(L10n.localize("model.llm_provider.current_use", comment: ""))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.accent)
                         .padding(.horizontal, 10)
@@ -120,7 +120,7 @@ struct LLMProviderView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("编辑")
+                    .help(L10n.localize("model.llm_provider.edit", comment: ""))
                     Button {
                         Task {
                             await viewModel.testConnection(id: provider.id)
@@ -140,7 +140,7 @@ struct LLMProviderView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.testingProviderID != nil)
-                    .help("测试连接")
+                    .help(L10n.localize("model.llm_provider.test_connection", comment: ""))
                     Button {
                         viewModel.deleteProvider(id: provider.id)
                     } label: {
@@ -151,7 +151,7 @@ struct LLMProviderView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.red)
-                    .help("删除")
+                    .help(L10n.localize("model.llm_provider.delete", comment: ""))
                 }
             }
         }
@@ -174,13 +174,13 @@ struct LLMProviderView: View {
                 Text(provider.displayName)
                     .font(.system(size: 17, weight: .semibold))
                 providerBadge(
-                    provider.enabled ? "已启用" : "已停用",
+                    provider.enabled ? L10n.localize("model.llm_provider.status_enabled", comment: "") : L10n.localize("model.llm_provider.status_disabled", comment: ""),
                     color: provider.enabled ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText
                 )
             }
             HStack(spacing: 6) {
-                providerInfoChip(title: "模型", value: provider.defaultModel)
-                providerInfoChip(title: "地址", value: provider.baseURL)
+                providerInfoChip(title: L10n.localize("model.llm_provider.label_model", comment: ""), value: provider.defaultModel)
+                providerInfoChip(title: L10n.localize("model.llm_provider.label_address", comment: ""), value: provider.baseURL)
             }
             if let message = provider.lastHealthMessage {
                 Text(message)
@@ -269,37 +269,37 @@ private struct LLMProviderEditorSheet: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 16) {
-                Text(provider == nil ? "添加模型服务" : "编辑模型服务")
+                Text(provider == nil ? L10n.localize("model.llm_provider.sheet_title_add", comment: "") : L10n.localize("model.llm_provider.sheet_title_edit", comment: ""))
                     .font(.system(size: 24, weight: .semibold))
 
                 providerField(
-                    title: "名称",
-                    placeholder: "例如：主要模型",
+                    title: L10n.localize("model.llm_provider.field_name", comment: ""),
+                    placeholder: L10n.localize("model.llm_provider.field_name_placeholder", comment: ""),
                     text: $displayName,
                     error: validationErrors["displayName"]
                 )
                 providerField(
-                    title: "服务地址",
+                    title: L10n.localize("model.llm_provider.field_service_url", comment: ""),
                     placeholder: "https://api.example.com/v1",
                     text: $baseURL,
                     error: validationErrors["baseURL"]
                 )
                 providerField(
-                    title: "模型",
-                    placeholder: "模型名称",
+                    title: L10n.localize("model.llm_provider.field_model", comment: ""),
+                    placeholder: L10n.localize("model.llm_provider.field_model_placeholder", comment: ""),
                     text: $model,
                     error: validationErrors["model"]
                 )
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("访问密钥 *")
+                    Text(String(format: L10n.localize("model.llm_provider.field_api_key_with_required_mark_format", comment: ""), L10n.localize("model.llm_provider.field_api_key", comment: "")))
                         .font(.system(size: 13, weight: .medium))
                     HStack(spacing: 8) {
                         Group {
                             if showAPIKey {
-                                TextField("访问密钥", text: $apiKey.singleLineInput())
+                                TextField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
                             } else {
-                                SecureField("访问密钥", text: $apiKey.singleLineInput())
+                                SecureField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
                             }
                         }
                         .textFieldStyle(.roundedBorder)
@@ -320,18 +320,18 @@ private struct LLMProviderEditorSheet: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .help(showAPIKey ? "隐藏访问密钥" : "显示访问密钥")
+                        .help(showAPIKey ? L10n.localize("model.llm_provider.api_key_hide", comment: "") : L10n.localize("model.llm_provider.api_key_show", comment: ""))
                     }
                     if let error = validationErrors["apiKey"] {
                         fieldError(error)
                     } else if provider != nil {
-                        Text("已从 Keychain 载入；不修改即可保留原值")
+                        Text(L10n.localize("model.llm_provider.keychain_hint", comment: ""))
                             .font(.system(size: 11))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
                 }
 
-                Toggle("启用此模型配置", isOn: $isEnabled)
+                Toggle(L10n.localize("model.llm_provider.toggle_enable", comment: ""), isOn: $isEnabled)
                     .toggleStyle(.switch)
 
                 Spacer()
@@ -354,12 +354,12 @@ private struct LLMProviderEditorSheet: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Text("测试")
+                            Text(L10n.localize("model.llm_provider.test", comment: ""))
                         }
                     }
                     .buttonStyle(.bordered)
                     .disabled(viewModel.isTestingDraftConnection)
-                    Button("保存") {
+                    Button(L10n.localize("model.llm_provider.save", comment: "")) {
                         save()
                     }
                     .buttonStyle(.borderedProminent)
@@ -377,7 +377,7 @@ private struct LLMProviderEditorSheet: View {
             }
             .buttonStyle(.plain)
             .padding(16)
-            .help("关闭")
+            .help(L10n.localize("model.llm_provider.close", comment: ""))
         }
         .onChange(of: displayName) { validationErrors["displayName"] = nil }
         .onChange(of: baseURL) { validationErrors["baseURL"] = nil }
@@ -397,7 +397,7 @@ private struct LLMProviderEditorSheet: View {
         error: String?
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(title) *")
+            Text(title + " *")
                 .font(.system(size: 13, weight: .medium))
             TextField(placeholder, text: text.singleLineInput())
                 .textFieldStyle(.roundedBorder)

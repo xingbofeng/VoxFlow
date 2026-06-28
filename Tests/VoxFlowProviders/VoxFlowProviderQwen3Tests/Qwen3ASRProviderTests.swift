@@ -79,6 +79,47 @@ final class Qwen3ASRProviderTests: XCTestCase {
         XCTAssertEqual(events[4], .final(sessionID: session.sessionID, revision: 4, text: "最终"))
     }
 
+    func testASRCoreSessionPassesConfiguredPromptAsContext() async throws {
+        let factory = CapturingQwen3StreamingSessionFactory(
+            session: CapturingQwen3StreamingSession(
+                final: Qwen3StreamingUpdate(transcript: "最终", isFinal: true)
+            )
+        )
+        let provider = Qwen3ASRProvider(
+            descriptor: Qwen3ProviderDescriptor.descriptor(modelInstallationState: .ready),
+            modelURL: URL(fileURLWithPath: "/tmp/qwen3-ready", isDirectory: true),
+            sessionFactory: factory
+        )
+
+        let session = try await provider.makeSession(language: ASRLanguageCapability(bcp47Tag: "zh-CN"))
+        try await session.configurePrompt("PostgreSQL, speech-swift")
+        try await session.start()
+        await session.cancel()
+
+        XCTAssertEqual(factory.contextPrompts, ["PostgreSQL, speech-swift"])
+    }
+
+    func testASRCoreSessionNormalizesBlankPromptToNilContext() async throws {
+        let factory = CapturingQwen3StreamingSessionFactory(
+            session: CapturingQwen3StreamingSession(
+                final: Qwen3StreamingUpdate(transcript: "最终", isFinal: true)
+            )
+        )
+        let provider = Qwen3ASRProvider(
+            descriptor: Qwen3ProviderDescriptor.descriptor(modelInstallationState: .ready),
+            modelURL: URL(fileURLWithPath: "/tmp/qwen3-ready", isDirectory: true),
+            sessionFactory: factory
+        )
+
+        let session = try await provider.makeSession(language: ASRLanguageCapability(bcp47Tag: "zh-CN"))
+        try await session.configurePrompt("   ")
+        try await session.start()
+        await session.cancel()
+
+        XCTAssertEqual(factory.contextPrompts.count, 1)
+        XCTAssertNil(factory.contextPrompts[0])
+    }
+
     func testUnknownLanguageCreatesSessionWithAutoLanguageHint() async throws {
         let factory = CapturingQwen3StreamingSessionFactory(
             session: CapturingQwen3StreamingSession(
@@ -495,6 +536,7 @@ private final class CapturingQwen3StreamingSessionFactory: Qwen3StreamingSession
     let session: any Qwen3StreamingSession
     private(set) var modelURLs: [URL] = []
     private(set) var languageHints: [String?] = []
+    private(set) var contextPrompts: [String?] = []
 
     init(session: any Qwen3StreamingSession) {
         self.session = session
@@ -503,6 +545,18 @@ private final class CapturingQwen3StreamingSessionFactory: Qwen3StreamingSession
     func makeSession(modelURL: URL, languageHint: String?) async throws -> any Qwen3StreamingSession {
         modelURLs.append(modelURL)
         languageHints.append(languageHint)
+        contextPrompts.append(nil)
+        return session
+    }
+
+    func makeSession(
+        modelURL: URL,
+        languageHint: String?,
+        contextPrompt: String?
+    ) async throws -> any Qwen3StreamingSession {
+        modelURLs.append(modelURL)
+        languageHints.append(languageHint)
+        contextPrompts.append(contextPrompt)
         return session
     }
 }

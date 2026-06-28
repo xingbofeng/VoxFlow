@@ -1,16 +1,42 @@
 import XCTest
 
 final class AnnotationEditorViewSourceTests: XCTestCase {
-    func testEditorToolbarUsesIconButtonsWithChineseHelpText() throws {
+    func testEditorToolbarUsesLocalizedIconButtonHelp() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Sources/VoxFlowScreenshotKit/Annotations/AnnotationEditorView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let simplifiedChineseStringsURL = sourceURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/zh-Hans.lproj/ScreenshotKit.strings")
+        let simplifiedChineseStrings = try String(contentsOf: simplifiedChineseStringsURL, encoding: .utf8)
 
-        for helpText in ["选择", "画笔", "圈注", "矩形", "箭头", "标记点", "数字点", "文字", "马赛克", "颜色", "线宽", "下载", "撤销", "重做", "取消", "完成"] {
-            XCTAssertTrue(source.contains("help: \"\(helpText)\""), "Missing Chinese help text: \(helpText)")
+        for localizedHelp in [
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.select", "\"toolbar.select\" = \"选择\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.pen", "\"toolbar.pen\" = \"画笔\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.circle", "\"toolbar.circle\" = \"圈注\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.rectangle", "\"toolbar.rectangle\" = \"矩形\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.arrow", "\"toolbar.arrow\" = \"箭头\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.pointMarker", "\"toolbar.point_marker\" = \"标记点\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.numberedMarker", "\"toolbar.numbered_marker\" = \"数字点\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.text", "\"toolbar.text\" = \"文字\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.mosaic", "\"toolbar.mosaic\" = \"马赛克\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.color", "\"toolbar.color\" = \"颜色\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.lineWidth", "\"toolbar.line_width\" = \"线宽\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.download", "\"toolbar.download\" = \"下载\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.undo", "\"toolbar.undo\" = \"撤销\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.redo", "\"toolbar.redo\" = \"重做\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.cancel", "\"toolbar.cancel\" = \"取消\""),
+            ("ScreenshotL10n.ScreenshotKit.Toolbar.complete", "\"toolbar.complete\" = \"完成\""),
+        ] {
+            XCTAssertTrue(source.contains("help: \(localizedHelp.0)"), "Missing localized help key: \(localizedHelp.0)")
+            XCTAssertTrue(
+                simplifiedChineseStrings.contains(localizedHelp.1),
+                "Missing Simplified Chinese resource: \(localizedHelp.1)"
+            )
         }
         XCTAssertTrue(source.contains(".help(help)"))
         XCTAssertTrue(source.contains("square.and.arrow.down"))
@@ -48,9 +74,9 @@ final class AnnotationEditorViewSourceTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowScreenshotKit/Annotations/AnnotationEditorView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("help: \"复制\"") && source.contains("viewModel.copySelectedElement"))
-        XCTAssertTrue(source.contains("help: \"粘贴\"") && source.contains("viewModel.pasteCopiedElement()"))
-        XCTAssertTrue(source.contains("help: \"复制一份\"") && source.contains("viewModel.duplicateSelectedElement()"))
+        XCTAssertTrue(source.contains("help: ScreenshotL10n.ScreenshotKit.Toolbar.copy") && source.contains("viewModel.copySelectedElement"))
+        XCTAssertTrue(source.contains("help: ScreenshotL10n.ScreenshotKit.Toolbar.paste") && source.contains("viewModel.pasteCopiedElement()"))
+        XCTAssertTrue(source.contains("help: ScreenshotL10n.ScreenshotKit.Toolbar.duplicate") && source.contains("viewModel.duplicateSelectedElement()"))
     }
 
     func testEditorWiresShiftClickMultiSelectAndMultiSelectionRendering() throws {

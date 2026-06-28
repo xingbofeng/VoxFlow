@@ -64,6 +64,35 @@ final class GroqASRProviderViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.providers.first(where: { $0.id == ASRProviderID.groqWhisper })?.isAvailable == true)
     }
 
+    func testLoadSyncsExternallySavedGroqCredentialIntoMaskedInput() throws {
+        let defaults = UserDefaults(suiteName: "test.GroqProviderExternalSave.\(UUID().uuidString)")!
+        let credentials = GroqViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+        XCTAssertEqual(viewModel.groqAPIKeyInput, "")
+
+        try manager.saveGroqAPIKey("external-secret")
+        viewModel.load()
+
+        XCTAssertTrue(viewModel.hasStoredGroqAPIKey)
+        XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
+        XCTAssertEqual(viewModel.storedGroqAPIKeyForEditing(), "external-secret")
+    }
+
     func testGroqModelOptionsAreLimitedToWhisperModels() throws {
         XCTAssertEqual(
             ASRProviderViewModel.supportedGroqModels.map(\.id),
@@ -87,6 +116,21 @@ final class GroqASRProviderViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.lastError, "Groq 仅支持 Whisper 转写模型。")
         XCTAssertFalse(manager.isGroqConfigured)
+    }
+
+    func testProviderViewDescribesGroqCredentialAsLocalStorage() throws {
+        let source = try String(
+            contentsOfFile: "Sources/VoxFlowApp/Views/ASRProviderView.swift",
+            encoding: .utf8
+        )
+        let zhHans = try String(
+            contentsOfFile: "Sources/VoxFlowApp/Resources/zh-Hans.lproj/Localizable.strings",
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains(#"asr.provider.groq.privacy_note"#))
+        XCTAssertTrue(zhHans.contains("访问密钥保存在本地凭据文件"))
+        XCTAssertFalse(source.contains("录音会发送到 Groq。访问密钥保存在系统钥匙串"))
     }
 
     func testRejectsNonHTTPSGroqEndpoint() throws {

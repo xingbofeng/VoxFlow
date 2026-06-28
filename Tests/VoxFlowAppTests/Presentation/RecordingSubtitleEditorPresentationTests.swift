@@ -16,10 +16,10 @@ final class RecordingSubtitleEditorPresentationTests: XCTestCase {
 
         let presentation = RecordingSubtitleEditorPresentation.make(draft: draft)
 
-        XCTAssertEqual(presentation.title, "添加字幕")
+        XCTAssertEqual(presentation.title, L10n.localize("subtitle.editor.title_add", comment: ""))
         XCTAssertEqual(presentation.videoPath, "/tmp/recording.mp4")
-        XCTAssertEqual(presentation.segmentListTitle, "字幕草稿")
-        XCTAssertEqual(presentation.segmentCountText, "2 段")
+        XCTAssertEqual(presentation.segmentListTitle, L10n.localize("subtitle.editor.segment_list_title", comment: ""))
+        XCTAssertEqual(presentation.segmentCountText, String(format: L10n.localize("subtitle.editor.segment_count_format", comment: ""), 2))
         XCTAssertEqual(presentation.segments.map(\.timeRangeText), [
             "00:00.4 - 00:02.1",
             "00:02.1 - 00:04.8"
@@ -28,9 +28,13 @@ final class RecordingSubtitleEditorPresentationTests: XCTestCase {
         XCTAssertTrue(presentation.segments.allSatisfy(\.isTextEditable))
         XCTAssertTrue(presentation.segments.allSatisfy(\.canDelete))
         XCTAssertTrue(presentation.segments.allSatisfy { !$0.canEditTiming })
-        XCTAssertEqual(presentation.styleSummary, "底部居中 / 白字 / 黑色半透明底")
+        XCTAssertEqual(presentation.styleSummary, L10n.localize("subtitle.style.summary", comment: ""))
         XCTAssertEqual(presentation.footerActions.map(\.kind), [.cancel, .saveDraft, .burn])
-        XCTAssertEqual(presentation.footerActions.map(\.title), ["取消", "保存草稿", "烧录字幕"])
+        XCTAssertEqual(presentation.footerActions.map(\.title), [
+            L10n.localize("subtitle.editor.action_cancel", comment: ""),
+            L10n.localize("subtitle.editor.action_save_draft", comment: ""),
+            L10n.localize("subtitle.editor.action_burn", comment: ""),
+        ])
     }
 
     func testEditorPresentationDoesNotExposeV1OutOfScopeControls() {
@@ -57,10 +61,10 @@ final class RecordingSubtitleEditorPresentationTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains(".alert(\"生成带字幕视频？\""))
-        XCTAssertTrue(source.contains("Button(\"取消\", role: .cancel) {}"))
-        XCTAssertTrue(source.contains("Button(\"生成带字幕视频\") { confirmBurn() }"))
-        XCTAssertTrue(source.contains("Text(\"将生成一个新的 mp4，原始录屏会保留。\")"))
+        XCTAssertTrue(source.contains(".alert(L10n.localize(\"subtitle.editor.alert_generate_title\""))
+        XCTAssertTrue(source.contains("Button(L10n.localize(\"subtitle.editor.alert_cancel\""))
+        XCTAssertTrue(source.contains("Button(L10n.localize(\"subtitle.editor.alert_generate_confirm\""))
+        XCTAssertTrue(source.contains("Text(L10n.localize(\"subtitle.editor.alert_generate_message\""))
         XCTAssertTrue(source.contains("private func confirmBurn()"))
         XCTAssertTrue(source.contains("saveDraft(showFeedback: false)"))
         XCTAssertTrue(source.contains("coordinator.startBurn(recordID: recordID)"))
@@ -100,7 +104,7 @@ final class RecordingSubtitleEditorPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains("@State private var saveDraftFeedbackMessage: String?"))
-        XCTAssertTrue(source.contains("saveDraftFeedbackMessage = \"草稿已保存\""))
+        XCTAssertTrue(source.contains("saveDraftFeedbackMessage = L10n.localize(\"subtitle.editor.feedback_draft_saved\""))
         XCTAssertTrue(source.contains("Text(saveDraftFeedbackMessage)"))
     }
 

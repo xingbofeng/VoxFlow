@@ -7,9 +7,9 @@ enum ScreenRecordingFileStorageError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .finalizeFailed(let reason):
-            return "完成录屏文件失败: \(reason)"
+            return String(format: L10n.localize("recording.error.file_finalize_failed_format", comment: ""), reason)
         case .deleteFailed(let reason):
-            return "删除录屏文件失败: \(reason)"
+            return String(format: L10n.localize("recording.error.file_delete_failed_format", comment: ""), reason)
         }
     }
 }
@@ -49,7 +49,9 @@ struct ScreenRecordingFileStorage {
     func finalize(temporaryURL: URL, finalURL: URL) throws -> URL {
         AppLogger.general.debug("ScreenRecordingFileStorage finalize temp=\(temporaryURL.path) final=\(finalURL.path)")
         guard fileManager.fileExists(atPath: temporaryURL.path) else {
-            throw ScreenRecordingFileStorageError.finalizeFailed("临时录屏文件不存在：\(temporaryURL.path)")
+            throw ScreenRecordingFileStorageError.finalizeFailed(
+                String(format: L10n.localize("recording.error.temporary_file_missing_format", comment: ""), temporaryURL.path)
+            )
         }
         if fileManager.fileExists(atPath: finalURL.path) {
             try? fileManager.removeItem(at: finalURL)

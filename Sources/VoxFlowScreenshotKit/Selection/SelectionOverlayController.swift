@@ -75,8 +75,8 @@ public enum ScreenRecordingAudioMode: String, CaseIterable, Equatable, Sendable 
 
     public var title: String {
         switch self {
-        case .none: return "无声"
-        case .microphone: return "麦克风"
+        case .none: return ScreenshotL10n.ScreenshotKit.Recording.Audio.none
+        case .microphone: return ScreenshotL10n.ScreenshotKit.Recording.Audio.microphone
         }
     }
 }
@@ -1079,7 +1079,7 @@ public final class SelectionOverlayController {
             activeAnnotationTool = nil
             activeBrushPreview = nil
             popoverRole = nil
-            inlineTranslationStatus = .failed("翻译服务未就绪")
+            inlineTranslationStatus = .failed(ScreenshotL10n.ScreenshotKit.Translation.Error.notReady)
             pushAnnotationState()
             return
         }
@@ -3163,9 +3163,9 @@ final class SelectionOverlayContentView: NSView {
             drawInlineTranslationSpinner(in: selectionRect)
             return
         case let .progress(completed, total):
-            message = "翻译中 \(completed)/\(total)"
+            message = ScreenshotL10n.ScreenshotKit.Translation.Status.progressFormat(completed, total)
         case .failed(let reason):
-            message = reason.isEmpty ? "翻译失败" : "翻译失败：\(reason)"
+            message = reason.isEmpty ? ScreenshotL10n.ScreenshotKit.Translation.Status.failed : ScreenshotL10n.ScreenshotKit.Translation.Status.failedFormat(reason)
         }
 
         let toolbar = SelectionToolbarPresentation.default
@@ -3273,19 +3273,19 @@ final class SelectionOverlayContentView: NSView {
         path.stroke()
 
         drawPreparationButton(
-            "无声",
+            ScreenshotL10n.ScreenshotKit.Recording.Audio.none,
             in: layout.noneRect,
             isSelected: preparation.audioMode == .none,
             kind: .secondary
         )
         drawPreparationButton(
-            "麦克风",
+            ScreenshotL10n.ScreenshotKit.Recording.Audio.microphone,
             in: layout.microphoneRect,
             isSelected: preparation.audioMode == .microphone,
             kind: .secondary
         )
-        drawPreparationButton("开始", in: layout.startRect, isSelected: false, kind: .primary)
-        drawPreparationButton("取消", in: layout.cancelRect, isSelected: false, kind: .plain)
+        drawPreparationButton(ScreenshotL10n.ScreenshotKit.Recording.Button.start, in: layout.startRect, isSelected: false, kind: .primary)
+        drawPreparationButton(ScreenshotL10n.ScreenshotKit.Recording.Button.cancel, in: layout.cancelRect, isSelected: false, kind: .plain)
     }
 
     private func drawScreenRecordingCountdown(_ remaining: Int, near selectionRect: CGRect) {
@@ -3319,7 +3319,7 @@ final class SelectionOverlayContentView: NSView {
             withAttributes: numberAttributes
         )
 
-        let caption = "准备录屏" as NSString
+        let caption = ScreenshotL10n.ScreenshotKit.Recording.Preparation.caption as NSString
         let captionAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: NSColor.white.withAlphaComponent(0.86)
@@ -3426,7 +3426,7 @@ final class SelectionOverlayContentView: NSView {
             path.stroke()
         }
 
-        let text = "翻译中" as NSString
+        let text = ScreenshotL10n.ScreenshotKit.Translation.Status.inProgress as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: NSColor.white.withAlphaComponent(0.94)
@@ -3528,8 +3528,13 @@ final class SelectionOverlayContentView: NSView {
     private static let popoverColors: [ScreenshotAnnotationColor] = [.voxGreen, .red, .white, .black]
     private static let popoverLineWidths: [CGFloat] = [6, 8, 10]
     private static let popoverFontSizes: [CGFloat] = [14, 24, 32]
-    /// 与 popoverFontSizes 对应的显示文字：小 / 中 / 大。
-    private static let popoverFontSizeLabels: [String] = ["小", "中", "大"]
+    private static var popoverFontSizeLabels: [String] {
+        [
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.small,
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.medium,
+            ScreenshotL10n.ScreenshotKit.Annotation.Font.large,
+        ]
+    }
 
     private func popoverFrame(role: SelectionToolbarRole, toolbarFrame: CGRect) -> CGRect? {
         guard let itemIndex = SelectionToolbarPresentation.default.items.firstIndex(where: { $0.role == role }) else {
@@ -3833,7 +3838,7 @@ final class SelectionOverlayContentView: NSView {
             drawCenteredText(label, in: rect)
             return
         case .translate:
-            drawCenteredText("译", in: rect)
+            drawCenteredText(ScreenshotL10n.ScreenshotKit.Toolbar.translationBadge, in: rect)
             return
         default:
             break

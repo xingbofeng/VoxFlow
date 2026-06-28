@@ -32,6 +32,47 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertFalse(runtime.environment.storageHealth.isPersistent)
     }
 
+    func testFallbackRuntimeKeepsASRCredentialsInPersistentStoreAcrossRelaunches() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppRuntimeCredentialFallback-\(UUID().uuidString)", isDirectory: true)
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: root)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let firstRuntime = AppRuntime.bootstrap(
+            containerFactory: {
+                throw NSError(
+                    domain: "AppRuntimeTests",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "migration failed"]
+                )
+            },
+            fallbackCredentialStore: {
+                DependencyContainer.defaultCredentialStore(paths: paths)
+            }
+        )
+        try firstRuntime.asrRuntime.manager.saveGroqAPIKey("groq-secret")
+
+        let secondRuntime = AppRuntime.bootstrap(
+            containerFactory: {
+                throw NSError(
+                    domain: "AppRuntimeTests",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "migration failed"]
+                )
+            },
+            fallbackCredentialStore: {
+                DependencyContainer.defaultCredentialStore(paths: paths)
+            }
+        )
+
+        XCTAssertTrue(secondRuntime.asrRuntime.manager.isGroqConfigured)
+        XCTAssertEqual(secondRuntime.asrRuntime.manager.storedGroqAPIKey(), "groq-secret")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: paths.credentialsURL.path),
+            "Fallback ASR credentials must be written to the persistent credentials file, not a volatile temp path."
+        )
+    }
+
     func testWindowCompositionReceivesAppScopedASRRuntime() throws {
         let root = try Self.repositoryRoot()
         let appRuntime = try String(

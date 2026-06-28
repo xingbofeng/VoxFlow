@@ -26,9 +26,11 @@ final class AppEnvironment: ObservableObject, AppServiceProviding, AppEventRouti
     var subtitleCoordinator: RecordingSubtitleCoordinator?
     var settingsRepository: any SettingsRepository { container.settingsRepository }
     var correctionTargetRepository: any CorrectionTargetRepository { container.correctionTargetRepository }
+    var correctionEvidenceRepository: any CorrectionEvidenceRepository { container.correctionEvidenceRepository }
     var correctionRuleRepository: any CorrectionRuleRepository { container.correctionRuleRepository }
     var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { container.correctionSnapshotProvider }
     var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { container.voiceCorrectionProcessor }
+    var hotwordFileSyncService: HotwordFileSyncService? { container.hotwordFileSyncService }
 
     var historyDidChangePublisher: AnyPublisher<Void, Never> {
         historyDidChangeSubject.eraseToAnyPublisher()

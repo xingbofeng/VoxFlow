@@ -295,33 +295,33 @@ enum ScreenRecordingResultHUDPresentation {
         [
             ScreenRecordingResultHUDActionPresentation(
                 kind: .open,
-                accessibilityTitle: "打开",
+                accessibilityTitle: L10n.localize("recording.hud.action_open", comment: ""),
                 systemImage: "arrow.up.right.square",
-                help: "打开文件"
+                help: L10n.localize("recording.hud.action_open_help", comment: "")
             ),
             ScreenRecordingResultHUDActionPresentation(
                 kind: .copyFile,
-                accessibilityTitle: didCopyFile ? "已复制" : "复制",
+                accessibilityTitle: didCopyFile ? L10n.localize("recording.hud.action_copy_done", comment: "") : L10n.localize("recording.hud.action_copy", comment: ""),
                 systemImage: didCopyFile ? "checkmark" : "doc.on.doc",
-                help: "复制文件"
+                help: L10n.localize("recording.hud.action_copy_help", comment: "")
             ),
             ScreenRecordingResultHUDActionPresentation(
                 kind: .download,
-                accessibilityTitle: didDownloadFile ? "已下载" : "下载",
+                accessibilityTitle: didDownloadFile ? L10n.localize("recording.hud.action_download_done", comment: "") : L10n.localize("recording.hud.action_download", comment: ""),
                 systemImage: didDownloadFile ? "checkmark" : "square.and.arrow.down",
-                help: "选择位置保存"
+                help: L10n.localize("recording.hud.action_download_help", comment: "")
             ),
             ScreenRecordingResultHUDActionPresentation(
                 kind: .revealInFinder,
                 accessibilityTitle: "Finder",
                 systemImage: "folder",
-                help: "在 Finder 中显示"
+                help: L10n.localize("recording.hud.action_reveal_in_finder_help", comment: "")
             ),
             ScreenRecordingResultHUDActionPresentation(
                 kind: .delete,
-                accessibilityTitle: isDeleteConfirmationPending ? "确认删除" : "删除",
+                accessibilityTitle: isDeleteConfirmationPending ? L10n.localize("recording.hud.action_delete_confirm", comment: "") : L10n.localize("recording.hud.action_delete", comment: ""),
                 systemImage: isDeleteConfirmationPending ? "trash.fill" : "trash",
-                help: isDeleteConfirmationPending ? "再次点击删除录屏" : "删除",
+                help: isDeleteConfirmationPending ? L10n.localize("recording.hud.action_delete_confirm_help", comment: "") : L10n.localize("recording.hud.action_delete_help", comment: ""),
                 isDestructive: true
             ),
             subtitleAction(for: record, state: subtitleState)
@@ -336,9 +336,9 @@ enum ScreenRecordingResultHUDPresentation {
         if !canAdd {
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "添加字幕",
+                accessibilityTitle: L10n.localize("subtitle.hud.action_add_subtitle", comment: ""),
                 systemImage: "captions.bubble",
-                help: "这段录屏没有麦克风音频，无法添加字幕",
+                help: L10n.localize("subtitle.error.no_microphone_track", comment: ""),
                 isEnabled: false
             )
         }
@@ -347,48 +347,48 @@ enum ScreenRecordingResultHUDPresentation {
         case .none:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "添加字幕",
+                accessibilityTitle: L10n.localize("subtitle.hud.action_add_subtitle", comment: ""),
                 systemImage: "captions.bubble",
-                help: "添加字幕"
+                help: L10n.localize("subtitle.hud.action_add_subtitle", comment: "")
             )
         case .generating:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "生成中",
+                accessibilityTitle: L10n.localize("subtitle.status.generating", comment: ""),
                 systemImage: "captions.bubble",
-                help: "字幕生成中…",
+                help: L10n.localize("subtitle.hud.subtitle_generating_help", comment: ""),
                 isEnabled: false,
                 showsSpinner: true
             )
         case .draftReady:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "查看/编辑字幕",
+                accessibilityTitle: L10n.localize("subtitle.hud.action_edit_subtitle", comment: ""),
                 systemImage: "captions.bubble",
-                help: "查看/编辑字幕"
+                help: L10n.localize("subtitle.hud.action_edit_subtitle", comment: "")
             )
         case .burning:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "烧录中",
+                accessibilityTitle: L10n.localize("subtitle.status.burning", comment: ""),
                 systemImage: "captions.bubble",
-                help: "字幕烧录中…",
+                help: L10n.localize("subtitle.hud.subtitle_burning_help", comment: ""),
                 isEnabled: false,
                 showsSpinner: true
             )
         case .burned:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "打开带字幕视频",
+                accessibilityTitle: L10n.localize("subtitle.hud.action_open_subtitled_video", comment: ""),
                 systemImage: "captions.bubble.fill",
-                help: "打开带字幕视频"
+                help: L10n.localize("subtitle.hud.action_open_subtitled_video", comment: "")
             )
         case .failed:
             return ScreenRecordingResultHUDActionPresentation(
                 kind: .subtitle,
-                accessibilityTitle: "重新生成字幕",
+                accessibilityTitle: L10n.localize("subtitle.hud.action_regenerate_subtitle", comment: ""),
                 systemImage: "arrow.clockwise",
-                help: "重新生成字幕"
+                help: L10n.localize("subtitle.hud.action_regenerate_subtitle", comment: "")
             )
         }
     }
@@ -438,7 +438,7 @@ private struct ScreenRecordingResultHUDView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 HStack {
-                    Text("录屏已保存")
+                    Text(L10n.localize("recording.result.title_saved", comment: ""))
                         .font(.system(size: 14, weight: .semibold))
                     Spacer()
                 }
@@ -451,7 +451,7 @@ private struct ScreenRecordingResultHUDView: View {
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
-                .help("关闭")
+                .help(L10n.localize("recording.result.action_close", comment: ""))
             }
             videoPreview
             HStack(spacing: 8) {
@@ -534,11 +534,11 @@ private struct ScreenRecordingResultHUDView: View {
         }
         switch kind {
         case .open:
-            showFeedback(onOpen() ? "已打开文件" : "文件不存在")
+            showFeedback(onOpen() ? L10n.localize("recording.feedback.opened_file", comment: "") : L10n.localize("recording.feedback.file_not_found", comment: ""))
         case .copyFile:
             onCopyFile()
             didCopyFile = true
-            showFeedback("已复制文件")
+            showFeedback(L10n.localize("recording.feedback.file_copied", comment: ""))
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 didCopyFile = false
@@ -546,23 +546,23 @@ private struct ScreenRecordingResultHUDView: View {
         case .download:
             if onDownload() {
                 didDownloadFile = true
-                showFeedback("已保存文件")
+                showFeedback(L10n.localize("recording.feedback.file_saved", comment: ""))
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     didDownloadFile = false
                 }
             } else {
-                showFeedback("已取消保存")
+                showFeedback(L10n.localize("recording.feedback.save_cancelled", comment: ""))
             }
         case .revealInFinder:
-            showFeedback(onRevealInFinder() ? "已在 Finder 中显示" : "文件不存在")
+            showFeedback(onRevealInFinder() ? L10n.localize("recording.feedback.revealed_in_finder", comment: "") : L10n.localize("recording.feedback.file_not_found", comment: ""))
         case .delete:
             if isDeleteConfirmationPending {
                 isDeleteConfirmationPending = false
-                showFeedback(onDelete() ? "已删除录屏" : "删除失败")
+                showFeedback(onDelete() ? L10n.localize("recording.feedback.recording_deleted", comment: "") : L10n.localize("recording.feedback.delete_failed", comment: ""))
             } else {
                 isDeleteConfirmationPending = true
-                showFeedback("再次点击删除录屏", durationNanoseconds: 4_000_000_000)
+                showFeedback(L10n.localize("recording.feedback.delete_confirmation", comment: ""), durationNanoseconds: 4_000_000_000)
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 4_000_000_000)
                     if isDeleteConfirmationPending {

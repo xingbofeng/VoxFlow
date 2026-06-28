@@ -3,15 +3,16 @@ import AppKit
 enum StatusBarIcon {
     private static let logger = AppLogger.general
 
-    static let accessibilityName = ProductBrand.chineseDisplayName
+    static let accessibilityName = ProductBrand.displayName
     static let visibleTitle = ""
     static let imagePosition: NSControl.ImagePosition = .imageOnly
     static let tooltip: String? = nil
-    static let autosaveName = "VoxFlowStatusItemMenuExtraV5"
+    static let autosaveName = "VoxFlowStatusItemMenuExtraV6"
     static let buttonIdentifier = NSUserInterfaceItemIdentifier("VoxFlowStatusBarButton")
     static let preferredLength = NSStatusItem.squareLength
     static let persistedAutosaveNames = [
         autosaveName,
+        "VoxFlowStatusItemMenuExtraV5",
         "VoxFlowStatusItemMenuExtraV4",
         "VoxFlowStatusItem",
         "VoxFlowStatusItemV2",

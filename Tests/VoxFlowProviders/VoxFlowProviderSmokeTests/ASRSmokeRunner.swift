@@ -6,7 +6,8 @@ struct ASRSmokeRunner {
     func run(
         sample: ASRSmokeSample,
         provider: any ASRProvider,
-        audioFrames: [AudioFrame]? = nil
+        audioFrames: [AudioFrame]? = nil,
+        prompt: String? = nil
     ) async throws -> ASRSmokeResult {
         guard provider.descriptor.modelInstallationState.isReady else {
             return ASRSmokeResult(
@@ -35,7 +36,16 @@ struct ASRSmokeRunner {
             )
         }
 
+        let frames = try audioFrames ?? ASRSmokeAudio.loadFrames(for: sample)
+        let previousCurrentDirectory = FileManager.default.currentDirectoryPath
+        if let metallibDirectory = try Self.prepareMLXMetallibIfNeeded(providerID: provider.descriptor.id) {
+            FileManager.default.changeCurrentDirectoryPath(metallibDirectory.path)
+        }
+        defer {
+            FileManager.default.changeCurrentDirectoryPath(previousCurrentDirectory)
+        }
         let session = try await provider.makeSession(language: language)
+        try await session.configurePrompt(prompt)
         let collector = Task { () -> [ASREvent] in
             var events: [ASREvent] = []
             for await event in session.events {
@@ -47,7 +57,6 @@ struct ASRSmokeRunner {
         let start = ContinuousClock.now
         do {
             try await session.start()
-            let frames = try audioFrames ?? ASRSmokeAudio.loadFrames(for: sample)
             for frame in frames {
                 try await session.accept(frame)
             }
@@ -188,6 +197,94 @@ struct ASRSmokeRunner {
             group.cancelAll()
             return value
         }
+    }
+
+    @discardableResult
+    static func prepareMLXMetallibIfNeeded(
+        providerID: ASRProviderID,
+        binaryDirectory: URL = Self.currentBinaryDirectory(),
+        fileManager: FileManager = .default
+    ) throws -> URL? {
+        guard providerNeedsMLXMetallib(providerID) else {
+            return nil
+        }
+        let colocatedMLX = binaryDirectory.appendingPathComponent("mlx.metallib")
+        let colocatedDefault = binaryDirectory.appendingPathComponent("default.metallib")
+        if fileManager.fileExists(atPath: colocatedMLX.path),
+           fileManager.fileExists(atPath: colocatedDefault.path) {
+            return binaryDirectory
+        }
+        guard let source = nearestMetallibSource(from: binaryDirectory, fileManager: fileManager) else {
+            return nil
+        }
+        try fileManager.copyReplacingItem(at: source, to: colocatedMLX)
+        try fileManager.copyReplacingItem(at: source, to: colocatedDefault)
+        return binaryDirectory
+    }
+
+    private static func providerNeedsMLXMetallib(_ providerID: ASRProviderID) -> Bool {
+        let rawValue = providerID.rawValue.lowercased()
+        return rawValue.contains("qwen3") || rawValue.contains("nvidia")
+    }
+
+    private static func currentBinaryDirectory() -> URL {
+        if let testBundle = Bundle.allBundles.first(where: { $0.bundleURL.pathExtension == "xctest" }),
+           let executableURL = testBundle.executableURL {
+            return executableURL.deletingLastPathComponent()
+        }
+        return (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0]))
+            .deletingLastPathComponent()
+    }
+
+    private static func nearestMetallibSource(
+        from binaryDirectory: URL,
+        fileManager: FileManager
+    ) -> URL? {
+        var directory = binaryDirectory
+        for _ in 0..<8 {
+            for name in ["mlx.metallib", "default.metallib"] {
+                let candidate = directory.appendingPathComponent(name)
+                if fileManager.fileExists(atPath: candidate.path) {
+                    return candidate
+                }
+            }
+            let parent = directory.deletingLastPathComponent()
+            guard parent.path != directory.path else {
+                return nil
+            }
+            directory = parent
+        }
+        return findBuildMetallib(fileManager: fileManager)
+    }
+
+    private static func findBuildMetallib(fileManager: FileManager) -> URL? {
+        let buildDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+            .appendingPathComponent(".build", isDirectory: true)
+        guard let enumerator = fileManager.enumerator(
+            at: buildDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+        for case let url as URL in enumerator {
+            guard url.lastPathComponent == "mlx.metallib" else {
+                continue
+            }
+            if url.path.contains("/debug/") {
+                return url
+            }
+        }
+        return nil
+    }
+}
+
+private extension FileManager {
+    func copyReplacingItem(at source: URL, to destination: URL) throws {
+        if fileExists(atPath: destination.path) {
+            try removeItem(at: destination)
+        }
+        try copyItem(at: source, to: destination)
     }
 }
 

@@ -1192,15 +1192,27 @@ enum CoordinatorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noActiveTask:
-            return "没有活跃的语音任务。"
+            return String(
+                L10n.localize("dictation.coordinator.no_active_task", comment: "No active dictation task message")
+            )
         case .invalidMode:
-            return "任务模式不支持此操作。"
+            return String(
+                L10n.localize("dictation.coordinator.invalid_mode", comment: "Invalid mode for operation message")
+            )
         case .llmNotConfigured:
-            return "未配置模型服务。请在设置中先添加可用模型服务后再试。"
+            return String(
+                L10n.localize("dictation.coordinator.llm_not_configured", comment: "LLM not configured message")
+            )
         case .llmCallFailed(let reason):
-            return "模型调用失败：\(reason)"
+            return String(
+                format: L10n.localize("dictation.coordinator.llm_call_failed_format", comment: "LLM call failed with reason"),
+                reason
+            )
         case .workflowAlreadyRunning(let kind):
-            return "已有进行中的 \(kind) 工作流。"
+            return String(
+                format: L10n.localize("dictation.coordinator.workflow_already_running_format", comment: "Workflow already running message"),
+                kind
+            )
         }
     }
 }

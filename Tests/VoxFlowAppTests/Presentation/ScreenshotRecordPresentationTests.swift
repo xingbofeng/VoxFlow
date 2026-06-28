@@ -31,7 +31,7 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains(".scaledToFit()"))
         XCTAssertFalse(source.contains(".scaledToFill()"))
         XCTAssertTrue(source.contains("viewModel.copyImage(id: record.id)"))
-        XCTAssertTrue(source.contains("help: \"复制图片\""))
+        XCTAssertTrue(source.contains("help: L10n.localize(\"screenshot.record.action.copy_image_help\""))
     }
 
     func testRecordImageViewportsStayFixedForWideAndTallScreenshots() throws {
@@ -83,12 +83,12 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(routeSource.contains("case .screenshotRecord: return \"多媒体\""))
-        XCTAssertTrue(viewSource.contains("Label(\"多媒体\""))
-        XCTAssertTrue(viewSource.contains("title: \"全部媒体\""))
-        XCTAssertTrue(viewSource.contains("title: \"今日媒体\""))
-        XCTAssertTrue(viewSource.contains("title: \"截图\""))
-        XCTAssertTrue(viewSource.contains("title: \"录屏\""))
+        XCTAssertTrue(routeSource.contains("case .screenshotRecord: return L10n.localize(\"navigation.route.screenshot_record\""))
+        XCTAssertTrue(viewSource.contains("Label(L10n.localize(\"screenshot.record.header_title\""))
+        XCTAssertTrue(viewSource.contains("title: L10n.localize(\"screenshot.record.stats.total_media\""))
+        XCTAssertTrue(viewSource.contains("title: L10n.localize(\"screenshot.record.stats.today_media\""))
+        XCTAssertTrue(viewSource.contains("title: L10n.localize(\"screenshot.record.stats.screenshot\""))
+        XCTAssertTrue(viewSource.contains("title: L10n.localize(\"screenshot.record.stats.screen_recording\""))
         XCTAssertTrue(viewSource.contains("ForEach(MediaRecordFilter.allCases"))
         XCTAssertTrue(viewSource.contains("viewModel.selectedFilter"))
         XCTAssertFalse(viewSource.contains("Picker(\"\", selection: Binding("))
@@ -146,9 +146,9 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
 
         XCTAssertTrue(source.contains("record.mediaType == .screenRecording"))
         XCTAssertTrue(source.contains("MediaVideoPlayerView(url: URL(fileURLWithPath: videoPath))"))
-        XCTAssertTrue(source.contains("Text(\"录屏详情\")"))
-        XCTAssertTrue(source.contains("metaRow(label: \"时长\""))
-        XCTAssertTrue(source.contains("metaRow(label: \"分辨率\""))
+        XCTAssertTrue(source.contains("screenshot.record.detail.header_screen_recording"))
+        XCTAssertTrue(source.contains("screenshot.record.detail.meta_label_duration"))
+        XCTAssertTrue(source.contains("screenshot.record.detail.meta_label_resolution"))
         XCTAssertTrue(source.contains("viewModel.openFile(id: record.id)"))
         XCTAssertTrue(source.contains("viewModel.copyFile(id: record.id)"))
         XCTAssertTrue(source.contains("viewModel.revealInFinder(id: record.id)"))
@@ -172,9 +172,9 @@ final class ScreenshotRecordPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("ScreenRecordingResultHUDPresentation.actions("))
         XCTAssertTrue(source.contains("kind: .open"))
         XCTAssertTrue(source.contains("systemImage: \"arrow.up.right.square\""))
-        XCTAssertTrue(source.contains("didCopyFile ? \"已复制\" : \"复制\""))
+        XCTAssertTrue(source.contains("didCopyFile ? L10n.localize(\"recording.hud.action_copy_done\""))
         XCTAssertTrue(source.contains("resultActionButton("))
-        XCTAssertTrue(source.contains("didDownloadFile ? \"已下载\" : \"下载\""))
+        XCTAssertTrue(source.contains("didDownloadFile ? L10n.localize(\"recording.hud.action_download_done\""))
         XCTAssertTrue(source.contains("systemImage: didDownloadFile ? \"checkmark\" : \"square.and.arrow.down\""))
         XCTAssertTrue(source.contains("private func download(_ record: MediaRecord)"))
         XCTAssertTrue(source.contains("let panel = NSSavePanel()"))

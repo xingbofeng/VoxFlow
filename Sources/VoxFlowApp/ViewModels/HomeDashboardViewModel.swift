@@ -47,11 +47,11 @@ struct HomeSourceBreakdown: Equatable {
     }
 
     var summaryText: String {
-        guard total > 0 else { return "暂无" }
+        guard total > 0 else { return L10n.localize("home.source.none", comment: "No source summary") }
         return [
-            ("语音", dictation),
-            ("截图", screenshot),
-            ("剪贴板", clipboard)
+            (L10n.localize("home.source.dictation", comment: "Dictation source"), dictation),
+            (L10n.localize("home.source.screenshot", comment: "Screenshot source"), screenshot),
+            (L10n.localize("home.source.clipboard", comment: "Clipboard source"), clipboard)
         ]
         .filter { $0.1 > 0 }
         .map { "\($0.0) \($0.1)" }
@@ -124,40 +124,40 @@ struct HomeAssetItem: Equatable, Identifiable {
         if let voiceKind {
             switch voiceKind {
             case .dictation:
-                return "语音"
+                return L10n.localize("home.source.dictation", comment: "Dictation source")
             case .agentCompose:
-                return "任务助手"
+                return L10n.localize("home.source.agent_compose", comment: "Agent compose source")
             case .agentDispatch:
-                return "AI 编程"
+                return L10n.localize("navigation.route.vibe_coding", comment: "")
             case .selectionTranslation:
-                return "划词翻译"
+                return L10n.localize("home.source.selection_translation", comment: "Selection translation source")
             case .selectionSummary:
-                return "划词总结"
+                return L10n.localize("home.source.selection_summary", comment: "Selection summary source")
             case .selectionAgent:
-                return "划词任务助手"
+                return L10n.localize("home.source.selection_agent", comment: "Selection agent source")
             }
         }
         switch asset.source {
         case .dictation:
-            return "语音"
+            return L10n.localize("home.source.dictation", comment: "Dictation source")
         case .screenshot:
-            return "截图"
+            return L10n.localize("home.source.screenshot", comment: "Screenshot source")
         case .clipboard:
-            return "剪切板"
+            return L10n.localize("home.source.clipboard", comment: "Clipboard source")
         }
     }
     var contentTypeTitle: String {
         switch asset.contentType {
         case .text:
-            return "文本"
+            return L10n.localize("home.content_type.text", comment: "Text content type")
         case .image:
-            return "图片"
+            return L10n.localize("home.content_type.image", comment: "Image content type")
         case .file:
-            return "文件"
+            return L10n.localize("home.content_type.file", comment: "File content type")
         case .link:
-            return "链接"
+            return L10n.localize("home.content_type.link", comment: "Link content type")
         case .color:
-            return "颜色"
+            return L10n.localize("home.content_type.color", comment: "Color content type")
         }
     }
     var systemImage: String {
@@ -206,6 +206,71 @@ struct HomeHistoryDetail: Equatable, Identifiable {
     let windowTitle: String?
     let contextPreview: String?
     let outputResultRaw: String?
+}
+
+private struct HistoryDiagnosticPayload: Encodable {
+    struct TraceSummary: Encodable {
+        let hasLLM: Bool
+        let hasOutput: Bool
+        let hasContextBoost: Bool
+        let hasVoiceCorrection: Bool
+        let voiceCorrectionCandidateCount: Int
+        let voiceCorrectionAppliedCount: Int
+        let voiceCorrectionWarningCount: Int
+        let voiceCorrectionFailed: Bool
+
+        init(trace: TextProcessingTrace?) {
+            hasLLM = trace?.llm != nil
+            hasOutput = trace?.output != nil
+            hasContextBoost = trace?.contextBoost != nil
+            hasVoiceCorrection = trace?.voiceCorrection != nil
+            voiceCorrectionCandidateCount = trace?.voiceCorrection?.candidateEvents.count ?? 0
+            voiceCorrectionAppliedCount = trace?.voiceCorrection?.appliedEvents.count ?? 0
+            voiceCorrectionWarningCount = trace?.voiceCorrection?.warnings.count ?? 0
+            voiceCorrectionFailed = trace?.voiceCorrection?.failureReason != nil
+        }
+    }
+
+    let id: String
+    let recordType: String
+    let language: String
+    let asrProviderID: String?
+    let llmProviderID: String?
+    let styleID: String?
+    let targetAppBundleID: String?
+    let targetAppName: String?
+    let durationMS: Int
+    let rawTranscriptLength: Int
+    let finalTextLength: Int
+    let charCount: Int
+    let cpm: Double
+    let warnings: [String]
+    let hasTrace: Bool
+    let traceSummary: TraceSummary
+    let createdAt: Date
+    let updatedAt: Date
+
+    init(entry: DictationHistoryEntry) {
+        let detail = HomeHistoryDetail(entry: entry)
+        id = entry.id
+        recordType = "dictation_history"
+        language = entry.language
+        asrProviderID = entry.asrProviderID
+        llmProviderID = entry.llmProviderID
+        styleID = entry.styleID
+        targetAppBundleID = entry.targetAppBundleID
+        targetAppName = entry.targetAppName
+        durationMS = entry.durationMS
+        rawTranscriptLength = entry.rawText.count
+        finalTextLength = entry.finalText.count
+        charCount = entry.charCount
+        cpm = entry.cpm
+        warnings = detail.warnings
+        hasTrace = detail.trace != nil
+        traceSummary = TraceSummary(trace: detail.trace)
+        createdAt = entry.createdAt
+        updatedAt = entry.updatedAt
+    }
 }
 
 enum HomeDetailSelection: Equatable, Identifiable {
@@ -381,12 +446,12 @@ final class HomeDashboardViewModel: ObservableObject {
         }
         let text = item.previewText
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            lastError = "该资产没有可复制文本。"
+            lastError = L10n.localize("home.feedback.no_copyable_text", comment: "No copyable text error")
             return
         }
         clipboardWriter.copy(text)
         lastError = nil
-        lastActionMessage = "已复制资产内容"
+        lastActionMessage = L10n.localize("home.feedback.asset_copied", comment: "Asset copied message")
         lastActionTone = .success
     }
 
@@ -402,7 +467,7 @@ final class HomeDashboardViewModel: ObservableObject {
                 selectedHomeDetail = nil
             }
             lastError = nil
-            lastActionMessage = "已删除资产"
+            lastActionMessage = L10n.localize("home.feedback.asset_deleted", comment: "Asset deleted message")
             lastActionTone = .destructive
         } catch {
             lastError = error.localizedDescription
@@ -413,7 +478,7 @@ final class HomeDashboardViewModel: ObservableObject {
         do {
             guard let asset = try environment.assetRepository.asset(id: id) else {
                 selectedHomeDetail = nil
-                lastError = "未找到资产。"
+                lastError = L10n.localize("home.feedback.asset_not_found", comment: "Asset not found")
                 return
             }
             if selectVoiceDetailIfAvailable(for: asset) {
@@ -460,7 +525,10 @@ final class HomeDashboardViewModel: ObservableObject {
             try reloadDashboardAggregate()
             try reloadAssetPage()
             lastError = nil
-            lastActionMessage = "已删除 \(ids.count) 条资产"
+            lastActionMessage = String(
+                format: L10n.localize("home.feedback.assets_deleted_format", comment: "Assets deleted message"),
+                ids.count
+            )
             lastActionTone = .destructive
         } catch {
             lastError = error.localizedDescription
@@ -479,7 +547,7 @@ final class HomeDashboardViewModel: ObservableObject {
             try reloadDashboardAggregate()
             try reloadAssetPage()
             lastError = nil
-            lastActionMessage = "已清空资产"
+            lastActionMessage = L10n.localize("home.feedback.assets_cleared", comment: "Assets cleared message")
             lastActionTone = .destructive
         } catch {
             lastError = error.localizedDescription
@@ -505,7 +573,7 @@ final class HomeDashboardViewModel: ObservableObject {
                 return
             }
             selectedHomeDetail = nil
-            lastError = "未找到历史记录。"
+            lastError = L10n.localize("home.feedback.history_not_found", comment: "History not found")
         } catch {
             lastError = error.localizedDescription
         }
@@ -621,18 +689,29 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     func copySelectedTaskDiagnostic() {
-        guard let detail = selectedDetail,
-              detail.taskMode != nil else {
+        guard let detail = selectedDetail else {
             lastError = "没有可导出的诊断信息。"
             return
         }
 
         do {
-            guard let task = try voiceTaskRepository.fetch(id: detail.id) else {
+            if let task = try voiceTaskRepository.fetch(id: detail.id) {
+                let data = try VoiceTaskDiagnosticExporter().export(task)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    lastError = "诊断信息编码失败。"
+                    return
+                }
+                clipboardWriter.copy(json)
+                lastError = nil
+                lastActionMessage = "已复制诊断信息"
+                lastActionTone = .success
+                return
+            }
+            guard let entry = try environment.historyRepository.entry(id: detail.id), entry.deletedAt == nil else {
                 lastError = "未找到语音任务。"
                 return
             }
-            let data = try VoiceTaskDiagnosticExporter().export(task)
+            let data = try JSONEncoder().encode(HistoryDiagnosticPayload(entry: entry))
             guard let json = String(data: data, encoding: .utf8) else {
                 lastError = "诊断信息编码失败。"
                 return
@@ -648,9 +727,12 @@ final class HomeDashboardViewModel: ObservableObject {
 
     var focusedAssetsTitle: String {
         guard let selectedActivityDate else {
-            return "今日新增"
+            return L10n.localize("home.stats.today_added", comment: "Today added stat")
         }
-        return "\(dateTitle(for: selectedActivityDate))新增"
+        return String(
+            format: L10n.localize("home.stats.date_added_format", comment: "Date added stat"),
+            dateTitle(for: selectedActivityDate)
+        )
     }
 
     func reprocessSelectedHistoryItem() async {
@@ -672,14 +754,23 @@ final class HomeDashboardViewModel: ObservableObject {
                 return
             }
 
-            let result = await textPipeline.process(entry.rawText)
+            let target = dictationTarget(for: entry)
+            let correctionContext = correctionContext(for: entry)
+            let result = await textPipeline.process(
+                entry.rawText,
+                target: target,
+                correctionContext: correctionContext
+            )
             let finalText = normalizedFinalText(from: result, fallback: entry.rawText)
             let updatedEntry = updatedHistoryEntry(from: entry, finalText: finalText, processingResult: result)
             try environment.historyRepository.save(updatedEntry)
             try updateDictationAssetIfAvailable(for: updatedEntry)
             environment.notifyHistoryDidChange()
             load()
-            selectedHomeDetail = .voice(HomeHistoryDetail(entry: updatedEntry))
+            selectedHomeDetail = .voice(
+                HomeHistoryDetail(entry: updatedEntry)
+                    .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: updatedEntry.id))
+            )
             lastError = nil
             lastActionMessage = "已重新处理历史记录"
             lastActionTone = .success
@@ -711,8 +802,11 @@ final class HomeDashboardViewModel: ObservableObject {
         let updatedEntry = manuallyUpdatedHistoryEntry(from: entry, finalText: newText)
         try environment.historyRepository.save(updatedEntry)
         try updateDictationAssetIfAvailable(for: updatedEntry)
-        try learnCorrectionsFromHistoryEdit(originalText: entry.finalText, editedText: newText, entry: entry)
+        let didLearnCorrection = try learnCorrectionsFromHistoryEdit(originalText: entry.finalText, editedText: newText, entry: entry)
         environment.notifyHistoryDidChange()
+        if didLearnCorrection {
+            NotificationCenter.default.post(name: .correctionVocabularyDidChange, object: nil)
+        }
         load()
         selectedHomeDetail = .voice(HomeHistoryDetail(entry: updatedEntry))
         lastError = nil
@@ -1090,11 +1184,11 @@ final class HomeDashboardViewModel: ObservableObject {
 
         let today = calendar.startOfDay(for: environment.clock.now)
         if calendar.isDate(day, inSameDayAs: today) {
-            return "今天"
+            return L10n.localize("home.date.today", comment: "Today")
         }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
            calendar.isDate(day, inSameDayAs: yesterday) {
-            return "昨天"
+            return L10n.localize("home.date.yesterday", comment: "Yesterday")
         }
 
         return dateTitle(for: day)
@@ -1104,7 +1198,8 @@ final class HomeDashboardViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "M月d日"
+        formatter.locale = L10n.locale
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
         return formatter.string(from: day)
     }
 
@@ -1176,14 +1271,14 @@ final class HomeDashboardViewModel: ObservableObject {
         originalText: String,
         editedText: String,
         entry: DictationHistoryEntry
-    ) throws {
+    ) throws -> Bool {
         let pairs = HighConfidenceCorrectionExtractor().extract(
             insertedText: originalText,
             baselineText: originalText,
             editedText: editedText,
             appliedCorrectionRanges: []
         )
-        guard !pairs.isEmpty else { return }
+        guard !pairs.isEmpty else { return false }
 
         let scope: RuleScope = entry.targetAppBundleID
             .map { .application(bundleIdentifier: $0) } ?? .global
@@ -1220,6 +1315,29 @@ final class HomeDashboardViewModel: ObservableObject {
         if didSaveRule {
             _ = environment.correctionSnapshotProvider.refresh()
         }
+        return didSaveRule
+    }
+
+    private func dictationTarget(for entry: DictationHistoryEntry) -> DictationTarget? {
+        guard entry.targetAppBundleID != nil || entry.targetAppName != nil else {
+            return nil
+        }
+        return DictationTarget(
+            bundleID: entry.targetAppBundleID,
+            appName: entry.targetAppName
+        )
+    }
+
+    private func correctionContext(for entry: DictationHistoryEntry) -> CorrectionContext {
+        CorrectionContext(
+            mode: .dictation,
+            providerID: entry.asrProviderID ?? "unknown",
+            modelID: nil,
+            language: entry.language,
+            bundleIdentifier: entry.targetAppBundleID,
+            isFinalTranscript: true,
+            isSecureField: false
+        )
     }
 
     private func hasExistingCorrection(

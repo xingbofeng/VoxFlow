@@ -14,8 +14,8 @@ struct PaletteView: View {
     var onActivateQuicklink: (PaletteQuicklink, String) -> Void = { _, _ in }
     var onOpenURL: (String) -> Void = { _ in }
 
-    private let homeSearchPlaceholder = "搜索应用、命令、资产..."
-    private let assetSearchPlaceholder = "搜索资产..."
+    private let homeSearchPlaceholder = L10n.localize("palette.search.home_placeholder", comment: "")
+    private let assetSearchPlaceholder = L10n.localize("palette.search.assets_placeholder", comment: "")
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -184,10 +184,10 @@ struct PaletteView: View {
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 28, height: 28)
                 .foregroundStyle(.secondary)
-            Text("还没有固定项目")
+            Text(L10n.localize("palette.assets.empty_pinned_title", comment: ""))
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text("建议仍然会展示可用功能")
+            Text(L10n.localize("palette.assets.empty_pinned_subtitle", comment: ""))
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -209,7 +209,7 @@ struct PaletteView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 6) {
-                    SectionHeader("今天")
+                    SectionHeader(L10n.localize("palette.section.today", comment: ""))
                     ForEach(Array(viewModel.assets.enumerated()), id: \.element.id) { index, asset in
                         let isSelected = viewModel.selectedAssetIndex == index
                         Button {
@@ -308,7 +308,7 @@ struct PaletteView: View {
                     Image(systemName: "tray")
                         .font(.system(size: 40))
                         .foregroundStyle(.secondary)
-                    Text("暂无资产")
+                    Text(L10n.localize("palette.assets.empty", comment: ""))
                         .font(.system(size: 16))
                         .foregroundStyle(.secondary)
                 }
@@ -334,13 +334,13 @@ struct PaletteView: View {
             Divider()
                 .frame(height: 24)
 
-            Button("动作") {
+            Button(L10n.localize("palette.action.menu", comment: "")) {
                 viewModel.toggleActionPanel()
             }
             .buttonStyle(.borderless)
             .keyboardShortcut("k", modifiers: .command)
             .font(.system(size: 15, weight: .semibold))
-            .accessibilityLabel("动作")
+            .accessibilityLabel(L10n.localize("palette.action.menu", comment: ""))
             Text("⌘")
                 .keyboardBadge()
             Text("K")
@@ -392,7 +392,7 @@ struct PaletteView: View {
 
     private var typeFilterPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("搜索...")
+            Text(L10n.localize("palette.search.filter_placeholder", comment: ""))
                 .font(.system(size: 18))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -676,26 +676,26 @@ struct PaletteView: View {
     private func title(for sectionKind: PaletteRootSectionKind) -> String {
         switch sectionKind {
         case .favorites, .favoriteHint:
-            return "最喜欢"
+            return L10n.localize("palette.section.favorites", comment: "")
         case .suggestions:
-            return "建议"
+            return L10n.localize("palette.section.suggestions", comment: "")
         case .searchResults:
-            return "结果"
+            return L10n.localize("palette.section.results", comment: "")
         }
     }
 
     private func kindTitle(for kind: PaletteRootItemKind) -> String {
         switch kind {
         case .command:
-            return "命令"
+            return L10n.localize("palette.item_kind.command", comment: "")
         case .application:
-            return "应用"
+            return L10n.localize("palette.item_kind.application", comment: "")
         case .ai:
             return "AI"
         case .quicklink:
-            return "搜索"
+            return L10n.localize("palette.item_kind.quicklink", comment: "")
         case .link:
-            return "链接"
+            return L10n.localize("palette.item_kind.link", comment: "")
         }
     }
 
@@ -730,11 +730,11 @@ struct PaletteView: View {
     private func assetSubtitle(_ asset: AssetItem) -> String {
         switch asset.source {
         case .dictation:
-            return "语音识别"
+            return L10n.localize("palette.asset.source.dictation", comment: "")
         case .screenshot:
-            return "截图"
+            return L10n.localize("palette.asset.source.screenshot", comment: "")
         case .clipboard:
-            return "剪切板"
+            return L10n.localize("palette.asset.source.clipboard", comment: "")
         }
     }
 
@@ -764,16 +764,16 @@ struct PaletteView: View {
 
     private func assetInformation(for asset: AssetItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("信息")
+            Text(L10n.localize("palette.asset.info_title", comment: ""))
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.secondary)
-            infoRow("来源", assetSubtitle(asset))
-            infoRow("内容类型", contentTypeTitle(asset.contentType))
+            infoRow(L10n.localize("palette.asset.info_source_label", comment: ""), assetSubtitle(asset))
+            infoRow(L10n.localize("palette.asset.info_content_type_label", comment: ""), contentTypeTitle(asset.contentType))
             if let imagePath = asset.imagePath {
-                infoRow("图片路径", imagePath)
+                infoRow(L10n.localize("palette.asset.info_image_path_label", comment: ""), imagePath)
             }
             if let filePath = asset.filePath {
-                infoRow("文件路径", filePath)
+                infoRow(L10n.localize("palette.asset.info_file_path_label", comment: ""), filePath)
             }
         }
         .padding(20)
@@ -794,15 +794,15 @@ struct PaletteView: View {
     private func contentTypeTitle(_ contentType: AssetContentType) -> String {
         switch contentType {
         case .text:
-            return "文本"
+            return L10n.localize("palette.content_type.text", comment: "")
         case .image:
-            return "图片"
+            return L10n.localize("palette.content_type.image", comment: "")
         case .file:
-            return "文件"
+            return L10n.localize("palette.content_type.file", comment: "")
         case .link:
-            return "链接"
+            return L10n.localize("palette.content_type.link", comment: "")
         case .color:
-            return "颜色"
+            return L10n.localize("palette.content_type.color", comment: "")
         }
     }
 

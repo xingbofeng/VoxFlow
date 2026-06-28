@@ -163,6 +163,106 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastError, "误听写法已存在")
     }
 
+    func testAddHotwordCreatesActiveTargetAndRejectsDuplicateWithToast() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        viewModel.addHotword(text: " PostgreSQL ")
+        viewModel.addHotword(text: "postgresql")
+
+        let targets = try environment.correctionTargetRepository.listHotwords()
+        XCTAssertEqual(targets.map(\.text), ["PostgreSQL"])
+        XCTAssertEqual(viewModel.filteredHotwordRows.map(\.targetText), ["PostgreSQL"])
+        XCTAssertEqual(viewModel.lastActionMessage, "热词已存在")
+        XCTAssertNil(viewModel.lastError)
+    }
+
+    func testDeletingHotwordBlocklistsItAndHidesItFromHotwordRows() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+        viewModel.addHotword(text: "PostgreSQL")
+        let row = try XCTUnwrap(viewModel.filteredHotwordRows.first)
+
+        viewModel.deleteHotword(row)
+
+        XCTAssertTrue(try environment.correctionTargetRepository.listHotwords().isEmpty)
+        XCTAssertTrue(viewModel.filteredHotwordRows.isEmpty)
+        XCTAssertTrue(try XCTUnwrap(environment.correctionTargetRepository.target(id: row.id)).isBlocklisted)
+    }
+
+    func testLearningCandidatesCanBeAcceptedOrIgnored() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let accepted = CorrectionTargetTerm(
+            text: "PostgreSQL",
+            lifecycle: .candidate,
+            source: .automaticLearning,
+            observedCount: 2
+        )
+        let ignored = CorrectionTargetTerm(
+            text: "Nemotron",
+            lifecycle: .candidate,
+            source: .automaticLearning,
+            observedCount: 2
+        )
+        try environment.correctionTargetRepository.save(accepted)
+        try environment.correctionTargetRepository.save(ignored)
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        viewModel.acceptLearningCandidate(accepted)
+        viewModel.ignoreLearningCandidate(ignored)
+
+        XCTAssertEqual(try environment.correctionTargetRepository.listHotwords().map(\.text), ["PostgreSQL"])
+        XCTAssertEqual(viewModel.learningCandidates.map(\.text), [])
+        XCTAssertTrue(try XCTUnwrap(environment.correctionTargetRepository.target(id: ignored.id)).isBlocklisted)
+        XCTAssertEqual(viewModel.lastActionMessage, "已忽略建议")
+    }
+
+    func testHotwordRowsIgnoreLegacyRuleFilter() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.correctionTargetRepository.save(CorrectionTargetTerm(text: "Qwen", lifecycle: .active, source: .manual))
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        viewModel.selectedFilter = .suspended
+
+        XCTAssertEqual(viewModel.filteredTargetRows.map(\.targetText), [])
+        XCTAssertEqual(viewModel.filteredHotwordRows.map(\.targetText), ["Qwen"])
+    }
+
+    func testHotwordRowsSortByTextForVocabularyDisplay() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.correctionTargetRepository.save(
+            CorrectionTargetTerm(
+                text: "zeta",
+                lifecycle: .active,
+                source: .manual,
+                updatedAt: Date(timeIntervalSince1970: 300),
+                hitCount: 5
+            )
+        )
+        try environment.correctionTargetRepository.save(
+            CorrectionTargetTerm(
+                text: "Alpha",
+                lifecycle: .active,
+                source: .manual,
+                updatedAt: Date(timeIntervalSince1970: 100),
+                hitCount: 1
+            )
+        )
+        try environment.correctionTargetRepository.save(
+            CorrectionTargetTerm(
+                text: "Beta",
+                lifecycle: .active,
+                source: .manual,
+                updatedAt: Date(timeIntervalSince1970: 200),
+                hitCount: 3
+            )
+        )
+        let viewModel = VoiceCorrectionViewModel(environment: environment)
+
+        XCTAssertEqual(viewModel.filteredHotwordRows.map(\.targetText), ["Alpha", "Beta", "zeta"])
+        XCTAssertEqual(viewModel.filteredHotwordRows.map(\.hitCountText), ["1 次", "3 次", "5 次"])
+    }
+
     func testLoadIfNeededDoesNotReloadAlreadyLoadedRules() throws {
         let baseEnvironment = AppEnvironment(container: try DependencyContainer.inMemory())
         try baseEnvironment.correctionRuleRepository.save(
@@ -442,6 +542,24 @@ final class VoiceCorrectionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.recentLearningEvents.first?.title, "tokenhub")
     }
 
+    func testRefreshesLearningCandidatesWhenVocabularyChangeNotificationArrives() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let notificationCenter = NotificationCenter()
+        let viewModel = VoiceCorrectionViewModel(
+            environment: environment,
+            notificationCenter: notificationCenter
+        )
+        XCTAssertEqual(viewModel.learningCandidates.map(\.text), [])
+
+        _ = try environment.correctionTargetRepository.recordKeyTermObservation("QWEN", now: Date())
+        _ = try environment.correctionTargetRepository.recordKeyTermObservation("QWEN", now: Date())
+
+        notificationCenter.post(name: .correctionVocabularyDidChange, object: nil)
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.learningCandidates.map(\.text), ["QWEN"])
+    }
+
     func testProcessorHonorsDisabledAndShadowModeSettings() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -533,6 +651,8 @@ private struct CountingVoiceCorrectionEnvironment: AppServiceProviding {
     var subtitleCoordinator: RecordingSubtitleCoordinator? { wrapped.subtitleCoordinator }
     var settingsRepository: any SettingsRepository { wrapped.settingsRepository }
     var correctionTargetRepository: any CorrectionTargetRepository { wrapped.correctionTargetRepository }
+    var correctionEvidenceRepository: any CorrectionEvidenceRepository { wrapped.correctionEvidenceRepository }
     var correctionSnapshotProvider: CorrectionRuleSnapshotProvider { wrapped.correctionSnapshotProvider }
     var voiceCorrectionProcessor: any VoiceCorrectionTextProcessing { wrapped.voiceCorrectionProcessor }
+    var hotwordFileSyncService: HotwordFileSyncService? { wrapped.hotwordFileSyncService }
 }

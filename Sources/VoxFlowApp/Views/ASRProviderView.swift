@@ -17,7 +17,7 @@ struct ASRProviderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
             if !embedded {
-                Label("听写模型", systemImage: "mic.badge.plus")
+                Label(L10n.localize("asr.provider.title", comment: "ASR provider view title"), systemImage: "mic.badge.plus")
                     .font(.system(size: 24, weight: .semibold))
             }
 
@@ -146,7 +146,7 @@ struct ASRProviderView: View {
                 }
 
                 if provider.isDefault {
-                    Text("当前使用")
+                    Text(L10n.localize("asr.provider.current_badge", comment: "Current ASR provider badge"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.accent)
                         .padding(.horizontal, 10)
@@ -166,7 +166,11 @@ struct ASRProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(isExpanded ? "收起配置" : "展开配置")
+                .help(
+                    isExpanded
+                        ? L10n.localize("asr.provider.collapse_configuration", comment: "Collapse provider configuration")
+                        : L10n.localize("asr.provider.expand_configuration", comment: "Expand provider configuration")
+                )
             }
 
             if isExpanded {
@@ -249,10 +253,10 @@ struct ASRProviderView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             HStack(spacing: 8) {
-                Text("Groq 配置")
+                Text(L10n.localize("asr.provider.groq.configuration_title", comment: "Groq configuration title"))
                     .font(.system(size: 13, weight: .semibold))
                 if viewModel.hasStoredGroqAPIKey {
-                    Text("访问密钥已保存")
+                    Text(L10n.localize("asr.provider.api_key_saved", comment: "API key saved status"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.green)
                 }
@@ -260,9 +264,9 @@ struct ASRProviderView: View {
             HStack(spacing: 8) {
                 Group {
                     if showGroqAPIKey {
-                        TextField("Groq 访问密钥", text: $viewModel.groqAPIKeyInput)
+                        TextField(L10n.localize("asr.provider.groq.api_key_placeholder", comment: "Groq API key placeholder"), text: $viewModel.groqAPIKeyInput)
                     } else {
-                        SecureField("Groq 访问密钥", text: $viewModel.groqAPIKeyInput)
+                        SecureField(L10n.localize("asr.provider.groq.api_key_placeholder", comment: "Groq API key placeholder"), text: $viewModel.groqAPIKeyInput)
                     }
                 }
                 .textFieldStyle(.roundedBorder)
@@ -282,30 +286,30 @@ struct ASRProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(showGroqAPIKey ? "隐藏访问密钥" : "显示访问密钥")
+                .help(showGroqAPIKey ? L10n.localize("asr.provider.hide_api_key", comment: "Hide API key help") : L10n.localize("asr.provider.show_api_key", comment: "Show API key help"))
             }
-            Picker("模型", selection: $viewModel.groqModelInput) {
+            Picker(L10n.localize("asr.provider.model", comment: "Model picker label"), selection: $viewModel.groqModelInput) {
                 ForEach(viewModel.supportedGroqModels) { model in
                     Text(model.title).tag(model.id)
                 }
             }
             .pickerStyle(.menu)
             HStack(spacing: 8) {
-                Button("保存配置") {
+                Button(L10n.localize("asr.provider.save_configuration", comment: "Save ASR provider configuration")) {
                     viewModel.saveGroqConfiguration()
                 }
-                Button(viewModel.isTestingGroq ? "测试中…" : "测试连接") {
+                Button(viewModel.isTestingGroq ? L10n.localize("asr.provider.testing_connection", comment: "Testing connection") : L10n.localize("asr.provider.test_connection", comment: "Test connection")) {
                     Task { await viewModel.testGroqConnection() }
                 }
                 .disabled(viewModel.isTestingGroq)
                 if viewModel.hasStoredGroqAPIKey {
-                    Button("删除访问密钥", role: .destructive) {
+                    Button(L10n.localize("asr.provider.delete_api_key", comment: "Delete API key"), role: .destructive) {
                         viewModel.deleteGroqAPIKey()
                     }
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到 Groq。访问密钥保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
+            Text(L10n.localize("asr.provider.groq.privacy_note", comment: "Groq privacy note"))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -316,22 +320,22 @@ struct ASRProviderView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             HStack(spacing: 8) {
-                Text("腾讯云配置")
+                Text(L10n.localize("asr.provider.tencent.configuration_title", comment: "Tencent Cloud configuration title"))
                     .font(.system(size: 13, weight: .semibold))
                 if viewModel.hasStoredTencentCloudCredentials {
-                    Text("凭据已保存")
+                    Text(L10n.localize("asr.provider.credentials_saved", comment: "Credentials saved status"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.green)
                 }
             }
-            Text("使用腾讯云实时流式语音识别 WebSocket。请在腾讯云控制台获取应用 ID、密钥 ID 和密钥。")
+            Text(L10n.localize("asr.provider.tencent.description", comment: "Tencent Cloud ASR description"))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             VStack(alignment: .leading, spacing: 8) {
-                tencentCredentialField("应用 ID", text: $viewModel.tencentAppIDInput, isSecret: false)
-                tencentCredentialField("密钥 ID", text: $viewModel.tencentSecretIDInput, isSecret: false)
+                tencentCredentialField(L10n.localize("asr.provider.tencent.app_id", comment: "Tencent Cloud app ID"), text: $viewModel.tencentAppIDInput, isSecret: false)
+                tencentCredentialField(L10n.localize("asr.provider.tencent.secret_id", comment: "Tencent Cloud secret ID"), text: $viewModel.tencentSecretIDInput, isSecret: false)
                 HStack(spacing: 8) {
-                    tencentCredentialField("密钥", text: $viewModel.tencentSecretKeyInput, isSecret: true)
+                    tencentCredentialField(L10n.localize("asr.provider.tencent.secret_key", comment: "Tencent Cloud secret key"), text: $viewModel.tencentSecretKeyInput, isSecret: true)
                     Button {
                         if showTencentCloudCredentials {
                             let stored = viewModel.storedTencentCloudCredentialsForEditing()
@@ -354,25 +358,25 @@ struct ASRProviderView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help(showTencentCloudCredentials ? "隐藏腾讯云凭据" : "显示腾讯云凭据")
+                    .help(showTencentCloudCredentials ? L10n.localize("asr.provider.tencent.hide_credentials", comment: "Hide Tencent Cloud credentials") : L10n.localize("asr.provider.tencent.show_credentials", comment: "Show Tencent Cloud credentials"))
                 }
             }
             HStack(spacing: 8) {
-                Button("保存配置") {
+                Button(L10n.localize("asr.provider.save_configuration", comment: "Save ASR provider configuration")) {
                     viewModel.saveTencentCloudConfiguration()
                 }
-                Button(viewModel.isTestingTencentCloud ? "测试中…" : "测试连接") {
+                Button(viewModel.isTestingTencentCloud ? L10n.localize("asr.provider.testing_connection", comment: "Testing connection") : L10n.localize("asr.provider.test_connection", comment: "Test connection")) {
                     Task { await viewModel.testTencentCloudConnection() }
                 }
                 .disabled(viewModel.isTestingTencentCloud)
                 if viewModel.hasStoredTencentCloudCredentials {
-                    Button("删除凭据", role: .destructive) {
+                    Button(L10n.localize("asr.provider.delete_credentials", comment: "Delete credentials"), role: .destructive) {
                         viewModel.deleteTencentCloudCredentials()
                     }
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到腾讯云。应用 ID、密钥 ID 和 密钥 保存在系统钥匙串，可用眼睛按钮查看或隐藏。")
+            Text(L10n.localize("asr.provider.tencent.privacy_note", comment: "Tencent Cloud privacy note"))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -394,23 +398,23 @@ struct ASRProviderView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             HStack(spacing: 8) {
-                Text("阿里云百炼配置")
+                Text(L10n.localize("asr.provider.aliyun.configuration_title", comment: "Aliyun Bailian configuration title"))
                     .font(.system(size: 13, weight: .semibold))
                 if viewModel.hasStoredAliyunDashScopeAPIKey {
-                    Text("访问密钥已保存")
+                    Text(L10n.localize("asr.provider.api_key_saved", comment: "API key saved status"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.green)
                 }
             }
-            Text("使用 DashScope 实时语音识别 WebSocket。接入地址固定为 wss://dashscope.aliyuncs.com/api-ws/v1/inference，鉴权使用 Authorization: Bearer 访问密钥。")
+            Text(L10n.localize("asr.provider.aliyun.description", comment: "Aliyun DashScope description"))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             HStack(spacing: 8) {
                 Group {
                     if showAliyunDashScopeAPIKey {
-                        TextField("百炼访问密钥", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                        TextField(L10n.localize("asr.provider.aliyun.api_key_placeholder", comment: "Aliyun API key placeholder"), text: $viewModel.aliyunDashScopeAPIKeyInput)
                     } else {
-                        SecureField("百炼访问密钥", text: $viewModel.aliyunDashScopeAPIKeyInput)
+                        SecureField(L10n.localize("asr.provider.aliyun.api_key_placeholder", comment: "Aliyun API key placeholder"), text: $viewModel.aliyunDashScopeAPIKeyInput)
                     }
                 }
                 .textFieldStyle(.roundedBorder)
@@ -430,24 +434,24 @@ struct ASRProviderView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(showAliyunDashScopeAPIKey ? "隐藏访问密钥" : "显示访问密钥")
+                .help(showAliyunDashScopeAPIKey ? L10n.localize("asr.provider.hide_api_key", comment: "Hide API key help") : L10n.localize("asr.provider.show_api_key", comment: "Show API key help"))
             }
             HStack(spacing: 8) {
-                Button("保存配置") {
+                Button(L10n.localize("asr.provider.save_configuration", comment: "Save ASR provider configuration")) {
                     viewModel.saveAliyunDashScopeConfiguration()
                 }
-                Button(viewModel.isTestingAliyunDashScope ? "测试中…" : "测试连接") {
+                Button(viewModel.isTestingAliyunDashScope ? L10n.localize("asr.provider.testing_connection", comment: "Testing connection") : L10n.localize("asr.provider.test_connection", comment: "Test connection")) {
                     Task { await viewModel.testAliyunDashScopeConnection() }
                 }
                 .disabled(viewModel.isTestingAliyunDashScope)
                 if viewModel.hasStoredAliyunDashScopeAPIKey {
-                    Button("删除访问密钥", role: .destructive) {
+                    Button(L10n.localize("asr.provider.delete_api_key", comment: "Delete API key"), role: .destructive) {
                         viewModel.deleteAliyunDashScopeAPIKey()
                     }
                 }
             }
             .buttonStyle(.bordered)
-            Text("录音会发送到阿里云百炼。访问密钥保存在系统钥匙串，可用眼睛按钮查看或隐藏。默认使用官方推荐语音识别模型。")
+            Text(L10n.localize("asr.provider.aliyun.privacy_note", comment: "Aliyun DashScope privacy note"))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -471,7 +475,12 @@ struct ASRProviderView: View {
         }
         .buttonStyle(.plain)
         .disabled(!interaction.handlesCardTap)
-        .accessibilityLabel("选择 \(provider.displayName)")
+        .accessibilityLabel(
+            String(
+                format: L10n.localize("asr.provider.select_accessibility_format", comment: "Select ASR provider accessibility label"),
+                provider.displayName
+            )
+        )
     }
 
     private func providerSummary(_ provider: ASRProviderDescriptor, isExpanded: Bool) -> some View {
@@ -567,14 +576,14 @@ struct ASRProviderView: View {
             HStack(alignment: .center, spacing: 14) {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("模型状态")
+                        Text(L10n.localize("asr.provider.local_model.status_label", comment: "Local model status label"))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                         Text(localModelStatusText(provider, isDownloading: isDownloading))
                             .font(.system(size: 14, weight: .semibold))
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("模型大小")
+                        Text(L10n.localize("asr.provider.local_model.size_label", comment: "Local model size label"))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                         Text(viewModel.localModelSizeSummary(providerID: provider.id))
@@ -599,7 +608,7 @@ struct ASRProviderView: View {
                         Button(role: .destructive) {
                             viewModel.deleteLocalModel(id: provider.id)
                         } label: {
-                            Label("清理模型", systemImage: "trash")
+                            Label(L10n.localize("asr.provider.local_model.clean", comment: "Clean local model"), systemImage: "trash")
                         }
                         .buttonStyle(.bordered)
                         .disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)
@@ -608,7 +617,7 @@ struct ASRProviderView: View {
                     Button(role: .destructive) {
                         viewModel.deleteLocalModel(id: provider.id)
                     } label: {
-                        Label("删除模型", systemImage: "trash")
+                        Label(L10n.localize("asr.provider.local_model.delete", comment: "Delete local model"), systemImage: "trash")
                     }
                     .buttonStyle(.bordered)
                 case .none:
@@ -645,19 +654,19 @@ struct ASRProviderView: View {
         isDownloading: Bool
     ) -> String {
         if isDownloading {
-            return "正在下载所需文件"
+            return L10n.localize("asr.provider.local_model.status_downloading", comment: "Local model downloading status")
         }
         switch provider.localModelAction {
         case .delete:
-            return "就绪，可直接使用"
+            return L10n.localize("asr.provider.local_model.status_ready", comment: "Local model ready status")
         case .repair:
-            return "需要修复"
+            return L10n.localize("asr.provider.local_model.status_repair_needed", comment: "Local model repair needed status")
         case .resume:
-            return "可继续下载"
+            return L10n.localize("asr.provider.local_model.status_resume", comment: "Local model resumable status")
         case .download:
-            return "尚未下载"
+            return L10n.localize("asr.provider.local_model.status_not_downloaded", comment: "Local model not downloaded status")
         case .none:
-            return provider.isAvailable ? "就绪，可直接使用" : "不可用"
+            return provider.isAvailable ? L10n.localize("asr.provider.local_model.status_ready", comment: "Local model ready status") : L10n.localize("asr.provider.local_model.status_unavailable", comment: "Local model unavailable status")
         }
     }
 
@@ -666,15 +675,15 @@ struct ASRProviderView: View {
         isDownloading: Bool
     ) -> String {
         if isDownloading {
-            return provider.localModelAction == .repair ? "修复中" : "下载中"
+            return provider.localModelAction == .repair ? L10n.localize("asr.provider.local_model.action_repairing", comment: "Repairing local model") : L10n.localize("asr.provider.local_model.action_downloading", comment: "Downloading local model")
         }
         switch provider.localModelAction {
         case .repair:
-            return "修复模型"
+            return L10n.localize("asr.provider.local_model.action_repair", comment: "Repair local model")
         case .resume:
-            return "继续下载"
+            return L10n.localize("asr.provider.local_model.action_resume", comment: "Resume local model download")
         case .none, .download, .delete:
-            return "下载模型"
+            return L10n.localize("asr.provider.local_model.action_download", comment: "Download local model")
         }
     }
 
@@ -687,7 +696,7 @@ struct ASRProviderView: View {
         switch provider.id {
         case ASRProviderID.funASR:
             Picker(
-                "精度",
+                L10n.localize("asr.provider.precision", comment: "Precision picker label"),
                 selection: Binding(
                     get: { viewModel.selectedFunASRPrecision },
                     set: { value in viewModel.selectFunASRPrecision(value, selectingProvider: true) }
@@ -700,7 +709,7 @@ struct ASRProviderView: View {
             .pickerStyle(.segmented)
         case ASRProviderID.whisper:
             Picker(
-                "模型",
+                L10n.localize("asr.provider.model", comment: "Model picker label"),
                 selection: Binding(
                     get: { viewModel.selectedWhisperVariant },
                     set: { value in viewModel.selectWhisperVariant(value, selectingProvider: true) }
@@ -714,7 +723,7 @@ struct ASRProviderView: View {
             .pickerStyle(.segmented)
         case ASRProviderID.qwen3:
             Picker(
-                "模型",
+                L10n.localize("asr.provider.model", comment: "Model picker label"),
                 selection: Binding(
                     get: { viewModel.selectedQwenModelSize },
                     set: { value in viewModel.selectQwenModelSize(value, selectingProvider: true) }

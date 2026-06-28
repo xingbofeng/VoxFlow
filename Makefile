@@ -1,24 +1,29 @@
 APP_NAME := VoxFlow
 SWIFT_EXECUTABLE := VoxFlowApp
 BUILD_DIR := .build
+SWIFTPM_BUILD_DIR := $(BUILD_DIR)/swiftpm-xcode16
 BUNDLE_DIR := $(BUILD_DIR)/release/$(APP_NAME).app
 DEV_BUNDLE_DIR := $(BUILD_DIR)/dev/$(APP_NAME).app
 RESOURCE_BUNDLE_NAME := $(SWIFT_EXECUTABLE)_$(SWIFT_EXECUTABLE).bundle
 VOXFLOW_DEVELOPER_DIR ?= $(HOME)/Applications/Xcode-16.4.0.app/Contents/Developer
 ifneq ($(wildcard $(VOXFLOW_DEVELOPER_DIR)),)
-export DEVELOPER_DIR ?= $(VOXFLOW_DEVELOPER_DIR)
+export DEVELOPER_DIR := $(VOXFLOW_DEVELOPER_DIR)
 endif
-ARM_RELEASE_BIN_DIR := $(BUILD_DIR)/arm64-apple-macosx/release
+SWIFT := xcrun swift
+SWIFT_PACKAGE_FLAGS := --scratch-path $(SWIFTPM_BUILD_DIR)
+ARM_RELEASE_BIN_DIR := $(SWIFTPM_BUILD_DIR)/arm64-apple-macosx/release
 SWIFT_NATIVE_ARCH := $(shell uname -m)
-NATIVE_RELEASE_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release
-NATIVE_DEBUG_BIN_DIR := $(BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug
+NATIVE_RELEASE_BIN_DIR := $(SWIFTPM_BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/release
+NATIVE_DEBUG_BIN_DIR := $(SWIFTPM_BUILD_DIR)/$(SWIFT_NATIVE_ARCH)-apple-macosx/debug
 INSTALL_DIR := /Applications/$(APP_NAME).app
 PLIST := Sources/VoxFlowApp/Resources/Info.plist
+LOCALE_LPROJ_DIRS := Sources/VoxFlowApp/Resources/en.lproj Sources/VoxFlowApp/Resources/zh-Hans.lproj Sources/VoxFlowApp/Resources/zh-Hant.lproj Sources/VoxFlowApp/Resources/ja.lproj Sources/VoxFlowApp/Resources/ko.lproj
 ICON := Resources/AppIcon.icns
 SHERPA_ONNX_LIB := Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/libsherpa-onnx.a
 ONNXRUNTIME_LIB := Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/libonnxruntime.a
 MLX_METALLIB_SCRIPT := scripts/build-mlx-metallib.sh
 MLX_METALLIB := mlx.metallib
+MLX_DEFAULT_METALLIB := default.metallib
 RUST_CARGO ?= $(shell rustup which cargo 2>/dev/null || command -v cargo 2>/dev/null)
 RUSTC ?= $(shell rustup which rustc 2>/dev/null || command -v rustc 2>/dev/null)
 AGENT_HELPER_MANIFEST := agent-cli/Cargo.toml
@@ -30,7 +35,7 @@ DEV_DISPLAY_NAME := 码上写 Dev
 LEGACY_APP_NAME := VoiceInput
 LEGACY_BUNDLE_ID := com.voiceinput.app
 REQUESTED_BUNDLE_ID := com.VoxFlow.app
-STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV5 VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
+STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV6 VoxFlowStatusItemMenuExtraV5 VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F\" '/Apple Development/ { print $$2; exit }')
 DEVELOPMENT_CODE_SIGN_IDENTITY ?= $(if $(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),$(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),-)
@@ -46,7 +51,7 @@ UPDATE_DEBUG_ENV_KEYS := VOXFLOW_UPDATE_CHECK_MOCK VOXFLOW_UPDATE_CHECK_FIXTURE
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev install dmg release release-check apply-launch-env clean debug prelaunch-cleanup
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev install dmg release release-check apply-launch-env clean debug prelaunch-cleanup gen-l10n lint i18n-check
 
 all: build
 
@@ -62,22 +67,22 @@ $(SHERPA_ONNX_LIB) $(ONNXRUNTIME_LIB):
 	@./scripts/bootstrap-sherpa-onnx.sh
 
 test: prepare-runtime
-	swift test
+	$(SWIFT) test $(SWIFT_PACKAGE_FLAGS)
 
 architecture-check:
 	python3 scripts/architecture_check.py --package Package.swift --source-root Sources
 
 smoke-asr-provider:
-	swift test --filter VoxFlowProviderSmokeTests
+	$(SWIFT) test $(SWIFT_PACKAGE_FLAGS) --filter VoxFlowProviderSmokeTests
 
 smoke-asr-live:
 	@test -n "$(PROVIDER)" || (echo "Set PROVIDER=qwen3|whisper|funasr|sensevoice" && exit 2)
-	VOICEINPUT_TEST_ASR_SMOKE_PROVIDER=$(PROVIDER) swift test --filter ASRProviderLiveSmokeTests
+	VOICEINPUT_TEST_ASR_SMOKE_PROVIDER=$(PROVIDER) $(SWIFT) test $(SWIFT_PACKAGE_FLAGS) --filter ASRProviderLiveSmokeTests
 
 build: prepare-runtime prepare-agent-helper
 	@echo "🔨 Building $(APP_NAME)..."
-	swift build $(SWIFT_RELEASE_FLAGS) --arch arm64
-	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
+	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch arm64
+	@BUILD_DIR="$(CURDIR)/$(SWIFTPM_BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
 	@echo "📦 Creating app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
@@ -85,15 +90,20 @@ build: prepare-runtime prepare-agent-helper
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Helpers"
 	@cp "$(ARM_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
 	@cp "$(ARM_RELEASE_BIN_DIR)/$(MLX_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@cp "$(ARM_RELEASE_BIN_DIR)/$(MLX_DEFAULT_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(AGENT_HELPER_BINARY)" "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(BUNDLE_DIR)/Contents/Helpers/voxflow" "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@test -d "$(ARM_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@cp -R "$(ARM_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(BUNDLE_DIR)/Contents/Resources/"
+	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
+	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
+	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
@@ -101,6 +111,7 @@ build: prepare-runtime prepare-agent-helper
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)"
@@ -110,8 +121,8 @@ build: prepare-runtime prepare-agent-helper
 
 build-native: prepare-runtime prepare-agent-helper
 	@echo "🔨 Building $(APP_NAME) for native $(SWIFT_NATIVE_ARCH)..."
-	swift build $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
-	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
+	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_RELEASE_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
+	@BUILD_DIR="$(CURDIR)/$(SWIFTPM_BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" release
 	@echo "📦 Creating native app bundle..."
 	@rm -rf "$(BUNDLE_DIR)"
 	@mkdir -p "$(BUNDLE_DIR)/Contents/MacOS"
@@ -119,15 +130,20 @@ build-native: prepare-runtime prepare-agent-helper
 	@mkdir -p "$(BUNDLE_DIR)/Contents/Helpers"
 	@cp "$(NATIVE_RELEASE_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
 	@cp "$(NATIVE_RELEASE_BIN_DIR)/$(MLX_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@cp "$(NATIVE_RELEASE_BIN_DIR)/$(MLX_DEFAULT_METALLIB)" "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(AGENT_HELPER_BINARY)" "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(BUNDLE_DIR)/Contents/Helpers/voxflow" "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@test -d "$(NATIVE_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@cp -R "$(NATIVE_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(BUNDLE_DIR)/Contents/Resources/"
+	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
+	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
+	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
@@ -135,6 +151,7 @@ build-native: prepare-runtime prepare-agent-helper
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)/Contents/Helpers/vox"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(BUNDLE_DIR)"
@@ -144,8 +161,8 @@ build-native: prepare-runtime prepare-agent-helper
 
 build-dev: prepare-runtime prepare-agent-helper
 	@echo "🔨 Building debug $(APP_NAME) for native $(SWIFT_NATIVE_ARCH)..."
-	swift build $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
-	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" debug
+	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) $(SWIFT_DEBUG_FLAGS) --arch $(SWIFT_NATIVE_ARCH)
+	@BUILD_DIR="$(CURDIR)/$(SWIFTPM_BUILD_DIR)" bash "$(MLX_METALLIB_SCRIPT)" debug
 	@echo "📦 Creating debug app bundle..."
 	@rm -rf "$(DEV_BUNDLE_DIR)"
 	@mkdir -p "$(DEV_BUNDLE_DIR)/Contents/MacOS"
@@ -153,17 +170,22 @@ build-dev: prepare-runtime prepare-agent-helper
 	@mkdir -p "$(DEV_BUNDLE_DIR)/Contents/Helpers"
 	@cp "$(NATIVE_DEBUG_BIN_DIR)/$(SWIFT_EXECUTABLE)" "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"
 	@cp "$(NATIVE_DEBUG_BIN_DIR)/$(MLX_METALLIB)" "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@cp "$(NATIVE_DEBUG_BIN_DIR)/$(MLX_DEFAULT_METALLIB)" "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(AGENT_HELPER_BINARY)" "$(DEV_BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@ln -s voxflow "$(DEV_BUNDLE_DIR)/Contents/Helpers/vox"
 	@chmod 755 "$(DEV_BUNDLE_DIR)/Contents/Helpers/voxflow" "$(DEV_BUNDLE_DIR)/Contents/Helpers/vox"
 	@test -d "$(NATIVE_DEBUG_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@cp -R "$(NATIVE_DEBUG_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)" "$(DEV_BUNDLE_DIR)/Contents/Resources/"
+	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(DEV_BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@test -f "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(PLIST)" "$(DEV_BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(DEV_BUNDLE_ID)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleName $(DEV_BUNDLE_NAME)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $(DEV_DISPLAY_NAME)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
+	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(DEV_BUNDLE_DIR)/Contents/Info.plist" >/dev/null
+	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(DEV_BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(DEV_BUNDLE_DIR)/Contents/Resources/"
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AppDatabaseSchema.sql"
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
@@ -171,6 +193,7 @@ build-dev: prepare-runtime prepare-agent-helper
 	@plutil -lint "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
+	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(DEV_BUNDLE_DIR)/Contents/Helpers/voxflow"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(DEV_BUNDLE_DIR)/Contents/Helpers/vox"
 	@codesign --force --sign "$(CODE_SIGN_IDENTITY)" $(CODE_SIGN_KEYCHAIN_OPTION) "$(DEV_BUNDLE_DIR)"
@@ -194,7 +217,16 @@ run-dev: prelaunch-cleanup build-dev apply-launch-env
 	@echo "🚀 Launching debug native $(APP_NAME)..."
 	@pkill -x "$(APP_NAME)" 2>/dev/null || true
 	@sleep 0.3
-	open "$(DEV_BUNDLE_DIR)"
+	open -n "$(CURDIR)/$(DEV_BUNDLE_DIR)"
+	@for attempt in 1 2 3 4 5 6 7 8 9 10; do \
+		if ps -axo command= | grep -F "$(CURDIR)/$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" | grep -v grep >/dev/null; then \
+			exit 0; \
+		fi; \
+		sleep 0.2; \
+	done; \
+	echo "❌ Expected dev app to launch from $(CURDIR)/$(DEV_BUNDLE_DIR), but running $(APP_NAME) processes are:"; \
+	ps -axo pid,command | grep -F "/$(APP_NAME).app/Contents/MacOS/$(APP_NAME)" | grep -v grep || true; \
+	exit 1
 
 apply-launch-env:
 	@for key in $(UPDATE_DEBUG_ENV_KEYS); do \
@@ -292,6 +324,21 @@ release: dmg
 release-check:
 	python3 scripts/check-release-metadata.py
 
+gen-l10n:
+	@command -v swiftgen >/dev/null 2>&1 || (echo "swiftgen not found. Run: brew install swiftgen" && exit 1)
+	@mkdir -p Sources/VoxFlowApp/Generated
+	swiftgen config run --config swiftgen.yml
+
+lint:
+	@command -v swiftlint >/dev/null 2>&1 || (echo "swiftlint not found. Run: brew install swiftlint" && exit 1)
+	swiftlint lint --strict Sources/
+
+i18n-check:
+	@command -v bartycrouch >/dev/null 2>&1 || (echo "bartycrouch not found. Run: brew install bartycrouch" && exit 1)
+	bartycrouch lint --path Sources/VoxFlowApp/Resources
+	bartycrouch lint --path Sources/VoxFlowScreenshotKit/Resources
+	python3 scripts/check-localization.py
+
 prepare-release:
 	@test "$(origin VERSION)" = "command line" || (echo "Set VERSION=x.y.z" && exit 2)
 	@test -n "$(BUILD)" || (echo "Set BUILD=n" && exit 2)
@@ -300,9 +347,8 @@ prepare-release:
 
 clean:
 	@echo "🧹 Cleaning..."
-	@rm -rf "$(BUNDLE_DIR)" "$(DEV_BUNDLE_DIR)" ".build/$(APP_NAME).app" dist/staging
-	swift package clean
+	@rm -rf "$(BUNDLE_DIR)" "$(DEV_BUNDLE_DIR)" "$(SWIFTPM_BUILD_DIR)" ".build/$(APP_NAME).app" dist/staging
 	@echo "✅ Clean complete"
 
 debug: prepare-runtime
-	swift build -c debug -Xswiftc -warnings-as-errors
+	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) -c debug -Xswiftc -warnings-as-errors

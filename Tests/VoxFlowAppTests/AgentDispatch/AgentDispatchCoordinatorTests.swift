@@ -152,7 +152,10 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(
             coordinator.presentation,
-            .failure(message: "找不到明确任务助手", retainedText: "检查一下接口")
+            .failure(
+                message: L10n.localize("agent_dispatch.error.no_clear_target", comment: ""),
+                retainedText: "检查一下接口"
+            )
         )
         XCTAssertTrue(router.sent.isEmpty)
     }
@@ -174,7 +177,7 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
 
         XCTAssertTrue(router.sent.isEmpty)
         XCTAssertEqual(model.callCount, 0)
-        XCTAssertEqual(coordinator.presentation.title, "写入当前输入框")
+        XCTAssertEqual(coordinator.presentation.title, L10n.localize("hud.title.fallback_input", comment: ""))
         XCTAssertEqual(coordinator.presentation.detail, "检查一下按钮")
     }
 
@@ -198,7 +201,7 @@ final class AgentDispatchCoordinatorTests: XCTestCase {
         await coordinator.dispatch(utterance: "检查一下按钮")
 
         XCTAssertTrue(router.sent.isEmpty)
-        XCTAssertEqual(coordinator.presentation.title, "写入当前输入框")
+        XCTAssertEqual(coordinator.presentation.title, L10n.localize("hud.title.fallback_input", comment: ""))
         XCTAssertEqual(coordinator.presentation.detail, "检查一下按钮")
     }
 

@@ -50,13 +50,13 @@ public enum ScreenCaptureFrameProviderError: Error, Equatable, LocalizedError, S
     public var errorDescription: String? {
         switch self {
         case .cancelled:
-            return "截图已取消"
+            return ScreenshotL10n.ScreenshotKit.Capture.Error.cancelled
         case .permissionDenied:
-            return "缺少屏幕录制权限"
+            return ScreenshotL10n.ScreenshotKit.Capture.Error.permissionDenied
         case .displayUnavailable:
-            return "当前显示器不可用"
+            return ScreenshotL10n.ScreenshotKit.Capture.Error.displayUnavailable
         case .captureFailed(let message):
-            return "截图失败：\(message)"
+            return ScreenshotL10n.ScreenshotKit.Capture.Error.failedFormat(message)
         }
     }
 }

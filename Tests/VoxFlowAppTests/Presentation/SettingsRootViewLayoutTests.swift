@@ -8,19 +8,67 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("private var inputLanguageCard"))
-        XCTAssertTrue(source.contains("title: \"输入与语言\""))
+        XCTAssertTrue(source.contains("settings.task.input_language.title"))
         XCTAssertTrue(source.contains("inputDeviceRow"))
         XCTAssertTrue(source.contains("recognitionLanguageRow"))
-        XCTAssertTrue(source.contains("HStack(alignment: .top, spacing: 12) {\n                inputDeviceRow\n                recognitionLanguageRow\n            }"))
+        XCTAssertTrue(source.contains("VStack(spacing: 12)"))
+        XCTAssertTrue(source.contains("interfaceLanguageRow"))
         XCTAssertTrue(source.contains("inputLanguageCard"))
         XCTAssertTrue(source.contains(".frame(maxWidth: .infinity, alignment: .leading)"))
         XCTAssertTrue(source.contains("private var inputDeviceRow"))
         XCTAssertTrue(source.contains("private var recognitionLanguageRow"))
-        XCTAssertTrue(source.contains(".menuStyle(.borderlessButton)\n        .frame(maxWidth: .infinity, alignment: .leading)"))
+        XCTAssertTrue(source.contains(".buttonStyle(.plain)"))
+        XCTAssertTrue(source.contains(".popover("))
         XCTAssertFalse(source.contains("private var topPreferenceCards"))
         XCTAssertFalse(source.contains("topPreferenceCardWidth"))
         XCTAssertFalse(source.contains("ViewThatFits(in: .horizontal)"))
         XCTAssertFalse(source.contains("GridItem(.adaptive(minimum: 320)"))
+    }
+
+    func testSettingsDropdownUsesFloatingPopoverWithoutExpandingPageHeight() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let dropdown = try XCTUnwrap(
+            source.range(
+                of: #"private struct SettingsDropdownSection[\s\S]*?\nprivate struct SettingsDropdownOptionRow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(dropdown.contains(".popover("))
+        XCTAssertTrue(dropdown.contains("SettingsDropdownPopover"))
+        XCTAssertFalse(dropdown.contains("if isExpanded {\n                ScrollView"))
+        XCTAssertFalse(dropdown.contains(".overlay(alignment: .top)"))
+    }
+
+    func testSettingsDropdownDismissalUsesExplicitExpansionState() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let dropdown = try XCTUnwrap(
+            source.range(
+                of: #"private struct SettingsDropdownSection[\s\S]*?\nprivate struct SettingsDropdownOptionRow"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        XCTAssertTrue(dropdown.contains("let onExpandedChange: (Bool) -> Void"))
+        XCTAssertTrue(dropdown.contains("Button { onExpandedChange(!isExpanded) }"))
+        XCTAssertTrue(dropdown.contains("onExpandedChange(presented)"))
+        XCTAssertFalse(dropdown.contains("onToggle()"))
+    }
+
+    func testInterfaceLanguageSelectionDismissesPopoverBeforeRestartModal() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("private func requestInterfaceLanguageChange(_ language: AppLanguage)"))
+        XCTAssertTrue(source.contains("setDropdown(.interfaceLanguage, expanded: false)"))
+        XCTAssertTrue(source.contains("DispatchQueue.main.asyncAfter(deadline: .now() + 0.18)"))
+        XCTAssertTrue(source.contains("pendingInterfaceLanguage = language"))
+        XCTAssertTrue(source.contains("requestInterfaceLanguageChange(language)"))
     }
 
     func testMiddleMouseRecordingCopyDescribesClickToToggle() throws {
@@ -28,8 +76,8 @@ final class SettingsRootViewLayoutTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("title: \"鼠标中键录音\""))
-        XCTAssertTrue(source.contains("点击鼠标中键开始录音，再次点击结束并输入"))
+        XCTAssertTrue(source.contains("settings.general.middle_mouse.title"))
+        XCTAssertTrue(source.contains("settings.general.middle_mouse.subtitle"))
         XCTAssertFalse(source.contains("开启后，按住鼠标中键说话，松开后转写并输入"))
     }
 
@@ -42,11 +90,11 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("settingsSidebarButton(.correctionModels)"))
         XCTAssertTrue(source.contains("settingsSidebarButton(.ttsModels)"))
         XCTAssertTrue(source.contains("settingsSidebarButton(.translationModels)"))
-        XCTAssertTrue(source.contains("sidebarGroupTitle(\"应用设置\")"))
-        XCTAssertTrue(source.contains("sidebarGroupTitle(\"模型配置\")"))
-        XCTAssertTrue(source.contains("sidebarGroupTitle(\"数据与隐私\")"))
-        let appGroupRange = try XCTUnwrap(source.range(of: "sidebarGroupTitle(\"应用设置\")"))
-        let modelGroupRange = try XCTUnwrap(source.range(of: "sidebarGroupTitle(\"模型配置\")"))
+        XCTAssertTrue(source.contains("settings.task.sidebar.group.app"))
+        XCTAssertTrue(source.contains("settings.task.sidebar.group.models"))
+        XCTAssertTrue(source.contains("settings.task.sidebar.group.data_privacy"))
+        let appGroupRange = try XCTUnwrap(source.range(of: "settings.task.sidebar.group.app"))
+        let modelGroupRange = try XCTUnwrap(source.range(of: "settings.task.sidebar.group.models"))
         XCTAssertLessThan(appGroupRange.lowerBound, modelGroupRange.lowerBound)
         let generalButtonRange = try XCTUnwrap(source.range(of: "settingsSidebarButton(.general)"))
         XCTAssertLessThan(appGroupRange.lowerBound, generalButtonRange.lowerBound)
@@ -55,24 +103,24 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains("private var correctionModelsSection"))
         XCTAssertTrue(source.contains("private var ttsModelsSection"))
         XCTAssertTrue(source.contains("private var translationModelsSection"))
-        XCTAssertTrue(source.contains("title: \"语音识别\""))
-        XCTAssertTrue(source.contains("title: \"纠错与上下文\""))
-        XCTAssertTrue(source.contains("title: \"易错词修正\""))
-        XCTAssertTrue(source.contains("title: \"启用易错词修正\""))
-        XCTAssertTrue(source.contains("title: \"影子模式\""))
-        XCTAssertTrue(source.contains("title: \"朗读\""))
-        XCTAssertTrue(source.contains("title: \"翻译\""))
+        XCTAssertTrue(source.contains("settings.task.dictation.section.title"))
+        XCTAssertTrue(source.contains("settings.task.correction.title"))
+        XCTAssertTrue(source.contains("settings.task.easy_word.title"))
+        XCTAssertTrue(source.contains("settings.task.easy_word.enable.title"))
+        XCTAssertTrue(source.contains("settings.task.easy_word.shadow_mode.title"))
+        XCTAssertTrue(source.contains("settings.task.tts.title"))
+        XCTAssertTrue(source.contains("settings.task.translation.title"))
         XCTAssertTrue(source.contains("ASRProviderView(viewModel: asrProviderViewModel, embedded: true)"))
         XCTAssertTrue(source.contains("LLMProviderView(viewModel: llmProviderViewModel, embedded: true)"))
         XCTAssertTrue(source.contains("CapabilityModelView(viewModel: ttsCapabilityModelViewModel)"))
         XCTAssertTrue(source.contains("CapabilityModelView(viewModel: translationCapabilityModelViewModel)"))
         XCTAssertTrue(source.contains("@AppStorage(ContextBoostSettings.enabledDefaultsKey)"))
-        XCTAssertTrue(source.contains("title: \"当前窗口图片文字识别上下文增强\""))
-        XCTAssertTrue(source.contains("仅将当前窗口提取的前 K 条候选词临时加入模型纠错提示词"))
-        XCTAssertTrue(source.contains("title: \"剪贴板图片文字识别\""))
-        XCTAssertTrue(source.contains("title: \"截图文字识别\""))
-        XCTAssertTrue(source.contains("title: \"启动台\""))
-        XCTAssertTrue(source.contains("subtitle: \"打开 VoxFlow Palette，搜索最近资产与命令\""))
+        XCTAssertTrue(source.contains("settings.task.correction.context_boost.title"))
+        XCTAssertTrue(source.contains("settings.task.correction.context_boost.subtitle"))
+        XCTAssertTrue(source.contains("settings.task.workflow.clipboard_image.title"))
+        XCTAssertTrue(source.contains("settings.task.workflow.screenshot.title"))
+        XCTAssertTrue(source.contains("settings.task.workflow.palette.title"))
+        XCTAssertTrue(source.contains("settings.task.workflow.palette.subtitle"))
         XCTAssertTrue(source.contains("workflowShortcutRow("))
         XCTAssertTrue(source.contains("viewModel.updateWorkflowShortcut(shortcut"))
         XCTAssertFalse(source.contains("settingsSidebarButton(.models)"))
@@ -86,22 +134,22 @@ final class SettingsRootViewLayoutTests: XCTestCase {
 
         XCTAssertTrue(source.contains("settingsSidebarButton(.vibeCoding)"))
         XCTAssertTrue(source.contains("private var vibeCodingSection"))
-        XCTAssertTrue(source.contains("title: \"AI 编程控制台\""))
-        XCTAssertTrue(source.contains("用语音把指令发给正在工作的终端助手"))
-        XCTAssertTrue(source.contains("Text(\"vox flow codex\")"))
-        XCTAssertTrue(source.contains("Text(\"vox flow --claude\")"))
-        XCTAssertTrue(source.contains("Text(\"vox flow --codebuddy\")"))
-        XCTAssertTrue(source.contains("Button(\"注册命令\")"))
-        XCTAssertTrue(source.contains("Button(\"卸载命令\", role: .destructive)"))
-        XCTAssertTrue(source.contains("Button(\"复制示例\")"))
-        XCTAssertTrue(source.contains("title: \"启用AI 编程控制台\""))
-        XCTAssertTrue(source.contains("开启后，现有语音输入快捷键会进入AI 编程控制台"))
-        XCTAssertTrue(source.contains("Text(\"默认发送\").tag(\"default\")"))
+        XCTAssertTrue(source.contains("settings.task.ai_console.title"))
+        XCTAssertTrue(source.contains("settings.task.ai_console.subtitle"))
+        XCTAssertTrue(source.contains("settings.task.agent_cli.example_codex"))
+        XCTAssertTrue(source.contains("settings.task.agent_cli.example_claude"))
+        XCTAssertTrue(source.contains("settings.task.agent_cli.example_codebuddy"))
+        XCTAssertTrue(source.contains("settings.task.action.register"))
+        XCTAssertTrue(source.contains("settings.task.action.unregister"))
+        XCTAssertTrue(source.contains("settings.task.action.copy_example"))
+        XCTAssertTrue(source.contains("settings.task.ai_console.enable.title"))
+        XCTAssertTrue(source.contains("settings.task.ai_console.enable.subtitle"))
+        XCTAssertTrue(source.contains("settings.task.unresolved_behavior.option.default"))
         XCTAssertTrue(source.contains("unresolvedBehaviorHelpText"))
-        XCTAssertTrue(source.contains("询问确认：先让你选择目标任务助手"))
-        XCTAssertTrue(source.contains("取消发送：保留文本，不发送给任务助手"))
-        XCTAssertTrue(source.contains("智能排序：按模型置信度排序候选"))
-        XCTAssertTrue(source.contains("默认发送：直接写入当前输入框"))
+        XCTAssertTrue(source.contains("settings.task.unresolved_behavior.option.confirm"))
+        XCTAssertTrue(source.contains("settings.task.unresolved_behavior.option.cancel"))
+        XCTAssertTrue(source.contains("settings.task.unresolved_behavior.option.model"))
+        XCTAssertTrue(source.contains("settings.task.unresolved_behavior.option.default"))
         XCTAssertTrue(source.contains(".frame(width: 248, alignment: .trailing)"))
         XCTAssertFalse(source.contains("title: \"当前任务助手\""))
         XCTAssertFalse(source.contains("title: \"任务助手别名\""))
@@ -119,7 +167,7 @@ final class SettingsRootViewLayoutTests: XCTestCase {
 
         let appGroup = try XCTUnwrap(
             source.range(
-                of: #"sidebarGroupTitle\("应用设置"\)[\s\S]*?sidebarGroupTitle\("模型配置"\)"#,
+                of: #"settings\.task\.sidebar\.group\.app[\s\S]*?settings\.task\.sidebar\.group\.models"#,
                 options: .regularExpression
             ).map { String(source[$0]) }
         )
@@ -143,7 +191,7 @@ final class SettingsRootViewLayoutTests: XCTestCase {
             ).map { String(source[$0]) }
         )
 
-        XCTAssertTrue(section.contains("title: \"划词动作快捷键\""))
+        XCTAssertTrue(section.contains("settings.task.selection.group.title"))
         XCTAssertTrue(section.contains("shortcut: .selectionAction"))
         XCTAssertTrue(section.contains("shortcut: .selectionTranslate"))
         XCTAssertTrue(section.contains("shortcut: .selectionSummarize"))
@@ -163,8 +211,8 @@ final class SettingsRootViewLayoutTests: XCTestCase {
 
         XCTAssertTrue(section.contains("appUpdateCard"))
         XCTAssertTrue(source.contains("private var appUpdateCard"))
-        XCTAssertTrue(source.contains("title: \"应用更新\""))
-        XCTAssertTrue(source.contains("Button(\"检查更新\")"))
+        XCTAssertTrue(source.contains("settings.task.update.title"))
+        XCTAssertTrue(source.contains("settings.task.update.action_check"))
         XCTAssertTrue(source.contains("onCheckForUpdates()"))
         XCTAssertTrue(source.contains("AppVersionInfo.current().displayText"))
     }
@@ -180,9 +228,9 @@ final class SettingsRootViewLayoutTests: XCTestCase {
             ).map { String(source[$0]) }
         )
 
-        let voiceHeader = try XCTUnwrap(section.range(of: #"title: "语音快捷键""#))
-        let triggerMode = try XCTUnwrap(section.range(of: #"Text\("触发方式"\)"#, options: .regularExpression))
-        let workflowHeader = try XCTUnwrap(section.range(of: #"title: "工作流快捷键""#))
+        let voiceHeader = try XCTUnwrap(section.range(of: "settings.general.voice_shortcut.title"))
+        let triggerMode = try XCTUnwrap(section.range(of: "settings.general.trigger_mode.title"))
+        let workflowHeader = try XCTUnwrap(section.range(of: "settings.task.workflow.group.title"))
 
         XCTAssertLessThan(voiceHeader.lowerBound, triggerMode.lowerBound)
         XCTAssertLessThan(triggerMode.lowerBound, workflowHeader.lowerBound)
@@ -226,15 +274,15 @@ final class SettingsRootViewLayoutTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("struct VibeCodingStatusView"))
-        XCTAssertTrue(source.contains("title: \"当前任务助手\""))
+        XCTAssertTrue(source.contains("vibe.current_agents.title"))
         XCTAssertTrue(source.contains("viewModel.currentAgentSessions"))
-        XCTAssertTrue(source.contains("Label(\"刷新任务助手\""))
-        XCTAssertTrue(source.contains("Label(\"清理已退出/失效任务助手\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"vibe.current_agents.refresh\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"vibe.current_agents.clean_stale\""))
         XCTAssertTrue(source.contains("startEditingAlias"))
-        XCTAssertTrue(source.contains("TextField(\"任务助手别名\""))
+        XCTAssertTrue(source.contains("TextField(L10n.localize(\"vibe.alias.field_title\""))
         XCTAssertTrue(source.contains("await viewModel.setAgentAlias"))
-        XCTAssertTrue(source.contains("Button(\"清空记录\", role: .destructive)"))
-        XCTAssertTrue(source.contains("语音任务内容只保存在本地"))
+        XCTAssertTrue(source.contains("Button(L10n.localize(\"vibe.recent_dispatches.clear\""))
+        XCTAssertTrue(source.contains("vibe.recent_dispatches.local_notice"))
         XCTAssertTrue(source.contains("autoRefreshAgentSessions"))
         XCTAssertTrue(source.contains("Task.sleep(nanoseconds:"))
     }
@@ -244,7 +292,7 @@ final class SettingsRootViewLayoutTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("Button(\"删除全部本地模型\", role: .destructive)"))
+        XCTAssertTrue(source.contains("Button(L10n.localize(\"settings.task.action.delete_all_local_models\""))
         XCTAssertTrue(source.contains("showDeleteAllLocalModelsConfirmation = true"))
         XCTAssertTrue(source.contains(".confirmationDialog("))
         XCTAssertTrue(source.contains("try viewModel.deleteAllLocalModels()"))
@@ -256,9 +304,9 @@ final class SettingsRootViewLayoutTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("systemToggle(.hideDockIconWhenWorkbenchCloses"))
-        XCTAssertTrue(source.contains("关闭工作台后隐藏 Dock 图标"))
-        XCTAssertTrue(source.contains("菜单栏图标仍可使用"))
+        XCTAssertTrue(source.contains(".hideDockIconWhenWorkbenchCloses"))
+        XCTAssertTrue(source.contains("settings.appearance.hide_dock_icon.title"))
+        XCTAssertTrue(source.contains("settings.appearance.hide_dock_icon.subtitle"))
         XCTAssertTrue(source.contains("\"dock.rectangle\""))
         XCTAssertFalse(source.contains("\"dock.arrow\""))
     }

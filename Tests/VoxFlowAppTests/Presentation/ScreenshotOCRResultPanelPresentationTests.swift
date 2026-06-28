@@ -50,8 +50,8 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(selectionSource.contains("TextResultPanelController(title: \"文本结果\")"))
-        XCTAssertTrue(screenshotSource.contains("TextResultPanelController(title: \"屏幕识别\")"))
+        XCTAssertTrue(selectionSource.contains("TextResultPanelController(title: L10n.localize(\"selection.panel.title.result\""))
+        XCTAssertTrue(screenshotSource.contains("TextResultPanelController(\n        title: L10n.localize(\"screenshot.panel.title\""))
         XCTAssertFalse(selectionSource.contains("NSPanel"))
         XCTAssertFalse(screenshotSource.contains("NSPanel"))
     }
@@ -100,7 +100,7 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(screenshotSource.contains("bottomMargin: 28"))
         XCTAssertTrue(screenshotSource.contains("visualOutset: 24"))
         XCTAssertTrue(selectionSource.contains("panelController.present(\n            rootView: rootView,"))
-        XCTAssertTrue(aiChatSource.contains("TextResultPanelController(title: \"问 AI\")"))
+        XCTAssertTrue(aiChatSource.contains("TextResultPanelController(title: L10n.localize(\"chat.panel.title\""))
 
         XCTAssertTrue(sharedControllerSource.contains("placement: TextResultPanelPlacement = .rightSideCentered"))
         XCTAssertTrue(sharedControllerSource.contains("position(window, placement: placement)"))
@@ -204,7 +204,9 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(appDelegateSource.contains("ScreenshotOCRResultPresentationPolicy.route(for: result)"))
         XCTAssertTrue(appDelegateSource.contains("screenshotOCRResultPanelController.presentThumbnail("))
         XCTAssertFalse(appDelegateSource.contains("let completionMessage = result.captureCompletionKind == .scrollingScreenshot"))
-        XCTAssertTrue(panelSource.contains("viewModel.result.captureCompletionKind == .scrollingScreenshot ? \"截图完成\" : \"识别完成\""))
+        XCTAssertTrue(panelSource.contains("viewModel.result.captureCompletionKind == .scrollingScreenshot"))
+        XCTAssertTrue(panelSource.contains("screenshot.panel.title_scrolling_capture"))
+        XCTAssertTrue(panelSource.contains("screenshot.panel.title_recognition_complete"))
     }
 
     func testImagePreviewUsesFixedViewportAndOffersImageCopyActions() throws {
@@ -218,7 +220,41 @@ final class ScreenshotOCRResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("ScrollView(.vertical)"))
         XCTAssertTrue(source.contains(".contextMenu"))
         XCTAssertTrue(source.contains("viewModel.copySelectedImage()"))
-        XCTAssertTrue(source.contains("Label(\"复制图片\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"screenshot.panel.action.copy_image\""))
+    }
+
+    func testScreenshotPanelSimplifiedChineseCopyIsHumanReadable() throws {
+        let strings = try String(
+            contentsOf: Self.repositoryRoot()
+                .appendingPathComponent("Sources/VoxFlowApp/Resources/zh-Hans.lproj/Localizable.strings"),
+            encoding: .utf8
+        )
+        let expectedEntries = [
+            "\"screenshot.panel.action.copy_image\" = \"复制图片\";",
+            "\"screenshot.panel.action.copy_text\" = \"复制文字\";",
+            "\"screenshot.panel.action.speak\" = \"朗读\";",
+            "\"screenshot.panel.action.translate\" = \"翻译\";",
+            "\"screenshot.panel.placeholder.no_screenshot\" = \"暂无截图\";",
+            "\"screenshot.panel.placeholder.no_translation_overlay\" = \"暂无翻译覆盖图\";",
+            "\"screenshot.panel.tab.ocr\" = \"文字识别\";",
+            "\"screenshot.panel.tab.original_image\" = \"原始图片\";",
+            "\"screenshot.panel.tab.summary\" = \"总结\";",
+            "\"screenshot.panel.tab.translation\" = \"翻译\";",
+            "\"screenshot.panel.title\" = \"截图\";",
+            "\"screenshot.panel.title_recognition_complete\" = \"识别完成\";",
+            "\"screenshot.panel.title_scrolling_capture\" = \"长截图完成\";",
+        ]
+
+        for entry in expectedEntries {
+            XCTAssertTrue(strings.contains(entry), "Missing localized entry: \(entry)")
+        }
+        let panelLines = strings
+            .split(separator: "\n")
+            .filter { $0.contains("\"screenshot.panel.") }
+            .joined(separator: "\n")
+        XCTAssertFalse(panelLines.contains("截图 面板"))
+        XCTAssertFalse(panelLines.contains(" tab "))
+        XCTAssertFalse(panelLines.contains(" recognition complete"))
     }
 
     func testPanelPresentsWithoutActivatingVoxFlowApp() throws {

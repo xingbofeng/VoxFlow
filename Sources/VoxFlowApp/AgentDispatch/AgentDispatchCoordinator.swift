@@ -65,7 +65,10 @@ final class AgentDispatchCoordinator {
             case let .direct(agentID, message, _):
                 guard let agent = agents.first(where: { $0.agentID == agentID }) else {
                     AppLogger.dictation.warning("AgentDispatchCoordinator direct resolution failed missing agent=\(agentID)")
-                    present(.failure(message: "目标任务助手已不可用", retainedText: message))
+                    present(.failure(
+                        message: L10n.localize("agent_dispatch.error.target_unavailable", comment: ""),
+                        retainedText: message
+                    ))
                     return
                 }
                 guard directSendEnabled() else {
@@ -91,7 +94,10 @@ final class AgentDispatchCoordinator {
                 let behavior = unresolvedBehavior()
                 AppLogger.dictation.debug("AgentDispatchCoordinator outcome ambiguous behavior=\(behavior) candidates=\(candidateIDs.count)")
                 guard behavior != "cancel" else {
-                    present(.failure(message: "已取消发送", retainedText: utterance))
+                    present(.failure(
+                        message: L10n.localize("agent_dispatch.error.cancelled_send", comment: ""),
+                        retainedText: utterance
+                    ))
                     return
                 }
                 guard behavior != "default" else {
@@ -106,7 +112,10 @@ final class AgentDispatchCoordinator {
                 let behavior = unresolvedBehavior()
                 AppLogger.dictation.debug("AgentDispatchCoordinator outcome notFound behavior=\(behavior)")
                 guard behavior != "cancel" else {
-                    present(.failure(message: "已取消发送", retainedText: utterance))
+                    present(.failure(
+                        message: L10n.localize("agent_dispatch.error.cancelled_send", comment: ""),
+                        retainedText: utterance
+                    ))
                     return
                 }
                 guard behavior != "default" else {
@@ -118,7 +127,10 @@ final class AgentDispatchCoordinator {
                     candidateIDs: agents.map(\.agentID)
                 )
             case .invalidMessage:
-                present(.failure(message: "没有识别到要发送的指令", retainedText: utterance))
+                present(.failure(
+                    message: L10n.localize("agent_dispatch.error.no_command_to_send", comment: ""),
+                    retainedText: utterance
+                ))
             case let .unavailable(_, reason):
                 present(.failure(message: reason.userMessage, retainedText: utterance))
             }
@@ -179,7 +191,10 @@ final class AgentDispatchCoordinator {
                candidates: candidates
            ) {
             guard resolution.confidence >= 0.60 else {
-                present(.failure(message: "找不到明确任务助手", retainedText: utterance))
+                present(.failure(
+                    message: L10n.localize("agent_dispatch.error.no_clear_target", comment: ""),
+                    retainedText: utterance
+                ))
                 return
             }
             if let preferred = candidates.first(where: { $0.agentID == resolution.agentID }) {
@@ -254,12 +269,12 @@ final class AgentDispatchCoordinator {
 extension AgentDispatchFailureReason {
     var userMessage: String {
         switch self {
-        case .exited: return "任务助手已退出"
-        case .stale: return "任务助手连接已失效"
-        case .inputChannelMissing: return "任务助手输入通道不可用"
-        case .ambiguous: return "匹配到多个任务助手"
-        case .notFound: return "找不到对应任务助手"
-        case .writeFailed: return "发送失败"
+        case .exited: return L10n.localize("agent_dispatch.error.agent_exited", comment: "")
+        case .stale: return L10n.localize("agent_dispatch.error.agent_stale", comment: "")
+        case .inputChannelMissing: return L10n.localize("agent_dispatch.error.agent_input_channel_missing", comment: "")
+        case .ambiguous: return L10n.localize("agent_dispatch.error.agent_ambiguous", comment: "")
+        case .notFound: return L10n.localize("agent_dispatch.error.agent_not_found", comment: "")
+        case .writeFailed: return L10n.localize("agent_dispatch.error.write_failed", comment: "")
         }
     }
 }

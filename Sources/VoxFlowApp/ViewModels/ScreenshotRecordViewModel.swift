@@ -150,7 +150,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
             // 删除录屏时同步清理字幕草稿、SRT、带字幕视频；缺失文件不导致失败。
             removeSubtitleArtifacts(for: media)
             load()
-            lastActionMessage = "已删除"
+            lastActionMessage = L10n.localize("screenshot.record.feedback.deleted", comment: "")
         } catch {
             lastError = error.localizedDescription
         }
@@ -169,28 +169,28 @@ final class ScreenshotRecordViewModel: ObservableObject {
         guard let record = records.first(where: { $0.id == id }) else { return }
         let textToCopy = record.ocrText
         guard !textToCopy.isEmpty else {
-            lastError = "该记录无识别文字"
+            lastError = L10n.localize("screenshot.record.error.no_ocr_text", comment: "")
             return
         }
         clipboardService.setString(textToCopy)
-        lastActionMessage = "已复制到剪贴板"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.copied_to_clipboard", comment: "")
     }
 
     func copyImage(id: String) {
         guard let record = records.first(where: { $0.id == id }) else { return }
         guard let image = loadImage(for: record),
               let cgImage = image.cgImageForClipboard() else {
-            lastError = "该记录无可复制图片"
+            lastError = L10n.localize("screenshot.record.error.no_copyable_image", comment: "")
             return
         }
         clipboardService.setImage(cgImage)
-        lastActionMessage = "已复制图片"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.copied_image", comment: "")
     }
 
     func openFile(id: String) {
         guard let url = fileURL(for: id) else { return }
         NSWorkspace.shared.open(url)
-        lastActionMessage = "已打开文件"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.opened_file", comment: "")
     }
 
     func copyFile(id: String) {
@@ -198,23 +198,23 @@ final class ScreenshotRecordViewModel: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         if pasteboard.writeObjects([url as NSURL]) {
-            lastActionMessage = "已复制文件"
+            lastActionMessage = L10n.localize("screenshot.record.feedback.copied_file", comment: "")
         } else {
-            lastError = "复制文件失败"
+            lastError = L10n.localize("screenshot.record.error.copy_file_failed", comment: "")
         }
     }
 
     func revealInFinder(id: String) {
         guard let url = fileURL(for: id) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([url])
-        lastActionMessage = "已在 Finder 中显示"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.revealed_in_finder", comment: "")
     }
 
     // MARK: - 字幕
 
     func addSubtitle(id: String) {
         guard let coordinator = environment.subtitleCoordinator else {
-            lastError = "字幕功能未就绪"
+            lastError = L10n.localize("screenshot.record.error.subtitle_not_ready", comment: "")
             return
         }
         coordinator.addSubtitle(recordID: id)
@@ -228,27 +228,27 @@ final class ScreenshotRecordViewModel: ObservableObject {
     func startSubtitleBurn(id: String) {
         guard let coordinator = environment.subtitleCoordinator else { return }
         coordinator.startBurn(recordID: id)
-        lastActionMessage = "开始烧录字幕"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.burn_started", comment: "")
     }
 
     func openSubtitledVideo(id: String) {
         guard let record = records.first(where: { $0.id == id }),
               let path = record.subtitledVideoPath else {
-            lastError = "带字幕视频不可用"
+            lastError = L10n.localize("screenshot.record.error.subtitled_video_unavailable", comment: "")
             return
         }
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
-        lastActionMessage = "已打开带字幕视频"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.opened_subtitled_video", comment: "")
     }
 
     func openOriginalVideo(id: String) {
         guard let record = records.first(where: { $0.id == id }),
               let path = record.videoPath else {
-            lastError = "原视频不可用"
+            lastError = L10n.localize("screenshot.record.error.original_video_unavailable", comment: "")
             return
         }
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
-        lastActionMessage = "已打开原视频"
+        lastActionMessage = L10n.localize("screenshot.record.feedback.opened_original_video", comment: "")
     }
 
     func retrySubtitle(id: String) {
@@ -322,7 +322,7 @@ final class ScreenshotRecordViewModel: ObservableObject {
 
     private func fileURL(for id: String) -> URL? {
         guard let record = records.first(where: { $0.id == id }) else {
-            lastError = "该记录无可用文件"
+            lastError = L10n.localize("screenshot.record.error.no_available_file", comment: "")
             return nil
         }
         let paths = [
@@ -338,7 +338,9 @@ final class ScreenshotRecordViewModel: ObservableObject {
         }
 
         guard let existingPath = paths.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
-            lastError = paths.isEmpty ? "该记录无可用文件" : "文件不存在"
+            lastError = paths.isEmpty
+                ? L10n.localize("screenshot.record.error.no_available_file", comment: "")
+                : L10n.localize("screenshot.record.error.file_not_found", comment: "")
             lastActionMessage = nil
             return nil
         }

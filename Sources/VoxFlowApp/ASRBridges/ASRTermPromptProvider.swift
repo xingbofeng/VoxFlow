@@ -8,37 +8,39 @@ protocol ASRTermPromptProviding {
 
 @MainActor
 struct CorrectionTargetASRTermPromptProvider: ASRTermPromptProviding {
-    static let defaultBudgets: [ASREngineType: Int] = [
-        .whisper: 500,
-        .groqWhisper: 600,
-    ]
-
     private let repository: any CorrectionTargetRepository
-    private let budgets: [ASREngineType: Int]
     private let isEnabled: () -> Bool
 
     init(
         repository: any CorrectionTargetRepository,
-        budgets: [ASREngineType: Int] = Self.defaultBudgets,
         isEnabled: @escaping () -> Bool = { true }
     ) {
         self.repository = repository
-        self.budgets = budgets
         self.isEnabled = isEnabled
     }
 
     func prompt(for engineType: ASREngineType, bundleIdentifier: String?) -> String? {
-        guard isEnabled(),
-              let budget = budgets[engineType],
-              budget > 0 else {
+        guard isEnabled() else {
             return nil
         }
-        guard let targets = try? repository.list() else {
+
+        // Use the capability matrix for all providers, not just whisper/groq.
+        // Apple Speech still receives a string at this app boundary; its provider
+        // session parses the terms and maps them to contextualStrings.
+        let capability = ASRHotwordCapabilityMatrix.capability(for: engineType)
+        guard capability.supportMode == .promptContext
+            || (
+                capability.supportMode == .nativeHotword
+                    && (engineType == .apple || engineType == .nvidiaNemotron || engineType == .tencentCloud)
+            ) else {
+            return nil
+        }
+
+        guard let targets = try? repository.listHotwords() else {
             return nil
         }
 
         let scopedTargets = targets.filter { target in
-            guard target.lifecycle == .active else { return false }
             switch target.scope {
             case .global:
                 return true
@@ -63,16 +65,20 @@ struct CorrectionTargetASRTermPromptProvider: ASRTermPromptProviding {
             return term
         }
 
-        var selected: [String] = []
-        var length = 0
-        for term in terms {
-            let addedLength = term.count + (selected.isEmpty ? 0 : 2)
-            guard length + addedLength <= budget else {
-                break
-            }
-            selected.append(term)
-            length += addedLength
+        // Use the capability matrix to prune by the provider's budget
+        let payload = ASRHotwordCapabilityMatrix.buildPayload(
+            for: engineType,
+            candidates: terms
+        )
+        if engineType == .apple {
+            return payload.contextualStrings?.joined(separator: ", ")
         }
-        return selected.isEmpty ? nil : selected.joined(separator: ", ")
+        if engineType == .nvidiaNemotron {
+            return payload.boostingPhrases?.joined(separator: ", ")
+        }
+        if engineType == .tencentCloud {
+            return payload.hotwordList?.joined(separator: ",")
+        }
+        return payload.promptString
     }
 }

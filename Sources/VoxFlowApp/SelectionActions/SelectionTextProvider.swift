@@ -42,17 +42,17 @@ enum SelectionTextProviderFailure: Error, Equatable, Sendable {
     var userMessage: String {
         switch self {
         case .forceCopyDisabled:
-            return "未检测到选中文本"
+            return L10n.localize("selection.text_provider.no_selected_text", comment: "")
         case .frontmostAppIsSelf:
-            return "请在其他应用中选择文本"
+            return L10n.localize("selection.text_provider.select_text_from_other_app", comment: "")
         case .copyFallbackFailed(.accessibility):
-            return "未检测到选中文本"
+            return L10n.localize("selection.text_provider.accessibility_no_text", comment: "")
         case .copyFallbackFailed(.browserScript):
-            return "未检测到选中文本，浏览器选区读取未返回内容"
+            return L10n.localize("selection.text_provider.browser_no_text", comment: "")
         case .copyFallbackFailed(.shortcutCopy):
-            return "未检测到选中文本，复制快捷键未返回内容"
+            return L10n.localize("selection.text_provider.shortcut_copy_no_text", comment: "")
         case .copyFallbackFailed(.menuCopy):
-            return "未检测到选中文本，菜单复制未返回内容"
+            return L10n.localize("selection.text_provider.menu_copy_no_text", comment: "")
         }
     }
 }

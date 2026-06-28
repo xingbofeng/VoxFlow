@@ -12,10 +12,31 @@ enum VoiceCorrectionRuleFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: return "全部"
-        case .active: return "活跃"
-        case .candidate: return "候选"
-        case .suspended: return "已暂停"
+        case .all: return L10n.localize("correction.filter.all", comment: "")
+        case .active: return L10n.localize("correction.filter.active", comment: "")
+        case .candidate: return L10n.localize("correction.filter.candidate", comment: "")
+        case .suspended: return L10n.localize("correction.filter.suspended", comment: "")
+        }
+    }
+}
+
+enum VoiceCorrectionVocabularyTab: String, CaseIterable, Identifiable {
+    case hotwords
+    case textReplacement
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .hotwords: return L10n.localize("vocabulary.tab.hotwords", comment: "")
+        case .textReplacement: return L10n.localize("vocabulary.tab.text_replacement", comment: "")
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .hotwords: return L10n.localize("vocabulary.hotwords.description", comment: "")
+        case .textReplacement: return L10n.localize("vocabulary.text_replacement.description", comment: "")
         }
     }
 }
@@ -28,8 +49,8 @@ enum VoiceCorrectionScopeDraft: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .currentApplication: return "当前应用"
-        case .global: return "全局"
+        case .currentApplication: return L10n.localize("correction.scope.current_application", comment: "")
+        case .global: return L10n.localize("correction.scope.global", comment: "")
         }
     }
 }
@@ -70,9 +91,16 @@ struct VoiceCorrectionTargetRow: Identifiable, Equatable {
     let projection: CorrectionTargetProjection
 
     var targetText: String { projection.target.text }
-    var aliasPreview: String { projection.aliasPreview.isEmpty ? "暂无误听写法" : projection.aliasPreview }
+    var aliasPreview: String {
+        projection.aliasPreview.isEmpty ? L10n.localize("correction.alias_preview_empty", comment: "") : projection.aliasPreview
+    }
     var scopeTitle: String
-    var correctionCountText: String { "\(projection.appliedCount) 次" }
+    var correctionCountText: String {
+        String(format: L10n.localize("correction.target.correction_count_format", comment: ""), projection.appliedCount)
+    }
+    var hitCountText: String {
+        String(format: L10n.localize("vocabulary.hotwords.hit_count_format", comment: ""), projection.target.hitCount)
+    }
     var recentUseText: String
     var statusTitle: String
     var aliases: [CorrectionRule] { projection.aliases }
@@ -94,7 +122,9 @@ final class VoiceCorrectionViewModel: ObservableObject {
     @Published private(set) var shadowMode = VoiceCorrectionSettingsKey.shadowMode.defaultValue
     @Published private(set) var rules: [CorrectionRule] = []
     @Published private(set) var targetRows: [VoiceCorrectionTargetRow] = []
+    @Published private(set) var learningCandidates: [CorrectionTargetTerm] = []
     @Published private(set) var selectedTargetID: UUID?
+    @Published var selectedVocabularyTab: VoiceCorrectionVocabularyTab = .hotwords
     @Published var selectedFilter: VoiceCorrectionRuleFilter = .all
     @Published var searchText = ""
     @Published private(set) var lastError: String?
@@ -103,7 +133,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     private let environment: any AppServiceProviding
     private let targetProvider: any DictationTargetProviding
     private let notificationCenter: NotificationCenter
-    private var learningEventObserver: NotificationObserverToken?
+    private var notificationObservers: [NotificationObserverToken] = []
     private var hasLoaded = false
 
     init(
@@ -114,13 +144,13 @@ final class VoiceCorrectionViewModel: ObservableObject {
         self.environment = environment
         self.targetProvider = targetProvider
         self.notificationCenter = notificationCenter
-        observeAutomaticLearningEvents()
+        observeVocabularyChangeEvents()
         load()
     }
 
     deinit {
-        if let learningEventObserver {
-            notificationCenter.removeObserver(learningEventObserver.value)
+        for observer in notificationObservers {
+            notificationCenter.removeObserver(observer.value)
         }
     }
 
@@ -186,6 +216,20 @@ final class VoiceCorrectionViewModel: ObservableObject {
         }
     }
 
+    var filteredHotwordRows: [VoiceCorrectionTargetRow] {
+        let hotwords = sortHotwordRows(
+            visibleTargetRows.filter { $0.projection.lifecycle == .active }
+        )
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return hotwords
+        }
+        return hotwords.filter { row in
+            row.targetText.localizedCaseInsensitiveContains(query) ||
+                row.aliases.contains { $0.original.localizedCaseInsensitiveContains(query) }
+        }
+    }
+
     var selectedTarget: VoiceCorrectionTargetRow? {
         guard let selectedTargetID else {
             return filteredTargetRows.first
@@ -198,7 +242,9 @@ final class VoiceCorrectionViewModel: ObservableObject {
     }
 
     var visibleTargetRows: [VoiceCorrectionTargetRow] {
-        targetRows.filter { $0.projection.lifecycle != .candidate }
+        targetRows.filter { row in
+            row.projection.lifecycle != .candidate && row.projection.target.isBlocklisted == false
+        }
     }
 
     var visibleTargetCount: Int {
@@ -273,7 +319,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func createTarget(text: String, aliasesText: String) {
         let targetText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !targetText.isEmpty else {
-            lastError = "目标词不能为空"
+            lastError = L10n.localize("correction.feedback.target_required", comment: "")
             lastActionMessage = nil
             return
         }
@@ -292,7 +338,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
             let aliases = parsedAliases(from: aliasesText)
             guard hasDuplicateAliases(aliases) == false else {
-                lastError = "误听写法已存在"
+                lastError = L10n.localize("correction.feedback.alias_duplicate", comment: "")
                 lastActionMessage = nil
                 return
             }
@@ -315,8 +361,78 @@ final class VoiceCorrectionViewModel: ObservableObject {
             rebuildTargetRows()
             selectedTargetID = target.id
             _ = environment.correctionSnapshotProvider.refresh()
-            lastActionMessage = "已新增目标词"
+            syncHotwordFileFromRepository()
+            lastActionMessage = L10n.localize("correction.feedback.target_added", comment: "")
             lastError = nil
+        } catch {
+            report(error)
+        }
+    }
+
+    func addHotword(text: String) {
+        let hotwordText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !hotwordText.isEmpty else {
+            lastError = L10n.localize("correction.feedback.target_required", comment: "")
+            lastActionMessage = nil
+            return
+        }
+
+        let normalized = CorrectionTargetTerm.normalize(hotwordText)
+        if visibleTargetRows.contains(where: { $0.projection.target.normalizedText == normalized }) {
+            lastActionMessage = L10n.localize("vocabulary.hotwords.toast.duplicate", comment: "")
+            lastError = nil
+            return
+        }
+
+        do {
+            let target = CorrectionTargetTerm(
+                text: hotwordText,
+                scope: .global,
+                lifecycle: .active,
+                source: .manual
+            )
+            let saved = try environment.correctionTargetRepository.saveHotwordIfNotBlocklisted(target)
+            guard saved else {
+                lastActionMessage = L10n.localize("vocabulary.hotwords.toast.duplicate", comment: "")
+                lastError = nil
+                return
+            }
+            refreshAfterTargetMutation(message: L10n.localize("correction.feedback.target_added", comment: ""))
+        } catch {
+            report(error)
+        }
+    }
+
+    func deleteHotword(_ row: VoiceCorrectionTargetRow) {
+        do {
+            try environment.correctionTargetRepository.blocklist(id: row.id)
+            refreshAfterTargetMutation(message: L10n.localize("vocabulary.hotwords.toast.deleted", comment: ""))
+        } catch {
+            report(error)
+        }
+    }
+
+    func acceptLearningCandidate(_ candidate: CorrectionTargetTerm) {
+        do {
+            var promoted = candidate
+            promoted.lifecycle = .active
+            promoted.updatedAt = Date()
+            let saved = try environment.correctionTargetRepository.saveHotwordIfNotBlocklisted(promoted)
+            guard saved else {
+                refreshAfterTargetMutation(message: L10n.localize("vocabulary.hotwords.toast.duplicate", comment: ""))
+                return
+            }
+            selectedTargetID = candidate.id
+            refreshAfterTargetMutation(message: L10n.localize("vocabulary.learning.toast.accepted", comment: ""))
+        } catch {
+            report(error)
+        }
+    }
+
+    func ignoreLearningCandidate(_ candidate: CorrectionTargetTerm) {
+        do {
+            try environment.correctionTargetRepository.blocklist(id: candidate.id)
+            refreshAfterTargetMutation(message: L10n.localize("vocabulary.learning.toast.ignored", comment: ""))
         } catch {
             report(error)
         }
@@ -325,7 +441,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func addAliases(to row: VoiceCorrectionTargetRow, aliasesText: String) {
         let aliases = parsedAliases(from: aliasesText)
         guard !aliases.isEmpty else {
-            lastError = "误听写法不能为空"
+            lastError = L10n.localize("correction.feedback.alias_required", comment: "")
             lastActionMessage = nil
             return
         }
@@ -337,7 +453,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
             guard hasDuplicateAliases(aliases) == false,
                   aliases.allSatisfy({ !existingAliases.contains($0.lowercased()) })
             else {
-                lastError = "误听写法已存在"
+                lastError = L10n.localize("correction.feedback.alias_duplicate", comment: "")
                 lastActionMessage = nil
                 return
             }
@@ -359,7 +475,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
             rebuildTargetRows()
             selectedTargetID = target.id
             _ = environment.correctionSnapshotProvider.refresh()
-            lastActionMessage = "已添加误听写法"
+            lastActionMessage = L10n.localize("correction.feedback.alias_added", comment: "")
             lastError = nil
         } catch {
             report(error)
@@ -406,7 +522,9 @@ final class VoiceCorrectionViewModel: ObservableObject {
                 lastAppliedAt: existing?.lastAppliedAt
             )
             try environment.correctionRuleRepository.save(rule)
-            refreshAfterRuleMutation(message: draft.id == nil ? "已新增易错词规则" : "已保存易错词规则")
+            refreshAfterRuleMutation(message: draft.id == nil
+                ? L10n.localize("correction.feedback.rule_created", comment: "")
+                : L10n.localize("correction.feedback.rule_saved", comment: ""))
         } catch {
             report(error)
         }
@@ -415,7 +533,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func disableRule(_ rule: CorrectionRule) {
         do {
             try environment.correctionRuleRepository.setEnabled(false, id: rule.id, updatedAt: Date())
-            refreshAfterRuleMutation(message: "已暂停规则")
+            refreshAfterRuleMutation(message: L10n.localize("correction.feedback.rule_paused", comment: ""))
         } catch {
             report(error)
         }
@@ -424,7 +542,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func deleteRule(_ rule: CorrectionRule) {
         do {
             try environment.correctionRuleRepository.delete(id: rule.id)
-            refreshAfterRuleMutation(message: "已删除规则")
+            refreshAfterRuleMutation(message: L10n.localize("correction.feedback.rule_deleted", comment: ""))
         } catch {
             report(error)
         }
@@ -433,7 +551,23 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func clearAllRules() {
         do {
             try environment.correctionRuleRepository.clearAll()
-            refreshAfterRuleMutation(message: "已清空全部易错词规则")
+            refreshAfterRuleMutation(message: L10n.localize("correction.feedback.rules_cleared", comment: ""))
+        } catch {
+            report(error)
+        }
+    }
+
+    func openHotwordFile() {
+        guard let service = environment.hotwordFileSyncService else {
+            lastError = L10n.localize("app.paths.application_support_unavailable", comment: "")
+            lastActionMessage = nil
+            return
+        }
+        do {
+            try service.ensureFileExists()
+            service.openInSystemEditor()
+            lastActionMessage = L10n.localize("vocabulary.hotwords.file_button_help", comment: "")
+            lastError = nil
         } catch {
             report(error)
         }
@@ -444,7 +578,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
         updated.lifecycle = .active
         updated.confidence = max(updated.confidence, 0.90)
         updated.updatedAt = Date()
-        saveExistingRule(updated, message: "已确认学习候选")
+        saveExistingRule(updated, message: L10n.localize("correction.feedback.learning_confirmed", comment: ""))
     }
 
     func ignoreCandidate(_ rule: CorrectionRule) {
@@ -456,7 +590,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
             .filter({ $0.source == .automaticLearning })
             .max(by: { $0.updatedAt < $1.updatedAt })
         else {
-            lastActionMessage = "暂无可撤销的自动学习"
+            lastActionMessage = L10n.localize("correction.feedback.undo_none", comment: "")
             lastError = nil
             return
         }
@@ -468,9 +602,10 @@ final class VoiceCorrectionViewModel: ObservableObject {
                 let remainingRules = try environment.correctionRuleRepository.list()
                 if remainingRules.contains(where: { $0.targetID == targetID }) == false {
                     try environment.correctionTargetRepository.delete(id: targetID)
+                    syncHotwordFileFromRepository()
                 }
             }
-            refreshAfterRuleMutation(message: "已撤销最近自动学习")
+            refreshAfterRuleMutation(message: L10n.localize("correction.feedback.undo_latest", comment: ""))
         } catch {
             report(error)
         }
@@ -481,8 +616,8 @@ final class VoiceCorrectionViewModel: ObservableObject {
             let deletedCount = try correctionLearningBatchUndoService.undo(event)
             refreshAfterRuleMutation(
                 message: deletedCount > 0
-                    ? "已撤销本次自动学习"
-                    : "本次学习已变更，未执行撤销"
+                    ? L10n.localize("correction.feedback.undo_batch", comment: "")
+                    : L10n.localize("correction.feedback.undo_not_available", comment: "")
             )
         } catch {
             report(error)
@@ -497,7 +632,7 @@ final class VoiceCorrectionViewModel: ObservableObject {
     func scopeTitle(for rule: CorrectionRule) -> String {
         switch rule.scope {
         case .global:
-            return "全局"
+            return L10n.localize("correction.scope.global", comment: "")
         case .application(let bundleIdentifier):
             return appName(for: bundleIdentifier)
         }
@@ -505,26 +640,26 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     func matchPolicyTitle(_ policy: MatchPolicy) -> String {
         switch policy {
-        case .exact: return "整句"
-        case .boundary: return "边界"
-        case .substring: return "短语"
+        case .exact: return L10n.localize("correction.match_policy.exact", comment: "")
+        case .boundary: return L10n.localize("correction.match_policy.boundary", comment: "")
+        case .substring: return L10n.localize("correction.match_policy.substring", comment: "")
         }
     }
 
     func lifecycleTitle(_ lifecycle: RuleLifecycle) -> String {
         switch lifecycle {
-        case .active: return "活跃"
-        case .candidate: return "候选"
-        case .suspended: return "已暂停"
-        case .retired: return "已退役"
+        case .active: return L10n.localize("correction.lifecycle.active", comment: "")
+        case .candidate: return L10n.localize("correction.lifecycle.candidate", comment: "")
+        case .suspended: return L10n.localize("correction.lifecycle.suspended", comment: "")
+        case .retired: return L10n.localize("correction.lifecycle.retired", comment: "")
         }
     }
 
     func sourceTitle(_ source: RuleSource) -> String {
         switch source {
-        case .manual: return "手动"
-        case .automaticLearning: return "自动学习"
-        case .imported: return "导入"
+        case .manual: return L10n.localize("correction.source.manual", comment: "")
+        case .automaticLearning: return L10n.localize("correction.source.automatic_learning", comment: "")
+        case .imported: return L10n.localize("correction.source.imported", comment: "")
         }
     }
 
@@ -563,18 +698,45 @@ final class VoiceCorrectionViewModel: ObservableObject {
         lastError = nil
     }
 
+    private func refreshAfterTargetMutation(message: String) {
+        rules = (try? environment.correctionRuleRepository.list()) ?? rules
+        rebuildTargetRows()
+        _ = environment.correctionSnapshotProvider.refresh()
+        syncHotwordFileFromRepository()
+        lastActionMessage = message
+        lastError = nil
+    }
+
+    private func syncHotwordFileFromRepository() {
+        environment.hotwordFileSyncService?.writeBackFromRepository()
+    }
+
+    private func sortHotwordRows(_ rows: [VoiceCorrectionTargetRow]) -> [VoiceCorrectionTargetRow] {
+        rows.sorted { lhs, rhs in
+            let textComparison = lhs.targetText.localizedCaseInsensitiveCompare(rhs.targetText)
+            if textComparison != .orderedSame {
+                return textComparison == .orderedAscending
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+    }
+
     private func rebuildTargetRows() {
-        let targets = (try? environment.correctionTargetRepository.list()) ?? []
+        let allTargets = (try? environment.correctionTargetRepository.list()) ?? []
+        let hotwords = (try? environment.correctionTargetRepository.listHotwords()) ?? []
+        let hotwordIDs = Set(hotwords.map(\.id))
+        let targets = hotwords + allTargets.filter { !hotwordIDs.contains($0.id) }
         let projections = CorrectionTargetProjection.build(targets: targets, rules: rules)
         targetRows = projections.map { projection in
             VoiceCorrectionTargetRow(
                 id: projection.id,
                 projection: projection,
                 scopeTitle: scopeTitle(for: projection.target.scope),
-                recentUseText: projection.lastAppliedAt.map(relativeDate) ?? "从未",
+                recentUseText: projection.lastAppliedAt.map(relativeDate) ?? L10n.localize("correction.time.never", comment: ""),
                 statusTitle: lifecycleTitle(projection.lifecycle)
             )
         }
+        learningCandidates = (try? environment.correctionTargetRepository.listLearningCandidates(limit: 50)) ?? []
         if let selectedTargetID,
            !targetRows.contains(where: { $0.id == selectedTargetID }) {
             self.selectedTargetID = targetRows.first?.id
@@ -627,8 +789,8 @@ final class VoiceCorrectionViewModel: ObservableObject {
         )
     }
 
-    private func observeAutomaticLearningEvents() {
-        learningEventObserver = NotificationObserverToken(notificationCenter.addObserver(
+    private func observeVocabularyChangeEvents() {
+        notificationObservers.append(NotificationObserverToken(notificationCenter.addObserver(
             forName: .correctionObservationLearningEvent,
             object: nil,
             queue: .main
@@ -639,13 +801,22 @@ final class VoiceCorrectionViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 self?.applyAutomaticLearningEvent(event)
             }
-        })
+        }))
+        notificationObservers.append(NotificationObserverToken(notificationCenter.addObserver(
+            forName: .correctionVocabularyDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.load()
+            }
+        }))
     }
 
     private func scopeTitle(for scope: RuleScope) -> String {
         switch scope {
         case .global:
-            return "全局"
+            return L10n.localize("correction.scope.global", comment: "")
         case .application(let bundleIdentifier):
             return appName(for: bundleIdentifier)
         }
@@ -682,10 +853,10 @@ final class VoiceCorrectionViewModel: ObservableObject {
 
     private func appName(for bundleIdentifier: String) -> String {
         if bundleIdentifier == currentBundleIdentifier() {
-            return targetProvider.currentTarget()?.appName ?? "当前应用"
+            return targetProvider.currentTarget()?.appName ?? L10n.localize("correction.scope.current_application", comment: "")
         }
         if bundleIdentifier == ProductBrand.bundleIdentifier {
-            return ProductBrand.englishName
+            return ProductBrand.displayName
         }
         return bundleIdentifier
     }
@@ -693,14 +864,14 @@ final class VoiceCorrectionViewModel: ObservableObject {
     private func relativeDate(_ date: Date) -> String {
         let interval = Date().timeIntervalSince(date)
         if interval < 60 {
-            return "刚刚"
+            return L10n.localize("correction.time.just_now", comment: "")
         }
         if interval < 3_600 {
-            return "\(Int(interval / 60)) 分钟前"
+            return String(format: L10n.localize("correction.time.minutes_ago_format", comment: ""), Int(interval / 60))
         }
         if interval < 86_400 {
-            return "\(Int(interval / 3_600)) 小时前"
+            return String(format: L10n.localize("correction.time.hours_ago_format", comment: ""), Int(interval / 3_600))
         }
-        return "昨天"
+        return L10n.localize("correction.time.yesterday", comment: "")
     }
 }

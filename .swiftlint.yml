@@ -1,0 +1,30 @@
+# SwiftLint 配置 — VoxFlow
+#
+# 框架阶段说明：
+# - 项目首次引入 SwiftLint。only_rules 必须非空（空列表会被 0.65.0 当作"未设置"，
+#   导致默认规则全开、excluded 失效，扫描 .build/Packages 时崩溃）。
+# - 暂用纯 Swift 项目 0 违规的 ObjC 专属规则 block_based_kvo 占位。
+# - i18n 裸字符串自定义规则在全量替换完成后启用（见 tasks 8.2）：
+#   1. 取消下方 custom_rules 注释；
+#   2. 在 only_rules 中加入 ui_hardcoded_string。
+
+only_rules:
+  - block_based_kvo
+
+# 自定义规则：抓 UI 上下文未本地化的裸字符串字面量。
+# TODO(tasks 8.2): 全量替换完成后取消注释，并把 ui_hardcoded_string 加入 only_rules。
+# custom_rules:
+#   ui_hardcoded_string:
+#     name: "UI Hardcoded String"
+#     regex: '\b(Text|Label|Button|navigationTitle|TextField|Help)\(\s*"[一-龥A-Za-z][^"]*"'
+#     match_kinds: [argument]
+#     message: "UI 文案应使用 NSLocalizedString / L10n 本地化，不要硬编码字符串字面量"
+#     severity: error
+
+excluded:
+  - .build
+  - Packages
+  - Vendor
+  - openspec
+  - agent-cli
+  - Sources/VoxFlowApp/Generated

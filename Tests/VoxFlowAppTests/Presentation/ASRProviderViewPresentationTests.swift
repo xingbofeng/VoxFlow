@@ -97,9 +97,9 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(source.contains("TextField(\"Base URL\""))
         XCTAssertFalse(source.contains("TextField(\"识别引擎"))
         XCTAssertFalse(source.contains("TextField(\"识别模型"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"应用 ID\", text: $viewModel.tencentAppIDInput, isSecret: false)"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"密钥 ID\", text: $viewModel.tencentSecretIDInput, isSecret: false)"))
-        XCTAssertTrue(source.contains("tencentCredentialField(\"密钥\", text: $viewModel.tencentSecretKeyInput, isSecret: true)"))
+        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.app_id""#))
+        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.secret_id""#))
+        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.secret_key""#))
     }
 
     func testProviderCardInteractionDisablesSelectionForUnavailableOrCurrentProvider() {
@@ -176,7 +176,7 @@ final class ASRProviderViewPresentationTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("Label(\"清理模型\", systemImage: \"trash\")"))
+        XCTAssertTrue(source.contains(#"Label(L10n.localize("asr.provider.local_model.clean""#))
         XCTAssertTrue(source.contains("viewModel.deleteLocalModel(id: provider.id)"))
         XCTAssertTrue(source.contains(".disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)"))
     }
@@ -186,7 +186,7 @@ final class ASRProviderViewPresentationTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("Text(\"模型大小\")"))
+        XCTAssertTrue(source.contains(#"Text(L10n.localize("asr.provider.local_model.size_label""#))
         XCTAssertTrue(source.contains("viewModel.localModelSizeSummary(providerID: provider.id)"))
         XCTAssertTrue(source.contains("progress.detailText"))
         XCTAssertTrue(source.contains("progress.modelSizeText"))
@@ -278,12 +278,12 @@ final class ASRProviderViewPresentationTests: XCTestCase {
 
         XCTAssertEqual(
             ASRProviderTagPresentation.cardTags(for: descriptor),
-            ["离线", "流式", "准确", "中文", "英文", "多语言", "CoreML"]
+            ["离线", "流式", "准确", "中文", "英文", "多语言", "CoreML", "智能纠错"]
         )
     }
 
     func testAllProviderCardTagsStayInsideApprovedVocabulary() {
-        let approvedTags: Set<String> = ["离线", "在线", "流式", "非流式", "快速", "准确", "中文", "英文", "多语言", "CoreML"]
+        let approvedTags: Set<String> = ["离线", "在线", "流式", "非流式", "快速", "准确", "中文", "英文", "多语言", "智能纠错", "CoreML"]
 
         let descriptors = [
             ASRProviderDescriptor(

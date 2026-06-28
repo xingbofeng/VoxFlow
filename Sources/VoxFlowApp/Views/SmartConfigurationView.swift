@@ -35,9 +35,9 @@ struct SmartConfigurationView: View {
                 .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(AppTheme.ColorToken.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text("智能应用配置")
+                Text(L10n.localize("smart.config.title", comment: ""))
                     .font(.system(size: 18, weight: .semibold))
-                Text("自动为已安装应用推荐语音输入风格")
+                Text(L10n.localize("smart.config.subtitle", comment: ""))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -50,8 +50,8 @@ struct SmartConfigurationView: View {
                         .background(AppTheme.ColorToken.controlBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("关闭")
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L10n.localize("smart.config.close", comment: ""))
             }
         }
         .padding(.horizontal, 24)
@@ -66,13 +66,13 @@ struct SmartConfigurationView: View {
         case .idle:
             idleView
         case .scanning(let progress):
-            progressView(title: "正在扫描已安装应用...", progress: progress)
+            progressView(title: L10n.localize("smart.config.progress_scanning", comment: ""), progress: progress)
         case .classifying(let progress):
-            progressView(title: "正在智能分类应用...", progress: progress)
+            progressView(title: L10n.localize("smart.config.progress_classifying", comment: ""), progress: progress)
         case .reviewing:
             reviewingView
         case .applying:
-            progressView(title: "正在应用配置...", progress: 0.5)
+            progressView(title: L10n.localize("smart.config.progress_applying", comment: ""), progress: 0.5)
         case .completed:
             completedView
         case .failed(let message):
@@ -86,9 +86,9 @@ struct SmartConfigurationView: View {
             Image(systemName: "sparkles.magnifyingglass")
                 .font(.system(size: 48))
                 .foregroundStyle(AppTheme.ColorToken.accent.opacity(0.6))
-            Text("扫描已安装应用并智能推荐语音输入风格")
+            Text(L10n.localize("smart.config.idle_title", comment: ""))
                 .font(.system(size: 15, weight: .medium))
-            Text("系统将分析你的应用，并为每个应用匹配最合适的语音输入风格。")
+            Text(L10n.localize("smart.config.idle_subtitle", comment: ""))
                 .font(.system(size: 13))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 .multilineTextAlignment(.center)
@@ -109,7 +109,7 @@ struct SmartConfigurationView: View {
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
                 .frame(width: 260)
-            Text("已发现 \(viewModel.totalAppCount) 个应用")
+            Text(String(format: L10n.localize("smart.config.discovered_format", comment: ""), viewModel.totalAppCount))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             Spacer()
@@ -118,13 +118,42 @@ struct SmartConfigurationView: View {
     }
 
     private var reviewingView: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(viewModel.groups) { group in
-                    groupCard(group)
+        Group {
+            if viewModel.groups.isEmpty {
+                emptyReviewingView
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        ForEach(viewModel.groups) { group in
+                            groupCard(group)
+                        }
+                    }
+                    .padding(20)
                 }
             }
-            .padding(20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyReviewingView: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "sparkles.magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundStyle(AppTheme.ColorToken.accent.opacity(0.6))
+            Text(L10n.localize("smart.config.empty_title", comment: ""))
+                .font(.system(size: 15, weight: .medium))
+            Text(L10n.localize("smart.config.empty_subtitle", comment: ""))
+                .font(.system(size: 13))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 380)
+            if viewModel.totalAppCount > 0 {
+                Text(String(format: L10n.localize("smart.config.discovered_format", comment: ""), viewModel.totalAppCount))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -145,7 +174,7 @@ struct SmartConfigurationView: View {
                     .foregroundStyle(sourceColor(group.source))
                     .clipShape(Capsule())
                 Spacer()
-                Text("\(group.recommendations.count) 个应用")
+                Text(String(format: L10n.localize("smart.config.app_count_format", comment: ""), group.recommendations.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -187,9 +216,9 @@ struct SmartConfigurationView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
-            Text("配置完成")
+            Text(L10n.localize("smart.config.completed_title", comment: ""))
                 .font(.system(size: 18, weight: .semibold))
-            Text("应用风格规则已保存，语音输入时将自动切换风格。")
+            Text(L10n.localize("smart.config.completed_message", comment: ""))
                 .font(.system(size: 13))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 .multilineTextAlignment(.center)
@@ -205,7 +234,7 @@ struct SmartConfigurationView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 48))
                 .foregroundStyle(.orange)
-            Text("配置失败")
+            Text(L10n.localize("smart.config.failed_title", comment: ""))
                 .font(.system(size: 18, weight: .semibold))
             Text(message)
                 .font(.system(size: 13))
@@ -223,7 +252,7 @@ struct SmartConfigurationView: View {
         HStack {
             Spacer()
             if viewModel.canCancel {
-                Button("取消") {
+                Button(L10n.localize("smart.config.button_cancel", comment: "")) {
                     viewModel.cancel()
                     onClose()
                 }
@@ -231,12 +260,12 @@ struct SmartConfigurationView: View {
             }
             switch viewModel.phase {
             case .idle:
-                Button("开始扫描") {
+                Button(L10n.localize("smart.config.button_start_scan", comment: "")) {
                     Task { await viewModel.startConfiguration() }
                 }
                 .buttonStyle(.borderedProminent)
             case .reviewing:
-                Button("应用配置") {
+                Button(L10n.localize("smart.config.button_apply", comment: "")) {
                     do {
                         try viewModel.confirm()
                     } catch {
@@ -246,10 +275,10 @@ struct SmartConfigurationView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!viewModel.canConfirm)
             case .completed, .failed:
-                Button("完成", action: onClose)
+                Button(L10n.localize("smart.config.button_done", comment: ""), action: onClose)
                     .buttonStyle(.borderedProminent)
-            default:
-                EmptyView()
+                default:
+                    EmptyView()
             }
         }
         .padding(.horizontal, 24)
@@ -260,10 +289,10 @@ struct SmartConfigurationView: View {
 
     private func sourceLabel(_ source: StyleRecommendationSource) -> String {
         switch source {
-        case .systemPreset: return "系统预设"
-        case .aiRecommendation: return "AI 推荐"
-        case .defaultStyle: return "默认风格"
-        case .userRule: return "自定义规则"
+        case .systemPreset: return L10n.localize("smart.config.source_system_preset", comment: "")
+        case .aiRecommendation: return L10n.localize("smart.config.source_ai_recommendation", comment: "")
+        case .defaultStyle: return L10n.localize("smart.config.source_default_style", comment: "")
+        case .userRule: return L10n.localize("smart.config.source_user_rule", comment: "")
         }
     }
 

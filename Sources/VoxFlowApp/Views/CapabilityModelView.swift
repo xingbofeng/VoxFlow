@@ -41,8 +41,8 @@ struct CapabilityModelView: View {
                             Text(model.displayName)
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            if model.isRecommended {
-                                Text("推荐")
+                        if model.isRecommended {
+                                Text(L10n.localize("model.capability.recommended", comment: ""))
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(AppTheme.ColorToken.accent)
                                     .padding(.horizontal, 7)
@@ -60,7 +60,7 @@ struct CapabilityModelView: View {
                     }
                     Spacer(minLength: 0)
                     if isSelected {
-                        Text("当前使用")
+                        Text(L10n.localize("model.capability.current_using", comment: ""))
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(AppTheme.ColorToken.accent)
                             .padding(.horizontal, 10)
@@ -84,7 +84,7 @@ struct CapabilityModelView: View {
             }
             if viewModel.isDownloading && viewModel.downloadingModelID == model.id {
                 ProgressView(value: viewModel.downloadProgress) {
-                    Text("正在下载模型")
+                    Text(L10n.localize("model.capability.downloading", comment: ""))
                         .font(.system(size: 12))
                 }
             }
@@ -92,7 +92,7 @@ struct CapabilityModelView: View {
                 Button {
                     Task { await viewModel.downloadModel(id: model.id) }
                 } label: {
-                    Label("下载模型", systemImage: "arrow.down.circle")
+                    Label(L10n.localize("model.capability.download_button", comment: ""), systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isDownloading)
@@ -113,11 +113,11 @@ struct CapabilityModelView: View {
 
     private func statusText(for model: CapabilityModelDescriptor) -> String {
         if model.isInstalled {
-            return "就绪，可直接使用"
+            return L10n.localize("model.capability.status_ready", comment: "")
         }
         if model.id == CapabilityModelID.llmTranslation {
-            return "尚未配置"
+            return L10n.localize("model.capability.status_unconfigured", comment: "")
         }
-        return "尚未下载"
+        return L10n.localize("model.capability.status_not_downloaded", comment: "")
     }
 }

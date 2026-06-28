@@ -41,17 +41,20 @@ public struct AliyunDashScopeRealtimeASRConfiguration: Equatable, Sendable {
     public let model: String
     public let endpoint: String
     public let timeoutSeconds: Double
+    public let vocabularyID: String?
 
     public init(
         apiKey: String,
         model: String = Self.defaultModel,
         endpoint: String = Self.defaultEndpoint,
-        timeoutSeconds: Double = 30
+        timeoutSeconds: Double = 30,
+        vocabularyID: String? = nil
     ) {
         self.apiKey = apiKey
         self.model = model
         self.endpoint = endpoint
         self.timeoutSeconds = timeoutSeconds
+        self.vocabularyID = Self.normalizedVocabularyID(vocabularyID)
     }
 
     public var isComplete: Bool {
@@ -66,6 +69,14 @@ public struct AliyunDashScopeRealtimeASRConfiguration: Equatable, Sendable {
             throw AliyunDashScopeRealtimeASRError.invalidEndpoint
         }
         return url
+    }
+
+    private static func normalizedVocabularyID(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 }
 
@@ -104,11 +115,13 @@ public struct AliyunDashScopeRealtimeASRRequest: Codable, Equatable, Sendable {
         public let format: String
         public let sampleRate: Int
         public let punctuationPredictionEnabled: Bool
+        public let vocabularyID: String?
 
         enum CodingKeys: String, CodingKey {
             case format
             case sampleRate = "sample_rate"
             case punctuationPredictionEnabled = "punctuation_prediction_enabled"
+            case vocabularyID = "vocabulary_id"
         }
     }
 
@@ -142,7 +155,8 @@ public struct AliyunDashScopeRealtimeASRRequest: Codable, Equatable, Sendable {
                 parameters: Parameters(
                     format: "pcm",
                     sampleRate: sampleRate,
-                    punctuationPredictionEnabled: true
+                    punctuationPredictionEnabled: true,
+                    vocabularyID: configuration.vocabularyID
                 ),
                 input: EmptyObject()
             )

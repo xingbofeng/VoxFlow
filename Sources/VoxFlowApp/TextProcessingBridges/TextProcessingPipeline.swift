@@ -419,6 +419,12 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     private let styleRepository: (any StyleRepository)?
     private let styleSelector: (any StyleSelecting)?
     private let promptBuilder: PromptBuilder
+    private let structuredPromptBuilder: StructuredCorrectionPromptBuilder?
+    private let structuredLearningService: StructuredCorrectionLearningService?
+    private let correctionTargetRepository: (any CorrectionTargetRepository)?
+    private let correctionEvidenceRepository: (any CorrectionEvidenceRepository)?
+    private let hotwordFileSyncService: HotwordFileSyncService?
+    private let structuredLearningEnabled: () -> Bool
     private let voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)?
     private let contextBoostProvider: (any CurrentWindowOCRContextProviding)?
     private let contextBoostCoordinator: ContextBoostPrefetchCoordinator?
@@ -431,6 +437,12 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         styleRepository: (any StyleRepository)? = nil,
         styleSelector: (any StyleSelecting)? = nil,
         promptBuilder: PromptBuilder = PromptBuilder(),
+        structuredPromptBuilder: StructuredCorrectionPromptBuilder? = nil,
+        structuredLearningService: StructuredCorrectionLearningService? = nil,
+        correctionTargetRepository: (any CorrectionTargetRepository)? = nil,
+        correctionEvidenceRepository: (any CorrectionEvidenceRepository)? = nil,
+        hotwordFileSyncService: HotwordFileSyncService? = nil,
+        structuredLearningEnabled: @escaping () -> Bool = { true },
         voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)? = nil,
         contextBoostProvider: (any CurrentWindowOCRContextProviding)? = nil,
         contextBoostCoordinator: ContextBoostPrefetchCoordinator? = nil,
@@ -442,6 +454,12 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         self.styleRepository = styleRepository
         self.styleSelector = styleSelector
         self.promptBuilder = promptBuilder
+        self.structuredPromptBuilder = structuredPromptBuilder
+        self.structuredLearningService = structuredLearningService
+        self.correctionTargetRepository = correctionTargetRepository
+        self.correctionEvidenceRepository = correctionEvidenceRepository
+        self.hotwordFileSyncService = hotwordFileSyncService
+        self.structuredLearningEnabled = structuredLearningEnabled
         self.voiceCorrectionProcessor = voiceCorrectionProcessor
         self.contextBoostProvider = contextBoostProvider
         self.contextBoostCoordinator = contextBoostCoordinator
@@ -523,6 +541,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 let contextSnapshot = contextBoostOutcome?.snapshot
                 contextBoostTrace = contextTrace(from: contextBoostOutcome, target: target)
                 let prompt = await buildPrompt(
+                    rawText: text,
                     target: target,
                     temporaryHotwords: contextSnapshot?.hotwords ?? []
                 )
@@ -539,7 +558,13 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                         model: prompt.result.model,
                         temperature: prompt.result.temperature
                     )
-                    if let traceableStreamingRefiner = refiner as? any TraceableStreamingPromptAwareTextRefining {
+                    if prompt.isStructured,
+                       let traceableRefiner = refiner as? any TraceablePromptAwareTextRefining {
+                        let traceResult = try await traceableRefiner.refineWithTrace(request)
+                        refinedText = traceResult.text
+                        localLLMProviderID = traceResult.providerID
+                        localLLMTrace = traceResult.trace
+                    } else if let traceableStreamingRefiner = refiner as? any TraceableStreamingPromptAwareTextRefining {
                         let streamResult = traceableStreamingRefiner.refineStreamWithTrace(request)
                         refinedText = try await collectStream(
                             streamResult.stream,
@@ -565,6 +590,13 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     refinedText = try await refiner.refine(text)
                     promptMetadata = nil
                 }
+                let structuredParseResult = parseStructuredOutputIfNeeded(
+                    refinedText,
+                    isStructured: prompt.isStructured,
+                    correctionContext: correctionContext
+                )
+                refinedText = structuredParseResult.text
+                warnings.append(contentsOf: structuredParseResult.warnings)
                 let trimmedRefinedText = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 let refinementDecision = ConservativeRefinementGuard().validate(
                     raw: text,
@@ -641,9 +673,10 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     }
 
     private func buildPrompt(
+        rawText: String,
         target: DictationTarget?,
         temporaryHotwords: [TemporaryHotword] = []
-    ) async -> (result: PromptBuildResult, warnings: [String]) {
+    ) async -> (result: PromptBuildResult, warnings: [String], isStructured: Bool) {
         do {
             let style: StyleProfileRecord?
             if let styleSelector {
@@ -651,22 +684,183 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             } else {
                 style = try styleRepository?.defaultProfile()
             }
+            if let structuredPromptBuilder {
+                return (
+                    try buildStructuredPrompt(
+                        builder: structuredPromptBuilder,
+                        style: style,
+                        rawText: rawText,
+                        target: target,
+                        temporaryHotwords: temporaryHotwords
+                    ),
+                    [],
+                    true
+                )
+            }
             return (
                 promptBuilder.build(
                     style: style,
                     temporaryHotwords: temporaryHotwords
                 ),
-                []
+                [],
+                false
             )
         } catch {
+            if let structuredPromptBuilder {
+                return (
+                    buildStructuredFallbackPrompt(
+                        builder: structuredPromptBuilder,
+                        rawText: rawText,
+                        target: target,
+                        temporaryHotwords: temporaryHotwords
+                    ),
+                    ["prompt_context_failed"],
+                    true
+                )
+            }
             return (
                 promptBuilder.build(
                     style: nil,
                     temporaryHotwords: temporaryHotwords
                 ),
-                ["prompt_context_failed"]
+                ["prompt_context_failed"],
+                false
             )
         }
+    }
+
+    private func buildStructuredPrompt(
+        builder: StructuredCorrectionPromptBuilder,
+        style: StyleProfileRecord?,
+        rawText: String,
+        target: DictationTarget?,
+        temporaryHotwords: [TemporaryHotword]
+    ) throws -> PromptBuildResult {
+        let enabledStyle = style?.enabled == true ? style : nil
+        let context = StructuredCorrectionPromptContext(
+            rawText: rawText,
+            userTerms: try structuredUserTerms(limit: 50),
+            knownCorrections: try structuredKnownCorrections(rawText: rawText, limit: 12),
+            ocrTemporaryTerms: temporaryHotwords.map(\.text),
+            appContext: structuredAppContext(target: target)
+        )
+        return PromptBuildResult(
+            systemPrompt: builder.build(style: structuredStyle(for: enabledStyle), context: context),
+            llmProviderID: enabledStyle?.llmProviderID,
+            styleID: enabledStyle?.id,
+            model: enabledStyle?.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? enabledStyle?.model
+                : nil,
+            temperature: enabledStyle?.temperature
+        )
+    }
+
+    private func buildStructuredFallbackPrompt(
+        builder: StructuredCorrectionPromptBuilder,
+        rawText: String,
+        target: DictationTarget?,
+        temporaryHotwords: [TemporaryHotword]
+    ) -> PromptBuildResult {
+        let context = StructuredCorrectionPromptContext(
+            rawText: rawText,
+            userTerms: [],
+            knownCorrections: [],
+            ocrTemporaryTerms: temporaryHotwords.map(\.text),
+            appContext: structuredAppContext(target: target)
+        )
+        return PromptBuildResult(
+            systemPrompt: builder.build(style: .default, context: context),
+            llmProviderID: nil,
+            styleID: nil,
+            model: nil,
+            temperature: nil
+        )
+    }
+
+    private func structuredStyle(for style: StyleProfileRecord?) -> StructuredCorrectionStyle {
+        switch style?.id {
+        case "builtin.energetic":
+            return .energetic
+        case "builtin.email":
+            return .email
+        case "builtin.coding":
+            return .coding
+        case "builtin.formal":
+            return .formal
+        case "builtin.original":
+            return .original
+        case "builtin.casual":
+            return .casual
+        case "builtin.chat":
+            return .chat
+        default:
+            return .default
+        }
+    }
+
+    private func structuredUserTerms(limit: Int) throws -> [String] {
+        guard let correctionTargetRepository else { return [] }
+        return try correctionTargetRepository.listHotwords()
+            .prefix(limit)
+            .map(\.text)
+    }
+
+    private func structuredKnownCorrections(
+        rawText: String,
+        limit: Int
+    ) throws -> [StructuredCorrectionPromptContext.KnownCorrection] {
+        guard let correctionEvidenceRepository else { return [] }
+        return try correctionEvidenceRepository.relevantKnownCorrections(
+            for: rawText,
+            limit: limit
+        )
+    }
+
+    private func structuredAppContext(target: DictationTarget?) -> String? {
+        let parts = [
+            target?.appName.map { "应用：\($0)" },
+            target?.bundleID.map { "Bundle ID：\($0)" },
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
+    }
+
+    private func parseStructuredOutputIfNeeded(
+        _ refinedText: String,
+        isStructured: Bool,
+        correctionContext: CorrectionContext?
+    ) -> (text: String, warnings: [String]) {
+        guard isStructured else { return (refinedText, []) }
+        switch StructuredCorrectionParser.parse(refinedText) {
+        case .success(let output):
+            learnFromStructuredOutputIfNeeded(output, correctionContext: correctionContext)
+            return (output.polished, [])
+        case .fallback(let rawText, let reason):
+            return (rawText, [reason])
+        }
+    }
+
+    private func learnFromStructuredOutputIfNeeded(
+        _ output: StructuredCorrectionOutput,
+        correctionContext: CorrectionContext?
+    ) {
+        guard structuredLearningEnabled(),
+              correctionContext?.mode == .dictation,
+              correctionContext?.isFinalTranscript == true,
+              correctionContext?.isSecureField == false,
+              let structuredLearningService else {
+            return
+        }
+        let outcome = structuredLearningService.learn(from: output)
+        if outcome.promotedHotwords.isEmpty == false {
+            hotwordFileSyncService?.writeBackFromRepository()
+        }
+        if outcome.shouldNotifyVocabularyChange {
+            NotificationCenter.default.post(name: .correctionVocabularyDidChange, object: outcome)
+        }
+        AppLogger.dictation.info(
+            "structured_correction_learning keyTerms=\(output.keyTerms.count) " +
+            "promoted=\(outcome.promotedHotwords.count) drawer=\(outcome.drawerCandidates.count)"
+        )
     }
 
     private func captureContextBoostIfNeeded(target: DictationTarget?) async -> ContextBoostCaptureOutcome? {
@@ -754,6 +948,18 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             onUpdate(snapshot)
         }
         return refinedText
+    }
+}
+
+private extension LearningOutcome {
+    var shouldNotifyVocabularyChange: Bool {
+        if promotedHotwords.isEmpty == false || drawerCandidates.isEmpty == false {
+            return true
+        }
+        if keyTermResults.contains(where: { $0.action == .counting || $0.action == .enteredDrawer }) {
+            return true
+        }
+        return correctionResults.contains { $0.action == .learned }
     }
 }
 

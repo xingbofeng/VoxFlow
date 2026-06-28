@@ -19,10 +19,10 @@ final class ASRCloudCredentialManager: CredentialStore, @unchecked Sendable {
     }
 
     func storedCredential(account: String) -> String {
-        if let keychainValue = try? credentialStore.readCredential(account: account) {
-            let value = keychainValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let storedValue = try? credentialStore.readCredential(account: account) {
+            let value = storedValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if !value.isEmpty {
-                AppLogger.general.debug("Read ASR credential from keychain: account=\(account)")
+                AppLogger.general.debug("Read ASR credential from credential store: account=\(account)")
                 return value
             }
         }

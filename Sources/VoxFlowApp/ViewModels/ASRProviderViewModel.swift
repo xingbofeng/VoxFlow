@@ -23,11 +23,11 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .all:
-            return "全部"
+            return L10n.localize("asr.provider.scope.all", comment: "All ASR providers scope")
         case .online:
-            return "在线"
+            return L10n.localize("asr.provider.scope.online", comment: "Online ASR providers scope")
         case .offline:
-            return "离线"
+            return L10n.localize("asr.provider.scope.offline", comment: "Offline ASR providers scope")
         }
     }
 
@@ -47,9 +47,9 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
         case .all:
             return true
         case .online:
-            return ASRProviderTagPresentation.cardTags(for: descriptor).contains("在线")
+            return Self.isOnlineProvider(descriptor)
         case .offline:
-            return ASRProviderTagPresentation.cardTags(for: descriptor).contains("离线")
+            return !Self.isOnlineProvider(descriptor)
         }
     }
 
@@ -69,6 +69,13 @@ enum ASRProviderScope: String, CaseIterable, Identifiable {
         return descriptors.sorted {
             (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max)
         }
+    }
+
+    private static func isOnlineProvider(_ descriptor: ASRProviderDescriptor) -> Bool {
+        descriptor.capabilities.contains(.cloud)
+            || descriptor.externalLinks != nil
+            || descriptor.tags.contains("在线")
+            || descriptor.tags.contains { $0.localizedCaseInsensitiveCompare("online") == .orderedSame }
     }
 }
 
@@ -166,6 +173,7 @@ final class ASRProviderViewModel: ObservableObject {
     @Published private(set) var isTestingTencentCloud = false
     @Published var aliyunDashScopeAPIKeyInput = ""
     @Published var aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+    @Published var aliyunDashScopeVocabularyIDInput = ""
     @Published private(set) var isTestingAliyunDashScope = false
 
     private let environment: any AppServiceProviding
@@ -226,11 +234,7 @@ final class ASRProviderViewModel: ObservableObject {
         self.qwenReadinessPreparer = qwenReadinessPreparer
         self.fileManager = fileManager
         Self.logger.debug("asr_provider_vm_init")
-        groqBaseURLInput = resolvedASRManager.groqBaseURL
-        groqModelInput = Self.supportedGroqModels.contains { $0.id == resolvedASRManager.groqModel }
-            ? resolvedASRManager.groqModel
-            : GroqCloudASRClient.defaultModel
-        groqAPIKeyInput = resolvedASRManager.isGroqConfigured ? Self.storedGroqAPIKeyMask : ""
+        syncGroqConfigurationInputsFromManager()
         let tencentCredentials = resolvedASRManager.storedTencentCloudCredentials()
         tencentAppIDInput = tencentCredentials.appID
         tencentSecretIDInput = tencentCredentials.secretID
@@ -240,6 +244,7 @@ final class ASRProviderViewModel: ObservableObject {
             ? Self.storedAliyunDashScopeAPIKeyMask
             : ""
         aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+        aliyunDashScopeVocabularyIDInput = resolvedASRManager.aliyunDashScopeVocabularyID
         refreshProviders(persistRecords: false)
         // 监听菜单栏等外部途径切换模型后的 UserDefaults 变化
         NotificationCenter.default
@@ -261,9 +266,10 @@ final class ASRProviderViewModel: ObservableObject {
         let scopedTagSet = Set(scopedProviders().flatMap { descriptor in
             ASRProviderTagPresentation.cardTags(for: descriptor)
         })
-        return ASRProviderTagPresentation.approvedCardTags.filter { tag in
-            tag != "离线" && tag != "在线" && scopedTagSet.contains(tag)
-        }
+        return ASRProviderTagPresentation.approvedCardTags
+            .filter { $0 != .online && $0 != .offline }
+            .map { $0.localizedTitle }
+            .filter { scopedTagSet.contains($0) }
     }
 
     private func scopedProviders() -> [ASRProviderDescriptor] {
@@ -474,7 +480,8 @@ final class ASRProviderViewModel: ObservableObject {
             apply(
                 try configurationService.saveAliyunDashScopeConfiguration(
                     apiKeyInput: aliyunDashScopeAPIKeyInput,
-                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask
+                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask,
+                    vocabularyIDInput: aliyunDashScopeVocabularyIDInput
                 )
             )
             refreshProviders(persistRecords: false)
@@ -501,7 +508,8 @@ final class ASRProviderViewModel: ObservableObject {
             apply(
                 try configurationService.saveAliyunDashScopeConfiguration(
                     apiKeyInput: aliyunDashScopeAPIKeyInput,
-                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask
+                    apiKeyMask: Self.storedAliyunDashScopeAPIKeyMask,
+                    vocabularyIDInput: aliyunDashScopeVocabularyIDInput
                 )
             )
             let result = try await configurationService.testAliyunDashScopeConnection()
@@ -550,6 +558,7 @@ final class ASRProviderViewModel: ObservableObject {
     private func apply(_ state: AliyunDashScopeASRConfigurationInputState) {
         aliyunDashScopeAPIKeyInput = state.apiKeyInput
         aliyunDashScopeModelInput = state.modelInput
+        aliyunDashScopeVocabularyIDInput = state.vocabularyIDInput
     }
 
     func sherpaVariant(for id: String) -> SherpaASRModelVariant? {
@@ -616,6 +625,7 @@ final class ASRProviderViewModel: ObservableObject {
 
     func load() {
         Self.logger.debug("asr_provider_vm_load_start")
+        syncGroqConfigurationInputsFromManager()
         refreshProviders(persistRecords: true)
         hasLoaded = lastError == nil
         Self.logger.debug("asr_provider_vm_load_done hasLoaded=\(hasLoaded) providers=\(providers.count)")
@@ -642,6 +652,17 @@ final class ASRProviderViewModel: ObservableObject {
         } catch {
             lastError = error.localizedDescription
             Self.logger.error("asr_provider_vm_refresh_providers_failed persistRecords=\(persistRecords) error=\(error.localizedDescription)")
+        }
+    }
+
+    private func syncGroqConfigurationInputsFromManager() {
+        groqBaseURLInput = asrManager.groqBaseURL
+        groqModelInput = Self.supportedGroqModels.contains { $0.id == asrManager.groqModel }
+            ? asrManager.groqModel
+            : GroqCloudASRClient.defaultModel
+        if asrManager.isGroqConfigured,
+           groqAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            groqAPIKeyInput = Self.storedGroqAPIKeyMask
         }
     }
 

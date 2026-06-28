@@ -2,16 +2,16 @@ import XCTest
 @testable import VoxFlowApp
 
 final class ASRCloudCredentialSettingsTests: XCTestCase {
-    func testCloudASRCredentialsAreStoredInKeychainWhenSettingsRepositoryIsAvailable() throws {
+    func testCloudASRCredentialsAreStoredInCredentialStoreWhenSettingsRepositoryIsAvailable() throws {
         let suiteName = "test.ASRCloudCredentialSettings.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let keychain = CapturingASRCloudCredentialStore()
+        let credentials = CapturingASRCloudCredentialStore()
         let manager = ASRManager(
             defaults: defaults,
-            credentialStore: keychain,
+            credentialStore: credentials,
             settingsRepository: environment.settingsRepository
         )
 
@@ -29,9 +29,9 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
         XCTAssertEqual(manager.storedGroqAPIKey(), "groq-secret")
         XCTAssertEqual(manager.storedTencentCloudCredentials().secretKey, "TENCENTSECRET")
         XCTAssertEqual(manager.storedAliyunDashScopeAPIKey(), "aliyun-secret")
-        XCTAssertEqual(keychain.values[ASRManager.groqAPIKeyAccount], "groq-secret")
-        XCTAssertEqual(keychain.values[ASRManager.tencentSecretKeyAccount], "TENCENTSECRET")
-        XCTAssertEqual(keychain.values[ASRManager.aliyunDashScopeAPIKeyAccount], "aliyun-secret")
+        XCTAssertEqual(credentials.values[ASRManager.groqAPIKeyAccount], "groq-secret")
+        XCTAssertEqual(credentials.values[ASRManager.tencentSecretKeyAccount], "TENCENTSECRET")
+        XCTAssertEqual(credentials.values[ASRManager.aliyunDashScopeAPIKeyAccount], "aliyun-secret")
 
         let records = try environment.settingsRepository.list()
         let allJSON = records.map(\.valueJSON).joined(separator: "\n")
@@ -41,16 +41,16 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
         XCTAssertFalse(defaults.dictionaryRepresentation().values.contains { String(describing: $0).contains("SECRET") })
     }
 
-    func testCloudASRConfigurationCanBeReloadedFromKeychainWhenSettingsRepositoryExists() throws {
+    func testCloudASRConfigurationCanBeReloadedFromCredentialStoreWhenSettingsRepositoryExists() throws {
         let suiteName = "test.ASRCloudCredentialSettings.reload.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let keychain = CapturingASRCloudCredentialStore()
+        let credentials = CapturingASRCloudCredentialStore()
         var manager = ASRManager(
             defaults: defaults,
-            credentialStore: keychain,
+            credentialStore: credentials,
             settingsRepository: environment.settingsRepository
         )
         try manager.saveAliyunDashScopeAPIKey("aliyun-secret")
@@ -62,14 +62,16 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
 
         manager = ASRManager(
             defaults: defaults,
-            credentialStore: keychain,
+            credentialStore: credentials,
             settingsRepository: environment.settingsRepository
         )
+        manager.aliyunDashScopeVocabularyID = "vocab-123"
 
         XCTAssertEqual(try manager.aliyunDashScopeConfiguration().apiKey, "aliyun-secret")
+        XCTAssertEqual(try manager.aliyunDashScopeConfiguration().vocabularyID, "vocab-123")
         XCTAssertEqual(try manager.tencentCloudConfiguration().secretKey, "TENCENTSECRET")
-        XCTAssertTrue(keychain.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
-        XCTAssertTrue(keychain.readAccounts.contains(ASRManager.tencentSecretKeyAccount))
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.tencentSecretKeyAccount))
     }
 
     func testLegacySettingsDatabaseCredentialsRemainReadableForMigration() throws {
@@ -82,15 +84,15 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
             "ASRManager.cloudCredential.\(ASRManager.aliyunDashScopeAPIKeyAccount)",
             jsonValue: #"{"value":"legacy-aliyun-secret"}"#
         )
-        let keychain = CapturingASRCloudCredentialStore()
+        let credentials = CapturingASRCloudCredentialStore()
         let manager = ASRManager(
             defaults: defaults,
-            credentialStore: keychain,
+            credentialStore: credentials,
             settingsRepository: environment.settingsRepository
         )
 
         XCTAssertEqual(manager.storedAliyunDashScopeAPIKey(), "legacy-aliyun-secret")
-        XCTAssertTrue(keychain.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
     }
 }
 

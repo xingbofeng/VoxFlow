@@ -9,13 +9,13 @@ enum SelectionActionKind: String, CaseIterable, Equatable, Sendable {
     var title: String {
         switch self {
         case .translate:
-            return "翻译"
+            return L10n.localize("selection.action.translate", comment: "")
         case .summarize:
-            return "总结"
+            return L10n.localize("selection.action.summarize", comment: "")
         case .agent:
-            return "任务助手"
+            return L10n.localize("selection.action.agent_compose", comment: "")
         case .askAI:
-            return "问 AI"
+            return L10n.localize("selection.action.ask_ai", comment: "")
         }
     }
 }

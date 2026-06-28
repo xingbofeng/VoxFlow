@@ -10,9 +10,9 @@ public enum ScreenRecordingDisabledReason: Equatable, Sendable {
     public var tooltip: String {
         switch self {
         case .crossDisplay:
-            return "区域录屏暂不支持跨显示器，请只选择一个屏幕内的区域"
+            return ScreenshotL10n.ScreenshotKit.Recording.Eligibility.crossDisplay
         case .tooSmall:
-            return "选区录屏区域太小"
+            return ScreenshotL10n.ScreenshotKit.Recording.Eligibility.tooSmall
         }
     }
 }

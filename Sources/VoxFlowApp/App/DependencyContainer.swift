@@ -35,9 +35,11 @@ struct DependencyContainer {
     let mediaRecordRepository: any MediaRecordRepository
     let settingsRepository: any SettingsRepository
     let correctionTargetRepository: any CorrectionTargetRepository
+    let correctionEvidenceRepository: any CorrectionEvidenceRepository
     let correctionRuleRepository: any CorrectionRuleRepository
     let correctionSnapshotProvider: CorrectionRuleSnapshotProvider
     let voiceCorrectionProcessor: any VoiceCorrectionTextProcessing
+    let hotwordFileSyncService: HotwordFileSyncService?
 
     static func live(
         clock: any AppClock = SystemClock(),
@@ -136,8 +138,15 @@ struct DependencyContainer {
         )
         let settingsRepository = SQLiteSettingsRepository(databaseQueue: databaseQueue, clock: clock)
         let correctionTargetRepository = SQLiteCorrectionTargetRepository(databaseQueue: databaseQueue)
+        let correctionEvidenceRepository = SQLiteCorrectionEvidenceRepository(databaseQueue: databaseQueue)
         let correctionRuleRepository = SQLiteCorrectionRuleRepository(databaseQueue: databaseQueue)
         let correctionSnapshotProvider = CorrectionRuleSnapshotProvider(loader: correctionRuleRepository)
+        let hotwordFileSyncService = paths.map {
+            HotwordFileSyncService(
+                fileURL: $0.hotwordsFileURL,
+                repository: correctionTargetRepository
+            )
+        }
         let voiceCorrectionProcessor = TranscriptPostProcessingCoordinator(
             processor: VoiceCorrectionTextProcessor(
                 snapshotProvider: correctionSnapshotProvider,
@@ -175,9 +184,11 @@ struct DependencyContainer {
             mediaRecordRepository: mediaRecordRepository,
             settingsRepository: settingsRepository,
             correctionTargetRepository: correctionTargetRepository,
+            correctionEvidenceRepository: correctionEvidenceRepository,
             correctionRuleRepository: correctionRuleRepository,
             correctionSnapshotProvider: correctionSnapshotProvider,
-            voiceCorrectionProcessor: voiceCorrectionProcessor
+            voiceCorrectionProcessor: voiceCorrectionProcessor,
+            hotwordFileSyncService: hotwordFileSyncService
         )
     }
 

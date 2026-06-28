@@ -76,10 +76,10 @@ final class LLMProviderViewModel: ObservableObject {
         let rawKey = SingleLineTextInput.normalized(apiKey)
         let trimmedKey = isMaskedAPIKey(providerID: id, text: rawKey) ? "" : rawKey
         var missingFields: [String] = []
-        if trimmedName.isEmpty { missingFields.append("名称") }
-        if trimmedURL.isEmpty { missingFields.append("Base URL") }
-        if trimmedModel.isEmpty { missingFields.append("Model") }
-        if trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append("访问密钥") }
+        if trimmedName.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_name", comment: "")) }
+        if trimmedURL.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_base_url", comment: "")) }
+        if trimmedModel.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_model", comment: "")) }
+        if trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
         guard missingFields.isEmpty else {
             Self.logger.warning("llm_provider_vm_save_provider_rejected missingFields=\(missingFields.count)")
             throw LLMProviderViewModelError.requiredFields(missingFields)
@@ -112,7 +112,7 @@ final class LLMProviderViewModel: ObservableObject {
         try environment.llmProviderRepository.save(provider)
         load()
         lastError = nil
-        lastActionMessage = "已保存模型服务"
+        lastActionMessage = L10n.localize("model.llm_provider.action_save_success", comment: "")
         Self.logger.info("llm_provider_vm_save_provider_success id=\(providerID) isDefault=\(provider.isDefault) enabled=\(provider.enabled)")
     }
 
@@ -160,19 +160,19 @@ final class LLMProviderViewModel: ObservableObject {
         let normalizedKey = SingleLineTextInput.normalized(apiKey)
 
         if normalizedName.isEmpty {
-            errors["displayName"] = "请输入名称"
+            errors["displayName"] = L10n.localize("model.llm_provider.error_name_required", comment: "")
         }
         if (try? OpenAICompatibleClient.normalizedBaseURL(normalizedURL)) == nil {
-            errors["baseURL"] = "请输入有效的 HTTP 或 HTTPS 地址"
+            errors["baseURL"] = L10n.localize("model.llm_provider.error_base_url_invalid", comment: "")
         }
         if normalizedModel.isEmpty {
-            errors["model"] = "请输入模型名称"
+            errors["model"] = L10n.localize("model.llm_provider.error_model_required", comment: "")
         }
         let isMasked = isMaskedAPIKey(providerID: providerID, text: normalizedKey)
         if normalizedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
-            errors["apiKey"] = "请输入访问密钥"
+            errors["apiKey"] = L10n.localize("model.llm_provider.error_api_key_required", comment: "")
         } else if !normalizedKey.isEmpty && !isMasked && normalizedKey.count < 8 {
-            errors["apiKey"] = "访问密钥长度不足"
+            errors["apiKey"] = L10n.localize("model.llm_provider.error_api_key_too_short", comment: "")
         }
         Self.logger.debug("llm_provider_vm_validation_errors_done count=\(errors.count)")
         return errors
@@ -197,9 +197,9 @@ final class LLMProviderViewModel: ObservableObject {
             let trimmedModel = SingleLineTextInput.normalized(model)
             let resolvedKey = try resolvedAPIKey(providerID: providerID, text: apiKey)
             var missingFields: [String] = []
-            if trimmedName.isEmpty { missingFields.append("名称") }
-            if trimmedModel.isEmpty { missingFields.append("Model") }
-            if resolvedKey.isEmpty { missingFields.append("访问密钥") }
+            if trimmedName.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_name", comment: "")) }
+            if trimmedModel.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_model", comment: "")) }
+            if resolvedKey.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
             guard missingFields.isEmpty else {
                 throw LLMProviderViewModelError.requiredFields(missingFields)
             }
@@ -211,7 +211,7 @@ final class LLMProviderViewModel: ObservableObject {
             )
             lastConnectionResult = result
             lastError = nil
-            lastActionMessage = "连接测试成功"
+            lastActionMessage = L10n.localize("model.llm_provider.action_connection_success", comment: "")
             Self.logger.info("llm_provider_vm_test_draft_connection_success latencyMS=\(result.latencyMS)")
         } catch {
             report(error: error)
@@ -241,7 +241,7 @@ final class LLMProviderViewModel: ObservableObject {
             lastConnectionResult = result
             try saveHealth(provider: provider, status: "ok", message: result.message, latencyMS: result.latencyMS)
             lastError = nil
-            lastActionMessage = "连接测试成功"
+            lastActionMessage = L10n.localize("model.llm_provider.action_connection_success", comment: "")
             Self.logger.info("llm_provider_vm_test_connection_success id=\(id) latencyMS=\(result.latencyMS)")
         } catch {
             lastError = error.localizedDescription
@@ -273,10 +273,10 @@ final class LLMProviderViewModel: ObservableObject {
             lastConnectionResult = result
             let message = models.isEmpty
                 ? result.message
-                : "\(result.message) · \(models.count) 个模型"
+                : String(format: L10n.localize("model.llm_provider.refresh_models_count_format", comment: ""), result.message, models.count)
             try saveHealth(provider: provider, status: "ok", message: message, latencyMS: result.latencyMS)
             lastError = nil
-            lastActionMessage = "已刷新模型并完成测速"
+            lastActionMessage = L10n.localize("model.llm_provider.action_refresh_models_success", comment: "")
             Self.logger.info("llm_provider_vm_refresh_models_success id=\(id) models=\(models.count) latencyMS=\(result.latencyMS)")
         } catch {
             lastError = error.localizedDescription
@@ -316,7 +316,7 @@ final class LLMProviderViewModel: ObservableObject {
         )
         load()
         lastError = nil
-        lastActionMessage = "已选择全局模型 \(selectedModel)"
+        lastActionMessage = String(format: L10n.localize("model.llm_provider.action_model_selected_format", comment: ""), selectedModel)
         Self.logger.info("llm_provider_vm_select_model_success providerID=\(providerID) modelLen=\(selectedModel.count)")
     }
 
@@ -352,7 +352,7 @@ final class LLMProviderViewModel: ObservableObject {
         }
         load()
         lastError = nil
-        lastActionMessage = "已设为全局默认模型"
+        lastActionMessage = L10n.localize("model.llm_provider.action_set_default", comment: "")
         Self.logger.info("llm_provider_vm_set_default_provider_success id=\(id)")
     }
 
@@ -389,7 +389,7 @@ final class LLMProviderViewModel: ObservableObject {
             }
             load()
             lastError = nil
-            lastActionMessage = "已删除模型服务"
+            lastActionMessage = L10n.localize("model.llm_provider.action_delete_success", comment: "")
             Self.logger.info("llm_provider_vm_delete_provider_success id=\(id) remaining=\(providers.count)")
         } catch {
             report(error: error)
@@ -461,13 +461,14 @@ enum LLMProviderViewModelError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .providerNotFound:
-            return "智能模型服务不存在。"
+            return L10n.localize("model.llm_provider.error_not_found", comment: "")
         case .modelRequired:
-            return "模型名称不能为空。"
+            return L10n.localize("model.llm_provider.error_model_name_required", comment: "")
         case .providerDisabled:
-            return "请先启用该模型服务。"
+            return L10n.localize("model.llm_provider.error_provider_disabled", comment: "")
         case let .requiredFields(fields):
-            return "请填写必填字段：\(fields.joined(separator: "、"))。"
+            let separator = L10n.localize("model.llm_provider.required_fields_separator", comment: "")
+            return String(format: L10n.localize("model.llm_provider.error_required_fields_format", comment: ""), fields.joined(separator: separator))
         }
     }
 }

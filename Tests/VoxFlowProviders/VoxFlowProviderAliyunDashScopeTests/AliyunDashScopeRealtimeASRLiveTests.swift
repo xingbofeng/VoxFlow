@@ -8,9 +8,18 @@ final class AliyunDashScopeRealtimeASRLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["VOICEINPUT_TEST_ALIYUN_DASHSCOPE_LIVE"] == "1" else {
             throw XCTSkip("Set VOICEINPUT_TEST_ALIYUN_DASHSCOPE_LIVE=1 to run Aliyun DashScope realtime ASR live smoke test.")
         }
-        let environment = AppEnvironment(container: try DependencyContainer.live())
-        let manager = ASRManager(settingsRepository: environment.settingsRepository)
-        let configuration = try manager.aliyunDashScopeConfiguration()
+        let configuration: AliyunDashScopeRealtimeASRConfiguration
+        if let apiKey = ProcessInfo.processInfo.environment["VOICEINPUT_TEST_ALIYUN_DASHSCOPE_API_KEY"],
+           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            configuration = AliyunDashScopeRealtimeASRConfiguration(
+                apiKey: apiKey,
+                vocabularyID: ProcessInfo.processInfo.environment["VOICEINPUT_TEST_ALIYUN_DASHSCOPE_VOCABULARY_ID"]
+            )
+        } else {
+            let environment = AppEnvironment(container: try DependencyContainer.live())
+            let manager = ASRManager(settingsRepository: environment.settingsRepository)
+            configuration = try manager.aliyunDashScopeConfiguration()
+        }
         let client = AliyunDashScopeRealtimeASRClient()
         let finalText = LockedAliyunDashScopeLiveTranscript()
         let pcm = try Self.pcmPayload(

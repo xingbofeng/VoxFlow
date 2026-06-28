@@ -308,13 +308,20 @@ enum NotesRecordingError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:
-            return "未获得麦克风权限，请在系统设置中允许码上写使用麦克风。"
+            return String(
+                L10n.localize("notes_recording.error.microphone_permission_denied", comment: "Microphone permission denied")
+            )
         case .speechRecognitionPermissionDenied:
-            return "未获得语音识别权限，请在系统设置中允许码上写使用语音识别。"
+            return String(
+                L10n.localize("notes_recording.error.speech_permission_denied", comment: "Speech recognition permission denied")
+            )
         case .unsupportedLanguage(let identifier):
-            return "当前笔记录音语言不受支持：\(identifier)。"
+            return String(
+                format: L10n.localize("app.notes_recording.error.unsupported_language_format", comment: ""),
+                identifier
+            )
         case .finalResultTimedOut:
-            return "没有识别到可保存的内容，请重试。"
+            return L10n.localize("app.notes_recording.error.no_content", comment: "")
         }
     }
 }

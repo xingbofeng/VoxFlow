@@ -52,10 +52,10 @@ final class SelectionResultPanelPresentationTests: XCTestCase {
         XCTAssertTrue(sharedSource.contains(".regularMaterial"))
         XCTAssertTrue(sharedSource.contains(".pickerStyle(.segmented)"))
         XCTAssertTrue(sharedSource.contains("RoundedRectangle(cornerRadius: 12"))
-        XCTAssertTrue(source.contains("Label(\"复制文字\", systemImage: \"doc.on.doc\")"))
-        XCTAssertTrue(source.contains("Label(\"朗读\", systemImage: \"speaker.wave.2\")"))
-        XCTAssertTrue(source.contains("Label(\"替换原文\", systemImage: \"text.cursor\")"))
-        XCTAssertTrue(source.contains("Label(\"插入下一行\", systemImage: \"arrow.down.doc\")"))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"selection.action.copy_text\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"selection.action.read\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"selection.action.replace_source\""))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"selection.action.insert_new_line\""))
     }
 
     func testSelectionResultPanelIsNotScreenshotSpecific() throws {

@@ -377,9 +377,9 @@ enum AgentHelperManagerError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case let .helperMissing(path): return "未找到AI 编程组件：\(path)"
-        case let .shimMissing(path): return "未找到 vox 命令组件：\(path)"
-        case let .commandConflict(path): return "命令已存在，未覆盖：\(path)"
+        case let .helperMissing(path): return String(format: L10n.localize("agent.helper.error_component_missing_format", comment: "AI helper component missing error"), path)
+        case let .shimMissing(path): return String(format: L10n.localize("agent.helper.error_shim_missing_format", comment: "Agent shim missing error"), path)
+        case let .commandConflict(path): return String(format: L10n.localize("agent.helper.error_command_conflict_format", comment: "Command conflict error"), path)
         }
     }
 }
@@ -393,9 +393,9 @@ enum AgentRouterClientError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case let .router(message): return message
-        case .invalidResponse: return "AI 编程返回了无效响应"
-        case .requestTooLarge: return "请求内容过长，请缩短后重试"
-        case .timeout: return "AI 编程响应超时"
+        case .invalidResponse: return L10n.localize("agent.helper.error_invalid_response", comment: "Invalid AI response error")
+        case .requestTooLarge: return L10n.localize("agent.helper.error_request_too_large", comment: "Request too long error")
+        case .timeout: return L10n.localize("agent.helper.error_timeout", comment: "AI timeout error")
         }
     }
 }

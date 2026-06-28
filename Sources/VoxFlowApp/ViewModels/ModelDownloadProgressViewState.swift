@@ -31,12 +31,12 @@ struct ModelDownloadProgressViewState: Equatable {
 
     var modelSizeText: String {
         if let totalModelBytes {
-            return "模型大小 \(Self.formatBytes(totalModelBytes))"
+            return String(format: L10n.localize("model.download.size_format", comment: ""), Self.formatBytes(totalModelBytes))
         }
         if let totalBytes {
-            return "模型大小 \(Self.formatBytes(totalBytes))"
+            return String(format: L10n.localize("model.download.size_format", comment: ""), Self.formatBytes(totalBytes))
         }
-        return "模型大小 下载时检测"
+        return L10n.localize("model.download.size_unknown", comment: "")
     }
 
     private var effectiveTotalBytes: Int64? {

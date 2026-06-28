@@ -12,7 +12,7 @@ struct VibeCodingStatusView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("AI 编程")
+                Text(L10n.localize("vibe.page.title", comment: "AI coding section title"))
                     .font(.system(size: 30, weight: .bold))
 
                 currentAgentsCard
@@ -52,8 +52,8 @@ struct VibeCodingStatusView: View {
 
     private var currentAgentsCard: some View {
         VibeCodingStatusCard(
-            title: "当前任务助手",
-            subtitle: "自动发现并读取已注册的任务助手",
+            title: L10n.localize("vibe.current_agents.title", comment: "Current task agents section title"),
+            subtitle: L10n.localize("vibe.current_agents.subtitle", comment: "Current task agents section subtitle"),
             systemImage: "person.3",
             tint: .blue
         ) {
@@ -61,20 +61,20 @@ struct VibeCodingStatusView: View {
                 Button {
                     Task { await viewModel.refreshAgentSessions() }
                 } label: {
-                    Label("刷新任务助手", systemImage: "arrow.clockwise")
+                    Label(L10n.localize("vibe.current_agents.refresh", comment: "Refresh task agents button"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
 
                 Button {
                     Task { await viewModel.cleanStaleAgentSessions() }
                 } label: {
-                    Label("清理已退出/失效任务助手", systemImage: "trash")
+                    Label(L10n.localize("vibe.current_agents.clean_stale", comment: "Clean stale task agents button"), systemImage: "trash")
                 }
                 .buttonStyle(.bordered)
             }
 
             if viewModel.currentAgentSessions.isEmpty {
-                Text("当前没有可用任务助手")
+                Text(L10n.localize("vibe.current_agents.empty", comment: "No task agents"))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .settingsRow()
@@ -85,7 +85,7 @@ struct VibeCodingStatusView: View {
             }
 
             if !viewModel.inactiveAgentSessions.isEmpty {
-                Text("已隐藏 \(viewModel.inactiveAgentSessions.count) 个已退出或失效会话，不参与语音路由。")
+                Text(String(format: L10n.localize("vibe.current_agents.inactive_count_format", comment: "Hidden inactive sessions notice"), viewModel.inactiveAgentSessions.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .settingsRow()
@@ -95,18 +95,18 @@ struct VibeCodingStatusView: View {
 
     private var recentDispatchCard: some View {
         VibeCodingStatusCard(
-            title: "最近调度记录",
-            subtitle: "默认保留发送指令与来源信息，不自动复制助手输出",
+            title: L10n.localize("vibe.recent_dispatches.title", comment: "Recent dispatch records title"),
+            subtitle: L10n.localize("vibe.recent_dispatches.subtitle", comment: "Recent dispatch records subtitle"),
             systemImage: "clock.arrow.circlepath",
             tint: .orange
         ) {
             HStack(alignment: .firstTextBaseline) {
-                Text("语音任务内容只保存在本地，可随时清空。")
+                Text(L10n.localize("vibe.recent_dispatches.local_notice", comment: "Local speech content storage notice"))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 Spacer()
                 if !viewModel.agentDispatchLogs.isEmpty {
-                    Button("清空记录", role: .destructive) {
+                    Button(L10n.localize("vibe.recent_dispatches.clear", comment: "Clear dispatch records"), role: .destructive) {
                         Task { await viewModel.clearAgentDispatchLogs() }
                     }
                     .buttonStyle(.bordered)
@@ -115,7 +115,7 @@ struct VibeCodingStatusView: View {
             .settingsRow()
 
             if viewModel.agentDispatchLogs.isEmpty {
-                Text("暂未有最近记录")
+                Text(L10n.localize("vibe.recent_dispatches.empty", comment: "No recent records"))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .settingsRow()
@@ -125,7 +125,7 @@ struct VibeCodingStatusView: View {
                         Text(entry.message)
                             .font(.system(size: 14, weight: .medium))
                             .lineLimit(2)
-                        Text(entry.submitted ? "已提交" : "未提交")
+                        Text(entry.submitted ? L10n.localize("vibe.recent_dispatches.submitted", comment: "Dispatch log submitted status") : L10n.localize("vibe.recent_dispatches.not_submitted", comment: "Dispatch log not submitted status"))
                             .font(.system(size: 12))
                             .foregroundStyle(entry.submitted ? Color.green : Color.orange)
                     }
@@ -156,7 +156,7 @@ struct VibeCodingStatusView: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.borderless)
-                    .help("查看协作通道日志")
+                        .help(L10n.localize("vibe.agent.show_mcp_logs", comment: "Show MCP logs help"))
                 }
                 if let summary = agent.currentSelfSummary {
                     Text("\(summary.phase) · \(summary.summary)")
@@ -165,7 +165,7 @@ struct VibeCodingStatusView: View {
                         .lineLimit(1)
                 }
                 if !agent.providerSessionRefs.isEmpty {
-                    Text("已关联 \(agent.providerSessionRefs.count) 个会话/日志引用")
+                    Text(String(format: L10n.localize("vibe.agent.associated_refs_format", comment: "Associated session logs count"), agent.providerSessionRefs.count))
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -177,7 +177,7 @@ struct VibeCodingStatusView: View {
                 Image(systemName: "doc.on.doc")
             }
             .buttonStyle(.borderless)
-            .help("复制启动命令")
+                .help(L10n.localize("vibe.agent.copy_launch_command", comment: "Copy launch command help"))
             Button {
                 Task { await viewModel.terminateAgentSession(agent) }
             } label: {
@@ -186,7 +186,7 @@ struct VibeCodingStatusView: View {
             }
             .buttonStyle(.borderless)
             .disabled(!agent.status.isDispatchable)
-            .help("停止任务助手进程")
+                .help(L10n.localize("vibe.agent.stop_process", comment: "Stop task agent process help"))
             Text(agent.status.localizedTitle)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(agent.status.isDispatchable ? Color.green : Color.orange)
@@ -196,18 +196,18 @@ struct VibeCodingStatusView: View {
 
     private func mcpStatusText(for agent: AgentSessionCard) -> String {
         guard viewModel.agentDispatchMCPEnabled else {
-            return "协作通道未开启"
+            return L10n.localize("vibe.mcp.disabled", comment: "MCP channel disabled")
         }
         if let reportedAt = agent.mcpReportedAt {
-            return "协作通道已上报 · \(relativeTimeText(since: reportedAt))"
+            return String(format: L10n.localize("vibe.mcp.reported_with_time", comment: "MCP reported with relative time"), relativeTimeText(since: reportedAt))
         }
         if let seenAt = agent.mcpSeenAt {
-            return "协作通道已连接 · \(relativeTimeText(since: seenAt))"
+            return String(format: L10n.localize("vibe.mcp.connected_with_time", comment: "MCP connected with relative time"), relativeTimeText(since: seenAt))
         }
         if agent.mcpInjected {
-            return "协作通道已接入，等待任务助手使用"
+            return L10n.localize("vibe.mcp.connected_waiting", comment: "MCP connected but waiting")
         }
-        return "协作通道未检测到，建议重启任务助手"
+        return L10n.localize("vibe.mcp.disconnected", comment: "MCP not detected")
     }
 
     private func mcpStatusColor(for agent: AgentSessionCard) -> Color {
@@ -225,41 +225,41 @@ struct VibeCodingStatusView: View {
 
     private func mcpStatusHelp(for agent: AgentSessionCard) -> String {
         guard viewModel.agentDispatchMCPEnabled else {
-            return "当前设置中未开启协作通道身份上报。"
+            return L10n.localize("vibe.mcp.help_disabled", comment: "MCP help for disabled state")
         }
         if let reportedAt = agent.mcpReportedAt {
-            return "任务助手已通过协作通道上报身份或工作状态，最近上报：\(relativeTimeText(since: reportedAt))。"
+            return String(format: L10n.localize("vibe.mcp.help_reported_format", comment: "MCP reported help text"), relativeTimeText(since: reportedAt))
         }
         if let seenAt = agent.mcpSeenAt {
-            let request = agent.mcpLastRequest.map { "\n最近请求：\($0)" } ?? ""
-            return "任务助手已连接协作通道，但尚未上报状态。最近连接：\(relativeTimeText(since: seenAt))。\(request)"
+            let request = agent.mcpLastRequest.map { String(format: L10n.localize("vibe.mcp.request_line", comment: "Recent request log line"), $0) } ?? ""
+            return String(format: L10n.localize("vibe.mcp.help_connected_without_report", comment: "MCP connected no report help text"), relativeTimeText(since: seenAt), request)
         }
         if agent.mcpInjected {
-            let config = agent.mcpConfigPath.map { "\n配置文件：\($0)" } ?? ""
-            return "已为任务助手注入协作通道，但尚未检测到其读取。可在终端执行 /mcp 检查 voxflow 是否在线。\(config)"
+            let config = agent.mcpConfigPath.map { String(format: L10n.localize("vibe.mcp.config_line", comment: "MCP config file line"), $0) } ?? ""
+            return String(format: L10n.localize("vibe.mcp.help_injected_without_reading", comment: "MCP injected but not read help text"), config)
         }
-        return "当前会话没有检测到协作通道接入。若需查看状态，请重启对应任务助手。"
+        return L10n.localize("vibe.mcp.help_not_connected", comment: "MCP not connected help text")
     }
 
     private func relativeTimeText(since timestamp: TimeInterval) -> String {
         let seconds = max(0, Date().timeIntervalSince1970 - timestamp)
         if seconds < 60 {
-            return "刚刚"
+            return L10n.localize("vibe.time.just_now", comment: "Relative time just now")
         }
         if seconds < 3_600 {
-            return "\(Int(seconds / 60)) 分钟前"
+            return String(format: L10n.localize("vibe.time.minutes_ago", comment: "Relative minutes ago"), Int(seconds / 60))
         }
         if seconds < 86_400 {
-            return "\(Int(seconds / 3_600)) 小时前"
+            return String(format: L10n.localize("vibe.time.hours_ago", comment: "Relative hours ago"), Int(seconds / 3_600))
         }
-        return "\(Int(seconds / 86_400)) 天前"
+        return String(format: L10n.localize("vibe.time.days_ago", comment: "Relative days ago"), Int(seconds / 86_400))
     }
 
     @ViewBuilder
     private func aliasEditor(for agent: AgentSessionCard) -> some View {
         if editingAgentID == agent.agentID {
             HStack(spacing: 8) {
-                TextField("任务助手别名", text: $draftAlias)
+                TextField(L10n.localize("vibe.alias.field_title", comment: "Task agent alias field title"), text: $draftAlias)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 280)
                 Button {
@@ -270,7 +270,7 @@ struct VibeCodingStatusView: View {
                     Image(systemName: "checkmark")
                 }
                 .buttonStyle(.borderless)
-                .help("确认修改")
+                    .help(L10n.localize("vibe.alias.confirm", comment: "Confirm alias edit"))
                 Button {
                     editingAgentID = nil
                     draftAlias = ""
@@ -278,7 +278,7 @@ struct VibeCodingStatusView: View {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(.borderless)
-                .help("取消修改")
+                    .help(L10n.localize("vibe.alias.cancel", comment: "Cancel alias edit"))
             }
         } else {
             HStack(spacing: 8) {
@@ -297,7 +297,7 @@ struct VibeCodingStatusView: View {
                     Image(systemName: "pencil")
                 }
                 .buttonStyle(.borderless)
-                .help("修改任务助手别名")
+                    .help(L10n.localize("vibe.alias.edit", comment: "Edit task agent alias"))
             }
         }
     }
@@ -396,7 +396,7 @@ private struct MCPDebugLogModal: View {
                 VibeCodingStatusIcon(systemImage: "doc.text.magnifyingglass", tint: .green)
                     .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("协作通道日志")
+                Text(L10n.localize("vibe.mcp_log.title", comment: "MCP debug log title"))
                         .font(.system(size: 18, weight: .semibold))
                     Text(agent.displayName)
                         .font(.system(size: 12))
@@ -410,18 +410,18 @@ private struct MCPDebugLogModal: View {
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.borderless)
-                .help("关闭")
+                    .help(L10n.localize("vibe.mcp_log.close", comment: "Close debug log modal"))
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                MCPDebugField(label: "协作命令", value: agent.mcpCommand ?? "-")
-                MCPDebugField(label: "参数", value: agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "))
-                MCPDebugField(label: "配置路径", value: agent.mcpConfigPath ?? "-")
-                MCPDebugField(label: "日志路径", value: agent.mcpLogPath ?? "-")
-                MCPDebugField(label: "最近连接", value: timestampText(agent.mcpSeenAt))
-                MCPDebugField(label: "上报时间", value: timestampText(agent.mcpReportedAt))
-                MCPDebugField(label: "最近请求", value: agent.mcpLastRequest ?? "-")
-                MCPDebugField(label: "最近错误", value: agent.mcpLastError ?? "-")
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_command", comment: "MCP command field"), value: agent.mcpCommand ?? "-")
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_args", comment: "MCP args field"), value: agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "))
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_config", comment: "MCP config path field"), value: agent.mcpConfigPath ?? "-")
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_log_path", comment: "MCP log path field"), value: agent.mcpLogPath ?? "-")
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_last_seen", comment: "MCP last seen field"), value: timestampText(agent.mcpSeenAt))
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_last_report", comment: "MCP last report field"), value: timestampText(agent.mcpReportedAt))
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_last_request", comment: "MCP last request field"), value: agent.mcpLastRequest ?? "-")
+                MCPDebugField(label: L10n.localize("vibe.mcp_log.field_last_error", comment: "MCP last error field"), value: agent.mcpLastError ?? "-")
             }
             .padding(14)
             .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
@@ -429,10 +429,10 @@ private struct MCPDebugLogModal: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("日志内容")
+                    Text(L10n.localize("vibe.mcp_log.content_title", comment: "MCP log content title"))
                         .font(.system(size: 13, weight: .semibold))
                     if !logFileExists {
-                        Text("日志文件暂未生成")
+                        Text(L10n.localize("vibe.mcp_log.content_missing", comment: "MCP log file missing text"))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.orange)
                     }
@@ -460,13 +460,13 @@ private struct MCPDebugLogModal: View {
                 Button {
                     onOpenLogFile()
                 } label: {
-                    Label("打开日志文件", systemImage: "doc")
+                        Label(L10n.localize("vibe.mcp_log.open_file", comment: "Open MCP log file"), systemImage: "doc")
                 }
                 .buttonStyle(.bordered)
                 Button {
                     onCopy()
                 } label: {
-                    Label("复制诊断信息", systemImage: "doc.on.doc")
+                        Label(L10n.localize("vibe.mcp_log.copy_diagnostics", comment: "Copy MCP diagnostics"), systemImage: "doc.on.doc")
                 }
                 .buttonStyle(.borderedProminent)
             }

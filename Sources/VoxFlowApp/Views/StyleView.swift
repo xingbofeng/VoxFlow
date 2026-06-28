@@ -91,7 +91,7 @@ struct StyleView: View {
 
     private var styleList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("风格", systemImage: "slider.horizontal.3")
+            Label(L10n.localize("style.view.title", comment: ""), systemImage: "slider.horizontal.3")
                 .font(.system(size: 24, weight: .semibold))
                 .padding(.horizontal, 18)
                 .padding(.top, 22)
@@ -147,14 +147,24 @@ struct StyleView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.selectedProfile?.name ?? "风格")
+                    Text(viewModel.selectedProfile?.name ?? L10n.localize("style.view.title", comment: ""))
                         .font(.system(size: 26, weight: .semibold))
-                    Text("编辑 Markdown 提示词，并在右侧实时预览。")
+                    Text(L10n.localize("style.view.prompt_editor_hint", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
                 Spacer()
-                Button("确认") {
+                Button {
+                    resetPrompt()
+                } label: {
+                    Label(
+                        L10n.localize("style.action.restore_default", comment: ""),
+                        systemImage: "arrow.counterclockwise"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.selectedProfile?.builtIn != true)
+                Button(L10n.localize("style.action.confirm", comment: "")) {
                     savePrompt()
                 }
                 .buttonStyle(.borderedProminent)
@@ -182,7 +192,7 @@ struct StyleView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("预览", systemImage: "eye")
+                    Label(L10n.localize("style.view.preview", comment: ""), systemImage: "eye")
                         .font(.system(size: 13, weight: .semibold))
                     ScrollView {
                         MarkdownPromptPreview(markdown: prompt)
@@ -207,21 +217,21 @@ struct StyleView: View {
     private var appRoutingSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 12) {
-                Label("适用应用", systemImage: "scope")
+                Label(L10n.localize("style.app_routing.title", comment: ""), systemImage: "scope")
                     .font(.system(size: 18, weight: .semibold))
                 Spacer()
                 Button {
                     loadInstalledAppsIfNeeded()
                     showingAppSelector = true
                 } label: {
-                    Label("管理应用", systemImage: "magnifyingglass")
+                    Label(L10n.localize("style.action.manage_apps", comment: ""), systemImage: "magnifyingglass")
                 }
                 .buttonStyle(.borderless)
                 Button {
                     smartConfigurationViewModel = viewModel.makeSmartConfigurationViewModel()
                     showingSmartConfiguration = true
                 } label: {
-                    Label("智能配置", systemImage: "wand.and.stars")
+                    Label(L10n.localize("style.action.smart_configuration", comment: ""), systemImage: "wand.and.stars")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -231,7 +241,7 @@ struct StyleView: View {
                     Image(systemName: "app.badge")
                         .font(.system(size: 18))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text("还没有为这个风格绑定应用，未命中规则时会使用默认风格。")
+                    Text(L10n.localize("style.app_routing.no_application_bindings", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     Spacer()
@@ -266,9 +276,9 @@ struct StyleView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("管理应用")
+                    Text(L10n.localize("style.action.manage_apps", comment: ""))
                         .font(.system(size: 20, weight: .semibold))
-                    Text("为 \(viewModel.selectedProfile?.name ?? "当前风格") 选择适用应用")
+                    Text(String(format: L10n.localize("style.app_routing.select_app_for_style", comment: ""), viewModel.selectedProfile?.name ?? L10n.localize("style.view.title", comment: "")))
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -300,11 +310,11 @@ struct StyleView: View {
                 Button {
                     loadInstalledApps(force: true)
                 } label: {
-                    Label("重新扫描", systemImage: "arrow.clockwise")
+                    Label(L10n.localize("style.app_routing.rescan", comment: ""), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
                 Spacer()
-                Button("完成") {
+                Button(L10n.localize("style.action.done", comment: "")) {
                     showingAppSelector = false
                 }
                 .buttonStyle(.borderedProminent)
@@ -384,6 +394,16 @@ struct StyleView: View {
         guard let profile = viewModel.selectedProfile else { return }
         do {
             try viewModel.updateProfile(id: profile.id, prompt: prompt)
+            prompt = viewModel.selectedProfile?.prompt ?? prompt
+        } catch {
+            viewModel.report(error: error)
+        }
+    }
+
+    private func resetPrompt() {
+        guard let profile = viewModel.selectedProfile else { return }
+        do {
+            try viewModel.resetBuiltInPrompt(id: profile.id)
             prompt = viewModel.selectedProfile?.prompt ?? prompt
         } catch {
             viewModel.report(error: error)

@@ -22,14 +22,14 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(presentation.sectionTitle, "字幕")
-        XCTAssertEqual(presentation.statusText, "未添加")
+        XCTAssertEqual(presentation.sectionTitle, L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""))
+        XCTAssertEqual(presentation.statusText, L10n.localize("subtitle.status.none", comment: ""))
         XCTAssertNil(presentation.errorMessage)
         XCTAssertEqual(presentation.actions, [
             RecordingSubtitleDetailActionPresentation(
                 kind: .addSubtitle,
-                title: "添加字幕",
-                help: "添加字幕"
+                title: L10n.localize("screenshot.record.detail.subtitle_action_add", comment: ""),
+                help: L10n.localize("screenshot.record.detail.subtitle_action_add_help", comment: "")
             )
         ])
     }
@@ -41,10 +41,10 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(presentation.statusText, "无麦克风音频")
+        XCTAssertEqual(presentation.statusText, L10n.localize("screenshot.record.detail.subtitle_status_no_microphone", comment: ""))
         XCTAssertEqual(presentation.actions.first?.kind, .addSubtitle)
-        XCTAssertEqual(presentation.actions.first?.title, "添加字幕")
-        XCTAssertEqual(presentation.actions.first?.help, "这段录屏没有麦克风音频，无法添加字幕")
+        XCTAssertEqual(presentation.actions.first?.title, L10n.localize("screenshot.record.detail.subtitle_action_add", comment: ""))
+        XCTAssertEqual(presentation.actions.first?.help, L10n.localize("screenshot.record.detail.subtitle_action_add_no_audio_help", comment: ""))
         XCTAssertFalse(presentation.actions.first?.isEnabled ?? true)
     }
 
@@ -52,21 +52,24 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
         XCTAssertEqual(try actions(for: .generating), [
             RecordingSubtitleDetailActionPresentation(
                 kind: .progress,
-                title: "生成中…",
-                help: "字幕生成中…",
+                title: L10n.localize("screenshot.record.detail.subtitle_action_generating", comment: ""),
+                help: L10n.localize("screenshot.record.detail.subtitle_action_generating_help", comment: ""),
                 isEnabled: false,
                 showsProgress: true
             )
         ])
 
         XCTAssertEqual(try actions(for: .draftReady).map(\.kind), [.openEditor, .burn])
-        XCTAssertEqual(try actions(for: .draftReady).map(\.title), ["查看/编辑字幕", "烧录字幕"])
+        XCTAssertEqual(try actions(for: .draftReady).map(\.title), [
+            L10n.localize("screenshot.record.detail.subtitle_action_view_edit", comment: ""),
+            L10n.localize("screenshot.record.detail.subtitle_action_burn", comment: ""),
+        ])
 
         XCTAssertEqual(try actions(for: .burning), [
             RecordingSubtitleDetailActionPresentation(
                 kind: .progress,
-                title: "烧录中…",
-                help: "字幕烧录中…",
+                title: L10n.localize("screenshot.record.detail.subtitle_action_burning", comment: ""),
+                help: L10n.localize("screenshot.record.detail.subtitle_action_burning_help", comment: ""),
                 isEnabled: false,
                 showsProgress: true
             )
@@ -78,9 +81,9 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
             .openEditor
         ])
         XCTAssertEqual(try actions(for: .burned).map(\.title), [
-            "打开带字幕视频",
-            "查看原视频",
-            "查看/编辑字幕"
+            L10n.localize("screenshot.record.detail.subtitle_action_open_subtitled_video", comment: ""),
+            L10n.localize("screenshot.record.detail.subtitle_action_open_original_video", comment: ""),
+            L10n.localize("screenshot.record.detail.subtitle_action_view_edit", comment: ""),
         ])
 
         let failed = try XCTUnwrap(
@@ -92,10 +95,10 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
                 )
             )
         )
-        XCTAssertEqual(failed.statusText, "失败")
+        XCTAssertEqual(failed.statusText, L10n.localize("subtitle.status.failed", comment: ""))
         XCTAssertEqual(failed.errorMessage, "语音识别失败")
         XCTAssertEqual(failed.actions.map(\.kind), [.retry])
-        XCTAssertEqual(failed.actions.map(\.title), ["重试"])
+        XCTAssertEqual(failed.actions.map(\.title), [L10n.localize("screenshot.record.detail.subtitle_action_retry", comment: "")])
     }
 
     func testBurnedRecordingUsesSubtitledVideoAsPrimaryPlaybackSource() throws {

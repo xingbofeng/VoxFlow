@@ -4,6 +4,7 @@ import VoxFlowAudio
 public actor Qwen3StreamingRuntimeDriver {
     private let modelURL: URL
     private let languageHint: String?
+    private let contextPrompt: String?
     private let sessionFactory: any Qwen3StreamingSessionMaking
     private var session: (any Qwen3StreamingSession)?
     private var pendingSamples: [Float] = []
@@ -15,10 +16,12 @@ public actor Qwen3StreamingRuntimeDriver {
     public init(
         modelURL: URL,
         languageHint: String?,
+        contextPrompt: String? = nil,
         sessionFactory: any Qwen3StreamingSessionMaking = SpeechSwiftQwen3StreamingSessionFactory()
     ) {
         self.modelURL = modelURL
         self.languageHint = languageHint
+        self.contextPrompt = contextPrompt
         self.sessionFactory = sessionFactory
     }
 
@@ -31,7 +34,8 @@ public actor Qwen3StreamingRuntimeDriver {
         guard session == nil else { return }
         session = try await sessionFactory.makeSession(
             modelURL: modelURL,
-            languageHint: languageHint
+            languageHint: languageHint,
+            contextPrompt: contextPrompt
         )
     }
 

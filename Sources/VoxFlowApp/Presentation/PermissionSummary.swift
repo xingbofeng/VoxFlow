@@ -3,7 +3,9 @@ import Foundation
 
 enum PermissionSummary {
     static func statusText(_ granted: Bool) -> String {
-        granted ? "已授权" : "未授权"
+        granted
+            ? L10n.localize("permission.status.granted", comment: "Permission granted status text")
+            : L10n.localize("permission.status.denied", comment: "Permission denied status text")
     }
 
     static func speechRecognitionStatus(
@@ -18,49 +20,29 @@ enum PermissionSummary {
         switch engineType {
         case .apple:
             return (
-                "需要录音与语音识别权限",
-                """
-                码上写需要麦克风和语音识别权限才能使用系统自带模型。
-
-                请在 系统设置 → 隐私与安全性 中启用"麦克风"和"语音识别"权限。
-                """
+                L10n.localize("permission.alert.title.audio_and_speech", comment: "Permission alert title for Apple engine"),
+                L10n.localize("permission.alert.body.apple", comment: "Permission body for Apple engine")
             )
         case .funASR, .whisper, .qwen3, .senseVoice, .paraformer, .nvidiaNemotron,
              .parakeetStreaming, .omnilingualASR:
             return (
-                "需要麦克风权限",
-                """
-                码上写使用本地离线模型时只需要麦克风权限，不需要 Apple 语音识别权限。
-
-                请在 系统设置 → 隐私与安全性 → 麦克风 中启用码上写。
-                """
+                L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
+                L10n.localize("permission.alert.body.microphone_only_local", comment: "Permission body for offline local engine")
             )
         case .groqWhisper:
             return (
-                "需要麦克风权限",
-                """
-                码上写使用 Groq 云端语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到 Groq 进行转写。
-
-                请在 系统设置 → 隐私与安全性 → 麦克风 中启用码上写。
-                """
+                L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
+                L10n.localize("permission.alert.body.microphone_only_cloud", comment: "Permission body for Groq engine")
             )
         case .tencentCloud:
             return (
-                "需要麦克风权限",
-                """
-                码上写使用腾讯云实时语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到腾讯云进行流式转写。
-
-                请在 系统设置 → 隐私与安全性 → 麦克风 中启用码上写。
-                """
+                L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
+                L10n.localize("permission.alert.body.microphone_only_cloud", comment: "Permission body for Tencent cloud engine")
             )
         case .aliyunDashScope:
             return (
-                "需要麦克风权限",
-                """
-                码上写使用阿里云百炼 DashScope 实时语音识别时只需要麦克风权限，不需要 Apple 语音识别权限。录音会发送到阿里云进行流式转写。
-
-                请在 系统设置 → 隐私与安全性 → 麦克风 中启用码上写。
-                """
+                L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
+                L10n.localize("permission.alert.body.aliyun_engine", comment: "Permission body for Aliyun engine")
             )
         }
     }
@@ -73,19 +55,14 @@ enum PermissionSummary {
     }
 
     static func screenRecordingDescription() -> String {
-        """
-        "任务助手"功能可以截取当前窗口作为视觉上下文，帮助智能模型更好地理解你的意图。
-
-        截图仅在单次任务中使用，不会保存到磁盘或上传到任何服务器。
-
-        请在 系统设置 → 隐私与安全性 → 屏幕录制 中启用码上写。
-        """
+        L10n.localize("permission.screen.recording.description", comment: "Screen recording permission explanation")
     }
 
     static func screenRecordingAlertText() -> (title: String, body: String) {
         (
-            "需要屏幕录制权限",
+            L10n.localize("permission.alert.title.screen_recording", comment: "Permission alert title for screen recording"),
             screenRecordingDescription()
         )
     }
+
 }

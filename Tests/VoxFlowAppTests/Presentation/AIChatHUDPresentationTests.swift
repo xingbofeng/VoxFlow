@@ -7,7 +7,7 @@ final class AIChatHUDPresentationTests: XCTestCase {
             "Sources/VoxFlowApp/Presentation/AIChatPanelController.swift"
         )
 
-        XCTAssertTrue(source.contains("TextResultPanelController(title: \"问 AI\")"))
+        XCTAssertTrue(source.contains("TextResultPanelController(title: L10n.localize(\"chat.panel.title\""))
         XCTAssertTrue(source.contains("AIChatPanelView("))
         XCTAssertTrue(source.contains("panelController.present("))
         XCTAssertTrue(source.contains("viewModel.send(prompt)"))
@@ -46,7 +46,7 @@ final class AIChatHUDPresentationTests: XCTestCase {
     func testAIChatPanelShowsCopyActionAndStreamingStopButton() throws {
         let source = try Self.source("Sources/VoxFlowApp/AIChat/AIChatHUDView.swift")
 
-        XCTAssertTrue(source.contains("Label(\"复制回复\", systemImage: \"doc.on.doc\")"))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"chat.message.copy_reply\""))
         XCTAssertTrue(source.contains("copyToPasteboard(message.content)"))
         XCTAssertTrue(source.contains("viewModel.isStreaming ? \"stop.circle.fill\" : \"arrow.up.circle.fill\""))
         XCTAssertTrue(source.contains("if viewModel.isStreaming"))

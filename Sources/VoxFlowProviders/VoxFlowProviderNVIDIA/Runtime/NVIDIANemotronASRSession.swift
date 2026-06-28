@@ -18,6 +18,7 @@ final class NVIDIANemotronASRSession: VoxFlowASRCore.ASRSession, @unchecked Send
     private var hasStartedSpeech = false
     private var isClosed = false
     private var transcriberTask: Task<any NVIDIANemotronTranscribing, Error>?
+    private var wordBoostingPhrases: [String] = []
 
     var revision: UInt64 {
         lock.withLock { currentRevision }
@@ -40,17 +41,26 @@ final class NVIDIANemotronASRSession: VoxFlowASRCore.ASRSession, @unchecked Send
         let factory = transcriberFactory
         let modelURL = modelURL
         let languageCode = languageCode
+        let wordBoostingPhrases = lock.withLock { self.wordBoostingPhrases }
         do {
             let transcriber = try await factory.makeTranscriber(directoryURL: modelURL)
             await transcriber.setPartialHandler { [weak self] text in
                 self?.emitPartial(text)
             }
+            await transcriber.setWordBoostingPhrases(wordBoostingPhrases)
             await transcriber.setLanguage(languageCode)
             self.transcriberTask = Task { transcriber }
             eventStream.yield(.ready(sessionID: sessionID, revision: nextRevision()))
         } catch {
             emitFailure(error)
             throw error
+        }
+    }
+
+    func configurePrompt(_ prompt: String?) async throws {
+        let phrases = Self.wordBoostingPhrases(from: prompt)
+        lock.withLock {
+            wordBoostingPhrases = phrases
         }
     }
 
@@ -202,5 +212,14 @@ final class NVIDIANemotronASRSession: VoxFlowASRCore.ASRSession, @unchecked Send
 
     private static func containsAudibleSamples(_ samples: ContiguousArray<Float>) -> Bool {
         samples.contains { abs($0) > 0.0005 }
+    }
+
+    private static func wordBoostingPhrases(from prompt: String?) -> [String] {
+        let separators = CharacterSet(charactersIn: ",，\n")
+        let phrases = (prompt ?? "")
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Array(phrases.prefix(100))
     }
 }

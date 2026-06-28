@@ -131,7 +131,7 @@ final class UpdateCheckCoordinator {
             tagName: tag,
             releasePageURL: pageURL,
             downloadURL: downloadURL,
-            releaseNotes: "本地 Debug mock 更新，用于验证更新提示流程。",
+            releaseNotes: L10n.localize("app.update.mock_release_notes", comment: ""),
             isDraft: false,
             isPrerelease: false
         )

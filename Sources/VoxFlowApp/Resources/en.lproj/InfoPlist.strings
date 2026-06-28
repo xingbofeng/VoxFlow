@@ -1,0 +1,4 @@
+/* VoxFlow Info.plist localization overrides (English). */
+
+NSMicrophoneUsageDescription = "VoxFlow needs microphone access to capture your voice and transcribe it to text.";
+NSSpeechRecognitionUsageDescription = "VoxFlow needs speech recognition to transcribe your voice and generate subtitles for microphone screen recordings.";

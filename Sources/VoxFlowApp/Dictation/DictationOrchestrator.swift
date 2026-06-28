@@ -64,6 +64,7 @@ final class DictationOrchestrator {
     private let asrTermPromptProvider: (any ASRTermPromptProviding)?
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
     private let assetRepository: (any AssetRepository)?
+    private let hotwordHitCounter: HotwordHitCounter?
     private let finalTimeoutNanoseconds: UInt64
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
@@ -101,7 +102,8 @@ final class DictationOrchestrator {
         asrTermPromptProvider: (any ASRTermPromptProviding)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
-        assetRepository: (any AssetRepository)? = nil
+        assetRepository: (any AssetRepository)? = nil,
+        hotwordHitCounter: HotwordHitCounter? = nil
     ) {
         self.asrEngineFactory = asrEngineFactory
         self.audioRecorder = audioRecorder
@@ -121,6 +123,7 @@ final class DictationOrchestrator {
         self.asrTermPromptProvider = asrTermPromptProvider
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
         self.assetRepository = assetRepository
+        self.hotwordHitCounter = hotwordHitCounter
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
     }
 
@@ -432,6 +435,7 @@ final class DictationOrchestrator {
                 finishCurrentDictation()
                 return
             }
+            hotwordHitCounter?.recordHits(in: rawText)
             saveHistory(
                 rawText: rawText,
                 finalText: rawText,
@@ -704,6 +708,7 @@ final class DictationOrchestrator {
             return
         }
 
+        hotwordHitCounter?.recordHits(in: finalText)
         saveHistory(
             rawText: rawText,
             finalText: finalText,
@@ -733,7 +738,10 @@ final class DictationOrchestrator {
         }
 
         AppLogger.dictation.debug("finishAgentCompose invoked rawLen=\(rawText.count)")
-        onTranscriptionUpdate("正在结合上下文生成...", true)
+            onTranscriptionUpdate(
+                L10n.localize("dictation.hud.context_fusion", comment: "HUD hint while generating response with context"),
+                true
+            )
         do {
             updateAgentComposeASRMetadataIfAvailable()
             let result = try await agentComposeHandler.finish(rawTranscript: rawText)
@@ -1017,7 +1025,7 @@ final class DictationOrchestrator {
         let item = try AssetItem.makeText(
             id: "dictation-\(id)",
             source: .dictation,
-            title: title.isEmpty ? "语音输入" : title,
+            title: title.isEmpty ? L10n.localize("dictation.asset.default_title", comment: "Default dictation asset title") : title,
             text: finalText,
             rawText: rawText,
             previewText: title.isEmpty ? rawText : title,
@@ -1149,6 +1157,7 @@ final class DictationOrchestrator {
     }
 
     private func fail(_ error: Error) {
+        let localizedMessage = localizeProviderErrorMessage(error.localizedDescription)
         AppLogger.dictation.error("dictation failed mode=\(currentMode.rawValue) state=\(stateLogName(state)) reason=\(error.localizedDescription)")
         finalTimeoutTask?.cancel()
         finalTimeoutTask = nil
@@ -1171,9 +1180,9 @@ final class DictationOrchestrator {
         currentCallbackSessionID = nil
         currentTarget = nil
         currentMode = .dictation
-        stateMachine.fail(message: error.localizedDescription)
+        stateMachine.fail(message: localizedMessage)
         notifyStateChanged()
-        onError(error)
+        onError(LocalizedDictationError(message: localizedMessage))
         stateMachine.finish()
         notifyStateChanged()
     }
@@ -1237,15 +1246,22 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .alreadyRunning:
-            return "听写正在进行中。"
+            return String(
+                L10n.localize("dictation.error.already_running", comment: "Dictation is already running")
+            )
         case .agentComposeUnavailable:
-            return "任务助手尚未完成初始化，请重启码上写后重试。"
+            return L10n.localize("dictation.error.agent_compose_unavailable", comment: "Agent compose unavailable message")
         case .agentDispatchUnavailable:
-            return "AI 编程控制台尚未完成初始化，请重启码上写后重试。"
+            return L10n.localize("dictation.error.agent_dispatch_unavailable", comment: "Agent dispatch unavailable message")
         case .finalResultTimedOut:
-            return "语音识别超时，请重试。"
+            return String(
+                L10n.localize("dictation.error.final_result_timed_out", comment: "Dictation final result timeout message")
+            )
         case .unsupportedLanguage(let identifier):
-            return "当前语音识别语言不受支持：\(identifier)。"
+            return String(
+                format: L10n.localize("dictation.error.unsupported_language_format", comment: "Unsupported dictation language message"),
+                identifier
+            )
         }
     }
 }
@@ -1279,4 +1295,53 @@ extension ASREngineType {
             return ASRProviderID.qwenCloudASR
         }
     }
+}
+
+// MARK: - Provider error localization
+
+private struct LocalizedDictationError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+private func localizeProviderErrorMessage(_ message: String) -> String {
+    let knownPatterns: [(pattern: String, key: String)] = [
+        ("not installed",                 "asr.error.model_not_installed"),
+        ("模型文件可能已损坏",            "asr.error.model_corrupt"),
+        ("不完整，请重新下载",            "asr.error.model_corrupt"),
+        ("does not support language",     "asr.error.unsupported_language"),
+        ("暂不支持",                       "asr.error.unsupported_language"),
+        ("磁盘空间不够",                  "asr.error.disk_space"),
+        ("disk space",                    "asr.error.disk_space"),
+        ("下载链接不安全",                "asr.error.download_url_insecure"),
+        ("下载已暂停",                    "asr.error.download_paused"),
+        ("下载已取消",                    "asr.error.download_cancelled"),
+        ("下载中断",                      "asr.error.download_interrupted"),
+        ("final result was empty",        "asr.error.empty_transcript"),
+        ("没有识别到可用文本",            "asr.error.empty_transcript"),
+        ("hardware",                      "asr.error.hardware_unsupported"),
+        ("连接超时",                      "asr.error.connection_timeout"),
+        ("timeout",                       "asr.error.connection_timeout"),
+        ("API Key",                       "asr.error.api_key_missing"),
+        ("未配置",                        "asr.error.api_key_missing"),
+        ("音频文件",                      "asr.error.audio_read_failed"),
+        ("audio file",                    "asr.error.audio_read_failed"),
+        ("无法读取",                      "asr.error.audio_read_failed"),
+        ("无效响应",                      "asr.error.invalid_response"),
+        ("无效的响应",                    "asr.error.invalid_response"),
+        ("签名地址无效",                  "asr.error.invalid_response"),
+        ("地址无效",                      "asr.error.invalid_response"),
+        ("失败（",                        "asr.error.cloud_service_failed"),
+        ("failed",                        "asr.error.cloud_service_failed"),
+        ("HTTP ",                         "asr.error.cloud_service_failed"),
+        ("健康检查",                      "asr.error.health_check"),
+        ("连接正常",                      "asr.error.health_check_ok"),
+    ]
+    for (pattern, key) in knownPatterns {
+        if message.localizedCaseInsensitiveContains(pattern) {
+            let localized = L10n.localize(key, comment: "")
+            if localized != key { return localized }
+        }
+    }
+    return message
 }

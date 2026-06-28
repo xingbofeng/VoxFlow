@@ -60,11 +60,11 @@ enum CapabilityModelCatalog {
                 CapabilityModelDescriptor(
                     id: CapabilityModelID.systemDefaultTTS,
                     kind: .tts,
-                    displayName: "系统默认",
-                    subtitle: "使用 Apple 系统朗读，不需要下载模型",
-                    sizeDescription: "系统内置",
-                    memoryDescription: "由系统管理",
-                    fallbackDescription: "始终可用",
+                    displayName: L10n.localize("model.capability.tts_system_default_name", comment: ""),
+                    subtitle: L10n.localize("model.capability.tts_system_default_subtitle", comment: ""),
+                    sizeDescription: L10n.localize("model.capability.tts_system_default_size", comment: ""),
+                    memoryDescription: L10n.localize("model.capability.tts_system_default_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.tts_system_default_fallback", comment: ""),
                     isRecommended: true,
                     isInstalled: true
                 ),
@@ -72,10 +72,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.kokoroTTS,
                     kind: .tts,
                     displayName: "Kokoro TTS",
-                    subtitle: "轻量 CoreML 朗读模型，适合 HUD 快速朗读",
+                    subtitle: L10n.localize("model.capability.tts_kokoro_subtitle", comment: ""),
                     sizeDescription: "89 MB",
-                    memoryDescription: "峰值约 200 MB",
-                    fallbackDescription: "未下载时使用 Apple 系统朗读",
+                    memoryDescription: L10n.localize("model.capability.tts_kokoro_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.tts_kokoro_fallback", comment: ""),
                     isRecommended: false,
                     isInstalled: false
                 ),
@@ -83,10 +83,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.qwen3TTS06B4Bit,
                     kind: .tts,
                     displayName: "Qwen3-TTS 0.6B 4-bit",
-                    subtitle: "Soniqo Qwen3-TTS 基础模型，质量更高但体积更大",
+                    subtitle: L10n.localize("model.capability.tts_qwen3_subtitle", comment: ""),
                     sizeDescription: "1.7 GB",
-                    memoryDescription: "峰值约 2 GB",
-                    fallbackDescription: "未下载时使用 Apple 系统朗读",
+                    memoryDescription: L10n.localize("model.capability.tts_qwen3_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.tts_qwen3_fallback", comment: ""),
                     isRecommended: false,
                     isInstalled: false
                 ),
@@ -94,10 +94,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.cosyVoice3,
                     kind: .tts,
                     displayName: "CosyVoice3",
-                    subtitle: "多语种 TTS 模型，适合更自然的朗读候选",
+                    subtitle: L10n.localize("model.capability.tts_cosy_subtitle", comment: ""),
                     sizeDescription: "1.2 GB",
-                    memoryDescription: "峰值约 1.5 GB",
-                    fallbackDescription: "未下载时使用 Apple 系统朗读",
+                    memoryDescription: L10n.localize("model.capability.tts_cosy_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.tts_cosy_fallback", comment: ""),
                     isRecommended: false,
                     isInstalled: false
                 ),
@@ -107,22 +107,22 @@ enum CapabilityModelCatalog {
                 CapabilityModelDescriptor(
                     id: CapabilityModelID.systemDefaultTranslation,
                     kind: .translation,
-                    displayName: "系统默认",
-                    subtitle: "使用 Apple 系统翻译，首次使用可能需要下载语言包",
-                    sizeDescription: "系统语言包",
-                    memoryDescription: "由 macOS 管理",
-                    fallbackDescription: "系统翻译失败时可使用已配置的智能模型",
+                    displayName: L10n.localize("model.capability.translation_system_default_name", comment: ""),
+                    subtitle: L10n.localize("model.capability.translation_system_default_subtitle", comment: ""),
+                    sizeDescription: L10n.localize("model.capability.translation_system_default_size", comment: ""),
+                    memoryDescription: L10n.localize("model.capability.translation_system_default_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.translation_system_default_fallback", comment: ""),
                     isRecommended: true,
                     isInstalled: true
                 ),
                 CapabilityModelDescriptor(
                     id: CapabilityModelID.llmTranslation,
                     kind: .translation,
-                    displayName: "智能模型配置",
-                    subtitle: "使用设置中配置的智能模型，将识别原文翻译为简体中文",
-                    sizeDescription: "无需下载",
-                    memoryDescription: "由智能模型服务管理",
-                    fallbackDescription: "需要先在设置中配置智能模型服务",
+                    displayName: L10n.localize("model.capability.translation_llm_config_name", comment: ""),
+                    subtitle: L10n.localize("model.capability.translation_llm_config_subtitle", comment: ""),
+                    sizeDescription: L10n.localize("model.capability.translation_llm_config_size", comment: ""),
+                    memoryDescription: L10n.localize("model.capability.translation_llm_config_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.translation_llm_config_fallback", comment: ""),
                     isRecommended: false,
                     isInstalled: true
                 ),
@@ -130,10 +130,10 @@ enum CapabilityModelCatalog {
                     id: CapabilityModelID.madladTranslation,
                     kind: .translation,
                     displayName: "Soniqo MADLAD",
-                    subtitle: "本地翻译模型，识别原文固定翻译为简体中文",
-                    sizeDescription: "约 1.7 GB",
-                    memoryDescription: "本地 MLX 推理",
-                    fallbackDescription: "未下载时使用已配置的智能模型",
+                    subtitle: L10n.localize("model.capability.translation_madlad_subtitle", comment: ""),
+                    sizeDescription: L10n.localize("model.capability.translation_madlad_size", comment: ""),
+                    memoryDescription: L10n.localize("model.capability.translation_madlad_memory", comment: ""),
+                    fallbackDescription: L10n.localize("model.capability.translation_madlad_fallback", comment: ""),
                     isRecommended: false,
                     isInstalled: false
                 ),
@@ -193,7 +193,7 @@ final class CapabilityModelViewModel: ObservableObject {
         }
         guard Self.isSelectable(model) else {
             lastActionMessage = nil
-            lastError = "请先在设置中配置智能模型服务"
+            lastError = L10n.localize("model.capability.config_required_error", comment: "")
             Self.logger.warning("capability_model_vm_select_model_unavailable kind=\(kind.rawValue) id=\(id)")
             return
         }
@@ -204,7 +204,7 @@ final class CapabilityModelViewModel: ObservableObject {
             defaults.set(Self.translationDefaultMigrationVersion, forKey: Self.translationDefaultMigrationKey)
         }
         lastError = nil
-        lastActionMessage = "已切换模型配置"
+        lastActionMessage = L10n.localize("model.capability.action_switch_model_config", comment: "")
         Self.logger.info("capability_model_vm_select_model_success kind=\(kind.rawValue) id=\(id)")
     }
 
@@ -244,14 +244,14 @@ final class CapabilityModelViewModel: ObservableObject {
         if id == CapabilityModelID.llmTranslation,
            models.first(where: { $0.id == id })?.isInstalled != true {
             lastActionMessage = nil
-            lastError = "请先在设置中配置智能模型服务"
+            lastError = L10n.localize("model.capability.config_required_error", comment: "")
             Self.logger.info("capability_model_vm_download_llm_unavailable kind=\(kind.rawValue) id=\(id)")
             return
         }
         guard CapabilityModelID.requiresDownload(id) else {
             markInstalled(id: id, installed: true)
             lastError = nil
-            lastActionMessage = "已切换内置模型"
+            lastActionMessage = L10n.localize("model.capability.action_switch_builtin_model", comment: "")
             Self.logger.info("capability_model_vm_download_builtin kind=\(kind.rawValue) id=\(id)")
             return
         }
@@ -274,7 +274,7 @@ final class CapabilityModelViewModel: ObservableObject {
             }
             markInstalled(id: id, installed: true)
             downloadProgress = 1.0
-            lastActionMessage = "本地模型下载完成"
+            lastActionMessage = L10n.localize("model.capability.action_download_completed", comment: "")
             Self.logger.info("capability_model_vm_download_success kind=\(kind.rawValue) id=\(id)")
         } catch {
             lastError = error.localizedDescription

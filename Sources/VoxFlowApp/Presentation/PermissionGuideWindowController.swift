@@ -150,7 +150,9 @@ private struct PermissionGuideView: View {
                 }
             }
 
-            Text("权限刚刚修改后，请回到码上写重新检查。")
+            Text(
+                L10n.localize("window.permission.return_to_app_check", comment: "Guide return message")
+            )
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
@@ -158,11 +160,11 @@ private struct PermissionGuideView: View {
 
             HStack(spacing: 10) {
                 Spacer()
-                Button("完成", action: onDone)
+                Button(L10n.localize("window.permission.done", comment: ""), action: onDone)
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                 if let onOpenSettings {
-                    Button("打开系统设置", action: onOpenSettings)
+                    Button(L10n.localize("window.permission.open_system_settings", comment: ""), action: onOpenSettings)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                 }
@@ -210,6 +212,6 @@ private struct PermissionGuideView: View {
         .onTapGesture {
             onOpenItemSettings(item)
         }
-        .help(item.settingsURL == nil ? "" : "打开\(item.title)权限设置")
+        .help(item.settingsURL == nil ? "" : String(format: L10n.localize("window.permission.open_item_settings_help_format", comment: ""), item.title))
     }
 }

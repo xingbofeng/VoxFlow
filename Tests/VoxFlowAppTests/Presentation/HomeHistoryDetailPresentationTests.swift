@@ -53,7 +53,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
     func testAgentDispatchMissingTraceMessagePointsToSavedDispatchResult() {
         XCTAssertEqual(
             HomeHistoryDetailPresentation.missingTraceMessage(for: .agentDispatch),
-            "这条AI 编程记录不会调用文本纠错模型；语音原文和生成结果已单独保留。"
+            "这条 AI 编程记录不会调用文本纠错模型；语音原文和生成结果已单独保留。"
         )
     }
 

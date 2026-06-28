@@ -6,18 +6,30 @@ final class AppMainMenuBuilderTests: XCTestCase {
     @MainActor
     func testBuilderCreatesApplicationAndEditMenus() throws {
         let menu = AppMainMenuBuilder.makeMainMenu()
+        let aboutTitle = L10n.localize("menu.main.about")
+        let checkForUpdatesTitle = L10n.localize("menu.main.check_updates")
+        let hideTitle = L10n.localize("menu.main.hide")
+        let hideOthersTitle = L10n.localize("menu.main.hide_others")
+        let quitTitle = L10n.localize("menu.main.quit")
+        let editMenuTitle = L10n.localize("menu.main.edit")
+        let undoTitle = L10n.localize("menu.main.undo")
+        let redoTitle = L10n.localize("menu.main.redo")
+        let cutTitle = L10n.localize("menu.main.cut")
+        let copyTitle = L10n.localize("menu.main.copy")
+        let pasteTitle = L10n.localize("menu.main.paste")
+        let selectAllTitle = L10n.localize("menu.main.select_all")
 
         XCTAssertEqual(menu.items.count, 2)
 
         let applicationMenu = try XCTUnwrap(menu.items.first?.submenu)
         XCTAssertEqual(applicationMenu.items.map { $0.title }, [
-            "关于码上写",
-            "检查更新",
+            aboutTitle,
+            checkForUpdatesTitle,
             "",
-            "隐藏码上写",
-            "隐藏其他",
+            hideTitle,
+            hideOthersTitle,
             "",
-            "退出码上写",
+            quitTitle,
         ])
         XCTAssertEqual(applicationMenu.items[0].action, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         XCTAssertEqual(applicationMenu.items[1].action, #selector(AppDelegate.checkForUpdates(_:)))
@@ -30,15 +42,15 @@ final class AppMainMenuBuilderTests: XCTestCase {
         XCTAssertEqual(applicationMenu.items[6].action, #selector(NSApplication.terminate(_:)))
 
         let editMenu = try XCTUnwrap(menu.items.dropFirst().first?.submenu)
-        XCTAssertEqual(editMenu.title, "编辑")
+        XCTAssertEqual(editMenu.title, editMenuTitle)
         XCTAssertEqual(editMenu.items.map { $0.title }, [
-            "撤销",
-            "重做",
+            undoTitle,
+            redoTitle,
             "",
-            "剪切",
-            "复制",
-            "粘贴",
-            "全选",
+            cutTitle,
+            copyTitle,
+            pasteTitle,
+            selectAllTitle,
         ])
         XCTAssertEqual(editMenu.items[0].action, Selector(("undo:")))
         XCTAssertEqual(editMenu.items[1].action, Selector(("redo:")))

@@ -26,6 +26,51 @@ VoxFlow（码上写）是一款原生 macOS 菜单栏语音输入工具。按住
 
 **不要用 `swift run` 代替 `make run-dev` / `make run`**——权限、签名、资源加载、worker 打包、LaunchServices 注册和状态栏缓存清理行为不同。
 
+### 菜单栏图标 / StatusKit 缓存排查
+
+当菜单栏图标消失、错位，且改 Bundle ID 后暂时恢复时，优先按 macOS 状态栏缓存问题处理，不要只改图标资源或反复 bump Bundle ID。
+
+已知相关缓存层：
+
+- App defaults：`~/Library/Preferences/com.voxflow.app*.plist` 中的 `NSStatusItem Preferred Position ...`、`NSStatusItem Visible ...`、`NSStatusItem VisibleCC ...`
+- LaunchServices 注册库：由 `lsregister` 管理，可能残留 `.build/`、`/Applications/`、`~/.Trash/`、已挂载 DMG 中的旧 `VoxFlow.app` / `VoiceInput.app`
+- IconServices 图标缓存：`$(getconf DARWIN_USER_CACHE_DIR)/com.apple.iconservices*`，以及系统级 `/Library/Caches/com.apple.iconservices.store`
+- StatusKit / Control Center 私有状态：`~/Library/StatusKit`、`~/Library/Group Containers/group.com.apple.controlcenter`
+
+常规清理优先使用 `make run-dev` 或 `make run`，它会执行 `prelaunch-cleanup`，覆盖本项目已知的 LaunchServices 反注册和 status item defaults 清理。如果仍不恢复，再做深度清理：
+
+```bash
+pkill -x VoxFlow 2>/dev/null || true
+killall ControlCenter 2>/dev/null || true
+killall SystemUIServer 2>/dev/null || true
+killall iconservicesagent 2>/dev/null || true
+
+rm -rf "$(getconf DARWIN_USER_CACHE_DIR)/com.apple.iconservices"
+rm -rf "$(getconf DARWIN_USER_CACHE_DIR)/com.apple.iconservicesagent"
+
+killall cfprefsd 2>/dev/null || true
+killall ControlCenter 2>/dev/null || true
+killall SystemUIServer 2>/dev/null || true
+killall iconservicesagent 2>/dev/null || true
+```
+
+如果 `~/Library/StatusKit` 或 `~/Library/Group Containers/group.com.apple.controlcenter` 读写时报 `Operation not permitted`，这是 TCC 隐私保护，不是普通 Unix 权限。先在 System Settings → Privacy & Security → Full Disk Access 给当前终端 / Codex / iTerm / Ghostty 授权，并完全重启该终端。授权后才可清理：
+
+```bash
+pkill -x VoxFlow 2>/dev/null || true
+killall ControlCenter 2>/dev/null || true
+killall SystemUIServer 2>/dev/null || true
+
+rm -rf "$HOME/Library/StatusKit"
+rm -rf "$HOME/Library/Group Containers/group.com.apple.controlcenter"
+
+killall cfprefsd 2>/dev/null || true
+killall ControlCenter 2>/dev/null || true
+killall SystemUIServer 2>/dev/null || true
+```
+
+注意：清理 `StatusKit` / `group.com.apple.controlcenter` 会重置部分 macOS 菜单栏和控制中心布局，只在普通 `prelaunch-cleanup`、LaunchServices 重建、IconServices 用户缓存清理都无效时使用。不要删除 `~/Library/Application Support/VoxFlow/`，那里是用户数据。
+
 ## 验证清单
 
 完成任何改动前，按顺序执行：
@@ -121,6 +166,16 @@ AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。
 - Mock 类命名：`Fake*`（行为模拟）或 `Capturing*`（记录调用）
 - UserDefaults suite name 使用 `UUID()` 隔离，避免测试间串扰
 - 环境变量前缀 `VOICEINPUT_TEST_*` 用于需要真实 API 的集成测试（默认跳过）
+
+## 多语言与本地化
+
+- App 可见文案必须走 `L10n.localize(...)` 和 `Sources/VoxFlowApp/Resources/*/Localizable.strings`；`VoxFlowScreenshotKit` 可见文案使用 `Sources/VoxFlowScreenshotKit/Resources/*/ScreenshotKit.strings`。不要在 SwiftUI/AppKit UI 中新增硬编码中文、英文或其他语言文案。
+- 新增或修改可见文案时，必须同步维护五种语言：`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`。如果短期无法提供完整高质量翻译，至少使用清晰可读的英文 fallback，禁止提交由 key 拆词生成的半翻译文案。
+- 禁止将 `title`、`subtitle`、`placeholder`、`stats`、`current_agents`、`recent_dispatches` 等 key 片段直接翻成可见文案，例如 `AI 编程 当前 助手 标题`、`截图 媒体 stats`、`Settings Task ... Title`、`Recording Hud Action Copy`。这类文案必须重写成面向用户的自然语言。
+- 不要把 BartyCrouch `defaultToKeys` 改回 `true`。缺失 key 应在检查中失败，而不是自动把 key 填成 value。
+- 修改 `.strings` 后运行 `make i18n-check`。该命令会执行 BartyCrouch key/语法检查和 `scripts/check-localization.py` 的项目级文案质量扫描。
+- 修改英文源文案或新增 key 后，如需更新类型安全访问代码，运行 `make gen-l10n` 并检查 `Sources/VoxFlowApp/Generated/L10n.swift`、`Sources/VoxFlowScreenshotKit/Generated/L10n.swift` 是否只包含预期变化。
+- 文案修复优先改资源文件，不要为了绕过本地化问题在 View 层拼接字符串；带参数文案使用 format key，确保各语言保留相同 `%@` / `%d` 占位符语义。
 
 ## CI / CD
 

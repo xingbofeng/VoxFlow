@@ -157,6 +157,27 @@ enum AppDatabase {
                 DatabaseMigration(id: 18, name: "asset_items_fts") { connection in
                     try applyBundledSchema(on: connection)
                     try rebuildAssetItemsFTS(on: connection)
+                },
+                DatabaseMigration(id: 19, name: "hotword_columns") { connection in
+                    try connection.addColumnIfNeeded(
+                        table: "voice_correction_targets",
+                        column: "hit_count",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "voice_correction_targets",
+                        column: "is_blocklisted",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "voice_correction_targets",
+                        column: "last_hit_at",
+                        definition: "TEXT"
+                    )
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 20, name: "voice_correction_evidence") { connection in
+                    try applyBundledSchema(on: connection)
                 }
             ],
             clock: clock
@@ -281,7 +302,7 @@ enum AppDatabase {
       AND trim(replacement) != '';
     """
 
-    static let voiceTaskAssetBackfillSQL = """
+    private static let voiceTaskAssetBackfillSQLTemplate = """
     WITH eligible_voice_tasks AS (
         SELECT
             id,
@@ -304,8 +325,8 @@ enum AppDatabase {
           AND status IN ('completed', 'partiallyCompleted')
           AND final_text IS NOT NULL
           AND trim(final_text) != ''
-          AND IFNULL(output_result, '') NOT LIKE '%"kind":"failed"%'
-          AND IFNULL(output_result, '') NOT LIKE '%"kind":"cancelled"%'
+          AND IFNULL(output_result, '') NOT LIKE '%%"kind":"failed"%%'
+          AND IFNULL(output_result, '') NOT LIKE '%%"kind":"cancelled"%%'
     ),
     normalized_voice_tasks AS (
         SELECT
@@ -347,7 +368,7 @@ enum AppDatabase {
         'dictation',
         'text',
         CASE
-            WHEN collapsed_title = '' THEN '语音输入'
+            WHEN collapsed_title = '' THEN '%@'
             WHEN length(collapsed_title) > 80 THEN substr(collapsed_title, 1, 80)
             ELSE collapsed_title
         END,
@@ -362,7 +383,7 @@ enum AppDatabase {
         target_app_bundle_id,
         'dictation-' || id,
         CASE
-            WHEN IFNULL(output_result, '') LIKE '%"kind":"inserted"%' THEN 'dictationCompleted'
+            WHEN IFNULL(output_result, '') LIKE '%%"kind":"inserted"%%' THEN 'dictationCompleted'
             ELSE 'fallbackCopied'
         END,
         NULL,
@@ -371,6 +392,13 @@ enum AppDatabase {
         NULL
     FROM normalized_voice_tasks;
     """
+
+    static var voiceTaskAssetBackfillSQL: String {
+        String(
+            format: voiceTaskAssetBackfillSQLTemplate,
+            L10n.localize("db.voice_task.default_title", comment: "")
+        )
+    }
 
     static let screenshotRecordAssetBackfillSQL = """
     WITH eligible_screenshots AS (

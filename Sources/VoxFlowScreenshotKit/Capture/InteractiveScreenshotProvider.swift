@@ -8,7 +8,7 @@ public enum InteractiveScreenshotError: Error, Equatable, LocalizedError, Sendab
     public var errorDescription: String? {
         switch self {
         case .cancelled:
-            return "已取消截图"
+            return ScreenshotL10n.ScreenshotKit.Capture.Error.selectionCancelled
         case .captureFailed(let reason):
             return reason
         }

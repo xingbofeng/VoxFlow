@@ -7,7 +7,7 @@ struct ScreenshotRecordView: View {
 
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "M月d日 HH:mm"
+        formatter.dateFormat = L10n.localize("screenshot.record.format.datetime", comment: "")
         return formatter
     }()
 
@@ -78,7 +78,7 @@ struct ScreenshotRecordView: View {
 
     private var pageHeader: some View {
         HStack {
-            Label("多媒体", systemImage: "rectangle.stack.fill")
+            Label(L10n.localize("screenshot.record.header_title", comment: ""), systemImage: "rectangle.stack.fill")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
             Spacer()
@@ -93,27 +93,27 @@ struct ScreenshotRecordView: View {
             spacing: AppTheme.Spacing.grid
         ) {
             ScreenshotStatCard(
-                title: "全部媒体",
+                title: L10n.localize("screenshot.record.stats.total_media", comment: ""),
                 value: "\(viewModel.mediaStats?.totalMedia ?? 0)",
-                unit: "项",
+                unit: L10n.localize("screenshot.record.stats.unit_items", comment: ""),
                 systemImage: "rectangle.stack.fill"
             )
             ScreenshotStatCard(
-                title: "今日媒体",
+                title: L10n.localize("screenshot.record.stats.today_media", comment: ""),
                 value: "\(viewModel.mediaStats?.todayMedia ?? 0)",
-                unit: "项",
+                unit: L10n.localize("screenshot.record.stats.unit_items", comment: ""),
                 systemImage: "calendar"
             )
             ScreenshotStatCard(
-                title: "截图",
+                title: L10n.localize("screenshot.record.stats.screenshot", comment: ""),
                 value: "\(viewModel.mediaStats?.screenshotCount ?? 0)",
-                unit: "张",
+                unit: L10n.localize("screenshot.record.stats.unit_screenshots", comment: ""),
                 systemImage: "photo.on.rectangle.angled"
             )
             ScreenshotStatCard(
-                title: "录屏",
+                title: L10n.localize("screenshot.record.stats.screen_recording", comment: ""),
                 value: "\(viewModel.mediaStats?.recordingCount ?? 0)",
-                unit: "段",
+                unit: L10n.localize("screenshot.record.stats.unit_recordings", comment: ""),
                 systemImage: "record.circle"
             )
         }
@@ -123,10 +123,13 @@ struct ScreenshotRecordView: View {
 
     private var paginationBar: some View {
         HStack(spacing: 8) {
-            Picker("类型", selection: Binding(
-                get: { viewModel.selectedFilter },
-                set: { viewModel.selectedFilter = $0 }
-            )) {
+            Picker(
+                L10n.localize("screenshot.record.filter_label", comment: ""),
+                selection: Binding(
+                    get: { viewModel.selectedFilter },
+                    set: { viewModel.selectedFilter = $0 }
+                )
+            ) {
                 ForEach(MediaRecordFilter.allCases) { filter in
                     Text(filter.title).tag(filter)
                 }
@@ -135,7 +138,7 @@ struct ScreenshotRecordView: View {
             .frame(width: 240)
 
             TextField(
-                "搜索媒体或识别文本…",
+                L10n.localize("screenshot.record.search_placeholder", comment: ""),
                 text: Binding(
                     get: { viewModel.searchText },
                     set: { viewModel.updateSearch($0) }
@@ -144,15 +147,29 @@ struct ScreenshotRecordView: View {
             .textFieldStyle(.roundedBorder)
             .frame(width: 240)
 
-            Text("共 \(viewModel.totalRecords) 条")
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Text(
+                String(
+                    format: L10n.localize("screenshot.record.total_count_format", comment: ""),
+                    viewModel.totalRecords
+                )
+            )
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
-            Picker("每页", selection: Binding(
-                get: { viewModel.pageSize },
-                set: { viewModel.updatePageSize($0) }
-            )) {
+            Picker(
+                L10n.localize("screenshot.record.page_size_label", comment: ""),
+                selection: Binding(
+                    get: { viewModel.pageSize },
+                    set: { viewModel.updatePageSize($0) }
+                )
+            ) {
                 ForEach([20, 50, 100], id: \.self) { size in
-                    Text("\(size) 条/页").tag(size)
+                    Text(
+                        String(
+                            format: L10n.localize("screenshot.record.page_size_format", comment: ""),
+                            size
+                        )
+                    )
+                    .tag(size)
                 }
             }
             .labelsHidden()
@@ -160,7 +177,7 @@ struct ScreenshotRecordView: View {
 
             Spacer()
 
-            Button("上一页", action: viewModel.previousPage)
+            Button(L10n.localize("screenshot.record.page_prev", comment: ""), action: viewModel.previousPage)
                 .disabled(!viewModel.canGoToPreviousPage)
             ForEach(visiblePageSlots, id: \.self) { slot in
                 if let page = slot {
@@ -178,7 +195,7 @@ struct ScreenshotRecordView: View {
                         .frame(width: 24)
                 }
             }
-            Button("下一页", action: viewModel.nextPage)
+            Button(L10n.localize("screenshot.record.page_next", comment: ""), action: viewModel.nextPage)
                 .disabled(!viewModel.canGoToNextPage)
         }
         .font(.system(size: 12, weight: .medium))
@@ -193,10 +210,10 @@ struct ScreenshotRecordView: View {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 40))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.4))
-                    Text("暂无多媒体记录")
+                    Text(L10n.localize("screenshot.record.empty_title", comment: ""))
                         .font(.system(size: 15))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text("使用 ⌘⇧A 截图或录屏后，记录将自动保存到这里")
+                    Text(L10n.localize("screenshot.record.empty_hint", comment: ""))
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.7))
                 }
@@ -350,7 +367,7 @@ private struct ScreenshotRecordCard: View {
                 .font(.system(size: 28))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.3))
             if record.ocrText.isEmpty {
-                Text("未识别到文字")
+                Text(L10n.localize("screenshot.record.no_text", comment: ""))
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.5))
             }
@@ -387,7 +404,12 @@ private struct ScreenshotRecordCard: View {
                     Text("·")
                     Text(audioModeTitle(record.audioMode))
                 } else {
-                    Text("\(record.charCount) 字")
+                    Text(
+                        String(
+                            format: L10n.localize("screenshot.record.char_count_format", comment: ""),
+                            record.charCount
+                        )
+                    )
                 }
             }
             .font(.system(size: 12))
@@ -406,35 +428,56 @@ private struct ScreenshotRecordCard: View {
         if record.mediaType == .screenRecording {
             return formatDuration(record.durationMs)
         }
-        return "未识别到文字"
+        return L10n.localize("screenshot.record.no_text", comment: "")
     }
 
     private var actionIcons: some View {
         HStack(spacing: 0) {
             if record.mediaType == .screenRecording {
-                actionIcon("arrow.up.right.square", help: "打开文件") {
+                actionIcon(
+                    "arrow.up.right.square",
+                    help: L10n.localize("screenshot.record.action.open_file_help", comment: "")
+                ) {
                     viewModel.openFile(id: record.id)
                 }
-                actionIcon("doc.on.doc", help: "复制文件") {
+                actionIcon(
+                    "doc.on.doc",
+                    help: L10n.localize("screenshot.record.action.copy_file_help", comment: "")
+                ) {
                     viewModel.copyFile(id: record.id)
                 }
-                actionIcon("folder", help: "在 Finder 中显示") {
+                actionIcon(
+                    "folder",
+                    help: L10n.localize("screenshot.record.action.reveal_in_finder_help", comment: "")
+                ) {
                     viewModel.revealInFinder(id: record.id)
                 }
             } else {
-                actionIcon("photo.on.rectangle", help: "复制图片") {
+                actionIcon(
+                    "photo.on.rectangle",
+                    help: L10n.localize("screenshot.record.action.copy_image_help", comment: "")
+                ) {
                     viewModel.copyImage(id: record.id)
                 }
                 if !record.ocrText.isEmpty {
-                    actionIcon("doc.on.doc", help: "复制文字") {
+                    actionIcon(
+                        "doc.on.doc",
+                        help: L10n.localize("screenshot.record.action.copy_text_help", comment: "")
+                    ) {
                         viewModel.copyText(id: record.id)
                     }
                 }
             }
-            actionIcon(record.isFavorited ? "star.fill" : "star", help: "收藏", tint: record.isFavorited ? .yellow : nil) {
+            actionIcon(
+                record.isFavorited ? "star.fill" : "star",
+                help: record.isFavorited
+                    ? L10n.localize("screenshot.record.action.unfavorite_help", comment: "")
+                    : L10n.localize("screenshot.record.action.favorite_help", comment: ""),
+                tint: record.isFavorited ? .yellow : nil
+            ) {
                 viewModel.toggleFavorite(id: record.id)
             }
-            actionIcon("trash", help: "删除") {
+            actionIcon("trash", help: L10n.localize("screenshot.record.action.delete_help", comment: "")) {
                 viewModel.deleteRecord(id: record.id)
             }
             Spacer(minLength: 0)
@@ -449,12 +492,16 @@ private struct ScreenshotRecordCard: View {
     }
 
     private func formatResolution(_ width: Int, _ height: Int) -> String {
-        guard width > 0, height > 0 else { return "未知分辨率" }
+        guard width > 0, height > 0 else {
+            return L10n.localize("screenshot.record.format.unknown_resolution", comment: "")
+        }
         return "\(width)×\(height)"
     }
 
     private func formatFileSize(_ bytes: Int) -> String {
-        guard bytes > 0 else { return "未知大小" }
+        guard bytes > 0 else {
+            return L10n.localize("screenshot.record.format.unknown_file_size", comment: "")
+        }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(bytes))
@@ -463,9 +510,9 @@ private struct ScreenshotRecordCard: View {
     private func audioModeTitle(_ audioMode: MediaAudioMode) -> String {
         switch audioMode {
         case .none:
-            return "无声"
+            return L10n.localize("screenshot.record.audio.no_sound", comment: "")
         case .microphone:
-            return "麦克风"
+            return L10n.localize("screenshot.record.audio.microphone", comment: "")
         }
     }
 

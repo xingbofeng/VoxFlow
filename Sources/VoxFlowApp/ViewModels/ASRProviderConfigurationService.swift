@@ -20,6 +20,7 @@ struct TencentCloudASRConfigurationInputState {
 struct AliyunDashScopeASRConfigurationInputState {
     let apiKeyInput: String
     let modelInput: String
+    let vocabularyIDInput: String
 }
 
 @MainActor
@@ -122,7 +123,8 @@ final class ASRProviderConfigurationService {
 
     func saveAliyunDashScopeConfiguration(
         apiKeyInput: String,
-        apiKeyMask: String
+        apiKeyMask: String,
+        vocabularyIDInput: String = ""
     ) throws -> AliyunDashScopeASRConfigurationInputState {
         let key = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         if !key.isEmpty && key != apiKeyMask {
@@ -131,9 +133,11 @@ final class ASRProviderConfigurationService {
             throw AliyunDashScopeASRConfigurationError.emptyAPIKey
         }
         asrManager.aliyunDashScopeModel = AliyunDashScopeRealtimeASRConfiguration.defaultModel
+        asrManager.aliyunDashScopeVocabularyID = vocabularyIDInput
         return AliyunDashScopeASRConfigurationInputState(
             apiKeyInput: apiKeyMask,
-            modelInput: AliyunDashScopeRealtimeASRConfiguration.defaultModel
+            modelInput: AliyunDashScopeRealtimeASRConfiguration.defaultModel,
+            vocabularyIDInput: asrManager.aliyunDashScopeVocabularyID
         )
     }
 

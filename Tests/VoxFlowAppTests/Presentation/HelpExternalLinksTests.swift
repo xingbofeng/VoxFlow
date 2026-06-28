@@ -16,8 +16,8 @@ final class HelpExternalLinksTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("settingsViewModel.middleMouseRecordingEnabled"))
-        XCTAssertTrue(source.contains("鼠标中键"))
-        XCTAssertTrue(source.contains("再次点击结束"))
+        XCTAssertTrue(source.contains("help.shortcuts.display_name_with_middle_mouse"))
+        XCTAssertTrue(source.contains("help.shortcuts.subtitle_toggle_with_middle_mouse"))
     }
 
     func testHelpViewDocumentsCurrentWorkbenchAndUpdateEntry() throws {
@@ -25,13 +25,12 @@ final class HelpExternalLinksTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/HelpView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("命令面板"))
-        XCTAssertTrue(source.contains("截图 OCR"))
-        XCTAssertTrue(source.contains("AI 编程"))
-        XCTAssertTrue(source.contains("文件转写"))
-        XCTAssertTrue(source.contains("笔记"))
-        XCTAssertTrue(source.contains("易错词"))
-        XCTAssertTrue(source.contains("检查更新"))
+        XCTAssertTrue(source.contains("help.cards.command_panel_title"))
+        XCTAssertTrue(source.contains("help.cards.screenshot_ocr_title"))
+        XCTAssertTrue(source.contains("help.cards.ai_coding_title"))
+        XCTAssertTrue(source.contains("help.cards.transcription_notes_title"))
+        XCTAssertTrue(source.contains("help.cards.easy_correction_title"))
+        XCTAssertTrue(source.contains("help.actions.check_updates_title"))
         XCTAssertTrue(source.contains("onCheckForUpdates()"))
     }
 
@@ -40,9 +39,9 @@ final class HelpExternalLinksTests: XCTestCase {
             .appendingPathComponent("Sources/VoxFlowApp/Views/HelpView.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("支持项目 / 加入社区"))
-        XCTAssertTrue(source.contains("给项目点个 Star"))
-        XCTAssertTrue(source.contains("扫码添加作者微信"))
+        XCTAssertTrue(source.contains("help.actions.community_title"))
+        XCTAssertTrue(source.contains("help.overlay.github_star_title"))
+        XCTAssertTrue(source.contains("help.overlay.subtitle"))
     }
 
     func testHelpFeatureCardsUseAConsistentFixedHeight() throws {

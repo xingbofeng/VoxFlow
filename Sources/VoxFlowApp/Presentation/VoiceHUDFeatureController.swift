@@ -98,13 +98,19 @@ final class VoiceHUDFeatureController {
             overlay.dismiss()
         case .preparing:
             overlay.show()
-            overlay.updateTranscription("准备识别...", isRefining: true)
+            overlay.updateTranscription(
+                L10n.localize("hud.message.prepare", comment: ""),
+                isRefining: true
+            )
         case .recording:
             overlay.show()
             overlay.updateTranscription("", isRefining: false)
         case let .waitingForFinal(showIndicator):
             if showIndicator {
-                overlay.updateTranscription("正在识别...", isRefining: true)
+                overlay.updateTranscription(
+                    L10n.localize("hud.message.recognizing", comment: ""),
+                    isRefining: true
+                )
             }
         case let .recognizing(text):
             overlay.show()
@@ -115,15 +121,23 @@ final class VoiceHUDFeatureController {
             }
         case let .finalizing(text):
             overlay.updateTranscription(
-                text.isEmpty ? "正在识别..." : text,
+                text.isEmpty
+                    ? L10n.localize("hud.message.recognizing", comment: "")
+                    : text,
                 isRefining: true
             )
         case .processing:
             overlay.showWithoutReset()
-            overlay.updateTranscription("正在处理...", isRefining: true)
+            overlay.updateTranscription(
+                L10n.localize("hud.message.processing", comment: ""),
+                isRefining: true
+            )
         case .inserting:
             overlay.showWithoutReset()
-            overlay.updateTranscription("正在写入...", isRefining: true)
+            overlay.updateTranscription(
+                L10n.localize("hud.message.writing", comment: ""),
+                isRefining: true
+            )
         case let .completed(text):
             overlay.updateTranscription(text, isRefining: false)
         case let .failedMessage(message):
@@ -202,9 +216,21 @@ final class VoiceHUDFeatureController {
         Self.logger.debug("voice_hud_handle_agent_dispatch presentation=\(presentationLogName(presentation))")
         switch presentation {
         case let .sent(agentName):
-            showTemporaryMessage("已发送给\(agentName)", duration: 2.2, tone: .success)
+            showTemporaryMessage(
+                String(
+                    format: L10n.localize("hud.feedback.sent_to_agent_format", comment: ""),
+                    agentName
+                ),
+                duration: 2.2,
+                tone: .success
+            )
         case let .failure(message, retainedText):
-            let detail = retainedText.isEmpty ? message : "\(message)，指令已保留"
+            let detail = retainedText.isEmpty
+                ? message
+                : String(
+                    format: L10n.localize("hud.feedback.command_retained_format", comment: ""),
+                    message
+                )
             showTemporaryMessage(detail, duration: 5.0)
         case .listening:
             render(.recording(action: .agentDispatch))
@@ -245,7 +271,10 @@ final class VoiceHUDFeatureController {
         undo: @escaping () -> Void
     ) {
         let message = event.items.count == 1
-            ? "\(event.message)，点此撤销"
+            ? String(
+                format: L10n.localize("hud.feedback.undo_prompt_format", comment: ""),
+                event.message
+            )
             : event.message
         showTemporaryMessage(
             message,
@@ -259,51 +288,101 @@ final class VoiceHUDFeatureController {
         Self.logger.debug("voice_hud_handle_workflow_feedback feedback=\(workflowFeedbackLogName(feedback))")
         switch feedback {
         case .pasteLastResultSucceeded:
-            showTemporaryMessage("已粘贴上次结果", duration: 1.8, tone: .success)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.paste_last_result_succeeded", comment: ""),
+                duration: 1.8,
+                tone: .success
+            )
         case .clipboardImageOCRAlreadyRunning:
-            showTemporaryMessage("剪贴板图片文字识别正在处理", duration: 2.2)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.clipboard_image_ocr_processing", comment: ""),
+                duration: 2.2
+            )
         case .clipboardImageOCRSucceeded:
-            showTemporaryMessage("已识别图片文字并粘贴", duration: 2.2, tone: .success)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.image_text_copied", comment: ""),
+                duration: 2.2,
+                tone: .success
+            )
         case .noPasteLastResult:
-            showTemporaryMessage("没有可粘贴的上次结果", duration: 2.2)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.no_last_result_to_paste", comment: ""),
+                duration: 2.2
+            )
         case .noClipboardImage:
-            showTemporaryMessage("剪贴板里没有可识别的图片", duration: 2.2)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.no_clipboard_image", comment: ""),
+                duration: 2.2
+            )
         case .clipboardImageOCRFailed(let reason):
-            showTemporaryMessage("图片文字识别失败：\(reason)", duration: 3.0)
+            showTemporaryMessage(
+                String(
+                    format: L10n.localize("hud.feedback.clipboard_ocr_failed_format", comment: ""),
+                    reason
+                ),
+                duration: 3.0
+            )
         case .pasteOutputFailed(let recovery):
             showTemporaryMessage(
-                "粘贴失败，结果已保留。点此复制",
+                L10n.localize("hud.feedback.paste_failed_retain_copy", comment: ""),
                 duration: 8.0,
                 action: recovery
             )
         case .clipboardImageOCROutputFailed(let recovery):
             showTemporaryMessage(
-                "识别结果粘贴失败，结果已保留。点此复制",
+                L10n.localize("hud.feedback.image_text_paste_failed_retain_copy", comment: ""),
                 duration: 8.0,
                 action: recovery
             )
         case .agentComposeCopied:
-            showTemporaryMessage("已生成并复制到剪贴板", duration: 2.5, tone: .success)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.agent_compose_copied", comment: ""),
+                duration: 2.5,
+                tone: .success
+            )
         case .agentComposeInjected:
-            showTemporaryMessage("已生成并写入当前输入框", duration: 2.5, tone: .success)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.agent_compose_injected", comment: ""),
+                duration: 2.5,
+                tone: .success
+            )
         case .agentComposeTargetChangedCopied:
-            showTemporaryMessage("目标窗口已变化，内容已复制", duration: 3.0)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.target_window_changed_copied", comment: ""),
+                duration: 3.0
+            )
         case .agentComposePermissionDeniedCopied:
-            showTemporaryMessage("没有辅助功能权限，内容已复制", duration: 3.0)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.permission_denied_copied", comment: ""),
+                duration: 3.0
+            )
         case .agentComposeInjectionFailedCopied:
-            showTemporaryMessage("写入失败，内容已复制", duration: 3.0)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.input_failed_copied", comment: ""),
+                duration: 3.0
+            )
         case .agentComposeCopyFailed(let recovery):
             showTemporaryMessage(
-                "生成完成，但复制失败。点此手动复制",
+                L10n.localize("hud.feedback.copy_failed_prompt", comment: ""),
                 duration: 8.0,
                 action: recovery
             )
         case .noCopyableResult:
-            showTemporaryMessage("没有可复制的结果", duration: 2.2)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.no_copyable_result", comment: ""),
+                duration: 2.2
+            )
         case .manualCopySucceeded:
-            showTemporaryMessage("已手动复制结果", duration: 1.8, tone: .success)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.manual_copy_succeeded", comment: ""),
+                duration: 1.8,
+                tone: .success
+            )
         case .manualCopyFailed:
-            showTemporaryMessage("手动复制失败，请稍后重试", duration: 3.0)
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.manual_copy_failed", comment: ""),
+                duration: 3.0
+            )
         }
     }
 

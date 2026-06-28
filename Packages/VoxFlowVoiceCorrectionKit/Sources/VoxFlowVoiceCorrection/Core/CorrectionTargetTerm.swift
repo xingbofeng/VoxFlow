@@ -14,6 +14,15 @@ public struct CorrectionTargetTerm: Identifiable, Codable, Sendable, Equatable {
     public var updatedAt: Date
     public var lastAppliedAt: Date?
 
+    /// Non-overlapping occurrence count of this hotword in final output text.
+    public var hitCount: Int
+
+    /// When true, this hotword is blocklisted and auto-learning must not re-add it.
+    public var isBlocklisted: Bool
+
+    /// Timestamp of the most recent hit in final output text.
+    public var lastHitAt: Date?
+
     public init(
         id: UUID = UUID(),
         text: String,
@@ -26,7 +35,10 @@ public struct CorrectionTargetTerm: Identifiable, Codable, Sendable, Equatable {
         revertedCount: Int = 0,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        lastAppliedAt: Date? = nil
+        lastAppliedAt: Date? = nil,
+        hitCount: Int = 0,
+        isBlocklisted: Bool = false,
+        lastHitAt: Date? = nil
     ) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         self.id = id
@@ -41,6 +53,9 @@ public struct CorrectionTargetTerm: Identifiable, Codable, Sendable, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastAppliedAt = lastAppliedAt
+        self.hitCount = hitCount
+        self.isBlocklisted = isBlocklisted
+        self.lastHitAt = lastHitAt
     }
 
     public func validate() throws {

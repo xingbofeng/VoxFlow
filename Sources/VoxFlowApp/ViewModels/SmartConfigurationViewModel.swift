@@ -178,7 +178,7 @@ final class SmartConfigurationViewModel: ObservableObject {
         recommendations.removeAll()
         phase = .completed
         lastError = nil
-        lastActionMessage = "已应用 \(appliedCount) 条应用配置"
+        lastActionMessage = String(format: L10n.localize("smart.config.action_applied_format", comment: ""), appliedCount)
     }
 
     // MARK: - Cancel
@@ -188,7 +188,7 @@ final class SmartConfigurationViewModel: ObservableObject {
         groups.removeAll()
         phase = .idle
         lastError = nil
-        lastActionMessage = "已取消智能配置"
+        lastActionMessage = L10n.localize("smart.config.action_cancel", comment: "")
     }
 
     // MARK: - Move app between styles

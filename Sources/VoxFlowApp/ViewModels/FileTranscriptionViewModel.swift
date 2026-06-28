@@ -320,7 +320,10 @@ final class FileTranscriptionViewModel: ObservableObject {
             added.append(job)
         }
         lastError = nil
-        lastActionMessage = "已添加 \(added.count) 个转写任务"
+        lastActionMessage = String(
+            format: L10n.localize("transcribe.feedback.jobs_added", comment: "Added transcription jobs"),
+            added.count
+        )
         return added
     }
 
@@ -401,7 +404,7 @@ final class FileTranscriptionViewModel: ObservableObject {
                 )
             )
             lastError = nil
-            lastActionMessage = "转写已完成"
+            lastActionMessage = L10n.localize("transcribe.feedback.completed", comment: "Transcription completed")
             lastActionTone = .success
         } catch is CancellationError {
             guard isCurrentRun(jobID: jobID, runID: runID) else { return }
@@ -448,7 +451,7 @@ final class FileTranscriptionViewModel: ObservableObject {
             try environment.transcriptionJobRepository.delete(id: jobID)
             jobs.removeAll { $0.id == jobID }
             lastError = nil
-            lastActionMessage = "已删除转写任务"
+            lastActionMessage = L10n.localize("transcribe.feedback.deleted", comment: "Transcription job deleted")
             lastActionTone = .destructive
         } catch {
             lastError = error.localizedDescription
@@ -478,7 +481,10 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
         lastExport = output
         lastError = nil
-        lastActionMessage = "已生成 \(format.title) 导出内容"
+        lastActionMessage = String(
+            format: L10n.localize("transcribe.feedback.exported_format", comment: "Exported format result"),
+            format.title
+        )
         return output
     }
 
@@ -501,7 +507,7 @@ final class FileTranscriptionViewModel: ObservableObject {
         )
         try environment.noteRepository.save(note)
         lastError = nil
-        lastActionMessage = "已保存为笔记"
+        lastActionMessage = L10n.localize("transcribe.feedback.saved_as_note", comment: "Saved transcription as note")
         return note
     }
 
@@ -518,22 +524,24 @@ final class FileTranscriptionViewModel: ObservableObject {
     func statusTitle(for job: TranscriptionJobRecord) -> String {
         switch TranscriptionJobStatus(rawValue: job.status) {
         case .queued:
-            return "等待开始"
+            return L10n.localize("transcribe.status.waiting", comment: "Transcription waiting")
         case .running:
-            return "转写中"
+            return L10n.localize("transcribe.status.running", comment: "Transcription running")
         case .completed:
-            return "已完成"
+            return L10n.localize("transcribe.status.completed", comment: "Transcription completed")
         case .failed:
-            return "失败"
+            return L10n.localize("transcribe.status.failed", comment: "Transcription failed")
         case .cancelled:
-            return "已取消"
+            return L10n.localize("transcribe.status.cancelled", comment: "Transcription cancelled")
         case nil:
             return job.status
         }
     }
 
     func primaryActionTitle(for job: TranscriptionJobRecord) -> String {
-        job.status == TranscriptionJobStatus.queued.rawValue ? "开始" : "重试"
+        job.status == TranscriptionJobStatus.queued.rawValue
+            ? L10n.localize("transcribe.action.start", comment: "Start transcription task")
+            : L10n.localize("transcribe.action.retry", comment: "Retry transcription task")
     }
 
     func copyResult(jobID: String) throws {
@@ -542,7 +550,7 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
         clipboardWriter.copy(text)
         lastError = nil
-        lastActionMessage = "已复制转写结果"
+        lastActionMessage = L10n.localize("transcribe.feedback.copied", comment: "Copied transcription result")
         lastActionTone = .success
     }
 
@@ -640,15 +648,21 @@ enum FileTranscriptionError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unsupportedFormat(let format):
-            return "不支持的文件格式：\(format)"
+            return String(
+                format: L10n.localize("transcribe.error.unsupported_format", comment: "Unsupported file format"),
+                format
+            )
         case .unsupportedRecognitionLanguage(let identifier):
-            return "当前文件转写语言不受支持：\(identifier)。"
+            return String(
+                format: L10n.localize("transcribe.error.unsupported_language", comment: "Unsupported language for transcription"),
+                identifier
+            )
         case .resultUnavailable:
-            return "转写结果不可用。"
+            return L10n.localize("transcribe.error.result_unavailable", comment: "Transcription result unavailable")
         case .invalidAudioBuffer:
-            return "无法读取音频缓冲区。"
+            return L10n.localize("transcribe.error.invalid_audio_buffer", comment: "Unable to read audio buffer")
         case .finalResultTimedOut:
-            return "等待最终转写结果超时。"
+            return L10n.localize("transcribe.error.final_timeout", comment: "Final transcription timeout")
         }
     }
 }
@@ -665,7 +679,7 @@ private extension TranscriptionJobRecord {
             finalText: finalText,
             asrProviderID: asrProviderID,
             styleID: styleID,
-            errorMessage: "上次转写被中断，请重试。",
+            errorMessage: L10n.localize("transcribe.error.interrupted", comment: "Transcription interrupted"),
             durationMS: durationMS,
             createdAt: createdAt,
             updatedAt: updatedAt,

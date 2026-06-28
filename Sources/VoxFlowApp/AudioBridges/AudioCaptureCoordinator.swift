@@ -17,7 +17,11 @@ enum AudioCaptureCoordinatorError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .busy(let active, let requested):
-            return "音频录制已被 \(active.localizedName) 占用，无法启动 \(requested.localizedName)。"
+            return String(
+                format: L10n.localize("audio.capture.error.busy", comment: "Audio capture busy error message"),
+                active.localizedName,
+                requested.localizedName
+            )
         }
     }
 }
@@ -53,15 +57,15 @@ final class AudioCaptureCoordinator: AudioCaptureCoordinating {
     }
 }
 
-private extension AudioCaptureKind {
+    private extension AudioCaptureKind {
     var localizedName: String {
         switch self {
         case .dictation:
-            return "听写"
+            return L10n.localize("audio.capture.kind.dictation", comment: "Audio capture kind name: dictation mode")
         case .agentCompose:
-            return "任务助手"
+            return L10n.localize("audio.capture.kind.agent_compose", comment: "Audio capture kind name: agent compose mode")
         case .notes:
-            return "笔记录音"
+            return L10n.localize("audio.capture.kind.notes", comment: "Audio capture kind name: notes recording mode")
         }
     }
 }

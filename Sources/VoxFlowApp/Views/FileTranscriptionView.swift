@@ -33,20 +33,20 @@ struct FileTranscriptionView: View {
             onDismiss: viewModel.clearFeedback
         )
         .confirmationDialog(
-            "确定要删除这个文件转写任务吗？",
+            L10n.localize("transcribe.delete.confirm_title", comment: "Delete transcription task confirmation title"),
             isPresented: Binding(
                 get: { deletingJobID != nil },
                 set: { if !$0 { deletingJobID = nil } }
             )
         ) {
-            Button("删除", role: .destructive) {
+            Button(L10n.localize("transcribe.action.delete", comment: "Delete action"), role: .destructive) {
                 deleteCurrentJob()
             }
-            Button("取消", role: .cancel) {
+            Button(L10n.localize("transcribe.action.cancel", comment: "Cancel action"), role: .cancel) {
                 deletingJobID = nil
             }
         } message: {
-            Text("删除后将移除该任务及其转写结果记录。")
+            Text(L10n.localize("transcribe.delete.confirm_message", comment: "Delete transcription task confirmation message"))
         }
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -67,9 +67,9 @@ struct FileTranscriptionView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 5) {
-                Label("文件转写", systemImage: "waveform.path.badge.plus")
+                Label(L10n.localize("transcribe.title", comment: "File transcription title"), systemImage: "waveform.path.badge.plus")
                     .font(.system(size: 24, weight: .semibold))
-                Text("选择音频或视频，开始转写后可直接播放和复制结果。")
+                Text(L10n.localize("transcribe.header.subtitle", comment: "File transcription subtitle"))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -77,7 +77,7 @@ struct FileTranscriptionView: View {
             Button {
                 isImporterPresented = true
             } label: {
-                Label("选择文件", systemImage: "plus")
+                Label(L10n.localize("transcribe.action.select_file", comment: "Select file action"), systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
         }
@@ -98,7 +98,7 @@ struct FileTranscriptionView: View {
                     Image(systemName: "tray.and.arrow.down")
                         .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(AppTheme.ColorToken.accent.opacity(0.72))
-                    Text("拖入音频或视频文件")
+                    Text(L10n.localize("transcribe.drop_area.placeholder", comment: "Drag files placeholder"))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -168,7 +168,9 @@ struct FileTranscriptionView: View {
                 playback.toggle(job: job)
             } label: {
                 Label(
-                    playback.isPlaying(jobID: job.id) ? "暂停" : "播放",
+                    playback.isPlaying(jobID: job.id)
+                        ? L10n.localize("transcribe.action.pause", comment: "Pause")
+                        : L10n.localize("transcribe.action.play", comment: "Play"),
                     systemImage: playback.isPlaying(jobID: job.id) ? "pause.fill" : "play.fill"
                 )
             }
@@ -178,7 +180,7 @@ struct FileTranscriptionView: View {
                 Button(role: .destructive) {
                     viewModel.cancel(jobID: job.id)
                 } label: {
-                    Label("取消", systemImage: "stop.fill")
+                    Label(L10n.localize("transcribe.action.cancel_job", comment: "Cancel transcription job"), systemImage: "stop.fill")
                 }
             } else {
                 Button {
@@ -200,14 +202,14 @@ struct FileTranscriptionView: View {
                     viewModel.report(error: error)
                 }
             } label: {
-                Label("复制", systemImage: "doc.on.doc")
+                Label(L10n.localize("transcribe.action.copy", comment: "Copy transcription result"), systemImage: "doc.on.doc")
             }
             .disabled(job.finalText?.isEmpty != false)
 
             Button(role: .destructive) {
                 deletingJobID = job.id
             } label: {
-                Label("删除", systemImage: "trash")
+                Label(L10n.localize("transcribe.action.delete_job", comment: "Delete transcription job"), systemImage: "trash")
             }
         }
         .buttonStyle(.bordered)

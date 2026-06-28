@@ -1,3 +1,4 @@
+import VoxFlowVoiceCorrection
 import XCTest
 @testable import VoxFlowApp
 
@@ -1075,6 +1076,41 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已复制诊断信息")
     }
 
+    func testSelectedHistoryDiagnosticCopyExportsSanitizedDetailWhenVoiceTaskIsUnavailable() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "history-diagnostic",
+                rawText: "完整敏感原文",
+                finalText: "完整敏感最终文本",
+                processingWarningsJSON: #"["llm_refinement_failed"]"#,
+                processingTraceJSON: #"{"voiceCorrection":{"candidateEvents":[],"appliedEvents":[],"warnings":[],"failureReason":"敏感失败详情"}}"#
+            )
+        )
+        let clipboard = CapturingClipboardWriter()
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            clipboardWriter: clipboard,
+            calendar: testCalendar
+        )
+
+        viewModel.selectHistoryItem(id: "history-diagnostic")
+        viewModel.copySelectedTaskDiagnostic()
+
+        let json = try XCTUnwrap(clipboard.copiedTexts.last)
+        XCTAssertFalse(json.contains("完整敏感原文"))
+        XCTAssertFalse(json.contains("完整敏感最终文本"))
+        XCTAssertFalse(json.contains("敏感失败详情"))
+        XCTAssertTrue(json.contains(#""id":"history-diagnostic""#))
+        XCTAssertTrue(json.contains(#""rawTranscriptLength":"#))
+        XCTAssertTrue(json.contains(#""finalTextLength":"#))
+        XCTAssertTrue(json.contains(#""warnings":["llm_refinement_failed"]"#))
+        XCTAssertTrue(json.contains(#""hasTrace":true"#))
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertEqual(viewModel.lastActionMessage, "已复制诊断信息")
+    }
+
     func testSelectHistoryItemLoadsDetail() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
@@ -1171,6 +1207,61 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
+    func testReprocessSelectedHistoryItemPassesOriginalTargetAndCorrectionContext() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_100)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let event = CorrectionEvent(
+            ruleID: UUID(uuidString: "00000000-0000-0000-0000-000000000123")!,
+            original: "QQ。",
+            replacement: "Qwen3",
+            range: CorrectionTextRange(location: 0, length: 3),
+            scope: .application(bundleIdentifier: "com.mitchellh.ghostty"),
+            source: .automaticLearning
+        )
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "entry",
+                rawText: "QQ。",
+                finalText: "QQ。",
+                durationMS: 30_000,
+                createdAt: now,
+                targetAppBundleID: "com.mitchellh.ghostty"
+            )
+        )
+        let pipeline = CapturingHomeTextPipeline(
+            result: TextProcessingResult(
+                rawText: "QQ。",
+                finalText: "Qwen3",
+                trace: TextProcessingTrace(
+                    voiceCorrection: VoiceCorrectionTrace(
+                        candidateEvents: [event],
+                        appliedEvents: [event]
+                    )
+                )
+            )
+        )
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            clipboardWriter: CapturingClipboardWriter(),
+            textPipeline: pipeline,
+            calendar: testCalendar
+        )
+
+        viewModel.selectHistoryItem(id: "entry")
+        await viewModel.reprocessSelectedHistoryItem()
+
+        XCTAssertEqual(pipeline.receivedTexts, ["QQ。"])
+        XCTAssertEqual(pipeline.receivedTargets.map { $0?.bundleID }, ["com.mitchellh.ghostty"])
+        XCTAssertEqual(pipeline.receivedCorrectionContexts.map { $0?.mode }, [.dictation])
+        XCTAssertEqual(pipeline.receivedCorrectionContexts.map { $0?.bundleIdentifier }, ["com.mitchellh.ghostty"])
+        XCTAssertEqual(pipeline.receivedCorrectionContexts.map { $0?.providerID }, ["apple_speech"])
+        XCTAssertEqual(pipeline.receivedCorrectionContexts.map { $0?.language }, ["zh-CN"])
+        XCTAssertEqual(viewModel.selectedDetail?.finalText, "Qwen3")
+        XCTAssertEqual(viewModel.selectedDetail?.trace?.voiceCorrection?.appliedEvents, [event])
+    }
+
     func testEditingSelectedHistoryItemLearnsCorrectionFromManualFinalTextChange() throws {
         let now = Date(timeIntervalSince1970: 1_800_000_100)
         let clock = MutableHomeClock(now: now)
@@ -1197,8 +1288,18 @@ final class HomeDashboardViewModelTests: XCTestCase {
         let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
         viewModel.load()
         viewModel.selectHistoryItem(id: "entry")
+        let vocabularyChange = expectation(description: "manual history edit notifies vocabulary UI")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .correctionVocabularyDidChange,
+            object: nil,
+            queue: nil
+        ) { _ in
+            vocabularyChange.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
 
         try viewModel.updateSelectedHistoryFinalText("use Qwen today")
+        wait(for: [vocabularyChange], timeout: 0.1)
 
         let saved = try XCTUnwrap(environment.historyRepository.entry(id: "entry"))
         XCTAssertEqual(saved.finalText, "use Qwen today")
@@ -1284,9 +1385,11 @@ final class HomeDashboardViewModelTests: XCTestCase {
             mediaRecordRepository: base.mediaRecordRepository,
             settingsRepository: base.settingsRepository,
             correctionTargetRepository: base.correctionTargetRepository,
+            correctionEvidenceRepository: base.correctionEvidenceRepository,
             correctionRuleRepository: base.correctionRuleRepository,
             correctionSnapshotProvider: base.correctionSnapshotProvider,
-            voiceCorrectionProcessor: base.voiceCorrectionProcessor
+            voiceCorrectionProcessor: base.voiceCorrectionProcessor,
+            hotwordFileSyncService: base.hotwordFileSyncService
         )
         let viewModel = HomeDashboardViewModel(
             environment: AppEnvironment(container: container),
@@ -1319,9 +1422,11 @@ final class HomeDashboardViewModelTests: XCTestCase {
             mediaRecordRepository: base.mediaRecordRepository,
             settingsRepository: base.settingsRepository,
             correctionTargetRepository: base.correctionTargetRepository,
+            correctionEvidenceRepository: base.correctionEvidenceRepository,
             correctionRuleRepository: base.correctionRuleRepository,
             correctionSnapshotProvider: base.correctionSnapshotProvider,
-            voiceCorrectionProcessor: base.voiceCorrectionProcessor
+            voiceCorrectionProcessor: base.voiceCorrectionProcessor,
+            hotwordFileSyncService: base.hotwordFileSyncService
         )
         let viewModel = HomeDashboardViewModel(
             environment: AppEnvironment(container: container),
@@ -1475,6 +1580,8 @@ private final class CapturingClipboardWriter: ClipboardWriting {
 
 private final class CapturingHomeTextPipeline: TextProcessing {
     private(set) var receivedTexts: [String] = []
+    private(set) var receivedTargets: [DictationTarget?] = []
+    private(set) var receivedCorrectionContexts: [CorrectionContext?] = []
     let result: TextProcessingResult
 
     init(result: TextProcessingResult) {
@@ -1483,6 +1590,20 @@ private final class CapturingHomeTextPipeline: TextProcessing {
 
     func process(_ rawText: String) async -> TextProcessingResult {
         receivedTexts.append(rawText)
+        receivedTargets.append(nil)
+        receivedCorrectionContexts.append(nil)
+        return result
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        receivedTexts.append(rawText)
+        receivedTargets.append(target)
+        receivedCorrectionContexts.append(correctionContext)
         return result
     }
 }

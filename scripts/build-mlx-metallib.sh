@@ -35,7 +35,10 @@ if [[ ! -d "$BUILD_DIR" ]]; then
   exit 1
 fi
 
-OUT_DIR="$BUILD_DIR/$CONFIG"
+OUT_DIR="$(find "$BUILD_DIR" -maxdepth 3 -type d -path "*-apple-macosx/$CONFIG" | head -n 1 || true)"
+if [[ -z "${OUT_DIR:-}" || ! -d "$OUT_DIR" ]]; then
+  OUT_DIR="$BUILD_DIR/$CONFIG"
+fi
 if [[ ! -d "$OUT_DIR" ]]; then
   OUT_DIR="$(find "$BUILD_DIR" -maxdepth 3 -type d -path "*/$CONFIG" | head -n 1 || true)"
 fi
@@ -46,6 +49,10 @@ fi
 
 MLX_SWIFT_DIR="$BUILD_DIR/checkouts/mlx-swift"
 KERNELS_DIR="$MLX_SWIFT_DIR/Source/Cmlx/mlx/mlx/backend/metal/kernels"
+
+if [[ -d "$MLX_SWIFT_DIR/.git" && ! -d "$KERNELS_DIR" ]]; then
+  git -C "$MLX_SWIFT_DIR" submodule update --init --recursive Source/Cmlx/mlx
+fi
 
 if [[ ! -d "$KERNELS_DIR" ]]; then
   echo "error: MLX kernels dir not found at $KERNELS_DIR" >&2
@@ -64,12 +71,14 @@ if [[ "${#METAL_SRCS[@]}" -eq 0 ]]; then
 fi
 
 OUT_METALLIB="$OUT_DIR/mlx.metallib"
+OUT_DEFAULT_METALLIB="$OUT_DIR/default.metallib"
 HASH_FILE="$OUT_DIR/.mlx.metallib.sha"
 CURRENT_HASH="$(find "$KERNELS_DIR" -type f \( -name '*.metal' -o -name '*.h' \) ! -name '*_nax.metal' | LC_ALL=C sort | xargs cat | shasum -a 256 | awk '{print $1}')"
 
 if [[ "$FORCE" != "1" && -f "$OUT_METALLIB" && -f "$HASH_FILE" ]]; then
   PREV_HASH="$(cat "$HASH_FILE" 2>/dev/null || true)"
   if [[ "$CURRENT_HASH" == "$PREV_HASH" ]]; then
+    cp "$OUT_METALLIB" "$OUT_DEFAULT_METALLIB"
     echo "mlx.metallib is up to date: $OUT_METALLIB"
     exit 0
   fi
@@ -111,5 +120,6 @@ done
 
 echo "Linking mlx.metallib -> $OUT_METALLIB"
 xcrun -sdk macosx metallib "${AIR_FILES[@]}" -o "$OUT_METALLIB"
+cp "$OUT_METALLIB" "$OUT_DEFAULT_METALLIB"
 printf '%s' "$CURRENT_HASH" > "$HASH_FILE"
-echo "OK: wrote $OUT_METALLIB"
+echo "OK: wrote $OUT_METALLIB and $OUT_DEFAULT_METALLIB"

@@ -22,7 +22,7 @@ final class AIChatSessionViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         guard service.isConfigured else {
-            configurationError = "未配置 AI 模型"
+            configurationError = L10n.localize("chat.error.model_not_configured", comment: "AI model not configured")
             return
         }
         configurationError = nil

@@ -76,7 +76,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
 
     public func capture() async throws -> InteractiveScreenshotCaptureResult {
         guard captureLease.tryAcquire() else {
-            throw InteractiveScreenshotError.captureFailed("已有截图流程正在进行")
+            throw InteractiveScreenshotError.captureFailed(ScreenshotL10n.ScreenshotKit.Capture.Error.sessionInProgress)
         }
         defer { captureLease.release() }
 
@@ -90,7 +90,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
         }
 
         guard !frames.isEmpty else {
-            throw InteractiveScreenshotError.captureFailed("当前没有可用显示器")
+            throw InteractiveScreenshotError.captureFailed(ScreenshotL10n.ScreenshotKit.Capture.Error.noActiveDisplay)
         }
 
         let result = await waitForSelection(frames: frames)
@@ -196,7 +196,7 @@ public final class VoxFlowInteractiveScreenshotProvider: InteractiveScreenshotPr
         from frames: [ScreenshotDisplayFrame]
     ) throws -> CGImage {
         guard let cropped = ScreenshotSelectionImageComposer.cropSelection(state, from: frames) else {
-            throw InteractiveScreenshotError.captureFailed("无法裁剪截图选区")
+            throw InteractiveScreenshotError.captureFailed(ScreenshotL10n.ScreenshotKit.Capture.Error.cropFailed)
         }
         return cropped
     }

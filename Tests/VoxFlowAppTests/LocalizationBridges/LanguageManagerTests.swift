@@ -48,4 +48,26 @@ final class LanguageManagerTests: XCTestCase {
         XCTAssertEqual(manager.currentLanguage, .japanese)
         XCTAssertEqual(defaults.string(forKey: "VoxFlow_SelectedLanguage"), "ja-JP")
     }
+
+    func testManualInterfaceLanguageSelectsExplicitLocalizationBundle() {
+        let defaultsKey = "VoxFlow_InterfaceLanguage"
+        let defaults = UserDefaults.standard
+        let previousStoredValue = defaults.object(forKey: defaultsKey)
+        defer {
+            if let previousStoredValue {
+                defaults.set(previousStoredValue, forKey: defaultsKey)
+            } else {
+                defaults.removeObject(forKey: defaultsKey)
+            }
+        }
+
+        defaults.set(AppLanguage.ja.rawValue, forKey: defaultsKey)
+        XCTAssertEqual(L10n.localize("navigation.route.home"), "ホーム")
+
+        defaults.set(AppLanguage.ko.rawValue, forKey: defaultsKey)
+        XCTAssertEqual(L10n.localize("navigation.route.home"), "홈")
+
+        defaults.set(AppLanguage.zhHant.rawValue, forKey: defaultsKey)
+        XCTAssertEqual(L10n.localize("navigation.route.home"), "首頁")
+    }
 }

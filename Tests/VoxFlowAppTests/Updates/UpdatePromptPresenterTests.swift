@@ -48,8 +48,8 @@ final class UpdatePromptPresenterTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains("case remindTomorrow"))
-        XCTAssertTrue(source.contains("secondaryTitle: \"明天提醒\""))
-        XCTAssertTrue(source.contains("destructiveTitle: \"跳过此版本\""))
+        XCTAssertTrue(source.contains("updates.prompt.action.remind_tomorrow"))
+        XCTAssertTrue(source.contains("updates.prompt.action.ignore"))
         XCTAssertTrue(source.contains("finish(.remindNextTime)"))
         XCTAssertTrue(source.contains("onAction(.remindNextTime)"))
         XCTAssertFalse(source.contains("稍后提醒"))
@@ -64,8 +64,8 @@ final class UpdatePromptPresenterTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains("Image(systemName: \"xmark\")"))
-        XCTAssertTrue(source.contains(".accessibilityLabel(\"关闭\")"))
-        XCTAssertTrue(source.contains(".help(\"关闭，下次提醒\")"))
+        XCTAssertTrue(source.contains("updates.prompt.close_accessibility"))
+        XCTAssertTrue(source.contains("updates.prompt.close_help"))
         XCTAssertTrue(source.contains("onAction(.remindNextTime)"))
     }
 

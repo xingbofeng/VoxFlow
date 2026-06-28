@@ -23,7 +23,7 @@ final class SettingsWindowController: NSWindowController {
 
     // MARK: - ASR Tab
 
-    private let appleRadio = NSButton(radioButtonWithTitle: "系统自带", target: nil, action: nil)
+    private let appleRadio = NSButton(radioButtonWithTitle: L10n.localize("settings.window.asr.system_speech", comment: ""), target: nil, action: nil)
     private let qwen3Radio = NSButton(radioButtonWithTitle: "Qwen3-ASR", target: nil, action: nil)
     private let modelPathField = NSTextField()
     private let downloadButton = NSButton()
@@ -90,7 +90,7 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupWindow() {
         guard let window = window else { return }
-        window.title = "\(ProductBrand.chineseDisplayName)设置"
+        window.title = L10n.localize("settings.window.title_format", comment: "Settings window title")
         window.titlebarAppearsTransparent = false
         window.isReleasedWhenClosed = false
         window.center()
@@ -119,11 +119,11 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupASRTab() {
         let item = NSTabViewItem(identifier: "asr")
-        item.label = "语音识别"
+        item.label = L10n.localize("settings.window.tab.asr", comment: "")
         let view = NSView()
 
         // --- Engine Selection ---
-        let engineLabel = makeTitleLabel("语音识别模型")
+        let engineLabel = makeTitleLabel(L10n.localize("settings.window.asr.engine_label", comment: ""))
 
         appleRadio.translatesAutoresizingMaskIntoConstraints = false
         appleRadio.target = self
@@ -134,27 +134,27 @@ final class SettingsWindowController: NSWindowController {
         qwen3Radio.action = #selector(asrEngineChanged(_:))
 
         // --- Qwen3 Model Path ---
-        let pathLabel = makeLabel("模型路径：")
+        let pathLabel = makeLabel(L10n.localize("settings.window.asr.model_path", comment: ""))
         modelPathField.translatesAutoresizingMaskIntoConstraints = false
         modelPathField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         modelPathField.controlSize = .small
-        modelPathField.placeholderString = "未选择模型文件..."
+        modelPathField.placeholderString = L10n.localize("settings.window.asr.model_path_placeholder", comment: "")
         modelPathField.isEditable = false
 
-        downloadButton.title = "下载模型..."
+        downloadButton.title = L10n.localize("settings.window.asr.download_model", comment: "")
         downloadButton.bezelStyle = .rounded
         downloadButton.translatesAutoresizingMaskIntoConstraints = false
         downloadButton.target = self
         downloadButton.action = #selector(downloadQwen3Model(_:))
 
-        browseButton.title = "浏览..."
+        browseButton.title = L10n.localize("settings.window.asr.browse", comment: "")
         browseButton.bezelStyle = .rounded
         browseButton.translatesAutoresizingMaskIntoConstraints = false
         browseButton.target = self
         browseButton.action = #selector(browseModelPath(_:))
 
         // --- Qwen3 Model Size ---
-        let sizeLabel = makeTitleLabel("模型大小")
+        let sizeLabel = makeTitleLabel(L10n.localize("settings.window.asr.model_size", comment: ""))
 
         size06Radio.translatesAutoresizingMaskIntoConstraints = false
         size06Radio.target = self
@@ -243,12 +243,12 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupLLMTab() {
         let item = NSTabViewItem(identifier: "llm")
-        item.label = "智能模型服务"
+        item.label = L10n.localize("settings.window.tab.llm", comment: "")
         let view = NSView()
 
-        let baseURLLabel = makeLabel("服务地址：")
-        let apiKeyLabel = makeLabel("访问密钥：")
-        let modelLabel = makeLabel("默认模型：")
+        let baseURLLabel = makeLabel(L10n.localize("settings.window.llm.base_url", comment: ""))
+        let apiKeyLabel = makeLabel(L10n.localize("settings.window.llm.api_key", comment: ""))
+        let modelLabel = makeLabel(L10n.localize("settings.window.llm.model", comment: ""))
 
         baseURLField.placeholderString = "https://api.openai.com"
         baseURLField.translatesAutoresizingMaskIntoConstraints = false
@@ -353,11 +353,11 @@ final class SettingsWindowController: NSWindowController {
 
     private func setupShortcutTab() {
         let item = NSTabViewItem(identifier: "shortcut")
-        item.label = "快捷键"
+        item.label = L10n.localize("settings.window.tab.shortcut", comment: "")
         let view = NSView()
 
         // --- Current shortcut ---
-        let shortcutTitleLabel = makeTitleLabel("当前快捷键")
+        let shortcutTitleLabel = makeTitleLabel(L10n.localize("settings.window.shortcut.current", comment: ""))
         shortcutDisplayField.translatesAutoresizingMaskIntoConstraints = false
         shortcutDisplayField.isEditable = false
         shortcutDisplayField.isBezeled = true
@@ -365,14 +365,14 @@ final class SettingsWindowController: NSWindowController {
         shortcutDisplayField.alignment = .center
         shortcutDisplayField.backgroundColor = .controlBackgroundColor
 
-        recordShortcutButton.title = "录制快捷键"
+        recordShortcutButton.title = L10n.localize("settings.window.shortcut.record", comment: "")
         recordShortcutButton.bezelStyle = .rounded
         recordShortcutButton.translatesAutoresizingMaskIntoConstraints = false
         recordShortcutButton.target = self
         recordShortcutButton.action = #selector(startRecordingShortcut(_:))
 
         // --- Long press threshold ---
-        let thresholdTitleLabel = makeTitleLabel("长按阈值")
+        let thresholdTitleLabel = makeTitleLabel(L10n.localize("settings.window.shortcut.long_press_threshold", comment: ""))
         thresholdSlider.translatesAutoresizingMaskIntoConstraints = false
         thresholdSlider.minValue = 200
         thresholdSlider.maxValue = 1000
@@ -386,13 +386,13 @@ final class SettingsWindowController: NSWindowController {
         thresholdValueLabel.alignment = .center
 
         // --- Short press behavior ---
-        let shortPressTitleLabel = makeTitleLabel("短按行为")
+        let shortPressTitleLabel = makeTitleLabel(L10n.localize("settings.window.shortcut.short_press_behavior", comment: ""))
         shortPressPopup.translatesAutoresizingMaskIntoConstraints = false
-        shortPressPopup.addItems(withTitles: ["无操作", "切换收听模式"])
+        shortPressPopup.addItems(withTitles: [L10n.localize("settings.window.shortcut.short_press.none", comment: ""), L10n.localize("settings.window.shortcut.short_press.toggle_listening", comment: "")])
         shortPressPopup.target = self
         shortPressPopup.action = #selector(shortPressBehaviorChanged(_:))
 
-        resetShortcutButton.title = "恢复默认"
+        resetShortcutButton.title = L10n.localize("settings.window.shortcut.reset", comment: "")
         resetShortcutButton.bezelStyle = .rounded
         resetShortcutButton.translatesAutoresizingMaskIntoConstraints = false
         resetShortcutButton.target = self
@@ -481,10 +481,10 @@ final class SettingsWindowController: NSWindowController {
             29: "0", 18: "1", 19: "2", 20: "3", 21: "4", 23: "5", 22: "6",
             26: "7", 28: "8", 25: "9",
             // Modifiers
-            54: "右 Command", 55: "左 Command",
-            56: "左 Shift", 60: "右 Shift",
-            58: "左 Option", 61: "右 Option",
-            59: "左 Control", 62: "右 Control",
+            54: L10n.localize("settings.window.keycode.right_command", comment: ""), 55: L10n.localize("settings.window.keycode.left_command", comment: ""),
+            56: L10n.localize("settings.window.keycode.left_shift", comment: ""), 60: L10n.localize("settings.window.keycode.right_shift", comment: ""),
+            58: L10n.localize("settings.window.keycode.left_option", comment: ""), 61: L10n.localize("settings.window.keycode.right_option", comment: ""),
+            59: L10n.localize("settings.window.keycode.left_control", comment: ""), 62: L10n.localize("settings.window.keycode.right_control", comment: ""),
             63: "Fn",
             // Special keys
             49: "Space", 36: "Return", 53: "Escape", 48: "Tab",
@@ -494,13 +494,13 @@ final class SettingsWindowController: NSWindowController {
             96: "F5", 97: "F6", 98: "F7", 100: "F8",
             101: "F9", 109: "F10", 103: "F11", 111: "F12",
             // Arrows
-            123: "左箭头", 124: "右箭头", 125: "下箭头", 126: "上箭头",
+            123: L10n.localize("settings.window.keycode.left_arrow", comment: ""), 124: L10n.localize("settings.window.keycode.right_arrow", comment: ""), 125: L10n.localize("settings.window.keycode.down_arrow", comment: ""), 126: L10n.localize("settings.window.keycode.up_arrow", comment: ""),
             // Punctuation
             27: "-", 24: "=", 33: "[", 30: "]", 42: "\\",
             41: ";", 39: "'", 43: ",", 47: ".", 44: "/",
             50: "`",
         ]
-        return map[keyCode] ?? "按键 \(keyCode)"
+        return map[keyCode] ?? String(format: L10n.localize("settings.window.keycode.unknown_format", comment: ""), keyCode)
     }
 
     // MARK: - Settings Loading
@@ -553,7 +553,7 @@ final class SettingsWindowController: NSWindowController {
 
         let modelSize = asrManager.qwen3ModelSize
         setModelDownloadInProgress(true)
-        setASRStatus("准备下载 \(modelSize.rawValue) 模型...", color: .secondaryLabelColor)
+        setASRStatus(String(format: L10n.localize("settings.window.asr.status.preparing_download_format", comment: ""), modelSize.rawValue), color: .secondaryLabelColor)
 
         modelDownloadTask = Task { [weak self] in
             do {
@@ -570,14 +570,14 @@ final class SettingsWindowController: NSWindowController {
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
                     self.modelDownloadProgress.doubleValue = 1
-                    self.setASRStatus("模型下载完成：\(modelURL.path)", color: .systemGreen)
+                    self.setASRStatus(String(format: L10n.localize("settings.window.asr.status.download_complete_format", comment: ""), modelURL.path), color: .systemGreen)
                 }
             } catch {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
-                    self.setASRStatus("模型下载失败：\(error.localizedDescription)", color: .systemRed)
+                    self.setASRStatus(String(format: L10n.localize("settings.window.asr.status.download_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
                 }
             }
         }
@@ -588,8 +588,8 @@ final class SettingsWindowController: NSWindowController {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "选择包含 Qwen3-ASR 本地模型文件（含词表等必需文件）的目录"
-        panel.prompt = "选择"
+        panel.message = L10n.localize("settings.window.asr.browse_message", comment: "")
+        panel.prompt = L10n.localize("settings.window.asr.browse_prompt", comment: "")
 
         panel.beginSheetModal(for: window!) { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
@@ -607,14 +607,14 @@ final class SettingsWindowController: NSWindowController {
         let path = asrManager.qwen3ModelPath
         if let path = path, !path.isEmpty {
             if asrManager.isQwen3ModelAvailable {
-                asrStatusLabel.stringValue = "Qwen3-ASR 模型已配置：\(path)"
+                asrStatusLabel.stringValue = String(format: L10n.localize("settings.window.asr.status.configured_format", comment: ""), path)
                 asrStatusLabel.textColor = .systemGreen
             } else {
-                asrStatusLabel.stringValue = "模型目录不完整或与当前模型大小不匹配：\(path)。请先下载模型，或浏览选择本地模型目录。"
+                asrStatusLabel.stringValue = String(format: L10n.localize("settings.window.asr.status.incomplete_format", comment: ""), path)
                 asrStatusLabel.textColor = .systemRed
             }
         } else {
-            asrStatusLabel.stringValue = "Qwen3-ASR 需要先下载模型并选择本地模型目录，配置完成前不可切换。"
+            asrStatusLabel.stringValue = L10n.localize("settings.window.asr.status.not_configured", comment: "")
             asrStatusLabel.textColor = .systemOrange
         }
     }
@@ -628,7 +628,7 @@ final class SettingsWindowController: NSWindowController {
         modelDownloadProgress.doubleValue = progress.overallProgress
         let percent = Int(progress.overallProgress * 100)
         setASRStatus(
-            "正在下载模型 \(percent)%（\(progress.fileIndex + 1)/\(progress.fileCount)：\(progress.fileName)）",
+            String(format: L10n.localize("settings.window.asr.status.downloading_format", comment: ""), percent, progress.fileIndex + 1, progress.fileCount, progress.fileName),
             color: .secondaryLabelColor
         )
     }
@@ -663,14 +663,14 @@ final class SettingsWindowController: NSWindowController {
         do {
             try refiner.setAPIKey(apiKey.isEmpty ? nil : apiKey)
         } catch {
-            setLLMStatus("访问密钥保存失败：\(error.localizedDescription)", color: .systemRed)
+            setLLMStatus(String(format: L10n.localize("settings.window.llm.status.api_key_save_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
             return
         }
 
         refiner.baseURL = baseURL.isEmpty ? nil : baseURL
         refiner.model = model.isEmpty ? nil : model
 
-        setLLMStatus("设置已保存。", color: .systemGreen)
+        setLLMStatus(L10n.localize("settings.window.llm.status.saved", comment: ""), color: .systemGreen)
     }
 
     @objc private func testConnection(_ sender: Any) {
@@ -679,14 +679,14 @@ final class SettingsWindowController: NSWindowController {
         let model = modelField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !baseURL.isEmpty, !apiKey.isEmpty, !model.isEmpty else {
-            setLLMStatus("请填写所有字段后再测试。", color: .systemOrange)
+            setLLMStatus(L10n.localize("settings.window.llm.status.fill_all_fields", comment: ""), color: .systemOrange)
             return
         }
 
         testButton.isEnabled = false
         testSpinner.isHidden = false
         testSpinner.startAnimation(nil)
-        setLLMStatus("正在测试连接...", color: .secondaryLabelColor)
+        setLLMStatus(L10n.localize("settings.window.llm.status.testing", comment: ""), color: .secondaryLabelColor)
 
         Task { [weak self] in
             let refiner = LLMRefiner()
@@ -706,7 +706,7 @@ final class SettingsWindowController: NSWindowController {
                 case .success(let message):
                     self.setLLMStatus(message, color: .systemGreen)
                 case .failure(let error):
-                    self.setLLMStatus("连接失败：\(error.localizedDescription)", color: .systemRed)
+                    self.setLLMStatus(String(format: L10n.localize("settings.window.llm.status.connection_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
                 }
             }
         }
@@ -736,14 +736,14 @@ final class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        sheet.title = "录制快捷键"
+        sheet.title = L10n.localize("settings.window.shortcut.record", comment: "")
 
-        let label = NSTextField(labelWithString: "按下要设置的快捷键...")
+        let label = NSTextField(labelWithString: L10n.localize("settings.window.shortcut.sheet_label", comment: ""))
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = NSFont.systemFont(ofSize: 14)
         label.alignment = .center
 
-        let cancelButton = NSButton(title: "取消", target: self, action: #selector(cancelShortcutRecording(_:)))
+        let cancelButton = NSButton(title: L10n.localize("settings.window.shortcut.cancel", comment: ""), target: self, action: #selector(cancelShortcutRecording(_:)))
         cancelButton.bezelStyle = .rounded
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
 

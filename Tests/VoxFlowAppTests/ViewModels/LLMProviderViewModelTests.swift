@@ -22,7 +22,7 @@ final class LLMProviderViewModelTests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? LLMProviderViewModelError,
-                .requiredFields(["名称", "Base URL", "Model", "访问密钥"])
+                .requiredFields(["名称", "基础 URL", "模型", "访问密钥"])
             )
         }
         XCTAssertEqual(viewModel.providers, [])

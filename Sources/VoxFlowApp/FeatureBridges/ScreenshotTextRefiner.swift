@@ -59,20 +59,36 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
     }
 
     func unavailableMessage(for operation: TextTransformOperation) -> String {
+        let systemModelNotReady = L10n.localize(
+            "screenshot.refine.unavailable.system_translation_os_version",
+            comment: ""
+        )
+        let configRequired = L10n.localize(
+            "screenshot.refine.unavailable.config_required",
+            comment: ""
+        )
+        let translationModelNotInstalled = L10n.localize(
+            "screenshot.refine.unavailable.translation_model_not_installed",
+            comment: ""
+        )
+        let translationModelUnavailable = L10n.localize(
+            "screenshot.refine.unavailable.translation_model_unavailable",
+            comment: ""
+        )
         switch operation {
         case .translation:
             switch selectedTranslationModelID {
             case CapabilityModelID.systemDefaultTranslation:
-                return "Apple 系统翻译暂时不可用，请确保系统版本为 macOS 15 或更高版本"
+                return systemModelNotReady
             case CapabilityModelID.llmTranslation:
-                return "请先在设置中配置模型"
+                return configRequired
             case CapabilityModelID.madladTranslation:
-                return "本地翻译模型未安装，请先安装本地翻译模型或切换到其他翻译模型"
+                return translationModelNotInstalled
             default:
-                return "翻译模型不可用，请在设置中切换翻译模型"
+                return translationModelUnavailable
             }
         case .summary:
-            return "请先在设置中配置模型"
+            return configRequired
         }
     }
 
@@ -202,17 +218,35 @@ private enum ScreenshotLocalModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .translationModelNotInstalled:
-            return "本地翻译模型未安装，MADLAD-400 INT4 约 1.7GB；请先配置模型服务或安装本地翻译模型"
+            return L10n.localize(
+                "screenshot.refine.error.translation_model_not_installed",
+                comment: ""
+            )
         case .translationRequiresLLM:
-            return "翻译前请先配置模型"
+            return L10n.localize(
+                "screenshot.refine.error.translation_model_requires",
+                comment: ""
+            )
         case .summaryModelNotInstalled:
-            return "本地总结模型未安装，Qwen3.5-0.8B INT4 约 404MB；请先配置模型或安装本地总结模型"
+            return L10n.localize(
+                "screenshot.refine.error.summary_model_not_installed",
+                comment: ""
+            )
         case .summaryRequiresLLM:
-            return "总结前请先配置模型"
+            return L10n.localize(
+                "screenshot.refine.error.summary_model_requires",
+                comment: ""
+            )
         case .invalidSummaryOutput:
-            return "总结模型输出了网页/代码内容，请重试或改用其他已配置模型"
+            return L10n.localize(
+                "screenshot.refine.error.summary_output_invalid_content",
+                comment: ""
+            )
         case .invalidSummaryRepetition:
-            return "总结模型输出异常重复内容，请重试或改用其他已配置模型"
+            return L10n.localize(
+                "screenshot.refine.error.summary_output_repetitive",
+                comment: ""
+            )
         }
     }
 }

@@ -35,8 +35,8 @@ final class HomeHistoryModalOverlayPresentationTests: XCTestCase {
 
         XCTAssertTrue(dashboardBody.contains("HomeAssetSection(viewModel: viewModel)"))
         XCTAssertFalse(dashboardBody.contains("HomeHistorySection(viewModel: viewModel)"))
-        XCTAssertTrue(dashboardSource.contains("Label(\"资产\""))
-        XCTAssertTrue(dashboardSource.contains("\"搜索资产\""))
+        XCTAssertTrue(dashboardSource.contains("Label(L10n.localize(\"home.assets.title\""))
+        XCTAssertTrue(dashboardSource.contains("L10n.localize(\"home.assets.search_placeholder\""))
     }
 
     func testHomeAssetRowsPreferSourceApplicationIconWhenApplicationIsRecorded() throws {
@@ -64,7 +64,7 @@ final class HomeHistoryModalOverlayPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(dashboardSource.contains("private func llmTraceMetadata("))
-        XCTAssertTrue(dashboardSource.contains("DetailMetaItem(title: \"服务地址\", value: llmTrace.endpoint)"))
+        XCTAssertTrue(dashboardSource.contains("DetailMetaItem(title: L10n.localize(\"home.detail.meta.endpoint\""))
         XCTAssertTrue(dashboardSource.contains(".padding(.bottom, 6)"))
         XCTAssertTrue(dashboardSource.contains("llmTraceMetadata(llmTrace, taskMode: detail.taskMode)"))
     }
@@ -83,6 +83,41 @@ final class HomeHistoryModalOverlayPresentationTests: XCTestCase {
         XCTAssertTrue(modalSource.contains("text: $editedFinalText"))
         XCTAssertTrue(modalSource.contains("TextEditor(text: $text)"))
         XCTAssertTrue(modalSource.contains("viewModel.updateSelectedHistoryFinalText(editedFinalText)"))
+    }
+
+    func testHistoryDetailModalUsesSegmentedTraceTabsAndSymmetricJSONDisclosures() throws {
+        let root = try Self.repositoryRoot()
+        let dashboardSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/HomeDashboardView.swift"),
+            encoding: .utf8
+        )
+        let modalSource = try XCTUnwrap(
+            dashboardSource.components(separatedBy: "private struct HomeHistoryDetailModal").dropFirst().first
+        )
+
+        XCTAssertTrue(modalSource.contains("Picker(\"\", selection: $selectedDetailTab)"))
+        XCTAssertTrue(modalSource.contains("HomeHistoryDetailTab"))
+        XCTAssertTrue(modalSource.contains("LLMJSONDisclosure("))
+        XCTAssertTrue(modalSource.contains("title: L10n.localize(\"home.detail.llm.request_json_title\""))
+        XCTAssertTrue(modalSource.contains("title: L10n.localize(\"home.detail.llm.response_json_title\""))
+        XCTAssertFalse(modalSource.contains("RequestJSONDisclosure("))
+    }
+
+    func testHistoryDetailTraceTabsDoNotExposeSeparateTextReplacementTab() throws {
+        let root = try Self.repositoryRoot()
+        let dashboardSource = try String(
+            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/HomeDashboardView.swift"),
+            encoding: .utf8
+        )
+        let tabSource = try XCTUnwrap(
+            dashboardSource.components(separatedBy: "private enum HomeHistoryDetailTab").dropFirst().first?
+                .components(separatedBy: "private struct HomeHistoryDetailModal").first
+        )
+
+        XCTAssertFalse(tabSource.contains("case voiceCorrection"))
+        XCTAssertFalse(tabSource.contains("home.detail.tab.voice_correction"))
+        XCTAssertTrue(tabSource.contains("case context"))
+        XCTAssertTrue(tabSource.contains("case diagnostic"))
     }
 
     func testMainWindowCoordinatorCanDismissHomeDetailOverlayForScreenshotCapture() throws {

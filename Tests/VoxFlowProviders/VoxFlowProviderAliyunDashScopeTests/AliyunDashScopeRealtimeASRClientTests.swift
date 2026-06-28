@@ -27,9 +27,26 @@ final class AliyunDashScopeRealtimeASRClientTests: XCTestCase {
         XCTAssertEqual(runTask.payload.parameters?.format, "pcm")
         XCTAssertEqual(runTask.payload.parameters?.sampleRate, 16_000)
         XCTAssertEqual(runTask.payload.parameters?.punctuationPredictionEnabled, true)
+        XCTAssertNil(runTask.payload.parameters?.vocabularyID)
         XCTAssertEqual(finishTask.header.action, "finish-task")
         XCTAssertEqual(finishTask.header.taskID, taskID.uuidString)
         XCTAssertNil(finishTask.payload.parameters)
+    }
+
+    func testRunTaskPayloadIncludesConfiguredVocabularyID() throws {
+        let configuration = AliyunDashScopeRealtimeASRConfiguration(
+            apiKey: "sk-test",
+            model: "fun-asr-realtime",
+            vocabularyID: "vocab-123"
+        )
+
+        let runTask = try AliyunDashScopeRealtimeASRRequest.runTask(
+            configuration: configuration,
+            taskID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,
+            sampleRate: 16_000
+        )
+
+        XCTAssertEqual(runTask.payload.parameters?.vocabularyID, "vocab-123")
     }
 
     func testParsesDashScopeServerEvents() throws {

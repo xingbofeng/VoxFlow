@@ -59,16 +59,16 @@ struct RecordingSubtitleEditorPresentation: Equatable {
 
     static func make(draft: RecordingSubtitleDraft) -> RecordingSubtitleEditorPresentation {
         RecordingSubtitleEditorPresentation(
-            title: "添加字幕",
+            title: L10n.localize("subtitle.editor.title_add", comment: ""),
             videoPath: draft.sourceVideoPath,
-            segmentListTitle: "字幕草稿",
-            segmentCountText: "\(draft.segments.count) 段",
+            segmentListTitle: L10n.localize("subtitle.editor.segment_list_title", comment: ""),
+            segmentCountText: String(format: L10n.localize("subtitle.editor.segment_count_format", comment: ""), draft.segments.count),
             segments: draft.segments.map(RecordingSubtitleEditorSegmentPresentation.make(segment:)),
             styleSummary: RecordingSubtitleStyle.summary,
             footerActions: [
-                RecordingSubtitleEditorActionPresentation(kind: .cancel, title: "取消", isPrimary: false),
-                RecordingSubtitleEditorActionPresentation(kind: .saveDraft, title: "保存草稿", isPrimary: false),
-                RecordingSubtitleEditorActionPresentation(kind: .burn, title: "烧录字幕", isPrimary: true)
+                RecordingSubtitleEditorActionPresentation(kind: .cancel, title: L10n.localize("subtitle.editor.action_cancel", comment: ""), isPrimary: false),
+                RecordingSubtitleEditorActionPresentation(kind: .saveDraft, title: L10n.localize("subtitle.editor.action_save_draft", comment: ""), isPrimary: false),
+                RecordingSubtitleEditorActionPresentation(kind: .burn, title: L10n.localize("subtitle.editor.action_burn", comment: ""), isPrimary: true)
             ],
             allowsTimelineDragging: false,
             allowsMergingSegments: false,
@@ -121,17 +121,17 @@ struct RecordingSubtitleEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 8)
         .onAppear(perform: loadDraft)
-        .alert("生成带字幕视频？", isPresented: $showBurnConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("生成带字幕视频") { confirmBurn() }
+        .alert(L10n.localize("subtitle.editor.alert_generate_title", comment: ""), isPresented: $showBurnConfirm) {
+            Button(L10n.localize("subtitle.editor.alert_cancel", comment: ""), role: .cancel) {}
+            Button(L10n.localize("subtitle.editor.alert_generate_confirm", comment: "")) { confirmBurn() }
         } message: {
-            Text("将生成一个新的 mp4，原始录屏会保留。")
+            Text(L10n.localize("subtitle.editor.alert_generate_message", comment: ""))
         }
-        .alert("烧录失败", isPresented: .init(
+        .alert(L10n.localize("subtitle.editor.alert_burn_failed_title", comment: ""), isPresented: .init(
             get: { burnErrorMessage != nil },
             set: { newValue in if !newValue { burnErrorMessage = nil } }
         )) {
-            Button("好") { burnErrorMessage = nil }
+            Button(L10n.localize("subtitle.editor.alert_confirm", comment: "")) { burnErrorMessage = nil }
         } message: {
             Text(burnErrorMessage ?? "")
         }
@@ -141,7 +141,7 @@ struct RecordingSubtitleEditorView: View {
 
     private var header: some View {
         HStack {
-            Text(presentation?.title ?? "添加字幕")
+            Text(presentation?.title ?? L10n.localize("subtitle.editor.title_add", comment: ""))
                 .font(.system(size: 16, weight: .semibold))
             Spacer()
             Button(action: onClose) {
@@ -153,7 +153,7 @@ struct RecordingSubtitleEditorView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
-            .help("关闭")
+            .help(L10n.localize("subtitle.editor.action_close", comment: ""))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -186,11 +186,11 @@ struct RecordingSubtitleEditorView: View {
     private var segmentList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(presentation?.segmentListTitle ?? "字幕草稿")
+                Text(presentation?.segmentListTitle ?? L10n.localize("subtitle.editor.segment_list_title", comment: ""))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 Spacer()
-                Text(presentation?.segmentCountText ?? "\(segments.count) 段")
+                Text(presentation?.segmentCountText ?? String(format: L10n.localize("subtitle.editor.segment_count_format", comment: ""), segments.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -202,7 +202,7 @@ struct RecordingSubtitleEditorView: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 28))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text("字幕草稿加载失败")
+                    Text(L10n.localize("subtitle.editor.error_draft_load_failed", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -212,7 +212,7 @@ struct RecordingSubtitleEditorView: View {
                     Image(systemName: "captions.bubble")
                         .font(.system(size: 28))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.5))
-                    Text("暂无字幕段")
+                    Text(L10n.localize("subtitle.editor.empty_segments", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -246,7 +246,7 @@ struct RecordingSubtitleEditorView: View {
                         .foregroundStyle(Color.red.opacity(0.8))
                 }
                 .buttonStyle(.plain)
-                .help("删除该段字幕")
+                .help(L10n.localize("subtitle.editor.action_delete_segment_help", comment: ""))
             }
             TextEditor(text: segment.text)
                 .font(.system(size: 13))
@@ -265,7 +265,7 @@ struct RecordingSubtitleEditorView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Text("字幕样式：\(presentation?.styleSummary ?? RecordingSubtitleStyle.summary)")
+            Text(String(format: L10n.localize("subtitle.editor.style_summary_format", comment: ""), presentation?.styleSummary ?? RecordingSubtitleStyle.summary))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             Spacer()
@@ -346,7 +346,7 @@ struct RecordingSubtitleEditorView: View {
             try coordinator.saveDraft(draft)
             self.draft = draft
             if showFeedback {
-                saveDraftFeedbackMessage = "草稿已保存"
+                saveDraftFeedbackMessage = L10n.localize("subtitle.editor.feedback_draft_saved", comment: "")
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     saveDraftFeedbackMessage = nil
@@ -354,7 +354,7 @@ struct RecordingSubtitleEditorView: View {
             }
             return true
         } catch {
-            saveDraftFeedbackMessage = "保存失败"
+            saveDraftFeedbackMessage = L10n.localize("subtitle.editor.feedback_save_failed", comment: "")
             return false
         }
     }

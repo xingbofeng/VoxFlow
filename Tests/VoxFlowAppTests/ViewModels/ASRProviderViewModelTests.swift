@@ -1,6 +1,7 @@
 import XCTest
 import VoxFlowModelStore
 import VoxFlowProviderFunASR
+import VoxFlowProviderOmnilingual
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
@@ -202,6 +203,10 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.providerScope, .all)
         XCTAssertTrue(viewModel.visibleProviders.contains { $0.id == ASRProviderID.appleSpeech })
         XCTAssertTrue(viewModel.visibleProviders.contains { $0.id == ASRProviderID.groqWhisper })
+        XCTAssertLessThan(
+            try XCTUnwrap(viewModel.availableTags.firstIndex(of: "智能纠错")),
+            try XCTUnwrap(viewModel.availableTags.firstIndex(of: "CoreML"))
+        )
 
         viewModel.selectProviderScope(.online)
 
@@ -381,7 +386,7 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             viewModel.availableTags,
-            ["流式", "非流式", "快速", "准确", "中文", "多语言"]
+            ["流式", "非流式", "快速", "准确", "中文", "多语言", "智能纠错"]
         )
     }
 
@@ -859,6 +864,19 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.nvidiaNemotron), "约 642.2 MB")
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.parakeetStreaming), "约 118.1 MB")
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.omnilingualASR), "约 326.9 MB")
+    }
+
+    func testOmnilingualDefaultDirectoryMatchesSpeechSwiftHubRepoLayout() {
+        let directory = OmnilingualModel.defaultDirectoryURL()
+        XCTAssertEqual(
+            Array(directory.pathComponents.suffix(4)),
+            [
+                "Models",
+                "models",
+                "aufklarer",
+                "Omnilingual-ASR-CTC-300M-CoreML-INT8-10s",
+            ]
+        )
     }
 
     func testQwenPartialDownloadShowsResumeOnlyForSelectedModelSize() throws {

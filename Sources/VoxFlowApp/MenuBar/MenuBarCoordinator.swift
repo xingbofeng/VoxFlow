@@ -127,13 +127,15 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         AppLogger.general.debug("MenuBarCoordinator buildMenu")
         menu.autoenablesItems = false
         menu.delegate = self
+        let ttsModelTitle = L10n.localize("menu.status.tts_model", comment: "TTS model section")
+        let translationModelTitle = L10n.localize("menu.status.translation_model", comment: "Translation model section")
 
         addLanguageMenu()
         menu.addItem(.separator())
         addASREngineMenu()
         addLLMProviderMenu()
-        addCapabilityModelMenu(title: "TTS 模型", menu: ttsModelMenu, kind: .tts)
-        addCapabilityModelMenu(title: "翻译模型", menu: translationModelMenu, kind: .translation)
+        addCapabilityModelMenu(title: ttsModelTitle, menu: ttsModelMenu, kind: .tts)
+        addCapabilityModelMenu(title: translationModelTitle, menu: translationModelMenu, kind: .translation)
         menu.addItem(.separator())
         addCommandItems()
     }
@@ -156,7 +158,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         }
 
         let languageParentItem = NSMenuItem()
-        languageParentItem.title = "语言 / Language"
+        languageParentItem.title = L10n.localize("menu.status.language", comment: "Language section title")
         languageParentItem.submenu = languageMenu
         menu.addItem(languageParentItem)
     }
@@ -181,7 +183,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         }
 
         let asrParentItem = NSMenuItem()
-        asrParentItem.title = "语音识别模型"
+        asrParentItem.title = L10n.localize("menu.status.asr_model", comment: "ASR model section title")
         asrParentItem.submenu = asrMenu
         menu.addItem(asrParentItem)
     }
@@ -192,7 +194,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         rebuildLLMProviderMenu()
 
         let llmParentItem = NSMenuItem()
-        llmParentItem.title = "智能模型服务"
+        llmParentItem.title = L10n.localize("menu.status.llm_service", comment: "LLM service section title")
         llmParentItem.submenu = llmProviderMenu
         menu.addItem(llmParentItem)
     }
@@ -210,20 +212,30 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
 
     private func addCommandItems() {
         AppLogger.general.debug("MenuBarCoordinator addCommandItems")
-        menu.addItem(makeItem(title: "打开工作台", action: #selector(openWorkbench(_:))))
-        menu.addItem(makeItem(title: "划词动作", action: #selector(requestSelectionAction(_:))))
-        menu.addItem(makeItem(title: "设置", action: #selector(openSettings(_:))))
-        menu.addItem(makeItem(title: "GitHub", action: #selector(openGitHub(_:))))
+        menu.addItem(makeItem(title: L10n.localize("menu.status.open_workbench", comment: "Open workbench"), action: #selector(openWorkbench(_:))))
+        menu.addItem(makeItem(title: L10n.localize("menu.status.selection_action", comment: "Selection action menu title"), action: #selector(requestSelectionAction(_:))))
+        menu.addItem(makeItem(title: L10n.localize("menu.status.settings", comment: "Settings menu title"), action: #selector(openSettings(_:))))
+        menu.addItem(makeItem(title: L10n.localize("menu.status.github", comment: "GitHub menu title"), action: #selector(openGitHub(_:))))
         menu.addItem(.separator())
 
-        refiningMenuItem = NSMenuItem(title: "正在进行智能纠错", action: nil, keyEquivalent: "")
+        refiningMenuItem = NSMenuItem(
+            title: L10n.localize("menu.status.refining", comment: "Refining status text"),
+            action: nil,
+            keyEquivalent: ""
+        )
         refiningMenuItem.isHidden = true
         menu.addItem(refiningMenuItem)
 
         menu.addItem(.separator())
-        menu.addItem(makeItem(title: "检查权限", action: #selector(checkPermissions(_:))))
+        menu.addItem(makeItem(title: L10n.localize("menu.status.check_permissions", comment: "Check permissions title"), action: #selector(checkPermissions(_:))))
         menu.addItem(.separator())
-        menu.addItem(makeItem(title: "退出码上写", action: #selector(quit(_:)), keyEquivalent: "q"))
+        menu.addItem(
+            makeItem(
+                title: L10n.localize("menu.status.quit", comment: "Quit menu title"),
+                action: #selector(quit(_:)),
+                keyEquivalent: "q"
+            )
+        )
     }
 
     private func makeItem(
@@ -259,7 +271,11 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         llmProviderMenu.removeAllItems()
         let providers = llmProviders()
         guard !providers.isEmpty else {
-            let item = NSMenuItem(title: "未配置智能模型服务", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(
+                title: L10n.localize("menu.status.llm_service_unavailable", comment: "No LLM service item"),
+                action: nil,
+                keyEquivalent: ""
+            )
             item.isEnabled = false
             llmProviderMenu.addItem(item)
             return
@@ -299,7 +315,9 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func unavailableSuffix(for model: CapabilityModelDescriptor) -> String {
-        model.id == CapabilityModelID.llmTranslation ? "未配置" : "未下载"
+        model.id == CapabilityModelID.llmTranslation
+            ? L10n.localize("menu.status.capability.not_configured", comment: "Capability model unavailable because not configured")
+            : L10n.localize("menu.status.capability.not_downloaded", comment: "Capability model unavailable because not downloaded")
     }
 
     @objc private func selectLanguage(_ sender: NSMenuItem) {

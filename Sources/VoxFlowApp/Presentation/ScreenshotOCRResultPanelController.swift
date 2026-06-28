@@ -21,12 +21,14 @@ enum ScreenshotOCRResultPresentationPolicy {
     }
 }
 
-@MainActor
+    @MainActor
 final class ScreenshotOCRResultPanelController {
     private let service: ScreenshotOCRService
     private let clipboard: any ScreenshotOCRResultClipboard
     private let autoDismissScheduler: any ScreenshotOCRResultAutoDismissScheduling
-    private let panelController = TextResultPanelController(title: "屏幕识别")
+    private let panelController = TextResultPanelController(
+        title: L10n.localize("screenshot.panel.title", comment: "")
+    )
     private var autoDismissToken: (any ScreenshotOCRResultAutoDismissCancellable)?
     private let translationCoordinator: AppleTranslationCoordinator
 
@@ -184,23 +186,28 @@ private struct ScreenshotOCRResultView: View {
     let onClose: () -> Void
 
     var body: some View {
-        TextResultPanelShell(onClose: onClose) {
-            TextResultPanelHeader(
-                iconSystemName: "viewfinder",
-                title: completionTitle,
-                statusMessage: viewModel.statusMessage,
-                onClose: onClose
-            )
-        } tabs: {
-            Picker("", selection: $viewModel.selectedTab) {
-                Text("原图").tag(ScreenshotOCRResultTab.originalImage)
-                Text("识别").tag(ScreenshotOCRResultTab.ocr)
-                Text("翻译").tag(ScreenshotOCRResultTab.translation)
-                Text("总结").tag(ScreenshotOCRResultTab.summary)
-            }
-            .onChange(of: viewModel.selectedTab) {
-                viewModel.activateSelectedTabTaskIfNeeded()
-            }
+            TextResultPanelShell(onClose: onClose) {
+                TextResultPanelHeader(
+                    iconSystemName: "viewfinder",
+                    title: completionTitle,
+                    statusMessage: viewModel.statusMessage,
+                    onClose: onClose
+                )
+            } tabs: {
+                Picker("", selection: $viewModel.selectedTab) {
+                    Text(L10n.localize("screenshot.panel.tab.original_image", comment: ""))
+                        .tag(ScreenshotOCRResultTab.originalImage)
+                    Text(L10n.localize("screenshot.panel.tab.ocr", comment: ""))
+                        .tag(ScreenshotOCRResultTab.ocr)
+                    Text(L10n.localize("screenshot.panel.tab.translation", comment: ""))
+                        .tag(ScreenshotOCRResultTab.translation)
+                    Text(L10n.localize("screenshot.panel.tab.summary", comment: ""))
+                        .tag(ScreenshotOCRResultTab.summary)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: viewModel.selectedTab) {
+                    viewModel.activateSelectedTabTaskIfNeeded()
+                }
         } content: {
             content
         } playback: {
@@ -215,7 +222,9 @@ private struct ScreenshotOCRResultView: View {
     }
 
     private var completionTitle: String {
-        viewModel.result.captureCompletionKind == .scrollingScreenshot ? "截图完成" : "识别完成"
+        viewModel.result.captureCompletionKind == .scrollingScreenshot
+            ? L10n.localize("screenshot.panel.title_scrolling_capture", comment: "")
+            : L10n.localize("screenshot.panel.title_recognition_complete", comment: "")
     }
 
     @ViewBuilder
@@ -225,11 +234,14 @@ private struct ScreenshotOCRResultView: View {
             if let image = viewModel.result.originalImage {
                 screenshotImagePreview(image)
             } else {
-                placeholderText("暂无截图")
+                placeholderText(L10n.localize("screenshot.panel.placeholder.no_screenshot", comment: ""))
             }
         case .ocr:
             TextResultScrollableTextView(
-                text: viewModel.hasRecognizedText ? viewModel.displayedText : (viewModel.result.ocrStatusMessage ?? "未识别到截图文字"),
+                text: viewModel.hasRecognizedText
+                    ? viewModel.displayedText
+                    : (viewModel.result.ocrStatusMessage
+                       ?? L10n.localize("screenshot.ocr.no_text_for_screenshot", comment: "")),
                 isPlaceholder: !viewModel.hasRecognizedText
             )
         case .translation, .summary:
@@ -241,7 +253,7 @@ private struct ScreenshotOCRResultView: View {
             if let image = viewModel.translatedOverlayImage {
                 screenshotImagePreview(image)
             } else {
-                placeholderText("暂无翻译覆盖图")
+                placeholderText(L10n.localize("screenshot.panel.placeholder.no_translation_overlay", comment: ""))
             }
         }
     }
@@ -258,7 +270,7 @@ private struct ScreenshotOCRResultView: View {
                         Button {
                             viewModel.copySelectedImage()
                         } label: {
-                            Label("复制图片", systemImage: "photo.on.rectangle")
+                            Label(L10n.localize("screenshot.panel.action.copy_image", comment: ""), systemImage: "photo.on.rectangle")
                         }
                     }
             }
@@ -274,34 +286,46 @@ private struct ScreenshotOCRResultView: View {
 
     private var footer: some View {
         TextResultFooterBar {
-            Button {
-                viewModel.startTranslationTask()
-            } label: {
-                Label("翻译", systemImage: "translate")
-            }
-            .disabled(viewModel.isTranslating || viewModel.isSummarizing)
+                Button {
+                    viewModel.startTranslationTask()
+                } label: {
+                    Label(
+                        L10n.localize("screenshot.panel.action.translate", comment: ""),
+                        systemImage: "translate"
+                    )
+                }
+                .disabled(viewModel.isTranslating || viewModel.isSummarizing)
 
-            Button {
-                viewModel.speakSelectedText()
-            } label: {
-                Label("朗读", systemImage: "speaker.wave.2")
-            }
-            .disabled(viewModel.selectedTab == .originalImage)
+                Button {
+                    viewModel.speakSelectedText()
+                } label: {
+                    Label(
+                        L10n.localize("screenshot.panel.action.speak", comment: ""),
+                        systemImage: "speaker.wave.2"
+                    )
+                }
+                .disabled(viewModel.selectedTab == .originalImage)
 
-            Button {
-                viewModel.copySelectedText()
-            } label: {
-                Label("复制文字", systemImage: "doc.on.doc")
-            }
+                Button {
+                    viewModel.copySelectedText()
+                } label: {
+                    Label(
+                        L10n.localize("screenshot.panel.action.copy_text", comment: ""),
+                        systemImage: "doc.on.doc"
+                    )
+                }
 
-            Button {
-                viewModel.copySelectedImage()
-            } label: {
-                Label("复制图片", systemImage: "photo.on.rectangle")
+                Button {
+                    viewModel.copySelectedImage()
+                } label: {
+                    Label(
+                        L10n.localize("screenshot.panel.action.copy_image", comment: ""),
+                        systemImage: "photo.on.rectangle"
+                    )
+                }
+                .disabled(viewModel.selectedImage == nil)
             }
-            .disabled(viewModel.selectedImage == nil)
         }
-    }
 }
 
 private struct ScreenshotOCRResultThumbnailView: View {
@@ -330,7 +354,11 @@ private struct ScreenshotOCRResultThumbnailView: View {
                 .resizable()
                 .scaledToFill()
         } else {
-            Text(result.originalText.isEmpty ? "截图完成" : result.originalText)
+            Text(
+                result.originalText.isEmpty
+                    ? L10n.localize("screenshot.panel.title_scrolling_capture", comment: "")
+                    : result.originalText
+            )
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(4)

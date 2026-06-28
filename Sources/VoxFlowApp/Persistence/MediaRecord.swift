@@ -189,10 +189,10 @@ enum MediaRecordFilter: String, CaseIterable, Identifiable, Equatable, Sendable 
 
     var title: String {
         switch self {
-        case .all: return "全部"
-        case .screenshots: return "截图"
-        case .recordings: return "录屏"
-        case .favorites: return "收藏"
+        case .all: return L10n.localize("asset.media_filter.all", comment: "")
+        case .screenshots: return L10n.localize("asset.media_filter.screenshots", comment: "")
+        case .recordings: return L10n.localize("asset.media_filter.recordings", comment: "")
+        case .favorites: return L10n.localize("asset.media_filter.favorites", comment: "")
         }
     }
 }

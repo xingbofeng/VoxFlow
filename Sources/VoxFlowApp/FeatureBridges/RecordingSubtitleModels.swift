@@ -21,12 +21,12 @@ enum RecordingSubtitleStatus: String, CaseIterable, Codable, Equatable, Sendable
     /// 详情页/HUD 展示用的中文文案。
     var displayTitle: String {
         switch self {
-        case .none: return "未添加"
-        case .generating: return "生成中"
-        case .draftReady: return "草稿待确认"
-        case .burning: return "烧录中"
-        case .burned: return "已烧录"
-        case .failed: return "失败"
+        case .none: return L10n.localize("subtitle.status.none", comment: "")
+        case .generating: return L10n.localize("subtitle.status.generating", comment: "")
+        case .draftReady: return L10n.localize("subtitle.status.draft_ready", comment: "")
+        case .burning: return L10n.localize("subtitle.status.burning", comment: "")
+        case .burned: return L10n.localize("subtitle.status.burned", comment: "")
+        case .failed: return L10n.localize("subtitle.status.failed", comment: "")
         }
     }
 }
@@ -98,5 +98,5 @@ enum RecordingSubtitleStyle {
     static let maxLines = 2
 
     /// 编辑界面底部展示的样式摘要文案。
-    static let summary = "底部居中 / 白字 / 黑色半透明底"
+    static let summary = L10n.localize("subtitle.style.summary", comment: "")
 }

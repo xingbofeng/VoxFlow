@@ -1,5 +1,6 @@
 import XCTest
 import VoxFlowASRCore
+import VoxFlowProviderApple
 import VoxFlowProviderFunASR
 import VoxFlowProviderNVIDIA
 import VoxFlowProviderParaformer
@@ -11,15 +12,21 @@ final class ASRProviderLiveSmokeTests: XCTestCase {
     func testConfiguredProviderRunsMinimalSmokeCorpus() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard let providerID = environment["VOICEINPUT_TEST_ASR_SMOKE_PROVIDER"] else {
-            throw XCTSkip("Set VOICEINPUT_TEST_ASR_SMOKE_PROVIDER to qwen3, whisper, funasr, sensevoice, paraformer, or nvidia.")
+            throw XCTSkip("Set VOICEINPUT_TEST_ASR_SMOKE_PROVIDER to apple, qwen3, whisper, funasr, sensevoice, paraformer, or nvidia.")
         }
-        let provider = try makeProvider(providerID: providerID, environment: environment)
+        let provider = try await makeProvider(providerID: providerID, environment: environment)
         let manifest = try ASRSmokeManifest.loadDefault()
         let runner = ASRSmokeRunner()
+        let prompt = environment["VOICEINPUT_TEST_ASR_SMOKE_PROMPT"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         var results: [ASRSmokeResult] = []
         for sample in manifest.samples {
-            results.append(try await runner.run(sample: sample, provider: provider))
+            results.append(try await runner.run(
+                sample: sample,
+                provider: provider,
+                prompt: prompt?.isEmpty == false ? prompt : nil
+            ))
         }
         try writeResultsIfRequested(
             results: zip(manifest.samples, results).map { ($0.0, $0.1) },
@@ -38,8 +45,18 @@ final class ASRProviderLiveSmokeTests: XCTestCase {
     private func makeProvider(
         providerID: String,
         environment: [String: String]
-    ) throws -> any ASRProvider {
+    ) async throws -> any ASRProvider {
         switch providerID {
+        case "apple", "apple-speech":
+            let provider = AppleSpeechASRProvider()
+            let health = await provider.healthCheck()
+            guard case .healthy = health else {
+                if case let .unhealthy(error) = health {
+                    throw XCTSkip("Apple Speech is not authorized or available for live smoke: \(error.message)")
+                }
+                throw XCTSkip("Apple Speech is not authorized or available for live smoke.")
+            }
+            return provider
         case "qwen3":
             let modelURL = try modelURL(environment["VOICEINPUT_TEST_QWEN3_MODEL_PATH"], providerID: providerID)
             let variant: Qwen3ModelVariant = environment["VOICEINPUT_TEST_QWEN3_VARIANT"] == "1.7b"

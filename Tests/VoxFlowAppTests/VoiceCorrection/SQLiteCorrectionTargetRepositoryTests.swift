@@ -64,6 +64,64 @@ final class SQLiteCorrectionTargetRepositoryTests: XCTestCase {
         XCTAssertEqual(try ruleRepository.rule(id: rule.id)?.targetID, target.id)
     }
 
+    func testSaveHotwordPromotesExistingCandidateByNormalizedText() throws {
+        let candidate = CorrectionTargetTerm(
+            text: "PostgreSQL",
+            lifecycle: .candidate,
+            source: .automaticLearning,
+            observedCount: 2
+        )
+        try repository.save(candidate)
+
+        let promoted = CorrectionTargetTerm(
+            text: "PostgreSQL",
+            lifecycle: .active,
+            source: .automaticLearning,
+            observedCount: 3
+        )
+        XCTAssertTrue(try repository.saveHotwordIfNotBlocklisted(promoted))
+
+        let targets = try repository.list()
+        XCTAssertEqual(targets.count, 1)
+        XCTAssertEqual(targets.first?.id, candidate.id)
+        XCTAssertEqual(targets.first?.lifecycle, .active)
+        XCTAssertEqual(targets.first?.observedCount, 3)
+        XCTAssertEqual(try repository.listHotwords().map(\.text), ["PostgreSQL"])
+    }
+
+    func testSaveHotwordDoesNotPromoteBlocklistedCandidate() throws {
+        let candidate = CorrectionTargetTerm(
+            text: "PostgreSQL",
+            lifecycle: .candidate,
+            source: .automaticLearning,
+            observedCount: 2
+        )
+        try repository.save(candidate)
+        try repository.blocklist(id: candidate.id)
+
+        let promoted = CorrectionTargetTerm(
+            text: "PostgreSQL",
+            lifecycle: .active,
+            source: .automaticLearning,
+            observedCount: 3
+        )
+
+        XCTAssertFalse(try repository.saveHotwordIfNotBlocklisted(promoted))
+        let stored = try XCTUnwrap(try repository.target(id: candidate.id))
+        XCTAssertEqual(stored.lifecycle, .candidate)
+        XCTAssertTrue(stored.isBlocklisted)
+    }
+
+    func testListLearningCandidatesReturnsAutomaticCandidateTargets() throws {
+        try repository.save(CorrectionTargetTerm(text: "Manual", lifecycle: .candidate, source: .manual))
+        try repository.save(CorrectionTargetTerm(text: "Active", lifecycle: .active, source: .automaticLearning))
+        try repository.save(CorrectionTargetTerm(text: "PostgreSQL", lifecycle: .candidate, source: .automaticLearning, observedCount: 2))
+
+        let candidates = try repository.listLearningCandidates(limit: 10)
+
+        XCTAssertEqual(candidates.map(\.text), ["PostgreSQL"])
+    }
+
     func testMigrationBackfillsTargetsForLegacyRules() throws {
         let legacyQueue = try DatabaseQueue(connection: .inMemory())
         try legacyQueue.write { connection in

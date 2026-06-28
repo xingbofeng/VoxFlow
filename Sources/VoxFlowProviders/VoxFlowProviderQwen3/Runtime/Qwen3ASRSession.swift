@@ -20,6 +20,7 @@ final class Qwen3ASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
     private var hasStartedSpeech = false
     private var isClosed = false
     private var partialStablePrefix = ""
+    private var contextPrompt: String?
 
     var revision: UInt64 {
         lock.withLock { currentRevision }
@@ -41,10 +42,12 @@ final class Qwen3ASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
 
     func start() async throws {
         eventStream.yield(.preparing(sessionID: sessionID, revision: revision))
+        let prompt = lock.withLock { contextPrompt }
         do {
             let driver = Qwen3StreamingRuntimeDriver(
                 modelURL: modelURL,
                 languageHint: languageHint,
+                contextPrompt: prompt,
                 sessionFactory: sessionFactory
             )
             try await driver.start()
@@ -53,6 +56,14 @@ final class Qwen3ASRSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
         } catch {
             emitFailure(error)
             throw error
+        }
+    }
+
+    func configurePrompt(_ prompt: String?) async throws {
+        let normalizedPrompt = prompt?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        lock.withLock {
+            contextPrompt = normalizedPrompt?.isEmpty == false ? normalizedPrompt : nil
         }
     }
 

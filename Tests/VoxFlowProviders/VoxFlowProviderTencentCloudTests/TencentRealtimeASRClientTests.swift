@@ -54,6 +54,29 @@ final class TencentRealtimeASRClientTests: XCTestCase {
         XCTAssertFalse(query.contains("+"))
     }
 
+    func testRealtimeURLIncludesHotwordListWhenConfigured() throws {
+        let signer = TencentRealtimeASRURLSigner(
+            appID: "1259220000",
+            secretID: "AKIDEXAMPLE",
+            secretKey: "SECRETEXAMPLE",
+            timestamp: 1_673_408_372,
+            expired: 1_673_494_772,
+            nonce: 1_673_408_372,
+            voiceID: "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0",
+            engineModelType: "16k_zh",
+            voiceFormat: 1,
+            needVAD: 1,
+            hotwordList: "VoxFlow|11,ContextBoost|11"
+        )
+
+        let signedURL = try signer.signedURL()
+        let components = try XCTUnwrap(URLComponents(url: signedURL, resolvingAgainstBaseURL: false))
+        let items: [URLQueryItem] = components.queryItems ?? []
+        let queryItems = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(queryItems["hotword_list"], "VoxFlow|11,ContextBoost|11")
+    }
+
     func testParsesPartialStableAndFinalMessages() throws {
         let partial = try TencentRealtimeASRMessage.decode(
             Data(#"{"code":0,"message":"success","voice_id":"v","result":{"slice_type":1,"index":0,"voice_text_str":"实时"}}"#.utf8)

@@ -63,7 +63,7 @@ struct NotesView: View {
 
     private var quickCapture: some View {
         VStack(spacing: 24) {
-            Text("快速记录，随时回看")
+            Text(L10n.localize("notes.view.quick_capture_title", comment: "Quick capture title"))
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
 
@@ -87,14 +87,19 @@ struct NotesView: View {
                 }
 
                 HStack(alignment: .center) {
-                    Text("\(viewModel.characterCount) 字")
+                    Text(
+                        String(
+                            format: L10n.localize("notes.editor.character_count_format", comment: "Character count in quick capture"),
+                            viewModel.characterCount
+                        )
+                    )
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
                     Spacer()
 
                     if viewModel.recordingState != .idle || !viewModel.draftBodyMarkdown.isEmpty {
-                        Button("完成") {
+                        Button(L10n.localize("notes.editor.finish_action", comment: "Complete quick capture")) {
                             completeQuickCapture()
                         }
                         .buttonStyle(.borderedProminent)
@@ -140,17 +145,24 @@ struct NotesView: View {
         }
         .buttonStyle(.plain)
         .disabled(viewModel.recordingState == .finishing)
-        .help(viewModel.recordingState == .recording ? "完成录音" : "开始录音")
+        .help(
+            viewModel.recordingState == .recording
+                ? L10n.localize("notes.recording.finish_help", comment: "Finish recording")
+                : L10n.localize("notes.recording.start_help", comment: "Start recording")
+        )
     }
 
     private var recentNotes: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Text("最近记录")
+                Text(L10n.localize("notes.view.recent_notes_title", comment: "Recent notes title"))
                     .font(.system(size: 18, weight: .semibold))
                 Spacer()
                 if isSearchPresented {
-                    TextField("搜索记录", text: $viewModel.searchQuery)
+                    TextField(
+                        L10n.localize("notes.view.search_placeholder", comment: "Search notes placeholder"),
+                        text: $viewModel.searchQuery
+                    )
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 220)
                         .onChange(of: viewModel.searchQuery) { _, query in
@@ -159,14 +171,17 @@ struct NotesView: View {
                 }
                 iconButton(
                     systemName: "magnifyingglass",
-                    help: "搜索记录"
+                    help: L10n.localize("notes.view.search_help", comment: "Help for notes search")
                 ) {
                     isSearchPresented.toggle()
                     if !isSearchPresented {
                         viewModel.search("")
                     }
                 }
-                iconButton(systemName: "list.bullet", help: "按列表显示") {}
+                iconButton(
+                    systemName: "list.bullet",
+                    help: L10n.localize("notes.view.show_as_grid_help", comment: "Show as grid/list help")
+                ) {}
             }
 
             Divider()
@@ -179,9 +194,10 @@ struct NotesView: View {
                         .frame(width: 64, height: 64)
                         .background(AppTheme.ColorToken.accentSoft)
                         .clipShape(Circle())
-                    Text("暂无记录")
+                    Text(L10n.localize("notes.view.empty_state", comment: "No notes placeholder text"))
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .textSelection(.disabled)
                 }
                 .frame(maxWidth: .infinity, minHeight: 220)
             } else {
@@ -213,10 +229,16 @@ struct NotesView: View {
                 Text(note.updatedAt.formatted(.dateTime.month().day()))
                 Spacer()
                 Text(note.updatedAt.formatted(.dateTime.hour().minute()))
-                noteAction(systemName: "square.and.arrow.up", help: "导出 Markdown") {
+                noteAction(
+                    systemName: "square.and.arrow.up",
+                    help: L10n.localize("notes.view.export_markdown_help", comment: "Note markdown export tooltip")
+                ) {
                     perform { _ = try viewModel.exportMarkdown(noteID: note.id) }
                 }
-                noteAction(systemName: "trash", help: "删除") {
+                noteAction(
+                    systemName: "trash",
+                    help: L10n.localize("notes.view.delete_help", comment: "Note delete tooltip")
+                ) {
                     perform { try viewModel.deleteNote(id: note.id) }
                 }
                 .foregroundStyle(.red)
@@ -279,11 +301,11 @@ struct NotesView: View {
     private var recordingPlaceholder: String {
         switch viewModel.recordingState {
         case .idle:
-            return "你来说，我来记…"
+            return L10n.localize("notes.recording.placeholder_idle", comment: "Empty recording placeholder when idle")
         case .recording:
-            return "正在聆听…"
+            return L10n.localize("notes.recording.placeholder_recording", comment: "Recording placeholder while listening")
         case .finishing:
-            return "正在完成转录…"
+            return L10n.localize("notes.recording.placeholder_finishing", comment: "Recording placeholder while finalizing")
         }
     }
 
@@ -370,7 +392,7 @@ private struct NoteMarkdownPreviewModal: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("关闭预览")
+                .help(L10n.localize("notes.view.close_preview_help", comment: "Close preview tooltip"))
             }
 
             Divider()

@@ -1,0 +1,22 @@
+# SwiftGen 配置 — VoxFlow
+# 生成类型安全的 L10n 访问代码，编译期保证 key 存在。
+# 生成产物提交进仓库，由 `make gen-l10n` 重新生成。
+#
+# VoxFlowApp 走 L10n.bundle：发布包优先 Bundle.main，SwiftPM 测试回退源码 Resources。
+# VoxFlowScreenshotKit 用 Bundle.module。
+
+strings:
+  inputs:
+    - Sources/VoxFlowApp/Resources/en.lproj/Localizable.strings
+    - Sources/VoxFlowScreenshotKit/Resources/en.lproj/ScreenshotKit.strings
+  outputs:
+    - templateName: structured-swift5
+      output: Sources/VoxFlowApp/Generated/L10n.swift
+      params:
+        bundle: L10n.bundle
+        enumName: L10n
+    - templateName: structured-swift5
+      output: Sources/VoxFlowScreenshotKit/Generated/L10n.swift
+      params:
+        bundle: Bundle.module
+        enumName: ScreenshotL10n

@@ -13,31 +13,40 @@ enum AgentDispatchHUDPresentation: Equatable {
     var title: String {
         switch self {
         case .idle: return ""
-        case .listening: return "正在听你说"
-        case let .exact(agentName, _): return "准备发送给\(agentName)"
-        case .confirmation: return "选择发送目标"
-        case .fallbackInput: return "写入当前输入框"
-        case .clipboardFallback: return "已复制到剪切板"
-        case let .sent(agentName): return "已发送给\(agentName)"
-        case .failure: return "发送失败"
+        case .listening: return L10n.localize("hud.title.listening", comment: "")
+        case let .exact(agentName, _): return String(format: L10n.localize("hud.title.exact", comment: ""), agentName)
+        case .confirmation: return L10n.localize("hud.title.confirmation", comment: "")
+        case .fallbackInput: return L10n.localize("hud.title.fallback_input", comment: "")
+        case .clipboardFallback: return L10n.localize("hud.title.clipboard_fallback", comment: "")
+        case let .sent(agentName): return String(format: L10n.localize("hud.title.sent", comment: ""), agentName)
+        case .failure: return L10n.localize("hud.title.failure", comment: "")
         }
     }
 
     var detail: String {
         switch self {
         case .idle, .sent: return ""
-        case let .listening(agentNames): return agentNames.joined(separator: " · ")
+        case let .listening(agentNames): return String(
+            format: L10n.localize("hud.detail.listening_agents", comment: ""),
+            agentNames.joined(separator: " · ")
+        )
         case let .exact(_, message): return message
         case let .confirmation(utterance, _): return utterance
         case let .fallbackInput(text): return text
         case let .clipboardFallback(text): return text
         case let .failure(message, retainedText):
-            return retainedText.isEmpty ? message : "\(message)\n指令已保留：\(retainedText)"
+            return retainedText.isEmpty
+                ? message
+                : String(
+                    format: L10n.localize("hud.detail.failure_with_retained", comment: ""),
+                    message,
+                    retainedText
+                )
         }
     }
 
     var badge: String? {
-        if case .exact = self { return "100% 直接发送" }
+        if case .exact = self { return L10n.localize("hud.badge.exact_send", comment: "") }
         return nil
     }
 }

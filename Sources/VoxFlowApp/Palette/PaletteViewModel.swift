@@ -34,17 +34,17 @@ enum PaletteAssetTypeFilter: Equatable, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .all:
-            return "全部类型"
+            return L10n.localize("palette.filter.all", comment: "")
         case .text:
-            return "文本"
+            return L10n.localize("palette.content_type.text", comment: "")
         case .image:
-            return "图片"
+            return L10n.localize("palette.content_type.image", comment: "")
         case .file:
-            return "文件"
+            return L10n.localize("palette.content_type.file", comment: "")
         case .link:
-            return "链接"
+            return L10n.localize("palette.content_type.link", comment: "")
         case .color:
-            return "颜色"
+            return L10n.localize("palette.content_type.color", comment: "")
         }
     }
 
@@ -140,9 +140,9 @@ final class PaletteViewModel: ObservableObject {
     var searchPlaceholder: String {
         switch mode {
         case .home:
-            return "搜索应用、命令、资产..."
+            return L10n.localize("palette.search.home_placeholder", comment: "")
         case .recentAssets:
-            return "搜索资产..."
+            return L10n.localize("palette.search.assets_placeholder", comment: "")
         }
     }
 
@@ -453,17 +453,17 @@ final class PaletteViewModel: ObservableObject {
 
     var footerPrimaryActionTitle: String {
         guard let selectedAsset else {
-            return "打开"
+            return L10n.localize("palette.root_item.action.open", comment: "")
         }
         switch defaultAction(for: selectedAsset) {
         case .openURL:
-            return "打开链接"
+            return L10n.localize("palette.root_item.action.open_link", comment: "")
         case let .assetAction(action):
             switch action {
             case .pasteFilePath:
-                return "粘贴文件路径"
+                return L10n.localize("palette.root_item.action.paste_file_path", comment: "")
             case .paste:
-                return "粘贴"
+                return L10n.localize("palette.root_item.action.paste", comment: "")
             default:
                 return action.displayTitle
             }
@@ -475,7 +475,7 @@ final class PaletteViewModel: ObservableObject {
         case .home:
             return selectedRootItem?.title ?? ""
         case .recentAssets:
-            return selectedAsset?.title ?? "最近资产"
+            return selectedAsset?.title ?? L10n.localize("palette.root_item.title.recent_assets", comment: "")
         }
     }
 

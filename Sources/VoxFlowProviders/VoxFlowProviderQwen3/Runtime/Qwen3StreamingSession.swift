@@ -18,4 +18,19 @@ public protocol Qwen3StreamingSession: Sendable {
 
 public protocol Qwen3StreamingSessionMaking: Sendable {
     func makeSession(modelURL: URL, languageHint: String?) async throws -> any Qwen3StreamingSession
+    func makeSession(
+        modelURL: URL,
+        languageHint: String?,
+        contextPrompt: String?
+    ) async throws -> any Qwen3StreamingSession
+}
+
+public extension Qwen3StreamingSessionMaking {
+    func makeSession(
+        modelURL: URL,
+        languageHint: String?,
+        contextPrompt: String?
+    ) async throws -> any Qwen3StreamingSession {
+        try await makeSession(modelURL: modelURL, languageHint: languageHint)
+    }
 }

@@ -41,6 +41,7 @@ public struct TencentRealtimeASRConfiguration: Equatable, Sendable {
     public let voiceFormat: Int
     public let needVAD: Int
     public let timeoutSeconds: Double
+    public let hotwordList: String?
 
     public init(
         appID: String,
@@ -49,7 +50,8 @@ public struct TencentRealtimeASRConfiguration: Equatable, Sendable {
         engineModelType: String = Self.defaultEngineModelType,
         voiceFormat: Int = 1,
         needVAD: Int = 1,
-        timeoutSeconds: Double = 30
+        timeoutSeconds: Double = 30,
+        hotwordList: String? = nil
     ) {
         self.appID = appID
         self.secretID = secretID
@@ -58,12 +60,21 @@ public struct TencentRealtimeASRConfiguration: Equatable, Sendable {
         self.voiceFormat = voiceFormat
         self.needVAD = needVAD
         self.timeoutSeconds = timeoutSeconds
+        self.hotwordList = Self.normalizedHotwordList(hotwordList)
     }
 
     public var isComplete: Bool {
         !appID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !secretID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !secretKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private static func normalizedHotwordList(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 }
 
@@ -78,6 +89,7 @@ public struct TencentRealtimeASRURLSigner: Sendable {
     public let engineModelType: String
     public let voiceFormat: Int
     public let needVAD: Int
+    public let hotwordList: String?
 
     public init(
         appID: String,
@@ -89,7 +101,8 @@ public struct TencentRealtimeASRURLSigner: Sendable {
         voiceID: String,
         engineModelType: String,
         voiceFormat: Int,
-        needVAD: Int
+        needVAD: Int,
+        hotwordList: String? = nil
     ) {
         self.appID = appID
         self.secretID = secretID
@@ -101,6 +114,7 @@ public struct TencentRealtimeASRURLSigner: Sendable {
         self.engineModelType = engineModelType
         self.voiceFormat = voiceFormat
         self.needVAD = needVAD
+        self.hotwordList = Self.normalizedHotwordList(hotwordList)
     }
 
     public var redactedDescription: String {
@@ -143,8 +157,16 @@ public struct TencentRealtimeASRURLSigner: Sendable {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
+    private static func normalizedHotwordList(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
     private func sortedQueryItems() -> [URLQueryItem] {
-        [
+        var items = [
             URLQueryItem(name: "engine_model_type", value: engineModelType),
             URLQueryItem(name: "expired", value: String(expired)),
             URLQueryItem(name: "needvad", value: String(needVAD)),
@@ -153,7 +175,11 @@ public struct TencentRealtimeASRURLSigner: Sendable {
             URLQueryItem(name: "timestamp", value: String(timestamp)),
             URLQueryItem(name: "voice_format", value: String(voiceFormat)),
             URLQueryItem(name: "voice_id", value: voiceID),
-        ].sorted { $0.name < $1.name }
+        ]
+        if let hotwordList {
+            items.append(URLQueryItem(name: "hotword_list", value: hotwordList))
+        }
+        return items.sorted { $0.name < $1.name }
     }
 }
 
@@ -348,7 +374,8 @@ public final class TencentRealtimeASRClient: TencentRealtimeASRStreamingClient, 
             voiceID: voiceID(),
             engineModelType: configuration.engineModelType,
             voiceFormat: configuration.voiceFormat,
-            needVAD: configuration.needVAD
+            needVAD: configuration.needVAD,
+            hotwordList: configuration.hotwordList
         ).signedURL()
     }
 

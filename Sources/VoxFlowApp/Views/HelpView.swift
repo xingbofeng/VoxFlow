@@ -35,9 +35,9 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 22) {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("帮助")
+                        Text(L10n.localize("help.page.title", comment: "Help view heading"))
                             .font(.system(size: 30, weight: .bold))
-                        Text("使用指南、常用入口和权限诊断")
+                        Text(L10n.localize("help.page.subtitle", comment: "Help view subtitle"))
                             .font(.system(size: 14))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -62,132 +62,132 @@ struct HelpView: View {
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "命令面板",
-                        subtitle: "搜索应用、命令和最近资产",
+                        title: L10n.localize("help.cards.command_panel_title", comment: "Help command panel card title"),
+                        subtitle: L10n.localize("help.cards.command_panel_subtitle", comment: "Help command panel card subtitle"),
                         systemImage: "command.square",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "截图 OCR",
-                        subtitle: "框选截图并识别文字",
+                        title: L10n.localize("help.cards.screenshot_ocr_title", comment: "Help screenshot OCR card title"),
+                        subtitle: L10n.localize("help.cards.screenshot_ocr_subtitle", comment: "Help screenshot OCR card subtitle"),
                         systemImage: "text.viewfinder",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "AI 编程",
-                        subtitle: "语音触发终端助手工作流",
+                        title: L10n.localize("help.cards.ai_coding_title", comment: "Help AI coding card title"),
+                        subtitle: L10n.localize("help.cards.ai_coding_subtitle", comment: "Help AI coding card subtitle"),
                         systemImage: "terminal",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "文件转写与笔记",
-                        subtitle: "导入音频文件，沉淀语音笔记",
+                        title: L10n.localize("help.cards.transcription_notes_title", comment: "Help transcription notes card title"),
+                        subtitle: L10n.localize("help.cards.transcription_notes_subtitle", comment: "Help transcription notes card subtitle"),
                         systemImage: "waveform.path.badge.plus",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "易错词",
-                        subtitle: "维护本地热词和纠错规则",
+                        title: L10n.localize("help.cards.easy_correction_title", comment: "Help easy correction card title"),
+                        subtitle: L10n.localize("help.cards.easy_correction_subtitle", comment: "Help easy correction card subtitle"),
                         systemImage: "text.badge.checkmark",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "安全回退",
-                        subtitle: "识别、修正或生成失败时保留原始文本",
+                        title: L10n.localize("help.cards.safe_fallback_title", comment: "Help safe fallback card title"),
+                        subtitle: L10n.localize("help.cards.safe_fallback_subtitle", comment: "Help safe fallback card subtitle"),
                         systemImage: "arrow.uturn.backward.circle",
                         tint: AppTheme.ColorToken.accent
                     )
                     HelpFeatureCard(
-                        title: "本地隐私",
-                        subtitle: "访问密钥仅保存在系统 Keychain",
+                        title: L10n.localize("help.cards.local_privacy_title", comment: "Help local privacy card title"),
+                        subtitle: L10n.localize("help.cards.local_privacy_subtitle", comment: "Help local privacy card subtitle"),
                         systemImage: "lock.shield",
                         tint: AppTheme.ColorToken.accent
                     )
                 }
 
                 HelpSectionCard(
-                    title: "常用入口",
-                    subtitle: "获取更新、支持项目、加入社区和查看隐私说明",
+                    title: L10n.localize("help.section.quick_links_title", comment: "Quick links section title"),
+                    subtitle: L10n.localize("help.section.quick_links_subtitle", comment: "Quick links section subtitle"),
                     systemImage: "link",
                     tint: AppTheme.ColorToken.accent
                 ) {
                     HelpLinkRow(
-                        title: "项目主页",
-                        subtitle: "打开产品落地页和使用介绍",
+                        title: L10n.localize("help.links.project_homepage_title", comment: "Project homepage quick link title"),
+                        subtitle: L10n.localize("help.links.project_homepage_subtitle", comment: "Project homepage quick link subtitle"),
                         systemImage: "house",
                         url: HelpExternalLinks.projectHomepage
                     )
                     HelpLinkRow(
-                        title: "GitHub",
-                        subtitle: "查看源码、文档和开发进度",
+                        title: L10n.localize("help.links.github_title", comment: "GitHub quick link title"),
+                        subtitle: L10n.localize("help.links.github_subtitle", comment: "GitHub quick link subtitle"),
                         systemImage: "curlybraces.square",
                         iconStyle: .github,
                         url: HelpExternalLinks.githubRepository
                     )
                     HelpActionRow(
-                        title: "支持项目 / 加入社区",
-                        subtitle: "给项目点个 Star，扫码添加作者微信",
+                        title: L10n.localize("help.actions.community_title", comment: "Community support action title"),
+                        subtitle: L10n.localize("help.actions.community_subtitle", comment: "Community support action subtitle"),
                         systemImage: "star"
                     ) {
                         showingSupportCommunityPanel = true
                     }
                     HelpActionRow(
-                        title: "检查更新",
-                        subtitle: "立即检查是否有可用新版本",
+                        title: L10n.localize("help.actions.check_updates_title", comment: "Check updates action title"),
+                        subtitle: L10n.localize("help.actions.check_updates_subtitle", comment: "Check updates action subtitle"),
                         systemImage: "arrow.triangle.2.circlepath"
                     ) {
                         onCheckForUpdates()
                     }
                     HelpLinkRow(
-                        title: "版本发布",
-                        subtitle: "下载最新稳定版本",
+                        title: L10n.localize("help.links.release_title", comment: "Release notes quick link title"),
+                        subtitle: L10n.localize("help.links.release_subtitle", comment: "Release notes quick link subtitle"),
                         systemImage: "shippingbox",
                         url: HelpExternalLinks.latestRelease
                     )
                     HelpLinkRow(
-                        title: "问题反馈",
-                        subtitle: "报告问题或提出建议",
+                        title: L10n.localize("help.links.feedback_title", comment: "Issue feedback quick link title"),
+                        subtitle: L10n.localize("help.links.feedback_subtitle", comment: "Issue feedback quick link subtitle"),
                         systemImage: "bubble.left.and.exclamationmark.bubble.right",
                         url: HelpExternalLinks.issues
                     )
                     HelpLinkRow(
-                        title: "隐私说明",
-                        subtitle: "了解本地数据和网络请求规则",
+                        title: L10n.localize("help.links.privacy_title", comment: "Privacy quick link title"),
+                        subtitle: L10n.localize("help.links.privacy_subtitle", comment: "Privacy quick link subtitle"),
                         systemImage: "hand.raised",
                         url: HelpExternalLinks.privacy
                     )
                 }
 
                 HelpSectionCard(
-                    title: "权限检查",
-                    subtitle: "确认听写和文本输入所需的系统权限",
+                    title: L10n.localize("help.section.permissions_title", comment: "Permissions section title"),
+                    subtitle: L10n.localize("help.section.permissions_subtitle", comment: "Permissions section subtitle"),
                     systemImage: "checkmark.shield",
                     tint: AppTheme.ColorToken.accent
                 ) {
                     HelpPermissionRow(
-                        title: "麦克风",
-                        subtitle: "用于捕获语音",
+                        title: L10n.localize("help.permissions.microphone_title", comment: "Microphone permission row title"),
+                        subtitle: L10n.localize("help.permissions.microphone_subtitle", comment: "Microphone permission row subtitle"),
                         systemImage: "mic",
                         status: settingsViewModel.microphonePermission.title,
                         satisfied: settingsViewModel.microphonePermission == .granted
                     )
                     HelpPermissionRow(
-                        title: "辅助功能",
-                        subtitle: "用于向当前应用输入文本",
+                        title: L10n.localize("help.permissions.accessibility_title", comment: "Accessibility permission row title"),
+                        subtitle: L10n.localize("help.permissions.accessibility_subtitle", comment: "Accessibility permission row subtitle"),
                         systemImage: "accessibility",
-                        status: settingsViewModel.accessibilityGranted ? "已授权" : "未授权",
+                        status: PermissionSummary.statusText(settingsViewModel.accessibilityGranted),
                         satisfied: settingsViewModel.accessibilityGranted
                     )
                     HelpPermissionRow(
-                        title: "语音识别",
-                        subtitle: "Apple 语音识别的系统状态",
+                        title: L10n.localize("help.permissions.speech_title", comment: "Speech permission row title"),
+                        subtitle: L10n.localize("help.permissions.speech_subtitle", comment: "Speech permission row subtitle"),
                         systemImage: "waveform",
                         status: settingsViewModel.speechPermission.title,
                         satisfied: settingsViewModel.speechPermission == .granted
                     )
                     HelpPermissionRow(
-                        title: "屏幕录制",
-                        subtitle: "用于当前窗口文字识别，不保存截图",
+                        title: L10n.localize("help.permissions.screen_recording_title", comment: "Screen recording permission row title"),
+                        subtitle: L10n.localize("help.permissions.screen_recording_subtitle", comment: "Screen recording permission row subtitle"),
                         systemImage: "rectangle.inset.filled.and.person.filled",
                         status: PermissionSummary.statusText(settingsViewModel.screenRecordingGranted),
                         satisfied: settingsViewModel.screenRecordingGranted
@@ -196,7 +196,7 @@ struct HelpView: View {
                         settingsViewModel.load()
                         onOpenPermissions()
                     } label: {
-                        Label("查看完整状态与权限", systemImage: "arrow.right")
+                        Label(L10n.localize("help.permissions.open_settings", comment: "Open permissions detail button"), systemImage: "arrow.right")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -228,7 +228,10 @@ struct HelpView: View {
         guard settingsViewModel.middleMouseRecordingEnabled else {
             return keyboardShortcut
         }
-        return "\(keyboardShortcut) / 鼠标中键"
+        return String(
+            format: L10n.localize("help.shortcuts.display_name_with_middle_mouse", comment: "Help shortcut title with middle mouse support"),
+            keyboardShortcut
+        )
     }
 
     private var shortcutIconName: String {
@@ -239,16 +242,16 @@ struct HelpView: View {
         if settingsViewModel.middleMouseRecordingEnabled {
             switch settingsViewModel.shortPressBehavior {
             case .toggleListening:
-                return "快捷键短按切换；中键点击开始，再次点击结束"
+                return L10n.localize("help.shortcuts.subtitle_toggle_with_middle_mouse", comment: "Shortcut tooltip for middle mouse and toggle listening mode")
             case .none:
-                return "快捷键按住说话；中键点击开始，再次点击结束"
+                return L10n.localize("help.shortcuts.subtitle_hold_with_middle_mouse", comment: "Shortcut tooltip for middle mouse and hold-to-speak mode")
             }
         } else {
             switch settingsViewModel.shortPressBehavior {
             case .toggleListening:
-                return "短按切换，长按按住说话"
+                return L10n.localize("help.shortcuts.subtitle_toggle", comment: "Shortcut tooltip for toggle listening mode")
             case .none:
-                return "按住说话，松手输入"
+                return L10n.localize("help.shortcuts.subtitle_hold", comment: "Shortcut tooltip for hold-to-speak mode")
             }
         }
     }
@@ -270,9 +273,9 @@ private struct SupportCommunityOverlay: View {
             VStack(spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("支持项目 / 加入社区")
+                        Text(L10n.localize("help.overlay.title", comment: "Support community panel title"))
                             .font(.system(size: 18, weight: .semibold))
-                        Text("给项目点个 Star，或扫码添加作者微信，反馈问题和交流使用体验。")
+                        Text(L10n.localize("help.overlay.subtitle", comment: "Support community panel subtitle"))
                             .font(.system(size: 12))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -288,8 +291,8 @@ private struct SupportCommunityOverlay: View {
                 }
 
                 HelpLinkRow(
-                    title: "去 GitHub 点个 Star",
-                    subtitle: "支持项目并查看源码和开发进度",
+                    title: L10n.localize("help.overlay.github_star_title", comment: "Support community github star link title"),
+                    subtitle: L10n.localize("help.overlay.github_star_subtitle", comment: "Support community github star link subtitle"),
                     systemImage: "star",
                     iconStyle: .github,
                     url: HelpExternalLinks.githubRepository
@@ -307,9 +310,9 @@ private struct SupportCommunityOverlay: View {
                         )
                 } else {
                     ContentUnavailableView(
-                        "二维码加载失败",
+                        L10n.localize("help.qr_unavailable.title", comment: "QR code loading failed title"),
                         systemImage: "qrcode",
-                        description: Text("请确认资源已打包到 App。")
+                        description: Text(L10n.localize("help.qr_unavailable.description", comment: "QR code loading failed message"))
                     )
                     .frame(width: 320, height: 240)
                 }

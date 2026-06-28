@@ -19,14 +19,14 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "通用"
-        case .vibeCoding: return "AI 编程"
-        case .system: return "系统"
-        case .dictationModels: return "语音识别"
-        case .correctionModels: return "纠错与上下文"
-        case .ttsModels: return "朗读"
-        case .translationModels: return "翻译"
-        case .dataPrivacy: return "数据与隐私"
+        case .general: return L10n.localize("settings.section.general", comment: "")
+        case .vibeCoding: return L10n.localize("settings.section.vibe_coding", comment: "")
+        case .system: return L10n.localize("settings.section.system_root", comment: "")
+        case .dictationModels: return L10n.localize("settings.section.dictation_models", comment: "")
+        case .correctionModels: return L10n.localize("settings.section.correction_models", comment: "")
+        case .ttsModels: return L10n.localize("settings.section.tts_models", comment: "")
+        case .translationModels: return L10n.localize("settings.section.translation_models", comment: "")
+        case .dataPrivacy: return L10n.localize("settings.section.data_privacy", comment: "")
         }
     }
 
@@ -112,35 +112,56 @@ struct SettingsStorageStatus: Equatable, Sendable {
     init(storageHealth: StorageHealthState) {
         switch storageHealth {
         case let .persistent(databaseURL):
-            title = "持久化存储正常"
-            message = "历史、设置和模型状态会保存到 \(databaseURL.path)。"
+            title = L10n.localize("settings.storage.title.persistent", comment: "")
+            message = String(
+                format: L10n.localize("settings.storage.message.persistent", comment: ""),
+                databaseURL.path
+            )
             isHealthy = true
-            badgeText = "正常"
+            badgeText = L10n.localize("settings.storage.badge.normal", comment: "")
         case let .readOnly(databaseURL, reason):
-            title = "数据目录只读"
-            message = "\(reason)。当前数据库位于 \(databaseURL.path)，码上写无法可靠写入新历史、设置或任务状态。请检查目录权限或复制数据后修复。"
+            title = L10n.localize("settings.storage.title.read_only", comment: "")
+            message = reason
+            + L10n.localize("settings.storage.read_only_message", comment: "Read-only storage message")
+            + " "
+            + databaseURL.path
+            + L10n.localize("settings.storage.read_only_message_suffix", comment: "Read-only storage message")
             isHealthy = false
-            badgeText = "只读"
+            badgeText = L10n.localize("settings.storage.badge.read_only", comment: "")
         case let .migrationRequired(databaseURL, reason):
-            title = "数据库需要迁移"
-            message = "\(reason)。当前数据库位于 \(databaseURL.path)，迁移完成前不会把新历史、设置或任务状态当作已保存。"
+            title = L10n.localize("settings.storage.title.migration_required", comment: "")
+            message = String(
+                format: L10n.localize("settings.storage.message.migration_required", comment: ""),
+                reason,
+                databaseURL.path
+            )
             isHealthy = false
-            badgeText = "需迁移"
+            badgeText = L10n.localize("settings.storage.badge.migration_required", comment: "")
         case let .corrupt(databaseURL, reason):
-            title = "数据库可能损坏"
-            message = "\(reason)。当前数据库位于 \(databaseURL.path)，请先导出或备份数据，再执行修复或重建。"
+            title = L10n.localize("settings.storage.title.corrupt", comment: "")
+            message = String(
+                format: L10n.localize("settings.storage.message.corrupt", comment: ""),
+                reason,
+                databaseURL.path
+            )
             isHealthy = false
-            badgeText = "损坏"
+            badgeText = L10n.localize("settings.storage.badge.corrupt", comment: "")
         case let .unavailable(reason):
-            title = "持久化存储不可用"
-            message = "\(reason)。当前历史、设置和任务状态只保存在内存里，重启后可能丢失。"
+            title = L10n.localize("settings.storage.title.unavailable", comment: "")
+            message = String(
+                format: L10n.localize("settings.storage.message.unavailable", comment: ""),
+                reason
+            )
             isHealthy = false
-            badgeText = "不可用"
+            badgeText = L10n.localize("settings.storage.badge.unavailable", comment: "")
         case let .volatile(reason):
-            title = "临时存储模式"
-            message = "\(reason)。当前历史、设置和任务状态只保存在内存里，重启后可能丢失。"
+            title = L10n.localize("settings.storage.title.volatile", comment: "")
+            message = String(
+                format: L10n.localize("settings.storage.message.volatile", comment: ""),
+                reason
+            )
             isHealthy = false
-            badgeText = "临时"
+            badgeText = L10n.localize("settings.storage.badge.volatile", comment: "")
         }
     }
 }
@@ -156,7 +177,7 @@ protocol AudioInputDeviceProviding: Sendable {
 
 struct SystemAudioInputDeviceProvider: AudioInputDeviceProviding {
     static let systemDefaultDeviceID = "system-default"
-    static let systemDefaultDeviceName = "系统自带"
+    static let systemDefaultDeviceName = L10n.localize("settings.audio_input.default_system_device", comment: "")
 
     func inputDevices() -> [AudioInputDevice] {
         let session = AVCaptureDevice.DiscoverySession(
@@ -195,7 +216,7 @@ struct SystemAudioInputDeviceProvider: AudioInputDeviceProviding {
     private static func displayName(for name: String) -> String {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            return "未知麦克风"
+            return L10n.localize("settings.audio_input.unknown_device", comment: "")
         }
         return trimmedName
     }
@@ -285,6 +306,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var textInputMode: TextInputMode = .automatic
     @Published private(set) var recognitionLanguages: [RecognitionLanguage] = RecognitionLanguage.allCases
     @Published private(set) var selectedRecognitionLanguage: RecognitionLanguage = .default
+    @Published private(set) var interfaceLanguage: AppLanguage = .default
     @Published private(set) var systemOptions: [SettingsSystemOption: Bool] = [:]
     @Published private(set) var microphonePermission: AudioRecorder.PermissionStatus = .notDetermined
     @Published private(set) var speechPermission: AudioRecorder.PermissionStatus = .notDetermined
@@ -316,6 +338,7 @@ final class SettingsViewModel: ObservableObject {
     private let audioDeviceProvider: any AudioInputDeviceProviding
     private let permissionProvider: any SettingsPermissionProviding
     private let languageManager: LanguageManager
+    private let interfaceLanguageManager: InterfaceLanguageManager
     private let asrSettingsResetter: (any ASRSettingsResetting)?
     private let localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)?
     private let launchAtLoginManager: any LaunchAtLoginManaging
@@ -331,6 +354,7 @@ final class SettingsViewModel: ObservableObject {
         audioDeviceProvider: any AudioInputDeviceProviding = SystemAudioInputDeviceProvider(),
         permissionProvider: any SettingsPermissionProviding = SystemSettingsPermissionProvider(),
         languageManager: LanguageManager = .shared,
+        interfaceLanguageManager: InterfaceLanguageManager = .shared,
         asrSettingsResetter: (any ASRSettingsResetting)? = nil,
         localModelDeletionCoordinator: (any LocalModelDeletionCoordinating)? = nil,
         launchAtLoginManager: any LaunchAtLoginManaging = SystemLaunchAtLoginManager(),
@@ -343,6 +367,7 @@ final class SettingsViewModel: ObservableObject {
         self.audioDeviceProvider = audioDeviceProvider
         self.permissionProvider = permissionProvider
         self.languageManager = languageManager
+        self.interfaceLanguageManager = interfaceLanguageManager
         self.asrSettingsResetter = asrSettingsResetter
         self.localModelDeletionCoordinator = localModelDeletionCoordinator
         self.launchAtLoginManager = launchAtLoginManager
@@ -422,6 +447,7 @@ final class SettingsViewModel: ObservableObject {
             analyticsEnabled = try readBool(SettingsKey.analyticsEnabled, defaultValue: false)
             recognitionLanguages = languageManager.allLanguages
             selectedRecognitionLanguage = languageManager.currentLanguage
+            interfaceLanguage = interfaceLanguageManager.currentLanguage
             systemOptions = try Dictionary(
                 uniqueKeysWithValues: SettingsSystemOption.allCases.map { option in
                     (
@@ -462,7 +488,7 @@ final class SettingsViewModel: ObservableObject {
         selectedInputDeviceID = id
         try setString(SettingsKey.audioInputDeviceID, value: id)
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新输入设备")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.input_device_updated", comment: ""))
     }
 
     func updateShortcut(
@@ -493,7 +519,7 @@ final class SettingsViewModel: ObservableObject {
         self.selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         self.shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
-        lastActionMessage = "已更新快捷键设置"
+        lastActionMessage = L10n.localize("settings.message.shortcuts_updated", comment: "")
         Self.logger.info("settings_vm_update_shortcut_success keyCode=\(keyCode) conflict=\(shortcutConflict)")
     }
 
@@ -524,7 +550,7 @@ final class SettingsViewModel: ObservableObject {
         selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = false
         lastError = nil
-        lastActionMessage = "已更新\(action.displayName)快捷键"
+        lastActionMessage = String(format: L10n.localize("settings.message.action_shortcut_updated_format", comment: ""), action.displayName)
         Self.logger.info("settings_vm_update_action_shortcut_success action=\(action.rawValue) keyCode=\(keyCode.map(String.init) ?? "nil")")
     }
 
@@ -552,7 +578,7 @@ final class SettingsViewModel: ObservableObject {
         selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
-        lastActionMessage = "已更新\(shortcut.displayName) 快捷键"
+        lastActionMessage = String(format: L10n.localize("settings.message.workflow_shortcut_updated_format", comment: ""), shortcut.displayName)
         Self.logger.info("settings_vm_update_workflow_shortcut_success shortcut=\(shortcut.displayName) keyCode=\(keyCode.map(String.init) ?? "nil") conflict=\(shortcutConflict)")
     }
 
@@ -561,15 +587,15 @@ final class SettingsViewModel: ObservableObject {
         agentDispatchEnabled = enabled
         try setBool(SettingsKey.agentDispatchEnabled, value: enabled)
         lastActionMessage = enabled
-            ? "已启用AI 编程"
-            : "已关闭AI 编程"
+            ? L10n.localize("settings.message.agent_dispatch_enabled", comment: "")
+            : L10n.localize("settings.message.agent_dispatch_disabled", comment: "")
     }
 
     func setAgentDispatchExactDirectEnabled(_ enabled: Bool) throws {
         Self.logger.debug("settings_vm_set_agent_dispatch_exact_direct enabled=\(enabled)")
         agentDispatchExactDirectEnabled = enabled
         try setBool(SettingsKey.agentDispatchExactDirectEnabled, value: enabled)
-        lastActionMessage = "已更新准确命名发送策略"
+        lastActionMessage = L10n.localize("settings.message.agent_dispatch_exact_send", comment: "")
     }
 
     func setAgentDispatchUnresolvedBehavior(_ behavior: String) throws {
@@ -580,7 +606,7 @@ final class SettingsViewModel: ObservableObject {
         Self.logger.debug("settings_vm_set_agent_dispatch_unresolved behavior=\(behavior)")
         agentDispatchUnresolvedBehavior = behavior
         try setString(SettingsKey.agentDispatchUnresolvedBehavior, value: behavior)
-        lastActionMessage = "已更新未命中处理方式"
+        lastActionMessage = L10n.localize("settings.message.agent_dispatch_unresolved_behavior", comment: "")
     }
 
     func setAgentDispatchMCPEnabled(_ enabled: Bool) throws {
@@ -598,7 +624,7 @@ final class SettingsViewModel: ObservableObject {
                 options: .atomic
             )
         }
-        lastActionMessage = "已更新协作通道身份上报设置"
+        lastActionMessage = L10n.localize("settings.message.agent_dispatch_mcp", comment: "")
     }
 
     func setVoiceCorrectionEnabled(_ enabled: Bool) throws {
@@ -606,7 +632,7 @@ final class SettingsViewModel: ObservableObject {
         voiceCorrectionEnabled = enabled
         try VoiceCorrectionSettingsStore.setBool(.enabled, value: enabled, repository: environment.settingsRepository)
         lastError = nil
-        lastActionMessage = enabled ? "已启用易错词修正" : "已关闭易错词修正"
+        lastActionMessage = enabled ? L10n.localize("settings.message.voice_correction_enabled", comment: "") : L10n.localize("settings.message.voice_correction_disabled", comment: "")
     }
 
     func setVoiceCorrectionAutoLearningEnabled(_ enabled: Bool) throws {
@@ -614,7 +640,7 @@ final class SettingsViewModel: ObservableObject {
         voiceCorrectionAutoLearningEnabled = enabled
         try VoiceCorrectionSettingsStore.setBool(.autoLearningEnabled, value: enabled, repository: environment.settingsRepository)
         lastError = nil
-        lastActionMessage = enabled ? "已启用自动学习" : "已关闭自动学习"
+        lastActionMessage = enabled ? L10n.localize("settings.message.voice_correction_auto_learning_enabled", comment: "") : L10n.localize("settings.message.voice_correction_auto_learning_disabled", comment: "")
     }
 
     func setVoiceCorrectionAutoLearningAppliesImmediately(_ enabled: Bool) throws {
@@ -626,7 +652,7 @@ final class SettingsViewModel: ObservableObject {
             repository: environment.settingsRepository
         )
         lastError = nil
-        lastActionMessage = enabled ? "自动学习会直接生效" : "自动学习会先进入候选"
+        lastActionMessage = enabled ? L10n.localize("settings.message.voice_correction_auto_apply_immediate", comment: "") : L10n.localize("settings.message.voice_correction_auto_apply_pending", comment: "")
     }
 
     func setVoiceCorrectionShadowMode(_ enabled: Bool) throws {
@@ -634,7 +660,7 @@ final class SettingsViewModel: ObservableObject {
         voiceCorrectionShadowMode = enabled
         try VoiceCorrectionSettingsStore.setBool(.shadowMode, value: enabled, repository: environment.settingsRepository)
         lastError = nil
-        lastActionMessage = enabled ? "已开启影子模式" : "已关闭影子模式"
+        lastActionMessage = enabled ? L10n.localize("settings.message.voice_correction_shadow_mode_enabled", comment: "") : L10n.localize("settings.message.voice_correction_shadow_mode_disabled", comment: "")
     }
 
     func refreshAgentSessions(reportFailures: Bool = true) async {
@@ -675,7 +701,7 @@ final class SettingsViewModel: ObservableObject {
             try await client.learnAlias(trimmed, agentID: agentID, userConfirmed: true)
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = "已保存任务助手别名"
+            lastActionMessage = L10n.localize("settings.message.agent_alias_saved", comment: "")
             Self.logger.info("settings_vm_add_agent_alias_success aliases=\(agentAliases.count) agentID=\(agentID)")
         } catch {
             report(error: error)
@@ -693,7 +719,7 @@ final class SettingsViewModel: ObservableObject {
             try await client.removeAlias(alias)
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = "已删除任务助手别名"
+            lastActionMessage = L10n.localize("settings.message.agent_alias_deleted", comment: "")
             Self.logger.info("settings_vm_remove_agent_alias_success aliases=\(agentAliases.count)")
         } catch {
             report(error: error)
@@ -717,7 +743,7 @@ final class SettingsViewModel: ObservableObject {
             }
             agentAliases = try await client.listAliases()
             lastError = nil
-            lastActionMessage = trimmed.isEmpty ? "已清空任务助手别名" : "已更新任务助手别名"
+            lastActionMessage = trimmed.isEmpty ? L10n.localize("settings.message.agent_alias_cleared", comment: "") : L10n.localize("settings.message.agent_alias_updated", comment: "")
             Self.logger.info("settings_vm_set_agent_alias_success aliases=\(agentAliases.count) agentID=\(agentID) cleared=\(trimmed.isEmpty)")
         } catch {
             report(error: error)
@@ -734,7 +760,7 @@ final class SettingsViewModel: ObservableObject {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             try await client.cleanInactiveSessions()
             await refreshAgentSessions()
-            lastActionMessage = "已清理已退出/失效任务助手"
+            lastActionMessage = L10n.localize("settings.message.stale_agent_sessions_cleared", comment: "")
             Self.logger.info("settings_vm_clean_stale_agent_sessions_success sessions=\(agentSessions.count)")
         } catch {
             report(error: error)
@@ -751,7 +777,7 @@ final class SettingsViewModel: ObservableObject {
             let client = AgentRouterClient(socketURL: paths.agentRouterSocketURL)
             try await client.terminateAgent(agentID: agent.agentID)
             await refreshAgentSessions()
-            lastActionMessage = "已停止任务助手进程"
+            lastActionMessage = L10n.localize("settings.message.agent_session_stopped", comment: "")
             Self.logger.info("settings_vm_terminate_agent_session_success agentID=\(agent.agentID) sessions=\(agentSessions.count)")
         } catch {
             report(error: error)
@@ -765,7 +791,7 @@ final class SettingsViewModel: ObservableObject {
             try await client.clearDispatchLog()
             agentDispatchLogs = []
             lastError = nil
-            lastActionMessage = "已清空调度记录"
+            lastActionMessage = L10n.localize("settings.message.dispatch_log_cleared", comment: "")
         } catch {
             report(error: error)
         }
@@ -774,33 +800,33 @@ final class SettingsViewModel: ObservableObject {
     func copyAgentLaunchCommand(_ agent: AgentSessionCard) {
         Self.logger.info("settings_vm_copy_agent_launch_command agentID=\(agent.agentID) argCount=\(agent.command.count)")
         clipboardWriter.copy("voxflow run -- \(agent.command.joined(separator: " "))")
-        lastActionMessage = "已复制任务助手启动命令"
+        lastActionMessage = L10n.localize("settings.message.agent_launch_command_copied", comment: "")
     }
 
     func mcpLogSnapshot(for agent: AgentSessionCard) -> AgentMCPLogSnapshot {
         guard let path = agent.mcpLogPath, !path.isEmpty else {
             return AgentMCPLogSnapshot(
-                text: "暂无协作通道日志文件路径。请重启对应任务助手后再试。",
+                text: L10n.localize("settings.message.mcp_log_path_missing", comment: ""),
                 fileExists: false
             )
         }
         let url = URL(fileURLWithPath: path)
         guard fileManager.fileExists(atPath: url.path) else {
             return AgentMCPLogSnapshot(
-            text: "日志文件暂未生成。任务助手首次连接协作通道后会写入这里。",
+            text: L10n.localize("settings.message.mcp_log_not_created", comment: ""),
                 fileExists: false
             )
         }
         do {
             let data = try Data(contentsOf: url)
-            let text = String(data: data, encoding: .utf8) ?? "<日志不是 UTF-8 文本>"
+            let text = String(data: data, encoding: .utf8) ?? L10n.localize("settings.message.mcp_log_not_utf8", comment: "")
             return AgentMCPLogSnapshot(
-                text: text.isEmpty ? "日志文件已创建，但暂时没有内容。" : text,
+                text: text.isEmpty ? L10n.localize("settings.message.mcp_log_empty", comment: "") : text,
                 fileExists: true
             )
         } catch {
             return AgentMCPLogSnapshot(
-                text: "读取日志失败：\(error.localizedDescription)",
+                text: String(format: L10n.localize("settings.message.mcp_log_read_failed", comment: ""), error.localizedDescription),
                 fileExists: false
             )
         }
@@ -810,13 +836,13 @@ final class SettingsViewModel: ObservableObject {
         Self.logger.info("settings_vm_copy_mcp_diagnostics agentID=\(agent.agentID) logLen=\(logText.count)")
         clipboardWriter.copy(mcpDiagnosticsText(for: agent, logText: logText))
         lastError = nil
-        lastActionMessage = "已复制协作通道诊断信息"
+        lastActionMessage = L10n.localize("settings.message.mcp_diagnostics_copied", comment: "")
     }
 
     func openMCPLogFile(for agent: AgentSessionCard) {
         Self.logger.debug("settings_vm_open_mcp_log_file_start agentID=\(agent.agentID) hasPath=\(!(agent.mcpLogPath ?? "").isEmpty)")
         guard let path = agent.mcpLogPath, !path.isEmpty else {
-            lastError = "暂无协作通道日志文件路径。请重启对应任务助手后再试。"
+            lastError = L10n.localize("settings.message.mcp_log_path_missing", comment: "")
             lastActionMessage = nil
             return
         }
@@ -830,13 +856,13 @@ final class SettingsViewModel: ObservableObject {
                 _ = fileManager.createFile(atPath: url.path, contents: Data())
             }
             guard NSWorkspace.shared.open(url) else {
-                lastError = "无法打开协作通道日志文件"
+                lastError = L10n.localize("settings.message.mcp_log_open_failed", comment: "")
                 lastActionMessage = nil
                 Self.logger.warning("settings_vm_open_mcp_log_file_failed agentID=\(agent.agentID) reason=workspaceOpen")
                 return
             }
             lastError = nil
-            lastActionMessage = "已打开协作通道日志文件"
+            lastActionMessage = L10n.localize("settings.message.mcp_log_opened", comment: "")
             Self.logger.info("settings_vm_open_mcp_log_file_success agentID=\(agent.agentID)")
         } catch {
             report(error: error)
@@ -853,8 +879,8 @@ final class SettingsViewModel: ObservableObject {
             agentCLIRegistrationStatus = try AgentHelperManager(paths: paths).registerCLI()
             lastError = nil
             lastActionMessage = agentCLIRegistrationStatus?.isOnCurrentPath == true
-                ? "终端命令已注册"
-                : "终端命令已注册；请新开终端后使用"
+                ? L10n.localize("settings.message.agent_cli_registered", comment: "")
+                : L10n.localize("settings.message.agent_cli_registered_shell_hint", comment: "")
             Self.logger.info("settings_vm_register_agent_cli_success onPath=\(agentCLIRegistrationStatus?.isOnCurrentPath == true)")
         } catch {
             report(error: error)
@@ -871,7 +897,7 @@ final class SettingsViewModel: ObservableObject {
             try AgentHelperManager(paths: paths).unregisterCLI()
             agentCLIRegistrationStatus = nil
             lastError = nil
-            lastActionMessage = "终端命令已卸载"
+            lastActionMessage = L10n.localize("settings.message.agent_cli_unregistered", comment: "")
             Self.logger.info("settings_vm_unregister_agent_cli_success")
         } catch {
             report(error: error)
@@ -884,7 +910,7 @@ final class SettingsViewModel: ObservableObject {
 
     func copyAgentCLIExamples() {
         clipboardWriter.copy("vox flow codex\nvox flow --claude\nvox flow --codebuddy")
-        lastActionMessage = "已复制启动命令"
+        lastActionMessage = L10n.localize("settings.message.agent_cli_command_copied", comment: "")
     }
 
     func applyShortcutKeyCode(_ text: String) {
@@ -899,7 +925,7 @@ final class SettingsViewModel: ObservableObject {
                 shortPressBehavior: shortPressBehavior
             )
             lastError = nil
-            lastActionMessage = "已应用快捷键"
+            lastActionMessage = L10n.localize("settings.message.shortcut_applied", comment: "")
         } catch {
             report(error: error)
         }
@@ -911,7 +937,7 @@ final class SettingsViewModel: ObservableObject {
         try setBool(SettingsKey.audioSoundFeedbackEnabled, value: soundFeedback)
         try setBool(SettingsKey.audioVoiceEnhancementEnabled, value: voiceEnhancement)
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新音频设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.audio_settings_updated", comment: ""))
     }
 
     func updatePerformanceOptions(
@@ -923,21 +949,21 @@ final class SettingsViewModel: ObservableObject {
         try setBool(SettingsKey.audioMuteWhileRecordingEnabled, value: muteWhileRecording)
         try setBool(SettingsKey.performanceOptimizationEnabled, value: performanceOptimization)
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新系统设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.system_settings_updated", comment: ""))
     }
 
     func setAnalyticsEnabled(_ enabled: Bool) throws {
         analyticsEnabled = enabled
         try setBool(SettingsKey.analyticsEnabled, value: enabled)
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新分析设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.analytics_settings_updated", comment: ""))
     }
 
     func setMiddleMouseRecordingEnabled(_ enabled: Bool) throws {
         middleMouseRecordingEnabled = enabled
         shortcutManager.middleMouseRecordingEnabled = enabled
         lastError = nil
-        lastActionMessage = enabled ? "已启用鼠标中键录音" : "已关闭鼠标中键录音"
+        lastActionMessage = enabled ? L10n.localize("settings.message.middle_mouse_recording_enabled", comment: "") : L10n.localize("settings.message.middle_mouse_recording_disabled", comment: "")
     }
 
     func systemOption(_ option: SettingsSystemOption) -> Bool {
@@ -957,7 +983,7 @@ final class SettingsViewModel: ObservableObject {
         }
         applyRuntimeSettingsSnapshot()
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新系统设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.system_settings_updated", comment: ""))
     }
 
     private func setLaunchAtLoginOption(_ enabled: Bool) throws {
@@ -967,14 +993,14 @@ final class SettingsViewModel: ObservableObject {
             try syncLaunchAtLoginOptionWithSystem()
             applyRuntimeSettingsSnapshot()
             lastError = nil
-            lastActionMessage = persistentWriteMessage("已更新系统设置")
+            lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.system_settings_updated", comment: ""))
             Self.logger.info("settings_vm_set_launch_at_login_success enabled=\(systemOption(.launchAtLogin))")
         } catch {
             let actualValue = launchAtLoginManager.isEnabled
             systemOptions[.launchAtLogin] = actualValue
             try? setBool(SettingsSystemOption.launchAtLogin.rawValue, value: actualValue)
             applyRuntimeSettingsSnapshot()
-            lastError = "开机自动启动设置失败：\(error.localizedDescription)"
+            lastError = String(format: L10n.localize("settings.error.launch_at_login_failed", comment: ""), error.localizedDescription)
             lastActionMessage = nil
             Self.logger.error("settings_vm_set_launch_at_login_failed requested=\(enabled) actual=\(actualValue) error=\(error.localizedDescription)")
             throw error
@@ -984,7 +1010,7 @@ final class SettingsViewModel: ObservableObject {
     func clearLLMTraceDiagnostics() {
         LLMDiagnosticCapture.shared.clear()
         lastError = nil
-        lastActionMessage = "已删除模型诊断内容"
+        lastActionMessage = L10n.localize("settings.message.mcp_diagnostics_cleared", comment: "")
     }
 
     func setTextInputMode(_ mode: TextInputMode) throws {
@@ -994,7 +1020,7 @@ final class SettingsViewModel: ObservableObject {
         systemOptions[.avoidClipboard] = mode == .simulatedTyping
         try setBool(SettingsSystemOption.avoidClipboard.rawValue, value: mode == .simulatedTyping)
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已更新文本输入模式")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.text_input_mode_updated", comment: ""))
     }
 
     func setRecognitionLanguage(_ language: RecognitionLanguage) throws {
@@ -1002,7 +1028,18 @@ final class SettingsViewModel: ObservableObject {
         languageManager.setLanguage(language)
         selectedRecognitionLanguage = languageManager.currentLanguage
         lastError = nil
-        lastActionMessage = "已更新识别语言"
+        lastActionMessage = L10n.localize("settings.message.recognition_language_updated", comment: "")
+    }
+
+    func setInterfaceLanguage(_ language: AppLanguage) throws {
+        Self.logger.debug("settings_vm_set_interface_language language=\(language.rawValue)")
+        interfaceLanguageManager.setLanguage(language)
+        interfaceLanguage = interfaceLanguageManager.currentLanguage
+        lastError = nil
+        lastActionMessage = L10n.localize(
+            "settings.interface_language.restart_prompt",
+            comment: "切换界面语言后提示重启"
+        )
     }
 
     func systemSettingsURL(for pane: SystemSettingsPane) -> URL? {
@@ -1021,7 +1058,7 @@ final class SettingsViewModel: ObservableObject {
         )
         NSWorkspace.shared.open(resolvedPaths.rootDirectory)
         lastError = nil
-        lastActionMessage = "已打开本地数据文件夹"
+        lastActionMessage = L10n.localize("settings.message.local_data_folder_opened", comment: "")
     }
 
     func clearHistory() throws {
@@ -1031,7 +1068,7 @@ final class SettingsViewModel: ObservableObject {
             try environment.historyRepository.softDelete(id: entry.id, deletedAt: environment.clock.now)
         }
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已清空历史")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.history_cleared", comment: ""))
         Self.logger.info("settings_vm_clear_history_success count=\(entries.count)")
     }
 
@@ -1043,7 +1080,7 @@ final class SettingsViewModel: ObservableObject {
     func deleteAllLocalModels() throws {
         Self.logger.debug("settings_vm_delete_all_local_models_start hasPaths=\(paths != nil) usesCoordinator=\(localModelDeletionCoordinator != nil)")
         guard let paths else {
-            lastError = "没有可用的数据目录，本地模型未删除。"
+            lastError = L10n.localize("settings.error.no_data_directory", comment: "")
             lastActionMessage = nil
             Self.logger.warning("settings_vm_delete_all_local_models_skipped missingPaths=true")
             return
@@ -1057,12 +1094,12 @@ final class SettingsViewModel: ObservableObject {
             try deleteModelDirectoryContents(paths.modelsDirectory)
         }
         lastError = nil
-        lastActionMessage = "已删除全部本地模型"
+        lastActionMessage = L10n.localize("settings.message.all_models_deleted", comment: "")
         Self.logger.info("settings_vm_delete_all_local_models_success")
     }
 
     func localModelStorageDescription() -> String {
-        guard let paths else { return "大小未知" }
+        guard let paths else { return L10n.localize("settings.message.unknown_storage_size", comment: "") }
         let bytes = localModelDeletionCoordinator?.localModelStorageBytes(
             in: paths.modelsDirectory,
             fileManager: fileManager
@@ -1094,7 +1131,7 @@ final class SettingsViewModel: ObservableObject {
         let string = String(data: data, encoding: .utf8) ?? "{}"
         exportedDataJSON = string
         lastError = nil
-        lastActionMessage = "已生成导出数据"
+        lastActionMessage = L10n.localize("settings.message.export_data_generated", comment: "")
         Self.logger.info("settings_vm_export_data_json_success history=\(history.count) settings=\(settings.count) bytes=\(data.count)")
         return string
     }
@@ -1114,7 +1151,7 @@ final class SettingsViewModel: ObservableObject {
         }
         load()
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已导入设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.settings_imported", comment: ""))
         Self.logger.info("settings_vm_import_settings_json_success settings=\(settings.count)")
     }
 
@@ -1274,7 +1311,7 @@ final class SettingsViewModel: ObservableObject {
         exportedDataJSON = nil
         load()
         lastError = nil
-        lastActionMessage = persistentWriteMessage("已重置设置")
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.settings_reset", comment: ""))
         Self.logger.info("settings_vm_reset_settings_success deletedSettings=\(records.count)")
     }
 
@@ -1290,19 +1327,18 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func mcpDiagnosticsText(for agent: AgentSessionCard, logText: String) -> String {
-        """
-        协作命令: \(agent.mcpCommand ?? "-")
-        参数: \(agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "))
-        配置路径: \(agent.mcpConfigPath ?? "-")
-        日志路径: \(agent.mcpLogPath ?? "-")
-        最近连接: \(timestampText(agent.mcpSeenAt))
-        上报时间: \(timestampText(agent.mcpReportedAt))
-        最近请求: \(agent.mcpLastRequest ?? "-")
-        最近错误: \(agent.mcpLastError ?? "-")
-
-        --- Logs ---
-        \(logText)
-        """
+        String(
+            format: L10n.localize("settings.agent.mcp.diagnostics_format", comment: ""),
+            agent.mcpCommand ?? "-",
+            agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "),
+            agent.mcpConfigPath ?? "-",
+            agent.mcpLogPath ?? "-",
+            timestampText(agent.mcpSeenAt),
+            timestampText(agent.mcpReportedAt),
+            agent.mcpLastRequest ?? "-",
+            agent.mcpLastError ?? "-",
+            logText
+        )
     }
 
     private func timestampText(_ timestamp: TimeInterval?) -> String {
@@ -1467,9 +1503,9 @@ final class SettingsViewModel: ObservableObject {
         }
         switch environment.storageHealth {
         case .unavailable, .volatile:
-            return "\(message)（仅当前会话生效，重启后可能丢失）"
+            return String(format: L10n.localize("settings.storage.message.session_only", comment: ""), message)
         case .readOnly, .migrationRequired, .corrupt:
-            return "\(message)（存储状态：\(storageStatus.badgeText)，不保证已持久保存）"
+            return String(format: L10n.localize("settings.storage.message.warning", comment: ""), message, storageStatus.badgeText)
         case .persistent:
             return message
         }
@@ -1486,15 +1522,15 @@ enum SettingsViewModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidImport:
-            return "导入数据格式不正确。"
+            return L10n.localize("settings.error.invalid_import_format", comment: "")
         case .invalidShortcutKeyCode:
-            return "快捷键录制失败，请按下一个有效按键。"
+            return L10n.localize("settings.error.shortcut_record_failed", comment: "")
         case .unsupportedShortcutKeyCode:
-            return "语音快捷键支持单独 Command、Option、Control、Shift，或带这些修饰键的组合键。"
+            return L10n.localize("settings.error.unsupported_shortcut", comment: "")
         case .unsupportedWorkflowShortcutKeyCode:
-            return "图片识别快捷键需要使用带修饰键的普通按键组合，不能使用单键或系统编辑快捷键。"
+            return L10n.localize("settings.error.unsupported_workflow_shortcut", comment: "")
         case .conflictingBindings:
-            return "两个操作不能使用相同的快捷键，请修改其中一个。"
+            return L10n.localize("settings.error.duplicate_shortcut", comment: "")
         }
     }
 }
@@ -1503,23 +1539,23 @@ private extension HotKeyWorkflowShortcut {
     var displayName: String {
         switch self {
         case .palette:
-            return "启动台"
+            return L10n.localize("settings.workflow_name.palette", comment: "")
         case .clipboardImageOCR:
-            return "剪贴板图片识别"
+            return L10n.localize("settings.workflow_name.clipboard_image_ocr", comment: "")
         case .screenshotOCR:
-            return "截图文字识别"
+            return L10n.localize("settings.workflow_name.screenshot_ocr", comment: "")
         case .selectionAction:
-            return "划词动作"
+            return L10n.localize("settings.workflow_name.selection_action", comment: "")
         case .selectionTranslate:
-            return "划词翻译"
+            return L10n.localize("settings.workflow_name.selection_translate", comment: "")
         case .selectionSummarize:
-            return "划词总结"
+            return L10n.localize("settings.workflow_name.selection_summarize", comment: "")
         case .selectionAgent:
-            return "发给任务助手"
+            return L10n.localize("settings.workflow_name.selection_agent", comment: "")
         case .selectionAskAI:
-            return "划词问 AI"
+            return L10n.localize("settings.workflow_name.selection_ask_ai", comment: "")
         case .cancel:
-            return "取消"
+            return L10n.localize("settings.shortcuts.cancel", comment: "")
         }
     }
 }

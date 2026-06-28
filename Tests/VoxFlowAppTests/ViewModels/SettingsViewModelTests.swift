@@ -218,7 +218,7 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertEqual(readOnly.title, "数据目录只读")
         XCTAssertEqual(readOnly.badgeText, "只读")
-        XCTAssertTrue(readOnly.message.contains("无法可靠写入"))
+        XCTAssertTrue(readOnly.message.contains("码上写可能无法可靠保存"))
         XCTAssertTrue(StorageHealthState.readOnly(databaseURL: databaseURL, reason: "Permission denied").isPersistent)
         XCTAssertEqual(migrationRequired.title, "数据库需要迁移")
         XCTAssertEqual(migrationRequired.badgeText, "需迁移")
@@ -302,6 +302,61 @@ final class SettingsViewModelTests: XCTestCase {
         languageManager.setLanguage(.japanese)
 
         XCTAssertEqual(viewModel.selectedRecognitionLanguage, .japanese)
+    }
+
+    func testInterfaceLanguageSupportsFiveLocalizedManualChoices() throws {
+        let suiteName = "test.InterfaceLanguage.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let manager = InterfaceLanguageManager(defaults: defaults)
+
+        XCTAssertEqual(
+            AppLanguage.allCases.map(\.rawValue),
+            ["followSystem", "zh-Hans", "zh-Hant", "en", "ja", "ko"]
+        )
+        XCTAssertEqual(
+            AppLanguage.allCases.map(\.displayName),
+            ["跟随系统", "简体中文", "繁體中文", "English", "日本語", "한국어"]
+        )
+        XCTAssertFalse(manager.needsRestart)
+
+        for language in [AppLanguage.zhHans, .zhHant, .en, .ja, .ko] {
+            manager.setLanguage(language)
+
+            XCTAssertEqual(defaults.string(forKey: "VoxFlow_InterfaceLanguage"), language.rawValue)
+            XCTAssertEqual(defaults.stringArray(forKey: "AppleLanguages"), [try XCTUnwrap(language.appleLanguagesValue)])
+        }
+
+        manager.setLanguage(.followSystem)
+
+        XCTAssertEqual(defaults.string(forKey: "VoxFlow_InterfaceLanguage"), AppLanguage.followSystem.rawValue)
+        XCTAssertNil(defaults.persistentDomain(forName: suiteName)?["AppleLanguages"])
+        XCTAssertTrue(manager.needsRestart)
+    }
+
+    func testLoadSynchronizesCurrentInterfaceLanguageSelection() throws {
+        let suiteName = "test.InterfaceLanguage.ViewModel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let interfaceLanguageManager = InterfaceLanguageManager(defaults: defaults)
+        interfaceLanguageManager.setLanguage(.zhHant)
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            interfaceLanguageManager: interfaceLanguageManager
+        )
+
+        XCTAssertEqual(viewModel.interfaceLanguage, .zhHant)
     }
 
     func testVoiceEnhancementIsDisabledForFreshSettings() throws {

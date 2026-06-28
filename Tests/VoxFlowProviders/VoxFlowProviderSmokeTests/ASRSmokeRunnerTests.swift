@@ -194,6 +194,32 @@ final class ASRSmokeRunnerTests: XCTestCase {
         XCTAssertFalse(result.sawPartial)
         XCTAssertTrue(result.sawFinal)
     }
+
+    func testRunnerCopiesMLXMetallibBesideQwen3TestBinary() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let debugDirectory = root
+            .appendingPathComponent(".build", isDirectory: true)
+            .appendingPathComponent("arm64-apple-macosx", isDirectory: true)
+            .appendingPathComponent("debug", isDirectory: true)
+        let binaryDirectory = debugDirectory
+            .appendingPathComponent("VoxFlowAppPackageTests.xctest", isDirectory: true)
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("MacOS", isDirectory: true)
+
+        try FileManager.default.createDirectory(at: binaryDirectory, withIntermediateDirectories: true)
+        let source = debugDirectory.appendingPathComponent("mlx.metallib")
+        try Data("metallib".utf8).write(to: source)
+
+        let metallibDirectory = try ASRSmokeRunner.prepareMLXMetallibIfNeeded(
+            providerID: ASRProviderID(rawValue: "qwen3_asr"),
+            binaryDirectory: binaryDirectory
+        )
+
+        XCTAssertEqual(metallibDirectory, binaryDirectory)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: binaryDirectory.appendingPathComponent("mlx.metallib").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: binaryDirectory.appendingPathComponent("default.metallib").path))
+    }
 }
 
 private struct FakeSmokeProvider: ASRProvider {

@@ -112,6 +112,19 @@ final class VoxFlowProviderAppleTargetTests: XCTestCase {
         XCTAssertEqual(engine.acceptedFrames.map(\.sequenceNumber), [7])
     }
 
+    func testAppleSpeechSessionConfiguresContextualStringsFromPrompt() async throws {
+        let engine = AppleSpeechEngineProbe()
+        let session = AppleSpeechASRSession(
+            sessionID: ASRSessionID(rawValue: "apple-session-hotwords"),
+            engine: engine
+        )
+
+        try await session.configurePrompt("VoxFlow, speech-swift，VoxFlow\nQwen3-ASR")
+        try await session.start()
+
+        XCTAssertEqual(engine.contextualStrings, ["VoxFlow", "speech-swift", "Qwen3-ASR"])
+    }
+
     private static func frame(sequenceNumber: UInt64) -> AudioFrame {
         AudioFrame(
             sequenceNumber: sequenceNumber,
@@ -132,6 +145,11 @@ private final class AppleSpeechEngineProbe: AppleSpeechRecognitionEngine, @unche
     var onError: (@Sendable (Error) -> Void)?
     var isAvailable = true
     private(set) var acceptedFrames: [AudioFrame] = []
+    private(set) var contextualStrings: [String] = []
+
+    func configureContextualStrings(_ strings: [String]) {
+        contextualStrings = strings
+    }
 
     func start() throws {}
 

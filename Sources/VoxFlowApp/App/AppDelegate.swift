@@ -48,7 +48,7 @@ enum AgentDefaultOutputHUDCompletion: Equatable {
     init(outputResult: OutputResult, finalText: String) {
         switch outputResult.kind {
         case .permissionDenied, .failed:
-            self = .failure(message: "写入当前输入框失败", retainedText: finalText)
+            self = .failure(message: L10n.localize("app.output.input_failed", comment: "Workflow output failure hint"), retainedText: finalText)
         case .inserted, .copied, .targetChanged, .cancelled:
             self = .hidden
         }
@@ -266,7 +266,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.llmRefiner.isConfigured ?? false
         },
         showAgentComposeSetupRequired: { [weak self] in
-            self?.hudFeatureController.showTemporaryMessage("请先在设置中配置智能模型", duration: 3.0)
+            self?.hudFeatureController.showTemporaryMessage(
+                L10n.localize("app.dictation.setup_ai_model_required", comment: "Setup AI model guidance"),
+                duration: 3.0
+            )
         },
         refreshRecordingPermissionSnapshot: { [weak self] in
             guard let self else {
@@ -450,6 +453,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await resolveRecordingPermissions()
         }
 
+        if ProcessInfo.processInfo.environment["VOICEINPUT_FORCE_SPEECH_PERMISSION_PROMPT"] == "1" {
+            Task { @MainActor in
+                _ = await recordingPermissionService.requestSpeechPermissionForPrompt()
+            }
+        }
+
         if AppPresentationPolicy.opensWorkbenchOnLaunch {
             windowCoordinator.showMainWindow()
         }
@@ -596,7 +605,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isFocusedTextFieldSecure: { [weak self] in
                 self?.runtime?.focusedTextObserver.focusedInputIsSecure() ?? false
             },
-            assetRepository: appEnvironment.assetRepository
+            assetRepository: appEnvironment.assetRepository,
+            hotwordHitCounter: HotwordHitCounter(
+                repository: appEnvironment.correctionTargetRepository,
+                clock: appEnvironment.clock
+            )
         )
         dictationOrchestrator.onStateChange = { [weak self] state in
             self?.handleDictationStateChange(state)
@@ -811,25 +824,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Key Monitor
 
     private func showAccessibilityAlert() {
-        let shortcutName = Self.keyDisplayName(for: ShortcutManager.shared.shortcutKeyCode)
         presentPermissionGuide(
-            title: "需要辅助功能权限",
-            subtitle: "码上写需要辅助功能权限来监听 \(shortcutName) 并向当前应用输入转写文本。",
+            title: L10n.localize("app.permissions.accessibility_title", comment: "Accessibility permission title"),
+            subtitle: L10n.localize("app.permissions.accessibility_subtitle_format", comment: "Accessibility subtitle format"),
             items: [
                 PermissionStatusItem(
-                    title: "辅助功能",
-                    subtitle: "监听全局快捷键并输入文字",
+                    title: L10n.localize("permission.item.accessibility_title", comment: "Accessibility item title"),
+                    subtitle: L10n.localize("permission.item.accessibility_subtitle", comment: "Accessibility item subtitle"),
                     systemImage: "accessibility",
-                    status: "未授权",
+                    status: PermissionSummary.statusText(false),
                     granted: false
                 )
             ],
             settingsURL: PermissionGuideContent.systemSettingsURL(for: .accessibility)
         )
-    }
-
-    private static func keyDisplayName(for keyCode: Int64) -> String {
-        KeyCodeMapping.displayName(for: keyCode)
     }
 
     // MARK: - Hot Key Handling
@@ -874,8 +882,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         presentPermissionGuide(
-            title: "权限检查",
-            subtitle: "确认码上写录音、转写和文本输入所需权限。",
+            title: L10n.localize("app.permissions.check_title", comment: "Permissions check title"),
+            subtitle: L10n.localize("app.permissions.check_subtitle_format", comment: "Permissions check subtitle format"),
             items: PermissionGuideContent.allPermissionItems(
                 microphonePermission: recordingPermissions.microphonePermission,
                 speechPermission: recordingPermissions.speechPermission,
@@ -889,7 +897,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func checkPermissions() {
         logger.debug("check_permissions_requested")
-        checkAllPermissions()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = await recordingPermissionService.resolveRecordingPermissions()
+            checkAllPermissions()
+        }
     }
 
     private func showRecordingPermissionsAlert() {
@@ -929,7 +941,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showRecognitionError(_ error: Error) {
-        AppLogger.dictation.error("语音识别错误: \(error.localizedDescription)")
         if let taskID = agentComposeHandler?.lastFailedTaskID {
             let feedback = RecognitionErrorHUDPresentation.feedback(
                 for: error,
@@ -1020,7 +1031,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch outputResult.kind {
         case .permissionDenied, .failed:
             hudFeatureController.handleAgentDispatch(.failure(
-                message: "写入当前输入框失败",
+                message: L10n.localize("app.output.input_failed", comment: "Workflow output failure hint"),
                 retainedText: rawText
             ))
         case .inserted, .copied, .targetChanged, .cancelled:
@@ -1068,7 +1079,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 lease = try voiceTaskCoordinator.beginEphemeralWorkflow(kind: .screenshotOCR)
             } catch {
                 if shouldPresentHUD {
-                    hudFeatureController.showTemporaryMessage("屏幕 OCR 正在处理中", duration: 2.2)
+                    hudFeatureController.showTemporaryMessage(
+                        L10n.localize("app.workflow.screenshot_ocr_processing", comment: "Screenshot OCR processing message"),
+                        duration: 2.2
+                    )
                 }
                 return true
             }
@@ -1330,7 +1344,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 targetRepository: appEnvironment.correctionTargetRepository,
                 snapshotProvider: appEnvironment.correctionSnapshotProvider
             ).undo(event)
-            let message = deletedCount > 0 ? "已撤销本次自动学习" : "本次学习已变更，未执行撤销"
+            let message = deletedCount > 0
+                ? L10n.localize("app.learning.undo_success", comment: "Undo learning success message")
+                : L10n.localize("app.learning.undo_unchanged", comment: "Undo learning unchanged message")
             hudFeatureController.showTemporaryMessage(
                 message,
                 duration: 2.2,
@@ -1338,7 +1354,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         } catch {
             logger.error("correction_learning_batch_undo_failed \(error.localizedDescription)")
-            hudFeatureController.showTemporaryMessage("撤销自动学习失败", duration: 3.0)
+            hudFeatureController.showTemporaryMessage(
+                L10n.localize("app.learning.undo_failed", comment: "Undo learning failed message"),
+                duration: 3.0
+            )
         }
     }
 
@@ -1420,7 +1439,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         )
                     )
                     hudFeatureController.handleAgentDispatch(
-                        .failure(message: "任务助手处理失败", retainedText: text)
+                        .failure(
+                            message: L10n.localize("app.agent_dispatch.failure", comment: "Agent dispatch failure message"),
+                            retainedText: text
+                        )
                     )
                 }
             }
@@ -1437,7 +1459,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         if !shouldStart {
             logger.debug("workflow_shortcut_blocked dictationState=\(dictationOrchestrator.state)")
-            hudFeatureController.showTemporaryMessage("语音输入进行中，请先结束当前任务", duration: 2.2)
+            hudFeatureController.showTemporaryMessage(
+                L10n.localize("app.workflow.in_progress", comment: "Workflow in progress message"),
+                duration: 2.2
+            )
         }
         return shouldStart
     }
@@ -1536,7 +1561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } catch {
                 self.clearActiveScreenRecordingUI()
                 self.hudFeatureController.showTemporaryMessage(
-                    "录屏启动失败：\(error.localizedDescription)",
+                    "\(L10n.localize("app.workflow.recording_start_failed", comment: "Screen recording start failure message")) \(error.localizedDescription)",
                     duration: 3.0
                 )
             }
@@ -1550,11 +1575,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenRecordingResultPanelController.present(record: record)
             windowCoordinator.refreshScreenshotRecords()
             appEnvironment.notifyHistoryDidChange()
-            hudFeatureController.showTemporaryMessage("录屏已保存", duration: 1.8, tone: .success)
+            hudFeatureController.showTemporaryMessage(
+                L10n.localize("app.workflow.screen_recording_saved", comment: "Screen recording saved"),
+                duration: 1.8,
+                tone: .success
+            )
         } catch {
             clearActiveScreenRecordingUI()
             hudFeatureController.showTemporaryMessage(
-                "录屏保存失败：\(error.localizedDescription)",
+                "\(L10n.localize("app.workflow.screen_recording_save_failed", comment: "Screen recording save failure message")) \(error.localizedDescription)",
                 duration: 3.0
             )
         }
@@ -1626,12 +1655,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 overlayImage: overlayImage.image
             )
             if shouldPresentHUD {
-                hudFeatureController.showTemporaryMessage("翻译完成", duration: 1.8, tone: .success)
+                hudFeatureController.showTemporaryMessage(
+                    L10n.localize("app.workflow.translation_completed", comment: "Translation completed message"),
+                    duration: 1.8,
+                    tone: .success
+                )
             }
             saveScreenshotRecord(result: originalResult)
         case .captureCancelled:
             if shouldPresentHUD {
-                hudFeatureController.showTemporaryMessage("已取消截图", duration: 1.6)
+                hudFeatureController.showTemporaryMessage(
+                    L10n.localize("app.workflow.capture_cancelled", comment: "Capture cancelled message"),
+                    duration: 1.6
+                )
             }
         case .captureFailed(let reason):
             if shouldPresentHUD {

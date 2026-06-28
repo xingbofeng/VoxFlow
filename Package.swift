@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "VoxFlowApp",
+    defaultLocalization: "en",
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "VoxFlowApp", targets: ["VoxFlowApp"])
@@ -196,7 +197,14 @@ let package = Package(
             dependencies: [
                 "VoxFlowDomain"
             ],
-            path: "Sources/VoxFlowScreenshotKit"
+            path: "Sources/VoxFlowScreenshotKit",
+            resources: [
+                .process("Resources/zh-Hans.lproj"),
+                .process("Resources/zh-Hant.lproj"),
+                .process("Resources/en.lproj"),
+                .process("Resources/ja.lproj"),
+                .process("Resources/ko.lproj"),
+            ]
         ),
         .target(
             name: "VoxFlowASRWorker",
@@ -238,7 +246,7 @@ let package = Package(
                 .product(name: "MarkdownUI", package: "swift-markdown-ui")
             ],
             path: "Sources/VoxFlowApp",
-            exclude: ["Resources/Info.plist"],
+            exclude: ["Resources/Info.plist", "Resources/zh-Hans.lproj", "Resources/zh-Hant.lproj", "Resources/en.lproj", "Resources/ja.lproj", "Resources/ko.lproj"],
             resources: [
                 .copy("Resources/AuthorWeChatQRCode.jpg"),
                 .copy("Resources/GitHubMark.png"),

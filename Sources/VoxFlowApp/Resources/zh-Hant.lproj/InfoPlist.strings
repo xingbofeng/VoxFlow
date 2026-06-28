@@ -1,0 +1,4 @@
+/* VoxFlow Info.plist 本地化覆蓋（繁體中文）。 */
+
+NSMicrophoneUsageDescription = "碼上寫需要使用麥克風來擷取語音輸入，以便將您說的話轉錄為文字。";
+NSSpeechRecognitionUsageDescription = "碼上寫需要使用語音辨識功能將您的語音轉錄為文字，並為麥克風錄影產生字幕。";

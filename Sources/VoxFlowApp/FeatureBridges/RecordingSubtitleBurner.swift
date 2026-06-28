@@ -14,11 +14,11 @@ enum RecordingSubtitleBurnError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .exportFailed(let reason):
-            return "烧录字幕失败：\(reason)"
+            return String(format: L10n.localize("subtitle.error.burn_failed_format", comment: ""), reason)
         case .outputMissing:
-            return "烧录后未生成带字幕视频"
+            return L10n.localize("subtitle.error.burn_output_missing", comment: "")
         case .invalidSource(let reason):
-            return "录屏源文件无效：\(reason)"
+            return String(format: L10n.localize("subtitle.error.invalid_source_format", comment: ""), reason)
         }
     }
 }
@@ -53,7 +53,9 @@ final class LiveRecordingSubtitleBurner: RecordingSubtitleBurner {
         let asset = AVURLAsset(url: sourceVideoURL)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
-            throw RecordingSubtitleBurnError.invalidSource("缺少视频轨")
+            throw RecordingSubtitleBurnError.invalidSource(
+                L10n.localize("subtitle.error.missing_video_track", comment: "")
+            )
         }
         let naturalSize = try await videoTrack.load(.naturalSize)
         let preferredTransform = try await videoTrack.load(.preferredTransform)
@@ -88,7 +90,9 @@ final class LiveRecordingSubtitleBurner: RecordingSubtitleBurner {
         )
 
         guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
-            throw RecordingSubtitleBurnError.exportFailed("无法创建导出会话")
+            throw RecordingSubtitleBurnError.exportFailed(
+                L10n.localize("subtitle.error.export_session_create_failed", comment: "")
+            )
         }
         session.videoComposition = videoComposition
         session.outputURL = tempOutputURL
@@ -112,7 +116,9 @@ final class LiveRecordingSubtitleBurner: RecordingSubtitleBurner {
             try fileManager.moveItem(at: tempOutputURL, to: outputURL)
         } catch {
             try? fileManager.removeItem(at: tempOutputURL)
-            throw RecordingSubtitleBurnError.exportFailed("写入带字幕视频失败：\(error.localizedDescription)")
+            throw RecordingSubtitleBurnError.exportFailed(
+                String(format: L10n.localize("subtitle.error.export_subtitled_video_failed_format", comment: ""), error.localizedDescription)
+            )
         }
 
         return RecordingSubtitleBurnResult(outputURL: outputURL)
@@ -143,7 +149,9 @@ final class LiveRecordingSubtitleBurner: RecordingSubtitleBurner {
             }
         }
         guard let compositionVideoTrack else {
-            throw RecordingSubtitleBurnError.invalidSource("缺少视频轨")
+            throw RecordingSubtitleBurnError.invalidSource(
+                L10n.localize("subtitle.error.missing_video_track", comment: "")
+            )
         }
         return compositionVideoTrack
     }

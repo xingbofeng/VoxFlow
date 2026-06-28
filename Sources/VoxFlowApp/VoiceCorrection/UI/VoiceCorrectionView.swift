@@ -16,15 +16,20 @@ private enum VoiceCorrectionLayout {
 struct VoiceCorrectionView: View {
     @ObservedObject var viewModel: VoiceCorrectionViewModel
     @State private var isNewTargetPopoverPresented = false
+    @State private var isNewReplacementPopoverPresented = false
+    @State private var isLearningDrawerPresented = true
     @State private var newTargetText = ""
     @State private var newAliasText = ""
+    @State private var hotwordInput = ""
+    @State private var replacementTrigger = ""
+    @State private var replacementText = ""
     @State private var isClearAllAlertPresented = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
                 header
-                summaryCards
+                vocabularyTabs
                 contentLayout
             }
             .padding(AppTheme.Spacing.page)
@@ -34,13 +39,13 @@ struct VoiceCorrectionView: View {
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
         .onAppear { viewModel.loadIfNeeded() }
-        .alert("清空全部误听写法？", isPresented: $isClearAllAlertPresented) {
-            Button("取消", role: .cancel) {}
-            Button("清空", role: .destructive) {
+        .alert(L10n.localize("correction.dialog.clear_all_title", comment: ""), isPresented: $isClearAllAlertPresented) {
+            Button(L10n.localize("correction.action.cancel", comment: ""), role: .cancel) {}
+            Button(L10n.localize("correction.action.clear", comment: ""), role: .destructive) {
                 viewModel.clearAllRules()
             }
         } message: {
-            Text("会删除所有目标词下的误听写法，不会影响历史记录。")
+            Text(L10n.localize("correction.view.clear_all_message", comment: ""))
         }
         .actionFeedbackOverlay(
             message: viewModel.lastActionMessage,
@@ -50,19 +55,26 @@ struct VoiceCorrectionView: View {
     }
 
     private var contentLayout: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: AppTheme.Spacing.section) {
-                targetLibraryPanel
-                    .frame(minWidth: VoiceCorrectionLayout.libraryMinWidth)
-                targetDetailPanel
-                    .frame(width: VoiceCorrectionLayout.detailWidth)
-            }
+        Group {
+            switch viewModel.selectedVocabularyTab {
+            case .hotwords:
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: AppTheme.Spacing.section) {
+                        hotwordPanel
+                            .frame(minWidth: VoiceCorrectionLayout.libraryMinWidth)
+                        learningDrawer
+                            .frame(width: 360)
+                    }
 
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
-                targetLibraryPanel
-                    .frame(minWidth: VoiceCorrectionLayout.libraryMinWidth)
-                targetDetailPanel
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
+                        hotwordPanel
+                            .frame(minWidth: VoiceCorrectionLayout.libraryMinWidth)
+                        learningDrawer
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            case .textReplacement:
+                textReplacementPanel
             }
         }
     }
@@ -72,34 +84,66 @@ struct VoiceCorrectionView: View {
             Image(systemName: "text.badge.checkmark")
                 .font(.system(size: 32, weight: .semibold))
             VStack(alignment: .leading, spacing: 4) {
-                Text("易错词")
+                Text(L10n.localize("correction.view.title", comment: ""))
                     .font(.system(size: 30, weight: .semibold))
-                Text("维护常被听错的专名、术语和写法；OCR 只作为本次临时上下文，不写入这里。")
+                Text(L10n.localize("correction.view.description", comment: ""))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
             Spacer()
-            Button {
-                isNewTargetPopoverPresented = true
-            } label: {
-                Label("新增目标词", systemImage: "plus")
-                    .frame(height: 30)
+            if viewModel.selectedVocabularyTab == .hotwords, viewModel.learningCandidates.isEmpty == false {
+                Button {
+                    isLearningDrawerPresented.toggle()
+                } label: {
+                    Label(L10n.localize("vocabulary.learning.drawer_title", comment: ""), systemImage: "sparkles")
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
-            .popover(isPresented: $isNewTargetPopoverPresented, arrowEdge: .bottom) {
-                VoiceCorrectionTargetPopover(
-                    targetText: $newTargetText,
-                    aliasText: $newAliasText,
-                    onCancel: {
-                        isNewTargetPopoverPresented = false
-                    },
-                    onSave: {
-                        viewModel.createTarget(text: newTargetText, aliasesText: newAliasText)
-                        newTargetText = ""
-                        newAliasText = ""
-                        isNewTargetPopoverPresented = false
+        }
+    }
+
+    private var vocabularyTabs: some View {
+        HStack(spacing: AppTheme.Spacing.grid) {
+            ForEach(VoiceCorrectionVocabularyTab.allCases) { tab in
+                Button {
+                    viewModel.selectedVocabularyTab = tab
+                    viewModel.searchText = ""
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: tab == .hotwords ? "book.closed" : "arrow.left.arrow.right")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(viewModel.selectedVocabularyTab == tab ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+                            .frame(width: 44, height: 44)
+                            .background(AppTheme.ColorToken.accent.opacity(viewModel.selectedVocabularyTab == tab ? 0.14 : 0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(tab.title)
+                                    .font(.system(size: 17, weight: .semibold))
+                                Text(tab == .hotwords ? "\(viewModel.visibleTargetCount)" : "\(viewModel.rules.count)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 4)
+                                    .background(AppTheme.ColorToken.accent.opacity(0.10))
+                                    .clipShape(Capsule())
+                            }
+                            Text(tab.subtitle)
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                .lineLimit(2)
+                        }
+                        Spacer()
                     }
-                )
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                            .stroke(viewModel.selectedVocabularyTab == tab ? AppTheme.ColorToken.accent : AppTheme.ColorToken.subtleStroke)
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -109,24 +153,233 @@ struct VoiceCorrectionView: View {
             columns: Array(repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.grid), count: 3),
             spacing: AppTheme.Spacing.grid
         ) {
-            statCard(title: "目标词", value: "\(viewModel.visibleTargetCount)", subtitle: "长期个人词库", systemImage: "textformat")
-            statCard(title: "误听写法", value: "\(viewModel.visibleAliasCount)", subtitle: "手动添加与自动学习", systemImage: "list.bullet")
-            statCard(title: "本周修正", value: "\(weeklyCorrectionCount)", subtitle: "可在历史中撤销", systemImage: "clock.arrow.circlepath")
+            statCard(
+                title: L10n.localize("correction.target.title", comment: ""),
+                value: "\(viewModel.visibleTargetCount)",
+                subtitle: L10n.localize("correction.target.subtitle", comment: ""),
+                systemImage: "textformat"
+            )
+            statCard(
+                title: L10n.localize("correction.alias.title", comment: ""),
+                value: "\(viewModel.visibleAliasCount)",
+                subtitle: L10n.localize("correction.alias.subtitle", comment: ""),
+                systemImage: "list.bullet"
+            )
+            statCard(
+                title: L10n.localize("correction.weekly.title", comment: ""),
+                value: "\(weeklyCorrectionCount)",
+                subtitle: L10n.localize("correction.weekly.subtitle", comment: ""),
+                systemImage: "clock.arrow.circlepath"
+            )
         }
+    }
+
+    private var hotwordPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.openHotwordFile()
+                } label: {
+                    Label(L10n.localize("vocabulary.hotwords.file_button", comment: ""), systemImage: "doc.text")
+                }
+                .help(L10n.localize("vocabulary.hotwords.file_button_help", comment: ""))
+                .buttonStyle(.bordered)
+
+                Button {
+                    viewModel.openHotwordFile()
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .help(L10n.localize("vocabulary.hotwords.file_button_help", comment: ""))
+                .buttonStyle(.bordered)
+
+                Spacer()
+                TextField(L10n.localize("correction.section.target_library_search_placeholder", comment: ""), text: $viewModel.searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 240)
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                TextField(L10n.localize("vocabulary.hotwords.input_placeholder", comment: ""), text: $hotwordInput)
+                    .textFieldStyle(.plain)
+                    .onSubmit(addHotwordFromInput)
+                Text(L10n.localize("vocabulary.hotwords.input_return_hint", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(AppTheme.ColorToken.panelBackground)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                    .stroke(AppTheme.ColorToken.accent.opacity(0.45))
+            )
+
+            if viewModel.filteredHotwordRows.isEmpty {
+                emptyHotwords
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 145, maximum: 220), spacing: 10, alignment: .topLeading)],
+                    alignment: .leading,
+                    spacing: 10
+                ) {
+                    ForEach(viewModel.filteredHotwordRows) { row in
+                        HotwordChip(row: row) {
+                            viewModel.deleteHotword(row)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                Text(String(format: L10n.localize("vocabulary.hotwords.provider_budget_format", comment: ""), viewModel.visibleTargetCount))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Spacer()
+            }
+        }
+        .padding(AppTheme.Spacing.card)
+        .appPanel()
+    }
+
+    private var learningDrawer: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(L10n.localize("vocabulary.learning.drawer_title", comment: ""))
+                            .font(.system(size: 19, weight: .semibold))
+                        Text("\(viewModel.learningCandidates.count)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(AppTheme.ColorToken.accent.opacity(0.10))
+                            .clipShape(Capsule())
+                    }
+                    Text(L10n.localize("vocabulary.learning.drawer_description", comment: ""))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                Button {
+                    isLearningDrawerPresented.toggle()
+                } label: {
+                    Image(systemName: isLearningDrawerPresented ? "chevron.up" : "chevron.down")
+                }
+                .buttonStyle(.bordered)
+                .help(L10n.localize(
+                    isLearningDrawerPresented
+                        ? "vocabulary.learning.action.collapse"
+                        : "vocabulary.learning.action.expand",
+                    comment: ""
+                ))
+            }
+
+            if isLearningDrawerPresented {
+                if viewModel.learningCandidates.isEmpty {
+                    Text(L10n.localize("vocabulary.learning.empty", comment: ""))
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 20)
+                } else {
+                    ForEach(viewModel.learningCandidates) { candidate in
+                        LearningCandidateRow(
+                            candidate: candidate,
+                            onAccept: { viewModel.acceptLearningCandidate(candidate) },
+                            onIgnore: { viewModel.ignoreLearningCandidate(candidate) }
+                        )
+                    }
+                }
+            }
+        }
+        .padding(AppTheme.Spacing.card)
+        .appPanel()
+    }
+
+    private var textReplacementPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label(L10n.localize("vocabulary.tab.text_replacement", comment: ""), systemImage: "arrow.left.arrow.right")
+                        .font(.system(size: 20, weight: .semibold))
+                    Text(L10n.localize("vocabulary.text_replacement.description", comment: ""))
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                TextField(L10n.localize("vocabulary.text_replacement.search_placeholder", comment: ""), text: $viewModel.searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+                Button {
+                    isNewReplacementPopoverPresented = true
+                } label: {
+                    Label(L10n.localize("vocabulary.text_replacement.add", comment: ""), systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .popover(isPresented: $isNewReplacementPopoverPresented, arrowEdge: .bottom) {
+                    VoiceCorrectionReplacementPopover(
+                        triggerText: $replacementTrigger,
+                        replacementText: $replacementText,
+                        onCancel: resetReplacementPopover,
+                        onSave: saveReplacementRule
+                    )
+                }
+                Button {
+                    isClearAllAlertPresented = true
+                } label: {
+                    Label(L10n.localize("correction.action.clear", comment: ""), systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            LazyVStack(spacing: 0) {
+                if viewModel.filteredRules.isEmpty {
+                    emptyTextReplacements
+                } else {
+                    ForEach(viewModel.filteredRules) { rule in
+                        TextReplacementRuleRow(rule: rule, viewModel: viewModel)
+                        Divider()
+                    }
+                }
+            }
+            .background(AppTheme.ColorToken.panelBackground)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke)
+            )
+
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Text(L10n.localize("vocabulary.text_replacement.order_hint", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        }
+        .padding(AppTheme.Spacing.card)
+        .appPanel()
     }
 
     private var targetLibraryPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Label("目标词库", systemImage: "list.bullet.rectangle")
+                    Label(L10n.localize("correction.section.target_library_title", comment: ""), systemImage: "list.bullet.rectangle")
                         .font(.system(size: 18, weight: .semibold))
-                    Text("先维护正确写法，再为它添加常见误听写法")
+                    Text(L10n.localize("correction.section.target_library_description", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
                 Spacer()
-                TextField("搜索目标词或误听写法", text: $viewModel.searchText)
+                TextField(L10n.localize("correction.section.target_library_search_placeholder", comment: ""), text: $viewModel.searchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 220)
                 Button {
@@ -134,21 +387,28 @@ struct VoiceCorrectionView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .help("新增目标词")
+                .help(L10n.localize("correction.help.add_target", comment: ""))
+                .buttonStyle(.bordered)
+                Button {
+                    viewModel.openHotwordFile()
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .help(L10n.localize("vocabulary.hotwords.file_button_help", comment: ""))
                 .buttonStyle(.bordered)
                 Button {
                     isClearAllAlertPresented = true
                 } label: {
                     Image(systemName: "trash")
                 }
-                .help("清空误听写法")
+                .help(L10n.localize("correction.help.clear_aliases", comment: ""))
                 .buttonStyle(.bordered)
             }
 
             Picker("", selection: $viewModel.selectedFilter) {
-                Text("全部").tag(VoiceCorrectionRuleFilter.all)
-                Text("活跃").tag(VoiceCorrectionRuleFilter.active)
-                Text("已暂停").tag(VoiceCorrectionRuleFilter.suspended)
+                Text(L10n.localize("correction.filter.all", comment: "")).tag(VoiceCorrectionRuleFilter.all)
+                Text(L10n.localize("correction.filter.active", comment: "")).tag(VoiceCorrectionRuleFilter.active)
+                Text(L10n.localize("correction.filter.suspended", comment: "")).tag(VoiceCorrectionRuleFilter.suspended)
             }
             .pickerStyle(.segmented)
             .frame(width: 250)
@@ -191,13 +451,13 @@ struct VoiceCorrectionView: View {
 
     private var targetHeader: some View {
         HStack(spacing: VoiceCorrectionLayout.tableColumnSpacing) {
-            Text("目标词").frame(width: VoiceCorrectionLayout.targetColumnWidth, alignment: .leading)
-            Text("误听写法").frame(maxWidth: .infinity, alignment: .leading)
-            Text("作用范围").frame(width: VoiceCorrectionLayout.scopeColumnWidth, alignment: .leading)
-            Text("修正次数").frame(width: VoiceCorrectionLayout.countColumnWidth, alignment: .leading)
-            Text("最近使用").frame(width: VoiceCorrectionLayout.recentColumnWidth, alignment: .leading)
-            Text("状态").frame(width: VoiceCorrectionLayout.statusColumnWidth, alignment: .leading)
-            Text("操作").frame(width: VoiceCorrectionLayout.actionColumnWidth, alignment: .trailing)
+            Text(L10n.localize("correction.table.header.target", comment: "")).frame(width: VoiceCorrectionLayout.targetColumnWidth, alignment: .leading)
+            Text(L10n.localize("correction.alias.title", comment: "")).frame(maxWidth: .infinity, alignment: .leading)
+            Text(L10n.localize("correction.table.header.scope", comment: "")).frame(width: VoiceCorrectionLayout.scopeColumnWidth, alignment: .leading)
+            Text(L10n.localize("correction.table.header.count", comment: "")).frame(width: VoiceCorrectionLayout.countColumnWidth, alignment: .leading)
+            Text(L10n.localize("correction.table.header.recent", comment: "")).frame(width: VoiceCorrectionLayout.recentColumnWidth, alignment: .leading)
+            Text(L10n.localize("correction.table.header.status", comment: "")).frame(width: VoiceCorrectionLayout.statusColumnWidth, alignment: .leading)
+            Text(L10n.localize("correction.table.header.action", comment: "")).frame(width: VoiceCorrectionLayout.actionColumnWidth, alignment: .trailing)
         }
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(AppTheme.ColorToken.secondaryText)
@@ -210,9 +470,39 @@ struct VoiceCorrectionView: View {
             Image(systemName: "tray")
                 .font(.system(size: 24))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            Text("暂无目标词")
+            Text(L10n.localize("correction.list.empty_title", comment: ""))
                 .font(.system(size: 14, weight: .medium))
-            Text("新增目标词后，可以继续添加常见误听写法。")
+            Text(L10n.localize("correction.list.empty_hint", comment: ""))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+    }
+
+    private var emptyHotwords: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 24))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Text(L10n.localize("vocabulary.hotwords.empty_title", comment: ""))
+                .font(.system(size: 14, weight: .medium))
+            Text(L10n.localize("vocabulary.hotwords.empty_hint", comment: ""))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+    }
+
+    private var emptyTextReplacements: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 24))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Text(L10n.localize("vocabulary.text_replacement.empty_title", comment: ""))
+                .font(.system(size: 14, weight: .medium))
+            Text(L10n.localize("vocabulary.text_replacement.empty_hint", comment: ""))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -245,6 +535,141 @@ struct VoiceCorrectionView: View {
         viewModel.targetRows.reduce(0) { sum, row in
             sum + row.projection.appliedCount
         }
+    }
+
+    private func addHotwordFromInput() {
+        viewModel.addHotword(text: hotwordInput)
+        hotwordInput = ""
+    }
+
+    private func saveReplacementRule() {
+        var draft = viewModel.draftForNewRule()
+        draft.original = replacementTrigger
+        draft.replacement = replacementText
+        draft.scope = .global
+        draft.matchPolicy = .boundary
+        viewModel.saveRule(draft)
+        resetReplacementPopover()
+    }
+
+    private func resetReplacementPopover() {
+        replacementTrigger = ""
+        replacementText = ""
+        isNewReplacementPopoverPresented = false
+    }
+}
+
+private struct HotwordChip: View {
+    let row: VoiceCorrectionTargetRow
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(row.targetText)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Text(row.hitCountText)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(AppTheme.ColorToken.accent.opacity(0.08))
+                .clipShape(Capsule())
+            Spacer(minLength: 6)
+            Button(action: onDelete) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(AppTheme.ColorToken.panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke)
+        )
+    }
+}
+
+private struct LearningCandidateRow: View {
+    let candidate: CorrectionTargetTerm
+    let onAccept: () -> Void
+    let onIgnore: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text(candidate.text)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                Button(L10n.localize("vocabulary.learning.accept", comment: ""), action: onAccept)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Button(L10n.localize("vocabulary.learning.ignore", comment: ""), action: onIgnore)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            Text(String(format: L10n.localize("vocabulary.learning.observed_count_format", comment: ""), candidate.observedCount))
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .padding(12)
+        .background(AppTheme.ColorToken.panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke)
+        )
+    }
+}
+
+private struct TextReplacementRuleRow: View {
+    let rule: CorrectionRule
+    @ObservedObject var viewModel: VoiceCorrectionViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(rule.original)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(rule.replacement)
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            Spacer()
+            Text(String(format: L10n.localize("correction.target.correction_count_format", comment: ""), rule.appliedCount))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Menu {
+                Button(L10n.localize("correction.action.pause_alias", comment: ""), systemImage: "pause.circle") {
+                    viewModel.disableRule(rule)
+                }
+                Button(L10n.localize("correction.action.delete_alias", comment: ""), systemImage: "trash", role: .destructive) {
+                    viewModel.deleteRule(rule)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 26, height: 22)
+            }
+            .menuStyle(.borderlessButton)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 58)
     }
 }
 
@@ -312,13 +737,13 @@ private struct VoiceCorrectionTargetDetailView: View {
                         .font(.system(size: 24, weight: .semibold))
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
-                    Text("目标词")
+                Text(L10n.localize("correction.target.title", comment: ""))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("常见误听写法", systemImage: "text.quote")
+                    Label(L10n.localize("correction.detail.alias_section_title", comment: ""), systemImage: "text.quote")
                         .font(.system(size: 17, weight: .semibold))
                     ForEach(aliases) { alias in
                         aliasRow(alias)
@@ -326,7 +751,7 @@ private struct VoiceCorrectionTargetDetailView: View {
                     Button {
                         isAliasPopoverPresented = true
                     } label: {
-                        Label("添加误听写法", systemImage: "plus")
+                        Label(L10n.localize("correction.action.add_alias", comment: ""), systemImage: "plus")
                     }
                     .buttonStyle(.bordered)
                     .popover(isPresented: $isAliasPopoverPresented, arrowEdge: .trailing) {
@@ -349,19 +774,19 @@ private struct VoiceCorrectionTargetDetailView: View {
 
                 if recentLearningEvents.isEmpty == false {
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("最近学习", systemImage: "sparkles")
+                        Label(L10n.localize("correction.detail.recent_learning_title", comment: ""), systemImage: "sparkles")
                             .font(.system(size: 17, weight: .semibold))
                         ForEach(recentLearningEvents) { event in
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(event.title)
                                         .font(.system(size: 13, weight: .medium))
-                                    Text("刚刚自动学习")
+                                    Text(L10n.localize("correction.detail.recent_learning_text", comment: ""))
                                         .font(.system(size: 12))
                                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                                 }
                                 Spacer()
-                                Button("撤销") {
+                                Button(L10n.localize("correction.action.undo", comment: "")) {
                                     viewModel.undoRecentLearning()
                                 }
                                 .buttonStyle(.borderless)
@@ -372,9 +797,9 @@ private struct VoiceCorrectionTargetDetailView: View {
                     .appPanel()
                 }
 
-                DisclosureGroup("高级设置") {
+                DisclosureGroup(L10n.localize("correction.detail.advanced_settings_title", comment: "")) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("作用范围、大小写敏感和匹配方式会在这里调整。")
+                        Text(L10n.localize("correction.detail.advanced_settings_help", comment: ""))
                             .font(.system(size: 12))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -385,9 +810,9 @@ private struct VoiceCorrectionTargetDetailView: View {
                 .appPanel()
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("选择目标词", systemImage: "sidebar.right")
+                    Label(L10n.localize("correction.detail.no_target_title", comment: ""), systemImage: "sidebar.right")
                         .font(.system(size: 17, weight: .semibold))
-                    Text("从左侧目标词库选择一个词，查看它的常见误听写法。")
+                    Text(L10n.localize("correction.detail.no_target_hint", comment: ""))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -405,16 +830,16 @@ private struct VoiceCorrectionTargetDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(alias.original)
                     .font(.system(size: 13, weight: .medium))
-                Text("\(alias.appliedCount) 次")
+                Text(String(format: L10n.localize("correction.target.correction_count_format", comment: ""), alias.appliedCount))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
             Spacer()
             Menu {
-                Button("暂停写法", systemImage: "pause.circle") {
+                Button(L10n.localize("correction.action.pause_alias", comment: ""), systemImage: "pause.circle") {
                     viewModel.disableRule(alias)
                 }
-                Button("删除写法", systemImage: "trash", role: .destructive) {
+                Button(L10n.localize("correction.action.delete_alias", comment: ""), systemImage: "trash", role: .destructive) {
                     viewModel.deleteRule(alias)
                 }
             } label: {
@@ -427,6 +852,51 @@ private struct VoiceCorrectionTargetDetailView: View {
     }
 }
 
+private struct VoiceCorrectionReplacementPopover: View {
+    @Binding var triggerText: String
+    @Binding var replacementText: String
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L10n.localize("vocabulary.text_replacement.modal.title", comment: ""))
+                .font(.system(size: 18, weight: .semibold))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.localize("vocabulary.text_replacement.modal.trigger", comment: ""))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                TextField(L10n.localize("vocabulary.text_replacement.modal.trigger_placeholder", comment: ""), text: $triggerText)
+                    .textFieldStyle(.roundedBorder)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.localize("vocabulary.text_replacement.modal.replacement", comment: ""))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                TextEditor(text: $replacementText)
+                    .font(.system(size: 13))
+                    .frame(width: 300, height: 120)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke)
+                    )
+            }
+            HStack {
+                Spacer()
+                Button(L10n.localize("correction.action.cancel", comment: ""), action: onCancel)
+                Button(L10n.localize("correction.action.save", comment: ""), action: onSave)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(
+                        triggerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                            replacementText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+            }
+        }
+        .padding(18)
+        .frame(width: 340)
+    }
+}
+
 private struct VoiceCorrectionAliasPopover: View {
     @Binding var aliasText: String
     let onCancel: () -> Void
@@ -434,9 +904,9 @@ private struct VoiceCorrectionAliasPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("添加误听写法")
+            Text(L10n.localize("correction.popover.add_alias_title", comment: ""))
                 .font(.system(size: 18, weight: .semibold))
-            Text("每行一个常见听错写法。")
+            Text(L10n.localize("correction.popover.add_alias_hint", comment: ""))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             TextEditor(text: $aliasText)
@@ -446,13 +916,13 @@ private struct VoiceCorrectionAliasPopover: View {
                     RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
                         .stroke(AppTheme.ColorToken.subtleStroke)
                 )
-            HStack {
-                Spacer()
-                Button("取消", action: onCancel)
-                Button("保存", action: onSave)
+                HStack {
+                    Spacer()
+                    Button(L10n.localize("correction.action.cancel", comment: ""), action: onCancel)
+                    Button(L10n.localize("correction.action.save", comment: ""), action: onSave)
                     .buttonStyle(.borderedProminent)
                     .disabled(aliasText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+                }
         }
         .padding(18)
         .frame(width: 340)
@@ -467,17 +937,17 @@ private struct VoiceCorrectionTargetPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("新增目标词")
+            Text(L10n.localize("correction.popover.new_target_title", comment: ""))
                 .font(.system(size: 18, weight: .semibold))
             VStack(alignment: .leading, spacing: 6) {
-                Text("目标词")
+                Text(L10n.localize("correction.target.title", comment: ""))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 TextField("Qwen", text: $targetText)
                     .textFieldStyle(.roundedBorder)
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("常见误听写法（可选，每行一个）")
+                Text(L10n.localize("correction.popover.aliases_title", comment: ""))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 TextEditor(text: $aliasText)
@@ -490,8 +960,8 @@ private struct VoiceCorrectionTargetPopover: View {
             }
             HStack {
                 Spacer()
-                Button("取消", action: onCancel)
-                Button("保存", action: onSave)
+                Button(L10n.localize("correction.action.cancel", comment: ""), action: onCancel)
+                Button(L10n.localize("correction.action.save", comment: ""), action: onSave)
                     .buttonStyle(.borderedProminent)
                     .disabled(targetText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }

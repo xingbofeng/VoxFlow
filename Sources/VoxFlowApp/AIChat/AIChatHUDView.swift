@@ -42,10 +42,10 @@ struct AIChatPanelView: View {
                     .frame(width: 32, height: 32)
                     .background(AppTheme.ColorToken.accentSoft, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("问 AI")
+                    Text(L10n.localize("chat.panel.title", comment: "Chat panel title"))
                         .font(.system(size: 15, weight: .semibold))
                     if viewModel.isStreaming {
-                        Text("流式回复中…")
+                        Text(L10n.localize("chat.status.streaming", comment: "Chat streaming status"))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     } else if let error = viewModel.configurationError {
@@ -54,7 +54,7 @@ struct AIChatPanelView: View {
                             .foregroundStyle(.orange)
                             .lineLimit(1)
                     } else {
-                        Text("使用已配置模型 · 多轮对话")
+                        Text(L10n.localize("chat.status.ready", comment: "Chat ready status"))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -74,7 +74,7 @@ struct AIChatPanelView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
-            .help("关闭")
+            .help(L10n.localize("chat.action.close", comment: "Close chat panel"))
         }
     }
 
@@ -141,7 +141,7 @@ struct AIChatPanelView: View {
                     Button {
                         copyToPasteboard(message.content)
                     } label: {
-                        Label("复制回复", systemImage: "doc.on.doc")
+                    Label(L10n.localize("chat.message.copy_reply", comment: "Copy chat reply"), systemImage: "doc.on.doc")
                             .labelStyle(.titleAndIcon)
                             .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 8)
@@ -150,7 +150,7 @@ struct AIChatPanelView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("复制 AI 回复")
+                    .help(L10n.localize("chat.message.copy_reply_help", comment: "Copy AI reply help"))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -162,7 +162,7 @@ struct AIChatPanelView: View {
     private func messageContent(_ message: AIChatMessage) -> some View {
         switch message.status {
         case .failed(let detail):
-            Text("请求失败：\(detail)")
+            Text(String(format: L10n.localize("chat.message.failed_format", comment: "Chat request failed"), detail))
                 .foregroundStyle(.red)
                 .font(.system(size: 13))
                 .textSelection(.enabled)
@@ -196,7 +196,7 @@ struct AIChatPanelView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            TextField("继续追问…", text: $viewModel.inputText, axis: .vertical)
+            TextField(L10n.localize("chat.input.placeholder", comment: "Chat input placeholder"), text: $viewModel.inputText, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...4)
                 .font(.system(size: 13))
@@ -220,7 +220,7 @@ struct AIChatPanelView: View {
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.isStreaming && trimmedInput.isEmpty)
-            .help(viewModel.isStreaming ? "停止生成" : "发送")
+            .help(viewModel.isStreaming ? L10n.localize("chat.input.stop", comment: "Stop generation help") : L10n.localize("chat.input.send", comment: "Send chat message"))
         }
     }
 
@@ -272,7 +272,7 @@ private struct AIChatRoleBadge: View {
     let role: AIChatMessage.Role
 
     var body: some View {
-        Text(role == .user ? "你" : "AI")
+        Text(role == .user ? L10n.localize("chat.message.user_role", comment: "Chat message user role badge") : L10n.localize("chat.message.assistant_role", comment: "Chat message assistant role badge"))
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(role == .user ? AppTheme.ColorToken.accent : Color.secondary)
             .frame(width: 30, height: 24)

@@ -321,7 +321,7 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         XCTAssertTrue(stopMethod.contains("try await screenRecordingCoordinator.stop()"))
         XCTAssertTrue(stopMethod.contains("windowCoordinator.refreshScreenshotRecords()"))
         XCTAssertTrue(stopMethod.contains("appEnvironment.notifyHistoryDidChange()"))
-        XCTAssertTrue(stopMethod.contains("showTemporaryMessage(\"录屏已保存\""))
+        XCTAssertTrue(stopMethod.contains("app.workflow.screen_recording_saved"))
     }
 
     func testRefreshingScreenshotRecordsSurfacesNewestRecordOnFirstPage() throws {
@@ -417,7 +417,7 @@ final class AppDelegateEventRoutingTests: XCTestCase {
     func testAgentDefaultOutputHUDCompletionKeepsFailureVisibleAndHidesTerminalProcessing() {
         XCTAssertEqual(
             AgentDefaultOutputHUDCompletion(outputResult: .injectionFailed(reason: "失败"), finalText: "保留文本"),
-            .failure(message: "写入当前输入框失败", retainedText: "保留文本")
+            .failure(message: L10n.localize("app.output.input_failed"), retainedText: "保留文本")
         )
         XCTAssertEqual(
             AgentDefaultOutputHUDCompletion(outputResult: .injected, finalText: "完成"),
@@ -791,7 +791,7 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         XCTAssertTrue(appDelegate.contains("subtitleEditorWindowController.present("))
         XCTAssertTrue(appDelegate.contains("recordID: recordID,"))
         XCTAssertTrue(appDelegate.contains("preferredScreen: screenRecordingResultPanelController.presentationScreen ?? NSApp.keyWindow?.screen"))
-        XCTAssertTrue(appDelegate.contains("\"录屏保存失败：\\(error.localizedDescription)\""))
+        XCTAssertTrue(appDelegate.contains("app.workflow.screen_recording_save_failed"))
         XCTAssertTrue(appEnvironment.contains("var subtitleCoordinator: RecordingSubtitleCoordinator?"))
         XCTAssertTrue(viewModel.contains("coordinator.addSubtitle(recordID: id)"))
         XCTAssertTrue(viewModel.contains("coordinator.openEditor(recordID: id)"))

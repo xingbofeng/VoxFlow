@@ -94,6 +94,11 @@ struct ApplicationSupportPaths: Equatable {
         rootDirectory.appendingPathComponent("credentials.json", isDirectory: false)
     }
 
+    /// Hotword text file: one hotword per line, # comments and empty lines ignored.
+    var hotwordsFileURL: URL {
+        rootDirectory.appendingPathComponent("hotwords.txt", isDirectory: false)
+    }
+
     func voiceTaskAudioURL(forTaskID taskID: String) -> URL {
         voiceTaskAudioDirectory.appendingPathComponent("\(taskID).m4a", isDirectory: false)
     }
@@ -127,7 +132,7 @@ enum ApplicationSupportPathsError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .applicationSupportDirectoryUnavailable:
-            return "无法定位 Application Support 目录。"
+            return L10n.localize("app.paths.application_support_unavailable", comment: "")
         }
     }
 }

@@ -418,7 +418,10 @@ CREATE TABLE IF NOT EXISTS voice_correction_targets (
     reverted_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    last_applied_at TEXT
+    last_applied_at TEXT,
+    hit_count INTEGER NOT NULL DEFAULT 0,
+    is_blocklisted INTEGER NOT NULL DEFAULT 0,
+    last_hit_at TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_targets_scope_text
@@ -430,3 +433,27 @@ ON voice_correction_targets(
 
 CREATE INDEX IF NOT EXISTS idx_voice_correction_targets_updated_at
 ON voice_correction_targets(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS voice_correction_evidence (
+    id TEXT PRIMARY KEY,
+    original TEXT NOT NULL,
+    normalized_original TEXT NOT NULL,
+    corrected TEXT NOT NULL,
+    normalized_corrected TEXT NOT NULL,
+    correction_type TEXT NOT NULL,
+    occurrence_count INTEGER NOT NULL DEFAULT 1,
+    source TEXT NOT NULL DEFAULT 'llmStructured',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_correction_evidence_pair_type
+ON voice_correction_evidence(
+    normalized_original,
+    normalized_corrected,
+    correction_type
+);
+
+CREATE INDEX IF NOT EXISTS idx_voice_correction_evidence_recent
+ON voice_correction_evidence(occurrence_count DESC, last_seen_at DESC);

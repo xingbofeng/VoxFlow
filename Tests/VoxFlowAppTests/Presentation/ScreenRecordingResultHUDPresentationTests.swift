@@ -139,8 +139,8 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         XCTAssertTrue(source.contains("Button(action: action)"))
         XCTAssertTrue(source.contains("private var feedbackText: String?"))
         XCTAssertTrue(source.contains("showFeedback("))
-        XCTAssertTrue(source.contains("已在 Finder 中显示"))
-        XCTAssertTrue(source.contains("文件不存在"))
+        XCTAssertTrue(source.contains("recording.feedback.revealed_in_finder"))
+        XCTAssertTrue(source.contains("recording.feedback.file_not_found"))
         XCTAssertFalse(source.contains("NSAlert"))
     }
 
@@ -196,7 +196,7 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(source.contains("@State private var isDeleteConfirmationPending = false"))
-        XCTAssertTrue(source.contains("showFeedback(\"再次点击删除录屏\""))
+        XCTAssertTrue(source.contains("showFeedback(L10n.localize(\"recording.feedback.delete_confirmation\""))
         XCTAssertTrue(source.contains("isDeleteConfirmationPending = true"))
         XCTAssertFalse(source.contains("runModal() == .alertFirstButtonReturn"))
     }
@@ -211,9 +211,9 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         )
         let deleteAction = actions.first { $0.kind == .delete }
 
-        XCTAssertEqual(deleteAction?.accessibilityTitle, "确认删除")
+        XCTAssertEqual(deleteAction?.accessibilityTitle, L10n.localize("recording.hud.action_delete_confirm", comment: ""))
         XCTAssertEqual(deleteAction?.systemImage, "trash.fill")
-        XCTAssertEqual(deleteAction?.help, "再次点击删除录屏")
+        XCTAssertEqual(deleteAction?.help, L10n.localize("recording.hud.action_delete_confirm_help", comment: ""))
         XCTAssertTrue(deleteAction?.isDestructive == true)
     }
 

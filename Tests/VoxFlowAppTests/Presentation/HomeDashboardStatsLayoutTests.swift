@@ -13,9 +13,12 @@ final class HomeDashboardStatsLayoutTests: XCTestCase {
             ).map { String(source[$0]) }
         )
 
-        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: \"语音\", value: \"\\(stats.sourceBreakdown.dictation)\", systemImage: \"waveform\")"))
-        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: \"截图\", value: \"\\(stats.sourceBreakdown.screenshot)\", systemImage: \"camera.viewfinder\")"))
-        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: \"剪贴板\", value: \"\\(stats.sourceBreakdown.clipboard)\", systemImage: \"clipboard\")"))
+        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: L10n.localize(\"home.source.dictation\""))
+        XCTAssertTrue(statsGrid.contains("value: \"\\(stats.sourceBreakdown.dictation)\", systemImage: \"waveform\")"))
+        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: L10n.localize(\"home.source.screenshot\""))
+        XCTAssertTrue(statsGrid.contains("value: \"\\(stats.sourceBreakdown.screenshot)\", systemImage: \"camera.viewfinder\")"))
+        XCTAssertTrue(statsGrid.contains("HomeStatCard(title: L10n.localize(\"home.source.clipboard\""))
+        XCTAssertTrue(statsGrid.contains("value: \"\\(stats.sourceBreakdown.clipboard)\", systemImage: \"clipboard\")"))
         XCTAssertTrue(statsGrid.contains("HStack(spacing: Self.cardSpacing)"))
         XCTAssertTrue(statsGrid.contains(".compact()"))
         XCTAssertTrue(statsGrid.contains("private static let cardSpacing: CGFloat = 10"))

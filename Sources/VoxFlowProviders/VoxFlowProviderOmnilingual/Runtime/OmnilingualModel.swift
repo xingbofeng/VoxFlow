@@ -21,6 +21,15 @@ public enum OmnilingualModel {
     }
 
     public static func defaultDirectoryURL() -> URL {
+        hubRepoDirectoryURL(base: modelsBaseDirectoryURL())
+    }
+
+    public static func legacyDirectoryURL() -> URL {
+        modelsBaseDirectoryURL()
+            .appendingPathComponent("omnilingual-asr-speech-swift", isDirectory: true)
+    }
+
+    private static func modelsBaseDirectoryURL() -> URL {
         let base = (try? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -30,7 +39,14 @@ public enum OmnilingualModel {
         return base
             .appendingPathComponent("VoxFlow", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("omnilingual-asr-speech-swift", isDirectory: true)
+    }
+
+    private static func hubRepoDirectoryURL(base: URL) -> URL {
+        modelID.split(separator: "/").reduce(
+            base.appendingPathComponent("models", isDirectory: true)
+        ) { partialResult, component in
+            partialResult.appendingPathComponent(String(component), isDirectory: true)
+        }
     }
 }
 

@@ -1165,9 +1165,9 @@ final class ArchitectureCheckTests: XCTestCase {
 
         XCTAssertTrue(makefile.contains("smoke-asr-provider:"), "Makefile must expose lightweight ASR provider smoke.")
         XCTAssertTrue(makefile.contains("smoke-asr-live:"), "Makefile must expose opt-in live ASR model smoke.")
-        XCTAssertTrue(makefile.contains("swift test --filter VoxFlowProviderSmokeTests"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) test $(SWIFT_PACKAGE_FLAGS) --filter VoxFlowProviderSmokeTests"))
         XCTAssertTrue(makefile.contains("VOICEINPUT_TEST_ASR_SMOKE_PROVIDER=$(PROVIDER)"))
-        XCTAssertTrue(makefile.contains("swift test --filter ASRProviderLiveSmokeTests"))
+        XCTAssertTrue(makefile.contains("$(SWIFT) test $(SWIFT_PACKAGE_FLAGS) --filter ASRProviderLiveSmokeTests"))
     }
 
     func testCIExecutesArchitectureCheckBeforePackaging() throws {

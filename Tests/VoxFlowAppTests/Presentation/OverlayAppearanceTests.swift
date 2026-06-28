@@ -127,7 +127,7 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertTrue(controller.window?.isVisible ?? false)
         XCTAssertFalse(controller.window?.ignoresMouseEvents ?? true)
         XCTAssertFalse(controller.currentText.contains("点击选择"))
-        XCTAssertTrue(labels.contains("需要确认"))
+        XCTAssertTrue(labels.contains(L10n.localize("hud.status.confirmation", comment: "")))
         XCTAssertTrue(labels.contains { $0.contains("嗯，什么意思吗？") })
         XCTAssertFalse(labels.contains { $0.contains("点击选择") })
         XCTAssertEqual(rows.count, 2)
@@ -137,7 +137,7 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertTrue(labels.contains("docs-site"))
         XCTAssertEqual(defaultRows.count, 1)
         XCTAssertTrue(labels.contains("0"))
-        XCTAssertTrue(labels.contains("直接写入当前输入框"))
+        XCTAssertTrue(labels.contains(L10n.localize("hud.output.default_label", comment: "")))
         XCTAssertTrue(rows.allSatisfy { $0.frame.minX <= 1 })
         XCTAssertTrue(rows.allSatisfy { $0.frame.width >= 500 })
         XCTAssertGreaterThanOrEqual(controller.window?.minSize.height ?? 0, 320)
@@ -307,7 +307,7 @@ final class OverlayAppearanceTests: XCTestCase {
         let contentView = try XCTUnwrap(controller.window?.contentView)
         let labels = contentView.descendantTextValues()
         XCTAssertTrue(controller.window?.isVisible ?? false)
-        XCTAssertTrue(labels.contains("需要确认"))
+        XCTAssertTrue(labels.contains(L10n.localize("hud.status.confirmation", comment: "")))
         XCTAssertTrue(labels.contains("前端"))
         XCTAssertFalse(labels.contains("请求超时"))
     }
@@ -345,7 +345,7 @@ final class OverlayAppearanceTests: XCTestCase {
 
         let rows = controller.window?.contentView?.descendantViews(withIdentifier: "agentCandidateRow") ?? []
         XCTAssertTrue(rows.isEmpty)
-        XCTAssertTrue(controller.currentText.contains("没有可用任务助手"))
+        XCTAssertTrue(controller.currentText.contains(L10n.localize("hud.no_agent_available", comment: "")))
         XCTAssertTrue(controller.currentText.contains("检查一下按钮"))
         XCTAssertLessThan(controller.window?.frame.height ?? 0, 120)
     }

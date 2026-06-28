@@ -11,9 +11,9 @@ enum AgentSessionStatus: String, Codable, Equatable, Sendable {
 
     var localizedTitle: String {
         switch self {
-        case .active: return "在线"
-        case .exited: return "已退出"
-        case .stale: return "已失效"
+        case .active: return L10n.localize("agent.session.status.online", comment: "Session status online")
+        case .exited: return L10n.localize("agent.session.status.exited", comment: "Session status exited")
+        case .stale: return L10n.localize("agent.session.status.stale", comment: "Session status stale")
         }
     }
 }

@@ -8,15 +8,15 @@ final class PaletteViewLayoutTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("struct PaletteView"))
-        XCTAssertTrue(source.contains("搜索应用、命令、资产..."))
-        XCTAssertTrue(source.contains("搜索资产..."))
+        XCTAssertTrue(source.contains("palette.search.home_placeholder"))
+        XCTAssertTrue(source.contains("palette.search.assets_placeholder"))
         XCTAssertTrue(source.contains(".frame(width: 760, height: 470)"))
         XCTAssertTrue(source.contains("footerSelectionLabel"))
         XCTAssertTrue(source.contains("footerSelectionTitle"))
-        XCTAssertTrue(source.contains("最喜欢"))
-        XCTAssertTrue(source.contains("建议"))
-        XCTAssertTrue(source.contains("还没有固定项目"))
-        XCTAssertTrue(source.contains("动作"))
+        XCTAssertTrue(source.contains("palette.section.favorites"))
+        XCTAssertTrue(source.contains("palette.section.suggestions"))
+        XCTAssertTrue(source.contains("palette.assets.empty_pinned_title"))
+        XCTAssertTrue(source.contains("palette.action.menu"))
         XCTAssertTrue(source.contains("⌘"))
         XCTAssertTrue(source.contains("K"))
         XCTAssertTrue(source.contains(".keyboardShortcut(\"k\", modifiers: .command)"))
@@ -40,8 +40,8 @@ final class PaletteViewLayoutTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("case open"))
-        XCTAssertTrue(source.contains("加入最喜欢"))
-        XCTAssertTrue(source.contains("从最喜欢移除"))
+        XCTAssertTrue(source.contains("palette.root_item.action.add_favorite"))
+        XCTAssertTrue(source.contains("palette.root_item.action.remove_favorite"))
         XCTAssertTrue(source.contains("return [\"⇧\", \"⌘\", \"F\"]"))
         XCTAssertTrue(source.contains("return [\"↩\"]"))
     }
@@ -145,7 +145,7 @@ final class PaletteViewLayoutTests: XCTestCase {
         XCTAssertTrue(source.contains(".onChange(of: viewModel.searchFocusRequestID)"))
         XCTAssertTrue(source.contains("await Task.yield()"))
         XCTAssertTrue(source.contains("Task.sleep(nanoseconds: 50_000_000)"))
-        XCTAssertTrue(source.contains("return \"应用\""))
+        XCTAssertTrue(source.contains("palette.item_kind.application"))
     }
 
     func testWebsiteIconsUseFaviconServiceAndHostPlaceholder() throws {

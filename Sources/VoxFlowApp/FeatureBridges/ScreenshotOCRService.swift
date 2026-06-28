@@ -72,7 +72,7 @@ enum ScreenshotOCRServiceError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .captureCancelled:
-            return "已取消截图"
+            return L10n.localize("screenshot.capture.error.cancelled", comment: "")
         case .captureFailed(let reason):
             return reason
         }
@@ -114,7 +114,10 @@ enum ScreenshotAudioPlaybackError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidBuffer:
-            return "无法创建截图朗读音频缓冲区"
+            return L10n.localize(
+                "screenshot.audio.error.create_buffer_failed",
+                comment: ""
+            )
         }
     }
 }
@@ -248,7 +251,10 @@ final class ScreenshotOCRService {
                     ScreenshotOCRResult(
                         originalText: "",
                         originalImage: image,
-                        ocrStatusMessage: "未识别到截图文字",
+                        ocrStatusMessage: L10n.localize(
+                            "screenshot.ocr.no_text_for_screenshot",
+                            comment: ""
+                        ),
                         captureCompletionKind: capture.completionKind
                     )
                 )
@@ -313,7 +319,10 @@ final class ScreenshotOCRService {
             let original = ScreenshotOCRResult(
                 originalText: "",
                 originalImage: image,
-                ocrStatusMessage: "未识别到截图文字",
+                ocrStatusMessage: L10n.localize(
+                    "screenshot.ocr.no_text_for_screenshot",
+                    comment: ""
+                ),
                 captureCompletionKind: .translate
             )
             return .recognized(original)
@@ -342,7 +351,13 @@ final class ScreenshotOCRService {
 
         guard !translatedLines.isEmpty else {
             AppLogger.general.warning("Screenshot line translation produced no results")
-            return .translationFailed(originalResult, "翻译未返回结果")
+            return .translationFailed(
+                originalResult,
+                L10n.localize(
+                    "screenshot.result.error.translation_empty",
+                    comment: ""
+                )
+            )
         }
 
         // 3. 构建 TranslatedOverlayAnnotationElement 并渲染
@@ -706,7 +721,7 @@ final class ScreenshotOCRService {
     func translationEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
         let message = (translator as? any TextTransformAvailabilityMessaging)?
             .unavailableMessage(for: .translation)
-            ?? "请先在设置中配置模型"
+            ?? L10n.localize("screenshot.refine.unavailable.config_required", comment: "")
         return transformEvents(
             for: result,
             operation: .translation,
@@ -755,7 +770,7 @@ final class ScreenshotOCRService {
     func summaryEvents(for result: ScreenshotOCRResult) -> AsyncStream<TextTransformEvent> {
         let message = (translator as? any TextTransformAvailabilityMessaging)?
             .unavailableMessage(for: .summary)
-            ?? "请先在设置中配置模型"
+            ?? L10n.localize("screenshot.refine.unavailable.config_required", comment: "")
         return transformEvents(
             for: result,
             operation: .summary,
@@ -993,11 +1008,11 @@ private enum ScreenshotInlineTranslationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noRecognizedText:
-            return "未识别到截图文字"
+            return L10n.localize("screenshot.ocr.no_text_for_screenshot", comment: "")
         case .translationUnavailable:
-            return "翻译前请先配置模型"
+            return L10n.localize("screenshot.refine.unavailable.config_required", comment: "")
         case .emptyTranslation:
-            return "翻译未返回结果"
+            return L10n.localize("screenshot.result.error.translation_empty", comment: "")
         }
     }
 }
@@ -1024,12 +1039,16 @@ final class SystemInteractiveScreenshotImageProvider: ScreenshotImageProviding {
 
         try await processRunner(captureURL)
         guard let image = NSImage(contentsOf: captureURL) else {
-            throw ScreenshotOCRServiceError.captureFailed("无法读取系统截图")
+            throw ScreenshotOCRServiceError.captureFailed(
+                L10n.localize("screenshot.capture.error.reading_failure", comment: "")
+            )
         }
 
         var proposedRect = CGRect(origin: .zero, size: image.size)
         guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else {
-            throw ScreenshotOCRServiceError.captureFailed("无法解码系统截图")
+            throw ScreenshotOCRServiceError.captureFailed(
+                L10n.localize("screenshot.capture.error.decode_failure", comment: "")
+            )
         }
         return cgImage
     }
@@ -1042,7 +1061,9 @@ final class SystemInteractiveScreenshotImageProvider: ScreenshotImageProviding {
         do {
             try process.run()
         } catch {
-            throw ScreenshotOCRServiceError.captureFailed("无法启动系统截图")
+            throw ScreenshotOCRServiceError.captureFailed(
+                L10n.localize("screenshot.capture.error.start_failure", comment: "")
+            )
         }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in

@@ -134,9 +134,13 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .microphonePermissionDenied:
-                return "没有麦克风权限。请在系统设置中允许 VoxFlow 使用麦克风。"
+                return String(
+                    L10n.localize("audio_recorder.error.microphone_permission_denied", comment: "Microphone permission denied")
+                )
             case .microphoneUnavailable:
-                return "未检测到可用麦克风。请连接或启用一个输入设备后重试。"
+                return String(
+                    L10n.localize("audio.recorder.error.microphone_unavailable", comment: "No available microphone error message")
+                )
             }
         }
     }

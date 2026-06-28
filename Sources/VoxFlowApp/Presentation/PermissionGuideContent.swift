@@ -17,24 +17,24 @@ enum PermissionGuideContent {
     ) -> [PermissionStatusItem] {
         [
             PermissionStatusItem(
-                title: "辅助功能",
-                subtitle: "监听快捷键并向当前应用输入转写文本",
+                title: L10n.localize("permission.item.accessibility_title", comment: "Accessibility item title"),
+                subtitle: L10n.localize("permission.item.accessibility_subtitle", comment: "Accessibility item subtitle"),
                 systemImage: "accessibility",
                 status: PermissionSummary.statusText(accessibilityTrusted),
                 granted: accessibilityTrusted,
                 settingsURL: systemSettingsURL(for: .accessibility)
             ),
             PermissionStatusItem(
-                title: "麦克风",
-                subtitle: "录制你的声音用于听写",
+                title: L10n.localize("permission.item.microphone_title", comment: "Microphone item title"),
+                subtitle: L10n.localize("permission.item.microphone_subtitle", comment: "Microphone item subtitle"),
                 systemImage: "mic",
                 status: PermissionSummary.statusText(microphonePermission == .granted),
                 granted: microphonePermission == .granted,
                 settingsURL: systemSettingsURL(for: .microphone)
             ),
             PermissionStatusItem(
-                title: "语音识别",
-                subtitle: "Apple 语音识别的真实系统授权状态",
+                title: L10n.localize("permission.item.speech_title", comment: "Speech item title"),
+                subtitle: L10n.localize("permission.item.speech_subtitle", comment: "Speech item subtitle"),
                 systemImage: "waveform",
                 status: PermissionSummary.speechRecognitionStatus(
                     engineType: engineType,
@@ -44,8 +44,8 @@ enum PermissionGuideContent {
                 settingsURL: systemSettingsURL(for: .speech)
             ),
             PermissionStatusItem(
-                title: "屏幕录制",
-                subtitle: "用于“任务助手”的当前窗口文字识别，不保存截图",
+                title: L10n.localize("permission.item.screen_recording_title", comment: "Screen recording item title"),
+                subtitle: L10n.localize("permission.item.screen_recording_subtitle", comment: "Screen recording item subtitle"),
                 systemImage: "rectangle.inset.filled.and.person.filled",
                 status: PermissionSummary.statusText(screenRecordingGranted),
                 granted: screenRecordingGranted,
@@ -60,16 +60,16 @@ enum PermissionGuideContent {
     ) -> [PermissionStatusItem] {
         [
             PermissionStatusItem(
-                title: "麦克风",
-                subtitle: "录制你的声音用于听写",
+                title: L10n.localize("permission.item.microphone_title", comment: "Microphone item title"),
+                subtitle: L10n.localize("permission.item.microphone_subtitle", comment: "Microphone item subtitle"),
                 systemImage: "mic",
                 status: PermissionSummary.statusText(microphonePermission == .granted),
                 granted: microphonePermission == .granted,
                 settingsURL: systemSettingsURL(for: .microphone)
             ),
             PermissionStatusItem(
-                title: "语音识别",
-                subtitle: "Apple 语音识别的真实系统授权状态",
+                title: L10n.localize("permission.item.speech_title", comment: "Speech item title"),
+                subtitle: L10n.localize("permission.item.speech_subtitle", comment: "Speech item subtitle"),
                 systemImage: "waveform",
                 status: PermissionSummary.statusText(speechPermission == .granted),
                 granted: speechPermission == .granted,

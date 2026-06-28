@@ -1,0 +1,13 @@
+# BartyCrouch 配置 — VoxFlow
+# 校验 .strings 完整性：缺失 key、空值、两语言不一致。
+# 由 `make i18n-check` 调用 `bartycrouch lint`（在项目根读取本文件）。
+# paths 指向目录，BartyCrouch 递归查找 .strings。
+# 覆盖 App 与 ScreenshotKit 的本地化资源，确保五语言 key 集合一致。
+
+[update]
+paths = ["Sources/VoxFlowApp/Resources", "Sources/VoxFlowScreenshotKit/Resources"]
+defaultToKeys = false
+separators = ["_"]
+
+[lint]
+paths = ["Sources/VoxFlowApp/Resources", "Sources/VoxFlowScreenshotKit/Resources"]

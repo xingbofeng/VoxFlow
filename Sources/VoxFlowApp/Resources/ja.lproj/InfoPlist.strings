@@ -1,0 +1,4 @@
+/* VoxFlow Info.plist localization overrides (Japanese). */
+
+NSMicrophoneUsageDescription = "VoxFlow は音声をキャプチャして文字に変換するため、マイクへのアクセスが必要です。";
+NSSpeechRecognitionUsageDescription = "VoxFlow は音声をテキストに変換し、マイク録画の字幕を生成するため、音声認識機能が必要です。";

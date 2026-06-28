@@ -1,10 +1,10 @@
 {
-  "version": "1.9.0",
-  "tag": "v1.9.0",
-  "assetName": "VoxFlow-1.9.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.9.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.9.0/VoxFlow-1.9.0-macOS.dmg",
-  "releaseNotes": "新增录屏字幕流程：麦克风录屏可以生成字幕草稿、打开字幕编辑器，并导出带字幕的视频。",
+  "version": "1.10.0",
+  "tag": "v1.10.0",
+  "assetName": "VoxFlow-1.10.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.0/VoxFlow-1.10.0-macOS.dmg",
+  "releaseNotes": "新增智能纠错能力：围绕热词、文本替换、结构化 LLM 纠错和自动学习，把常见识别错词沉淀成可管理的词汇表。",
   "draft": false,
   "prerelease": false
 }

@@ -13,7 +13,7 @@ struct InstalledAppSelectorView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                TextField("搜索应用名称或 Bundle ID...", text: $searchText)
+                TextField(L10n.localize("installed_app_selector.search_placeholder", comment: "Installed app search placeholder"), text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
             }

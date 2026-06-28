@@ -1,0 +1,4 @@
+/* VoxFlow Info.plist 本地化覆盖（简体中文）。 */
+
+NSMicrophoneUsageDescription = "码上写需要使用麦克风来捕获语音输入，以便将你说的话转录为文字。";
+NSSpeechRecognitionUsageDescription = "码上写需要使用语音识别功能将你的语音转录为文字，并为麦克风录屏生成字幕。";

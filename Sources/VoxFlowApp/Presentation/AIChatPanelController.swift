@@ -5,7 +5,7 @@ import SwiftUI
 /// 在其中展示 `AIChatPanelView` 多轮聊天视图。
 @MainActor
 final class AIChatPanelController {
-    private let panelController = TextResultPanelController(title: "问 AI")
+    private let panelController = TextResultPanelController(title: L10n.localize("chat.panel.title", comment: "Chat panel title"))
 
     func present(viewModel: AIChatSessionViewModel, prompt: String) {
         let rootView = AIChatPanelView(

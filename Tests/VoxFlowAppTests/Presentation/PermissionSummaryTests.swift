@@ -8,14 +8,14 @@ final class PermissionSummaryTests: XCTestCase {
                 engineType: .qwen3,
                 speechPermission: .denied
             ),
-            "未授权"
+            L10n.localize("permission.status.denied")
         )
         XCTAssertEqual(
             PermissionSummary.speechRecognitionStatus(
                 engineType: .qwen3,
                 speechPermission: .granted
             ),
-            "已授权"
+            L10n.localize("permission.status.granted")
         )
     }
 
@@ -25,22 +25,21 @@ final class PermissionSummaryTests: XCTestCase {
                 engineType: .apple,
                 speechPermission: .denied
             ),
-            "未授权"
+            L10n.localize("permission.status.denied")
         )
         XCTAssertEqual(
             PermissionSummary.speechRecognitionStatus(
                 engineType: .apple,
                 speechPermission: .granted
             ),
-            "已授权"
+            L10n.localize("permission.status.granted")
         )
     }
 
     func testQwen3PermissionAlertOnlyMentionsMicrophoneRequirement() {
         let message = PermissionSummary.recordingPermissionAlertText(engineType: .qwen3)
 
-        XCTAssertEqual(message.title, "需要麦克风权限")
-        XCTAssertTrue(message.body.contains("只需要麦克风权限"))
-        XCTAssertTrue(message.body.contains("不需要 Apple 语音识别权限"))
+        XCTAssertEqual(message.title, L10n.localize("permission.alert.title.microphone_only"))
+        XCTAssertEqual(message.body, L10n.localize("permission.alert.body.microphone_only_local"))
     }
 }

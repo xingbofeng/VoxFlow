@@ -82,7 +82,7 @@ final class StyleViewModel: ObservableObject {
         )
         load()
         lastError = nil
-        lastActionMessage = "已保存风格"
+        lastActionMessage = L10n.localize("style.feedback.saved", comment: "")
     }
 
     func setDefaultProfile(id: String) throws {
@@ -109,7 +109,7 @@ final class StyleViewModel: ObservableObject {
         )
         load()
         lastError = nil
-        lastActionMessage = "已设为默认风格"
+        lastActionMessage = L10n.localize("style.feedback.set_default", comment: "")
     }
 
     func selectProfile(id: String) throws {
@@ -147,7 +147,7 @@ final class StyleViewModel: ObservableObject {
         )
         load()
         lastError = nil
-        lastActionMessage = "已重置内置提示词"
+        lastActionMessage = L10n.localize("style.feedback.reset_prompt", comment: "")
     }
 
     func saveAppStyleRule(
@@ -171,7 +171,7 @@ final class StyleViewModel: ObservableObject {
         try appStyleRuleStore.save(rule)
         load()
         lastError = nil
-        lastActionMessage = "已保存应用规则"
+        lastActionMessage = L10n.localize("style.feedback.app_rule_saved", comment: "")
     }
 
     func deleteAppStyleRule(id: String) {
@@ -179,7 +179,7 @@ final class StyleViewModel: ObservableObject {
             try appStyleRuleStore.delete(id: id)
             load()
             lastError = nil
-            lastActionMessage = "已删除应用规则"
+            lastActionMessage = L10n.localize("style.feedback.app_rule_deleted", comment: "")
         } catch {
             report(error: error)
         }
@@ -230,11 +230,11 @@ enum StyleViewModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .profileNotFound:
-            return "风格不存在。"
+            return L10n.localize("style.error.not_found", comment: "")
         case .applicationIdentityRequired:
-            return "Bundle ID 和应用名称至少填写一项。"
+            return L10n.localize("style.error.application_identity_required", comment: "")
         case .promptRequired:
-            return "提示词不能为空。"
+            return L10n.localize("style.error.prompt_required", comment: "")
         }
     }
 }

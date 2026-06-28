@@ -56,22 +56,21 @@ final class PromptBuilderTests: XCTestCase {
     func testBuiltInPromptsStayRuntimeFocused() throws {
         for style in BuiltInStyleCatalog.profiles(now: Date()) {
             XCTAssertGreaterThan(style.prompt.count, 50, style.id)
-            XCTAssertTrue(style.prompt.contains("风格："), style.id)
-            XCTAssertTrue(style.prompt.contains("- "), style.id)
+            XCTAssertTrue(style.prompt.contains("# Role"), style.id)
+            XCTAssertTrue(style.prompt.contains("严禁回答"), style.id)
+            XCTAssertTrue(style.prompt.contains("严禁执行"), style.id)
             XCTAssertFalse(style.prompt.contains("**用途**"), style.id)
             XCTAssertFalse(style.prompt.contains("**与 LLM 纠错的关系**"), style.id)
             XCTAssertFalse(style.prompt.contains("**不会改写的情况**"), style.id)
-            XCTAssertFalse(style.prompt.contains("输出只包含"), style.id)
-            XCTAssertFalse(style.prompt.contains("不要添加任何解释"), style.id)
         }
     }
 
-    func testEnergeticStyleLetsAIDecideEmojiUsage() throws {
+    func testEnergeticStyleKeepsControlledEmojiGuidance() throws {
         let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.energetic"))
 
-        XCTAssertTrue(style.prompt.localizedCaseInsensitiveContains("emoji"))
-        XCTAssertTrue(style.prompt.contains("根据语境自行判断"))
-        XCTAssertFalse(style.prompt.contains("0-2"))
+        XCTAssertTrue(style.prompt.contains("Emoji 风格化"))
+        XCTAssertTrue(style.prompt.contains("一般 0–1 个，较长内容 1–2 个"))
+        XCTAssertTrue(style.prompt.contains("严禁重复同一个 Emoji"))
         XCTAssertTrue(try XCTUnwrap(style.sampleOutput).contains("✨"))
     }
 

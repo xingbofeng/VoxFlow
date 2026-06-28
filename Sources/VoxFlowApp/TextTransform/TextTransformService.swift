@@ -102,7 +102,10 @@ final class TextTransformService {
             let task = Task {
                 guard refiner.isEnabled, refiner.isConfigured else {
                     let message = (refiner as? any TextTransformAvailabilityMessaging)?
-                        .unavailableMessage(for: request.operation) ?? "请先在设置中配置模型"
+                        .unavailableMessage(for: request.operation) ?? L10n.localize(
+                            "llm.text_transform.unavailable_message",
+                            comment: "Text transform unavailable message"
+                        )
                     continuation.yield(.failed(message: message, partialText: ""))
                     continuation.finish()
                     return

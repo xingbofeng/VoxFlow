@@ -140,7 +140,8 @@ enum AppDatabaseSchemaValidator {
             columns: [
                 "id", "text", "normalized_text", "scope_type", "scope_value", "lifecycle",
                 "source", "observed_count", "applied_count", "reverted_count",
-                "created_at", "updated_at", "last_applied_at"
+                "created_at", "updated_at", "last_applied_at",
+                "hit_count", "is_blocklisted", "last_hit_at"
             ]
         )
     ]

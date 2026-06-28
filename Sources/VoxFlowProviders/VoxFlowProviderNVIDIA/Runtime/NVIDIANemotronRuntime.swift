@@ -3,6 +3,7 @@ import NemotronStreamingASR
 
 public protocol NVIDIANemotronTranscribing: Sendable {
     func setPartialHandler(_ handler: @escaping @Sendable (String) -> Void) async
+    func setWordBoostingPhrases(_ phrases: [String]) async
     func setLanguage(_ languageCode: String?) async
     func accept(audio: [Float]) async throws -> String
     func finish() async throws -> String
@@ -17,6 +18,7 @@ private actor NVIDIANemotronSpeechSwiftTranscriber: NVIDIANemotronTranscribing {
     private let model: NemotronStreamingASRModel
     private var session: StreamingSession?
     private var languageCode: String?
+    private var wordBoostingPhrases: [String] = []
     private var partialHandler: (@Sendable (String) -> Void)?
 
     init(model: NemotronStreamingASRModel) {
@@ -27,9 +29,19 @@ private actor NVIDIANemotronSpeechSwiftTranscriber: NVIDIANemotronTranscribing {
         partialHandler = handler
     }
 
+    func setWordBoostingPhrases(_ phrases: [String]) async {
+        wordBoostingPhrases = phrases
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        session = nil
+    }
+
     func setLanguage(_ languageCode: String?) async {
         self.languageCode = languageCode
-        session = try? model.createSession(language: languageCode)
+        session = try? model.createSession(
+            language: languageCode,
+            wordBoosting: wordBoostingConfig()
+        )
     }
 
     func accept(audio: [Float]) async throws -> String {
@@ -59,9 +71,16 @@ private actor NVIDIANemotronSpeechSwiftTranscriber: NVIDIANemotronTranscribing {
         if let session {
             return session
         }
-        let created = try model.createSession(language: languageCode)
+        let created = try model.createSession(
+            language: languageCode,
+            wordBoosting: wordBoostingConfig()
+        )
         session = created
         return created
+    }
+
+    private func wordBoostingConfig() -> WordBoostingConfig? {
+        wordBoostingPhrases.isEmpty ? nil : WordBoostingConfig(phrases: wordBoostingPhrases)
     }
 }
 

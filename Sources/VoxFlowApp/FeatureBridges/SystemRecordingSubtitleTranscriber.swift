@@ -16,13 +16,13 @@ enum RecordingSubtitleTranscriptionError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noMicrophoneAudio:
-            return "这段录屏没有麦克风音频，无法添加字幕"
+            return L10n.localize("subtitle.error.no_microphone_track", comment: "")
         case .speechPermissionDenied:
-            return "需要语音识别权限才能生成字幕"
+            return L10n.localize("subtitle.error.recognition_permission_required", comment: "")
         case .audioExtractionFailed(let reason):
-            return "抽取录屏音轨失败：\(reason)"
+            return String(format: L10n.localize("subtitle.error.audio_extraction_failed_format", comment: ""), reason)
         case .recognitionFailed(let reason):
-            return "字幕生成失败：\(reason)"
+            return String(format: L10n.localize("subtitle.error.subtitle_generation_failed_format", comment: ""), reason)
         }
     }
 }
@@ -138,7 +138,9 @@ final class LiveRecordingAudioTrackExtractor: RecordingAudioTrackExtractorPort {
     func extractAudio(from videoURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: videoURL)
         guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-            throw RecordingSubtitleTranscriptionError.audioExtractionFailed("无法创建导出会话")
+            throw RecordingSubtitleTranscriptionError.audioExtractionFailed(
+                L10n.localize("subtitle.error.export_session_create_failed", comment: "")
+            )
         }
 
         let tempDirectory = FileManager.default.temporaryDirectory
@@ -157,7 +159,9 @@ final class LiveRecordingAudioTrackExtractor: RecordingAudioTrackExtractorPort {
         }
 
         guard FileManager.default.fileExists(atPath: outputURL.path) else {
-            throw RecordingSubtitleTranscriptionError.audioExtractionFailed("导出后音轨文件不存在")
+            throw RecordingSubtitleTranscriptionError.audioExtractionFailed(
+                L10n.localize("subtitle.error.extracted_audio_missing", comment: "")
+            )
         }
         return outputURL
     }
@@ -191,10 +195,14 @@ final class LiveRecordingSpeechRecognizer: RecordingSpeechRecognizerPort {
 
     func transcribeAudioFile(at url: URL) async throws -> [TimedSpeechSegment] {
         guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer() else {
-            throw RecordingSubtitleTranscriptionError.recognitionFailed("当前语言不可用")
+            throw RecordingSubtitleTranscriptionError.recognitionFailed(
+                L10n.localize("subtitle.error.language_not_available", comment: "")
+            )
         }
         guard recognizer.isAvailable else {
-            throw RecordingSubtitleTranscriptionError.recognitionFailed("语音识别不可用")
+            throw RecordingSubtitleTranscriptionError.recognitionFailed(
+                L10n.localize("subtitle.error.recognition_unavailable", comment: "")
+            )
         }
 
         let request = SFSpeechURLRecognitionRequest(url: url)

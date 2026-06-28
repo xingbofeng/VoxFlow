@@ -28,19 +28,33 @@ enum AppleSystemTranslationError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unavailableOnCurrentSystem:
-            return "Apple 系统翻译在当前系统版本不可用，请使用已配置模型或安装本地翻译模型"
+            return String(
+                L10n.localize("translation.error.unavailable_on_current_system", comment: "Apple translation unavailable on current system")
+            )
         case .unableToIdentifyLanguage:
-            return "无法识别原文语言，请增加一些完整文字后重试"
+            return String(
+                L10n.localize("translation.error.unable_to_identify_language", comment: "Cannot identify source language")
+            )
         case .unsupportedLanguage:
-            return "Apple 系统翻译暂不支持这种语言，请切换翻译模型"
+            return String(
+                L10n.localize("translation.error.unsupported_language", comment: "Source language unsupported by system translation")
+            )
         case .languagePackDownloadFailed:
-            return "系统翻译语言包下载失败，请检查网络和磁盘空间后重试"
+            return String(
+                L10n.localize("translation.error.language_pack_download_failed", comment: "System translation language pack download failed")
+            )
         case .sessionHostUnavailable:
-            return "系统翻译窗口未就绪，请关闭结果窗口后重试"
+            return String(
+                L10n.localize("translation.error.session_host_unavailable", comment: "Translation session host unavailable")
+            )
         case .cancelled:
-            return "已取消翻译"
+            return String(
+                L10n.localize("translation.error.cancelled", comment: "Translation cancelled")
+            )
         case .internalFailure:
-            return "Apple 系统翻译失败，请稍后重试或切换翻译模型"
+            return String(
+                L10n.localize("translation.error.internal_failure", comment: "System translation internal failure")
+            )
         }
     }
 }

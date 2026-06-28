@@ -15,4 +15,6 @@ openspec/
 .claude/
 .codebuddy/
 .codex/
+.opencode/
 Vendor/sherpa-onnx.xcframework/
+.DS_Store

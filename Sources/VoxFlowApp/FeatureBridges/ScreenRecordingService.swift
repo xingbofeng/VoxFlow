@@ -73,13 +73,13 @@ enum ScreenRecordingServiceError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .displayNotFound: return "找不到目标显示器。"
-        case .writerSetupFailed(let r): return "录屏编码器初始化失败：\(r)"
-        case .writerStartFailed(let r): return "录屏编码器启动失败：\(r)"
-        case .streamStartFailed(let r): return "屏幕采集启动失败：\(r)"
-        case .microphonePermissionDenied: return "麦克风权限被拒绝。"
-        case .finalizeFailed(let r): return "录屏文件完成失败：\(r)"
-        case .notRunning: return "没有正在进行的录屏。"
+        case .displayNotFound: return L10n.localize("recording.error.display_not_found", comment: "")
+        case .writerSetupFailed(let r): return String(format: L10n.localize("recording.error.writer_setup_failed_format", comment: ""), r)
+        case .writerStartFailed(let r): return String(format: L10n.localize("recording.error.writer_start_failed_format", comment: ""), r)
+        case .streamStartFailed(let r): return String(format: L10n.localize("recording.error.stream_start_failed_format", comment: ""), r)
+        case .microphonePermissionDenied: return L10n.localize("recording.error.microphone_permission_denied", comment: "")
+        case .finalizeFailed(let r): return String(format: L10n.localize("recording.error.finalize_failed_format", comment: ""), r)
+        case .notRunning: return L10n.localize("recording.error.not_running", comment: "")
         }
     }
 }
@@ -147,14 +147,18 @@ final class ScreenRecordingService: ScreenRecordingServicing, @unchecked Sendabl
         }
         let videoInput = makeVideoInput(width: pixelWidth, height: pixelHeight)
         guard writer.canAdd(videoInput) else {
-            throw ScreenRecordingServiceError.writerSetupFailed("无法添加视频输入")
+            throw ScreenRecordingServiceError.writerSetupFailed(
+                L10n.localize("recording.error.video_input_add_failed", comment: "")
+            )
         }
         writer.add(videoInput)
         self.videoInput = videoInput
         if request.audioMode == .microphone {
             let audioInput = makeAudioInput()
             guard writer.canAdd(audioInput) else {
-                throw ScreenRecordingServiceError.writerSetupFailed("无法添加麦克风音频输入")
+                throw ScreenRecordingServiceError.writerSetupFailed(
+                    L10n.localize("recording.error.microphone_input_add_failed", comment: "")
+                )
             }
             writer.add(audioInput)
             self.audioInput = audioInput

@@ -128,6 +128,116 @@ final class StyleViewModelTests: XCTestCase {
         )
     }
 
+    func testShortBuiltInStyleCardPromptIsEligibleForUpgrade() {
+        let oldPrompt = """
+        ## 日常风格
+
+        **用途**：整理成自然、友好的日常表达，适合聊天、即时消息和团队内部沟通。
+
+        **规则**：
+        - 保留用户原本的态度和信息
+        - 只修正明显的识别错误、断句和不自然的标点
+
+        **与 LLM 纠错的关系**：LLM 纠错先修正识别错误，此风格再确保语气自然。
+
+        输出只包含修正后的正文，不要添加任何解释、标题、引号或额外内容。
+        """
+
+        XCTAssertTrue(
+            BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
+                oldPrompt,
+                profileID: "builtin.casual"
+            )
+        )
+    }
+
+    func testSeederUpgradesLegacyBuiltInPromptToFullTemplate() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let legacyPrompt = """
+        ## 日常风格
+
+        **用途**：整理成自然、友好的日常表达，适合聊天、即时消息和团队内部沟通。
+
+        **规则**：
+        - 保留用户原本的态度和信息
+        - 只修正明显的识别错误、断句和不自然的标点
+        - 可以去掉完全无意义的语气填充词，但不把句子改成正式公文
+        - 不擅自增加表情、称呼、承诺或事实
+        - 不过度热情，不改变用户的立场
+
+        **与 LLM 纠错的关系**：LLM 纠错负责修正识别错误，此风格只让表达更自然。
+
+        **不会改写的情况**：用户原本的情绪、语气和立场不会被替换成更礼貌或更正式的表达。
+
+        输出只包含修正后的正文，不要添加任何解释、标题、引号或额外内容。
+        """
+        let existing = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: existing.id,
+                name: existing.name,
+                category: existing.category,
+                subtitle: existing.subtitle,
+                mode: existing.mode,
+                prompt: legacyPrompt,
+                sampleInput: existing.sampleInput,
+                sampleOutput: existing.sampleOutput,
+                llmProviderID: existing.llmProviderID,
+                model: existing.model,
+                temperature: existing.temperature,
+                enabled: existing.enabled,
+                builtIn: existing.builtIn,
+                isDefault: true,
+                createdAt: existing.createdAt,
+                updatedAt: existing.updatedAt
+            )
+        )
+
+        try BuiltInStyleSeeder.seed(
+            styleRepository: environment.styleRepository,
+            clock: environment.clock
+        )
+
+        let upgraded = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        XCTAssertEqual(upgraded.prompt, StructuredCorrectionPromptBuilder.casualTemplate)
+        XCTAssertTrue(upgraded.isDefault)
+    }
+
+    func testSeederDoesNotOverwriteCustomizedBuiltInPrompt() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let existing = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: existing.id,
+                name: existing.name,
+                category: existing.category,
+                subtitle: existing.subtitle,
+                mode: existing.mode,
+                prompt: "这是用户自定义的提示词",
+                sampleInput: existing.sampleInput,
+                sampleOutput: existing.sampleOutput,
+                llmProviderID: existing.llmProviderID,
+                model: existing.model,
+                temperature: existing.temperature,
+                enabled: existing.enabled,
+                builtIn: existing.builtIn,
+                isDefault: existing.isDefault,
+                createdAt: existing.createdAt,
+                updatedAt: existing.updatedAt
+            )
+        )
+
+        try BuiltInStyleSeeder.seed(
+            styleRepository: environment.styleRepository,
+            clock: environment.clock
+        )
+
+        XCTAssertEqual(
+            try environment.styleRepository.profile(id: "builtin.casual")?.prompt,
+            "这是用户自定义的提示词"
+        )
+    }
+
     func testAppStyleRulesPersistThroughSettingsRepository() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = StyleViewModel(environment: environment)
@@ -214,6 +324,31 @@ final class StyleViewModelTests: XCTestCase {
             group.recommendations.map(\.bundleID)
         }
         XCTAssertTrue(aiBundleIDs.contains("com.example.researched"))
+    }
+
+    func testSmartConfigurationShowsEmptyReviewStateWhenNoAppsMatch() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let app = InstalledApplication(
+            id: "com.example.unknown",
+            name: "Mystery",
+            bundleID: "com.example.unknown",
+            iconPath: nil,
+            path: "/Applications/Mystery.app",
+            systemCategory: .userApplication
+        )
+        let viewModel = StyleViewModel(
+            environment: environment,
+            smartConfigurationAppProvider: StubInstalledApplicationProvider(apps: [app]),
+            smartConfigurationClassifierFactory: { _ in nil }
+        )
+
+        let smartConfigurationViewModel = viewModel.makeSmartConfigurationViewModel()
+        await smartConfigurationViewModel.startConfiguration()
+
+        XCTAssertEqual(smartConfigurationViewModel.totalAppCount, 1)
+        XCTAssertEqual(smartConfigurationViewModel.groups.count, 0)
+        XCTAssertEqual(smartConfigurationViewModel.phase, .reviewing)
+        XCTAssertFalse(smartConfigurationViewModel.canConfirm)
     }
 }
 

@@ -9,7 +9,7 @@ final class CapabilityModelViewPresentationTests: XCTestCase {
 
         XCTAssertTrue(source.contains("downloadModel(id: model.id)"))
         XCTAssertTrue(source.contains("ProgressView(value: viewModel.downloadProgress)"))
-        XCTAssertTrue(source.contains("Label(\"下载模型\", systemImage: \"arrow.down.circle\")"))
+        XCTAssertTrue(source.contains("Label(L10n.localize(\"model.capability.download_button\""))
     }
 
     func testCapabilityModelCardsUseRowSelectionInsteadOfUseButton() throws {

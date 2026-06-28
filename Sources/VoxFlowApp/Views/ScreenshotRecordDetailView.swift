@@ -46,14 +46,14 @@ struct RecordingSubtitleDetailPresentation: Equatable {
 
         if record.audioMode != .microphone {
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
-                statusText: "无麦克风音频",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
+                statusText: L10n.localize("screenshot.record.detail.subtitle_status_no_microphone", comment: ""),
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .addSubtitle,
-                        title: "添加字幕",
-                        help: "这段录屏没有麦克风音频，无法添加字幕",
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_add", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_add_no_audio_help", comment: ""),
                         isEnabled: false
                     )
                 ]
@@ -63,27 +63,27 @@ struct RecordingSubtitleDetailPresentation: Equatable {
         switch record.subtitleStatus {
         case .none:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .addSubtitle,
-                        title: "添加字幕",
-                        help: "添加字幕"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_add", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_add_help", comment: "")
                     )
                 ]
             )
         case .generating:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .progress,
-                        title: "生成中…",
-                        help: "字幕生成中…",
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_generating", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_generating_help", comment: ""),
                         isEnabled: false,
                         showsProgress: true
                     )
@@ -91,32 +91,32 @@ struct RecordingSubtitleDetailPresentation: Equatable {
             )
         case .draftReady:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .openEditor,
-                        title: "查看/编辑字幕",
-                        help: "查看/编辑字幕"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_view_edit", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_view_edit_help", comment: "")
                     ),
                     RecordingSubtitleDetailActionPresentation(
                         kind: .burn,
-                        title: "烧录字幕",
-                        help: "烧录字幕"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_burn", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_burn_help", comment: "")
                     )
                 ]
             )
         case .burning:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .progress,
-                        title: "烧录中…",
-                        help: "字幕烧录中…",
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_burning", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_burning_help", comment: ""),
                         isEnabled: false,
                         showsProgress: true
                     )
@@ -124,37 +124,37 @@ struct RecordingSubtitleDetailPresentation: Equatable {
             )
         case .burned:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: nil,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .openSubtitledVideo,
-                        title: "打开带字幕视频",
-                        help: "打开带字幕视频"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_open_subtitled_video", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_open_subtitled_video_help", comment: "")
                     ),
                     RecordingSubtitleDetailActionPresentation(
                         kind: .openOriginalVideo,
-                        title: "查看原视频",
-                        help: "查看原视频"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_open_original_video", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_open_original_video_help", comment: "")
                     ),
                     RecordingSubtitleDetailActionPresentation(
                         kind: .openEditor,
-                        title: "查看/编辑字幕",
-                        help: "查看/编辑字幕"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_view_edit", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_view_edit_help", comment: "")
                     )
                 ]
             )
         case .failed:
             return RecordingSubtitleDetailPresentation(
-                sectionTitle: "字幕",
+                sectionTitle: L10n.localize("screenshot.record.detail.subtitle_section_title", comment: ""),
                 statusText: record.subtitleStatus.displayTitle,
                 errorMessage: record.subtitleErrorMessage,
                 actions: [
                     RecordingSubtitleDetailActionPresentation(
                         kind: .retry,
-                        title: "重试",
-                        help: "重试生成字幕"
+                        title: L10n.localize("screenshot.record.detail.subtitle_action_retry", comment: ""),
+                        help: L10n.localize("screenshot.record.detail.subtitle_action_retry_help", comment: "")
                     )
                 ]
             )
@@ -192,13 +192,13 @@ struct ScreenshotRecordDetailView: View {
             error: viewModel.lastError,
             onDismiss: viewModel.clearFeedback
         )
-        .alert("生成带字幕视频？", isPresented: $showBurnConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("生成带字幕视频") {
+        .alert(L10n.localize("screenshot.record.detail.burn_confirm_title", comment: ""), isPresented: $showBurnConfirm) {
+            Button(L10n.localize("screenshot.record.detail.burn_confirm_cancel", comment: ""), role: .cancel) {}
+            Button(L10n.localize("screenshot.record.detail.burn_confirm_action", comment: "")) {
                 viewModel.startSubtitleBurn(id: record.id)
             }
         } message: {
-            Text("将生成一个新的 mp4，原始录屏会保留。")
+            Text(L10n.localize("screenshot.record.detail.burn_confirm_message", comment: ""))
         }
     }
 
@@ -207,10 +207,10 @@ struct ScreenshotRecordDetailView: View {
     private var header: some View {
         HStack(spacing: 12) {
             if record.mediaType == .screenRecording {
-                Text("录屏详情")
+                Text(L10n.localize("screenshot.record.detail.header_screen_recording", comment: ""))
                     .font(.system(size: 16, weight: .semibold))
             } else {
-                Text("截图详情")
+                Text(L10n.localize("screenshot.record.detail.header_screenshot", comment: ""))
                     .font(.system(size: 16, weight: .semibold))
             }
             Spacer()
@@ -223,7 +223,7 @@ struct ScreenshotRecordDetailView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
-            .help("关闭")
+            .help(L10n.localize("screenshot.record.detail.action_close_help", comment: ""))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -262,7 +262,7 @@ struct ScreenshotRecordDetailView: View {
                         Image(systemName: "video.slash")
                             .font(.system(size: 40))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.3))
-                        Text("视频不可用")
+                        Text(L10n.localize("screenshot.record.detail.media_unavailable_video", comment: ""))
                             .font(.system(size: 13))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -290,7 +290,7 @@ struct ScreenshotRecordDetailView: View {
                         Image(systemName: "photo")
                             .font(.system(size: 40))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.3))
-                        Text("图片不可用")
+                        Text(L10n.localize("screenshot.record.detail.media_unavailable_image", comment: ""))
                             .font(.system(size: 13))
                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     }
@@ -320,20 +320,43 @@ struct ScreenshotRecordDetailView: View {
 
     private var metaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("元信息")
+            Text(L10n.localize("screenshot.record.detail.meta_title", comment: ""))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
 
-            metaRow(label: "时间", value: ScreenshotRecordView.dateFormatter.string(from: record.createdAt))
+            metaRow(
+                label: L10n.localize("screenshot.record.detail.meta_label_time", comment: ""),
+                value: ScreenshotRecordView.dateFormatter.string(from: record.createdAt)
+            )
             if record.mediaType == .screenRecording {
-                metaRow(label: "时长", value: formatDuration(record.durationMs))
-                metaRow(label: "分辨率", value: formatResolution(record.width, record.height))
-                metaRow(label: "文件大小", value: formatFileSize(record.fileSizeBytes))
-                metaRow(label: "声音", value: audioModeTitle(record.audioMode))
+                metaRow(
+                    label: L10n.localize("screenshot.record.detail.meta_label_duration", comment: ""),
+                    value: formatDuration(record.durationMs)
+                )
+                metaRow(
+                    label: L10n.localize("screenshot.record.detail.meta_label_resolution", comment: ""),
+                    value: formatResolution(record.width, record.height)
+                )
+                metaRow(
+                    label: L10n.localize("screenshot.record.detail.meta_label_file_size", comment: ""),
+                    value: formatFileSize(record.fileSizeBytes)
+                )
+                metaRow(
+                    label: L10n.localize("screenshot.record.detail.meta_label_audio", comment: ""),
+                    value: audioModeTitle(record.audioMode)
+                )
             } else {
-                metaRow(label: "字数", value: "\(record.charCount)")
+                metaRow(
+                    label: L10n.localize("screenshot.record.detail.meta_label_char_count", comment: ""),
+                    value: "\(record.charCount)"
+                )
             }
-            metaRow(label: "收藏", value: record.isFavorited ? "已收藏" : "未收藏")
+            metaRow(
+                label: L10n.localize("screenshot.record.detail.meta_label_favorite", comment: ""),
+                value: record.isFavorited
+                    ? L10n.localize("screenshot.record.detail.meta_value_favorited", comment: "")
+                    : L10n.localize("screenshot.record.detail.meta_value_unfavorited", comment: "")
+            )
         }
     }
 
@@ -358,7 +381,7 @@ struct ScreenshotRecordDetailView: View {
                 Text(presentation.sectionTitle)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                metaRow(label: "状态", value: presentation.statusText)
+                metaRow(label: L10n.localize("screenshot.record.detail.status_label", comment: ""), value: presentation.statusText)
                 if let errorMessage = presentation.errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 11))
@@ -430,11 +453,11 @@ struct ScreenshotRecordDetailView: View {
 
     private var ocrSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("识别文字")
+            Text(L10n.localize("screenshot.record.detail.ocr_title", comment: ""))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             if record.ocrText.isEmpty {
-                Text("未识别到文字")
+                Text(L10n.localize("screenshot.record.detail.ocr_no_text", comment: ""))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.6))
             } else {
@@ -455,7 +478,7 @@ struct ScreenshotRecordDetailView: View {
     private var translatedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let translated = record.translatedText, !translated.isEmpty {
-                Text("翻译")
+                Text(L10n.localize("screenshot.record.detail.translation_title", comment: ""))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 ScrollView {
@@ -473,33 +496,54 @@ struct ScreenshotRecordDetailView: View {
     private var actionButtons: some View {
         HStack(spacing: 2) {
             if record.mediaType == .screenRecording {
-                recordActionIcon("arrow.up.right.square", help: "打开文件") {
+                recordActionIcon(
+                    "arrow.up.right.square",
+                    help: L10n.localize("screenshot.record.action.open_file_help", comment: "")
+                ) {
                     viewModel.openFile(id: record.id)
                 }
-                recordActionIcon("doc.on.doc", help: "复制文件") {
+                recordActionIcon(
+                    "doc.on.doc",
+                    help: L10n.localize("screenshot.record.action.copy_file_help", comment: "")
+                ) {
                     viewModel.copyFile(id: record.id)
                 }
-                recordActionIcon("folder", help: "在 Finder 中显示") {
+                recordActionIcon(
+                    "folder",
+                    help: L10n.localize("screenshot.record.action.reveal_in_finder_help", comment: "")
+                ) {
                     viewModel.revealInFinder(id: record.id)
                 }
             } else {
-                recordActionIcon("photo.on.rectangle", help: "复制图片") {
+                recordActionIcon(
+                    "photo.on.rectangle",
+                    help: L10n.localize("screenshot.record.action.copy_image_help", comment: "")
+                ) {
                     viewModel.copyImage(id: record.id)
                 }
                 if !record.ocrText.isEmpty {
-                    recordActionIcon("doc.on.doc", help: "复制文字") {
+                    recordActionIcon(
+                        "doc.on.doc",
+                        help: L10n.localize("screenshot.record.action.copy_text_help", comment: "")
+                    ) {
                         viewModel.copyText(id: record.id)
                     }
                 }
             }
             recordActionIcon(
                 record.isFavorited ? "star.fill" : "star",
-                help: record.isFavorited ? "取消收藏" : "收藏",
+                help: record.isFavorited
+                    ? L10n.localize("screenshot.record.action.unfavorite_help", comment: "")
+                    : L10n.localize("screenshot.record.action.favorite_help", comment: ""),
                 tint: record.isFavorited ? .yellow : nil
             ) {
                 viewModel.toggleFavorite(id: record.id)
             }
-            recordActionIcon("trash", help: "删除", tint: .red) {
+            recordActionIcon(
+                "trash",
+                help: L10n.localize("screenshot.record.action.delete_help", comment: ""),
+                tint: .red
+            ) {
                 viewModel.deleteRecord(id: record.id)
                 onClose()
             }
@@ -532,12 +576,16 @@ struct ScreenshotRecordDetailView: View {
     }
 
     private func formatResolution(_ width: Int, _ height: Int) -> String {
-        guard width > 0, height > 0 else { return "未知分辨率" }
+        guard width > 0, height > 0 else {
+            return L10n.localize("screenshot.record.format.unknown_resolution", comment: "")
+        }
         return "\(width)×\(height)"
     }
 
     private func formatFileSize(_ bytes: Int) -> String {
-        guard bytes > 0 else { return "未知大小" }
+        guard bytes > 0 else {
+            return L10n.localize("screenshot.record.format.unknown_file_size", comment: "")
+        }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(bytes))
@@ -546,9 +594,9 @@ struct ScreenshotRecordDetailView: View {
     private func audioModeTitle(_ audioMode: MediaAudioMode) -> String {
         switch audioMode {
         case .none:
-            return "无声"
+            return L10n.localize("screenshot.record.audio.no_sound", comment: "")
         case .microphone:
-            return "麦克风"
+            return L10n.localize("screenshot.record.audio.microphone", comment: "")
         }
     }
 

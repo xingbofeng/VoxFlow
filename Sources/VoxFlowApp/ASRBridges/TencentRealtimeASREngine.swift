@@ -2,7 +2,7 @@ import Foundation
 import VoxFlowAudio
 import VoxFlowProviderTencentCloud
 
-final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @unchecked Sendable {
+final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRTermPromptConfiguring, @unchecked Sendable {
     private static let audioChunkBufferLimit = 96
 
     var onTranscription: ((String, Bool) -> Void)?
@@ -15,6 +15,7 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
     private var audioContinuation: AsyncStream<Data>.Continuation?
     private var streamingTask: Task<Void, Never>?
     private var sampleRate: Int?
+    private var termPrompt: String?
     private var stableSegments: [Int: String] = [:]
     private var latestText = ""
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
@@ -37,8 +38,15 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
 
     func configure(locale: Locale) {}
 
+    func configureTermPrompt(_ prompt: String?) {
+        lock.withLock {
+            termPrompt = Self.normalizedHotwordList(from: prompt)
+        }
+    }
+
     func start() throws {
-        let configuration = try configurationProvider()
+        let baseConfiguration = try configurationProvider()
+        let configuration = baseConfiguration.withHotwordList(lock.withLock { termPrompt })
         AppLogger.audio.debug(
             "TencentRealtimeASREngine start attempt sessionID=\(UUID().uuidString) localeComplete=\(configuration.isComplete)"
         )
@@ -214,5 +222,35 @@ final class TencentRealtimeASREngine: ASREngine, ASRRuntimeMetadataProviding, @u
             withUnsafeBytes(of: &value) { data.append(contentsOf: $0) }
         }
         return data
+    }
+
+    private static func normalizedHotwordList(from prompt: String?) -> String? {
+        let terms = prompt?
+            .components(separatedBy: CharacterSet(charactersIn: ",，\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { term in
+                term.contains("|") || ASRHotwordCapabilityMatrix.isValidTencentHotword(term)
+            }
+            .prefix(128) ?? []
+        guard !terms.isEmpty else { return nil }
+        return terms.enumerated().map { index, term in
+            term.contains("|") ? term : "\(term)|\(ASRHotwordCapabilityMatrix.tencentWeight(forPriorityIndex: index))"
+        }.joined(separator: ",")
+    }
+}
+
+private extension TencentRealtimeASRConfiguration {
+    func withHotwordList(_ hotwordList: String?) -> TencentRealtimeASRConfiguration {
+        TencentRealtimeASRConfiguration(
+            appID: appID,
+            secretID: secretID,
+            secretKey: secretKey,
+            engineModelType: engineModelType,
+            voiceFormat: voiceFormat,
+            needVAD: needVAD,
+            timeoutSeconds: timeoutSeconds,
+            hotwordList: hotwordList
+        )
     }
 }

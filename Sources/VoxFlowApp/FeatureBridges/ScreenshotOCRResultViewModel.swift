@@ -31,6 +31,10 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
     private let clipboard: any ScreenshotOCRResultClipboard
     private var activeTranslationTask: Task<Void, Never>?
     private var activeSummaryTask: Task<Void, Never>?
+    private let configRequiredMessage = L10n.localize(
+        "screenshot.refine.unavailable.config_required",
+        comment: ""
+    )
 
     init(
         result: ScreenshotOCRResult,
@@ -148,11 +152,14 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         activeSummaryTask = nil
         if isTranslating {
             isTranslating = false
-            statusMessage = "已取消翻译"
+            statusMessage = L10n.localize(
+                "screenshot.result.translation_cancelled",
+                comment: ""
+            )
         }
         if isSummarizing {
             isSummarizing = false
-            statusMessage = "已取消总结"
+            statusMessage = L10n.localize("screenshot.result.summary_cancelled", comment: "")
         }
     }
 
@@ -160,12 +167,15 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         Self.logger.debug("ScreenshotOCRResultViewModel translate requested tab=\(selectedTab)")
         guard !isTranslating else { return }
         guard hasRecognizedText else {
-            statusMessage = "未识别到文字，无法翻译"
+            statusMessage = L10n.localize(
+                "screenshot.result.no_text_for_translation",
+                comment: ""
+            )
             Self.logger.debug("ScreenshotOCRResultViewModel translate aborted: no recognized text")
             return
         }
         isTranslating = true
-        statusMessage = "正在翻译..."
+        statusMessage = L10n.localize("screenshot.result.translating", comment: "")
         defer {
             isTranslating = false
         }
@@ -174,28 +184,39 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         for await event in service.translationEvents(for: result) {
             switch event {
             case .started:
-                statusMessage = "正在翻译..."
+                statusMessage = L10n.localize("screenshot.result.translating", comment: "")
             case .partialText(let text):
                 result.translatedText = text
             case .unitCompleted:
                 break
             case .completed(let text):
                 result.translatedText = text
-                statusMessage = "翻译完成"
+                statusMessage = L10n.localize("screenshot.result.translation_completed", comment: "")
                 Self.logger.info("ScreenshotOCRResultViewModel translate succeeded length=\(text.count)")
             case .cancelled(let partialText):
                 if !partialText.isEmpty {
                     result.translatedText = partialText
                 }
-                statusMessage = "已取消翻译"
+                statusMessage = L10n.localize(
+                    "screenshot.result.translation_cancelled",
+                    comment: ""
+                )
                 Self.logger.debug("ScreenshotOCRResultViewModel translate cancelled")
             case .failed(let message, let partialText):
                 if !partialText.isEmpty {
                     result.translatedText = partialText
                 }
-                statusMessage = message == "请先在设置中配置模型"
+                statusMessage = message == configRequiredMessage
                     ? message
-                    : (partialText.isEmpty ? "翻译失败：\(message)" : "翻译部分完成：\(message)")
+                    : String(
+                        format: L10n.localize(
+                            partialText.isEmpty
+                                ? "screenshot.result.translation_failed_format"
+                                : "screenshot.result.translation_partial_format",
+                            comment: ""
+                        ),
+                        message
+                    )
                 Self.logger.warning("ScreenshotOCRResultViewModel translate failed reason=\(message)")
             }
         }
@@ -205,12 +226,15 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         Self.logger.debug("ScreenshotOCRResultViewModel summarize requested tab=\(selectedTab)")
         guard !isSummarizing else { return }
         guard hasRecognizedText || hasTranslation else {
-            statusMessage = "未识别到文字，无法总结"
+            statusMessage = L10n.localize(
+                "screenshot.result.no_text_for_summary",
+                comment: ""
+            )
             Self.logger.debug("ScreenshotOCRResultViewModel summarize aborted: no text")
             return
         }
         isSummarizing = true
-        statusMessage = "正在总结..."
+        statusMessage = L10n.localize("screenshot.result.summarizing", comment: "")
         defer {
             isSummarizing = false
         }
@@ -219,28 +243,36 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
         for await event in service.summaryEvents(for: result) {
             switch event {
             case .started:
-                statusMessage = "正在总结..."
+                statusMessage = L10n.localize("screenshot.result.summarizing", comment: "")
             case .partialText(let text):
                 result.summaryText = text
             case .unitCompleted:
                 break
             case .completed(let text):
                 result.summaryText = text
-                statusMessage = "总结完成"
+                statusMessage = L10n.localize("screenshot.result.summary_completed", comment: "")
                 Self.logger.info("ScreenshotOCRResultViewModel summarize succeeded length=\(text.count)")
             case .cancelled(let partialText):
                 if !partialText.isEmpty {
                     result.summaryText = partialText
                 }
-                statusMessage = "已取消总结"
+                statusMessage = L10n.localize("screenshot.result.summary_cancelled", comment: "")
                 Self.logger.debug("ScreenshotOCRResultViewModel summarize cancelled")
             case .failed(let message, let partialText):
                 if !partialText.isEmpty {
                     result.summaryText = partialText
                 }
-                statusMessage = message == "请先在设置中配置模型"
+                statusMessage = message == configRequiredMessage
                     ? message
-                    : (partialText.isEmpty ? "总结失败：\(message)" : "总结部分完成：\(message)")
+                    : String(
+                        format: L10n.localize(
+                            partialText.isEmpty
+                                ? "screenshot.result.summary_failed_format"
+                                : "screenshot.result.summary_partial_format",
+                            comment: ""
+                        ),
+                        message
+                    )
                 Self.logger.warning("ScreenshotOCRResultViewModel summarize failed reason=\(message)")
             }
         }
@@ -248,13 +280,13 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
 
     func speakSelectedText() {
         guard selectedTab != .originalImage else {
-            statusMessage = "请选择识别结果、翻译或总结内容朗读"
+            statusMessage = L10n.localize("screenshot.result.read_select_prompt", comment: "")
             Self.logger.debug("ScreenshotOCRResultViewModel speak skipped: no selectable text")
             return
         }
         let text = displayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            statusMessage = "没有可朗读内容"
+            statusMessage = L10n.localize("screenshot.result.read_no_content", comment: "")
             Self.logger.debug("ScreenshotOCRResultViewModel speak skipped: selected text empty")
             return
         }
@@ -266,17 +298,17 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
                 return
             }
             self.playbackState = nil
-            self.statusMessage = "朗读完成"
+            self.statusMessage = L10n.localize("screenshot.result.read_complete", comment: "")
         }
         playbackState = ScreenshotOCRPlaybackState(target: selectedTab, text: text)
-        statusMessage = "正在朗读"
+        statusMessage = L10n.localize("screenshot.result.reading", comment: "")
     }
 
     func stopSpeaking() {
         Self.logger.debug("ScreenshotOCRResultViewModel stopSpeaking")
         service.stopSpeaking()
         playbackState = nil
-        statusMessage = "已停止朗读"
+        statusMessage = L10n.localize("screenshot.result.read_stopped", comment: "")
     }
 
     func close() {
@@ -288,30 +320,30 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
 
     func copySelectedText() {
         guard selectedTab != .originalImage else {
-            statusMessage = "原图已在剪切板"
+            statusMessage = L10n.localize("screenshot.result.original_in_clipboard", comment: "")
             Self.logger.debug("ScreenshotOCRResultViewModel copy skipped: originalImage tab")
             return
         }
         if clipboard.setString(displayedText) {
-            statusMessage = "已复制"
+            statusMessage = L10n.localize("screenshot.result.copied", comment: "")
             Self.logger.info("ScreenshotOCRResultViewModel copy succeeded tab=\(selectedTab)")
         } else {
-            statusMessage = "复制失败"
+            statusMessage = L10n.localize("screenshot.result.copy_failed", comment: "")
             Self.logger.warning("ScreenshotOCRResultViewModel copy failed tab=\(selectedTab)")
         }
     }
 
     func copySelectedImage() {
         guard let image = selectedImage else {
-            statusMessage = "暂无可复制图片"
+            statusMessage = L10n.localize("screenshot.result.no_copyable_image", comment: "")
             Self.logger.debug("ScreenshotOCRResultViewModel image copy skipped: no image")
             return
         }
         if clipboard.setImage(image) {
-            statusMessage = "已复制图片"
+            statusMessage = L10n.localize("screenshot.result.copied_image", comment: "")
             Self.logger.info("ScreenshotOCRResultViewModel image copy succeeded tab=\(selectedTab)")
         } else {
-            statusMessage = "复制图片失败"
+            statusMessage = L10n.localize("screenshot.result.copy_image_failed", comment: "")
             Self.logger.warning("ScreenshotOCRResultViewModel image copy failed tab=\(selectedTab)")
         }
     }

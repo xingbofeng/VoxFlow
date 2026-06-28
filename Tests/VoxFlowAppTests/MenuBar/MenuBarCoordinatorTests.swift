@@ -64,28 +64,28 @@ final class MenuBarCoordinatorTests: XCTestCase {
         )
 
         let languageItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "语言 / Language")?.submenu?.item(withTitle: "English")
+            coordinator.menu.item(withTitle: menuLanguageTitle)?.submenu?.item(withTitle: "English")
         )
         let asrItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "系统自带")
+            coordinator.menu.item(withTitle: menuAsrModelTitle)?.submenu?.item(withTitle: "系统自带")
         )
         let llmItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "智能模型服务")?.submenu?.item(withTitle: "OpenAI · gpt-4.1")
+            coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu?.item(withTitle: "OpenAI · gpt-4.1")
         )
         let ttsItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "TTS 模型")?.submenu?.item(withTitle: "系统默认")
+            coordinator.menu.item(withTitle: menuTTSModelTitle)?.submenu?.item(withTitle: "系统默认")
         )
 
         sendAction(for: languageItem)
         sendAction(for: asrItem)
         sendAction(for: llmItem)
         sendAction(for: ttsItem)
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "打开工作台")))
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "划词动作")))
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "设置")))
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "GitHub")))
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "检查权限")))
-        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: "退出码上写")))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuOpenWorkbenchTitle)))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuSelectionActionTitle)))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuSettingsTitle)))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuGitHubTitle)))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuCheckPermissionsTitle)))
+        sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuQuitTitle())))
 
         XCTAssertEqual(selectedLanguage, .english)
         XCTAssertEqual(selectedASR, asrOption)
@@ -128,15 +128,15 @@ final class MenuBarCoordinatorTests: XCTestCase {
             isCapabilityModelEnabled: { $0.isInstalled }
         )
 
-        var llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "智能模型服务")?.submenu)
-        var ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "TTS 模型")?.submenu)
-        var translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
+        var llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu)
+        var ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTTSModelTitle)?.submenu)
+        var translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTranslationModelTitle)?.submenu)
         let disabledLLMItem = try XCTUnwrap(llmMenu.item(withTitle: "Disabled · gpt-disabled") as NSMenuItem?)
-        let disabledKokoroItem = try XCTUnwrap(ttsMenu.item(withTitle: "Kokoro TTS（未下载）") as NSMenuItem?)
+        let disabledKokoroItem = try XCTUnwrap(ttsMenu.item(withTitle: "Kokoro TTS（\(menuNotDownloadedSuffix)）") as NSMenuItem?)
 
         XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .on)
         XCTAssertFalse(disabledLLMItem.isEnabled)
-        XCTAssertEqual(ttsMenu.item(withTitle: "Kokoro TTS（未下载）")?.state, .on)
+        XCTAssertEqual(ttsMenu.item(withTitle: "Kokoro TTS（\(menuNotDownloadedSuffix)）")?.state, .on)
         XCTAssertFalse(disabledKokoroItem.isEnabled)
         XCTAssertEqual(translationMenu.item(withTitle: "系统默认")?.state, .on)
 
@@ -144,16 +144,16 @@ final class MenuBarCoordinatorTests: XCTestCase {
         kokoroInstalled = true
         coordinator.menuWillOpen(coordinator.menu)
 
-        llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "智能模型服务")?.submenu)
-        ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "TTS 模型")?.submenu)
-        translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
+        llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu)
+        ttsMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTTSModelTitle)?.submenu)
+        translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTranslationModelTitle)?.submenu)
         let enabledKokoroItem = try XCTUnwrap(ttsMenu.item(withTitle: "Kokoro TTS") as NSMenuItem?)
 
         XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .off)
         XCTAssertEqual(llmMenu.item(withTitle: "Disabled · gpt-disabled")?.state, .on)
         XCTAssertTrue(enabledKokoroItem.isEnabled)
         XCTAssertEqual(ttsMenu.item(withTitle: "Kokoro TTS")?.state, .on)
-        XCTAssertNotNil(translationMenu.item(withTitle: "Soniqo MADLAD（未下载）"))
+        XCTAssertNotNil(translationMenu.item(withTitle: "Soniqo MADLAD（\(menuNotDownloadedSuffix)）"))
     }
 
     func testTranslationLLMMenuItemIsDisabledWhenProviderIsUnavailable() throws {
@@ -178,8 +178,8 @@ final class MenuBarCoordinatorTests: XCTestCase {
             isCapabilityModelEnabled: { $0.isInstalled }
         )
 
-        let translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "翻译模型")?.submenu)
-        let llmItem = try XCTUnwrap(translationMenu.item(withTitle: "智能模型配置（未配置）"))
+        let translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTranslationModelTitle)?.submenu)
+        let llmItem = try XCTUnwrap(translationMenu.item(withTitle: "智能模型配置（\(menuNotConfiguredSuffix)）"))
 
         XCTAssertFalse(llmItem.isEnabled)
         XCTAssertEqual(llmItem.state, .off)
@@ -224,7 +224,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         coordinator.setRefiningStatusVisible(true)
         coordinator.menuWillOpen(coordinator.menu)
 
-        let languageMenu = try XCTUnwrap(coordinator.menu.item(withTitle: "语言 / Language")?.submenu)
+        let languageMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLanguageTitle)?.submenu)
         let englishItem = try XCTUnwrap(
             languageMenu.item(withTitle: "English")
         )
@@ -232,10 +232,10 @@ final class MenuBarCoordinatorTests: XCTestCase {
             languageMenu.item(withTitle: "简体中文")
         )
         let appleItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "系统自带")
+            coordinator.menu.item(withTitle: menuAsrModelTitle)?.submenu?.item(withTitle: "系统自带")
         )
         let qwenItem = try XCTUnwrap(
-            coordinator.menu.item(withTitle: "语音识别模型")?.submenu?.item(withTitle: "Qwen3-ASR 0.6B")
+            coordinator.menu.item(withTitle: menuAsrModelTitle)?.submenu?.item(withTitle: "Qwen3-ASR 0.6B")
         )
 
         XCTAssertEqual(englishItem.state, .off)
@@ -247,10 +247,66 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertTrue(appleItem.isEnabled)
         XCTAssertEqual(qwenItem.state, .off)
         XCTAssertFalse(qwenItem.isEnabled)
-        XCTAssertFalse(try XCTUnwrap(coordinator.menu.item(withTitle: "正在进行智能纠错")).isHidden)
+        XCTAssertFalse(try XCTUnwrap(coordinator.menu.item(withTitle: menuRefiningStatusTitle)).isHidden)
         XCTAssertEqual(enabledChecks, 2)
         XCTAssertEqual(selectedChecks, 2)
         XCTAssertEqual(menuWillOpenCount, 1)
+    }
+
+    private var menuLanguageTitle: String {
+        L10n.localize("menu.status.language", comment: "")
+    }
+
+    private var menuAsrModelTitle: String {
+        L10n.localize("menu.status.asr_model", comment: "")
+    }
+
+    private var menuLLMServiceTitle: String {
+        L10n.localize("menu.status.llm_service", comment: "")
+    }
+
+    private var menuTTSModelTitle: String {
+        L10n.localize("menu.status.tts_model", comment: "")
+    }
+
+    private var menuTranslationModelTitle: String {
+        L10n.localize("menu.status.translation_model", comment: "")
+    }
+
+    private var menuOpenWorkbenchTitle: String {
+        L10n.localize("menu.status.open_workbench", comment: "")
+    }
+
+    private var menuSelectionActionTitle: String {
+        L10n.localize("menu.status.selection_action", comment: "")
+    }
+
+    private var menuSettingsTitle: String {
+        L10n.localize("menu.status.settings", comment: "")
+    }
+
+    private var menuGitHubTitle: String {
+        L10n.localize("menu.status.github", comment: "")
+    }
+
+    private var menuCheckPermissionsTitle: String {
+        L10n.localize("menu.status.check_permissions", comment: "")
+    }
+
+    private func menuQuitTitle() -> String {
+        L10n.localize("menu.status.quit", comment: "")
+    }
+
+    private var menuRefiningStatusTitle: String {
+        L10n.localize("menu.status.refining", comment: "")
+    }
+
+    private var menuNotDownloadedSuffix: String {
+        L10n.localize("menu.status.capability.not_downloaded", comment: "")
+    }
+
+    private var menuNotConfiguredSuffix: String {
+        L10n.localize("menu.status.capability.not_configured", comment: "")
     }
 
     private func sendAction(for item: NSMenuItem) {

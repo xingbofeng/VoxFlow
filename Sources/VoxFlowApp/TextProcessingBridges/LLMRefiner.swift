@@ -268,7 +268,7 @@ final class LLMRefiner: @unchecked Sendable {
 
             _ = try Self.parseChatCompletion(data)
             AppLogger.network.info("LLMRefiner 测试连接成功")
-            return .success("连接成功！API 正常工作。")
+            return .success(L10n.localize("llm.connection.success", comment: "LLM connection success message"))
         } catch let error as Error {
             AppLogger.network.error("LLMRefiner 测试连接异常：\(error.localizedDescription)")
             return .failure(error)
@@ -292,19 +292,37 @@ final class LLMRefiner: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .notConfigured:
-                return "模型服务未配置，请先设置相关参数。"
+                return String(
+                    L10n.localize("llm.refiner.error.not_configured", comment: "LLM refiner not configured")
+                )
             case .invalidURL:
-                return "API Base URL 无效。"
+                return String(
+                    L10n.localize("llm.refiner.error.invalid_url", comment: "LLM refiner invalid base URL")
+                )
             case .invalidRequestBody:
-                return "请求体构建失败。"
+                return String(
+                    L10n.localize("llm.refiner.error.invalid_request_body", comment: "LLM refiner invalid request body")
+                )
             case .invalidResponse:
-                return "服务器返回了无效响应。"
+                return String(
+                    L10n.localize("llm.refiner.error.invalid_response", comment: "LLM refiner invalid response")
+                )
             case .httpError(let code):
-                return "HTTP 错误：\(code)"
+                return String(
+                    format: L10n.localize("llm.refiner.error.http_error_format", comment: "LLM refiner HTTP error"),
+                    code
+                )
             case .apiError(let code, let message):
-                return "API 错误 (\(code))：\(message)"
+                return String(
+                    format: L10n.localize("llm.refiner.error.api_error_format", comment: "LLM refiner API error"),
+                    code,
+                    message
+                )
             case .networkError(let error):
-                return "网络错误：\(error.localizedDescription)"
+                return String(
+                    format: L10n.localize("llm.refiner.error.network_error_format", comment: "LLM refiner network error"),
+                    error.localizedDescription
+                )
             }
         }
     }

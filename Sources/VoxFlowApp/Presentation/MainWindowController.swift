@@ -81,7 +81,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = ProductBrand.chineseDisplayName
+        window.title = L10n.localize("app.main_window.title", comment: "Main application window title")
         window.contentViewController = hostingController
         window.isReleasedWhenClosed = false
         window.sharingType = .readOnly

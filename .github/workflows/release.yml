@@ -69,7 +69,7 @@ jobs:
           start=$(date +%s)
           swift_build_jobs="$(sysctl -n hw.logicalcpu)"
           swift_test_workers=8
-          swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs"
+          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs"
           duration=$(( $(date +%s) - start ))
           echo "### Release timing" >> "$GITHUB_STEP_SUMMARY"
           echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"

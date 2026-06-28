@@ -29,6 +29,12 @@ protocol StyleRepository {
 final class SQLiteStyleRepository: StyleRepository {
     private let databaseQueue: DatabaseQueue
     private let formatter = ISO8601DateFormatter()
+    /// 兼容历史上写入带毫秒的 ISO8601 时间戳的脏数据；只在读取路径作为 fallback 使用。
+    private let legacyFractionalFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     init(databaseQueue: DatabaseQueue) {
         self.databaseQueue = databaseQueue
@@ -187,8 +193,8 @@ final class SQLiteStyleRepository: StyleRepository {
               let prompt = statement.columnString(at: 5),
               let createdAtText = statement.columnString(at: 14),
               let updatedAtText = statement.columnString(at: 15),
-              let createdAt = formatter.date(from: createdAtText),
-              let updatedAt = formatter.date(from: updatedAtText) else {
+              let createdAt = formatter.date(from: createdAtText) ?? legacyFractionalFormatter.date(from: createdAtText),
+              let updatedAt = formatter.date(from: updatedAtText) ?? legacyFractionalFormatter.date(from: updatedAtText) else {
             throw SQLiteError.stepFailed("Invalid style_profiles row.")
         }
 

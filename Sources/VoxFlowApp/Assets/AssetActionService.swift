@@ -28,37 +28,37 @@ extension AssetAction {
     var displayTitle: String {
         switch self {
         case .paste:
-            return "粘贴"
+            return L10n.localize("asset.action.paste", comment: "")
         case .copy:
-            return "复制"
+            return L10n.localize("asset.action.copy", comment: "")
         case .pasteAndKeepOpen:
-            return "粘贴并保持打开"
+            return L10n.localize("asset.action.paste_and_keep_open", comment: "")
         case .quickLook:
-            return "快速预览"
+            return L10n.localize("asset.action.quick_look", comment: "")
         case .saveAsFile:
-            return "另存为文件..."
+            return L10n.localize("asset.action.save_as_file", comment: "")
         case .delete:
-            return "删除"
+            return L10n.localize("asset.action.delete", comment: "")
         case .copyImage:
-            return "复制图片"
+            return L10n.localize("asset.action.copy_image", comment: "")
         case .pasteOCRText:
-            return "粘贴识别文字"
+            return L10n.localize("asset.action.paste_ocr_text", comment: "")
         case .copyOCRText:
-            return "复制识别文字"
+            return L10n.localize("asset.action.copy_ocr_text", comment: "")
         case .pasteFile:
-            return "粘贴文件"
+            return L10n.localize("asset.action.paste_file", comment: "")
         case .copyFile:
-            return "复制文件"
+            return L10n.localize("asset.action.copy_file", comment: "")
         case .pasteFilePath:
-            return "粘贴文件路径"
+            return L10n.localize("asset.action.paste_file_path", comment: "")
         case .copyFilePath:
-            return "复制文件路径"
+            return L10n.localize("asset.action.copy_file_path", comment: "")
         case .pin:
-            return "固定"
+            return L10n.localize("asset.action.pin", comment: "")
         case .rerunOCR:
-            return "重新 OCR"
+            return L10n.localize("asset.action.rerun_ocr", comment: "")
         case .attachToAIChat:
-            return "附加到 AI 会话"
+            return L10n.localize("asset.action.attach_to_ai_chat", comment: "")
         }
     }
 }

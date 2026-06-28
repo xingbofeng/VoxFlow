@@ -24,9 +24,9 @@ public struct ScreenRecordingHUDStatus: Equatable, Sendable {
     var microphoneText: String {
         switch audioMode {
         case .none:
-            return "无声"
+            return ScreenshotL10n.ScreenshotKit.Recording.Audio.none
         case .microphone:
-            return "麦克风开启"
+            return ScreenshotL10n.ScreenshotKit.Recording.Audio.microphoneOn
         }
     }
 }
@@ -35,7 +35,7 @@ public struct ScreenRecordingHUDStatus: Equatable, Sendable {
 final class ScreenRecordingHUDView: NSView {
     private let statusDot = NSView()
     private let elapsedLabel = NSTextField(labelWithString: "00:00")
-    private let microphoneLabel = NSTextField(labelWithString: "无声")
+    private let microphoneLabel = NSTextField(labelWithString: ScreenshotL10n.ScreenshotKit.Recording.Audio.none)
     private let stopButton = NSButton()
     private let itemHeight: CGFloat = 28
     private let dotSize: CGFloat = 8
@@ -56,14 +56,14 @@ final class ScreenRecordingHUDView: NSView {
         statusDot.wantsLayer = true
         statusDot.layer?.cornerRadius = dotSize / 2
         statusDot.layer?.backgroundColor = NSColor.systemRed.cgColor
-        statusDot.setAccessibilityLabel("正在录屏")
+        statusDot.setAccessibilityLabel(ScreenshotL10n.ScreenshotKit.Recording.Hud.Accessibility.recording)
         addSubview(statusDot)
 
         configureLabel(elapsedLabel, font: .monospacedDigitSystemFont(ofSize: 13, weight: .semibold))
         configureLabel(microphoneLabel, font: .systemFont(ofSize: 12, weight: .medium))
         microphoneLabel.textColor = .secondaryLabelColor
 
-        let image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "停止录屏")
+        let image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: ScreenshotL10n.ScreenshotKit.Recording.Hud.stop)
         image?.isTemplate = true
         stopButton.title = ""
         stopButton.image = image
@@ -76,7 +76,7 @@ final class ScreenRecordingHUDView: NSView {
         stopButton.contentTintColor = .systemRed
         stopButton.target = self
         stopButton.action = #selector(stopClicked)
-        stopButton.toolTip = "停止录屏"
+        stopButton.toolTip = ScreenshotL10n.ScreenshotKit.Recording.Hud.stop
         addSubview(stopButton)
 
         layoutControls()

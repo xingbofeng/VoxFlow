@@ -12,7 +12,7 @@ final class SelectionResultPanelController {
     private let speech: any ScreenshotSpeechSpeaking
     private let textInserter: any TextInserting
     private let historyRecorder: any SelectionHistoryRecording
-    private let panelController = TextResultPanelController(title: "文本结果")
+    private let panelController = TextResultPanelController(title: L10n.localize("selection.panel.title.result", comment: ""))
     private let translationCoordinator: AppleTranslationCoordinator
 
     init(
@@ -87,8 +87,8 @@ private struct SelectionResultPanelView: View {
             )
         } tabs: {
             Picker("", selection: $viewModel.selectedTab) {
-                Text("原文").tag(SelectionResultTab.source)
-                Text(resultTabTitle).tag(SelectionResultTab.result)
+                Text(L10n.localize("selection.panel.tab.source", comment: "")).tag(SelectionResultTab.source)
+                Text(L10n.localize("selection.panel.tab.result", comment: "")).tag(SelectionResultTab.result)
             }
         } content: {
             TextResultScrollableTextView(
@@ -107,25 +107,25 @@ private struct SelectionResultPanelView: View {
             Button {
                 viewModel.speakSelectedText()
             } label: {
-                Label("朗读", systemImage: "speaker.wave.2")
+            Label(L10n.localize("selection.action.read", comment: ""), systemImage: "speaker.wave.2")
             }
 
             Button {
                 viewModel.copySelectedText()
             } label: {
-                Label("复制文字", systemImage: "doc.on.doc")
+            Label(L10n.localize("selection.action.copy_text", comment: ""), systemImage: "doc.on.doc")
             }
 
             Button {
                 Task { await viewModel.replaceOriginal() }
             } label: {
-                Label("替换原文", systemImage: "text.cursor")
+            Label(L10n.localize("selection.action.replace_source", comment: ""), systemImage: "text.cursor")
             }
 
             Button {
                 Task { await viewModel.insertAfterSelection() }
             } label: {
-                Label("插入下一行", systemImage: "arrow.down.doc")
+            Label(L10n.localize("selection.action.insert_new_line", comment: ""), systemImage: "arrow.down.doc")
             }
         }
     }
@@ -134,18 +134,18 @@ private struct SelectionResultPanelView: View {
     private var title: String {
         switch viewModel.operation {
         case .translation:
-            return "划词翻译"
+            return L10n.localize("selection.panel.operation_title.translation", comment: "")
         case .summary:
-            return "划词总结"
+            return L10n.localize("selection.panel.operation_title.summary", comment: "")
         }
     }
 
     private var resultTabTitle: String {
         switch viewModel.operation {
         case .translation:
-            return "翻译"
+            return L10n.localize("selection.panel.tab.translation", comment: "")
         case .summary:
-            return "总结"
+            return L10n.localize("selection.panel.tab.summary", comment: "")
         }
     }
 }

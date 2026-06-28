@@ -70,9 +70,28 @@ final class AppTextRuntime {
             classifier: LLMApplicationStyleClassifier(refiner: llmRefiner)
         )
         let contextBoostProvider = CurrentWindowOCRContextProvider()
+        let structuredLearningService = StructuredCorrectionLearningService(
+            repository: environment.correctionTargetRepository,
+            termCounter: RepositoryBackedKeyTermCounter(
+                repository: environment.correctionTargetRepository,
+                clock: environment.clock
+            ),
+            evidenceRepository: environment.correctionEvidenceRepository
+        )
         textPipeline = DefaultTextProcessingPipeline(
             refiner: llmRefiner,
             styleSelector: styleSelector,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder(),
+            structuredLearningService: structuredLearningService,
+            correctionTargetRepository: environment.correctionTargetRepository,
+            correctionEvidenceRepository: environment.correctionEvidenceRepository,
+            hotwordFileSyncService: environment.hotwordFileSyncService,
+            structuredLearningEnabled: {
+                (try? VoiceCorrectionSettingsStore.bool(
+                    .autoLearningEnabled,
+                    repository: environment.settingsRepository
+                )) ?? VoiceCorrectionSettingsKey.autoLearningEnabled.defaultValue
+            },
             voiceCorrectionProcessor: environment.voiceCorrectionProcessor,
             contextBoostProvider: contextBoostProvider,
             contextBoostCoordinator: ContextBoostPrefetchCoordinator(
@@ -117,11 +136,18 @@ struct AppRuntime {
     static func bootstrap(
         containerFactory: () throws -> DependencyContainer = {
             try DependencyContainer.live()
-        }
+        },
+        fallbackCredentialStore: @MainActor () -> CredentialStore? = AppRuntime.persistentFallbackCredentialStore
     ) -> AppRuntime {
         AppLogger.general.info("AppRuntime bootstrap start")
-        let environment = AppEnvironment(container: makeLaunchContainer(containerFactory: containerFactory))
+        let environment = AppEnvironment(
+            container: makeLaunchContainer(
+                containerFactory: containerFactory,
+                fallbackCredentialStore: fallbackCredentialStore
+            )
+        )
         AppLogger.general.debug("AppRuntime environment created")
+        startHotwordFileSync(environment: environment)
         let asrManager = ASRManager(
             credentialStore: environment.credentialStore,
             settingsRepository: environment.settingsRepository
@@ -322,8 +348,27 @@ struct AppRuntime {
         )
     }
 
+    private static func startHotwordFileSync(environment: AppEnvironment) {
+        guard let service = environment.hotwordFileSyncService else {
+            AppLogger.general.info("Hotword file sync unavailable: no Application Support paths")
+            return
+        }
+        do {
+            try service.startWatching { result in
+                AppLogger.general.info(
+                    "hotwords_file_sync_result source=\(result.source.rawValue) " +
+                    "valid=\(result.validHotwords) duplicates=\(result.duplicates) " +
+                    "restored=\(result.restoredFromBlocklist) failures=\(result.failures)"
+                )
+            }
+        } catch {
+            AppLogger.general.error("Hotword file sync failed to start: \(error.localizedDescription)")
+        }
+    }
+
     private static func makeLaunchContainer(
-        containerFactory: () throws -> DependencyContainer
+        containerFactory: () throws -> DependencyContainer,
+        fallbackCredentialStore: @MainActor () -> CredentialStore?
     ) -> DependencyContainer {
         do {
             let container = try containerFactory()
@@ -337,10 +382,19 @@ struct AppRuntime {
             )
             AppLogger.general.warning("makeLaunchContainer fallback to in-memory container")
             return try! DependencyContainer.inMemory(
+                credentialStore: fallbackCredentialStore(),
                 storageHealth: .unavailable(
                     reason: "Persistent storage failed to initialize: \(error.localizedDescription)"
                 )
             )
         }
+    }
+
+    private static func persistentFallbackCredentialStore() -> CredentialStore? {
+        guard let paths = try? ApplicationSupportPaths.live() else {
+            AppLogger.general.warning("Persistent fallback credential store unavailable: app support path missing")
+            return nil
+        }
+        return DependencyContainer.defaultCredentialStore(paths: paths)
     }
 }
