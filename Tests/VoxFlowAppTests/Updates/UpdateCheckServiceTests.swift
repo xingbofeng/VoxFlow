@@ -117,6 +117,7 @@ final class UpdateCheckServiceTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_086_400)
         let store = UpdateCheckStateStore(defaults: makeDefaults())
         store.lastAutomaticCheckAt = now.addingTimeInterval(-60)
+        store.lastAutomaticCheckVersion = "1.6.1"
         let service = makeService(
             currentVersion: "1.6.1",
             release: release(version: "1.6.2"),
@@ -129,10 +130,37 @@ final class UpdateCheckServiceTests: XCTestCase {
         XCTAssertEqual(result, .throttled)
     }
 
+    func testAutomaticCheckBypassesThrottleAfterInstalledAppVersionChanges() async {
+        let firstCheckAt = Date(timeIntervalSince1970: 1_800_086_400)
+        let store = UpdateCheckStateStore(defaults: makeDefaults())
+        let oldVersionService = makeService(
+            currentVersion: "1.9.0",
+            release: release(version: "1.10.0"),
+            store: store,
+            now: { firstCheckAt }
+        )
+        _ = await oldVersionService.check(mode: .automatic)
+
+        let newVersionService = makeService(
+            currentVersion: "1.10.0",
+            release: release(version: "1.10.1"),
+            store: store,
+            now: { firstCheckAt.addingTimeInterval(60) }
+        )
+
+        let result = await newVersionService.check(mode: .automatic)
+
+        guard case .updateAvailable(let remote) = result else {
+            return XCTFail("Expected updateAvailable after app version changes, got \(result)")
+        }
+        XCTAssertEqual(remote.version, "1.10.1")
+    }
+
     func testManualCheckBypassesThrottleWindow() async {
         let now = Date(timeIntervalSince1970: 1_800_086_400)
         let store = UpdateCheckStateStore(defaults: makeDefaults())
         store.lastAutomaticCheckAt = now.addingTimeInterval(-60)
+        store.lastAutomaticCheckVersion = "1.6.1"
         let service = makeService(
             currentVersion: "1.6.1",
             release: release(version: "1.6.2"),

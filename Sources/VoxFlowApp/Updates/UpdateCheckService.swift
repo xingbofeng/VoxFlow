@@ -47,6 +47,7 @@ final class UpdateCheckService {
 
         if mode == .automatic {
             stateStore.lastAutomaticCheckAt = now()
+            stateStore.lastAutomaticCheckVersion = currentVersion
         }
 
         let release: RemoteRelease
@@ -76,6 +77,9 @@ final class UpdateCheckService {
 
     private func isAutomaticCheckThrottled() -> Bool {
         guard let lastAutomaticCheckAt = stateStore.lastAutomaticCheckAt else {
+            return false
+        }
+        guard stateStore.lastAutomaticCheckVersion == currentVersion else {
             return false
         }
         return now().timeIntervalSince(lastAutomaticCheckAt) < automaticCheckInterval

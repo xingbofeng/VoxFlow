@@ -25,6 +25,7 @@ final class UpdateCheckCoordinatorTests: XCTestCase {
         await presenter.waitForUpdatePrompt()
 
         XCTAssertNil(store.lastAutomaticCheckAt)
+        XCTAssertNil(store.lastAutomaticCheckVersion)
         XCTAssertNil(store.deferredVersion)
         XCTAssertNil(store.deferredUntil)
         XCTAssertNil(store.ignoredVersion)

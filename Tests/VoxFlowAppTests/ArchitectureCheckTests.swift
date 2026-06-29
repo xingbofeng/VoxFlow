@@ -315,6 +315,30 @@ final class ArchitectureCheckTests: XCTestCase {
         )
     }
 
+    func testArchitectureCheckRejectsRuntimeBundleModuleAccess() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowScreenshotKit"])
+        try fixture.writeSource(
+            target: "VoxFlowScreenshotKit",
+            file: "ScreenshotResourceLeak.swift",
+            contents: """
+            import Foundation
+
+            enum ScreenshotResourceLeak {
+                static let bundle = Bundle.module
+            }
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("Runtime source must not use SwiftPM Bundle.module"),
+            result.output
+        )
+    }
+
     func testArchitectureCheckRejectsViewModelStoredConcreteAppEnvironment() throws {
         let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp"])

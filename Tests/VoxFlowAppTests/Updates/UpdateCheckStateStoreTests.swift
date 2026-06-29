@@ -12,6 +12,15 @@ final class UpdateCheckStateStoreTests: XCTestCase {
         XCTAssertEqual(UpdateCheckStateStore(defaults: defaults).lastAutomaticCheckAt, date)
     }
 
+    func testPersistsLastAutomaticCheckVersion() {
+        let defaults = makeDefaults()
+        let store = UpdateCheckStateStore(defaults: defaults)
+
+        store.lastAutomaticCheckVersion = "1.10.0"
+
+        XCTAssertEqual(UpdateCheckStateStore(defaults: defaults).lastAutomaticCheckVersion, "1.10.0")
+    }
+
     func testPersistsIgnoredVersion() {
         let defaults = makeDefaults()
         let store = UpdateCheckStateStore(defaults: defaults)

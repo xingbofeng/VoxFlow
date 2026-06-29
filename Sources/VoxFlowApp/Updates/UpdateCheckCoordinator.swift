@@ -69,6 +69,7 @@ final class UpdateCheckCoordinator {
             let action = await presenter.presentUpdateAvailable(release: release, currentVersion: currentVersion)
             if action == .remindNextTime {
                 stateStore.lastAutomaticCheckAt = nil
+                stateStore.lastAutomaticCheckVersion = nil
             } else if action == .remindTomorrow {
                 stateStore.deferredVersion = release.version
                 stateStore.deferredUntil = now().addingTimeInterval(24 * 60 * 60)

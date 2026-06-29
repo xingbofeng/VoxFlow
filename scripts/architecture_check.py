@@ -334,6 +334,11 @@ def source_boundary_violations(
             imports = set(IMPORT_PATTERN.findall(contents))
             display_path = relative(path, source_root.parent)
 
+            if target.kind != "testTarget" and "Bundle.module" in contents:
+                violations.append(
+                    f"{display_path}: Runtime source must not use SwiftPM Bundle.module; resolve resources from the packaged app bundle"
+                )
+
             if is_provider_production_target and "SwiftUI" in imports:
                 violations.append(f"{display_path}: Provider target must not import SwiftUI")
 

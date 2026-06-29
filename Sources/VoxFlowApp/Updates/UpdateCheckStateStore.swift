@@ -3,6 +3,7 @@ import Foundation
 final class UpdateCheckStateStore {
     private enum Key {
         static let lastAutomaticCheckAt = "VoxFlow.UpdateCheck.lastAutomaticCheckAt"
+        static let lastAutomaticCheckVersion = "VoxFlow.UpdateCheck.lastAutomaticCheckVersion"
         static let ignoredVersion = "VoxFlow.UpdateCheck.ignoredVersion"
         static let deferredVersion = "VoxFlow.UpdateCheck.deferredVersion"
         static let deferredUntil = "VoxFlow.UpdateCheck.deferredUntil"
@@ -20,6 +21,15 @@ final class UpdateCheckStateStore {
         }
         set {
             setOptional(newValue, forKey: Key.lastAutomaticCheckAt)
+        }
+    }
+
+    var lastAutomaticCheckVersion: String? {
+        get {
+            defaults.string(forKey: Key.lastAutomaticCheckVersion)
+        }
+        set {
+            setOptional(newValue, forKey: Key.lastAutomaticCheckVersion)
         }
     }
 

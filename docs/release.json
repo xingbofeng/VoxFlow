@@ -1,10 +1,10 @@
 {
-  "version": "1.10.1",
-  "tag": "v1.10.1",
-  "assetName": "VoxFlow-1.10.1-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.1",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.1/VoxFlow-1.10.1-macOS.dmg",
-  "releaseNotes": "修复截图 OCR 在 1.10.0 中可能崩溃的问题，并在缺少屏幕录制权限时显示明确授权引导。",
+  "version": "1.10.2",
+  "tag": "v1.10.2",
+  "assetName": "VoxFlow-1.10.2-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.2",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.2/VoxFlow-1.10.2-macOS.dmg",
+  "releaseNotes": "修复连续发布时自动更新检查被 24 小时节流挡住的问题，安装新版本后会重新检查是否还有更新。",
   "draft": false,
   "prerelease": false
 }

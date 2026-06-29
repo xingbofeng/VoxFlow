@@ -176,7 +176,7 @@ VoxFlow にはフル機能のアセットワークベンチもあります。
 
 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) から最新バージョンをダウンロードします。
 
-1. `VoxFlow-1.10.1-macOS.dmg` を開く
+1. `VoxFlow-1.10.2-macOS.dmg` を開く
 2. `VoxFlow` を `Applications` フォルダにドラッグ
 3. 初回起動時に macOS が検証できないと表示した場合は、Control キーを押しながらアプリをクリックし、**Open** を選択
 
