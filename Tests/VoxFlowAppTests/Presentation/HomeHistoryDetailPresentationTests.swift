@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
 final class HomeHistoryDetailPresentationTests: XCTestCase {
@@ -236,6 +237,20 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         )
         XCTAssertEqual(
             HomeHistoryDetailPresentation.warningMessage(
+                for: "llm_structured_parse_failed",
+                taskMode: .dictation
+            ),
+            "模型返回格式不符合预期，已保留模型原文。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "llm_refinement_rejected",
+                taskMode: .dictation
+            ),
+            "模型改写未通过安全检查，已保留原始识别文本。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
                 for: "llm_refinement_cancelled_by_user",
                 taskMode: .dictation
             ),
@@ -247,6 +262,414 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
                 taskMode: .agentCompose
             ),
             "未获得屏幕录制权限，无法读取截图视觉上下文；已仅根据口述和可读取文本生成。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "visual_fallback_timeout",
+                taskMode: .agentCompose
+            ),
+            "截图视觉上下文读取超时，已继续处理。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "context_collection_timeout",
+                taskMode: .agentCompose
+            ),
+            "读取当前窗口上下文超时，已仅根据口述继续。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "secure_text_field_detected",
+                taskMode: .agentCompose
+            ),
+            "检测到安全输入区域，已跳过窗口内容读取。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "voice_correction_failed",
+                taskMode: .dictation
+            ),
+            "易错词纠错处理失败，已继续使用当前文本。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "prompt_context_failed",
+                taskMode: .dictation
+            ),
+            "提示词上下文构建失败，已使用基础提示词继续纠错。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "snapshotUnavailable",
+                taskMode: .dictation
+            ),
+            "易错词纠错缺少可用规则快照，已跳过本次规则匹配。"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.warningMessage(
+                for: "processingFailed",
+                taskMode: .dictation
+            ),
+            "易错词规则执行失败，已跳过失败规则并继续处理。"
+        )
+    }
+
+    func testKnownWarningCodesDoNotLeakInternalIdentifiers() {
+        let knownWarningCodes = [
+            "vision_not_supported",
+            "visual_fallback_timeout",
+            "screen_recording_not_authorized",
+            "agent_llm_failed",
+            "llm_refinement_failed",
+            "llm_structured_parse_failed",
+            "llm_refinement_rejected",
+            "llm_refinement_cancelled_by_user",
+            "context_collection_timeout",
+            "secure_text_field_detected",
+            "voice_correction_failed",
+            "prompt_context_failed",
+            "snapshotUnavailable",
+            "processingFailed"
+        ]
+
+        for code in knownWarningCodes {
+            let message = HomeHistoryDetailPresentation.warningMessage(for: code, taskMode: .dictation)
+            XCTAssertNotEqual(message, code, "Warning code should have a user-readable message: \(code)")
+            XCTAssertFalse(message.contains("_"), "Warning message should not expose snake_case code: \(code)")
+        }
+    }
+
+    // MARK: - Pipeline step mapping tests
+
+    private func makeDetail(
+        rawText: String = "测试原文",
+        finalText: String = "测试最终",
+        trace: TextProcessingTrace? = nil,
+        taskMode: VoiceTaskMode? = nil,
+        contextPreview: String? = nil
+    ) -> HomeHistoryDetail {
+        HomeHistoryDetail(
+            id: "test",
+            rawText: rawText,
+            finalText: finalText,
+            language: "zh-CN",
+            asrProviderID: "apple_speech",
+            llmProviderID: nil,
+            styleID: nil,
+            appName: nil,
+            appBundleID: nil,
+            durationMS: 1000,
+            charCount: finalText.count,
+            cpm: 200,
+            warnings: [],
+            trace: trace,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_100),
+            taskMode: taskMode,
+            taskStatus: nil,
+            windowTitle: nil,
+            contextPreview: contextPreview,
+            outputResultRaw: nil
+        )
+    }
+
+    func testPipelineStepsWithNoTraceShowsSkippedForNonAlwaysPresentSteps() {
+        let detail = makeDetail(trace: nil, taskMode: nil)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        // ASR and output are always success; deterministic/textReplacement/styleRoute/llm are skipped.
+        let asrStep = steps.first { $0.kind == .asr }
+        XCTAssertEqual(asrStep?.status, .success)
+
+        let outputStep = steps.first { $0.kind == .output }
+        XCTAssertEqual(outputStep?.status, .success)
+
+        let llmStep = steps.first { $0.kind == .llm }
+        XCTAssertEqual(llmStep?.status, .skipped)
+
+        let textReplacementStep = steps.first { $0.kind == .textReplacement }
+        XCTAssertEqual(textReplacementStep?.status, .skipped)
+    }
+
+    func testPipelineStepsWithSuccessfulLLMShowsSuccess() {
+        let trace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "test",
+                providerName: "Test",
+                endpoint: "https://example.com",
+                model: "gpt-4",
+                temperature: 0.2,
+                timeoutSeconds: 30,
+                requestBodyJSON: "{}",
+                responseText: "response",
+                statusCode: 200,
+                durationMS: 1500,
+                errorMessage: nil,
+                completedAt: Date()
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: nil)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        let llmStep = steps.first { $0.kind == .llm }
+        XCTAssertEqual(llmStep?.status, .success)
+    }
+
+    func testPipelineStepsWithFailedLLMShowsFailed() {
+        let trace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "test",
+                providerName: "Test",
+                endpoint: "https://example.com",
+                model: "gpt-4",
+                temperature: 0.2,
+                timeoutSeconds: 30,
+                requestBodyJSON: "{}",
+                responseText: nil,
+                statusCode: 500,
+                durationMS: 1500,
+                errorMessage: "server error",
+                completedAt: Date()
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: nil)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        let llmStep = steps.first { $0.kind == .llm }
+        XCTAssertEqual(llmStep?.status, .failed)
+    }
+
+    func testPipelineStepsWithVoiceCorrectionHitsShowsHit() {
+        let trace = TextProcessingTrace(
+            voiceCorrection: VoiceCorrectionTrace(
+                candidateEvents: [],
+                appliedEvents: [
+                    CorrectionEvent(
+                        ruleID: UUID(),
+                        original: "QW3A",
+                        replacement: "Qwen3",
+                        range: CorrectionTextRange(location: 0, length: 4),
+                        scope: .global,
+                        source: .manual
+                    )
+                ]
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: nil)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        let textReplacementStep = steps.first { $0.kind == .textReplacement }
+        XCTAssertEqual(textReplacementStep?.status, .hit)
+    }
+
+    func testPipelineStepsWithDeterministicChangesShowsModified() {
+        let trace = TextProcessingTrace(
+            deterministic: DeterministicProcessingTrace(
+                enabled: true,
+                isCodingContext: false,
+                preLLM: DeterministicProcessingPhaseTrace(
+                    phase: "pre_llm",
+                    enabledProcessors: ["filler_word_filtering"],
+                    inputCharacterCount: 4,
+                    outputCharacterCount: 3,
+                    inputHash: "before",
+                    outputHash: "after"
+                ),
+                postLLM: DeterministicProcessingPhaseTrace(
+                    phase: "post_llm",
+                    enabledProcessors: ["punctuation_optimization"],
+                    inputCharacterCount: 3,
+                    outputCharacterCount: 4,
+                    inputHash: "post_before",
+                    outputHash: "post_after"
+                )
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: nil)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        XCTAssertEqual(steps.first { $0.kind == .deterministic }?.status, .modified)
+    }
+
+    func testPipelineStepsExcludesDeterministicAndTextReplacementForAgentCompose() {
+        let detail = makeDetail(trace: nil, taskMode: .agentCompose)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        // Agent compose should not show deterministic or text replacement steps.
+        XCTAssertNil(steps.first { $0.kind == .deterministic })
+        XCTAssertNil(steps.first { $0.kind == .textReplacement })
+        // But ASR, context, LLM, and output should still be present.
+        XCTAssertNotNil(steps.first { $0.kind == .asr })
+        XCTAssertNotNil(steps.first { $0.kind == .context })
+        XCTAssertNotNil(steps.first { $0.kind == .llm })
+        XCTAssertNotNil(steps.first { $0.kind == .output })
+    }
+
+    func testPipelineStepsWithContextBoostShowsContextHit() {
+        let trace = TextProcessingTrace(
+            contextBoost: ContextBoostTrace(
+                appName: "Codex",
+                bundleID: "com.openai.codex",
+                hotwords: ["Qwen3"],
+                source: "current_window_ocr",
+                ttlSeconds: 300,
+                appliedToLLMPrompt: true,
+                failureReason: nil
+            )
+        )
+        let detail = makeDetail(trace: trace, contextPreview: "Qwen3 文档")
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        XCTAssertEqual(steps.first { $0.kind == .context }?.status, .hit)
+    }
+
+    func testPipelineStepsWithContextPreviewOnlyShowsContextExecuted() {
+        let detail = makeDetail(trace: nil, contextPreview: "当前窗口文本")
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        XCTAssertEqual(steps.first { $0.kind == .context }?.status, .executed)
+    }
+
+    func testPipelineStepsWithContextFailureShowsContextFailed() {
+        let trace = TextProcessingTrace(
+            contextBoost: ContextBoostTrace(
+                appName: "Codex",
+                bundleID: "com.openai.codex",
+                hotwords: [],
+                source: "current_window_ocr",
+                ttlSeconds: 300,
+                appliedToLLMPrompt: false,
+                failureReason: "context_boost_timeout"
+            )
+        )
+        let detail = makeDetail(trace: trace)
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        XCTAssertEqual(steps.first { $0.kind == .context }?.status, .failed)
+    }
+
+    func testDiffStatusTextShowsFailedWhenLLMFailed() {
+        let trace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "test",
+                providerName: "Test",
+                endpoint: "https://example.com",
+                model: "gpt-4",
+                temperature: 0.2,
+                timeoutSeconds: 30,
+                requestBodyJSON: "{}",
+                responseText: nil,
+                statusCode: 500,
+                durationMS: 1500,
+                errorMessage: "server error",
+                completedAt: Date()
+            )
+        )
+        let detail = makeDetail(rawText: "原文", finalText: "原文", trace: trace)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.diffStatusText(for: detail),
+            L10n.localize("home.detail.diff.failed", comment: "Diff failed status")
+        )
+    }
+
+    func testDiffStatusTextShowsUnmodifiedWhenRawEqualsFinal() {
+        let detail = makeDetail(rawText: "相同文本", finalText: "相同文本", trace: nil)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.diffStatusText(for: detail),
+            L10n.localize("home.detail.diff.unmodified", comment: "Diff unmodified status")
+        )
+    }
+
+    func testDiffStatusTextShowsModifiedWhenVoiceCorrectionApplied() {
+        let trace = TextProcessingTrace(
+            voiceCorrection: VoiceCorrectionTrace(
+                candidateEvents: [],
+                appliedEvents: [
+                    CorrectionEvent(
+                        ruleID: UUID(),
+                        original: "QW3A",
+                        replacement: "Qwen3",
+                        range: CorrectionTextRange(location: 0, length: 4),
+                        scope: .global,
+                        source: .manual
+                    )
+                ]
+            )
+        )
+        let detail = makeDetail(rawText: "QW3A", finalText: "Qwen3", trace: trace)
+
+        let expected = String(
+            format: L10n.localize("home.detail.diff.modified_format", comment: "Diff modified format"),
+            1
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.diffStatusText(for: detail),
+            expected
+        )
+    }
+
+    func testDefaultSelectedStepStartsFromASRWhenLLMAvailable() {
+        let trace = TextProcessingTrace(
+            llm: LLMRefinementTrace(
+                providerID: "test",
+                providerName: "Test",
+                endpoint: "https://example.com",
+                model: "gpt-4",
+                temperature: 0.2,
+                timeoutSeconds: 30,
+                requestBodyJSON: "{}",
+                responseText: "response",
+                statusCode: 200,
+                durationMS: 1500,
+                errorMessage: nil,
+                completedAt: Date()
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: nil)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.defaultSelectedStep(for: detail),
+            .asr
+        )
+    }
+
+    func testDefaultSelectedStepFallsBackToASRWhenNoLLM() {
+        let detail = makeDetail(trace: nil, taskMode: nil)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.defaultSelectedStep(for: detail),
+            .asr
+        )
+    }
+
+    func testDefaultSelectedStepStartsFromASRWhenContextExists() {
+        let trace = TextProcessingTrace(
+            contextBoost: ContextBoostTrace(
+                appName: "Codex",
+                bundleID: "com.openai.codex",
+                hotwords: ["Qwen3"],
+                source: "current_window_ocr",
+                ttlSeconds: 300,
+                appliedToLLMPrompt: true,
+                failureReason: nil
+            )
+        )
+        let detail = makeDetail(trace: trace)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.defaultSelectedStep(for: detail),
+            .asr
+        )
+    }
+
+    func testPipelineStatusTextShowsLocalWhenNoLLM() {
+        let detail = makeDetail(trace: nil, taskMode: nil)
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.pipelineStatusText(for: detail),
+            L10n.localize("home.detail.pipeline.status.local", comment: "Local processing complete")
         )
     }
 }

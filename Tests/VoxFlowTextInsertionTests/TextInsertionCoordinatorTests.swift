@@ -37,6 +37,21 @@ final class TextInsertionCoordinatorTests: XCTestCase {
         XCTAssertEqual(simulatedTyping.insertedTexts, ["typed text"])
     }
 
+    func testSimulatedTypingFallsBackToFastPasteForMultilineText() async {
+        let fastPaste = CapturingTextInserter(result: .success)
+        let simulatedTyping = CapturingTextInserter(result: .success)
+        let coordinator = TextInsertionCoordinator(
+            fastPasteInserter: fastPaste,
+            simulatedTypingInserter: simulatedTyping
+        )
+
+        let result = await coordinator.insert("第一行\n第二行", mode: .simulatedTyping)
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(fastPaste.insertedTexts, ["第一行\n第二行"])
+        XCTAssertTrue(simulatedTyping.insertedTexts.isEmpty)
+    }
+
     func testSimulatedTypingWithoutInserterReturnsUnavailableWithoutFastPasteFallback() async {
         let fastPaste = CapturingTextInserter(result: .success)
         let coordinator = TextInsertionCoordinator(fastPasteInserter: fastPaste)

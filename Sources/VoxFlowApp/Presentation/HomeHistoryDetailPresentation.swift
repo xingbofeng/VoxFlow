@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import VoxFlowVoiceCorrection
+import VoxFlowPromptKit
 
 enum HomeHistoryDetailPresentation {
     static let missingTraceMessage = L10n.localize("home.detail.trace.missing_dictation", comment: "Missing dictation trace message")
@@ -183,12 +185,24 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.warning.agent_llm_failed", comment: "Agent LLM failed")
         case "llm_refinement_failed":
             return L10n.localize("home.detail.warning.llm_refinement_failed", comment: "LLM refinement failed")
+        case "llm_structured_parse_failed":
+            return L10n.localize("home.detail.warning.llm_structured_parse_failed", comment: "LLM structured response parse failed")
+        case "llm_refinement_rejected":
+            return L10n.localize("home.detail.warning.llm_refinement_rejected", comment: "LLM refinement rejected by safety guard")
         case "llm_refinement_cancelled_by_user":
             return L10n.localize("home.detail.warning.llm_refinement_cancelled", comment: "LLM refinement cancelled")
         case "context_collection_timeout":
             return L10n.localize("home.detail.warning.context_collection_timeout", comment: "Context collection timeout")
         case "secure_text_field_detected":
             return L10n.localize("home.detail.warning.secure_text_field_detected", comment: "Secure text field detected")
+        case "voice_correction_failed":
+            return L10n.localize("home.detail.warning.voice_correction_failed", comment: "Voice correction failed")
+        case "prompt_context_failed":
+            return L10n.localize("home.detail.warning.prompt_context_failed", comment: "Prompt context failed")
+        case "snapshotUnavailable":
+            return L10n.localize("home.detail.warning.voice_correction_snapshot_unavailable", comment: "Voice correction snapshot unavailable")
+        case "processingFailed":
+            return L10n.localize("home.detail.warning.voice_correction_processing_failed", comment: "Voice correction processing failed")
         default:
             return code
         }
@@ -266,5 +280,225 @@ enum HomeHistoryDetailPresentation {
                 appliedCorrectionRanges: []
             )
             .first
+    }
+
+    // MARK: - Pipeline step model
+
+    /// The pipeline phases shown in the transcription detail timeline.
+    /// Order matters — it reflects the processing order from ASR to output.
+    enum PipelineStepKind: CaseIterable {
+        case asr
+        case deterministic
+        case textReplacement
+        case styleRoute
+        case context
+        case llm
+        case output
+
+        var title: String {
+            switch self {
+            case .asr:
+                return L10n.localize("home.detail.pipeline.step.asr", comment: "ASR step title")
+            case .deterministic:
+                return L10n.localize("home.detail.pipeline.step.deterministic", comment: "Deterministic step title")
+            case .textReplacement:
+                return L10n.localize("home.detail.pipeline.step.text_replacement", comment: "Text replacement step title")
+            case .styleRoute:
+                return L10n.localize("home.detail.pipeline.step.style_route", comment: "Style route step title")
+            case .context:
+                return L10n.localize("home.detail.pipeline.step.context", comment: "Context step title")
+            case .llm:
+                return L10n.localize("home.detail.pipeline.step.llm", comment: "LLM step title")
+            case .output:
+                return L10n.localize("home.detail.pipeline.step.output", comment: "Output step title")
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .asr: return "waveform"
+            case .deterministic: return "wand.and.stars"
+            case .textReplacement: return "arrow.left.arrow.right"
+            case .styleRoute: return "shuffle"
+            case .context: return "text.viewfinder"
+            case .llm: return "sparkles"
+            case .output: return "checkmark.circle"
+            }
+        }
+
+        /// Whether this step is applicable to the given task mode.
+        /// Agent compose/dispatch don't go through deterministic processing
+        /// or text replacement — those steps are hidden rather than shown
+        /// as "skipped" to avoid clutter.
+        func isApplicable(for taskMode: VoiceTaskMode?) -> Bool {
+            switch self {
+            case .deterministic, .textReplacement:
+                return taskMode == nil || taskMode == .dictation
+            case .styleRoute:
+                return taskMode == nil || taskMode == .dictation
+            case .asr, .context, .llm, .output:
+                return true
+            }
+        }
+    }
+
+    /// Status of a single pipeline step in the timeline.
+    enum PipelineStepStatus: Equatable {
+        case success
+        case skipped
+        case hit
+        case modified
+        case missed
+        case failed
+        case executed
+
+        var title: String {
+            switch self {
+            case .success:
+                return L10n.localize("home.detail.pipeline.status.success", comment: "Pipeline step success")
+            case .skipped:
+                return L10n.localize("home.detail.pipeline.status.skipped", comment: "Pipeline step skipped")
+            case .hit:
+                return L10n.localize("home.detail.pipeline.status.hit", comment: "Pipeline step hit")
+            case .modified:
+                return L10n.localize("home.detail.pipeline.status.modified", comment: "Pipeline step modified")
+            case .missed:
+                return L10n.localize("home.detail.pipeline.status.missed", comment: "Pipeline step missed")
+            case .failed:
+                return L10n.localize("home.detail.pipeline.status.failed", comment: "Pipeline step failed")
+            case .executed:
+                return L10n.localize("home.detail.pipeline.status.executed", comment: "Pipeline step executed")
+            }
+        }
+    }
+
+    struct PipelineStepInfo: Equatable, Identifiable {
+        let kind: PipelineStepKind
+        let status: PipelineStepStatus
+        var id: PipelineStepKind { kind }
+    }
+
+    /// Maps a `HomeHistoryDetail`'s trace data to the 6 pipeline steps with
+    /// their statuses. Steps that are not applicable to the task mode are
+    /// excluded from the returned array.
+    static func pipelineSteps(for detail: HomeHistoryDetail) -> [PipelineStepInfo] {
+        PipelineStepKind.allCases.compactMap { kind in
+            guard kind.isApplicable(for: detail.taskMode) else { return nil }
+            return PipelineStepInfo(kind: kind, status: stepStatus(for: kind, detail: detail))
+        }
+    }
+
+    private static func stepStatus(for kind: PipelineStepKind, detail: HomeHistoryDetail) -> PipelineStepStatus {
+        switch kind {
+        case .asr:
+            // ASR always ran if we have raw text.
+            return .success
+        case .deterministic:
+            guard let deterministic = detail.trace?.deterministic else { return .skipped }
+            guard deterministic.enabled else { return .skipped }
+            return deterministic.changed ? .modified : .executed
+        case .textReplacement:
+            guard let vc = detail.trace?.voiceCorrection else { return .skipped }
+            if vc.failureReason != nil { return .failed }
+            if vc.appliedEvents.isEmpty {
+                return vc.candidateEvents.isEmpty ? .missed : .missed
+            }
+            return .hit
+        case .styleRoute:
+            guard let route = detail.trace?.styleRoute else { return .skipped }
+            if route.selectedStyleID == nil && route.fallbackReason != nil {
+                return .failed
+            }
+            return .success
+        case .context:
+            guard let context = detail.trace?.contextBoost else {
+                return detail.contextPreview == nil ? .skipped : .executed
+            }
+            if context.failureReason != nil { return .failed }
+            if context.appliedToLLMPrompt { return .hit }
+            return (context.hotwords.isEmpty && detail.contextPreview == nil) ? .missed : .executed
+        case .llm:
+            guard let llm = detail.trace?.llm else { return .skipped }
+            return llm.succeeded ? .success : .failed
+        case .output:
+            // Output always completed if we have final text.
+            return .success
+        }
+    }
+
+    /// Returns the overall pipeline status text shown next to the timeline
+    /// header. Example: "成功 · 4.1 秒 · 200" or "本地处理完成".
+    static func pipelineStatusText(for detail: HomeHistoryDetail) -> String {
+        if let llm = detail.trace?.llm {
+            let duration = durationText(milliseconds: llm.durationMS)
+            let code = llm.statusCode.map { "\($0)" } ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+            let status = llm.succeeded
+                ? L10n.localize("home.detail.status.success", comment: "Success status")
+                : L10n.localize("home.detail.status.failed", comment: "Failed status")
+            return "\(status) · \(duration) · \(code)"
+        }
+        if detail.trace?.voiceCorrection != nil || detail.trace?.contextBoost != nil {
+            return L10n.localize("home.detail.pipeline.status.local", comment: "Local processing complete")
+        }
+        return L10n.localize("home.detail.pipeline.status.local", comment: "Local processing complete")
+    }
+
+    /// The color used for the pipeline status pill.
+    static func pipelineStatusColor(for detail: HomeHistoryDetail) -> Color {
+        if let llm = detail.trace?.llm {
+            return llm.succeeded ? AppTheme.ColorToken.accent : Color.orange
+        }
+        if detail.trace?.voiceCorrection?.failureReason != nil {
+            return Color.orange
+        }
+        return AppTheme.ColorToken.accent
+    }
+
+    /// Diff status text shown in the result comparison section.
+    /// Returns nil if there's no meaningful diff to show.
+    static func diffStatusText(for detail: HomeHistoryDetail) -> String? {
+        // If LLM failed, show "处理失败".
+        if let llm = detail.trace?.llm, !llm.succeeded {
+            return L10n.localize("home.detail.diff.failed", comment: "Diff failed status")
+        }
+        // If voice correction applied replacements, show "已修正 · N 处".
+        if let vc = detail.trace?.voiceCorrection, !vc.appliedEvents.isEmpty {
+            return String(
+                format: L10n.localize("home.detail.diff.modified_format", comment: "Diff modified format"),
+                vc.appliedEvents.count
+            )
+        }
+        // If raw == final and no corrections, show "未修改".
+        let raw = detail.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let final = detail.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw == final {
+            return L10n.localize("home.detail.diff.unmodified", comment: "Diff unmodified status")
+        }
+        // Texts differ but no voice correction — LLM or deterministic changed it.
+        return L10n.localize("home.detail.diff.modified_format_one", comment: "Diff modified one")
+    }
+
+    /// Returns the step that should be selected by default when the modal
+    /// opens. Keep the default stable and predictable: always start from the
+    /// first visible pipeline step (ASR for dictation records).
+    static func defaultSelectedStep(for detail: HomeHistoryDetail) -> PipelineStepKind {
+        let steps = pipelineSteps(for: detail)
+        return steps.first?.kind ?? .asr
+    }
+
+    /// Returns the diff preview text shown in the diff pill, e.g.
+    /// "QW3A。 → Qwen3.". Returns nil if there's no meaningful change.
+    static func diffPreviewText(for detail: HomeHistoryDetail) -> String? {
+        if let event = detail.trace?.voiceCorrection?.appliedEvents.first {
+            return "\(event.original) → \(event.replacement)"
+        }
+        let raw = detail.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let final = detail.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty, !final.isEmpty, raw != final else { return nil }
+        // Truncate long texts for the pill.
+        let maxLen = 40
+        let truncatedRaw = raw.count > maxLen ? String(raw.prefix(maxLen)) + "…" : raw
+        let truncatedFinal = final.count > maxLen ? String(final.prefix(maxLen)) + "…" : final
+        return "\(truncatedRaw) → \(truncatedFinal)"
     }
 }

@@ -73,20 +73,21 @@ killall SystemUIServer 2>/dev/null || true
 
 ## 验证清单
 
-完成任何改动前，按顺序执行：
+完成高风险或发布前改动时，按顺序执行：
 
 1. `swift test` — 全部测试通过（0 unexpected failures）
 2. `make debug` — Debug 构建无 warning（`-warnings-as-errors`）
 3. `make build` — Release 构建通过
-4. 行为改动遵循 TDD：先写失败测试 → 最小实现 → 重构
+4. 重要行为改动遵循 TDD：先写失败测试 → 最小实现 → 重构
 
 如果全量门禁被当前工作树中无关迁移问题阻塞，必须明确报告具体命令、错误文件/行号、是否与本次改动相关，并至少完成本次改动的针对性测试或静态检查。
+
+小 bug 修复不强制新增测试，也不要求默认跑完整门禁；根据风险选择最小验证即可，例如静态检查、局部构建、手工检查或复现路径验证。典型小 bug 包括提示文案、toast 可见性、轻量布局微调、明显的一行逻辑修正等。不要为了满足形式化 TDD 而新增低价值测试。
 
 ## 品牌约定
 
 - 构建产物：`VoxFlow.app`，安装包：`VoxFlow-<version>-macOS.dmg`
 - Bundle ID：`com.voxflow.app`
-- Legacy Bundle ID `com.voiceinput.app` **仅**用于明确的旧偏好/LaunchServices/状态栏缓存清理语境（如 `Makefile prelaunch-cleanup`、`ProductBrand.legacyBundleIdentifier`、相关测试 fixture）
 - SwiftPM executable product / target / module：`VoxFlowApp`
 - App 源码目录：`Sources/VoxFlowApp/`
 - App 测试目录：`Tests/VoxFlowAppTests/`
@@ -166,6 +167,13 @@ AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。
 - Mock 类命名：`Fake*`（行为模拟）或 `Capturing*`（记录调用）
 - UserDefaults suite name 使用 `UUID()` 隔离，避免测试间串扰
 - 环境变量前缀 `VOICEINPUT_TEST_*` 用于需要真实 API 的集成测试（默认跳过）
+- 小 bug 修复不需要强制补测试；只有涉及核心流程、数据持久化、跨模块契约、回归风险高或用户可观察行为复杂时，才优先补针对性测试。
+- 不要无限堆测试。新增测试必须覆盖真实行为、边界、回归风险或架构约束；低价值用例不需要写，避免拖慢 `swift test` 和日常迭代。
+- UI / Presentation 测试优先测试可抽离的 presentation model、ViewModel、路由策略、状态机和用户可观察行为；不要为了固定 SwiftUI 具体写法而写源码字符串快照测试。
+- 禁止新增“读取 `Sources/.../*.swift` 后 `source.contains(...)` / 正则匹配实现细节”的测试，除非它是明确的架构边界检查或发布/打包契约检查，且没有更直接的行为测试方式。
+- 禁止新增扫全仓库、扫 Markdown、扫 OpenSpec 文档的品牌/文案/实现细节测试；这类检查容易误伤历史文档和方案草稿。
+- 读文件类测试应限于真实产物或 fixture 行为，例如 SQLite schema、资源 bundle、热词导出文件、发布元数据 fixture、生成的字幕/SRT 等。
+- 如果为了防回归必须保护某个 UI 细节，优先把判断逻辑下沉到可测试的小模型或策略对象；确实只能人工/截图验证的，不要用脆弱源码断言替代。
 
 ## 多语言与本地化
 
@@ -204,8 +212,7 @@ AI Coding 助手 的 CLI 源码只维护 Rust 版本：根目录 `agent-cli/`。
 
 以下文件/路径包含有意保留或受架构约束的名称，**不要随意"修正"、迁移或删除**：
 
-- `Sources/VoxFlowDomain/Branding/ProductBrand.swift` — `legacyBundleIdentifier` 仅用于旧 bundle 清理/测试断言
-- `Makefile CURRENT_BUNDLE_ID` / `DEV_BUNDLE_ID` / `LEGACY_BUNDLE_ID` / `LEGACY_APP_NAME` — `CURRENT_BUNDLE_ID=com.voxflow.app` 仅用于正式构建，`DEV_BUNDLE_ID=com.voxflow.app.dev` 仅用于 `build-dev` / `run-dev` 隔离 LaunchServices、TCC 权限和状态栏身份；legacy 名称仅用于旧 LaunchServices、旧状态栏 defaults 和残留 app 注册清理
+- `Makefile CURRENT_BUNDLE_ID` / `DEV_BUNDLE_ID` — `CURRENT_BUNDLE_ID=com.voxflow.app` 仅用于正式构建，`DEV_BUNDLE_ID=com.voxflow.app.dev` 仅用于 `build-dev` / `run-dev` 隔离 LaunchServices、TCC 权限和状态栏身份
 - `LanguageManager.swift` — UserDefaults key `VoiceInput_SelectedLanguage`
 - `DatabaseQueue.swift` — DispatchQueue label
 - `VOICEINPUT_TEST_*` 环境变量 — 兼容既有 live/smoke 测试开关，除非成体系迁移测试和 CI，否则不要零散改名

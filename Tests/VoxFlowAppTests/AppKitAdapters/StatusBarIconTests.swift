@@ -9,17 +9,14 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertEqual(StatusBarIcon.accessibilityName, ProductBrand.displayName)
         XCTAssertEqual(StatusBarIcon.imagePosition, .imageOnly)
         XCTAssertNil(StatusBarIcon.tooltip)
-        XCTAssertEqual(StatusBarIcon.autosaveName, "VoxFlowStatusItemMenuExtraV6")
-        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains(StatusBarIcon.autosaveName))
-        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("VoxFlowStatusItemMenuExtraV5"))
-        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("VoxFlowStatusItemMenuExtraV4"))
-        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("Item-0"))
-        XCTAssertTrue(StatusBarIcon.persistedAutosaveNames.contains("VoxFlowStatusItemRuntime"))
+        XCTAssertEqual(StatusBarIcon.autosaveName, "VoxFlowMenuBarItem")
+        XCTAssertFalse(StatusBarIcon.autosaveName.range(of: #"V[0-9]+$"#, options: .regularExpression) != nil)
+        XCTAssertEqual(StatusBarIcon.persistedAutosaveNames, [StatusBarIcon.autosaveName])
         XCTAssertEqual(StatusBarIcon.buttonIdentifier.rawValue, "VoxFlowStatusBarButton")
         XCTAssertEqual(StatusBarIcon.preferredLength, NSStatusItem.squareLength)
         XCTAssertEqual(
             StatusBarIcon.persistedBundleIdentifiers,
-            ["com.voxflow.app", "com.voiceinput.app"]
+            ["com.voxflow.app"]
         )
     }
 
@@ -92,7 +89,6 @@ final class StatusBarIconTests: XCTestCase {
             statusItem.autosaveName,
             NSStatusItem.AutosaveName(StatusBarIcon.autosaveName)
         )
-        XCTAssertNotEqual(statusItem.autosaveName, NSStatusItem.AutosaveName("VoxFlowStatusItemRuntime"))
         XCTAssertTrue(statusItem.isVisible)
     }
 
@@ -161,82 +157,33 @@ final class StatusBarIconTests: XCTestCase {
         XCTAssertNotEqual(statusItem.autosaveName, persistedName)
     }
 
-    func testClearsLegacyAndCurrentPersistedStatusItemDefaultsAtRuntime() {
+    func testClearsCurrentPersistedStatusItemDefaultsAtRuntime() {
         let currentSuite = "test.StatusBarIcon.current.\(UUID().uuidString)"
-        let legacySuite = "test.StatusBarIcon.legacy.\(UUID().uuidString)"
         let currentDefaults = UserDefaults(suiteName: currentSuite)!
-        let legacyDefaults = UserDefaults(suiteName: legacySuite)!
         defer {
             currentDefaults.removePersistentDomain(forName: currentSuite)
-            legacyDefaults.removePersistentDomain(forName: legacySuite)
         }
-        for defaults in [currentDefaults, legacyDefaults] {
-            defaults.set(42, forKey: "NSStatusItem Preferred Position VoxFlowStatusItem")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItem")
-            defaults.set(43, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemV2")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemV2")
-            defaults.set(44, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemRuntime")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
-            defaults.set(48, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV5")
-            defaults.set(false, forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV5")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV5")
-            defaults.set(47, forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV4")
-            defaults.set(false, forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV4")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
-            defaults.set(46, forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)")
-            defaults.set(false, forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)")
-            defaults.set(45, forKey: "NSStatusItem Preferred Position Item-0")
-            defaults.set(false, forKey: "NSStatusItem Visible Item-0")
-            defaults.set(false, forKey: "NSStatusItem VisibleCC Item-0")
-            defaults.set(true, forKey: "VoxFlowStatusItemPlacementResetV1")
-            defaults.set("keep", forKey: "Unrelated")
-        }
+        currentDefaults.set(46, forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)")
+        currentDefaults.set(false, forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
+        currentDefaults.set(false, forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)")
+        currentDefaults.set(true, forKey: "VoxFlowStatusItemPlacementResetV1")
+        currentDefaults.set("keep", forKey: "Unrelated")
 
-        StatusBarIcon.clearPersistedVisibilityState(bundleIdentifiers: [currentSuite, legacySuite])
+        StatusBarIcon.clearPersistedVisibilityState(bundleIdentifiers: [currentSuite])
 
-        for defaults in [currentDefaults, legacyDefaults] {
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItem"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItem"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemV2"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemV2"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemRuntime"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV5"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV5"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV5"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItemMenuExtraV4"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible VoxFlowStatusItemMenuExtraV4"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position Item-0"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible Item-0"))
-            XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC Item-0"))
-            XCTAssertNil(defaults.object(forKey: "VoxFlowStatusItemPlacementResetV1"))
-            XCTAssertEqual(defaults.string(forKey: "Unrelated"), "keep")
-        }
+        XCTAssertNil(currentDefaults.object(forKey: "NSStatusItem Preferred Position \(StatusBarIcon.autosaveName)"))
+        XCTAssertNil(currentDefaults.object(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)"))
+        XCTAssertNil(currentDefaults.object(forKey: "NSStatusItem VisibleCC \(StatusBarIcon.autosaveName)"))
+        XCTAssertNil(currentDefaults.object(forKey: "VoxFlowStatusItemPlacementResetV1"))
+        XCTAssertEqual(currentDefaults.string(forKey: "Unrelated"), "keep")
     }
 
     func testCurrentBundleVisibilityStateUsesStandardDefaultsInsteadOfSuiteName() {
         let defaults = UserDefaults.standard
-        defaults.set(42, forKey: "NSStatusItem Preferred Position VoxFlowStatusItem")
-        defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItem")
-        defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV5")
         defaults.set(false, forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
-        defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
-        defaults.set(false, forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
-        defaults.set(false, forKey: "NSStatusItem VisibleCC Item-0")
         defaults.set(true, forKey: "VoxFlowStatusItemPlacementResetV1")
         defer {
-            defaults.removeObject(forKey: "NSStatusItem Preferred Position VoxFlowStatusItem")
-            defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItem")
-            defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV5")
             defaults.removeObject(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)")
-            defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime")
-            defaults.removeObject(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4")
-            defaults.removeObject(forKey: "NSStatusItem VisibleCC Item-0")
             defaults.removeObject(forKey: "VoxFlowStatusItemPlacementResetV1")
         }
         var requestedSuites: [String] = []
@@ -250,13 +197,7 @@ final class StatusBarIconTests: XCTestCase {
         )
 
         XCTAssertTrue(requestedSuites.isEmpty)
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem Preferred Position VoxFlowStatusItem"))
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItem"))
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV5"))
         XCTAssertNil(defaults.object(forKey: "NSStatusItem Visible \(StatusBarIcon.autosaveName)"))
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemRuntime"))
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC VoxFlowStatusItemMenuExtraV4"))
-        XCTAssertNil(defaults.object(forKey: "NSStatusItem VisibleCC Item-0"))
         XCTAssertNil(defaults.object(forKey: "VoxFlowStatusItemPlacementResetV1"))
     }
 

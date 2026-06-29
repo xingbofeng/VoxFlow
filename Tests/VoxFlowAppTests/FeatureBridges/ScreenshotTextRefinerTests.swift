@@ -345,8 +345,8 @@ final class ScreenshotTextRefinerTests: XCTestCase {
     }
 
     func testTranslationPromptAlwaysTargetsSimplifiedChinese() {
-        XCTAssertTrue(ScreenshotOCRService.translationSystemPrompt.contains("翻译成简体中文"))
-        XCTAssertFalse(ScreenshotOCRService.translationSystemPrompt.contains("翻译成英文"))
+        XCTAssertTrue(ScreenshotOCRService.translationSystemPrompt.contains("Simplified Chinese"))
+        XCTAssertFalse(ScreenshotOCRService.translationSystemPrompt.contains("into English"))
     }
 
     func testSummaryRequiresConfiguredCloudRefiner() async {

@@ -12,6 +12,5 @@ final class VoxFlowDomainProductBrandTests: XCTestCase {
         XCTAssertEqual(ProductBrand.chineseDisplayName, Bundle.main.localizedString(forKey: "product.brand.chinese_display_name", value: "码上写", table: "Localizable"))
         XCTAssertEqual(ProductBrand.displayName, expectedDisplayName)
         XCTAssertEqual(ProductBrand.bundleIdentifier, "com.voxflow.app")
-        XCTAssertEqual(ProductBrand.legacyBundleIdentifier, "com.voiceinput.app")
     }
 }

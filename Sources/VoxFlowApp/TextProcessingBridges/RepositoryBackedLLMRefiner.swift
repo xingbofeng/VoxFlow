@@ -125,7 +125,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
             statusCode: nil,
             durationMS: nil,
             errorMessage: nil,
-            completedAt: nil
+            completedAt: nil,
+            promptMetadata: request.promptMetadata
         )
 
         let startedAt = Date()
@@ -237,7 +238,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
                         statusCode: nil,
                         durationMS: nil,
                         errorMessage: nil,
-                        completedAt: nil
+                        completedAt: nil,
+                        promptMetadata: request.promptMetadata
                     )
                     lastTrace = trace
 

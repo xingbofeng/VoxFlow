@@ -5,6 +5,19 @@ import XCTest
 final class AgentPromptBuilderTests: XCTestCase {
     private let builder = AgentPromptBuilder()
 
+    func testSystemPromptIncludesSystemLanguage() {
+        let request = AgentPromptBuilder(systemLanguage: "zh-Hans").build(
+            appName: nil,
+            stylePrompt: nil,
+            context: nil,
+            userDictation: "帮我说一下"
+        )
+
+        XCTAssertTrue(request.systemPrompt.contains("System language: zh-Hans"))
+        XCTAssertFalse(request.systemPrompt.contains("帮我说一下"))
+        XCTAssertTrue(request.text.contains("帮我说一下"))
+    }
+
     // MARK: - testPromptContainsAppName
 
     func testPromptContainsAppName() {

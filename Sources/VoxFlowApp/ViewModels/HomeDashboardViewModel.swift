@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import VoxFlowTextProcessing
 import VoxFlowVoiceCorrection
 
 struct HomeDashboardStats: Equatable {
@@ -745,6 +746,9 @@ final class HomeDashboardViewModel: ObservableObject {
         }
 
         isReprocessing = true
+        lastError = nil
+        lastActionMessage = L10n.localize("home.detail.feedback.reprocess_started", comment: "")
+        lastActionTone = .informational
         defer { isReprocessing = false }
 
         do {
@@ -772,8 +776,13 @@ final class HomeDashboardViewModel: ObservableObject {
                     .replacingTrace(LLMDiagnosticCapture.shared.trace(taskID: updatedEntry.id))
             )
             lastError = nil
-            lastActionMessage = "已重新处理历史记录"
-            lastActionTone = .success
+            if finalText == entry.finalText {
+                lastActionMessage = L10n.localize("home.detail.feedback.reprocess_unchanged", comment: "")
+                lastActionTone = .informational
+            } else {
+                lastActionMessage = L10n.localize("home.detail.feedback.reprocess_updated", comment: "")
+                lastActionTone = .success
+            }
         } catch {
             lastError = error.localizedDescription
         }
@@ -1149,7 +1158,12 @@ final class HomeDashboardViewModel: ObservableObject {
         )
         return DefaultTextProcessingPipeline(
             refiner: refiner,
-            styleSelector: styleSelector
+            styleSelector: styleSelector,
+            deterministicSettingsProvider: {
+                DeterministicTextProcessingSettingsStore.load(
+                    storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+                )
+            }
         )
     }
 

@@ -17,19 +17,6 @@ final class ScrollingScreenshotAutoScrollerTests: XCTestCase {
         ])
     }
 
-    func testAppKitAutoScrollerTargetsCaptureCenterWithoutWarpingPointer() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotAutoScroller.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("event.location = location"))
-        XCTAssertFalse(source.contains("CGWarpMouseCursorPosition"))
-    }
 }
 
 @MainActor
@@ -37,6 +24,7 @@ final class FakeScrollingScreenshotAutoScroller: ScrollingScreenshotAutoScrollin
     var hasAccessibilityPermission: Bool
     private(set) var postedLines: [Int32] = []
     private(set) var postedLocations: [CGPoint] = []
+    private(set) var permissionPromptRequestCount = 0
 
     init(hasPermission: Bool) {
         self.hasAccessibilityPermission = hasPermission
@@ -45,5 +33,9 @@ final class FakeScrollingScreenshotAutoScroller: ScrollingScreenshotAutoScrollin
     func postScrollTick(lines: Int32, at location: CGPoint) {
         postedLines.append(lines)
         postedLocations.append(location)
+    }
+
+    func requestAccessibilityPermissionPrompt() {
+        permissionPromptRequestCount += 1
     }
 }

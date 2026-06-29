@@ -165,6 +165,10 @@ let package = Package(
             path: "Sources/VoxFlowTextProcessing"
         ),
         .target(
+            name: "VoxFlowPromptKit",
+            path: "Sources/VoxFlowPromptKit"
+        ),
+        .target(
             name: "VoxFlowTextInsertion",
             dependencies: [
                 "VoxFlowDomain"
@@ -233,6 +237,8 @@ let package = Package(
                 "VoxFlowProviderWhisper",
                 "VoxFlowScreenshotKit",
                 "VoxFlowTextInsertion",
+                "VoxFlowPromptKit",
+                "VoxFlowTextProcessing",
                 "CSherpaOnnx",
                 .product(name: "VoxFlowContextBoost", package: "VoxFlowContextBoostKit"),
                 .product(name: "VoxFlowVoiceCorrection", package: "VoxFlowVoiceCorrectionKit"),
@@ -316,6 +322,21 @@ let package = Package(
             dependencies: [
                 "VoxFlowDomain",
                 "VoxFlowTextInsertion"
+            ]
+        ),
+        .testTarget(
+            name: "VoxFlowPromptKitTests",
+            dependencies: [
+                "VoxFlowPromptKit"
+            ]
+        ),
+        .testTarget(
+            name: "VoxFlowTextProcessingTests",
+            dependencies: [
+                "VoxFlowTextProcessing"
+            ],
+            resources: [
+                .process("Fixtures")
             ]
         ),
         .testTarget(
@@ -446,6 +467,7 @@ let package = Package(
                 "VoxFlowDomain",
                 "VoxFlowInfrastructure",
                 "VoxFlowModelStore",
+                "VoxFlowPromptKit",
                 "VoxFlowProviderFunASR",
                 "VoxFlowProviderNVIDIA",
                 "VoxFlowProviderParakeet",

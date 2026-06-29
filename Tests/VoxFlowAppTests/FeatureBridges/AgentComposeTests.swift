@@ -413,6 +413,7 @@ private final class AgentComposeStubRefiner: PromptAwareTextRefining, @unchecked
 
 @MainActor
 private final class AgentComposeNilStyleSelector: StyleSelecting {
+    var lastRouteTrace: StyleRouteTrace? { nil }
     func style(for target: DictationTarget?) async throws -> StyleProfileRecord? {
         nil
     }

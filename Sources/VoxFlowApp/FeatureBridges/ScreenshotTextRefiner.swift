@@ -186,7 +186,7 @@ final class ScreenshotTextRefiner: PromptAwareTextRefining, ScreenshotTextRefini
     }
 
     private static func isTranslationRequest(_ request: TextRefinementRequest) -> Bool {
-        request.systemPrompt.contains("翻译助手") ||
+        request.systemPrompt.contains("translation assistant") ||
             request.systemPrompt == ScreenshotOCRService.translationSystemPrompt
     }
 

@@ -3,12 +3,16 @@ import VoxFlowContextBoost
 @testable import VoxFlowApp
 
 final class PromptBuilderTests: XCTestCase {
-    func testConservativePromptStaysShortForFastCorrection() {
-        XCTAssertLessThan(PromptBuilder.conservativeSystemPrompt.count, 360)
-        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("只输出处理后的正文"))
-        XCTAssertTrue(PromptBuilder.conservativeSystemPrompt.contains("不要添加用户没有说过的信息"))
+    func testConservativePromptUsesEnglishProtocolWithSystemLanguage() {
+        let prompt = PromptBuilder(systemLanguage: "zh-Hans").build(style: nil).systemPrompt
+
+        XCTAssertTrue(prompt.contains("You are a speech recognition correction assistant."))
+        XCTAssertTrue(prompt.contains("System language: zh-Hans"))
+        XCTAssertTrue(prompt.contains("Preserve the user's original language"))
+        XCTAssertTrue(prompt.contains("Do not translate"))
+        XCTAssertTrue(prompt.contains("Only output the corrected body text"))
         XCTAssertEqual(
-            PromptBuilder.conservativeSystemPrompt.components(separatedBy: "只输出").count - 1,
+            prompt.components(separatedBy: "Only output").count - 1,
             1
         )
     }
@@ -22,7 +26,7 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertEqual(prompt.temperature, style.temperature)
         XCTAssertNil(prompt.llmProviderID)
         XCTAssertTrue(prompt.systemPrompt.contains(style.prompt))
-        XCTAssertTrue(prompt.systemPrompt.contains("有所选风格时按风格处理"))
+        XCTAssertTrue(prompt.systemPrompt.contains("Selected style:"))
     }
 
     func testBuildUsesEnabledStyleModelAndTemperatureOverrides() throws {
@@ -74,18 +78,16 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(style.sampleOutput).contains("✨"))
     }
 
-    func testChinesePromptRequiresReadableTransformationAndStylePriority() throws {
+    func testEnglishPromptRequiresReadableTransformationAndStylePriority() throws {
         let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.energetic"))
         let result = PromptBuilder().build(style: style)
 
-        XCTAssertFalse(result.systemPrompt.contains("You are"))
-        XCTAssertFalse(result.systemPrompt.contains("Selected style"))
         XCTAssertFalse(result.systemPrompt.contains("必须执行以下任务"))
         XCTAssertFalse(result.systemPrompt.contains("强制检查"))
         XCTAssertFalse(result.systemPrompt.contains("输出不得与输入完全相同"))
-        XCTAssertTrue(result.systemPrompt.contains("原文已自然准确时保持原文"))
+        XCTAssertTrue(result.systemPrompt.contains("If the original text is already natural and accurate, keep it unchanged."))
         XCTAssertFalse(result.systemPrompt.contains("小兔子乖乖"))
-        XCTAssertTrue(result.systemPrompt.contains("有所选风格时按风格处理"))
+        XCTAssertTrue(result.systemPrompt.contains("Selected style:"))
         XCTAssertEqual(result.temperature, 0.6)
     }
 
@@ -93,10 +95,10 @@ final class PromptBuilderTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(prompt.contains("URL"))
-        XCTAssertTrue(prompt.contains("命令"))
-        XCTAssertTrue(prompt.contains("代码标识符"))
-        XCTAssertTrue(prompt.contains("不要翻译"))
-        XCTAssertTrue(prompt.contains("不要改写"))
+        XCTAssertTrue(prompt.contains("commands"))
+        XCTAssertTrue(prompt.contains("code identifiers"))
+        XCTAssertTrue(prompt.contains("Do not translate"))
+        XCTAssertTrue(prompt.contains("Do not rewrite"))
     }
 
     func testBuildIncludesTemporaryContextHotwordsWithoutOCRRawText() {
@@ -111,7 +113,7 @@ final class PromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.systemPrompt.contains("temporary_terms"))
         XCTAssertTrue(prompt.systemPrompt.contains(#""Qwen3-ASR""#))
         XCTAssertTrue(prompt.systemPrompt.contains(#""Project Apollo""#))
-        XCTAssertTrue(prompt.systemPrompt.contains("不要添加上下文里有但用户没有说的信息"))
+        XCTAssertTrue(prompt.systemPrompt.contains("Do not add information that appears only in context"))
         XCTAssertFalse(prompt.systemPrompt.contains("完整 OCR 文本"))
     }
 

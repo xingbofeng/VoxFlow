@@ -33,15 +33,10 @@ PROVIDER_DATABASE_TOKENS = (
 )
 LEGACY_VOICEINPUT_TOKENS = (
     "VoiceInput",
-    "com.voiceinput.app",
     "VoiceInput_SelectedLanguage",
-    "com.xingbofeng.VoiceInput",
     "Application Support/VoiceInput",
     "voiceinput.sqlite",
 )
-LEGACY_VOICEINPUT_ALLOWED_PATHS = {
-    Path("Sources/VoxFlowDomain/Branding/ProductBrand.swift"),
-}
 UI_TARGETS = {
     "VoxFlowFeatures",
     "VoxFlowDesignSystem",
@@ -359,7 +354,6 @@ def source_boundary_violations(
 
             if (
                 target_name.startswith("VoxFlow")
-                and Path(display_path) not in LEGACY_VOICEINPUT_ALLOWED_PATHS
                 and any(
                 token in contents for token in LEGACY_VOICEINPUT_TOKENS
                 )

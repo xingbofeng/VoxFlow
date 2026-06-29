@@ -40,9 +40,9 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
             TextRefinementRequest(
                 text: input,
                 systemPrompt: """
-                你只负责从 candidate_agents 中重排语音指令的目标任务助手，不得发送消息或创建新任务助手。
-                只返回单行 JSON：{"target_agent_id":"候选ID","message":"原指令内容","confidence":0.0}。
-                不确定时 confidence 必须低于 0.60；target_agent_id 必须来自候选列表。
+                You only reroute the dictated instruction to one target task agent from candidate_agents. Do not send messages or create new task agents.
+                Return exactly one line of JSON: {"target_agent_id":"candidate ID","message":"original instruction content","confidence":0.0}.
+                When uncertain, confidence must be lower than 0.60. target_agent_id must come from the candidate list.
                 """,
                 model: nil,
                 temperature: 0,

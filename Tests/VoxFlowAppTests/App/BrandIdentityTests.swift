@@ -12,7 +12,6 @@ final class BrandIdentityTests: XCTestCase {
             : ProductBrand.englishName
         XCTAssertEqual(ProductBrand.displayName, expectedDisplayName)
         XCTAssertEqual(ProductBrand.bundleIdentifier, "com.voxflow.app")
-        XCTAssertEqual(ProductBrand.legacyBundleIdentifier, "com.voiceinput.app")
     }
 
     func testInfoPlistKeepsStableBundleIDAndUsesVisibleBrand() throws {
@@ -267,7 +266,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("./scripts/bootstrap-sherpa-onnx.sh"))
     }
 
-    func testPrelaunchCleanupClearsLegacyAndCurrentStatusItemDefaults() throws {
+    func testPrelaunchCleanupClearsCurrentStatusItemDefaultsOnly() throws {
         let makefile = try String(
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
             encoding: .utf8
@@ -282,30 +281,29 @@ final class BrandIdentityTests: XCTestCase {
         let cleanupBody = String(makefile[cleanupStart..<nextTarget])
 
         XCTAssertTrue(cleanupBody.contains("$(LSREGISTER)"), "cleanup should still clear stale local app registration")
-        XCTAssertTrue(cleanupBody.contains("LEGACY_BUNDLE_ID"))
+        XCTAssertFalse(cleanupBody.contains("LEGACY_BUNDLE_ID"))
         XCTAssertFalse(cleanupBody.contains("OBSOLETE_BUNDLE_ID"))
         XCTAssertFalse(cleanupBody.contains("RENAMED_BUNDLE_ID"))
-        XCTAssertTrue(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
+        XCTAssertFalse(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("CURRENT_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("DEV_BUNDLE_ID"))
         XCTAssertTrue(cleanupBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
         XCTAssertTrue(cleanupBody.contains("$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve"))
-        XCTAssertTrue(makefile.contains("LEGACY_BUNDLE_ID := com.voiceinput.app"))
+        XCTAssertFalse(makefile.contains("LEGACY_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
         XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains("RENAMED_BUNDLE_ID"))
-        XCTAssertTrue(makefile.contains("REQUESTED_BUNDLE_ID := com.VoxFlow.app"))
+        XCTAssertFalse(makefile.contains("REQUESTED_BUNDLE_ID"))
         XCTAssertTrue(makefile.contains("STATUS_ITEM_AUTOSAVE_NAMES :="))
-        XCTAssertTrue(makefile.contains("VoxFlowStatusItemMenuExtraV6"))
-        XCTAssertTrue(makefile.contains("VoxFlowStatusItemMenuExtraV5"))
-        XCTAssertTrue(makefile.contains("VoxFlowStatusItem"))
-        XCTAssertTrue(makefile.contains("VoxFlowStatusItemRuntime"))
-        XCTAssertTrue(makefile.contains("Item-0"))
+        XCTAssertTrue(makefile.contains("VoxFlowMenuBarItem"))
+        XCTAssertFalse(makefile.contains("VoxFlowStatusItemMenuExtra"))
+        XCTAssertNil(makefile.range(of: #"VoxFlowStatusItem(?:Visible)?V[0-9]+"#, options: .regularExpression))
+        XCTAssertNil(makefile.range(of: #"Item-[0-9]+"#, options: .regularExpression))
         XCTAssertTrue(cleanupBody.contains("for autosave_name in $(STATUS_ITEM_AUTOSAVE_NAMES)"))
         XCTAssertTrue(cleanupBody.contains("NSStatusItem Preferred Position $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("NSStatusItem VisibleCC $$autosave_name"))
         XCTAssertTrue(cleanupBody.contains("VoxFlowStatusItemPlacementResetV1"))
-        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(LEGACY_BUNDLE_ID)\" \"$(REQUESTED_BUNDLE_ID)\" \"$(CURRENT_BUNDLE_ID)\" \"$(DEV_BUNDLE_ID)\""))
+        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(CURRENT_BUNDLE_ID)\" \"$(DEV_BUNDLE_ID)\""))
         XCTAssertTrue(cleanupBody.contains("defaults delete \"$$bundle_id\""))
 
         // run target body itself should NOT contain defaults delete (delegated to prelaunch-cleanup)

@@ -1,10 +1,10 @@
 {
-  "version": "1.10.2",
-  "tag": "v1.10.2",
-  "assetName": "VoxFlow-1.10.2-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.2",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.2/VoxFlow-1.10.2-macOS.dmg",
-  "releaseNotes": "修复连续发布时自动更新检查被 24 小时节流挡住的问题，安装新版本后会重新检查是否还有更新。",
+  "version": "1.11.0",
+  "tag": "v1.11.0",
+  "assetName": "VoxFlow-1.11.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.11.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.11.0/VoxFlow-1.11.0-macOS.dmg",
+  "releaseNotes": "新增确定性文本处理能力，优化数字、空格、标点、填充词和长句整理，未启用 LLM 时也能获得更稳定的转写结果。",
   "draft": false,
   "prerelease": false
 }

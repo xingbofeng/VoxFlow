@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowPromptKit
 
 // MARK: - BatchClassificationResult
 
@@ -22,6 +23,7 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
     private static let logger = AppLogger.general
     private let refiner: any PromptAwareTextRefining
     private let timeoutSeconds: TimeInterval
+    private let renderer = PromptRenderer()
 
     init(
         refiner: any PromptAwareTextRefining,
@@ -64,27 +66,14 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
             .map { "\($0.id): \($0.name) - \($0.subtitle ?? $0.category)" }
             .joined(separator: "\n")
 
-        let systemPrompt = """
-        你是一个应用分类助手。根据每个应用的名称、Bundle ID、系统分类和搜索线索，从候选风格中选择最适合的一项。
-        如果你的模型或服务支持 web search、联网搜索或浏览器搜索工具，必须先按表格中的 Search Query 搜索并核验应用的真实用途，再分类。
-        如果无法搜索，则必须根据应用名称、Bundle ID 和已知常识谨慎分类；不确定时省略该应用。
-        如果应用主要是播放器、查看器、系统设置、硬件工具或其它没有实际文本输入场景的工具，请省略，不要强行分配风格。
-        不要把未知应用归入默认风格，不要为了覆盖率猜测。
-        返回 JSON 对象，键为应用的 bundleID，值为风格 ID。
-        只能使用以下候选风格 ID：
-        \(styleList)
-
-        分类参考：
-        - 聊天、即时通讯、社群消息：优先 builtin.chat
-        - IDE、代码编辑器、开发者工具、终端、API/数据库/代理调试工具：优先 builtin.coding
-        - 邮件客户端或主要用于写邮件：优先 builtin.email
-        - 办公文档、方案、长文写作、演示和表格：优先 builtin.formal
-        - 浏览器、启动器、日常工具和一般消费应用：优先 builtin.casual
-        - 团队激励、运动、活动运营等明显需要积极动员语气的应用：才使用 builtin.energetic
-
-        只输出 JSON，不要解释。
-        示例格式：{"com.example.app": "builtin.chat"}
-        """
+        let systemPrompt = renderer.render(
+            BatchStyleClassificationPromptCatalog.system,
+            context: PromptRenderContext(variables: ["styleList": styleList])
+        )
+        let metadata = PromptTraceMetadata.from(
+            result: systemPrompt,
+            routerVersion: BatchStyleClassificationPromptCatalog.system.version.stringValue
+        )
 
         let userPrompt = """
         请为下列表格中的 macOS 应用推荐语音输入风格。表格只包含应用元数据，不包含用户文档或应用内容。
@@ -102,10 +91,11 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
                     try await self.refiner.refine(
                         TextRefinementRequest(
                             text: userPrompt,
-                            systemPrompt: systemPrompt,
+                            systemPrompt: systemPrompt.renderedText,
                             model: nil,
                             temperature: 0.1,
-                            purpose: .directTask
+                            purpose: .directTask,
+                            promptMetadata: metadata
                         )
                     )
                 }

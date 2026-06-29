@@ -1,0 +1,2108 @@
+{
+  "source": "vinta/pangu.js tests/shared/*.test.ts",
+  "license": "MIT",
+  "generatedFrom": "/tmp/voxflow-upstream-pangu-js",
+  "caseCount": 420,
+  "cases": [
+    {
+      "source": "api.test.ts",
+      "input": "聽說Hadoop工程師睡不著的時候都會MapReduce羊",
+      "expected": "聽說 Hadoop 工程師睡不著的時候都會 MapReduce 羊"
+    },
+    {
+      "source": "api.test.ts",
+      "input": "遇到了一個問題，決定用 thread 來解決，嗯，在現有我兩個問了題",
+      "expected": "遇到了一個問題，決定用 thread 來解決，嗯，在現有我兩個問了題"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中a",
+      "expected": "中 a"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "a中",
+      "expected": "a 中"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "1中",
+      "expected": "1 中"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中1",
+      "expected": "中 1"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中a1",
+      "expected": "中 a1"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "a1中",
+      "expected": "a1 中"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "a中1",
+      "expected": "a 中 1"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "1中a",
+      "expected": "1 中 a"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文abc",
+      "expected": "中文 abc"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc中文",
+      "expected": "abc 中文"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文123",
+      "expected": "中文 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "123中文",
+      "expected": "123 中文"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文Ø漢字",
+      "expected": "中文 Ø 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文 Ø 漢字",
+      "expected": "中文 Ø 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文β漢字",
+      "expected": "中文 β 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文 β 漢字",
+      "expected": "中文 β 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "我是α，我是Ω",
+      "expected": "我是 α，我是 Ω"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文Ⅶ漢字",
+      "expected": "中文 Ⅶ 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "中文 Ⅶ 漢字",
+      "expected": "中文 Ⅶ 漢字"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc⻤123",
+      "expected": "abc ⻤ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc ⻤ 123",
+      "expected": "abc ⻤ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc⾗123",
+      "expected": "abc ⾗ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc ⾗ 123",
+      "expected": "abc ⾗ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abcあ123",
+      "expected": "abc あ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc あ 123",
+      "expected": "abc あ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abcア123",
+      "expected": "abc ア 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc ア 123",
+      "expected": "abc ア 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abcㄅ123",
+      "expected": "abc ㄅ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc ㄅ 123",
+      "expected": "abc ㄅ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc㈱123",
+      "expected": "abc ㈱ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc ㈱ 123",
+      "expected": "abc ㈱ 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc㐂123",
+      "expected": "abc 㐂 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc 㐂 123",
+      "expected": "abc 㐂 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc丁123",
+      "expected": "abc 丁 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc 丁 123",
+      "expected": "abc 丁 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc車123",
+      "expected": "abc 車 123"
+    },
+    {
+      "source": "cjk-alphabets-numbers.test.ts",
+      "input": "abc 車 123",
+      "expected": "abc 車 123"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "前面&後面",
+      "expected": "前面 & 後面"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "Vinta&Mollie",
+      "expected": "Vinta&Mollie"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "Vinta&陳上進",
+      "expected": "Vinta & 陳上進"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "陳上進&Vinta",
+      "expected": "陳上進 & Vinta"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "得到一個A&B的結果",
+      "expected": "得到一個 A & B 的結果"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "前面 & 後面",
+      "expected": "前面 & 後面"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "Vinta & Mollie",
+      "expected": "Vinta & Mollie"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "Vinta & 陳上進",
+      "expected": "Vinta & 陳上進"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "陳上進 & Vinta",
+      "expected": "陳上進 & Vinta"
+    },
+    {
+      "source": "symbol-ampersand.test.ts",
+      "input": "得到一個 A & B 的結果",
+      "expected": "得到一個 A & B 的結果"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "前面<中文123漢字>後面",
+      "expected": "前面 <中文 123 漢字> 後面"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "前面<中文123>後面",
+      "expected": "前面 <中文 123> 後面"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "前面<123漢字>後面",
+      "expected": "前面 <123 漢字> 後面"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "前面<中文123> tail",
+      "expected": "前面 <中文 123> tail"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "head <中文123漢字>後面",
+      "expected": "head <中文 123 漢字> 後面"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "head <中文123漢字> tail",
+      "expected": "head <中文 123 漢字> tail"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<p>一行文本</p>",
+      "expected": "<p>一行文本</p>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<p>文字<strong>加粗</strong></p>",
+      "expected": "<p>文字<strong>加粗</strong></p>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<div>測試<span>內容</span>結束</div>",
+      "expected": "<div>測試<span>內容</span>結束</div>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<a href=\"#\">連結</a>",
+      "expected": "<a href=\"#\">連結</a>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<input value=\"測試123\">",
+      "expected": "<input value=\"測試 123\">"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<img src=\"test.jpg\" alt=\"測試圖片\">",
+      "expected": "<img src=\"test.jpg\" alt=\"測試圖片\">"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<p>第一段</p><p>第二段</p>",
+      "expected": "<p>第一段</p><p>第二段</p>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<h1>標題</h1><p>內容</p>",
+      "expected": "<h1>標題</h1><p>內容</p>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<div><p>嵌套<strong>測試</strong></p></div>",
+      "expected": "<div><p>嵌套<strong>測試</strong></p></div>"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "文字<br>換行",
+      "expected": "文字<br>換行"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "水平線<hr>分隔",
+      "expected": "水平線<hr>分隔"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "水平線<hr />分隔",
+      "expected": "水平線<hr />分隔"
+    },
+    {
+      "source": "symbol-angle-brackets.test.ts",
+      "input": "<attackOnJava>那一天，人類終於回想起了，曾經一度被XML所支配的恐懼</attackOnJava> <!--進擊的Java-->",
+      "expected": "<attackOnJava>那一天，人類終於回想起了，曾經一度被 XML 所支配的恐懼</attackOnJava> <!-- 進擊的 Java-->"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "前面*後面",
+      "expected": "前面 * 後面"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "Vinta*Mollie",
+      "expected": "Vinta*Mollie"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "Vinta*陳上進",
+      "expected": "Vinta * 陳上進"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "陳上進*Vinta",
+      "expected": "陳上進 * Vinta"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "得到一個A*B的結果",
+      "expected": "得到一個 A * B 的結果"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "前面 * 後面",
+      "expected": "前面 * 後面"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "Vinta * Mollie",
+      "expected": "Vinta * Mollie"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "Vinta * 陳上進",
+      "expected": "Vinta * 陳上進"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "陳上進 * Vinta",
+      "expected": "陳上進 * Vinta"
+    },
+    {
+      "source": "symbol-asterisk.test.ts",
+      "input": "得到一個 A * B 的結果",
+      "expected": "得到一個 A * B 的結果"
+    },
+    {
+      "source": "symbol-at.test.ts",
+      "input": "請@vinta吃大便",
+      "expected": "請 @vinta 吃大便"
+    },
+    {
+      "source": "symbol-at.test.ts",
+      "input": "請@vinta_chen吃大便",
+      "expected": "請 @vinta_chen 吃大便"
+    },
+    {
+      "source": "symbol-at.test.ts",
+      "input": "請@VintaChen吃大便",
+      "expected": "請 @VintaChen 吃大便"
+    },
+    {
+      "source": "symbol-at.test.ts",
+      "input": "請@陳上進 吃大便",
+      "expected": "請 @陳上進 吃大便"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "前面\\後面",
+      "expected": "前面 \\ 後面"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "前面 \\ 後面",
+      "expected": "前面 \\ 後面"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "\\n",
+      "expected": "\\n"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "\\t",
+      "expected": "\\t"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "檔案在C:\\Users\\name\\",
+      "expected": "檔案在 C:\\Users\\name\\"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "程式在D:\\Program Files\\",
+      "expected": "程式在 D:\\Program Files\\"
+    },
+    {
+      "source": "symbol-backslash.test.ts",
+      "input": "在C:\\Windows\\System32",
+      "expected": "在 C:\\Windows\\System32"
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "前面`中間`後面",
+      "expected": "前面 `中間` 後面"
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "! git commit -a -m \"蛤\"",
+      "expected": "! git commit -a -m \"蛤\""
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "`! git commit -a -m \"蛤\"`",
+      "expected": "`! git commit -a -m \"蛤\"`"
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "\"! git commit -a -m '蛤'\"",
+      "expected": "\"! git commit -a -m '蛤'\""
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "雖然知道可以在Claude Code直接執行shell指令，例如`! git commit -a -m \"蛤\"`，但是看了文件才知道原來在 http://command.md 裡面也可以用`!`啊#TIL",
+      "expected": "雖然知道可以在 Claude Code 直接執行 shell 指令，例如 `! git commit -a -m \"蛤\"`，但是看了文件才知道原來在 http://command.md 裡面也可以用 `!` 啊 #TIL"
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "雖然知道可以在 Claude Code 直接執行 shell 指令，例如 `! git commit -a -m \"蛤\"`，但是看了文件才知道原來在 http://command.md 裡面也可以用 `!` 啊 #TIL",
+      "expected": "雖然知道可以在 Claude Code 直接執行 shell 指令，例如 `! git commit -a -m \"蛤\"`，但是看了文件才知道原來在 http://command.md 裡面也可以用 `!` 啊 #TIL"
+    },
+    {
+      "source": "symbol-caret.test.ts",
+      "input": "前面^後面",
+      "expected": "前面 ^ 後面"
+    },
+    {
+      "source": "symbol-caret.test.ts",
+      "input": "前面 ^ 後面",
+      "expected": "前面 ^ 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:後面",
+      "expected": "前面: 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面 : 後面",
+      "expected": "前面 : 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面: 後面",
+      "expected": "前面: 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面 :後面",
+      "expected": "前面 :後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "電話:123456789",
+      "expected": "電話: 123456789"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:I have no idea後面",
+      "expected": "前面: I have no idea 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面: I have no idea後面",
+      "expected": "前面: I have no idea 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:)後面",
+      "expected": "前面：) 後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:後面:再後面",
+      "expected": "前面: 後面: 再後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:後面:再後面:更後面",
+      "expected": "前面: 後面: 再後面: 更後面"
+    },
+    {
+      "source": "symbol-colon.test.ts",
+      "input": "前面:後面:再後面:更後面:超後面",
+      "expected": "前面: 後面: 再後面: 更後面: 超後面"
+    },
+    {
+      "source": "symbol-comma.test.ts",
+      "input": "前面,後面",
+      "expected": "前面, 後面"
+    },
+    {
+      "source": "symbol-comma.test.ts",
+      "input": "前面 , 後面",
+      "expected": "前面 , 後面"
+    },
+    {
+      "source": "symbol-comma.test.ts",
+      "input": "前面, 後面",
+      "expected": "前面, 後面"
+    },
+    {
+      "source": "symbol-comma.test.ts",
+      "input": "前面 ,後面",
+      "expected": "前面 ,後面"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "前面{中文123漢字}後面",
+      "expected": "前面 {中文 123 漢字} 後面"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "前面{中文123}後面",
+      "expected": "前面 {中文 123} 後面"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "前面{123漢字}後面",
+      "expected": "前面 {123 漢字} 後面"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "前面{中文123} tail",
+      "expected": "前面 {中文 123} tail"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "head {中文123漢字}後面",
+      "expected": "head {中文 123 漢字} 後面"
+    },
+    {
+      "source": "symbol-curly-brackets.test.ts",
+      "input": "head {中文123漢字} tail",
+      "expected": "head {中文 123 漢字} tail"
+    },
+    {
+      "source": "symbol-dollar-sign.test.ts",
+      "input": "前面$後面",
+      "expected": "前面 $ 後面"
+    },
+    {
+      "source": "symbol-dollar-sign.test.ts",
+      "input": "前面 $ 後面",
+      "expected": "前面 $ 後面"
+    },
+    {
+      "source": "symbol-dollar-sign.test.ts",
+      "input": "前面$100後面",
+      "expected": "前面 $100 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "前面\"中文123漢字\"後面",
+      "expected": "前面 \"中文 123 漢字\" 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "前面\"中文123\"後面",
+      "expected": "前面 \"中文 123\" 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "前面\"中文abc\"後面",
+      "expected": "前面 \"中文 abc\" 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "前面\"123漢字\"後面",
+      "expected": "前面 \"123 漢字\" 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "前面\"中文123\" tail",
+      "expected": "前面 \"中文 123\" tail"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "head \"中文123漢字\"後面",
+      "expected": "head \"中文 123 漢字\" 後面"
+    },
+    {
+      "source": "symbol-double-quotes.test.ts",
+      "input": "head \"中文123漢字\" tail",
+      "expected": "head \"中文 123 漢字\" tail"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "前面=後面",
+      "expected": "前面 = 後面"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "Vinta=Mollie",
+      "expected": "Vinta=Mollie"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "Vinta=陳上進",
+      "expected": "Vinta = 陳上進"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "陳上進=Vinta",
+      "expected": "陳上進 = Vinta"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "得到一個A=B的結果",
+      "expected": "得到一個 A = B 的結果"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "前面 = 後面",
+      "expected": "前面 = 後面"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "Vinta = Mollie",
+      "expected": "Vinta = Mollie"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "Vinta = 陳上進",
+      "expected": "Vinta = 陳上進"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "陳上進 = Vinta",
+      "expected": "陳上進 = Vinta"
+    },
+    {
+      "source": "symbol-equals-sign.test.ts",
+      "input": "得到一個 A = B 的結果",
+      "expected": "得到一個 A = B 的結果"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!",
+      "expected": "前面!"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!!",
+      "expected": "前面!!"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!!!",
+      "expected": "前面!!!"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!後面",
+      "expected": "前面! 後面"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!!後面",
+      "expected": "前面!! 後面"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!!!後面",
+      "expected": "前面!!! 後面"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!abc",
+      "expected": "前面! abc"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面!123",
+      "expected": "前面! 123"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面 ! 後面",
+      "expected": "前面 ! 後面"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面! 後面",
+      "expected": "前面! 後面"
+    },
+    {
+      "source": "symbol-exclamation-mark.test.ts",
+      "input": "前面 !後面",
+      "expected": "前面 !後面"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "前面>後面",
+      "expected": "前面 > 後面"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "Vinta>Mollie",
+      "expected": "Vinta>Mollie"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "Vinta>陳上進",
+      "expected": "Vinta > 陳上進"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "陳上進>Vinta",
+      "expected": "陳上進 > Vinta"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "得到一個A>B的結果",
+      "expected": "得到一個 A > B 的結果"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "前面 > 後面",
+      "expected": "前面 > 後面"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "Vinta > Mollie",
+      "expected": "Vinta > Mollie"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "Vinta > 陳上進",
+      "expected": "Vinta > 陳上進"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "陳上進 > Vinta",
+      "expected": "陳上進 > Vinta"
+    },
+    {
+      "source": "symbol-greater-than-sign.test.ts",
+      "input": "得到一個 A > B 的結果",
+      "expected": "得到一個 A > B 的結果"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#後面",
+      "expected": "前面 #後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#H2G2後面",
+      "expected": "前面 #H2G2 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面 #銀河便車指南 後面",
+      "expected": "前面 #銀河便車指南 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#銀河便車指南 後面",
+      "expected": "前面 #銀河便車指南 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#銀河公車指南 #銀河拖吊車指南 後面",
+      "expected": "前面 #銀河公車指南 #銀河拖吊車指南 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面C#後面",
+      "expected": "前面 C# 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面F#後面",
+      "expected": "前面 F# 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#H2G2#後面",
+      "expected": "前面 #H2G2# 後面"
+    },
+    {
+      "source": "symbol-hashtag.test.ts",
+      "input": "前面#銀河閃電霹靂車指南#後面",
+      "expected": "前面 #銀河閃電霹靂車指南# 後面"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "前面<後面",
+      "expected": "前面 < 後面"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "Vinta<Mollie",
+      "expected": "Vinta<Mollie"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "Vinta<陳上進",
+      "expected": "Vinta < 陳上進"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "陳上進<Vinta",
+      "expected": "陳上進 < Vinta"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "得到一個A<B的結果",
+      "expected": "得到一個 A < B 的結果"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "前面 < 後面",
+      "expected": "前面 < 後面"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "Vinta < Mollie",
+      "expected": "Vinta < Mollie"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "Vinta < 陳上進",
+      "expected": "Vinta < 陳上進"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "陳上進 < Vinta",
+      "expected": "陳上進 < Vinta"
+    },
+    {
+      "source": "symbol-less-than-sign.test.ts",
+      "input": "得到一個 A < B 的結果",
+      "expected": "得到一個 A < B 的結果"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "前面-後面",
+      "expected": "前面 - 後面"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Vinta-Mollie",
+      "expected": "Vinta-Mollie"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Vinta-陳上進",
+      "expected": "Vinta - 陳上進"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "陳上進-Vinta",
+      "expected": "陳上進 - Vinta"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "得到一個A-B的結果",
+      "expected": "得到一個 A - B 的結果"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "前面 - 後面",
+      "expected": "前面 - 後面"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Vinta - Mollie",
+      "expected": "Vinta - Mollie"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Vinta - 陳上進",
+      "expected": "Vinta - 陳上進"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "陳上進 - Vinta",
+      "expected": "陳上進 - Vinta"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "得到一個 A - B 的結果",
+      "expected": "得到一個 A - B 的結果"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Sci-Fi",
+      "expected": "Sci-Fi"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "The company offered a state-of-the-art machine-learning-powered real-time fraud-detection system with end-to-end encryption and cutting-edge performance.",
+      "expected": "The company offered a state-of-the-art machine-learning-powered real-time fraud-detection system with end-to-end encryption and cutting-edge performance."
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "這間公司提供了一套state-of-the-art、machine-learning-powered的real-time fraud-detection系統，具備end-to-end加密功能以及cutting-edge的效能。",
+      "expected": "這間公司提供了一套 state-of-the-art、machine-learning-powered 的 real-time fraud-detection 系統，具備 end-to-end 加密功能以及 cutting-edge 的效能。"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Anthropic的claude-4-opus模型",
+      "expected": "Anthropic 的 claude-4-opus 模型"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "OpenAI的o3-pro模型",
+      "expected": "OpenAI 的 o3-pro 模型"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "OpenAI的gpt-4o模型",
+      "expected": "OpenAI 的 gpt-4o 模型"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "OpenAI的GPT-5模型",
+      "expected": "OpenAI 的 GPT-5 模型"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "Google的gemini-2.5-pro模型",
+      "expected": "Google 的 gemini-2.5-pro 模型"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "得到一個D-的結果",
+      "expected": "得到一個 D- 的結果"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "得到一個D--的結果",
+      "expected": "得到一個 D-- 的結果"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "长者的智慧和复杂的维斯特洛- 文章",
+      "expected": "长者的智慧和复杂的维斯特洛 - 文章"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "陳上進--Vinta",
+      "expected": "陳上進 --Vinta"
+    },
+    {
+      "source": "symbol-minus-signs.test.ts",
+      "input": "陳上進---Vinta",
+      "expected": "陳上進 ---Vinta"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "前面…後面",
+      "expected": "前面… 後面"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "前面……後面",
+      "expected": "前面…… 後面"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "前面·後面",
+      "expected": "前面・後面"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "喬治·R·R·馬丁",
+      "expected": "喬治・R・R・馬丁"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "M·奈特·沙马兰",
+      "expected": "M・奈特・沙马兰"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "前面•後面",
+      "expected": "前面・後面"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "喬治•R•R•馬丁",
+      "expected": "喬治・R・R・馬丁"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "M•奈特•沙马兰",
+      "expected": "M・奈特・沙马兰"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "前面‧後面",
+      "expected": "前面・後面"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "喬治‧R‧R‧馬丁",
+      "expected": "喬治・R・R・馬丁"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "M‧奈特‧沙马兰",
+      "expected": "M・奈特・沙马兰"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "阿里云开源“计算王牌”Blink，实时计算时代已来",
+      "expected": "阿里云开源 “计算王牌” Blink，实时计算时代已来"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "苹果撤销Facebook“企业证书”后者股价一度短线走低",
+      "expected": "苹果撤销 Facebook “企业证书” 后者股价一度短线走低"
+    },
+    {
+      "source": "symbol-others.test.ts",
+      "input": "【UCG中字】“數毛社”DF的《戰神4》全新演示解析",
+      "expected": "【UCG 中字】“數毛社” DF 的《戰神 4》全新演示解析"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "前面%後面",
+      "expected": "前面 % 後面"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "前面 % 後面",
+      "expected": "前面 % 後面"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "前面100%後面",
+      "expected": "前面 100% 後面"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "１００％言論自由！",
+      "expected": "１００％言論自由！"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "新八的構造成分有95%是眼鏡、3%是水、2%是垃圾",
+      "expected": "新八的構造成分有 95% 是眼鏡、3% 是水、2% 是垃圾"
+    },
+    {
+      "source": "symbol-percent-sign.test.ts",
+      "input": "丹寧控注意Levi's全館任2件25%OFF滿額再享85折！",
+      "expected": "丹寧控注意 Levi's 全館任 2 件 25% OFF 滿額再享 85 折！"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面.",
+      "expected": "前面."
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面..",
+      "expected": "前面.."
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面...",
+      "expected": "前面..."
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面.後面",
+      "expected": "前面. 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面..後面",
+      "expected": "前面.. 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面...後面",
+      "expected": "前面... 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面 . 後面",
+      "expected": "前面 . 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面. 後面",
+      "expected": "前面. 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面 .後面",
+      "expected": "前面 .後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面vs.後面",
+      "expected": "前面 vs. 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "前面U.S.A.後面",
+      "expected": "前面 U.S.A. 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "黑人問號.jpg後面",
+      "expected": "黑人問號.jpg 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "黑人問號.jpg 後面",
+      "expected": "黑人問號.jpg 後面"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "pangu.js v1.2.3橫空出世",
+      "expected": "pangu.js v1.2.3 橫空出世"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "pangu.js 1.2.3橫空出世",
+      "expected": "pangu.js 1.2.3 橫空出世"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "Mr.龍島主道：「Let's Party!各位高明博雅君子！",
+      "expected": "Mr. 龍島主道：「Let's Party! 各位高明博雅君子！"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "Mr.龍島主道:「Let's Party!各位高明博雅君子!",
+      "expected": "Mr. 龍島主道:「Let's Party! 各位高明博雅君子!"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "世.界.，草.班.与千.早.爱.音.",
+      "expected": "世. 界.，草. 班. 与千. 早. 爱. 音."
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "使用Python.py檔案",
+      "expected": "使用 Python.py 檔案"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "設定檔.env很重要",
+      "expected": "設定檔.env 很重要"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "編輯器.vscode目錄",
+      "expected": "編輯器.vscode 目錄"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "版本v1.2.3發布了",
+      "expected": "版本 v1.2.3 發布了"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "檔案package.lock.json存在",
+      "expected": "檔案 package.lock.json 存在"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "環境.env",
+      "expected": "環境.env"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "測試.test.js",
+      "expected": "測試.test.js"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "專案.gitignore",
+      "expected": "專案.gitignore"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "使用環境.env配置",
+      "expected": "使用環境.env 配置"
+    },
+    {
+      "source": "symbol-period.test.ts",
+      "input": "專案.prettierrc和.eslintrc",
+      "expected": "專案.prettierrc 和.eslintrc"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "前面|後面",
+      "expected": "前面|後面"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Vinta|Mollie",
+      "expected": "Vinta|Mollie"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Vinta|Mollie|Kitten",
+      "expected": "Vinta|Mollie|Kitten"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Mollie|陳上進",
+      "expected": "Mollie|陳上進"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "陳上進|Mollie",
+      "expected": "陳上進|Mollie"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "陳上進|貓咪|Mollie",
+      "expected": "陳上進|貓咪|Mollie"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "陳上進|Mollie|貓咪",
+      "expected": "陳上進|Mollie|貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Mollie|Vinta|貓咪",
+      "expected": "Mollie|Vinta|貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Mollie|陳上進|貓咪",
+      "expected": "Mollie|陳上進|貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "前面 | 後面",
+      "expected": "前面 | 後面"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Vinta | Mollie",
+      "expected": "Vinta | Mollie"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Vinta | Mollie | Kitten",
+      "expected": "Vinta | Mollie | Kitten"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "陳上進 | 貓咪 | Mollie",
+      "expected": "陳上進 | 貓咪 | Mollie"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "陳上進 | Mollie | 貓咪",
+      "expected": "陳上進 | Mollie | 貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Mollie | Vinta | 貓咪",
+      "expected": "Mollie | Vinta | 貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "Mollie | 陳上進 | 貓咪",
+      "expected": "Mollie | 陳上進 | 貓咪"
+    },
+    {
+      "source": "symbol-pipe.test.ts",
+      "input": "得到一個A|B的結果",
+      "expected": "得到一個 A|B 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "前面+後面",
+      "expected": "前面 + 後面"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "Vinta+Mollie",
+      "expected": "Vinta+Mollie"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "Vinta+陳上進",
+      "expected": "Vinta + 陳上進"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "陳上進+Vinta",
+      "expected": "陳上進 + Vinta"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個A+B的結果",
+      "expected": "得到一個 A + B 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "前面 + 後面",
+      "expected": "前面 + 後面"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "Vinta + Mollie",
+      "expected": "Vinta + Mollie"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "Vinta + 陳上進",
+      "expected": "Vinta + 陳上進"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "陳上進 + Vinta",
+      "expected": "陳上進 + Vinta"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個 A + B 的結果",
+      "expected": "得到一個 A + B 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個A+的結果",
+      "expected": "得到一個 A+ 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個 A+ 的結果",
+      "expected": "得到一個 A+ 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個C++的結果",
+      "expected": "得到一個 C++ 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個 C++的結果",
+      "expected": "得到一個 C++ 的結果"
+    },
+    {
+      "source": "symbol-plus-sign.test.ts",
+      "input": "得到一個i++的結果",
+      "expected": "得到一個 i++ 的結果"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面?",
+      "expected": "前面?"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面??",
+      "expected": "前面??"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面???",
+      "expected": "前面???"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面?後面",
+      "expected": "前面? 後面"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面??後面",
+      "expected": "前面?? 後面"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面???後面",
+      "expected": "前面??? 後面"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面?abc",
+      "expected": "前面? abc"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面?123",
+      "expected": "前面? 123"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "所以,請問Jackey的鼻子有幾個?3.14個",
+      "expected": "所以, 請問 Jackey 的鼻子有幾個? 3.14 個"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面 ? 後面",
+      "expected": "前面 ? 後面"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面? 後面",
+      "expected": "前面? 後面"
+    },
+    {
+      "source": "symbol-question-mark.test.ts",
+      "input": "前面 ?後面",
+      "expected": "前面 ?後面"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "前面(中文123漢字)後面",
+      "expected": "前面 (中文 123 漢字) 後面"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "前面(中文123)後面",
+      "expected": "前面 (中文 123) 後面"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "前面(123漢字)後面",
+      "expected": "前面 (123 漢字) 後面"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "前面(中文123) tail",
+      "expected": "前面 (中文 123) tail"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "head (中文123漢字)後面",
+      "expected": "head (中文 123 漢字) 後面"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "head (中文123漢字) tail",
+      "expected": "head (中文 123 漢字) tail"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "(or simply \"React\")",
+      "expected": "(or simply \"React\")"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "function(123)",
+      "expected": "function(123)"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "我看过的电影(1404)",
+      "expected": "我看过的电影 (1404)"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "預定於繳款截止日114/07/02(遇假日順延)之次一營業日進行扣款",
+      "expected": "預定於繳款截止日 114/07/02 (遇假日順延) 之次一營業日進行扣款"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "OperationalError: (2006, 'MySQL server has gone away')",
+      "expected": "OperationalError: (2006, 'MySQL server has gone away')"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "Chang Stream(变更记录流)是指collection(数据库集合)的变更事件流",
+      "expected": "Chang Stream (变更记录流) 是指 collection (数据库集合) 的变更事件流"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "从结果来看，当a.b销毁后，`a.getB()`返回值为null",
+      "expected": "从结果来看，当 a.b 销毁后，`a.getB()` 返回值为 null"
+    },
+    {
+      "source": "symbol-round-brackets.test.ts",
+      "input": "后续会直接用iframe window.addEventListener('message')",
+      "expected": "后续会直接用 iframe window.addEventListener('message')"
+    },
+    {
+      "source": "symbol-semicolon.test.ts",
+      "input": "前面;後面",
+      "expected": "前面; 後面"
+    },
+    {
+      "source": "symbol-semicolon.test.ts",
+      "input": "前面 ; 後面",
+      "expected": "前面 ; 後面"
+    },
+    {
+      "source": "symbol-semicolon.test.ts",
+      "input": "前面; 後面",
+      "expected": "前面; 後面"
+    },
+    {
+      "source": "symbol-semicolon.test.ts",
+      "input": "前面 ;後面",
+      "expected": "前面 ;後面"
+    },
+    {
+      "source": "symbol-single-quotes.test.ts",
+      "input": "Why are Python's 'private' methods not actually private?",
+      "expected": "Why are Python's 'private' methods not actually private?"
+    },
+    {
+      "source": "symbol-single-quotes.test.ts",
+      "input": "举个栗子，如果一道题只包含'A' ~ 'Z'意味着字符集大小是",
+      "expected": "举个栗子，如果一道题只包含 'A' ~ 'Z' 意味着字符集大小是"
+    },
+    {
+      "source": "symbol-single-quotes.test.ts",
+      "input": "Remove '铁蕾' from 1 Folder?",
+      "expected": "Remove '铁蕾' from 1 Folder?"
+    },
+    {
+      "source": "symbol-single-quotes.test.ts",
+      "input": "陳上進 likes 林依諾's status.",
+      "expected": "陳上進 likes 林依諾's status."
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "前面/後面",
+      "expected": "前面 / 後面"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Vinta/Mollie",
+      "expected": "Vinta/Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie/陳上進",
+      "expected": "Mollie / 陳上進"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進/Mollie",
+      "expected": "陳上進 / Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "得到一個A/B的結果",
+      "expected": "得到一個 A / B 的結果"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "吃apple / banana",
+      "expected": "吃 apple / banana"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "前面 / 後面",
+      "expected": "前面 / 後面"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Vinta / Mollie",
+      "expected": "Vinta / Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie / 陳上進",
+      "expected": "Mollie / 陳上進"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進 / Mollie",
+      "expected": "陳上進 / Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "得到一個 A / B 的結果",
+      "expected": "得到一個 A / B 的結果"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "好人 / bad guy",
+      "expected": "好人 / bad guy"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進/貓咪/Mollie",
+      "expected": "陳上進/貓咪/Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進/Mollie/貓咪",
+      "expected": "陳上進/Mollie/貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie/Vinta/貓咪",
+      "expected": "Mollie/Vinta/貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie/陳上進/貓咪",
+      "expected": "Mollie/陳上進/貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "8964/3★集會所接待員/克隆·麻煩大師/手卷師傅（已退休）/主程式毀滅者/dae-dae-o/#絕地家庭小會議/#今天大掃除了沒有/NS編號在banner裡/discord:史單力#3230",
+      "expected": "8964/3★集會所接待員/克隆・麻煩大師/手卷師傅（已退休）/主程式毀滅者/dae-dae-o/#絕地家庭小會議/#今天大掃除了沒有/NS 編號在 banner 裡/discord: 史單力 #3230"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "after 80'/气象工作者/不苟同/关注abc天气变化/向往123自由/热爱科学、互联网、编程Node.js Web C++ Julia Python",
+      "expected": "after 80'/气象工作者/不苟同/关注 abc 天气变化/向往 123 自由/热爱科学、互联网、编程 Node.js Web C++ Julia Python"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "2016-12-26(奇幻电影节) / 2017-01-20(美国) / 詹姆斯麦卡沃伊",
+      "expected": "2016-12-26 (奇幻电影节) / 2017-01-20 (美国) / 詹姆斯麦卡沃伊"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進 / 貓咪 / Mollie",
+      "expected": "陳上進 / 貓咪 / Mollie"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "陳上進 / Mollie / 貓咪",
+      "expected": "陳上進 / Mollie / 貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie / Vinta / 貓咪",
+      "expected": "Mollie / Vinta / 貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "Mollie / 陳上進 / 貓咪",
+      "expected": "Mollie / 陳上進 / 貓咪"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "/home和/root是Linux中的頂級目錄",
+      "expected": "/home 和 /root 是 Linux 中的頂級目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "/home/與/root是Linux中的頂級目錄",
+      "expected": "/home/ 與 /root 是 Linux 中的頂級目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "\"/home/\"和\"/root\"是Linux中的頂級目錄",
+      "expected": "\"/home/\" 和 \"/root\" 是 Linux 中的頂級目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "當你用cat和od指令查看/dev/random和/dev/urandom的內容時",
+      "expected": "當你用 cat 和 od 指令查看 /dev/random 和 /dev/urandom 的內容時"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "當你用cat和od指令查看\"/dev/random\"和\"/dev/urandom\"的內容時",
+      "expected": "當你用 cat 和 od 指令查看 \"/dev/random\" 和 \"/dev/urandom\" 的內容時"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "在/home目錄",
+      "expected": "在 /home 目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "查看/etc/passwd文件",
+      "expected": "查看 /etc/passwd 文件"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "進入/usr/local/bin目錄",
+      "expected": "進入 /usr/local/bin 目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "配置檔在/etc/nginx/nginx.conf",
+      "expected": "配置檔在 /etc/nginx/nginx.conf"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "隱藏檔案/.bashrc很重要",
+      "expected": "隱藏檔案 /.bashrc 很重要"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "查看/home/.config/settings",
+      "expected": "查看 /home/.config/settings"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "安裝到/usr/lib/python3.9/",
+      "expected": "安裝到 /usr/lib/python3.9/"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "位於/opt/node-v16.14.0/bin",
+      "expected": "位於 /opt/node-v16.14.0/bin"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "備份到/mnt/backup.2024-01-01/",
+      "expected": "備份到 /mnt/backup.2024-01-01/"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "日誌在/var/log/app-name.log",
+      "expected": "日誌在 /var/log/app-name.log"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "模組在/node_modules/@babel/core",
+      "expected": "模組在 /node_modules/@babel/core"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "套件在/node_modules/@types/node",
+      "expected": "套件在 /node_modules/@types/node"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "編譯器在/usr/bin/g++",
+      "expected": "編譯器在 /usr/bin/g++"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "套件在/usr/lib/gcc/x86_64-linux-gnu/11++",
+      "expected": "套件在 /usr/lib/gcc/x86_64-linux-gnu/11++"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "目錄/usr/bin/包含執行檔",
+      "expected": "目錄 /usr/bin/ 包含執行檔"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "資料夾/etc/nginx/存放設定",
+      "expected": "資料夾 /etc/nginx/ 存放設定"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "檢查src/main.py文件",
+      "expected": "檢查 src/main.py 文件"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "構建dist/index.js完成",
+      "expected": "構建 dist/index.js 完成"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "運行test/spec.js測試",
+      "expected": "運行 test/spec.js 測試"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "編輯docs/README.md文檔",
+      "expected": "編輯 docs/README.md 文檔"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "查看templates/base.html模板",
+      "expected": "查看 templates/base.html 模板"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "複製assets/images/logo.png圖片",
+      "expected": "複製 assets/images/logo.png 圖片"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "配置config/database.yml設定",
+      "expected": "配置 config/database.yml 設定"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "執行scripts/deploy.sh腳本",
+      "expected": "執行 scripts/deploy.sh 腳本"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "清理build/temp/目錄",
+      "expected": "清理 build/temp/ 目錄"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "輸出到target/release/資料夾",
+      "expected": "輸出到 target/release/ 資料夾"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "發布到public/static/路徑",
+      "expected": "發布到 public/static/ 路徑"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "安裝node_modules/@babel/core套件",
+      "expected": "安裝 node_modules/@babel/core 套件"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "設定.git/hooks/pre-commit鉤子",
+      "expected": "設定 .git/hooks/pre-commit 鉤子"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "編輯.vscode/settings.json配置",
+      "expected": "編輯 .vscode/settings.json 配置"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "參考./docs/API.md文件",
+      "expected": "參考 ./docs/API.md 文件"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "執行./scripts/test.sh腳本",
+      "expected": "執行 ./scripts/test.sh 腳本"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "查看./.claude/CLAUDE.md說明",
+      "expected": "查看 ./.claude/CLAUDE.md 說明"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "模板在templates/*.html裡",
+      "expected": "模板在 templates/*.html 裡"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "測試所有test/**/*.js檔案",
+      "expected": "測試所有 test/**/*.js 檔案"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "位於src/components/Button/index.tsx",
+      "expected": "位於 src/components/Button/index.tsx"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "存放在assets/fonts/Inter/Regular.woff2",
+      "expected": "存放在 assets/fonts/Inter/Regular.woff2"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "從src/utils.js複製到dist/utils.js",
+      "expected": "從 src/utils.js 複製到 dist/utils.js"
+    },
+    {
+      "source": "symbol-slash.test.ts",
+      "input": "比較test/fixtures/input.txt和test/fixtures/output.txt",
+      "expected": "比較 test/fixtures/input.txt 和 test/fixtures/output.txt"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "前面[中文123漢字]後面",
+      "expected": "前面 [中文 123 漢字] 後面"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "前面[中文123]後面",
+      "expected": "前面 [中文 123] 後面"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "前面[123漢字]後面",
+      "expected": "前面 [123 漢字] 後面"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "前面[中文123] tail",
+      "expected": "前面 [中文 123] tail"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "head [中文123漢字]後面",
+      "expected": "head [中文 123 漢字] 後面"
+    },
+    {
+      "source": "symbol-square-brackets.test.ts",
+      "input": "head [中文123漢字] tail",
+      "expected": "head [中文 123 漢字] tail"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~",
+      "expected": "前面~"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~~",
+      "expected": "前面~~"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~~~",
+      "expected": "前面~~~"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~後面",
+      "expected": "前面~ 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~~後面",
+      "expected": "前面~~ 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~~~後面",
+      "expected": "前面~~~ 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~abc",
+      "expected": "前面~ abc"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~123",
+      "expected": "前面~ 123"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面 ~ 後面",
+      "expected": "前面 ~ 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~ 後面",
+      "expected": "前面~ 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面 ~後面",
+      "expected": "前面 ~後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面~=後面",
+      "expected": "前面 ~= 後面"
+    },
+    {
+      "source": "symbol-tilde.test.ts",
+      "input": "前面 ~= 後面",
+      "expected": "前面 ~= 後面"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "前面_後面",
+      "expected": "前面_後面"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Vinta_Mollie",
+      "expected": "Vinta_Mollie"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Vinta_Mollie_Kitten",
+      "expected": "Vinta_Mollie_Kitten"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Mollie_陳上進",
+      "expected": "Mollie_陳上進"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "陳上進_Mollie",
+      "expected": "陳上進_Mollie"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "陳上進_貓咪_Mollie",
+      "expected": "陳上進_貓咪_Mollie"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "陳上進_Mollie_貓咪",
+      "expected": "陳上進_Mollie_貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Mollie_Vinta_貓咪",
+      "expected": "Mollie_Vinta_貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Mollie_陳上進_貓咪",
+      "expected": "Mollie_陳上進_貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "為什麼你們就是不能加個空格呢？_20771210_最終版_v365.7.24.zip",
+      "expected": "為什麼你們就是不能加個空格呢？_20771210_最終版_v365.7.24.zip"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "前面 _ 後面",
+      "expected": "前面 _ 後面"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Vinta _ Mollie",
+      "expected": "Vinta _ Mollie"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Vinta _ Mollie _ Kitten",
+      "expected": "Vinta _ Mollie _ Kitten"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "陳上進 _ 貓咪 _ Mollie",
+      "expected": "陳上進 _ 貓咪 _ Mollie"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "陳上進 _ Mollie _ 貓咪",
+      "expected": "陳上進 _ Mollie _ 貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Mollie _ Vinta _ 貓咪",
+      "expected": "Mollie _ Vinta _ 貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "Mollie _ 陳上進 _ 貓咪",
+      "expected": "Mollie _ 陳上進 _ 貓咪"
+    },
+    {
+      "source": "symbol-underscore.test.ts",
+      "input": "得到一個A_B的結果",
+      "expected": "得到一個 A_B 的結果"
+    },
+    {
+      "source": "symbol-backtick.test.ts",
+      "input": "'! git commit -a -m \"蛤\"'",
+      "expected": "'! git commit -a -m \"蛤\"'"
+    }
+  ]
+}

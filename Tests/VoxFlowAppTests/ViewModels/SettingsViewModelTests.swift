@@ -1,5 +1,6 @@
 import XCTest
 import VoxFlowModelStore
+import VoxFlowTextProcessing
 import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
@@ -22,7 +23,7 @@ final class SettingsViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             SettingsSection.allCases.map(\.title),
-            ["通用", "AI 编程", "系统", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
+            ["通用", "AI 编程", "系统", "文本处理", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
         )
         XCTAssertEqual(viewModel.selectedSection, .general)
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
@@ -102,6 +103,37 @@ final class SettingsViewModelTests: XCTestCase {
             try environment.settingsRepository.value(forKey: VoiceCorrectionSettingsKey.shadowMode.rawValue),
             #"{"value":true}"#
         )
+    }
+
+    func testResetDeterministicTextProcessingThresholdsRestoresDefaultsForSelectedGroup() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        try viewModel.updateDeterministicTextProcessingThresholds(
+            longSentenceWord: 50,
+            longSentenceCJK: 120,
+            punctuationWord: 20,
+            punctuationCJK: 20
+        )
+        try viewModel.resetLongSentenceThresholds()
+
+        XCTAssertEqual(viewModel.deterministicLongSentenceWordThreshold, 8)
+        XCTAssertEqual(viewModel.deterministicLongSentenceCJKThreshold, 12)
+        XCTAssertEqual(viewModel.deterministicPunctuationWordThreshold, 20)
+        XCTAssertEqual(viewModel.deterministicPunctuationCJKThreshold, 20)
+
+        try viewModel.resetPunctuationThresholds()
+
+        XCTAssertEqual(viewModel.deterministicLongSentenceWordThreshold, 8)
+        XCTAssertEqual(viewModel.deterministicLongSentenceCJKThreshold, 12)
+        XCTAssertEqual(viewModel.deterministicPunctuationWordThreshold, 4)
+        XCTAssertEqual(viewModel.deterministicPunctuationCJKThreshold, 3)
+        XCTAssertEqual(viewModel.lastActionMessage, "已恢复默认阈值")
     }
 
     func testExportAndImportIncludesVoiceCorrectionDictionary() throws {

@@ -4,11 +4,13 @@ import Combine
 import Foundation
 import ApplicationServices
 import VoxFlowVoiceCorrection
+import VoxFlowTextProcessing
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case vibeCoding
     case system
+    case textProcessing
     case dictationModels
     case correctionModels
     case ttsModels
@@ -22,6 +24,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: return L10n.localize("settings.section.general", comment: "")
         case .vibeCoding: return L10n.localize("settings.section.vibe_coding", comment: "")
         case .system: return L10n.localize("settings.section.system_root", comment: "")
+        case .textProcessing: return L10n.localize("settings.section.text_processing", comment: "")
         case .dictationModels: return L10n.localize("settings.section.dictation_models", comment: "")
         case .correctionModels: return L10n.localize("settings.section.correction_models", comment: "")
         case .ttsModels: return L10n.localize("settings.section.tts_models", comment: "")
@@ -34,6 +37,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "slider.horizontal.3"
         case .vibeCoding: return "terminal"
+        case .textProcessing: return "wand.and.stars"
         case .dictationModels: return "waveform"
         case .correctionModels: return "sparkles"
         case .ttsModels: return "speaker.wave.2"
@@ -317,6 +321,22 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
 
+    // MARK: - Deterministic text processing settings (section 3)
+    // UI entry point for the deterministic text processing pipeline.
+    // Visual design will be added later; these fields expose the state.
+    @Published private(set) var deterministicTextProcessingEnabled = false
+    @Published private(set) var deterministicSmartNumberRecognition = false
+    @Published private(set) var deterministicPunctuationOptimization = false
+    @Published private(set) var deterministicLongSentenceBreaking = false
+    @Published private(set) var deterministicFillerWordFiltering = false
+    @Published private(set) var deterministicCjkLatinSpacing = false
+    @Published private(set) var deterministicAutoCapitalization = false
+    // Thresholds exposed for advanced tuning. Bound to Steppers in the UI.
+    @Published private(set) var deterministicLongSentenceWordThreshold = DeterministicTextProcessingSettings.defaults.longSentenceWordThreshold
+    @Published private(set) var deterministicLongSentenceCJKThreshold = DeterministicTextProcessingSettings.defaults.longSentenceCJKThreshold
+    @Published private(set) var deterministicPunctuationWordThreshold = 4
+    @Published private(set) var deterministicPunctuationCJKThreshold = 3
+
     var currentAgentSessions: [AgentSessionCard] {
         agentSessions.currentDispatchableAgents
     }
@@ -439,6 +459,21 @@ final class SettingsViewModel: ObservableObject {
                 .shadowMode,
                 repository: environment.settingsRepository
             )
+            // Deterministic text processing settings (section 3).
+            let dtpSettings = DeterministicTextProcessingSettingsStore.load(
+                storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+            )
+            deterministicTextProcessingEnabled = dtpSettings.enabled
+            deterministicSmartNumberRecognition = dtpSettings.smartNumberRecognition
+            deterministicPunctuationOptimization = dtpSettings.punctuationOptimization
+            deterministicLongSentenceBreaking = dtpSettings.longSentenceBreaking
+            deterministicFillerWordFiltering = dtpSettings.fillerWordFiltering
+            deterministicCjkLatinSpacing = dtpSettings.cjkLatinSpacing
+            deterministicAutoCapitalization = dtpSettings.autoCapitalization
+            deterministicLongSentenceWordThreshold = dtpSettings.longSentenceWordThreshold
+            deterministicLongSentenceCJKThreshold = dtpSettings.longSentenceCJKThreshold
+            deterministicPunctuationWordThreshold = dtpSettings.punctuationWordThreshold
+            deterministicPunctuationCJKThreshold = dtpSettings.punctuationCJKThreshold
             shortcutConflict = shortcutManager.hasConflict()
             soundFeedbackEnabled = try readBool(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true)
             voiceEnhancementEnabled = try readBool(SettingsKey.audioVoiceEnhancementEnabled, defaultValue: false)
@@ -661,6 +696,97 @@ final class SettingsViewModel: ObservableObject {
         try VoiceCorrectionSettingsStore.setBool(.shadowMode, value: enabled, repository: environment.settingsRepository)
         lastError = nil
         lastActionMessage = enabled ? L10n.localize("settings.message.voice_correction_shadow_mode_enabled", comment: "") : L10n.localize("settings.message.voice_correction_shadow_mode_disabled", comment: "")
+    }
+
+    // MARK: - Deterministic text processing settings (section 3)
+
+    func updateDeterministicTextProcessing(
+        enabled: Bool? = nil,
+        smartNumberRecognition: Bool? = nil,
+        punctuationOptimization: Bool? = nil,
+        longSentenceBreaking: Bool? = nil,
+        fillerWordFiltering: Bool? = nil,
+        cjkLatinSpacing: Bool? = nil,
+        autoCapitalization: Bool? = nil
+    ) throws {
+        var current = DeterministicTextProcessingSettingsStore.load(
+            storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+        )
+        if let enabled { current.enabled = enabled }
+        if let smartNumberRecognition { current.smartNumberRecognition = smartNumberRecognition }
+        if let punctuationOptimization { current.punctuationOptimization = punctuationOptimization }
+        if let longSentenceBreaking { current.longSentenceBreaking = longSentenceBreaking }
+        if let fillerWordFiltering { current.fillerWordFiltering = fillerWordFiltering }
+        if let cjkLatinSpacing { current.cjkLatinSpacing = cjkLatinSpacing }
+        if let autoCapitalization { current.autoCapitalization = autoCapitalization }
+        try DeterministicTextProcessingSettingsStore.save(
+            current,
+            storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+        )
+        deterministicTextProcessingEnabled = current.enabled
+        deterministicSmartNumberRecognition = current.smartNumberRecognition
+        deterministicPunctuationOptimization = current.punctuationOptimization
+        deterministicLongSentenceBreaking = current.longSentenceBreaking
+        deterministicFillerWordFiltering = current.fillerWordFiltering
+        deterministicCjkLatinSpacing = current.cjkLatinSpacing
+        deterministicAutoCapitalization = current.autoCapitalization
+        Self.logger.debug("settings_vm_set_deterministic_text_processing saved")
+        lastError = nil
+    }
+
+    /// Updates the deterministic text processing thresholds. Each parameter is
+    /// optional; only non-nil values are written. Values are clamped to a
+    /// sensible positive range to avoid breaking the pipeline with 0 or
+    /// negative thresholds.
+    func updateDeterministicTextProcessingThresholds(
+        longSentenceWord: Int? = nil,
+        longSentenceCJK: Int? = nil,
+        punctuationWord: Int? = nil,
+        punctuationCJK: Int? = nil
+    ) throws {
+        var current = DeterministicTextProcessingSettingsStore.load(
+            storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+        )
+        if let longSentenceWord {
+            current.longSentenceWordThreshold = max(1, longSentenceWord)
+        }
+        if let longSentenceCJK {
+            current.longSentenceCJKThreshold = max(1, longSentenceCJK)
+        }
+        if let punctuationWord {
+            current.punctuationWordThreshold = max(1, punctuationWord)
+        }
+        if let punctuationCJK {
+            current.punctuationCJKThreshold = max(1, punctuationCJK)
+        }
+        try DeterministicTextProcessingSettingsStore.save(
+            current,
+            storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+        )
+        deterministicLongSentenceWordThreshold = current.longSentenceWordThreshold
+        deterministicLongSentenceCJKThreshold = current.longSentenceCJKThreshold
+        deterministicPunctuationWordThreshold = current.punctuationWordThreshold
+        deterministicPunctuationCJKThreshold = current.punctuationCJKThreshold
+        Self.logger.debug("settings_vm_set_deterministic_text_processing_thresholds saved")
+        lastError = nil
+    }
+
+    func resetLongSentenceThresholds() throws {
+        let defaults = DeterministicTextProcessingSettings.defaults
+        try updateDeterministicTextProcessingThresholds(
+            longSentenceWord: defaults.longSentenceWordThreshold,
+            longSentenceCJK: defaults.longSentenceCJKThreshold
+        )
+        lastActionMessage = L10n.localize("settings.text_processing.thresholds.reset_feedback", comment: "")
+    }
+
+    func resetPunctuationThresholds() throws {
+        let defaults = DeterministicTextProcessingSettings.defaults
+        try updateDeterministicTextProcessingThresholds(
+            punctuationWord: defaults.punctuationWordThreshold,
+            punctuationCJK: defaults.punctuationCJKThreshold
+        )
+        lastActionMessage = L10n.localize("settings.text_processing.thresholds.reset_feedback", comment: "")
     }
 
     func refreshAgentSessions(reportFailures: Bool = true) async {

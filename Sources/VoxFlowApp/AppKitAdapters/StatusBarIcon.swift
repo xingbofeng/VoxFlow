@@ -7,24 +7,15 @@ enum StatusBarIcon {
     static let visibleTitle = ""
     static let imagePosition: NSControl.ImagePosition = .imageOnly
     static let tooltip: String? = nil
-    static let autosaveName = "VoxFlowStatusItemMenuExtraV6"
+    static let autosaveName = "VoxFlowMenuBarItem"
     static let buttonIdentifier = NSUserInterfaceItemIdentifier("VoxFlowStatusBarButton")
     static let preferredLength = NSStatusItem.squareLength
     static let persistedAutosaveNames = [
         autosaveName,
-        "VoxFlowStatusItemMenuExtraV5",
-        "VoxFlowStatusItemMenuExtraV4",
-        "VoxFlowStatusItem",
-        "VoxFlowStatusItemV2",
-        "VoxFlowStatusItemRuntime",
-        "VoxFlowStatusItemVisibleV3",
-        "Item-0",
-        "Item-1",
     ]
     static let placementResetMarkerKey = "VoxFlowStatusItemPlacementResetV1"
     static let persistedBundleIdentifiers = [
         ProductBrand.bundleIdentifier,
-        ProductBrand.legacyBundleIdentifier,
     ]
 
     @MainActor

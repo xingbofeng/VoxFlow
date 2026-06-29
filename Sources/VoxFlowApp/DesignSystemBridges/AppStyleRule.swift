@@ -73,12 +73,17 @@ final class AppStyleRuleStore {
 @MainActor
 protocol StyleSelecting {
     func style(for target: DictationTarget?) async throws -> StyleProfileRecord?
+    /// Most recent AI router trace produced by the underlying classifier, if
+    /// any. Returns nil when no classifier is attached or the last selection
+    /// did not invoke the router (e.g. hit a manual rule or default).
+    var lastRouteTrace: StyleRouteTrace? { get }
 }
 
 final class SettingsBackedStyleSelector: StyleSelecting {
     private let styleRepository: any StyleRepository
     private let appStyleRuleStore: AppStyleRuleStore
     private let classifier: (any ApplicationStyleClassifying)?
+    private(set) var lastRouteTrace: StyleRouteTrace?
 
     init(
         styleRepository: any StyleRepository,
@@ -95,16 +100,27 @@ final class SettingsBackedStyleSelector: StyleSelecting {
            let rule = try matchingRule(for: target),
            let profile = try styleRepository.profile(id: rule.styleID),
            profile.enabled {
+            // Manual rule wins; no router call, so clear any stale trace.
+            lastRouteTrace = nil
             return profile
         }
         if let target, let classifier {
             let styles = try styleRepository.list(category: nil).filter(\.enabled)
-            if let classifiedID = try? await classifier.classify(target: target, styles: styles),
+            if let llmClassifier = classifier as? LLMApplicationStyleClassifier {
+                let outcome = try? await llmClassifier.classifyWithTrace(target: target, styles: styles)
+                lastRouteTrace = outcome?.trace
+                if let outcome, let profile = try? styleRepository.profile(id: outcome.styleID ?? ""),
+                   profile.enabled {
+                    return profile
+                }
+            } else if let classifiedID = try? await classifier.classify(target: target, styles: styles),
                let profile = try styleRepository.profile(id: classifiedID),
                profile.enabled {
+                lastRouteTrace = nil
                 return profile
             }
         }
+        lastRouteTrace = nil
         return try styleRepository.defaultProfile()
     }
 

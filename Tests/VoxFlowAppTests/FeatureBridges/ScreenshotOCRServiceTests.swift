@@ -135,7 +135,7 @@ final class ScreenshotOCRServiceTests: XCTestCase {
             )
         )
         XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404"])
-        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字翻译助手"))
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("screenshot text translation assistant"))
         XCTAssertEqual(recorder.store.lastResultText, "错误 404")
     }
 
@@ -159,7 +159,7 @@ final class ScreenshotOCRServiceTests: XCTestCase {
             .completed("错误 404"),
         ])
         XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404"])
-        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字翻译助手"))
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("screenshot text translation assistant"))
         XCTAssertEqual(recorder.store.lastResultText, "错误 404")
     }
 
@@ -183,7 +183,7 @@ final class ScreenshotOCRServiceTests: XCTestCase {
             .completed("- 错误 404"),
         ])
         XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404"])
-        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字总结助手"))
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("screenshot text summarization assistant"))
         XCTAssertEqual(recorder.store.lastResultText, "- 错误 404")
     }
 
@@ -244,7 +244,7 @@ final class ScreenshotOCRServiceTests: XCTestCase {
 
         XCTAssertEqual(overlay.lines.map(\.text), ["姓名", "年龄"])
         XCTAssertEqual(recorder.translator.requests.map(\.text), ["Name", "Age"])
-        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字翻译助手"))
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("screenshot text translation assistant"))
     }
 
     func testInlineSelectionTranslatorReportsLineTranslationProgress() async throws {
@@ -429,7 +429,7 @@ final class ScreenshotOCRServiceTests: XCTestCase {
             )
         )
         XCTAssertEqual(recorder.translator.requests.map(\.text), ["Error 404 - Page Not Found"])
-        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("截图文字总结助手"))
+        XCTAssertTrue(recorder.translator.requests[0].systemPrompt.contains("screenshot text summarization assistant"))
         XCTAssertEqual(recorder.store.lastResultText, "页面不存在，请检查 URL。")
     }
 

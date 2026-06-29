@@ -1207,6 +1207,45 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
+    func testReprocessSelectedHistoryItemShowsProgressAndNoChangeFeedback() async throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.historyRepository.save(
+            historyEntry(
+                id: "entry",
+                rawText: "原始文本",
+                finalText: "原始文本",
+                durationMS: 30_000
+            )
+        )
+        let pipeline = SuspendedHomeTextPipeline(
+            result: TextProcessingResult(rawText: "原始文本", finalText: "原始文本")
+        )
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            clipboardWriter: CapturingClipboardWriter(),
+            textPipeline: pipeline,
+            calendar: testCalendar
+        )
+        viewModel.selectHistoryItem(id: "entry")
+
+        let reprocessTask = Task {
+            await viewModel.reprocessSelectedHistoryItem()
+        }
+        await waitUntil { pipeline.hasStarted }
+
+        XCTAssertTrue(viewModel.isReprocessing)
+        XCTAssertEqual(viewModel.lastActionMessage, "正在重新处理历史记录…")
+        XCTAssertEqual(viewModel.lastActionTone, .informational)
+
+        pipeline.finish()
+        await reprocessTask.value
+
+        XCTAssertFalse(viewModel.isReprocessing)
+        XCTAssertEqual(viewModel.lastActionMessage, "已重新处理，文本无变化")
+        XCTAssertEqual(viewModel.lastActionTone, .informational)
+    }
+
     func testReprocessSelectedHistoryItemPassesOriginalTargetAndCorrectionContext() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_100)
         let clock = MutableHomeClock(now: now)
@@ -1605,6 +1644,38 @@ private final class CapturingHomeTextPipeline: TextProcessing {
         receivedTargets.append(target)
         receivedCorrectionContexts.append(correctionContext)
         return result
+    }
+}
+
+private final class SuspendedHomeTextPipeline: TextProcessing {
+    private let result: TextProcessingResult
+    private var continuation: CheckedContinuation<Void, Never>?
+    private(set) var hasStarted = false
+
+    init(result: TextProcessingResult) {
+        self.result = result
+    }
+
+    func process(_ rawText: String) async -> TextProcessingResult {
+        await process(rawText, target: nil, correctionContext: nil, onRefinedTextUpdate: { _ in })
+    }
+
+    func process(
+        _ rawText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?,
+        onRefinedTextUpdate: @escaping @MainActor (String) -> Void
+    ) async -> TextProcessingResult {
+        hasStarted = true
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+        return result
+    }
+
+    func finish() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 

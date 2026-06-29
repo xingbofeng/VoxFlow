@@ -38,4 +38,8 @@ final class AppThemeTests: XCTestCase {
             .none
         )
     }
+
+    func testHomeDetailOverlayHostsActionFeedbackAboveModal() {
+        XCTAssertTrue(HomeDetailOverlayPresentation.hostsActionFeedback)
+    }
 }

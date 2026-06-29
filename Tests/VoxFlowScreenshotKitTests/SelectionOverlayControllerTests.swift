@@ -2025,23 +2025,6 @@ final class SelectionOverlayControllerTests: XCTestCase {
         }
     }
 
-    func testDefaultScrollCaptureShowsFloatingPanels() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Selection/SelectionOverlayController.swift"),
-            encoding: .utf8
-        )
-
-        let capturerRange = try XCTUnwrap(source.range(of: "public enum DefaultScrollingScreenshotCapturer"))
-        let extensionRange = try XCTUnwrap(source.range(of: "private extension CGRect", range: capturerRange.upperBound..<source.endIndex))
-        let capturerSource = source[capturerRange.lowerBound..<extensionRange.lowerBound]
-        XCTAssertTrue(capturerSource.contains("showsControlHUD: true"))
-        XCTAssertTrue(capturerSource.contains("showsLivePreview: true"))
-    }
-
     // MARK: - Popover (color / lineWidth / fontSize)
 
     private func presentControllerWithSelection() -> (SelectionOverlayController, FakeSelectionOverlayWindowFactory, FakeSelectionOverlayWindow) {

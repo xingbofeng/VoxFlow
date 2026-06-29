@@ -265,19 +265,12 @@ final class ShortcutManager: @unchecked Sendable {
             return
         }
 
-        let clipboardImageOCRKeyCode: Int64
-        if defaults.object(forKey: Keys.clipboardImageOCRShortcutKeyCode) != nil {
-            clipboardImageOCRKeyCode = Int64(defaults.integer(forKey: Keys.clipboardImageOCRShortcutKeyCode))
-        } else {
-            clipboardImageOCRKeyCode = Self.defaultClipboardImageOCRShortcutKeyCode
-        }
         let clipboardImageOCRDisabled = defaults.bool(forKey: Keys.clipboardImageOCRShortcutDisabled)
-        guard clipboardImageOCRDisabled || clipboardImageOCRKeyCode == Self.defaultClipboardImageOCRShortcutKeyCode else {
-            return
+        if clipboardImageOCRDisabled {
+            defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutDisabled)
         }
 
-        AppLogger.general.warning("ShortcutManager restored clipboard-image OCR default shortcut from screenshot OCR binding")
-        defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutDisabled)
+        AppLogger.general.warning("ShortcutManager moved screenshot OCR away from reserved clipboard-image OCR shortcut")
         defaults.removeObject(forKey: Keys.screenshotOCRShortcutKeyCode)
         defaults.removeObject(forKey: Keys.screenshotOCRShortcutDisabled)
     }

@@ -1,27 +1,25 @@
 import Foundation
+import VoxFlowPromptKit
 
 // MARK: - AgentPromptBuilder
 
 struct AgentPromptBuilder {
-    static let agentSystemPrompt = """
-        You are a context-aware writing assistant. The user will dictate their intent and you \
-        will generate polished, usable text based on that intent and the provided context.
+    private static let renderer = PromptRenderer()
+    private let systemLanguage: String
 
-        Rules:
-        1. Execute the user's dictation intent faithfully. Do not add content the user did not \
-        ask for.
-        2. Never fabricate facts, dates, names, or data. If context is insufficient, use \
-        conservative and general expressions.
-        3. Output ONLY the final usable text — no explanations, no notes, no quotation marks, \
-        no markdown fences.
-        4. Preserve the user's original language (Chinese/English) unless the dictation intent \
-        clearly asks for translation.
-        5. When the user dictates code-related content (commands, variables, paths, API names, \
-        technical terms), preserve them exactly — do not translate or paraphrase English \
-        technical terminology into Chinese.
-        6. Match the tone and register implied by the context (formal email, casual chat, \
-        technical documentation, etc.).
-        """
+    init(systemLanguage: String = Self.defaultSystemLanguage()) {
+        self.systemLanguage = systemLanguage
+    }
+
+    /// The Agent Compose system prompt, rendered through PromptKit.
+    /// Preserved verbatim from the previous inlined string during migration;
+    /// see `AgentComposePromptCatalog.system`.
+    static var agentSystemPrompt: String {
+        renderer.render(
+            AgentComposePromptCatalog.system,
+            context: PromptRenderContext.make(("systemLanguage", defaultSystemLanguage()))
+        ).renderedText
+    }
 
     func build(
         appName: String?,
@@ -98,12 +96,24 @@ struct AgentPromptBuilder {
             """
         )
 
+        let systemPrompt = Self.renderer.render(
+            AgentComposePromptCatalog.system,
+            context: PromptRenderContext.make(("systemLanguage", systemLanguage))
+        ).renderedText
         return TextRefinementRequest(
             text: userSections.joined(separator: "\n\n"),
-            systemPrompt: Self.agentSystemPrompt,
+            systemPrompt: systemPrompt,
             model: nil,
             temperature: 0.7,
-            purpose: .agentCompose
+            purpose: .agentCompose,
+            promptMetadata: PromptTraceMetadata(
+                promptKind: AgentComposePromptCatalog.system.kind,
+                promptVersion: AgentComposePromptCatalog.system.version,
+                renderedPromptHash: PromptRenderer.hash(renderedPrompt: systemPrompt),
+                styleID: nil,
+                routerVersion: nil,
+                agentPromptVersion: AgentComposePromptCatalog.system.version.stringValue
+            )
         )
     }
 
@@ -112,5 +122,9 @@ struct AgentPromptBuilder {
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
+    }
+
+    private static func defaultSystemLanguage() -> String {
+        Locale.preferredLanguages.first ?? Locale.current.identifier
     }
 }

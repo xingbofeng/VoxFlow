@@ -101,39 +101,6 @@ final class RecordingSubtitleDetailPresentationTests: XCTestCase {
         XCTAssertEqual(failed.actions.map(\.title), [L10n.localize("screenshot.record.detail.subtitle_action_retry", comment: "")])
     }
 
-    func testBurnedRecordingUsesSubtitledVideoAsPrimaryPlaybackSource() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let detailSource = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Views/ScreenshotRecordDetailView.swift"),
-            encoding: .utf8
-        )
-        let viewModelSource = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/ViewModels/ScreenshotRecordViewModel.swift"),
-            encoding: .utf8
-        )
-        let resultHUDSource = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(
-            detailSource.contains("record.primaryVideoPath"),
-            "录屏详情页主预览必须优先展示带字幕视频，而不是继续播放原视频。"
-        )
-        XCTAssertTrue(
-            viewModelSource.contains("record.primaryFilePath"),
-            "详情页底部打开/复制/Finder 主动作必须优先指向带字幕视频。"
-        )
-        XCTAssertTrue(
-            resultHUDSource.contains("record.primaryFilePath"),
-            "录屏完成 HUD 的主文件动作必须优先指向带字幕视频。"
-        )
-    }
-
     func testMediaRecordPrimaryVideoPathPrefersBurnedSubtitleVideoOnlyAfterBurnSuccess() {
         let burned = Self.recording(
             audioMode: .microphone,

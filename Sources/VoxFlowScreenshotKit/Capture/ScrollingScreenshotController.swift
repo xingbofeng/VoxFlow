@@ -239,6 +239,7 @@ public final class ScrollingScreenshotController {
     private let autoScroller: any ScrollingScreenshotAutoScrolling
     private let showsControlHUD: Bool
     private let showsLivePreview: Bool
+    private let activatesTargetApplication: Bool
 
     private var hudPanel: ScrollingScreenshotHUDPanel?
     private var previewPanel: ScrollingScreenshotPreviewPanel?
@@ -278,7 +279,8 @@ public final class ScrollingScreenshotController {
         eventMonitor: any ScrollingScreenshotInputMonitoring = AppKitScrollingScreenshotInputMonitor(),
         autoScroller: any ScrollingScreenshotAutoScrolling = AppKitScrollingScreenshotAutoScroller(),
         showsControlHUD: Bool = false,
-        showsLivePreview: Bool = false
+        showsLivePreview: Bool = false,
+        activatesTargetApplication: Bool? = nil
     ) {
         self.request = request
         self.regionCapture = regionCapture
@@ -291,6 +293,7 @@ public final class ScrollingScreenshotController {
         self.autoScroller = autoScroller
         self.showsControlHUD = showsControlHUD
         self.showsLivePreview = showsLivePreview
+        self.activatesTargetApplication = activatesTargetApplication ?? !Self.isRunningUnderXCTest
     }
 
     public func start() async -> ScrollingScreenshotCaptureResult? {
@@ -314,7 +317,9 @@ public final class ScrollingScreenshotController {
         deferredCaptureTask = nil
         showPanels(initialImage: firstFrame)
         publishStatus(.good)
-        activateTargetApplicationUnderSelection()
+        if activatesTargetApplication {
+            activateTargetApplicationUnderSelection()
+        }
         installScrollMonitors()
         installInputMonitors()
         startPollingCapture()
@@ -472,6 +477,12 @@ public final class ScrollingScreenshotController {
         default:
             nil
         }
+    }
+
+    private static var isRunningUnderXCTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestBundlePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
     }
 
     private static func integer(_ value: Any?) -> Int? {

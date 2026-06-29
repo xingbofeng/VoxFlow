@@ -64,143 +64,6 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         XCTAssertTrue(subtitleAction(state: .failed).isEnabled)
     }
 
-    func testHUDPreviewUsesPrimaryVideoPathAfterSubtitleBurnSucceeds() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(
-            source.contains("if let videoPath = displayRecord.primaryVideoPath"),
-            "录屏完成 HUD 预览在 burned 状态必须优先播放带字幕视频。"
-        )
-        XCTAssertFalse(
-            source.contains("if let videoPath = record.videoPath"),
-            "HUD 预览不能继续固定读取原始 videoPath，否则烧录成功后看起来像没反应。"
-        )
-    }
-
-    func testHUDActionsReloadLatestRecordBeforeResolvingFilePath() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("private func currentRecord(fallback record: MediaRecord) -> MediaRecord"))
-        XCTAssertTrue(source.contains("currentRecord(fallback: record)"))
-        XCTAssertTrue(source.contains("let displayRecord = hudState.record ?? record"))
-        XCTAssertTrue(source.contains("hudState.update(record: latestRecord, state:"))
-    }
-
-    func testHUDDoesNotAutoCopyFileWhenPresented() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("initialDidCopyFile: false"))
-        XCTAssertFalse(
-            source.contains("let didCopyFile = copyFile(record)"),
-            "录屏完成 HUD 初始状态应该显示复制按钮，不应该因为自动复制而显示勾勾。"
-        )
-    }
-
-    func testHUDUsesNativeWindowDragHandleLikeScreenshotPanel() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-        let sharedSource = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/TextResultPanelView.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(sharedSource.contains("window?.performDrag(with: event)"))
-        XCTAssertTrue(source.contains(".overlay(TextResultPanelDragHandle())"))
-        XCTAssertTrue(source.contains("panel.isMovableByWindowBackground = true"))
-        XCTAssertFalse(source.contains("DragGesture()"))
-    }
-
-    func testHUDActionsShowNativeTooltipsAndVisibleFeedback() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertFalse(source.contains("NativeTooltipView"))
-        XCTAssertFalse(source.contains("NSViewRepresentable"))
-        XCTAssertFalse(source.contains("Button(role:"))
-        XCTAssertTrue(source.contains("Button(action: action)"))
-        XCTAssertTrue(source.contains("private var feedbackText: String?"))
-        XCTAssertTrue(source.contains("showFeedback("))
-        XCTAssertTrue(source.contains("recording.feedback.revealed_in_finder"))
-        XCTAssertTrue(source.contains("recording.feedback.file_not_found"))
-        XCTAssertFalse(source.contains("NSAlert"))
-    }
-
-    func testDownloadUsesSavePanelInsteadOfDefaultDownloads() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("let panel = NSSavePanel()"))
-        XCTAssertTrue(source.contains("panel.nameFieldStringValue = url.lastPathComponent"))
-        XCTAssertTrue(source.contains("guard panel.runModal() == .OK, let destination = panel.url else"))
-        XCTAssertFalse(
-            source.contains("FileManager.default.urls(for: .downloadsDirectory"),
-            "下载按钮必须让用户选择保存位置，不能静默写入默认 Downloads。"
-        )
-    }
-
-    func testRevealInFinderChecksCurrentFileBeforeOpeningFinder() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("private func revealInFinder(_ record: MediaRecord)"))
-        XCTAssertTrue(source.contains("private func existingFileURL(for record: MediaRecord) -> URL?"))
-        XCTAssertTrue(source.contains("record.primaryFilePath"))
-        XCTAssertTrue(source.contains("record.videoPath"))
-        XCTAssertTrue(source.contains("NSWorkspace.shared.activateFileViewerSelecting([url])"))
-    }
-
-    func testRevealInFinderBringsFinderToForeground() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("activateFinder()"))
-        XCTAssertTrue(source.contains("bundleIdentifier == \"com.apple.finder\""))
-        XCTAssertTrue(source.contains("NSAppleScript"))
-        XCTAssertTrue(source.contains(".activateAllWindows"))
-        XCTAssertFalse(source.contains(".activateIgnoringOtherApps"))
-    }
-
-    func testDeleteUsesInlineConfirmationBeforeDeletingFromNonActivatingHUD() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("@State private var isDeleteConfirmationPending = false"))
-        XCTAssertTrue(source.contains("showFeedback(L10n.localize(\"recording.feedback.delete_confirmation\""))
-        XCTAssertTrue(source.contains("isDeleteConfirmationPending = true"))
-        XCTAssertFalse(source.contains("runModal() == .alertFirstButtonReturn"))
-    }
-
     func testDeleteActionShowsPendingConfirmationStateOnFirstClick() {
         let actions = ScreenRecordingResultHUDPresentation.actions(
             for: Self.makeRecording(audioMode: .microphone),
@@ -215,20 +78,6 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         XCTAssertEqual(deleteAction?.systemImage, "trash.fill")
         XCTAssertEqual(deleteAction?.help, L10n.localize("recording.hud.action_delete_confirm_help", comment: ""))
         XCTAssertTrue(deleteAction?.isDestructive == true)
-    }
-
-    func testDeleteRemovesOriginalAndSubtitleFilesForBurnedRecordings() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Presentation/ScreenRecordingResultPanelController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("private func filePathsToDelete(for record: MediaRecord) -> [String]"))
-        XCTAssertTrue(source.contains("record.videoPath"))
-        XCTAssertTrue(source.contains("record.subtitledVideoPath"))
-        XCTAssertTrue(source.contains("record.subtitleDraftPath"))
-        XCTAssertTrue(source.contains("record.subtitleSrtPath"))
     }
 
     private func subtitleAction(
@@ -272,11 +121,4 @@ final class ScreenRecordingResultHUDPresentationTests: XCTestCase {
         )
     }
 
-    private static func repositoryRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
 }

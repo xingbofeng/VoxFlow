@@ -171,11 +171,20 @@ private extension TextProcessingTrace {
                 statusCode: llm.statusCode,
                 durationMS: llm.durationMS,
                 errorMessage: llm.errorMessage.map(AppLogger.redact),
-                completedAt: llm.completedAt
+                completedAt: llm.completedAt,
+                // Prompt metadata is safe (kind/version/hash/ids only) and is
+                // preserved through diagnostic redaction so captured traces can
+                // explain which prompt version produced the request.
+                promptMetadata: llm.promptMetadata
             ),
             output: output,
             contextBoost: contextBoost?.safeForPersistence(),
-            voiceCorrection: voiceCorrection?.safeForPersistence()
+            voiceCorrection: voiceCorrection?.safeForPersistence(),
+            // Diagnostic mode is opt-in. Preserve the route trace's safe
+            // fields (IDs, version, hash, latency, reason) but drop raw
+            // routerResponse, which on invalid output could echo user text.
+            styleRoute: styleRoute?.safeForPersistence(),
+            deterministic: deterministic?.safeForPersistence()
         )
     }
 }

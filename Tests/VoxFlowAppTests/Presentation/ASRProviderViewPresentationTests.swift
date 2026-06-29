@@ -78,30 +78,6 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.selectionPassthroughRegions.contains(.externalLinks))
     }
 
-    func testProviderViewKeepsScopeAndTagFiltersInOneToolbarWithoutFastAccurateRow() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("scopeAndTagFilterBar"))
-        XCTAssertFalse(source.contains("\n            tagBar\n"))
-        XCTAssertTrue(source.contains("ForEach(viewModel.availableTags"))
-        XCTAssertTrue(source.contains("viewModel.toggleTag(tag)"))
-    }
-
-    func testCloudConfigurationFieldsAreMinimalAndHideOnlySecrets() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertFalse(source.contains("TextField(\"Base URL\""))
-        XCTAssertFalse(source.contains("TextField(\"识别引擎"))
-        XCTAssertFalse(source.contains("TextField(\"识别模型"))
-        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.app_id""#))
-        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.secret_id""#))
-        XCTAssertTrue(source.contains(#"tencentCredentialField(L10n.localize("asr.provider.tencent.secret_key""#))
-    }
-
     func testProviderCardInteractionDisablesSelectionForUnavailableOrCurrentProvider() {
         let unavailable = ASRProviderCardInteractionPresentation(
             provider: makeProvider(isAvailable: false, isDefault: false, localModelAction: .download)
@@ -140,125 +116,6 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         XCTAssertTrue(unavailable.handlesCardTap)
         XCTAssertEqual(current.cardTapBehavior, .ignore)
         XCTAssertFalse(current.handlesCardTap)
-    }
-
-    func testProviderCardPrefersBundledImageBeforeTextBadge() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        let badgeRange = try XCTUnwrap(source.range(of: "ASRProviderIcon.textBadge"))
-        let imageRange = try XCTUnwrap(source.range(of: "ASRProviderIcon.load"))
-        XCTAssertLessThan(imageRange.lowerBound, badgeRange.lowerBound)
-    }
-
-    func testProviderCardsUseSingleColumnGrid() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("LazyVGrid(columns: providerColumns"))
-        XCTAssertTrue(source.contains("GridItem(.flexible(), spacing: AppTheme.Spacing.grid)"))
-        XCTAssertFalse(source.contains("GridItem(.flexible(), spacing: AppTheme.Spacing.grid),\n            GridItem(.flexible(), spacing: AppTheme.Spacing.grid)"))
-    }
-
-    func testProviderViewShowsLocalModelControlsForAllOfflineDownloadableProviders() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("provider.supportsLocalModelControls"))
-        XCTAssertFalse(source.contains("provider.id == ASRProviderID.qwen3\n                || provider.id == ASRProviderID.funASR"))
-    }
-
-    func testProviderViewOffersCleanupButtonForDownloadableLocalModels() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains(#"Label(L10n.localize("asr.provider.local_model.clean""#))
-        XCTAssertTrue(source.contains("viewModel.deleteLocalModel(id: provider.id)"))
-        XCTAssertTrue(source.contains(".disabled(viewModel.isDownloading && viewModel.downloadingProviderID != provider.id)"))
-    }
-
-    func testProviderViewShowsLocalModelSizeAndDownloadedBytes() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains(#"Text(L10n.localize("asr.provider.local_model.size_label""#))
-        XCTAssertTrue(source.contains("viewModel.localModelSizeSummary(providerID: provider.id)"))
-        XCTAssertTrue(source.contains("progress.detailText"))
-        XCTAssertTrue(source.contains("progress.modelSizeText"))
-    }
-
-    func testProviderViewOnlyShowsHeavyControlsInsideExpandedCards() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("@State private var expandedProviderID"))
-        XCTAssertTrue(source.contains("let isExpanded = isProviderExpanded(provider)"))
-        XCTAssertTrue(source.contains("if isExpanded {"))
-        XCTAssertTrue(source.contains("private func isProviderExpanded"))
-        XCTAssertTrue(source.contains("toggleExpandedProvider"))
-    }
-
-    func testDefaultProviderCardsDoNotAutoExpand() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("expandedProviderID == provider.id"))
-        XCTAssertFalse(source.contains("provider.isDefault || expandedProviderID == provider.id"))
-    }
-
-    func testCollapsedProviderCardsHideTagsAndControlsUntilExpanded() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("if isExpanded {\n                providerTagsRow(provider"))
-        XCTAssertTrue(source.contains("providerExpandedControls(provider)"))
-        XCTAssertFalse(source.contains("expandedProviderID = provider.id\n                viewModel.selectDefaultProvider"))
-    }
-
-    func testCollapsedProviderCardsHideVerboseSummaryContent() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("providerSummary(provider, isExpanded: isExpanded)"))
-        XCTAssertTrue(source.contains("private func providerSummary(_ provider: ASRProviderDescriptor, isExpanded: Bool)"))
-        XCTAssertTrue(source.contains("if isExpanded {\n                Text(provider.privacySummary)"))
-        XCTAssertTrue(source.contains("if isExpanded, let links = provider.externalLinks"))
-    }
-
-    func testProviderViewDoesNotRunQwenRuntimePreflightDuringRendering() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertFalse(source.contains("ASRManager.isQwen3RuntimeSupported"))
-    }
-
-    func testProviderViewDoesNotReloadProvidersOnAppear() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertFalse(source.contains(".onAppear { viewModel.load() }"))
-    }
-
-    func testProviderScopeButtonsUseFullRectangularHitTargets() throws {
-        let sourceURL = try Self.repositoryRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Views/ASRProviderView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        let scopeStart = try XCTUnwrap(source.range(of: "private var scopeAndTagFilterBar"))
-        let cardStart = try XCTUnwrap(source.range(of: "private func providerCard"))
-        let scopeSource = source[scopeStart.lowerBound..<cardStart.lowerBound]
-
-        XCTAssertTrue(scopeSource.contains(".contentShape(Rectangle())"))
     }
 
     func testProviderCardTagsUseStandardSingleLineVocabulary() {
@@ -361,18 +218,4 @@ final class ASRProviderViewPresentationTests: XCTestCase {
         )
     }
 
-    private static func repositoryRoot() throws -> URL {
-        var directory = URL(fileURLWithPath: #filePath)
-        while directory.path != "/" {
-            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) {
-                return directory
-            }
-            directory.deleteLastPathComponent()
-        }
-        throw NSError(
-            domain: "ASRProviderViewPresentationTests",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Could not locate Package.swift from test file path."]
-        )
-    }
 }

@@ -9,7 +9,6 @@ public enum ProductBrand {
         localizedName(forKey: "product.brand.chinese_display_name", defaultValue: "码上写")
     }
     public static let bundleIdentifier = "com.voxflow.app"
-    public static let legacyBundleIdentifier = "com.voiceinput.app"
 
     public static var displayName: String {
         localeName(for: Bundle.main.preferredLocalizations.first ?? "en")

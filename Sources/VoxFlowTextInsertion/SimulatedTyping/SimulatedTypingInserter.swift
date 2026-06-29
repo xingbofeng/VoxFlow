@@ -60,6 +60,10 @@ public final class SimulatedTypingInserter: TextInserting {
     public func insert(_ text: String) async -> TextInsertionResult {
         guard !text.isEmpty else { return .success }
 
+        guard !text.containsLineBreak else {
+            return .unavailable(reason: "Simulated typing cannot safely insert line breaks")
+        }
+
         guard permissionChecker() else {
             return .permissionDenied
         }
@@ -83,5 +87,11 @@ public final class SimulatedTypingInserter: TextInserting {
         }
 
         return .success
+    }
+}
+
+private extension String {
+    var containsLineBreak: Bool {
+        rangeOfCharacter(from: .newlines) != nil
     }
 }

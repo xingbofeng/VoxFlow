@@ -119,7 +119,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(
-            prompt.contains("同音"),
+            prompt.contains("homophone"),
             "Conservative prompt must mention homophone correction"
         )
     }
@@ -128,8 +128,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(
-            (prompt.contains("不要添加") || prompt.contains("不要补充"))
-                && (prompt.contains("用户没有说过") || prompt.contains("用户没有表达")),
+            prompt.contains("do not add information the user did not say"),
             "Conservative prompt must forbid rewriting"
         )
     }
@@ -138,7 +137,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(
-            prompt.contains("只输出处理后的正文"),
+            prompt.contains("Only output the corrected body text"),
             "Conservative prompt must instruct output-only (no explanations)"
         )
     }
@@ -147,7 +146,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(
-            prompt.contains("语气填充词"),
+            prompt.contains("filler words"),
             "Conservative prompt must address filler word removal"
         )
     }
@@ -156,7 +155,7 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         let prompt = PromptBuilder.conservativeSystemPrompt
 
         XCTAssertTrue(
-            prompt.contains("中文") && prompt.contains("英文"),
+            prompt.contains("Chinese") && prompt.contains("English"),
             "Conservative prompt must mention both Chinese and English"
         )
     }

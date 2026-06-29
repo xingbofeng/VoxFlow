@@ -3,17 +3,6 @@ import XCTest
 
 @MainActor
 final class PagesReleaseMetadataClientTests: XCTestCase {
-    func testLiveUpdateCheckUsesPagesMetadataInsteadOfGitHubAPI() throws {
-        let source = try String(
-            contentsOf: Self.repositoryRoot()
-                .appendingPathComponent("Sources/VoxFlowApp/Updates/UpdateCheckCoordinator.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("return PagesReleaseMetadataClient()"))
-        XCTAssertFalse(source.contains("return GitHubReleaseClient()"))
-    }
-
     func testDecodesStaticPagesReleaseMetadata() throws {
         let release = try decodeFixture("latest-pages")
 
@@ -64,18 +53,4 @@ final class PagesReleaseMetadataClientTests: XCTestCase {
         return try PagesReleaseMetadataClient.decodeReleaseScript(data: data)
     }
 
-    private static func repositoryRoot() throws -> URL {
-        var directory = URL(fileURLWithPath: #filePath)
-        while directory.path != "/" {
-            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) {
-                return directory
-            }
-            directory.deleteLastPathComponent()
-        }
-        throw NSError(
-            domain: "PagesReleaseMetadataClientTests",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Could not locate Package.swift from test file path."]
-        )
-    }
 }

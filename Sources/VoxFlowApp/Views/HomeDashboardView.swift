@@ -645,6 +645,10 @@ private struct HomeStatCard: View {
     }
 }
 
+enum HomeDetailOverlayPresentation {
+    static let hostsActionFeedback = true
+}
+
 struct HomeDetailOverlay: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
     let detail: HomeDetailSelection
@@ -669,6 +673,12 @@ struct HomeDetailOverlay: View {
         .onAppear { attachEscapeMonitorIfNeeded() }
         .onDisappear { detachEscapeMonitor() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .actionFeedbackOverlay(
+            message: viewModel.lastActionMessage,
+            error: viewModel.lastError,
+            tone: viewModel.lastActionTone,
+            onDismiss: viewModel.clearFeedback
+        )
     }
 
     @ViewBuilder
@@ -714,49 +724,34 @@ enum HomeHistoryDetailLayout {
     static let requestJSONMaxHeight: CGFloat = 220
 }
 
-private enum HomeHistoryDetailTab: String, CaseIterable, Identifiable {
-    case llm
-    case context
-    case diagnostic
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .llm:
-            return L10n.localize("home.detail.tab.llm", comment: "LLM correction tab")
-        case .context:
-            return L10n.localize("home.detail.tab.context", comment: "Context tab")
-        case .diagnostic:
-            return L10n.localize("home.detail.tab.diagnostic", comment: "Diagnostic tab")
-        }
-    }
-}
-
 private struct HomeHistoryDetailModal: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
     let detail: HomeHistoryDetail
     @State private var isRequestJSONExpanded = false
     @State private var isResponseJSONExpanded = false
-    @State private var selectedDetailTab: HomeHistoryDetailTab = .llm
     @State private var isEditingFinalText = false
     @State private var editedFinalText = ""
     @State private var editError: String?
     @State private var learnedEditPair: LearnedCorrectionPair?
+    @State private var selectedStep: HomeHistoryDetailPresentation.PipelineStepKind = .asr
+    @State private var isDiagnosticRequestExpanded = false
+    @State private var isDiagnosticResponseExpanded = false
+    @State private var isDiagnosticFullExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
             header
+                .padding(.bottom, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    textComparison
+                    resultComparisonSection
                     if detail.taskMode == .agentDispatch {
                         dispatchSection
-                    } else {
-                        traceSection
                     }
-                    metadataSection
+                    transcriptionInfoSection
+                    pipelineTimelineSection
                     warningsSection
+                    diagnosticDisclosureSection
                 }
                 .padding(.trailing, 2)
             }
@@ -775,11 +770,11 @@ private struct HomeHistoryDetailModal: View {
         .tint(AppTheme.ColorToken.accent)
         .onAppear {
             resetFinalTextEditor()
-            resetDetailTab()
+            resetSelectedStep()
         }
         .onChange(of: detail.id) { _, _ in
             resetFinalTextEditor()
-            resetDetailTab()
+            resetSelectedStep()
         }
         .onChange(of: detail.finalText) { _, _ in
             if !isEditingFinalText {
@@ -787,6 +782,8 @@ private struct HomeHistoryDetailModal: View {
             }
         }
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -799,435 +796,660 @@ private struct HomeHistoryDetailModal: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(detailTitle)
                     .font(.system(size: 24, weight: .semibold))
-                Text(traceSubtitle)
+                Text(L10n.localize("home.detail.subtitle.unified", comment: "Unified detail subtitle"))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
             Spacer()
-            if detail.taskMode == nil {
-                if isEditingFinalText {
-                    Button {
-                        cancelFinalTextEditing()
-                    } label: {
-                        Label(L10n.localize("home.detail.action.cancel", comment: "Cancel edit detail text"), systemImage: "xmark")
-                            .frame(height: 32)
-                    }
-                    .buttonStyle(.bordered)
-                }
-                Button {
-                    if isEditingFinalText {
-                        saveEditedFinalText()
-                    } else {
-                        beginFinalTextEditing()
-                    }
-                } label: {
-                    Label(isEditingFinalText ? L10n.localize("home.detail.action.save", comment: "Save edited detail text") : L10n.localize("home.detail.action.edit", comment: "Edit detail text"), systemImage: isEditingFinalText ? "checkmark" : "square.and.pencil")
-                        .frame(height: 32)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isEditingFinalText && editedFinalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            if detail.taskMode != nil {
-                Button {
-                    viewModel.copySelectedTaskDiagnostic()
-                } label: {
-                    Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "stethoscope")
-                        .frame(height: 32)
-                }
-                .buttonStyle(.bordered)
-            }
-            if detail.taskMode == .agentCompose || detail.taskMode == .agentDispatch {
-                if !detail.finalText.isEmpty {
-                    Button {
-                        viewModel.copyDetailText()
-                    } label: {
-                            Label(L10n.localize("home.detail.action.copy_result", comment: "Copy result"), systemImage: "doc.on.doc")
-                            .frame(height: 32)
-                    }
-                    .buttonStyle(.bordered)
-                }
-            } else {
-                Button {
-                    Task {
-                        await viewModel.reprocessSelectedHistoryItem()
-                    }
-                } label: {
-                    Label(viewModel.isReprocessing ? L10n.localize("home.detail.action.processing", comment: "Processing") : L10n.localize("home.detail.action.reprocess", comment: "Reprocess"), systemImage: viewModel.isReprocessing ? "hourglass" : "arrow.triangle.2.circlepath")
-                        .frame(height: 32)
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.isReprocessing)
-            }
-            Button {
-                viewModel.clearSelectedHomeDetail()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut(.cancelAction)
-            .appControlSurface(cornerRadius: 8)
+            headerActions
         }
-    }
-
-    private var textComparison: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 12) {
-                    if isEditingFinalText {
-                        EditableDetailTextBlock(
-                            title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
-                            subtitle: L10n.localize("home.detail.text.edit_subtitle", comment: "Edited final text subtitle"),
-                            text: $editedFinalText,
-                            error: editError
-                        )
-                    } else {
-                        DetailTextBlock(
-                            title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
-                            subtitle: detail.taskMode == .agentCompose
-                                ? L10n.localize("home.detail.text.agent_compose_final_subtitle", comment: "Agent compose final text subtitle")
-                                : detail.taskMode == .agentDispatch
-                                    ? L10n.localize("home.detail.text.agent_dispatch_final_subtitle", comment: "Agent dispatch final text subtitle")
-                                : L10n.localize("home.detail.text.dictation_final_subtitle", comment: "Dictation final text subtitle"),
-                            text: detail.finalText,
-                            highlighted: true
-                        )
-                    }
-                    DetailTextBlock(
-                        title: detail.taskMode == .agentCompose ? L10n.localize("home.detail.text.voice_intent_title", comment: "Voice intent title") : L10n.localize("home.detail.text.raw_title", comment: "Raw recognition title"),
-                        subtitle: detail.taskMode == .agentCompose
-                            ? L10n.localize("home.detail.text.voice_intent_subtitle", comment: "Voice intent subtitle")
-                            : L10n.localize("home.detail.text.raw_subtitle", comment: "Raw recognition subtitle"),
-                        text: detail.rawText,
-                        highlighted: false
-                    )
-                }
-                if let changeSummary {
-                    HStack(spacing: 8) {
-                        Text(changeSummary)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            .padding(.horizontal, 10)
-                            .frame(height: 26)
-                            .background(AppTheme.ColorToken.controlBackground)
-                            .clipShape(Capsule())
-                        if let voiceCorrectionTrace = detail.trace?.voiceCorrection {
-                            Text(HomeHistoryDetailPresentation.voiceCorrectionStatusText(
-                                candidateCount: voiceCorrectionTrace.candidateEvents.count,
-                                appliedCount: voiceCorrectionTrace.appliedEvents.count,
-                                failed: voiceCorrectionTrace.failureReason != nil
-                            ))
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(AppTheme.ColorToken.accent)
-                                .padding(.horizontal, 10)
-                                .frame(height: 26)
-                                .background(AppTheme.ColorToken.accent.opacity(0.10))
-                                .clipShape(Capsule())
-                        }
-                        Spacer(minLength: 0)
-                    }
-                }
-                if let learnedEditPair {
-                    HStack(spacing: 8) {
-                        Image(systemName: "wand.and.stars")
-                            .foregroundStyle(AppTheme.ColorToken.accent)
-                        Text(String(
-                            format: L10n.localize("home.detail.learning.saved_format", comment: "Saved edit learning message"),
-                            learnedEditPair.original,
-                            learnedEditPair.replacement
-                        ))
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(10)
-                    .background(AppTheme.ColorToken.accentSoft.opacity(0.55))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(AppTheme.ColorToken.selectionBorder, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-            }
-        }
-        .scrollIndicators(.hidden)
-        .frame(maxHeight: HomeHistoryDetailLayout.textComparisonMaxHeight)
-    }
-
-    private var changeSummary: String? {
-        if let event = detail.trace?.voiceCorrection?.appliedEvents.first {
-            return "\(event.original) → \(event.replacement)"
-        }
-        let raw = detail.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let final = detail.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty, !final.isEmpty, raw != final else {
-            return nil
-        }
-        return "\(raw) → \(final)"
-    }
-
-    private func beginFinalTextEditing() {
-        editedFinalText = detail.finalText
-        editError = nil
-        learnedEditPair = nil
-        isEditingFinalText = true
-    }
-
-    private func cancelFinalTextEditing() {
-        resetFinalTextEditor()
-    }
-
-    private func saveEditedFinalText() {
-        do {
-            let learningPair = HomeHistoryDetailPresentation.learningPair(
-                originalText: detail.finalText,
-                editedText: editedFinalText
-            )
-            try viewModel.updateSelectedHistoryFinalText(editedFinalText)
-            learnedEditPair = learningPair
-            editError = nil
-            isEditingFinalText = false
-        } catch {
-            editError = error.localizedDescription
-        }
-    }
-
-    private func resetFinalTextEditor() {
-        editedFinalText = detail.finalText
-        editError = nil
-        isEditingFinalText = false
-    }
-
-    private func resetDetailTab() {
-        selectedDetailTab = preferredDetailTab
-        isRequestJSONExpanded = false
-        isResponseJSONExpanded = false
-        learnedEditPair = nil
-    }
-
-    private var preferredDetailTab: HomeHistoryDetailTab {
-        if detail.trace?.llm != nil {
-            return .llm
-        }
-        if detail.trace?.contextBoost != nil || detail.trace?.voiceCorrection != nil {
-            return .context
-        }
-        return .diagnostic
     }
 
     @ViewBuilder
-    private var traceSection: some View {
-        if detail.trace?.llm != nil || detail.trace?.voiceCorrection != nil || detail.trace?.contextBoost != nil {
-            VStack(alignment: .leading, spacing: 12) {
-                processingSummary
-                detailTabPicker
-                selectedTraceTabContent
+    private var headerActions: some View {
+        if detail.taskMode == nil {
+            if isEditingFinalText {
+                Button {
+                    cancelFinalTextEditing()
+                } label: {
+                    Label(L10n.localize("home.detail.action.cancel", comment: "Cancel edit detail text"), systemImage: "xmark")
+                        .frame(height: 32)
+                }
+                .buttonStyle(.bordered)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .historyDetailPanel()
+            Button {
+                if isEditingFinalText {
+                    saveEditedFinalText()
+                } else {
+                    beginFinalTextEditing()
+                }
+            } label: {
+                Label(isEditingFinalText ? L10n.localize("home.detail.action.save", comment: "Save edited detail text") : L10n.localize("home.detail.action.edit", comment: "Edit detail text"), systemImage: isEditingFinalText ? "checkmark" : "square.and.pencil")
+                    .frame(height: 32)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isEditingFinalText && editedFinalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        if detail.taskMode != nil {
+            Button {
+                viewModel.copySelectedTaskDiagnostic()
+            } label: {
+                Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "stethoscope")
+                    .frame(height: 32)
+            }
+            .buttonStyle(.bordered)
+        }
+        if detail.taskMode == .agentCompose || detail.taskMode == .agentDispatch {
+            if !detail.finalText.isEmpty {
+                Button {
+                    viewModel.copyDetailText()
+                } label: {
+                    Label(L10n.localize("home.detail.action.copy_result", comment: "Copy result"), systemImage: "doc.on.doc")
+                        .frame(height: 32)
+                }
+                .buttonStyle(.bordered)
+            }
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(detail.taskMode == .agentCompose ? L10n.localize("home.detail.trace.generation_title", comment: "Generation process title") : L10n.localize("home.detail.trace.pipeline_title", comment: "Processing pipeline title"), systemImage: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
-                Text(HomeHistoryDetailPresentation.missingTraceMessage(for: detail.taskMode))
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task {
+                    await viewModel.reprocessSelectedHistoryItem()
+                }
+            } label: {
+                Label(viewModel.isReprocessing ? L10n.localize("home.detail.action.processing", comment: "Processing") : L10n.localize("home.detail.action.reprocess", comment: "Reprocess"), systemImage: viewModel.isReprocessing ? "hourglass" : "arrow.triangle.2.circlepath")
+                    .frame(height: 32)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .historyDetailPanel()
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isReprocessing)
+        }
+        Button {
+            viewModel.clearSelectedHomeDetail()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .keyboardShortcut(.cancelAction)
+        .appControlSurface(cornerRadius: 8)
+    }
+
+    // MARK: - Result comparison section
+
+    private var resultComparisonSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                if isEditingFinalText {
+                    EditableDetailTextBlock(
+                        title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
+                        subtitle: L10n.localize("home.detail.text.edit_subtitle", comment: "Edited final text subtitle"),
+                        text: $editedFinalText,
+                        error: editError
+                    )
+                } else {
+                    DetailTextBlock(
+                        title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
+                        subtitle: detail.taskMode == .agentCompose
+                            ? L10n.localize("home.detail.text.agent_compose_final_subtitle", comment: "Agent compose final text subtitle")
+                            : detail.taskMode == .agentDispatch
+                                ? L10n.localize("home.detail.text.agent_dispatch_final_subtitle", comment: "Agent dispatch final text subtitle")
+                                : L10n.localize("home.detail.text.dictation_final_subtitle", comment: "Dictation final text subtitle"),
+                        text: detail.finalText,
+                        highlighted: true
+                    )
+                }
+                DetailTextBlock(
+                    title: detail.taskMode == .agentCompose ? L10n.localize("home.detail.text.voice_intent_title", comment: "Voice intent title") : L10n.localize("home.detail.text.raw_title", comment: "Raw recognition title"),
+                    subtitle: detail.taskMode == .agentCompose
+                        ? L10n.localize("home.detail.text.voice_intent_subtitle", comment: "Voice intent subtitle")
+                        : L10n.localize("home.detail.text.raw_subtitle", comment: "Raw recognition subtitle"),
+                    text: detail.rawText,
+                    highlighted: false
+                )
+            }
+            diffPillRow
+            if let learnedEditPair {
+                HStack(spacing: 8) {
+                    Image(systemName: "wand.and.stars")
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                    Text(String(
+                        format: L10n.localize("home.detail.learning.saved_format", comment: "Saved edit learning message"),
+                        learnedEditPair.original,
+                        learnedEditPair.replacement
+                    ))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Spacer(minLength: 0)
+                }
+                .padding(10)
+                .background(AppTheme.ColorToken.accentSoft.opacity(0.55))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AppTheme.ColorToken.selectionBorder, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
         }
     }
 
-    private var processingSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(detail.taskMode == .agentCompose ? L10n.localize("home.detail.trace.generation_title", comment: "Generation process title") : L10n.localize("home.detail.trace.pipeline_title", comment: "Processing pipeline title"), systemImage: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
-                Spacer()
-                Text(processingStatusText)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(processingStatusColor)
+    @ViewBuilder
+    private var diffPillRow: some View {
+        if let diffPreview = HomeHistoryDetailPresentation.diffPreviewText(for: detail),
+           let statusText = HomeHistoryDetailPresentation.diffStatusText(for: detail) {
+            HStack(spacing: 8) {
+                Text(diffPreview)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                     .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .background(processingStatusColor.opacity(0.10))
+                    .background(AppTheme.ColorToken.controlBackground)
                     .clipShape(Capsule())
-            }
-            HStack(spacing: 8) {
-                ForEach(processingSteps.indices, id: \.self) { index in
-                    Text(processingSteps[index])
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
-                        .background(AppTheme.ColorToken.controlBackground.opacity(0.82))
-                        .clipShape(Capsule())
-                    if index < processingSteps.count - 1 {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    }
-                }
+                Text(statusText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(diffStatusColor)
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(diffStatusColor.opacity(0.10))
+                    .clipShape(Capsule())
                 Spacer(minLength: 0)
             }
         }
     }
 
-    private var processingSteps: [String] {
-        var steps = [
-            HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID)
-        ]
-        if detail.trace?.voiceCorrection != nil {
-            steps.append(L10n.localize("home.detail.voice_correction.title", comment: "Text replacement trace title"))
-        }
-        if detail.trace?.llm != nil {
-            steps.append(L10n.localize("home.detail.tab.llm", comment: "LLM correction tab"))
-        }
-        steps.append(L10n.localize("home.detail.pipeline.output_done", comment: "Output done pipeline step"))
-        return steps
-    }
-
-    private var processingStatusText: String {
-        if let llmTrace = detail.trace?.llm {
-            let duration = HomeHistoryDetailPresentation.durationText(milliseconds: llmTrace.durationMS)
-            let code = llmTrace.statusCode.map { "\($0)" } ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
-            let status = llmTrace.succeeded
-                ? L10n.localize("home.detail.status.success", comment: "Success status")
-                : L10n.localize("home.detail.status.failed", comment: "Failed status")
-            return "\(status) · \(duration) · \(code)"
-        }
-        if let voiceCorrectionTrace = detail.trace?.voiceCorrection {
-            return HomeHistoryDetailPresentation.voiceCorrectionStatusText(
-                candidateCount: voiceCorrectionTrace.candidateEvents.count,
-                appliedCount: voiceCorrectionTrace.appliedEvents.count,
-                failed: voiceCorrectionTrace.failureReason != nil
-            )
-        }
-        return L10n.localize("home.detail.trace.local_postprocessing", comment: "Local postprocessing status")
-    }
-
-    private var processingStatusColor: Color {
-        if let llmTrace = detail.trace?.llm {
-            return llmTrace.succeeded ? AppTheme.ColorToken.accent : Color.orange
-        }
-        if detail.trace?.voiceCorrection?.failureReason != nil {
+    private var diffStatusColor: Color {
+        if let llm = detail.trace?.llm, !llm.succeeded {
             return Color.orange
         }
-        return AppTheme.ColorToken.accent
+        if let vc = detail.trace?.voiceCorrection, vc.appliedEvents.isEmpty == false {
+            return AppTheme.ColorToken.accent
+        }
+        let raw = detail.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let final = detail.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw == final ? AppTheme.ColorToken.secondaryText : AppTheme.ColorToken.accent
     }
 
-    private var detailTabPicker: some View {
-        Picker("", selection: $selectedDetailTab) {
-            ForEach(HomeHistoryDetailTab.allCases) { tab in
-                Text(tab.title).tag(tab)
+    // MARK: - Pipeline timeline section
+
+    @ViewBuilder
+    private var pipelineTimelineSection: some View {
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with title and overall status
+            HStack {
+                Label(
+                    L10n.localize("home.detail.pipeline.title", comment: "Pipeline title"),
+                    systemImage: "sparkles"
+                )
+                .font(.system(size: 16, weight: .semibold))
+                Spacer()
+                Text(HomeHistoryDetailPresentation.pipelineStatusText(for: detail))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail))
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail).opacity(0.10))
+                    .clipShape(Capsule())
+            }
+
+            if steps.isEmpty {
+                Text(L10n.localize("home.detail.diagnostic.missing_pipeline", comment: "Missing pipeline message"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            } else {
+                // Horizontal timeline of clickable step chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(steps) { stepInfo in
+                            pipelineStepChip(stepInfo)
+                        }
+                    }
+                }
+
+                // Step detail card for the selected step
+                stepDetailCard
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .historyDetailPanel()
+    }
+
+    private func pipelineStepChip(_ stepInfo: HomeHistoryDetailPresentation.PipelineStepInfo) -> some View {
+        let isSelected = selectedStep == stepInfo.kind
+        let statusColor = pipelineStepStatusColor(stepInfo.status)
+        return Button {
+            selectedStep = stepInfo.kind
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: stepInfo.kind.systemImage)
+                    .font(.system(size: 11, weight: .medium))
+                Text(stepInfo.kind.title)
+                    .font(.system(size: 12, weight: .medium))
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 6, height: 6)
+            }
+            .foregroundStyle(isSelected ? AppTheme.ColorToken.primaryText : AppTheme.ColorToken.secondaryText)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(
+                isSelected
+                    ? AppTheme.ColorToken.accent.opacity(0.12)
+                    : AppTheme.ColorToken.controlBackground.opacity(0.82)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.subtleStroke, lineWidth: isSelected ? 1.5 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pipelineStepStatusColor(_ status: HomeHistoryDetailPresentation.PipelineStepStatus) -> Color {
+        switch status {
+        case .success, .hit, .modified: return AppTheme.ColorToken.accent
+        case .skipped, .missed: return AppTheme.ColorToken.secondaryText
+        case .failed: return Color.orange
+        case .executed: return AppTheme.ColorToken.accent
+        }
     }
 
     @ViewBuilder
-    private var selectedTraceTabContent: some View {
-        switch selectedDetailTab {
-        case .llm:
-            if let llmTrace = detail.trace?.llm {
-                llmTraceSection(llmTrace)
-            } else {
-                EmptyTraceTabMessage(
-                    systemImage: "sparkles",
-                    text: HomeHistoryDetailPresentation.missingTraceMessage(for: detail.taskMode)
-                )
-            }
-        case .context:
-            VStack(alignment: .leading, spacing: 12) {
-                if let contextBoostTrace = detail.trace?.contextBoost {
-                    ContextBoostTraceBlock(trace: contextBoostTrace)
-                } else {
-                    EmptyTraceTabMessage(
-                        systemImage: "text.viewfinder",
-                        text: L10n.localize("home.detail.context.no_hotwords", comment: "No hotwords extracted")
-                    )
-                }
-                if let voiceCorrectionTrace = detail.trace?.voiceCorrection {
-                    VoiceCorrectionTraceBlock(trace: voiceCorrectionTrace)
-                }
-            }
-        case .diagnostic:
-            diagnosticTraceSection
-        }
-    }
+    private var stepDetailCard: some View {
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+        let stepInfo = steps.first(where: { $0.kind == selectedStep })
+        let status = stepInfo?.status ?? .skipped
 
-    private func llmTraceSection(_ llmTrace: LLMRefinementTrace) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            llmTraceMetadata(llmTrace, taskMode: detail.taskMode)
-            HStack(alignment: .top, spacing: 12) {
-                LLMJSONDisclosure(
-                    title: L10n.localize("home.detail.llm.request_json_title", comment: "Request JSON title"),
-                    subtitle: L10n.localize("home.detail.llm.request_summary_subtitle", comment: "Request summary subtitle"),
-                    summaryTitle: detail.taskMode == .agentCompose ? L10n.localize("home.detail.trace.user_speech", comment: "User speech label") : L10n.localize("home.detail.llm.pending_text", comment: "Pending text label"),
-                    summaryText: HomeHistoryDetailPresentation.modelInputPreview(
-                        rawText: detail.rawText,
-                        requestBodyJSON: llmTrace.requestBodyJSON,
-                        taskMode: detail.taskMode
-                    ),
-                    jsonText: llmTrace.requestBodyJSON,
-                    expandTitle: L10n.localize("home.detail.llm.expand_request_json", comment: "Expand request JSON"),
-                    isExpanded: $isRequestJSONExpanded
-                )
-                LLMJSONDisclosure(
-                    title: L10n.localize("home.detail.llm.response_json_title", comment: "Response JSON title"),
-                    subtitle: llmTrace.errorMessage == nil ? L10n.localize("home.detail.llm.response_summary_subtitle", comment: "Response summary subtitle") : L10n.localize("home.detail.trace.api_error_subtitle", comment: "API error subtitle"),
-                    summaryTitle: llmTrace.errorMessage == nil ? L10n.localize("home.detail.llm.returned_text", comment: "Returned text label") : L10n.localize("home.detail.trace.failure_reason_title", comment: "Failure reason title"),
-                    summaryText: HomeHistoryDetailPresentation.modelOutputPreview(
-                        responseText: llmTrace.responseText,
-                        errorMessage: llmTrace.errorMessage
-                    ),
-                    jsonText: llmTrace.errorMessage ?? llmTrace.responseText ?? L10n.localize("home.detail.trace.empty_response", comment: "Empty model response"),
-                    expandTitle: L10n.localize("home.detail.llm.expand_response_json", comment: "Expand response JSON"),
-                    isExpanded: $isResponseJSONExpanded
-                )
-            }
-        }
-    }
-
-    private var diagnosticTraceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button {
-                    viewModel.copySelectedTaskDiagnostic()
-                } label: {
-                    Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "stethoscope")
+            // Step header with status
+            HStack(spacing: 8) {
+                if let stepInfo {
+                    Text(stepInfo.kind.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                Spacer()
-                Text(L10n.localize("home.detail.diagnostic.recorded", comment: "Diagnostic recorded status"))
+                Spacer(minLength: 8)
+                Text(status.title)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .foregroundStyle(pipelineStepStatusColor(status))
                     .padding(.horizontal, 9)
-                    .frame(height: 24)
-                    .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+                    .frame(height: 22)
+                    .background(pipelineStepStatusColor(status).opacity(0.10))
                     .clipShape(Capsule())
             }
-            DiagnosticRow(title: L10n.localize("home.detail.diagnostic.request", comment: "Request diagnostic group"), value: detail.trace?.llm?.endpoint ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded"))
-            DiagnosticRow(title: L10n.localize("home.detail.diagnostic.response", comment: "Response diagnostic group"), value: processingStatusText)
-            DiagnosticRow(title: L10n.localize("home.detail.diagnostic.warnings", comment: "Warnings diagnostic group"), value: detail.warnings.isEmpty ? L10n.localize("home.detail.diagnostic.no_warnings", comment: "No warnings") : detail.warnings.joined(separator: "、"))
-            DiagnosticRow(title: L10n.localize("home.detail.diagnostic.task_metadata", comment: "Task metadata diagnostic group"), value: "\(Self.format(detail.createdAt)) · \(Self.format(detail.updatedAt))")
+
+            Divider()
+
+            // Step-specific content
+            stepDetailContent(for: selectedStep, status: status)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.ColorToken.controlBackground.opacity(0.42))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
+
+    @ViewBuilder
+    private func stepDetailContent(
+        for kind: HomeHistoryDetailPresentation.PipelineStepKind,
+        status: HomeHistoryDetailPresentation.PipelineStepStatus
+    ) -> some View {
+        switch kind {
+        case .asr:
+            asrStepDetail
+        case .deterministic:
+            if let deterministicTrace = detail.trace?.deterministic {
+                DeterministicTraceBlock(trace: deterministicTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        case .textReplacement:
+            if let vcTrace = detail.trace?.voiceCorrection {
+                VoiceCorrectionTraceBlock(trace: vcTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        case .styleRoute:
+            if let routeTrace = detail.trace?.styleRoute {
+                styleRouteStepDetail(routeTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        case .context:
+            contextStepDetail
+        case .llm:
+            if let llmTrace = detail.trace?.llm {
+                llmStepDetail(llmTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        case .output:
+            Text(L10n.localize("home.detail.diagnostic.executed_no_detail", comment: "Executed no detail"))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+    }
+
+    @ViewBuilder
+    private var contextStepDetail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let contextTrace = detail.trace?.contextBoost {
+                ContextBoostTraceBlock(trace: contextTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            ContextPreviewBlock(preview: detail.contextPreview)
+        }
+    }
+
+    private var asrStepDetail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.asr_provider", comment: "ASR provider"),
+                    value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID)
+                )
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.recognition_language", comment: "Recognition language"),
+                    value: HomeHistoryDetailPresentation.languageName(for: detail.language)
+                )
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.localize("home.detail.text.raw_title", comment: "Raw recognition title"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Text(detail.rawText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func styleRouteStepDetail(_ trace: StyleRouteTrace) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.application", comment: "Application used"),
+                    value: detail.appName ?? detail.appBundleID ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+                )
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.style", comment: "Writing style"),
+                    value: HomeHistoryDetailPresentation.styleName(for: trace.selectedStyleID)
+                )
+            }
+            if !trace.candidateStyleIDs.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("home.detail.pipeline.step.style_route", comment: "Style route step title"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    Text(trace.candidateStyleIDs.joined(separator: "、"))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .textSelection(.enabled)
+                }
+            }
+            if let fallbackReason = trace.fallbackReason, !fallbackReason.isEmpty {
+                Text(String(format: L10n.localize("home.detail.reason_format", comment: "Reason format"), fallbackReason))
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+        }
+    }
+
+    private func llmStepDetail(_ llmTrace: LLMRefinementTrace) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            llmTraceMetadata(llmTrace, taskMode: detail.taskMode)
+        }
+    }
+
+    // MARK: - Transcription info section
+
+    private var transcriptionInfoSection: some View {
+        let textCorrectionValue = HomeHistoryDetailPresentation.textCorrectionName(
+            providerID: detail.llmProviderID,
+            traceProviderName: detail.trace?.llm?.providerName
+        )
+        return VStack(alignment: .leading, spacing: 12) {
+            Label(
+                L10n.localize("home.detail.section.transcription_info", comment: "Transcription info section title"),
+                systemImage: "info.circle"
+            )
+            .font(.system(size: 16, weight: .semibold))
+
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(minimum: 170),
+                        spacing: AppTheme.Spacing.grid,
+                        alignment: .top
+                    )
+                ],
+                alignment: .leading,
+                spacing: 10
+            ) {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.recognition_language", comment: "Recognition language"),
+                    value: HomeHistoryDetailPresentation.languageName(for: detail.language)
+                )
+                DetailApplicationMetaItem(title: L10n.localize("home.detail.meta.application", comment: "Application used"), appName: detail.appName, appBundleID: detail.appBundleID)
+                DetailProviderMetaItem(
+                    title: L10n.localize("home.detail.meta.asr_provider", comment: "ASR provider"),
+                    value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID),
+                    providerIcon: .asrProvider(detail.asrProviderID)
+                )
+                DetailProviderMetaItem(
+                    title: detail.taskMode == .agentCompose ? L10n.localize("home.detail.meta.generation_model", comment: "Generation model") : L10n.localize("home.detail.meta.text_correction", comment: "Text correction"),
+                    value: textCorrectionValue,
+                    providerIcon: .llmProvider
+                )
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.style", comment: "Writing style"),
+                    value: HomeHistoryDetailPresentation.styleName(for: detail.styleID)
+                )
+                DetailMetaItem(title: L10n.localize("home.detail.meta.text_length", comment: "Text length"), value: String(format: L10n.localize("home.detail.meta.characters_format", comment: "Character count"), detail.charCount))
+                DetailMetaItem(title: L10n.localize("home.detail.meta.processing_speed", comment: "Processing speed"), value: String(format: L10n.localize("home.detail.meta.cpm_format", comment: "Characters per minute"), Int(detail.cpm.rounded())))
+                DetailMetaItem(title: L10n.localize("home.detail.meta.created_at", comment: "Created at"), value: Self.format(detail.createdAt))
+                DetailMetaItem(title: L10n.localize("home.detail.meta.updated_at", comment: "Updated at"), value: Self.format(detail.updatedAt))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .historyDetailPanel()
+    }
+
+    // MARK: - Warnings section
+
+    @ViewBuilder
+    private var warningsSection: some View {
+        if !detail.warnings.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(L10n.localize("home.detail.warnings.title", comment: "Processing warnings title"), systemImage: "exclamationmark.triangle")
+                    .font(.system(size: 16, weight: .semibold))
+                ForEach(detail.warnings, id: \.self) { warning in
+                    Text(HomeHistoryDetailPresentation.warningMessage(
+                        for: warning,
+                        taskMode: detail.taskMode
+                    ))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .historyDetailPanel()
+        }
+    }
+
+    // MARK: - Diagnostic disclosure section
+
+    private var diagnosticDisclosureSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                L10n.localize("home.detail.section.diagnostic", comment: "Diagnostic section title"),
+                systemImage: "stethoscope"
+            )
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+
+            DiagnosticDisclosureRow(
+                title: L10n.localize("home.detail.diagnostic.request", comment: "Request diagnostic group"),
+                systemImage: "arrow.up.doc",
+                isExpanded: $isDiagnosticRequestExpanded
+            ) {
+                if let llmTrace = detail.trace?.llm {
+                    LLMJSONDisclosure(
+                        title: L10n.localize("home.detail.llm.request_json_title", comment: "Request JSON title"),
+                        subtitle: L10n.localize("home.detail.llm.request_summary_subtitle", comment: "Request summary subtitle"),
+                        summaryTitle: detail.taskMode == .agentCompose ? L10n.localize("home.detail.trace.user_speech", comment: "User speech label") : L10n.localize("home.detail.llm.pending_text", comment: "Pending text label"),
+                        summaryText: HomeHistoryDetailPresentation.modelInputPreview(
+                            rawText: detail.rawText,
+                            requestBodyJSON: llmTrace.requestBodyJSON,
+                            taskMode: detail.taskMode
+                        ),
+                        jsonText: llmTrace.requestBodyJSON,
+                        expandTitle: L10n.localize("home.detail.llm.expand_request_json", comment: "Expand request JSON"),
+                        isExpanded: $isRequestJSONExpanded
+                    )
+                } else {
+                    diagnosticText(requestDiagnosticSummary)
+                }
+            }
+
+            DiagnosticDisclosureRow(
+                title: L10n.localize("home.detail.diagnostic.response", comment: "Response diagnostic group"),
+                systemImage: "arrow.down.doc",
+                isExpanded: $isDiagnosticResponseExpanded
+            ) {
+                if let llmTrace = detail.trace?.llm {
+                    LLMJSONDisclosure(
+                        title: L10n.localize("home.detail.llm.response_json_title", comment: "Response JSON title"),
+                        subtitle: llmTrace.errorMessage == nil ? L10n.localize("home.detail.llm.response_summary_subtitle", comment: "Response summary subtitle") : L10n.localize("home.detail.trace.api_error_subtitle", comment: "API error subtitle"),
+                        summaryTitle: llmTrace.errorMessage == nil ? L10n.localize("home.detail.llm.returned_text", comment: "Returned text label") : L10n.localize("home.detail.trace.failure_reason_title", comment: "Failure reason title"),
+                        summaryText: HomeHistoryDetailPresentation.modelOutputPreview(
+                            responseText: llmTrace.responseText,
+                            errorMessage: llmTrace.errorMessage
+                        ),
+                        jsonText: llmTrace.errorMessage ?? llmTrace.responseText ?? L10n.localize("home.detail.trace.empty_response", comment: "Empty model response"),
+                        expandTitle: L10n.localize("home.detail.llm.expand_response_json", comment: "Expand response JSON"),
+                        isExpanded: $isResponseJSONExpanded
+                    )
+                } else {
+                    diagnosticText(responseDiagnosticSummary)
+                }
+            }
+
+            DiagnosticDisclosureRow(
+                title: L10n.localize("home.detail.diagnostic.full_data", comment: "Full diagnostic data"),
+                systemImage: "curlybraces",
+                isExpanded: $isDiagnosticFullExpanded
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        viewModel.copySelectedTaskDiagnostic()
+                    } label: {
+                        Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Text(fullDiagnosticSummary)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .historyDetailPanel()
+    }
+
+    private func diagnosticText(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(AppTheme.ColorToken.primaryText)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var requestDiagnosticSummary: String {
+        guard let llmTrace = detail.trace?.llm else {
+            return L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step")
+        }
+        return HomeHistoryDetailPresentation.modelInputPreview(
+            rawText: detail.rawText,
+            requestBodyJSON: llmTrace.requestBodyJSON,
+            taskMode: detail.taskMode
+        )
+    }
+
+    private var responseDiagnosticSummary: String {
+        guard let llmTrace = detail.trace?.llm else {
+            return HomeHistoryDetailPresentation.pipelineStatusText(for: detail)
+        }
+        return HomeHistoryDetailPresentation.modelOutputPreview(
+            responseText: llmTrace.responseText,
+            errorMessage: llmTrace.errorMessage
+        )
+    }
+
+    private var fullDiagnosticSummary: String {
+        var rows: [String] = [
+            "\(L10n.localize("home.detail.diagnostic.response", comment: "Response diagnostic group")): \(HomeHistoryDetailPresentation.pipelineStatusText(for: detail))",
+            "\(L10n.localize("home.detail.diagnostic.warnings", comment: "Warnings diagnostic group")): \(detail.warnings.isEmpty ? L10n.localize("home.detail.diagnostic.no_warnings", comment: "No warnings") : detail.warnings.joined(separator: "、"))",
+            "\(L10n.localize("home.detail.diagnostic.task_metadata", comment: "Task metadata diagnostic group")): \(Self.format(detail.createdAt)) · \(Self.format(detail.updatedAt))"
+        ]
+        if let endpoint = detail.trace?.llm?.endpoint {
+            rows.insert("\(L10n.localize("home.detail.meta.endpoint", comment: "Service endpoint")): \(endpoint)", at: 0)
+        }
+        if let trace = detail.trace,
+           let data = try? JSONEncoder().encode(trace),
+           let json = String(data: data, encoding: .utf8) {
+            rows.append("")
+            rows.append(json)
+        }
+        return rows.joined(separator: "\n")
+    }
+
+    // MARK: - Dispatch section (for agentDispatch mode)
+
+    @ViewBuilder
+    private var dispatchSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.localize("home.detail.dispatch.title", comment: "Dispatch result title"), systemImage: "paperplane")
+                .font(.system(size: 16, weight: .semibold))
+            Text(detail.outputResultRaw ?? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded"))
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .textSelection(.enabled)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .historyDetailPanel()
+    }
+
+    // MARK: - LLM trace metadata helper
 
     private func llmTraceMetadata(
         _ llmTrace: LLMRefinementTrace,
@@ -1267,98 +1489,7 @@ private struct HomeHistoryDetailModal: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var dispatchSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(L10n.localize("home.detail.dispatch.title", comment: "Dispatch result title"), systemImage: "paperplane")
-                .font(.system(size: 16, weight: .semibold))
-            Text(detail.outputResultRaw ?? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded"))
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                .textSelection(.enabled)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .historyDetailPanel()
-    }
-
-    private var metadataSection: some View {
-        let textCorrectionValue = HomeHistoryDetailPresentation.textCorrectionName(
-            providerID: detail.llmProviderID,
-            traceProviderName: detail.trace?.llm?.providerName
-        )
-        return LazyVGrid(
-            columns: [
-                GridItem(
-                    .adaptive(minimum: 170),
-                    spacing: AppTheme.Spacing.grid,
-                    alignment: .top
-                )
-            ],
-            alignment: .leading,
-            spacing: 10
-        ) {
-            DetailMetaItem(
-                title: L10n.localize("home.detail.meta.recognition_language", comment: "Recognition language"),
-                value: HomeHistoryDetailPresentation.languageName(for: detail.language)
-            )
-            DetailApplicationMetaItem(title: L10n.localize("home.detail.meta.application", comment: "Application used"), appName: detail.appName, appBundleID: detail.appBundleID)
-            DetailProviderMetaItem(
-                title: L10n.localize("home.detail.meta.asr_provider", comment: "ASR provider"),
-                value: HomeHistoryDetailPresentation.recognitionProviderName(for: detail.asrProviderID),
-                providerIcon: .asrProvider(detail.asrProviderID)
-            )
-            DetailProviderMetaItem(
-                title: detail.taskMode == .agentCompose ? L10n.localize("home.detail.meta.generation_model", comment: "Generation model") : L10n.localize("home.detail.meta.text_correction", comment: "Text correction"),
-                value: textCorrectionValue,
-                providerIcon: .llmProvider
-            )
-            DetailMetaItem(
-                title: L10n.localize("home.detail.meta.style", comment: "Writing style"),
-                value: HomeHistoryDetailPresentation.styleName(for: detail.styleID)
-            )
-            DetailMetaItem(title: L10n.localize("home.detail.meta.text_length", comment: "Text length"), value: String(format: L10n.localize("home.detail.meta.characters_format", comment: "Character count"), detail.charCount))
-            DetailMetaItem(title: L10n.localize("home.detail.meta.processing_speed", comment: "Processing speed"), value: String(format: L10n.localize("home.detail.meta.cpm_format", comment: "Characters per minute"), Int(detail.cpm.rounded())))
-            DetailMetaItem(title: L10n.localize("home.detail.meta.created_at", comment: "Created at"), value: Self.format(detail.createdAt))
-            DetailMetaItem(title: L10n.localize("home.detail.meta.updated_at", comment: "Updated at"), value: Self.format(detail.updatedAt))
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .historyDetailPanel()
-    }
-
-    @ViewBuilder
-    private var warningsSection: some View {
-        if !detail.warnings.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(L10n.localize("home.detail.warnings.title", comment: "Processing warnings title"), systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 16, weight: .semibold))
-                ForEach(detail.warnings, id: \.self) { warning in
-                    Text(HomeHistoryDetailPresentation.warningMessage(
-                        for: warning,
-                        taskMode: detail.taskMode
-                    ))
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .historyDetailPanel()
-        }
-    }
-
-    private var traceSubtitle: String {
-        if detail.taskMode == .agentCompose {
-            return L10n.localize("home.detail.subtitle.agent_compose", comment: "Agent compose detail subtitle")
-        }
-        if detail.taskMode == .agentDispatch {
-            return L10n.localize("home.detail.subtitle.agent_dispatch", comment: "Agent dispatch detail subtitle")
-        }
-        if detail.trace?.llm != nil {
-            return L10n.localize("home.detail.subtitle.with_trace", comment: "Detail subtitle with trace")
-        }
-        return L10n.localize("home.detail.subtitle.without_trace", comment: "Detail subtitle without trace")
-    }
+    // MARK: - Helpers
 
     private var detailTitle: String {
         switch detail.taskMode {
@@ -1372,6 +1503,47 @@ private struct HomeHistoryDetailModal: View {
         DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
     }
 
+    private func beginFinalTextEditing() {
+        editedFinalText = detail.finalText
+        editError = nil
+        learnedEditPair = nil
+        isEditingFinalText = true
+    }
+
+    private func cancelFinalTextEditing() {
+        resetFinalTextEditor()
+    }
+
+    private func saveEditedFinalText() {
+        do {
+            let learningPair = HomeHistoryDetailPresentation.learningPair(
+                originalText: detail.finalText,
+                editedText: editedFinalText
+            )
+            try viewModel.updateSelectedHistoryFinalText(editedFinalText)
+            learnedEditPair = learningPair
+            editError = nil
+            isEditingFinalText = false
+        } catch {
+            editError = error.localizedDescription
+        }
+    }
+
+    private func resetFinalTextEditor() {
+        editedFinalText = detail.finalText
+        editError = nil
+        isEditingFinalText = false
+    }
+
+    private func resetSelectedStep() {
+        selectedStep = HomeHistoryDetailPresentation.defaultSelectedStep(for: detail)
+        isRequestJSONExpanded = false
+        isResponseJSONExpanded = false
+        isDiagnosticRequestExpanded = false
+        isDiagnosticResponseExpanded = false
+        isDiagnosticFullExpanded = false
+        learnedEditPair = nil
+    }
 }
 
 private struct ContextBoostTraceBlock: View {
@@ -1457,6 +1629,333 @@ private struct ContextBoostTraceBlock: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct DeterministicTraceBlock: View {
+    let trace: DeterministicProcessingTrace
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                    .frame(width: 28, height: 28)
+                    .background(AppTheme.ColorToken.accent.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(trace.changed
+                        ? L10n.localize("home.detail.deterministic.summary_changed", comment: "Deterministic changed summary")
+                        : L10n.localize("home.detail.deterministic.summary_unchanged", comment: "Deterministic unchanged summary")
+                    )
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(trace.isCodingContext
+                        ? L10n.localize("home.detail.deterministic.summary_coding", comment: "Coding context deterministic summary")
+                        : L10n.localize("home.detail.deterministic.summary_normal", comment: "Normal context deterministic summary")
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+
+            DeterministicPhaseBlock(
+                title: L10n.localize("home.detail.deterministic.pre_llm", comment: "Pre LLM deterministic phase"),
+                subtitle: L10n.localize("home.detail.deterministic.pre_llm_subtitle", comment: "Pre LLM deterministic phase subtitle"),
+                phase: trace.preLLM
+            )
+            DeterministicPhaseBlock(
+                title: L10n.localize("home.detail.deterministic.post_llm", comment: "Post LLM deterministic phase"),
+                subtitle: L10n.localize("home.detail.deterministic.post_llm_subtitle", comment: "Post LLM deterministic phase subtitle"),
+                phase: trace.postLLM
+            )
+        }
+    }
+}
+
+private struct DeterministicPhaseBlock: View {
+    let title: String
+    let subtitle: String
+    let phase: DeterministicProcessingPhaseTrace
+    @State private var selectedProcessorID: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                phaseIcon
+                    .frame(width: 34, height: 34)
+                    .background(statusColor.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 10)
+                Text(phaseStatusText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(statusColor.opacity(0.10))
+                    .clipShape(Capsule())
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.localize("home.detail.deterministic.effective_rules", comment: "Effective deterministic rules label"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                if phase.processorIDsForDisplay.isEmpty {
+                    Text(L10n.localize("home.detail.deterministic.no_processors_sentence", comment: "No processors sentence"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], alignment: .leading, spacing: 8) {
+                        ForEach(phase.processorIDsForDisplay, id: \.self) { processorID in
+                            DeterministicRuleTag(
+                                title: Self.processorName(processorID),
+                                isHighlighted: phase.highlightedProcessorIDs.contains(processorID),
+                                isSelected: selectedProcessorID == processorID
+                            ) {
+                                selectedProcessorID = selectedProcessorID == processorID ? nil : processorID
+                            }
+                        }
+                    }
+                    if let selectedProcessorID {
+                        Text(String(
+                            format: L10n.localize("home.detail.deterministic.selected_rule_format", comment: "Selected deterministic rule format"),
+                            Self.processorName(selectedProcessorID)
+                        ))
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    }
+                }
+            }
+
+            if let inputText = phase.inputText, let outputText = phase.outputText {
+                DeterministicBeforeAfterView(inputText: inputText, outputText: outputText)
+            } else {
+                Text(L10n.localize("home.detail.deterministic.text_unavailable", comment: "Old deterministic trace has no text"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 8) {
+                Label(characterChangeText, systemImage: "textformat.size")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var phaseIcon: some View {
+        Image(systemName: phase.changed ? "checkmark.seal.fill" : phase.ran ? "checkmark.circle" : "minus.circle")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(statusColor)
+    }
+
+    private var phaseStatusText: String {
+        guard phase.ran else {
+            return L10n.localize("home.detail.deterministic.skipped", comment: "Phase skipped")
+        }
+        return phase.changed
+            ? L10n.localize("home.detail.deterministic.changed", comment: "Phase changed")
+            : L10n.localize("home.detail.deterministic.unchanged", comment: "Phase unchanged")
+    }
+
+    private var statusColor: Color {
+        guard phase.ran else { return AppTheme.ColorToken.secondaryText }
+        return phase.changed ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText
+    }
+
+    private var characterChangeText: String {
+        if phase.inputCharacterCount == phase.outputCharacterCount {
+            return String(
+                format: L10n.localize("home.detail.deterministic.characters_same_format", comment: "Same character count format"),
+                phase.outputCharacterCount
+            )
+        }
+        return String(
+            format: L10n.localize("home.detail.deterministic.characters_changed_format", comment: "Changed character count format"),
+            phase.inputCharacterCount,
+            phase.outputCharacterCount
+        )
+    }
+
+    private static func processorName(_ id: String) -> String {
+        switch id {
+        case "filler_word_filtering":
+            return L10n.localize("settings.text_processing.filler_filter.title", comment: "Filler filter")
+        case "smart_number_recognition":
+            return L10n.localize("settings.text_processing.smart_number.title", comment: "Smart number")
+        case "punctuation_optimization":
+            return L10n.localize("settings.text_processing.punctuation.title", comment: "Punctuation")
+        case "cjk_latin_spacing":
+            return L10n.localize("settings.text_processing.cjk_latin_spacing.title", comment: "CJK Latin spacing")
+        case "long_sentence_breaking":
+            return L10n.localize("settings.text_processing.long_sentence.title", comment: "Long sentence")
+        case "auto_capitalization":
+            return L10n.localize("settings.text_processing.auto_capitalization.title", comment: "Auto capitalization")
+        default:
+            return id
+        }
+    }
+}
+
+private struct DeterministicRuleTag: View {
+    let title: String
+    let isHighlighted: Bool
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: isHighlighted ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 10, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(foregroundColor)
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(backgroundColor)
+            .overlay(
+                Capsule()
+                    .stroke(borderColor, lineWidth: isSelected ? 1.4 : 1)
+            )
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+    }
+
+    private var foregroundColor: Color {
+        isHighlighted ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText
+    }
+
+    private var backgroundColor: Color {
+        if isSelected { return AppTheme.ColorToken.selectionBackground }
+        return isHighlighted ? AppTheme.ColorToken.accentSoft.opacity(0.58) : AppTheme.ColorToken.controlBackground.opacity(0.72)
+    }
+
+    private var borderColor: Color {
+        if isSelected { return AppTheme.ColorToken.accent }
+        return isHighlighted ? AppTheme.ColorToken.accent.opacity(0.28) : AppTheme.ColorToken.subtleStroke
+    }
+}
+
+private struct DeterministicBeforeAfterView: View {
+    let inputText: String
+    let outputText: String
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8)], spacing: 8) {
+            DeterministicTextSnapshot(
+                title: L10n.localize("home.detail.deterministic.before", comment: "Before deterministic processing"),
+                text: inputText
+            )
+            DeterministicTextSnapshot(
+                title: L10n.localize("home.detail.deterministic.after", comment: "After deterministic processing"),
+                text: outputText
+            )
+        }
+    }
+}
+
+private struct DeterministicTextSnapshot: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Text(text.isEmpty ? L10n.localize("home.detail.deterministic.empty_text", comment: "Empty deterministic text placeholder") : text)
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                .textSelection(.enabled)
+                .lineLimit(5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(AppTheme.ColorToken.panelBackground.opacity(0.82))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+    }
+}
+
+private struct ContextPreviewBlock: View {
+    let preview: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label(
+                    L10n.localize("home.detail.context.screenshot_title", comment: "Context screenshot title"),
+                    systemImage: "photo.on.rectangle"
+                )
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Spacer(minLength: 8)
+                Text(L10n.localize("home.detail.context.no_screenshot", comment: "No screenshot attached"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+                    .clipShape(Capsule())
+            }
+
+            if let preview, !preview.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("home.detail.context.readable_preview", comment: "Readable context preview"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    Text(preview)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .textSelection(.enabled)
+                        .lineLimit(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                Text(L10n.localize("home.detail.context.no_readable_preview", comment: "No readable context preview"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
         }
         .padding(12)
@@ -1661,6 +2160,43 @@ private struct EmptyTraceTabMessage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.ColorToken.controlBackground.opacity(0.52))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct DiagnosticDisclosureRow<Content: View>: View {
+    let title: String
+    let systemImage: String
+    @Binding var isExpanded: Bool
+    let content: Content
+
+    init(
+        title: String,
+        systemImage: String,
+        isExpanded: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self._isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            content
+                .padding(.top, 10)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+        }
+        .padding(12)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.42))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

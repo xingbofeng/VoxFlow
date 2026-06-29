@@ -1,6 +1,8 @@
 import Foundation
 import VoxFlowContextBoost
 import VoxFlowVoiceCorrection
+import VoxFlowPromptKit
+import VoxFlowTextProcessing
 
 struct TextProcessingResult: Equatable, Sendable {
     let rawText: String
@@ -102,14 +104,85 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
     var output: OutputDeliveryTrace? = nil
     var contextBoost: ContextBoostTrace? = nil
     var voiceCorrection: VoiceCorrectionTrace? = nil
+    var styleRoute: StyleRouteTrace? = nil
+    var deterministic: DeterministicProcessingTrace? = nil
 
     func safeForPersistence() -> TextProcessingTrace {
         TextProcessingTrace(
             llm: llm?.safeForPersistence(),
             output: output,
             contextBoost: contextBoost?.safeForPersistence(),
-            voiceCorrection: voiceCorrection?.safeForPersistence()
+            voiceCorrection: voiceCorrection?.safeForPersistence(),
+            // StyleRouteTrace is safe (IDs, version, hash, latency, reason
+            // code) but the raw routerResponse may echo model output that
+            // could contain user-derived text on invalid responses, so it is
+            // dropped during persistence.
+            styleRoute: styleRoute?.safeForPersistence(),
+            deterministic: deterministic?.safeForPersistence()
         )
+    }
+}
+
+struct DeterministicProcessingTrace: Equatable, Codable, Sendable {
+    let enabled: Bool
+    let isCodingContext: Bool
+    let preLLM: DeterministicProcessingPhaseTrace
+    let postLLM: DeterministicProcessingPhaseTrace
+
+    var changed: Bool { preLLM.changed || postLLM.changed }
+
+    func safeForPersistence() -> DeterministicProcessingTrace {
+        self
+    }
+}
+
+struct DeterministicProcessingPhaseTrace: Equatable, Codable, Sendable {
+    let phase: String
+    let enabledProcessors: [String]
+    let displayProcessorIDs: [String]?
+    let changedProcessorIDs: [String]?
+    let inputCharacterCount: Int
+    let outputCharacterCount: Int
+    let inputText: String?
+    let outputText: String?
+    let inputHash: String
+    let outputHash: String
+
+    var ran: Bool { !enabledProcessors.isEmpty }
+    var changed: Bool { inputHash != outputHash }
+
+    init(
+        phase: String,
+        enabledProcessors: [String],
+        displayProcessorIDs: [String]? = nil,
+        changedProcessorIDs: [String] = [],
+        inputCharacterCount: Int,
+        outputCharacterCount: Int,
+        inputText: String? = nil,
+        outputText: String? = nil,
+        inputHash: String,
+        outputHash: String
+    ) {
+        self.phase = phase
+        self.enabledProcessors = enabledProcessors
+        self.displayProcessorIDs = displayProcessorIDs
+        self.changedProcessorIDs = changedProcessorIDs
+        self.inputCharacterCount = inputCharacterCount
+        self.outputCharacterCount = outputCharacterCount
+        self.inputText = inputText
+        self.outputText = outputText
+        self.inputHash = inputHash
+        self.outputHash = outputHash
+    }
+}
+
+extension DeterministicProcessingPhaseTrace {
+    var processorIDsForDisplay: [String] {
+        displayProcessorIDs ?? enabledProcessors
+    }
+
+    var highlightedProcessorIDs: Set<String> {
+        Set(enabledProcessors)
     }
 }
 
@@ -246,6 +319,76 @@ struct LLMRefinementTrace: Equatable, Codable, Sendable {
     var durationMS: Int?
     var errorMessage: String?
     var completedAt: Date?
+    /// PromptKit trace metadata (prompt kind, version, rendered hash, styleID,
+    /// routerVersion, agentPromptVersion). Safe to persist: contains no full
+    /// prompt text or user content. `nil` for traces produced before PromptKit
+    /// integration or by refiners that do not go through PromptKit.
+    var promptMetadata: PromptTraceMetadata?
+
+    init(
+        providerID: String,
+        providerName: String,
+        endpoint: String,
+        model: String,
+        temperature: Double,
+        timeoutSeconds: Double,
+        requestBodyJSON: String,
+        responseText: String? = nil,
+        statusCode: Int? = nil,
+        durationMS: Int? = nil,
+        errorMessage: String? = nil,
+        completedAt: Date? = nil,
+        promptMetadata: PromptTraceMetadata? = nil
+    ) {
+        self.providerID = providerID
+        self.providerName = providerName
+        self.endpoint = endpoint
+        self.model = model
+        self.temperature = temperature
+        self.timeoutSeconds = timeoutSeconds
+        self.requestBodyJSON = requestBodyJSON
+        self.responseText = responseText
+        self.statusCode = statusCode
+        self.durationMS = durationMS
+        self.errorMessage = errorMessage
+        self.completedAt = completedAt
+        self.promptMetadata = promptMetadata
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.providerID = try c.decode(String.self, forKey: .providerID)
+        self.providerName = try c.decode(String.self, forKey: .providerName)
+        self.endpoint = try c.decode(String.self, forKey: .endpoint)
+        self.model = try c.decode(String.self, forKey: .model)
+        self.temperature = try c.decode(Double.self, forKey: .temperature)
+        self.timeoutSeconds = try c.decode(Double.self, forKey: .timeoutSeconds)
+        self.requestBodyJSON = try c.decode(String.self, forKey: .requestBodyJSON)
+        self.responseText = try c.decodeIfPresent(String.self, forKey: .responseText)
+        self.statusCode = try c.decodeIfPresent(Int.self, forKey: .statusCode)
+        self.durationMS = try c.decodeIfPresent(Int.self, forKey: .durationMS)
+        self.errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        self.completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        // Backward-compatible: traces persisted before PromptKit integration
+        // do not carry prompt metadata.
+        self.promptMetadata = try c.decodeIfPresent(PromptTraceMetadata.self, forKey: .promptMetadata)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case providerID
+        case providerName
+        case endpoint
+        case model
+        case temperature
+        case timeoutSeconds
+        case requestBodyJSON
+        case responseText
+        case statusCode
+        case durationMS
+        case errorMessage
+        case completedAt
+        case promptMetadata
+    }
 
     var succeeded: Bool {
         guard errorMessage == nil else { return false }
@@ -271,7 +414,10 @@ struct LLMRefinementTrace: Equatable, Codable, Sendable {
             statusCode: statusCode,
             durationMS: durationMS,
             errorMessage: errorMessage.map { _ in "[redacted: error message]" },
-            completedAt: completedAt
+            completedAt: completedAt,
+            // Metadata is safe (kind/version/hash/ids only — no full prompt or
+            // user content), so it is preserved through redaction.
+            promptMetadata: promptMetadata
         )
     }
 }
@@ -427,6 +573,10 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     private let structuredLearningEnabled: () -> Bool
     private let voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)?
     private let contextBoostProvider: (any CurrentWindowOCRContextProviding)?
+    /// Loads the current deterministic text processing settings. Returns
+    /// `.defaults` (all-off no-op) when not configured, preserving current
+    /// behavior for existing users and for pipelines without a settings store.
+    private let deterministicSettingsProvider: @MainActor () -> DeterministicTextProcessingSettings
     private let contextBoostCoordinator: ContextBoostPrefetchCoordinator?
     private let contextBoostEnabled: @Sendable () -> Bool
     private let contextBoostSuppressed: @Sendable () -> Bool
@@ -448,7 +598,22 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         contextBoostCoordinator: ContextBoostPrefetchCoordinator? = nil,
         contextBoostEnabled: @escaping @Sendable () -> Bool = { ContextBoostSettings.isEnabled() },
         contextBoostSuppressed: @escaping @Sendable () -> Bool = { ContextBoostSuppression.isSuppressed() },
-        contextBoostTimeoutNanoseconds: UInt64 = 1_000_000_000
+        contextBoostTimeoutNanoseconds: UInt64 = 1_000_000_000,
+        deterministicSettingsProvider: @escaping @MainActor () -> DeterministicTextProcessingSettings = {
+            // Default to disabled for tests and pipelines that don't explicitly
+            // wire the provider. The real app (AppRuntime) passes a provider
+            // that loads from storage with user-facing defaults (master on,
+            // all processors on except longSentenceBreaking).
+            DeterministicTextProcessingSettings(
+                enabled: false,
+                smartNumberRecognition: false,
+                punctuationOptimization: false,
+                longSentenceBreaking: false,
+                fillerWordFiltering: false,
+                cjkLatinSpacing: false,
+                autoCapitalization: false
+            )
+        }
     ) {
         self.refiner = refiner
         self.styleRepository = styleRepository
@@ -466,6 +631,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         self.contextBoostEnabled = contextBoostEnabled
         self.contextBoostSuppressed = contextBoostSuppressed
         self.contextBoostTimeoutNanoseconds = contextBoostTimeoutNanoseconds
+        self.deterministicSettingsProvider = deterministicSettingsProvider
     }
 
     func prepareContextBoost(target: DictationTarget?) {
@@ -533,6 +699,21 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         var correctionEvents: [CorrectionEvent] = []
         var appliedCorrectionEvents: [CorrectionEvent] = []
 
+        // Deterministic pre-LLM processing: runs on the raw ASR text before
+        // prompt rendering. Lightweight cleanup (filler filtering, smart
+        // number recognition) that helps the LLM see a cleaner input. When
+        // the deterministic settings are at defaults (all off), this is a
+        // no-op, preserving current behavior.
+        let deterministicSettings = deterministicSettingsProvider()
+        let deterministicPipeline = DeterministicTextPipeline(settings: deterministicSettings)
+        var isCodingContext = false
+        var didRunDeterministicPreProcessing = false
+        var didRunDeterministicPostProcessing = false
+        var deterministicPreInput = text
+        var deterministicPreOutput = text
+        var deterministicPostInput = text
+        var deterministicPostOutput = text
+
         if refiner.isEnabled, refiner.isConfigured {
             do {
                 let contextBoostOutcome = correctionContext?.isSecureField == true
@@ -540,8 +721,25 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     : await captureContextBoostIfNeeded(target: target)
                 let contextSnapshot = contextBoostOutcome?.snapshot
                 contextBoostTrace = contextTrace(from: contextBoostOutcome, target: target)
-                let prompt = await buildPrompt(
+
+                // Resolve style upfront so pre-LLM processing knows whether
+                // this is a coding context (skip filler/capitalization) and
+                // buildPrompt can reuse the same resolution without a second
+                // router call.
+                let resolvedStyle = try await resolveStyle(for: target)
+                isCodingContext = resolvedStyle?.id == "builtin.coding"
+                deterministicPreInput = text
+                let preProcessedText = deterministicPipeline.preLLM(
+                    text,
+                    isCodingContext: isCodingContext
+                )
+                text = preProcessedText
+                deterministicPreOutput = text
+                didRunDeterministicPreProcessing = true
+
+                let prompt = buildPrompt(
                     rawText: text,
+                    style: resolvedStyle,
                     target: target,
                     temporaryHotwords: contextSnapshot?.hotwords ?? []
                 )
@@ -556,7 +754,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                         text: text,
                         systemPrompt: prompt.result.systemPrompt,
                         model: prompt.result.model,
-                        temperature: prompt.result.temperature
+                        temperature: prompt.result.temperature,
+                        promptMetadata: prompt.result.promptMetadata
                     )
                     if prompt.isStructured,
                        let traceableRefiner = refiner as? any TraceablePromptAwareTextRefining {
@@ -609,21 +808,55 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 case .reject:
                     warnings.append("llm_refinement_rejected")
                 }
+                // Deterministic post-LLM processing: runs on the accepted LLM
+                // output before insertion. Handles punctuation normalization,
+                // CJK-Latin spacing, long sentence breaking, and context-aware
+                // capitalization. No-op when settings are at defaults.
+                deterministicPostInput = text
+                text = deterministicPipeline.postLLM(text, isCodingContext: isCodingContext)
+                deterministicPostOutput = text
+                didRunDeterministicPostProcessing = true
                 llmProviderID = localLLMProviderID ?? (refiner as? any ActiveLLMProviderIdentifying)?.activeProviderID
                 styleID = promptMetadata?.styleID
                 trace = TextProcessingTrace(
                     llm: localLLMTrace ?? (refiner as? RefinementTraceProviding)?.lastTrace,
-                    contextBoost: contextBoostTrace
+                    contextBoost: contextBoostTrace,
+                    styleRoute: styleSelector?.lastRouteTrace
                 )
             } catch {
                 AppLogger.general.error("LLM refinement failed: \(error.localizedDescription)")
                 warnings.append("llm_refinement_failed")
                 trace = TextProcessingTrace(
                     llm: (refiner as? RefinementTraceProviding)?.lastTrace,
-                    contextBoost: contextBoostTrace
+                    contextBoost: contextBoostTrace,
+                    styleRoute: styleSelector?.lastRouteTrace
                 )
             }
         }
+
+        if !didRunDeterministicPostProcessing {
+            if !didRunDeterministicPreProcessing {
+                deterministicPreInput = text
+                text = deterministicPipeline.preLLM(text, isCodingContext: isCodingContext)
+                deterministicPreOutput = text
+                didRunDeterministicPreProcessing = true
+            }
+            deterministicPostInput = text
+            text = deterministicPipeline.postLLM(text, isCodingContext: isCodingContext)
+            deterministicPostOutput = text
+            didRunDeterministicPostProcessing = true
+        }
+
+        var deterministicUpdatedTrace = trace ?? TextProcessingTrace()
+        deterministicUpdatedTrace.deterministic = deterministicTrace(
+            settings: deterministicSettings,
+            isCodingContext: isCodingContext,
+            preInput: deterministicPreInput,
+            preOutput: deterministicPreOutput,
+            postInput: deterministicPostInput,
+            postOutput: deterministicPostOutput
+        )
+        trace = deterministicUpdatedTrace
 
         if let correctionContext,
            correctionContext.mode == .dictation,
@@ -672,19 +905,79 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         )
     }
 
+    private func deterministicTrace(
+        settings: DeterministicTextProcessingSettings,
+        isCodingContext: Bool,
+        preInput: String,
+        preOutput: String,
+        postInput: String,
+        postOutput: String
+    ) -> DeterministicProcessingTrace {
+        let effective = settings.effectiveSettings()
+        let pipeline = DeterministicTextPipeline(settings: effective)
+        let preSteps = pipeline.preLLMSteps(preInput, isCodingContext: isCodingContext)
+        let postSteps = pipeline.postLLMSteps(postInput, isCodingContext: isCodingContext)
+        return DeterministicProcessingTrace(
+            enabled: effective.enabled,
+            isCodingContext: isCodingContext,
+            preLLM: DeterministicProcessingPhaseTrace(
+                phase: "pre_llm",
+                enabledProcessors: preSteps.map(\.id),
+                displayProcessorIDs: effective.enabled ? Self.preLLMProcessorIDs : [],
+                changedProcessorIDs: preSteps.filter(\.changed).map(\.id),
+                inputCharacterCount: preInput.count,
+                outputCharacterCount: preOutput.count,
+                inputText: preInput,
+                outputText: preOutput,
+                inputHash: PromptRenderer.hash(renderedPrompt: preInput),
+                outputHash: PromptRenderer.hash(renderedPrompt: preOutput)
+            ),
+            postLLM: DeterministicProcessingPhaseTrace(
+                phase: "post_llm",
+                enabledProcessors: postSteps.map(\.id),
+                displayProcessorIDs: effective.enabled ? Self.postLLMProcessorIDs : [],
+                changedProcessorIDs: postSteps.filter(\.changed).map(\.id),
+                inputCharacterCount: postInput.count,
+                outputCharacterCount: postOutput.count,
+                inputText: postInput,
+                outputText: postOutput,
+                inputHash: PromptRenderer.hash(renderedPrompt: postInput),
+                outputHash: PromptRenderer.hash(renderedPrompt: postOutput)
+            )
+        )
+    }
+
+    private static let preLLMProcessorIDs = [
+        "filler_word_filtering",
+        "smart_number_recognition",
+    ]
+
+    private static let postLLMProcessorIDs = [
+        "punctuation_optimization",
+        "cjk_latin_spacing",
+        "long_sentence_breaking",
+        "auto_capitalization",
+    ]
+
+    /// Resolves the style profile for the given target. Delegates to the
+    /// style selector when present (which may consult manual rules, the AI
+    /// router, or fall back to the default), otherwise queries the repository
+    /// for the default profile. Returns nil when no profile is available.
+    private func resolveStyle(for target: DictationTarget?) async throws -> StyleProfileRecord? {
+        if let styleSelector {
+            return try await styleSelector.style(for: target)
+        }
+        return try styleRepository?.defaultProfile()
+    }
+
     private func buildPrompt(
         rawText: String,
+        style: StyleProfileRecord?,
         target: DictationTarget?,
         temporaryHotwords: [TemporaryHotword] = []
-    ) async -> (result: PromptBuildResult, warnings: [String], isStructured: Bool) {
-        do {
-            let style: StyleProfileRecord?
-            if let styleSelector {
-                style = try await styleSelector.style(for: target)
-            } else {
-                style = try styleRepository?.defaultProfile()
-            }
-            if let structuredPromptBuilder {
+    ) -> (result: PromptBuildResult, warnings: [String], isStructured: Bool) {
+        if let structuredPromptBuilder {
+            do {
                 return (
                     try buildStructuredPrompt(
                         builder: structuredPromptBuilder,
@@ -696,17 +989,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     [],
                     true
                 )
-            }
-            return (
-                promptBuilder.build(
-                    style: style,
-                    temporaryHotwords: temporaryHotwords
-                ),
-                [],
-                false
-            )
-        } catch {
-            if let structuredPromptBuilder {
+            } catch {
                 return (
                     buildStructuredFallbackPrompt(
                         builder: structuredPromptBuilder,
@@ -718,15 +1001,15 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     true
                 )
             }
-            return (
-                promptBuilder.build(
-                    style: nil,
-                    temporaryHotwords: temporaryHotwords
-                ),
-                ["prompt_context_failed"],
-                false
-            )
         }
+        return (
+            promptBuilder.build(
+                style: style,
+                temporaryHotwords: temporaryHotwords
+            ),
+            [],
+            false
+        )
     }
 
     private func buildStructuredPrompt(
@@ -737,6 +1020,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         temporaryHotwords: [TemporaryHotword]
     ) throws -> PromptBuildResult {
         let enabledStyle = style?.enabled == true ? style : nil
+        let structuredStyle = structuredStyle(for: enabledStyle)
         let context = StructuredCorrectionPromptContext(
             rawText: rawText,
             userTerms: try structuredUserTerms(limit: 50),
@@ -744,14 +1028,28 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             ocrTemporaryTerms: temporaryHotwords.map(\.text),
             appContext: structuredAppContext(target: target)
         )
+        let systemPrompt = builder.build(style: structuredStyle, context: context)
+        let template = StructuredCorrectionPromptCatalog.styleTemplate(for: structuredStyle)
+        let metadata = PromptTraceMetadata(
+            promptKind: template.kind,
+            promptVersion: template.version,
+            // Hash the *actual* sent prompt (style template + critical/output
+            // protocol + context section), not just the style template, so
+            // the trace identifies the exact wording used for this request.
+            renderedPromptHash: PromptRenderer.hash(renderedPrompt: systemPrompt),
+            styleID: enabledStyle?.id,
+            routerVersion: nil,
+            agentPromptVersion: nil
+        )
         return PromptBuildResult(
-            systemPrompt: builder.build(style: structuredStyle(for: enabledStyle), context: context),
+            systemPrompt: systemPrompt,
             llmProviderID: enabledStyle?.llmProviderID,
             styleID: enabledStyle?.id,
             model: enabledStyle?.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
                 ? enabledStyle?.model
                 : nil,
-            temperature: enabledStyle?.temperature
+            temperature: enabledStyle?.temperature,
+            promptMetadata: metadata
         )
     }
 
@@ -768,12 +1066,23 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             ocrTemporaryTerms: temporaryHotwords.map(\.text),
             appContext: structuredAppContext(target: target)
         )
+        let systemPrompt = builder.build(style: .default, context: context)
+        let template = StructuredCorrectionPromptCatalog.styleTemplate(for: .default)
+        let metadata = PromptTraceMetadata(
+            promptKind: template.kind,
+            promptVersion: template.version,
+            renderedPromptHash: PromptRenderer.hash(renderedPrompt: systemPrompt),
+            styleID: nil,
+            routerVersion: nil,
+            agentPromptVersion: nil
+        )
         return PromptBuildResult(
-            systemPrompt: builder.build(style: .default, context: context),
+            systemPrompt: systemPrompt,
             llmProviderID: nil,
             styleID: nil,
             model: nil,
-            temperature: nil
+            temperature: nil,
+            promptMetadata: metadata
         )
     }
 

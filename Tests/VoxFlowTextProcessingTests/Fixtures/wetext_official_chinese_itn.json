@@ -1,0 +1,2056 @@
+{
+  "source": "wenet-e2e/WeTextProcessing itn/chinese/test/data/*.txt",
+  "license": "Apache-2.0",
+  "upstreamPath": "itn/chinese/test/data",
+  "totalCaseCount": 292,
+  "includedCaseCount": 81,
+  "excludedCaseCount": 211,
+  "cases": [
+    {
+      "file": "cardinal.txt",
+      "line": 1,
+      "input": "幺幺零",
+      "expected": "110",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 3,
+      "input": "这是手机一八五四四一三九一二一",
+      "expected": "这是手机18544139121",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 23,
+      "input": "一二三四",
+      "expected": "1234",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 24,
+      "input": "二二三四",
+      "expected": "2234",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 25,
+      "input": "拨打幺二三零六",
+      "expected": "拨打12306",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 26,
+      "input": "九幺幺是报警电话",
+      "expected": "911是报警电话",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 27,
+      "input": "尾号幺七零二",
+      "expected": "尾号1702",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 28,
+      "input": "尾号一二三四",
+      "expected": "尾号1234",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "date.txt",
+      "line": 4,
+      "input": "二零零八年",
+      "expected": "2008年",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "date.txt",
+      "line": 5,
+      "input": "二千年",
+      "expected": "2000年",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "date.txt",
+      "line": 7,
+      "input": "公元一九九六年",
+      "expected": "公元1996年",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "date.txt",
+      "line": 8,
+      "input": "公元一六三年",
+      "expected": "公元163年",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "fraction.txt",
+      "line": 1,
+      "input": "二分之一",
+      "expected": "1/2",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "fraction.txt",
+      "line": 2,
+      "input": "十六分之三",
+      "expected": "3/16",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "fraction.txt",
+      "line": 3,
+      "input": "现场有十七分之七的观众投出了赞成票可是最后唱票结果却是负十二分之七",
+      "expected": "现场有7/17的观众投出了赞成票可是最后唱票结果却是-7/12",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 1,
+      "input": "一年后",
+      "expected": "1年后",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 2,
+      "input": "两年后",
+      "expected": "2年后",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 3,
+      "input": "二十年后",
+      "expected": "20年后",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 4,
+      "input": "二两",
+      "expected": "2两",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 6,
+      "input": "百分之二",
+      "expected": "2%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 7,
+      "input": "百分三十",
+      "expected": "30%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 8,
+      "input": "百分之三十",
+      "expected": "30%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 9,
+      "input": "百分百",
+      "expected": "100%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 10,
+      "input": "百分之百",
+      "expected": "100%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 11,
+      "input": "百分之二点一五",
+      "expected": "2.15%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 16,
+      "input": "二十点一万",
+      "expected": "20.1万",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 17,
+      "input": "一百块钱",
+      "expected": "100块钱",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 18,
+      "input": "十二块五毛",
+      "expected": "12块5毛",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 19,
+      "input": "一万零三百人",
+      "expected": "10300人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 25,
+      "input": "两千万人",
+      "expected": "2000万人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 26,
+      "input": "九千九百九十一人",
+      "expected": "9991人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 30,
+      "input": "一共有一人二人三人四人五人六人七人八人九人十人十一人十二人十三人十四人十五人十六人十七人十八人十九人二十人二十一人二十二人二十三人二十四人二十五人二十六人二十七人二十八人二十九人三十人三十一人三十二人三十三人三十四人三十五人三十六人三十七人三十八人三十九人四十人四十一人四十二人四十三人四十四人四十五人四十六人四十七人四十八人四十九人五十人五十一人五十二人五十三人五十四人五十五人五十六人五十七人五十八人五十九人六十人六十一人六十二人六十三人六十四人六十五人六十六人六十七人六十八人六十九人七十人七十一人七十二人七十三人七十四人七十五人七十六人七十七人七十八人七十九人八十人八十一人八十二人八十三人八十四人八十五人八十六人八十七人八十八人八十九人九十人九十一人九十二人九十三人九十四人九十五人九十六人九十七人九十八人九十九人一百人一百零一人一百一人一百一十一人一百一十二人两百二人二百二十三人三百三人三百三十四人四百四人四百四十五人一千零一人一千零五十人一千零五十一人一千三百人一千五百五人两千五百五十六人三千六百六人四千六百六十七人五千七百七人六千七百七十八人七千八百八人八千八百八十九人九千九百九人九千九百九十一人",
+      "expected": "一共有1人2人3人4人5人6人7人8人9人10人11人12人13人14人15人16人17人18人19人20人21人22人23人24人25人26人27人28人29人30人31人32人33人34人35人36人37人38人39人40人41人42人43人44人45人46人47人48人49人50人51人52人53人54人55人56人57人58人59人60人61人62人63人64人65人66人67人68人69人70人71人72人73人74人75人76人77人78人79人80人81人82人83人84人85人86人87人88人89人90人91人92人93人94人95人96人97人98人99人100人101人110人111人112人220人223人330人334人440人445人1001人1050人1051人1300人1550人2556人3660人4667人5770人6778人7880人8889人9990人9991人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "measure.txt",
+      "line": 44,
+      "input": "帮我导航到中关村一百零一号",
+      "expected": "帮我导航到中关村101号",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 1,
+      "input": "一共有多少人",
+      "expected": "一共有多少人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 4,
+      "input": "共四百六十五篇,约三百一十五万字",
+      "expected": "共465篇,约315万字",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 5,
+      "input": "共计六点四二万人",
+      "expected": "共计6.42万人",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 6,
+      "input": "同比升高零点六个百分点",
+      "expected": "同比升高0.6个百分点",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 7,
+      "input": "总量的五分之一以上",
+      "expected": "总量的1/5以上",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 8,
+      "input": "相当于头发丝的十六分之一",
+      "expected": "相当于头发丝的1/16",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 10,
+      "input": "同比增长百分之六点三",
+      "expected": "同比增长6.3%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 11,
+      "input": "增幅百分之零点四",
+      "expected": "增幅0.4%",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 15,
+      "input": "我是五点零二分开始的",
+      "expected": "我是5:02开始的",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 16,
+      "input": "于五点三十五分三十六秒发射",
+      "expected": "于5:35:36发射",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 29,
+      "input": "可以打我手机幺三五零幺二三四五六七",
+      "expected": "可以打我手机13501234567",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 30,
+      "input": "可以拨打幺二三零六来咨询",
+      "expected": "可以拨打12306来咨询",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 33,
+      "input": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "expected": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 1,
+      "input": "负一",
+      "expected": "-1",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 6,
+      "input": "十一",
+      "expected": "11",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 7,
+      "input": "二十",
+      "expected": "20",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 8,
+      "input": "一百",
+      "expected": "100",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 9,
+      "input": "一百零一",
+      "expected": "101",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 10,
+      "input": "一百一十一",
+      "expected": "111",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 11,
+      "input": "两百",
+      "expected": "200",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 12,
+      "input": "一千",
+      "expected": "1000",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 13,
+      "input": "一千零一",
+      "expected": "1001",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 14,
+      "input": "一千零一十一",
+      "expected": "1011",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 15,
+      "input": "一千一百一十一",
+      "expected": "1111",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 16,
+      "input": "两千",
+      "expected": "2000",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 17,
+      "input": "两千零十",
+      "expected": "2010",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 18,
+      "input": "两千零一十",
+      "expected": "2010",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 19,
+      "input": "两千零十二",
+      "expected": "2012",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 20,
+      "input": "两千零一十二",
+      "expected": "2012",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 21,
+      "input": "两千零二十",
+      "expected": "2020",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 22,
+      "input": "一万",
+      "expected": "10000",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 23,
+      "input": "一万零一",
+      "expected": "10001",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 24,
+      "input": "一万零一十一",
+      "expected": "10011",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 25,
+      "input": "一万零一百一十一",
+      "expected": "10111",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 26,
+      "input": "一万一千一百一十一",
+      "expected": "11111",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 27,
+      "input": "两万",
+      "expected": "20000",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 28,
+      "input": "十万一千一百一十一",
+      "expected": "101111",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 31,
+      "input": "一点一一",
+      "expected": "1.11",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 32,
+      "input": "三点一四一五九二六",
+      "expected": "3.1415926",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 33,
+      "input": "负三点一四一五九二六",
+      "expected": "-3.1415926",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 34,
+      "input": "一万两千三百",
+      "expected": "12300",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "number.txt",
+      "line": 35,
+      "input": "小数三点一四一五九二六和负三点一四一五九二六是不是经常见到",
+      "expected": "小数3.1415926和-3.1415926是不是经常见到",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 1,
+      "input": "两点零二分",
+      "expected": "2:02",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 2,
+      "input": "十三点十分三十六秒",
+      "expected": "13:10:36",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 7,
+      "input": "零点十分",
+      "expected": "00:10",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 9,
+      "input": "八点零五分",
+      "expected": "8:05",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 10,
+      "input": "八点三十",
+      "expected": "8:30",
+      "processor": "smartNumberRecognizer"
+    },
+    {
+      "file": "time.txt",
+      "line": 11,
+      "input": "八点半",
+      "expected": "8:30",
+      "processor": "smartNumberRecognizer"
+    }
+  ],
+  "exclusions": [
+    {
+      "file": "cardinal.txt",
+      "line": 2,
+      "input": "幺二七点零点零点幺",
+      "expected": "127.0.0.1",
+      "reason": "Special telephony/IP alphabet normalization requires WeText FST vocabulary outside this pipe."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 4,
+      "input": "三五百",
+      "expected": "300~500",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 5,
+      "input": "三五千",
+      "expected": "3000~5000",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 6,
+      "input": "三五万",
+      "expected": "3~5万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 7,
+      "input": "三四万",
+      "expected": "3~4万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 8,
+      "input": "五六十",
+      "expected": "50~60",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 9,
+      "input": "三四十万",
+      "expected": "30~40万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 10,
+      "input": "三四十亿",
+      "expected": "30~40亿",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 11,
+      "input": "十五六",
+      "expected": "15-6",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 12,
+      "input": "四十五六",
+      "expected": "45-6",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 13,
+      "input": "四十五六万",
+      "expected": "45-6万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 14,
+      "input": "七百三四十",
+      "expected": "730-40",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 15,
+      "input": "十七八万",
+      "expected": "17-8万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 16,
+      "input": "六十三四万",
+      "expected": "63-4万",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 17,
+      "input": "一万六七",
+      "expected": "16000-7000",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 18,
+      "input": "三万四五",
+      "expected": "34000-5000",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 19,
+      "input": "我的身份证号是三四零二零三一九三七零幺零幺零五幺七",
+      "expected": "我的身份证号是340203193701010517",
+      "reason": "Long ID/phone contextual FST recognition is outside VoxFlow lightweight ITN scope unless already covered by direct digit context."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 20,
+      "input": "我的身份证号是三四零二零三一九三七零幺零幺零五幺X",
+      "expected": "我的身份证号是34020319370101051X",
+      "reason": "Long ID/phone contextual FST recognition is outside VoxFlow lightweight ITN scope unless already covered by direct digit context."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 21,
+      "input": "给一三三四五三一二二二一打电话",
+      "expected": "给13345312221打电话",
+      "reason": "Long ID/phone contextual FST recognition is outside VoxFlow lightweight ITN scope unless already covered by direct digit context."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 22,
+      "input": "给一三三四五三一二二二一拨电话",
+      "expected": "给13345312221拨电话",
+      "reason": "Long ID/phone contextual FST recognition is outside VoxFlow lightweight ITN scope unless already covered by direct digit context."
+    },
+    {
+      "file": "cardinal.txt",
+      "line": 29,
+      "input": "幺八五洞幺拐两零柒幺玖",
+      "expected": "18501720719",
+      "reason": "Special telephony/IP alphabet normalization requires WeText FST vocabulary outside this pipe."
+    },
+    {
+      "file": "char.txt",
+      "line": 1,
+      "input": "中",
+      "expected": "中",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "char.txt",
+      "line": 2,
+      "input": "A",
+      "expected": "A",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "date.txt",
+      "line": 1,
+      "input": "二零零八年八月八日",
+      "expected": "2008/08/08",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "date.txt",
+      "line": 2,
+      "input": "二零零八年八月",
+      "expected": "2008/08",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "date.txt",
+      "line": 3,
+      "input": "八月八日",
+      "expected": "08/08",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "date.txt",
+      "line": 6,
+      "input": "两千零五年八月五号",
+      "expected": "2005年08/05",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "date.txt",
+      "line": 9,
+      "input": "八五年二月二十七日",
+      "expected": "85/02/27",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "date.txt",
+      "line": 10,
+      "input": "这件事发生在二零一九年九月十二日的晚上或者两千零五年八月五号的晚上或者在八五年二月二十七日的晚上或者在公元一九九六年或者在八六年八月十八日或者于一九九五年三月一日或者在公元一六三年或者在零六年一月二号",
+      "expected": "这件事发生在2019/09/12的晚上或者2005年08/05的晚上或者在85/02/27的晚上或者在公元1996年或者在86/08/18或者于1995/03/01或者在公元163年或者在06/01/02",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "license_plate.txt",
+      "line": 1,
+      "input": "鄂a七l六二u",
+      "expected": "鄂a7l62u",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "license_plate.txt",
+      "line": 2,
+      "input": "皖C九B三四E",
+      "expected": "皖C9B34E",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "license_plate.txt",
+      "line": 3,
+      "input": "京A零七ZX三F",
+      "expected": "京A07ZX3F",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "math.txt",
+      "line": 1,
+      "input": "一加二",
+      "expected": "1+2",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "math.txt",
+      "line": 2,
+      "input": "负一加二",
+      "expected": "-1+2",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "math.txt",
+      "line": 3,
+      "input": "一加二加三",
+      "expected": "1+2+3",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "math.txt",
+      "line": 4,
+      "input": "二等于一加一",
+      "expected": "2=1+1",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "math.txt",
+      "line": 5,
+      "input": "二十一到一千零一",
+      "expected": "21~1001",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "math.txt",
+      "line": 6,
+      "input": "六百三到六百四",
+      "expected": "630~640",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "measure.txt",
+      "line": 5,
+      "input": "一千克",
+      "expected": "1kg",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 12,
+      "input": "每小时十公里",
+      "expected": "10km/h",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 13,
+      "input": "每小时十千米",
+      "expected": "10km/h",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 14,
+      "input": "十千米每小时",
+      "expected": "10km/h",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 15,
+      "input": "三百二十四点七五克",
+      "expected": "324.75g",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 20,
+      "input": "一亿两千三百人",
+      "expected": "1亿2300人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 21,
+      "input": "一亿零两千三百人",
+      "expected": "1亿2300人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 22,
+      "input": "一亿七万两千三百人",
+      "expected": "1亿72300人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 23,
+      "input": "一兆零三百万两千三百人",
+      "expected": "1兆300万2300人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 24,
+      "input": "一兆零三百二十万五千人",
+      "expected": "1兆320万5000人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 27,
+      "input": "一共有一兆零三百二十万五千人",
+      "expected": "一共有1兆320万5000人",
+      "reason": "Large-number mixed suffix rendering is excluded; VoxFlow parser does not implement WeText 兆/万 suffix formatting."
+    },
+    {
+      "file": "measure.txt",
+      "line": 28,
+      "input": "明天有百分之六十二的概率降雨所以你有百分之二点五一的可能性赢得比赛但是有负百分之十三的人认为你有负的百分之二十的胜利可能性",
+      "expected": "明天有62%的概率降雨所以你有2.51%的可能性赢得比赛但是有-13%的人认为你有-20%的胜利可能性",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "measure.txt",
+      "line": 29,
+      "input": "这块黄金重达三百二十四点七五克,我再随便来几个价格三十四点五二一元,二十点一万",
+      "expected": "这块黄金重达324.75g,我再随便来几个价格¥34.521,20.1万",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 31,
+      "input": "百分之三十到四十一",
+      "expected": "30~41%",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "measure.txt",
+      "line": 32,
+      "input": "百分之三十一到百分之百",
+      "expected": "31~100%",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "measure.txt",
+      "line": 33,
+      "input": "十一到一百千米每小时",
+      "expected": "11~100km/h",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "measure.txt",
+      "line": 34,
+      "input": "每小时三十到三百一十一千米",
+      "expected": "30~311km/h",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "measure.txt",
+      "line": 35,
+      "input": "七八公斤",
+      "expected": "7~8kg",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 36,
+      "input": "五六十摩尔",
+      "expected": "50~60mol",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 37,
+      "input": "三五百公里",
+      "expected": "300~500km",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "measure.txt",
+      "line": 38,
+      "input": "三四万吨",
+      "expected": "3~4万吨",
+      "reason": "Approximate range normalization is excluded; VoxFlow does not synthesize ~ or hyphen ranges."
+    },
+    {
+      "file": "measure.txt",
+      "line": 39,
+      "input": "三四万伏特",
+      "expected": "3~4Wv",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 40,
+      "input": "十五六千瓦时",
+      "expected": "15-6kwh",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 41,
+      "input": "四十五六度",
+      "expected": "45-6°",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 42,
+      "input": "七百三四十秒",
+      "expected": "730-40s",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "measure.txt",
+      "line": 43,
+      "input": "七百三四十分钟",
+      "expected": "730-40min",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "money.txt",
+      "line": 1,
+      "input": "一点二五元",
+      "expected": "¥1.25",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 2,
+      "input": "一点二五人民币",
+      "expected": "CNY1.25",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 3,
+      "input": "三十四点五二一元",
+      "expected": "¥34.521",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 4,
+      "input": "八九千美元",
+      "expected": "$8000~9000",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 5,
+      "input": "七八英镑",
+      "expected": "£7~8",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 6,
+      "input": "十五六卢布",
+      "expected": "₽15-6",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 7,
+      "input": "四十五六新台币",
+      "expected": "TWD45-6",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 8,
+      "input": "七百三四十欧元",
+      "expected": "€730-40",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 9,
+      "input": "七百三四十马来西亚令吉",
+      "expected": "RM730-40",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 10,
+      "input": "三千三百八十元五角八分",
+      "expected": "¥3380.58",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "money.txt",
+      "line": 11,
+      "input": "二十五元三毛",
+      "expected": "¥25.3",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 2,
+      "input": "呃这个呃啊我不知道",
+      "expected": "这个我不知道",
+      "reason": "WeText removes 啊 as filler; VoxFlow filler filter intentionally preserves 啊 as a discourse marker."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 3,
+      "input": "呃呃啊",
+      "expected": "",
+      "reason": "WeText removes 啊 as filler; VoxFlow filler filter intentionally preserves 啊 as a discourse marker."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 9,
+      "input": "二分之三是一个假分数",
+      "expected": "3/2是一个假分数",
+      "reason": "VoxFlow quantity conversion treats 一个 as 1个; WeText preserves the phrase 一个 here."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 12,
+      "input": "二零零二年一月二十八日",
+      "expected": "2002/01/28",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 13,
+      "input": "二零零二年一月",
+      "expected": "2002/01",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 14,
+      "input": "八月十六号的十二点之前",
+      "expected": "08/16的12点之前",
+      "reason": "Slash date normalization is excluded; VoxFlow preserves Chinese 年/月/日 wording except numeric digits."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 17,
+      "input": "上午八点半准时开会",
+      "expected": "8:30a.m.准时开会",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 18,
+      "input": "比分定格在七十八比九十六",
+      "expected": "比分定格在78:96",
+      "reason": "Score notation normalization is excluded; VoxFlow does not convert 比 to colon."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 19,
+      "input": "计算负二的绝对值是二",
+      "expected": "计算-2的绝对值是2",
+      "reason": "Standalone negative and ± math normalization are excluded to avoid prose false positives."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 20,
+      "input": "正负二的平方都是四",
+      "expected": "±2的平方都是4",
+      "reason": "Math, score, and range notation require WeText FST semantics and are outside this lightweight ITN pipe."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 21,
+      "input": "价格是十三点五元",
+      "expected": "价格是¥13.5",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 22,
+      "input": "价格是十三点五美元",
+      "expected": "价格是$13.5",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 23,
+      "input": "价格是十三点五澳元",
+      "expected": "价格是A$13.5",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 24,
+      "input": "价格是十三点五港元",
+      "expected": "价格是HKD13.5",
+      "reason": "Currency name-to-symbol normalization is outside VoxFlow pipe scope; VoxFlow preserves spoken currency units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 25,
+      "input": "重达二十五千克",
+      "expected": "重达25kg",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 26,
+      "input": "最高气温三十八摄氏度",
+      "expected": "最高气温38°C",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 27,
+      "input": "实际面积一百二十平方米",
+      "expected": "实际面积120m²",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 28,
+      "input": "渲染速度十毫秒一帧",
+      "expected": "渲染速度10ms1帧",
+      "reason": "Unit abbreviation normalization is excluded; VoxFlow preserves spoken Chinese units."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 31,
+      "input": "二点五平方电线,五,五十五,疑是银河落九天,十二块五",
+      "expected": "2.5平方电线,5,55,疑是银河落9天,12块5",
+      "reason": "Mixed standalone-number option case differs from VoxFlow conservative standalone-number policy."
+    },
+    {
+      "file": "normalizer.txt",
+      "line": 32,
+      "input": "三百九十九三盒",
+      "expected": "3993盒",
+      "reason": "Adjacent cardinal-plus-counter ambiguity is excluded; WeText uses FST tokenization not present in VoxFlow."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 1,
+      "input": "二点五平方电线,五,五十五,疑是银河落九天,十二块五",
+      "expected": "2.5平方电线,五,五十五,疑是银河落九天,12块5",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 2,
+      "input": "一年后",
+      "expected": "一年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 3,
+      "input": "两年后",
+      "expected": "两年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 4,
+      "input": "二十年后",
+      "expected": "20年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 5,
+      "input": "二两",
+      "expected": "二两",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 6,
+      "input": "一千克",
+      "expected": "1000g",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 7,
+      "input": "百分之二",
+      "expected": "2%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 8,
+      "input": "百分三十",
+      "expected": "30%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 9,
+      "input": "百分之三十",
+      "expected": "30%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 10,
+      "input": "百分百",
+      "expected": "100%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 11,
+      "input": "百分之百",
+      "expected": "100%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 12,
+      "input": "百分之二点一五",
+      "expected": "2.15%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 13,
+      "input": "每小时十公里",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 14,
+      "input": "每小时十千米",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 15,
+      "input": "十千米每小时",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 16,
+      "input": "三百二十四点七五克",
+      "expected": "324.75g",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 17,
+      "input": "二十点一万",
+      "expected": "20.1万",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 18,
+      "input": "一百块钱",
+      "expected": "100块钱",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 19,
+      "input": "十二块五毛",
+      "expected": "12块5毛",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 20,
+      "input": "一万零三百人",
+      "expected": "10300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 21,
+      "input": "一亿两千三百人",
+      "expected": "1亿2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 22,
+      "input": "一亿零两千三百人",
+      "expected": "1亿2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 23,
+      "input": "一亿七万两千三百人",
+      "expected": "1亿72300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 24,
+      "input": "一兆零三百万两千三百人",
+      "expected": "1兆300万2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 25,
+      "input": "一兆零三百二十万五千人",
+      "expected": "1兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 26,
+      "input": "十五兆零三百二十万五千人",
+      "expected": "15兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 27,
+      "input": "两千万人",
+      "expected": "2000万人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 28,
+      "input": "九千九百九十一人",
+      "expected": "9991人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 29,
+      "input": "一共有一兆零三百二十万五千人",
+      "expected": "一共有1兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 30,
+      "input": "明天有百分之六十二的概率降雨所以你有百分之二点五一的可能性赢得比赛但是有负百分之十三的人认为你有负的百分之二十的胜利可能性",
+      "expected": "明天有62%的概率降雨所以你有2.51%的可能性赢得比赛但是有-13%的人认为你有-20%的胜利可能性",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 31,
+      "input": "这块黄金重达三百二十四点七五克,我再随便来几个价格三十四点五二一元,二十点一万",
+      "expected": "这块黄金重达324.75g,我再随便来几个价格¥34.521,20.1万",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 32,
+      "input": "一共有一人二人三人四人五人六人七人八人九人十人十一人十二人十三人十四人十五人十六人十七人十八人十九人二十人二十一人二十二人二十三人二十四人二十五人二十六人二十七人二十八人二十九人三十人三十一人三十二人三十三人三十四人三十五人三十六人三十七人三十八人三十九人四十人四十一人四十二人四十三人四十四人四十五人四十六人四十七人四十八人四十九人五十人五十一人五十二人五十三人五十四人五十五人五十六人五十七人五十八人五十九人六十人六十一人六十二人六十三人六十四人六十五人六十六人六十七人六十八人六十九人七十人七十一人七十二人七十三人七十四人七十五人七十六人七十七人七十八人七十九人八十人八十一人八十二人八十三人八十四人八十五人八十六人八十七人八十八人八十九人九十人九十一人九十二人九十三人九十四人九十五人九十六人九十七人九十八人九十九人一百人一百零一人一百一人一百一十一人一百一十二人两百二人二百二十三人三百三人三百三十四人四百四人四百四十五人一千零一人一千零五十人一千零五十一人一千三百人一千五百五人两千五百五十六人三千六百六人四千六百六十七人五千七百七人六千七百七十八人七千八百八人八千八百八十九人九千九百九人九千九百九十一人",
+      "expected": "一共有一人二人三人四人五人六人七人八人九人10人11人12人13人14人15人16人17人18人19人20人21人22人23人24人25人26人27人28人29人30人31人32人33人34人35人36人37人38人39人40人41人42人43人44人45人46人47人48人49人50人51人52人53人54人55人56人57人58人59人60人61人62人63人64人65人66人67人68人69人70人71人72人73人74人75人76人77人78人79人80人81人82人83人84人85人86人87人88人89人90人91人92人93人94人95人96人97人98人99人100人101人110人111人112人220人223人330人334人440人445人1001人1050人1051人1300人1550人2556人3660人4667人5770人6778人7880人8889人9990人9991人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 33,
+      "input": "三百九十九三盒",
+      "expected": "三百九十九三盒",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 34,
+      "input": "这是八百一千",
+      "expected": "这是八百一千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 35,
+      "input": "这是二十九千",
+      "expected": "这是二十九千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 36,
+      "input": "这是九十九九千",
+      "expected": "这是九十九九千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 37,
+      "input": "这是十二一千",
+      "expected": "这是十二一千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 38,
+      "input": "这是零百",
+      "expected": "这是零百",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 39,
+      "input": "这是零千",
+      "expected": "这是零千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 40,
+      "input": "这是一百一个，一千两位，一万三天",
+      "expected": "这是100一个，1000两位，10000三天",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 41,
+      "input": "这是九百九周，九千九月，九万九年",
+      "expected": "这是900九周，9000九月，90000九年",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_disable_0_to_9.txt",
+      "line": 42,
+      "input": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "expected": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 1,
+      "input": "二点五平方电线,五,五十五,疑是银河落九天,十二块五",
+      "expected": "2.5平方电线,五,五十五,疑是银河落9天,12块5",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 2,
+      "input": "三百九十九三盒",
+      "expected": "三百九十九3盒",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 3,
+      "input": "这是八百一千",
+      "expected": "这是八百一千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 4,
+      "input": "这是二十九千",
+      "expected": "这是二十九千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 5,
+      "input": "这是九十九九千",
+      "expected": "这是九十九九千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 6,
+      "input": "这是十二一千",
+      "expected": "这是十二一千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 7,
+      "input": "这是零百",
+      "expected": "这是零百",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 8,
+      "input": "这是零千",
+      "expected": "这是零千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 9,
+      "input": "这是一百一个，一千两位，一万三天",
+      "expected": "这是100 1个，1000 2位，10000 3天",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 10,
+      "input": "这是九百九周，九千九月，九万九年",
+      "expected": "这是900 9周，9000 9月，90000 9年",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_disable_standalone_number_enable_0_to_9.txt",
+      "line": 11,
+      "input": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "expected": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 1,
+      "input": "二点五平方电线,五,五十五,疑是银河落九天,十二块五",
+      "expected": "2.5平方电线,五,55,疑是银河落九天,12块5",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 2,
+      "input": "一年后",
+      "expected": "一年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 3,
+      "input": "两年后",
+      "expected": "两年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 4,
+      "input": "二十年后",
+      "expected": "20年后",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 5,
+      "input": "二两",
+      "expected": "二两",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 6,
+      "input": "一千克",
+      "expected": "1000g",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 7,
+      "input": "百分之二",
+      "expected": "2%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 8,
+      "input": "百分三十",
+      "expected": "30%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 9,
+      "input": "百分之三十",
+      "expected": "30%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 10,
+      "input": "百分百",
+      "expected": "100%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 11,
+      "input": "百分之百",
+      "expected": "100%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 12,
+      "input": "百分之二点一五",
+      "expected": "2.15%",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 13,
+      "input": "每小时十公里",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 14,
+      "input": "每小时十千米",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 15,
+      "input": "十千米每小时",
+      "expected": "10km/h",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 16,
+      "input": "三百二十四点七五克",
+      "expected": "324.75g",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 17,
+      "input": "二十点一万",
+      "expected": "20.1万",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 18,
+      "input": "一百块钱",
+      "expected": "100块钱",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 19,
+      "input": "十二块五毛",
+      "expected": "12块5毛",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 20,
+      "input": "一万零三百人",
+      "expected": "10300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 21,
+      "input": "一亿两千三百人",
+      "expected": "1亿2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 22,
+      "input": "一亿零两千三百人",
+      "expected": "1亿2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 23,
+      "input": "一亿七万两千三百人",
+      "expected": "1亿72300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 24,
+      "input": "一兆零三百万两千三百人",
+      "expected": "1兆300万2300人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 25,
+      "input": "一兆零三百二十万五千人",
+      "expected": "1兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 26,
+      "input": "十五兆零三百二十万五千人",
+      "expected": "15兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 27,
+      "input": "两千万人",
+      "expected": "2000万人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 28,
+      "input": "九千九百九十一人",
+      "expected": "9991人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 29,
+      "input": "一共有一兆零三百二十万五千人",
+      "expected": "一共有1兆320万5000人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 30,
+      "input": "明天有百分之六十二的概率降雨所以你有百分之二点五一的可能性赢得比赛但是有负百分之十三的人认为你有负的百分之二十的胜利可能性",
+      "expected": "明天有62%的概率降雨所以你有2.51%的可能性赢得比赛但是有-13%的人认为你有-20%的胜利可能性",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 31,
+      "input": "这块黄金重达三百二十四点七五克,我再随便来几个价格三十四点五二一元,二十点一万",
+      "expected": "这块黄金重达324.75g,我再随便来几个价格¥34.521,20.1万",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 32,
+      "input": "一共有一人二人三人四人五人六人七人八人九人十人十一人十二人十三人十四人十五人十六人十七人十八人十九人二十人二十一人二十二人二十三人二十四人二十五人二十六人二十七人二十八人二十九人三十人三十一人三十二人三十三人三十四人三十五人三十六人三十七人三十八人三十九人四十人四十一人四十二人四十三人四十四人四十五人四十六人四十七人四十八人四十九人五十人五十一人五十二人五十三人五十四人五十五人五十六人五十七人五十八人五十九人六十人六十一人六十二人六十三人六十四人六十五人六十六人六十七人六十八人六十九人七十人七十一人七十二人七十三人七十四人七十五人七十六人七十七人七十八人七十九人八十人八十一人八十二人八十三人八十四人八十五人八十六人八十七人八十八人八十九人九十人九十一人九十二人九十三人九十四人九十五人九十六人九十七人九十八人九十九人一百人一百零一人一百一人一百一十一人一百一十二人两百二人二百二十三人三百三人三百三十四人四百四人四百四十五人一千零一人一千零五十人一千零五十一人一千三百人一千五百五人两千五百五十六人三千六百六人四千六百六十七人五千七百七人六千七百七十八人七千八百八人八千八百八十九人九千九百九人九千九百九十一人",
+      "expected": "一共有一人二人三人四人五人六人七人八人九人10人11人12人13人14人15人16人17人18人19人20人21人22人23人24人25人26人27人28人29人30人31人32人33人34人35人36人37人38人39人40人41人42人43人44人45人46人47人48人49人50人51人52人53人54人55人56人57人58人59人60人61人62人63人64人65人66人67人68人69人70人71人72人73人74人75人76人77人78人79人80人81人82人83人84人85人86人87人88人89人90人91人92人93人94人95人96人97人98人99人100人101人110人111人112人220人223人330人334人440人445人1001人1050人1051人1300人1550人2556人3660人4667人5770人6778人7880人8889人9990人9991人",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 33,
+      "input": "三百九十九三盒",
+      "expected": "399三盒",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 34,
+      "input": "这是八百一千",
+      "expected": "这是800 1000",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 35,
+      "input": "这是二十九千",
+      "expected": "这是20 9000",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 36,
+      "input": "这是九十九九千",
+      "expected": "这是99 9000",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 37,
+      "input": "这是十二一千",
+      "expected": "这是12 1000",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 38,
+      "input": "这是零百",
+      "expected": "这是零百",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 39,
+      "input": "这是零千",
+      "expected": "这是零千",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 40,
+      "input": "这是一百一个，一千两位，一万三天",
+      "expected": "这是100一个，1000两位，10000三天",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 41,
+      "input": "这是九百九周，九千九月，九万九年",
+      "expected": "这是900九周，9000九月，90000九年",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "normalizer_enable_standalone_number_disable_0_to_9.txt",
+      "line": 42,
+      "input": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "expected": "十三五规划期间获得了十几万和几十万甚至二十几万的投资",
+      "reason": "WeText configuration-variant fixture; VoxFlow exposes fixed conservative rules rather than WeText standalone-number flags."
+    },
+    {
+      "file": "number.txt",
+      "line": 2,
+      "input": "零",
+      "expected": "0",
+      "reason": "Standalone single Chinese numbers are not converted without context to avoid false positives in prose."
+    },
+    {
+      "file": "number.txt",
+      "line": 3,
+      "input": "一",
+      "expected": "1",
+      "reason": "Standalone single Chinese numbers are not converted without context to avoid false positives in prose."
+    },
+    {
+      "file": "number.txt",
+      "line": 4,
+      "input": "二",
+      "expected": "2",
+      "reason": "Standalone single Chinese numbers are not converted without context to avoid false positives in prose."
+    },
+    {
+      "file": "number.txt",
+      "line": 5,
+      "input": "十",
+      "expected": "10",
+      "reason": "Standalone single Chinese numbers are not converted without context to avoid false positives in prose."
+    },
+    {
+      "file": "number.txt",
+      "line": 29,
+      "input": "一百万一千一百一十一",
+      "expected": "100万1111",
+      "reason": "WeText keeps 万 as a mixed Arabic-Chinese suffix; VoxFlow fully expands parsed numbers."
+    },
+    {
+      "file": "number.txt",
+      "line": 30,
+      "input": "一千万一千一百一十一",
+      "expected": "1000万1111",
+      "reason": "WeText keeps 万 as a mixed Arabic-Chinese suffix; VoxFlow fully expands parsed numbers."
+    },
+    {
+      "file": "time.txt",
+      "line": 3,
+      "input": "上午一点零二分三十六秒",
+      "expected": "1:02:36a.m.",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "time.txt",
+      "line": 4,
+      "input": "早上一点零二",
+      "expected": "1:02a.m.",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "time.txt",
+      "line": 5,
+      "input": "早上一点零二分",
+      "expected": "1:02a.m.",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "time.txt",
+      "line": 6,
+      "input": "晚上一点零二分",
+      "expected": "1:02p.m.",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "time.txt",
+      "line": 8,
+      "input": "下午八点零五分",
+      "expected": "8:05p.m.",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "time.txt",
+      "line": 12,
+      "input": "时间上是零点十分登机,八点五分下飞机,八点三十去吃早饭.你是说八点零五分下飞机还是八点零五分下飞机?我可能下午三点四十,或者上午十点半再或者下午三点四十一分去找你",
+      "expected": "时间上是00:10登机,8.5分下飞机,8:30去吃早饭.你是说8:05下飞机还是8:05下飞机?我可能3:40p.m.,或者10:30a.m.再或者3:41p.m.去找你",
+      "reason": "AM/PM suffix normalization is excluded; VoxFlow keeps the spoken period marker."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 1,
+      "input": "高一二",
+      "expected": "G12",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 2,
+      "input": "高一二三",
+      "expected": "G123",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 3,
+      "input": "高一二三四",
+      "expected": "G1234",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 4,
+      "input": "动二三",
+      "expected": "D23",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 5,
+      "input": "动三四五六",
+      "expected": "D3456",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 6,
+      "input": "特五六七八",
+      "expected": "T5678",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "train_number.txt",
+      "line": 7,
+      "input": "快一零二三",
+      "expected": "K1023",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "whitelist.txt",
+      "line": 1,
+      "input": "三七二十一",
+      "expected": "三七二十一",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    },
+    {
+      "file": "whitelist.txt",
+      "line": 2,
+      "input": "一共",
+      "expected": "一共",
+      "reason": "WeText full FST/runtime category outside VoxFlow lightweight processor scope."
+    }
+  ]
+}

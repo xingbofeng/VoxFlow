@@ -51,16 +51,16 @@ struct TextTransformRequest: Equatable, Sendable {
 
 enum TextTransformPromptBuilder {
     static let translationSystemPrompt = """
-        你是 VoxFlow 的翻译助手。请把用户提供的文本翻译成简体中文。
-        如果文本已经主要是简体中文，请润色为自然、准确、适合直接使用的简体中文。
-        保留代码、命令、URL、路径、变量名、专有名词和 Markdown 结构。
-        只输出译文，不要解释，不要添加标题。
+        You are VoxFlow's translation assistant. Translate the user-provided text into Simplified Chinese.
+        If the text is already mostly Simplified Chinese, polish it into natural, accurate Simplified Chinese that is ready to use.
+        Preserve code, commands, URL, paths, variable names, proper nouns, and Markdown structure.
+        Output only the translation. Do not explain or add a title.
         """
 
     static let summarySystemPrompt = """
-        你是 VoxFlow 的总结助手。请把用户提供的文本总结成简洁要点。
-        保留关键事实、数字、专有名词、代码标识符和待办事项。
-        只输出总结内容，不要解释你的过程。
+        You are VoxFlow's summarization assistant. Summarize the user-provided text into concise key points.
+        Preserve key facts, numbers, proper nouns, code identifiers, and action items.
+        Output only the summary content. Do not explain your process.
         """
 
     static func refinementRequest(for request: TextTransformRequest) -> TextRefinementRequest {

@@ -1,0 +1,704 @@
+{
+  "source": "Ailln/cn2an cn2an/cn2an_test.py",
+  "license": "MIT",
+  "caseCount": 116,
+  "cases": [
+    {
+      "source": "strict_data_dict",
+      "input": "零",
+      "expected": "0"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一",
+      "expected": "1"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "十",
+      "expected": "10"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "十一",
+      "expected": "11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一十一",
+      "expected": "11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "二十",
+      "expected": "20"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "二十一",
+      "expected": "21"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百",
+      "expected": "100"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百零一",
+      "expected": "101"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百一十",
+      "expected": "110"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百一十一",
+      "expected": "111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千",
+      "expected": "1000"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百",
+      "expected": "1100"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百一十",
+      "expected": "1110"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百一十一",
+      "expected": "1111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一十",
+      "expected": "1010"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零十",
+      "expected": "1010"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零十一",
+      "expected": "1011"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一十一",
+      "expected": "1011"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一",
+      "expected": "1001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百零一",
+      "expected": "1101"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一万一千一百一十一",
+      "expected": "11111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一十一万一千一百一十一",
+      "expected": "111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百一十一万一千一百一十一",
+      "expected": "1111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百一十一万一千一百一十一",
+      "expected": "11111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一亿一千一百一十一万一千一百一十一",
+      "expected": "111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一十一亿一千一百一十一万一千一百一十一",
+      "expected": "1111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百一十一亿一千一百一十一万一千一百一十一",
+      "expected": "11111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百一十一亿一千一百一十一万一千一百一十一",
+      "expected": "111111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千一百一十一万一千一百一十一亿一千一百一十一万一千一百一十一",
+      "expected": "1111111111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹",
+      "expected": "1"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "拾",
+      "expected": "10"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "拾壹",
+      "expected": "11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹",
+      "expected": "11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹佰壹拾壹",
+      "expected": "111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹仟壹佰壹拾壹",
+      "expected": "1111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹万壹仟壹佰壹拾壹",
+      "expected": "11111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "1111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹仟壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "11111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹亿壹仟壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹亿壹仟壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "1111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹佰壹拾壹亿壹仟壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "11111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹仟壹佰壹拾壹亿壹仟壹佰壹拾壹万壹仟壹佰壹拾壹",
+      "expected": "111111111111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "十万",
+      "expected": "100000"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "十万零一",
+      "expected": "100001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一万零一",
+      "expected": "10001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一万零一十一",
+      "expected": "10011"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一万零一百一十一",
+      "expected": "10111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一万零百一十一",
+      "expected": "10111"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一十万零一",
+      "expected": "100001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百万零一",
+      "expected": "1000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千万零一",
+      "expected": "10000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一万一千零一",
+      "expected": "10011001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一万零一",
+      "expected": "10010001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一亿零一",
+      "expected": "100000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一十亿零一",
+      "expected": "1000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一百亿零一",
+      "expected": "10000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千零一亿一千零一万一千零一",
+      "expected": "100110011001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千亿一千万一千零一",
+      "expected": "100010001001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "一千亿零一",
+      "expected": "100000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零零零零零零一",
+      "expected": "0.000000000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零零零零零一",
+      "expected": "0.00000000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零零零零一",
+      "expected": "0.0000000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零零零一",
+      "expected": "0.000000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零零一",
+      "expected": "0.00000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零零一",
+      "expected": "0.0000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零零一",
+      "expected": "0.000000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零零一",
+      "expected": "0.00000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零零一",
+      "expected": "0.0000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零零一",
+      "expected": "0.000001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零零一",
+      "expected": "0.00001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零零一",
+      "expected": "0.0001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零零一",
+      "expected": "0.001"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点零一",
+      "expected": "0.01"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "零点一",
+      "expected": "0.1"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "负一",
+      "expected": "-1"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "负二",
+      "expected": "-2"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "负十",
+      "expected": "-10"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "负十一",
+      "expected": "-11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "负一十一",
+      "expected": "-11"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "廿二",
+      "expected": "22"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一一",
+      "expected": "11"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一一一",
+      "expected": "111"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹壹",
+      "expected": "11"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹壹壹",
+      "expected": "111"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "零点零",
+      "expected": "0"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "零点零零",
+      "expected": "0"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一七二零",
+      "expected": "1720"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一七二零点一",
+      "expected": "1720.1"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一七二零点一三四",
+      "expected": "1720.134"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一二三",
+      "expected": "123"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "负零点一零",
+      "expected": "-0.1"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "负一七二零",
+      "expected": "-1720"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "负一七二零点一",
+      "expected": "-1720.1"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "三万五",
+      "expected": "35000"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "十三万五",
+      "expected": "135000"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "两千六",
+      "expected": "2600"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一百二",
+      "expected": "120"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一百十一",
+      "expected": "111"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一百十六",
+      "expected": "116"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一千一十",
+      "expected": "1010"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一百二十万三",
+      "expected": "1203000"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "十万零一千",
+      "expected": "101000"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一百九十万零三千九百七十一",
+      "expected": "1903971"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "一亿五千万零六千三百五十五",
+      "expected": "150006355"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "兩千六",
+      "expected": "2600"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹拾万零叁仟肆佰伍拾叁",
+      "expected": "103453"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "〇",
+      "expected": "0"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "零一",
+      "expected": "01"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "零零三",
+      "expected": "003"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "二〇〇二",
+      "expected": "2002"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "幺八九",
+      "expected": "189"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "负零一",
+      "expected": "-01"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "一二点三零",
+      "expected": "12.30"
+    },
+    {
+      "source": "direct_data_dict",
+      "input": "012",
+      "expected": "012"
+    }
+  ],
+  "exclusions": [
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹元整",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹佰壹拾壹圆整",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹元正",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹圆正",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹元壹角",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹拾壹元壹角壹分",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "玖仟陆佰陆拾伍圆壹角捌分",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "strict_data_dict",
+      "input": "壹佰捌拾壹圆柒角",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹拾壹元",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹佰壹拾壹圆",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "normal_data_dict",
+      "input": "壹拾壹圆",
+      "reason": "currency suffix parsing is outside isolated numeral parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "100万",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "100万三千",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "200亿零四千230",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "一百点123",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "10.1万",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "-10.1万",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "16.4亿",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "35.1亿",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "1百01",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "1万600",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "10.1",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    },
+    {
+      "source": "smart_data_dict",
+      "input": "-10.1",
+      "reason": "mixed Arabic/Chinese smart mode is sentence-level ITN scope, not isolated parser scope"
+    }
+  ]
+}

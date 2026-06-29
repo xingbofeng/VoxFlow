@@ -221,7 +221,7 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         )
         let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
         let systemContent = try XCTUnwrap(messages.first?["content"] as? String)
-        XCTAssertTrue(systemContent.contains("临时屏幕上下文词，仅本次有效"))
+        XCTAssertTrue(systemContent.contains("Temporary screen context terms"))
         XCTAssertTrue(systemContent.contains(#""temporary_terms":["Qwen3-ASR","Hyperframe","speech-swift"]"#))
         XCTAssertFalse(systemContent.contains("完整 OCR 文本"))
     }

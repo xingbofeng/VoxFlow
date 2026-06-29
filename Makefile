@@ -39,10 +39,7 @@ CURRENT_BUNDLE_ID := com.voxflow.app
 DEV_BUNDLE_ID := com.voxflow.app.dev
 DEV_BUNDLE_NAME := VoxFlow Dev
 DEV_DISPLAY_NAME := 码上写 Dev
-LEGACY_APP_NAME := VoiceInput
-LEGACY_BUNDLE_ID := com.voiceinput.app
-REQUESTED_BUNDLE_ID := com.VoxFlow.app
-STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowStatusItemMenuExtraV6 VoxFlowStatusItemMenuExtraV5 VoxFlowStatusItemMenuExtraV4 VoxFlowStatusItem VoxFlowStatusItemV2 VoxFlowStatusItemRuntime VoxFlowStatusItemVisibleV3 Item-0 Item-1 Item-2
+STATUS_ITEM_AUTOSAVE_NAMES := VoxFlowMenuBarItem
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk -F\" '/Apple Development/ { print $$2; exit }')
 DEVELOPMENT_CODE_SIGN_IDENTITY ?= $(if $(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),$(DETECTED_DEVELOPMENT_CODE_SIGN_IDENTITY),-)
@@ -267,13 +264,12 @@ prelaunch-cleanup:
 		".build/$(SWIFT_EXECUTABLE).app" \
 		"dist/staging/$(APP_NAME).app" \
 		"/Applications/$(APP_NAME).app" \
-		"/Applications/$(LEGACY_APP_NAME).app" \
 		"/Applications/$(SWIFT_EXECUTABLE).app" \
 		/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app; do \
 		"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
 	done
 	@rm -rf ".build/$(APP_NAME).app"
-	@for bundle_id in "$(LEGACY_BUNDLE_ID)" "$(REQUESTED_BUNDLE_ID)" "$(CURRENT_BUNDLE_ID)" "$(DEV_BUNDLE_ID)"; do \
+	@for bundle_id in "$(CURRENT_BUNDLE_ID)" "$(DEV_BUNDLE_ID)"; do \
 		for autosave_name in $(STATUS_ITEM_AUTOSAVE_NAMES); do \
 			defaults delete "$$bundle_id" "NSStatusItem Preferred Position $$autosave_name" 2>/dev/null || true; \
 			defaults delete "$$bundle_id" "NSStatusItem Visible $$autosave_name" 2>/dev/null || true; \

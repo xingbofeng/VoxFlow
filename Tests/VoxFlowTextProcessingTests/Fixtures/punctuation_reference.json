@@ -1,0 +1,77 @@
+{
+  "source": "VoxFlow rules informed by WeTextProcessing Chinese postprocessor",
+  "upstreamReference": "wenet-e2e/WeTextProcessing tn/chinese/rules/postprocessor.py",
+  "caseCount": 8,
+  "cases": [
+    {
+      "name": "cjk-adjacent-comma-and-period",
+      "input": "你好,世界.",
+      "expected": "你好，世界。",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    },
+    {
+      "name": "cjk-adjacent-semicolon-and-question",
+      "input": "今天调试;明天验证?",
+      "expected": "今天调试；明天验证？",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    },
+    {
+      "name": "english-punctuation-preserved",
+      "input": "Review the build, update QA; confirm rollback",
+      "expected": "Review the build, update QA; confirm rollback.",
+      "cjkThreshold": 100,
+      "wordThreshold": 4
+    },
+    {
+      "name": "english-short-fragment-no-period",
+      "input": "confirm rollback",
+      "expected": "confirm rollback",
+      "cjkThreshold": 100,
+      "wordThreshold": 4
+    },
+    {
+      "name": "repeated-cjk-punctuation-collapsed",
+      "input": "真的吗？？？",
+      "expected": "真的吗？？",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    },
+    {
+      "name": "url-protected",
+      "input": "访问 https://example.com/a.b 看看",
+      "expected": "访问 https://example.com/a.b 看看。",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    },
+    {
+      "name": "version-protected",
+      "input": "升级到 2.1.3,然后验证",
+      "expected": "升级到 2.1.3，然后验证。",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    },
+    {
+      "name": "code-span-protected",
+      "input": "使用 `arr.filter(x => x > 0)` 处理",
+      "expected": "使用 `arr.filter(x => x > 0)` 处理。",
+      "cjkThreshold": 1,
+      "wordThreshold": 100
+    }
+  ],
+  "exclusions": [
+    {
+      "upstream": "tn/chinese/test/data/postprocessor.txt: 好！ => 好!",
+      "reason": "WeText TN converts full-width punctuation to half-width for spoken text generation; VoxFlow post-LLM insertion keeps CJK-facing full-width punctuation."
+    },
+    {
+      "upstream": "tn/chinese/test/data/postprocessor.txt: 好啊 => 好",
+      "reason": "WeText removes interjections in postprocessing; VoxFlow handles fillers in a separate conservative pre-LLM filter and preserves 啊."
+    },
+    {
+      "upstream": "tn/chinese/test/data/postprocessor.txt: OOV tagging",
+      "reason": "OOV tagging is a WeText FST diagnostic feature, not a VoxFlow insertion formatter."
+    }
+  ]
+}

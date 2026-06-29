@@ -22,7 +22,7 @@ final class TextTransformServiceTests: XCTestCase {
             .completed("人工智能"),
         ])
         XCTAssertEqual(refiner.requests.map(\.text), ["Artificial intelligence"])
-        XCTAssertTrue(refiner.requests[0].systemPrompt.contains("翻译"))
+        XCTAssertTrue(refiner.requests[0].systemPrompt.contains("translation assistant"))
         XCTAssertEqual(refiner.requests[0].temperature, 0.2)
     }
 

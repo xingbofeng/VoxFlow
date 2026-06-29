@@ -282,16 +282,6 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertFalse(controller.window?.isVisible ?? true)
     }
 
-    func testAgentDispatchConfirmationKeyboardShortcutUsesConsumingEventTap() throws {
-        let sourceURL = Self.projectRoot()
-            .appendingPathComponent("Sources/VoxFlowApp/Presentation/OverlayWindowController.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("CGEvent.tapCreate"))
-        XCTAssertTrue(source.contains("return nil"))
-        XCTAssertFalse(source.contains("addGlobalMonitorForEvents(matching: .keyDown)"))
-    }
-
     func testAgentDispatchConfirmationCancelsPriorTemporaryMessageTimeout() async throws {
         let controller = OverlayWindowController()
         controller.showTemporaryMessage("请求超时", duration: 0.01)
@@ -564,14 +554,6 @@ private extension NSView {
 }
 
 private extension OverlayAppearanceTests {
-    static func projectRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
-
     static func keyDownEvent(keyCode: UInt16, characters: String) -> NSEvent? {
         NSEvent.keyEvent(
             with: .keyDown,

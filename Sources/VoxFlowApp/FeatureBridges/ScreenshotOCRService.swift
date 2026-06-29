@@ -873,24 +873,24 @@ final class ScreenshotOCRService {
     }
 
     nonisolated static let translationSystemPrompt = """
-        你是截图文字翻译助手。把用户框选截图中 OCR 得到的文字翻译成自然准确的对照文本。
-        无论原文是什么语言，都翻译成简体中文；原文已经是中文时，保持中文并只做必要的自然化整理。
-        中英混合时保留专名、代码、URL、命令和数字。尽量保留原文段落和换行结构。只输出译文，不要解释、标题、引号或额外说明。
+        You are a screenshot text translation assistant. Translate OCR text from the user's selected screenshot into natural and accurate reference text.
+        Translate into Simplified Chinese regardless of the source language. If the source text is already Chinese, keep it in Chinese and make only necessary naturalness edits.
+        For mixed Chinese-English text, preserve proper nouns, code, URL, commands, and numbers. Preserve the original paragraph and line-break structure as much as possible. Output only the translation, with no explanation, title, quotes, or extra notes.
         """
 
     /// 按行翻译的 prompt：输入 [{index, text}] JSON，要求输出 [{index, translated}] JSON。
     /// index 必须一一对应，禁止合并/拆分/重排。这样译文能按 index 回填到 OCR bbox。
     nonisolated static let lineTranslationSystemPrompt = """
-        你是截图文字翻译助手。输入是 JSON 数组，每项 {index, text}。把每行 text 翻译成简体中文。
-        原文已是中文时保持中文，做必要自然化整理。保留专名、代码、URL、命令、数字。
-        输出必须是 JSON 数组，每项 {index, translated}，index 与输入一一对应，禁止合并、拆分、重排、增删。
-        只输出 JSON 数组，不要任何解释、标题、引号或额外说明。
+        You are a screenshot text translation assistant. The input is a JSON array where each item is {index, text}. Translate each text line into Simplified Chinese.
+        If the source text is already Chinese, keep it in Chinese and make only necessary naturalness edits. Preserve proper nouns, code, URL, commands, and numbers.
+        The output must be a JSON array where each item is {index, translated}. Index values must match the input exactly. Do not merge, split, reorder, add, or delete items.
+        Output only the JSON array, with no explanation, title, quotes, or extra notes.
         """
 
     nonisolated static let summarySystemPrompt = """
-        你是截图文字总结助手。请根据截图 OCR 原文提炼关键信息。
-        输出 3 条以内的简短要点；保留重要名称、数字、URL、错误码和操作建议。
-        只输出总结内容，不要添加标题、引号或额外说明。
+        You are a screenshot text summarization assistant. Extract the key information from the screenshot OCR text.
+        Output up to 3 short bullet points. Preserve important names, numbers, URL, error codes, and suggested actions.
+        Output only the summary content, with no title, quotes, or extra notes.
         """
 }
 

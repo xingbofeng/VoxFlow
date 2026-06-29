@@ -115,7 +115,8 @@ final class AppPresentationPolicyTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(makefile.contains("VoxFlowStatusItemMenuExtraV4"))
+        XCTAssertTrue(makefile.contains("VoxFlowMenuBarItem"))
+        XCTAssertFalse(makefile.contains("VoxFlowStatusItemMenuExtra"))
         XCTAssertTrue(makefile.contains("NSStatusItem Preferred Position"))
         XCTAssertTrue(makefile.contains("NSStatusItem Visible "))
         XCTAssertTrue(makefile.contains("NSStatusItem VisibleCC"))

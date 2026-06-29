@@ -220,6 +220,32 @@ final class ShortcutManagerTests: XCTestCase {
         )
     }
 
+    func testStartupNormalizesScreenshotOCRAwayFromCommandShiftVEvenWhenClipboardOCRIsCustomized() {
+        let commandShiftV = ShortcutManager.defaultClipboardImageOCRShortcutKeyCode
+        let customClipboardImageOCR = ShortcutManager.encodeShortcut(
+            keyCode: 0x2D,
+            modifierMask: ShortcutManager.optionModifierMask | ShortcutManager.shiftModifierMask
+        )
+        defaults.set(customClipboardImageOCR, forKey: "ClipboardImageOCRShortcutKeyCode")
+        defaults.set(commandShiftV, forKey: "ScreenshotOCRShortcutKeyCode")
+
+        sut = ShortcutManager(defaults: defaults)
+
+        XCTAssertEqual(sut.shortcutKeyCode(for: .clipboardImageOCR), customClipboardImageOCR)
+        XCTAssertEqual(
+            sut.shortcutKeyCode(for: .screenshotOCR),
+            ShortcutManager.defaultScreenshotOCRShortcutKeyCode
+        )
+        XCTAssertNil(
+            HotKeyShortcutRouting.workflowShortcut(
+                keyCode: HotKeyShortcutRouting.vKeyCode,
+                flags: [.maskCommand, .maskShift],
+                clipboardImageOCRKeyCode: sut.shortcutKeyCode(for: .clipboardImageOCR),
+                screenshotOCRKeyCode: sut.shortcutKeyCode(for: .screenshotOCR)
+            )
+        )
+    }
+
     func testOCRWorkflowShortcutsRequireModifiedNonSystemKeys() {
         XCTAssertFalse(ShortcutManager.isSupportedWorkflowShortcutKeyCode(0x09))
         XCTAssertFalse(ShortcutManager.isSupportedWorkflowShortcutKeyCode(54))

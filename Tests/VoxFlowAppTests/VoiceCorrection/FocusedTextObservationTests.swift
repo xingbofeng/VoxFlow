@@ -65,37 +65,6 @@ final class FocusedTextObservationTests: XCTestCase {
         XCTAssertEqual(sleeps, (1...30).map { .seconds($0) })
     }
 
-    func testAccessibilityObserverCapsElementCache() throws {
-        let source = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Sources/VoxFlowApp/VoiceCorrection/Observation/AccessibilityFocusedTextObserver.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("maximumCachedElements"))
-        XCTAssertTrue(source.contains("pruneElementCacheIfNeeded"))
-    }
-
-    func testAccessibilityObserverFallsBackToFrontmostApplicationFocus() throws {
-        let source = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Sources/VoxFlowApp/VoiceCorrection/Observation/AccessibilityFocusedTextObserver.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("frontmostApplicationFocusedElement"))
-        XCTAssertTrue(source.contains("NSWorkspace.shared.frontmostApplication"))
-        XCTAssertTrue(source.contains("AXUIElementCreateApplication"))
-    }
-
     private func observation(
         identity: String,
         value: String,

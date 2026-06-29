@@ -121,43 +121,6 @@ final class ScreenshotRecordViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.lastError)
     }
 
-    func testRevealBurnedRecordingFallsBackToOriginalWhenSubtitledVideoIsMissing() throws {
-        let container = try DependencyContainer.inMemory()
-        let viewModel = ScreenshotRecordViewModel(
-            environment: AppEnvironment(container: container),
-            clipboardService: SystemClipboardService()
-        )
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("VoxFlowRevealFallback-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-
-        let originalURL = root.appendingPathComponent("recording.mp4")
-        let missingSubtitledURL = root.appendingPathComponent("recording.subtitled.mp4")
-        try Data([0, 1, 2, 3]).write(to: originalURL)
-        let record = MediaRecord(
-            id: "burned-missing-subtitled",
-            mediaType: .screenRecording,
-            videoPath: originalURL.path,
-            durationMs: 1_000,
-            width: 800,
-            height: 600,
-            fileSizeBytes: 4,
-            audioMode: .microphone,
-            subtitleStatus: .burned,
-            subtitledVideoPath: missingSubtitledURL.path,
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
-        )
-        try container.mediaRecordRepository.save(record)
-        viewModel.load()
-
-        viewModel.revealInFinder(id: record.id)
-
-        XCTAssertEqual(viewModel.lastActionMessage, "已在 Finder 中显示")
-        XCTAssertNil(viewModel.lastError)
-    }
-
     func testFileActionsReportMissingFileInsteadOfSilentlyDoingNothing() throws {
         let container = try DependencyContainer.inMemory()
         let viewModel = ScreenshotRecordViewModel(

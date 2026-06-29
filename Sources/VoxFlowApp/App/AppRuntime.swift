@@ -2,6 +2,7 @@ import Foundation
 @preconcurrency import Translation
 import VoxFlowScreenshotKit
 import VoxFlowTextInsertion
+import VoxFlowTextProcessing
 
 private final class WeakSelectionOverlayControllerBox {
     weak var controller: SelectionOverlayController?
@@ -96,7 +97,12 @@ final class AppTextRuntime {
             contextBoostProvider: contextBoostProvider,
             contextBoostCoordinator: ContextBoostPrefetchCoordinator(
                 sessionProvider: contextBoostProvider
-            )
+            ),
+            deterministicSettingsProvider: {
+                DeterministicTextProcessingSettingsStore.load(
+                    storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
+                )
+            }
         )
     }
 }

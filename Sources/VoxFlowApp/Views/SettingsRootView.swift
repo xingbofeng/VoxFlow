@@ -1,5 +1,86 @@
 import AppKit
 import SwiftUI
+import VoxFlowTextProcessing
+
+private enum TextProcessingThresholdEditor: String, Identifiable {
+    case punctuation
+    case longSentence
+
+    var id: String { rawValue }
+}
+
+enum SettingsThresholdEditorLayout {
+    static let usesSideBySideInteraction = true
+    static let showsInternalScrollIndicators = false
+    static let hasFooterAction = false
+    static let hasControlsPaneResetAction = true
+    static let preferredModalWidth: CGFloat = 1_020
+    static let minimumModalWidth: CGFloat = 880
+    static let horizontalPadding: CGFloat = 24
+    static let verticalPadding: CGFloat = 24
+    static let contentSpacing: CGFloat = 18
+    static let controlsPaneWidth: CGFloat = 430
+    static let examplesPaneMinWidth: CGFloat = 360
+}
+
+enum SettingsThresholdPreviewSamples {
+    static let punctuationEnglish = "Review the build, update QA; confirm the rollback plan"
+    static let punctuationChinese = "今天调试,明天验证;是否回滚?"
+    static let longSentenceEnglish = "We should keep the interaction clear, update the preview while dragging, explain why the threshold changed, and make the final text easier to scan during review."
+    static let longSentenceChinese = "我们需要先确认录音状态，检查转写结果，调整标点策略，对比预览变化，最后同步给团队。"
+
+    static func punctuationEnglishPreview(wordThreshold: Int) -> String {
+        DeterministicTextPreviewEngine.preview(
+            punctuationEnglish,
+            processor: .punctuationOptimization,
+            settings: .init(
+                enabled: true,
+                punctuationOptimization: true,
+                punctuationCJKThreshold: .max,
+                punctuationWordThreshold: wordThreshold
+            )
+        )
+    }
+
+    static func punctuationChinesePreview(cjkThreshold: Int) -> String {
+        DeterministicTextPreviewEngine.preview(
+            punctuationChinese,
+            processor: .punctuationOptimization,
+            settings: .init(
+                enabled: true,
+                punctuationOptimization: true,
+                punctuationCJKThreshold: cjkThreshold,
+                punctuationWordThreshold: .max
+            )
+        )
+    }
+
+    static func longSentenceEnglishPreview(wordThreshold: Int) -> String {
+        DeterministicTextPreviewEngine.preview(
+            longSentenceEnglish,
+            processor: .longSentenceBreaking,
+            settings: .init(
+                enabled: true,
+                longSentenceBreaking: true,
+                longSentenceWordThreshold: wordThreshold,
+                longSentenceCJKThreshold: .max
+            )
+        )
+    }
+
+    static func longSentenceChinesePreview(cjkThreshold: Int) -> String {
+        DeterministicTextPreviewEngine.preview(
+            longSentenceChinese,
+            processor: .longSentenceBreaking,
+            settings: .init(
+                enabled: true,
+                longSentenceBreaking: true,
+                longSentenceWordThreshold: .max,
+                longSentenceCJKThreshold: cjkThreshold
+            )
+        )
+    }
+}
 
 private enum ShortcutBinding: Equatable {
     case voice(VoiceAction)
@@ -50,6 +131,7 @@ struct SettingsRootView: View {
     @State private var showAgentCLIRegistrationConfirmation = false
     @State private var showAgentCLIUnregistrationConfirmation = false
     @State private var openDropdown: SettingsDropdown?
+    @State private var textProcessingThresholdEditor: TextProcessingThresholdEditor?
     @State private var pendingInterfaceLanguage: AppLanguage?
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
     @AppStorage(ContextBoostSettings.enabledDefaultsKey) private var contextBoostEnabled = ContextBoostSettings.defaultEnabled
@@ -89,6 +171,10 @@ struct SettingsRootView: View {
                 )
             }
         }
+        .overlay {
+            textProcessingThresholdOverlay
+        }
+        .animation(.easeOut(duration: 0.16), value: textProcessingThresholdEditor?.id)
         .confirmationDialog(
             L10n.localize("settings.task.dialog.delete_all_local_models.title", comment: "Delete all local model dialog title"),
             isPresented: $showDeleteAllLocalModelsConfirmation,
@@ -162,6 +248,40 @@ struct SettingsRootView: View {
             ?? asrProviderViewModel.lastActionMessage
     }
 
+    @ViewBuilder
+    private var textProcessingThresholdOverlay: some View {
+        if let textProcessingThresholdEditor {
+            GeometryReader { proxy in
+                let availableWidth = max(0, proxy.size.width - 72)
+                let modalWidth = min(
+                    SettingsThresholdEditorLayout.preferredModalWidth,
+                    max(SettingsThresholdEditorLayout.minimumModalWidth, availableWidth)
+                )
+                let modalMaxHeight = max(360, proxy.size.height - 72)
+
+                ZStack {
+                    Color.black.opacity(0.22)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            self.textProcessingThresholdEditor = nil
+                        }
+
+                    textProcessingThresholdEditorSheet(textProcessingThresholdEditor)
+                        .frame(width: modalWidth)
+                        .frame(maxHeight: modalMaxHeight)
+                        .shadow(color: Color.black.opacity(0.18), radius: 28, x: 0, y: 18)
+                        .transition(.scale(scale: 0.98).combined(with: .opacity))
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .zIndex(10)
+            }
+            .ignoresSafeArea(.container, edges: [])
+        }
+    }
+
     private var actionFeedbackError: String? {
         viewModel.lastError
             ?? llmProviderViewModel.lastError
@@ -191,6 +311,7 @@ struct SettingsRootView: View {
             settingsSidebarButton(.general)
             settingsSidebarButton(.vibeCoding)
             settingsSidebarButton(.system)
+            settingsSidebarButton(.textProcessing)
 
             sidebarGroupTitle(L10n.localize("settings.task.sidebar.group.models", comment: "Sidebar section group title"))
                 .padding(.top, 16)
@@ -232,6 +353,8 @@ struct SettingsRootView: View {
             translationModelsSection
         case .system:
             systemSection
+        case .textProcessing:
+            textProcessingSection
         case .dataPrivacy:
             dataPrivacySection
         }
@@ -879,6 +1002,296 @@ struct SettingsRootView: View {
                 )
             }
         }
+    }
+
+    private var textProcessingSection: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsGroupCard(
+                title: L10n.localize("settings.text_processing.group.title", comment: "Text processing group title"),
+                subtitle: L10n.localize("settings.text_processing.group.subtitle", comment: "Text processing group subtitle"),
+                systemImage: "wand.and.stars",
+                tint: .indigo
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    SettingsToggleRow(
+                        title: L10n.localize("settings.text_processing.master.title", comment: "Master toggle title"),
+                        subtitle: L10n.localize("settings.text_processing.master.subtitle", comment: "Master toggle subtitle"),
+                        systemImage: "power",
+                        tint: .indigo,
+                        isOn: deterministicMasterBinding
+                    )
+
+                    Divider().padding(.leading, 2)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        SettingsToggleRow(
+                            title: L10n.localize("settings.text_processing.smart_number.title", comment: "Smart number toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.smart_number.subtitle", comment: "Smart number toggle subtitle"),
+                            systemImage: "number",
+                            tint: .blue,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicSmartNumberRecognition
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(smartNumberRecognition: newValue)
+                            }
+                        )
+
+                        SettingsThresholdToggleRow(
+                            title: L10n.localize("settings.text_processing.punctuation.title", comment: "Punctuation toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.punctuation.subtitle", comment: "Punctuation toggle subtitle"),
+                            summary: punctuationThresholdSummary,
+                            systemImage: "exclamationmark.bubble",
+                            tint: .orange,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicPunctuationOptimization
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(punctuationOptimization: newValue)
+                            },
+                            onConfigure: {
+                                textProcessingThresholdEditor = .punctuation
+                            }
+                        )
+
+                        SettingsThresholdToggleRow(
+                            title: L10n.localize("settings.text_processing.long_sentence.title", comment: "Long sentence toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.long_sentence.subtitle", comment: "Long sentence toggle subtitle"),
+                            summary: longSentenceThresholdSummary,
+                            systemImage: "text.insert",
+                            tint: .teal,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicLongSentenceBreaking
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(longSentenceBreaking: newValue)
+                            },
+                            onConfigure: {
+                                textProcessingThresholdEditor = .longSentence
+                            }
+                        )
+
+                        SettingsToggleRow(
+                            title: L10n.localize("settings.text_processing.filler_filter.title", comment: "Filler filter toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.filler_filter.subtitle", comment: "Filler filter toggle subtitle"),
+                            systemImage: "scissors",
+                            tint: .pink,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicFillerWordFiltering
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(fillerWordFiltering: newValue)
+                            }
+                        )
+
+                        SettingsToggleRow(
+                            title: L10n.localize("settings.text_processing.cjk_latin_spacing.title", comment: "CJK-Latin spacing toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.cjk_latin_spacing.subtitle", comment: "CJK-Latin spacing toggle subtitle"),
+                            systemImage: "character.textbox",
+                            tint: .purple,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicCjkLatinSpacing
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(cjkLatinSpacing: newValue)
+                            }
+                        )
+
+                        SettingsToggleRow(
+                            title: L10n.localize("settings.text_processing.auto_capitalization.title", comment: "Auto capitalization toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.auto_capitalization.subtitle", comment: "Auto capitalization toggle subtitle"),
+                            systemImage: "textformat",
+                            tint: .yellow,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicAutoCapitalization
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(autoCapitalization: newValue)
+                            }
+                        )
+                    }
+                    .disabled(!viewModel.deterministicTextProcessingEnabled)
+                    .opacity(viewModel.deterministicTextProcessingEnabled ? 1.0 : 0.5)
+                }
+            }
+        }
+    }
+
+    private var punctuationThresholdSummary: String {
+        String(
+            format: L10n.localize("settings.text_processing.thresholds.punctuation_summary_format", comment: "Punctuation threshold summary"),
+            viewModel.deterministicPunctuationWordThreshold,
+            viewModel.deterministicPunctuationCJKThreshold
+        )
+    }
+
+    private var longSentenceThresholdSummary: String {
+        String(
+            format: L10n.localize("settings.text_processing.thresholds.long_sentence_summary_format", comment: "Long sentence threshold summary"),
+            viewModel.deterministicLongSentenceWordThreshold,
+            viewModel.deterministicLongSentenceCJKThreshold
+        )
+    }
+
+    @ViewBuilder
+    private func textProcessingThresholdEditorSheet(_ editor: TextProcessingThresholdEditor) -> some View {
+        switch editor {
+        case .punctuation:
+            SettingsThresholdEditorSheet(
+                title: L10n.localize("settings.text_processing.punctuation.title", comment: "Punctuation title"),
+                subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_editor_subtitle", comment: "Punctuation threshold editor subtitle"),
+                systemImage: "exclamationmark.bubble",
+                tint: .orange,
+                onReset: {
+                    perform { try viewModel.resetPunctuationThresholds() }
+                },
+                onDone: { textProcessingThresholdEditor = nil }
+            ) {
+                SettingsThresholdSliderRow(
+                    title: L10n.localize("settings.text_processing.thresholds.punctuation_word", comment: "Punctuation word threshold label"),
+                    subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_word_subtitle", comment: "Punctuation word threshold subtitle"),
+                    systemImage: "textformat.abc",
+                    tint: .orange,
+                    value: viewModel.deterministicPunctuationWordThreshold,
+                    valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_words", comment: "Words unit"),
+                    range: 1...20,
+                    onChange: { newValue in
+                        perform { try viewModel.updateDeterministicTextProcessingThresholds(punctuationWord: newValue) }
+                    }
+                )
+                SettingsThresholdSliderRow(
+                    title: L10n.localize("settings.text_processing.thresholds.punctuation_cjk", comment: "Punctuation CJK threshold label"),
+                    subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_cjk_subtitle", comment: "Punctuation CJK threshold subtitle"),
+                    systemImage: "character.textbox",
+                    tint: .orange,
+                    value: viewModel.deterministicPunctuationCJKThreshold,
+                    valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_chars", comment: "Characters unit"),
+                    range: 1...20,
+                    onChange: { newValue in
+                        perform { try viewModel.updateDeterministicTextProcessingThresholds(punctuationCJK: newValue) }
+                    }
+                )
+            } examples: {
+                SettingsThresholdExamplePanel {
+                    SettingsThresholdExampleRow(
+                        label: "EN",
+                        before: punctuationEnglishExampleInput,
+                        after: punctuationEnglishExampleOutput
+                    )
+                    SettingsThresholdExampleRow(
+                        label: "中",
+                        before: punctuationChineseExampleInput,
+                        after: punctuationChineseExampleOutput
+                    )
+                }
+            }
+        case .longSentence:
+            SettingsThresholdEditorSheet(
+                title: L10n.localize("settings.text_processing.long_sentence.title", comment: "Long sentence title"),
+                subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_editor_subtitle", comment: "Long sentence threshold editor subtitle"),
+                systemImage: "text.insert",
+                tint: .teal,
+                onReset: {
+                    perform { try viewModel.resetLongSentenceThresholds() }
+                },
+                onDone: { textProcessingThresholdEditor = nil }
+            ) {
+                SettingsThresholdSliderRow(
+                    title: L10n.localize("settings.text_processing.thresholds.long_sentence_word", comment: "Long sentence word threshold label"),
+                    subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_word_subtitle", comment: "Long sentence word threshold subtitle"),
+                    systemImage: "textformat.abc",
+                    tint: .teal,
+                    value: viewModel.deterministicLongSentenceWordThreshold,
+                    valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_words", comment: "Words unit"),
+                    range: 5...50,
+                    onChange: { newValue in
+                        perform { try viewModel.updateDeterministicTextProcessingThresholds(longSentenceWord: newValue) }
+                    }
+                )
+                SettingsThresholdSliderRow(
+                    title: L10n.localize("settings.text_processing.thresholds.long_sentence_cjk", comment: "Long sentence CJK threshold label"),
+                    subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_cjk_subtitle", comment: "Long sentence CJK threshold subtitle"),
+                    systemImage: "character.textbox",
+                    tint: .teal,
+                    value: viewModel.deterministicLongSentenceCJKThreshold,
+                    valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_chars", comment: "Characters unit"),
+                    range: 10...120,
+                    onChange: { newValue in
+                        perform { try viewModel.updateDeterministicTextProcessingThresholds(longSentenceCJK: newValue) }
+                    }
+                )
+            } examples: {
+                SettingsThresholdExamplePanel {
+                    SettingsThresholdExampleRow(
+                        label: "EN",
+                        before: longSentenceEnglishExampleInput,
+                        after: longSentenceEnglishExampleOutput
+                    )
+                    SettingsThresholdExampleRow(
+                        label: "中",
+                        before: longSentenceChineseExampleInput,
+                        after: longSentenceChineseExampleOutput
+                    )
+                }
+            }
+        }
+    }
+
+    private var punctuationEnglishExampleInput: String {
+        SettingsThresholdPreviewSamples.punctuationEnglish
+    }
+
+    private var punctuationEnglishExampleOutput: String {
+        SettingsThresholdPreviewSamples.punctuationEnglishPreview(
+            wordThreshold: viewModel.deterministicPunctuationWordThreshold
+        )
+    }
+
+    private var punctuationChineseExampleInput: String {
+        SettingsThresholdPreviewSamples.punctuationChinese
+    }
+
+    private var punctuationChineseExampleOutput: String {
+        SettingsThresholdPreviewSamples.punctuationChinesePreview(
+            cjkThreshold: viewModel.deterministicPunctuationCJKThreshold
+        )
+    }
+
+    private var longSentenceEnglishExampleInput: String {
+        SettingsThresholdPreviewSamples.longSentenceEnglish
+    }
+
+    private var longSentenceEnglishExampleOutput: String {
+        SettingsThresholdPreviewSamples.longSentenceEnglishPreview(
+            wordThreshold: viewModel.deterministicLongSentenceWordThreshold
+        )
+    }
+
+    private var longSentenceChineseExampleInput: String {
+        SettingsThresholdPreviewSamples.longSentenceChinese
+    }
+
+    private var longSentenceChineseExampleOutput: String {
+        SettingsThresholdPreviewSamples.longSentenceChinesePreview(
+            cjkThreshold: viewModel.deterministicLongSentenceCJKThreshold
+        )
+    }
+
+    private var deterministicMasterBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.deterministicTextProcessingEnabled },
+            set: { value in perform { try viewModel.updateDeterministicTextProcessing(enabled: value) } }
+        )
+    }
+
+    /// Binding for an individual deterministic processor toggle. The setter
+    /// is a no-op when the master switch is off (the row is also visually
+    /// disabled, but this guards against programmatic updates).
+    private func deterministicSubToggleBinding(
+        value: Bool,
+        setter: @escaping (Bool) throws -> Void
+    ) -> Binding<Bool> {
+        Binding(
+            get: { value },
+            set: { newValue in
+                guard viewModel.deterministicTextProcessingEnabled else { return }
+                perform { try setter(newValue) }
+            }
+        )
     }
 
     private var dataPrivacySection: some View {
@@ -1734,6 +2147,483 @@ private struct SettingsToggleRow: View {
     }
 }
 
+private struct SettingsThresholdToggleRow: View {
+    let title: String
+    let subtitle: String
+    let summary: String
+    let systemImage: String
+    let tint: Color
+    @Binding var isOn: Bool
+    let onConfigure: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            SettingsRowIcon(systemImage: systemImage, tint: tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(summary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 12)
+            Button(action: onConfigure) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(width: 34, height: 34)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help(L10n.localize("settings.text_processing.thresholds.configure", comment: "Configure thresholds tooltip"))
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+        }
+        .settingsRow()
+    }
+}
+
+private struct SettingsThresholdEditorSheet<Controls: View, Examples: View>: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let tint: Color
+    let onReset: (() -> Void)?
+    let onDone: () -> Void
+    @ViewBuilder let controls: Controls
+    @ViewBuilder let examples: Examples
+
+    init(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color,
+        onReset: (() -> Void)? = nil,
+        onDone: @escaping () -> Void,
+        @ViewBuilder controls: () -> Controls,
+        @ViewBuilder examples: () -> Examples
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.tint = tint
+        self.onReset = onReset
+        self.onDone = onDone
+        self.controls = controls()
+        self.examples = examples()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.horizontal, 24)
+                .padding(.top, 22)
+                .padding(.bottom, 18)
+
+            Divider()
+
+            HStack(alignment: .top, spacing: SettingsThresholdEditorLayout.contentSpacing) {
+                VStack(alignment: .leading, spacing: 12) {
+                    controls
+                    Spacer(minLength: 24)
+                    resetButton
+                }
+                .frame(width: SettingsThresholdEditorLayout.controlsPaneWidth, alignment: .topLeading)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+
+                Divider()
+                    .frame(maxHeight: .infinity)
+
+                examples
+                    .frame(
+                        minWidth: SettingsThresholdEditorLayout.examplesPaneMinWidth,
+                        maxWidth: .infinity,
+                        alignment: .topLeading
+                    )
+            }
+            .padding(.horizontal, SettingsThresholdEditorLayout.horizontalPadding)
+            .padding(.vertical, SettingsThresholdEditorLayout.verticalPadding)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .background(AppTheme.ColorToken.pageBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture {}
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: 14) {
+            SettingsRowIcon(systemImage: systemImage, tint: tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.86)
+                Text(subtitle)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            Button(action: onDone) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
+        }
+    }
+
+    @ViewBuilder
+    private var resetButton: some View {
+        if let onReset {
+            Button(action: onReset) {
+                Label(
+                    L10n.localize("settings.text_processing.thresholds.reset_defaults", comment: "Reset thresholds"),
+                    systemImage: "arrow.counterclockwise"
+                )
+                .frame(minWidth: 132, minHeight: 34)
+            }
+            .buttonStyle(.bordered)
+            .help(L10n.localize("settings.text_processing.thresholds.reset_defaults_help", comment: "Reset thresholds help"))
+        }
+    }
+}
+
+private struct SettingsThresholdExamplePanel<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(
+                L10n.localize("settings.text_processing.thresholds.examples", comment: "Examples title"),
+                systemImage: "sparkles"
+            )
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+
+            VStack(alignment: .leading, spacing: 10) {
+                content
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct SettingsThresholdExampleRow: View {
+    let label: String
+    let before: String
+    let after: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                    .frame(width: 32, height: 24)
+                    .background(AppTheme.ColorToken.accent.opacity(0.10))
+                    .clipShape(Capsule())
+
+                Text(L10n.localize("settings.text_processing.thresholds.example_live_preview", comment: "Live preview label"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                SettingsThresholdExampleTextBlock(
+                    title: L10n.localize("settings.text_processing.thresholds.example_before", comment: "Example before label"),
+                    text: before,
+                    isResult: false
+                )
+                SettingsThresholdExampleTextBlock(
+                    title: L10n.localize("settings.text_processing.thresholds.example_after", comment: "Example after label"),
+                    text: after,
+                    isResult: true
+                )
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct SettingsThresholdExampleTextBlock: View {
+    let title: String
+    let text: String
+    let isResult: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+
+            Text(text)
+                .font(.system(size: 12, weight: isResult ? .semibold : .regular, design: .monospaced))
+                .foregroundStyle(isResult ? AppTheme.ColorToken.primaryText : AppTheme.ColorToken.secondaryText)
+                .lineLimit(isResult ? 6 : 4)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isResult ? AppTheme.ColorToken.accent.opacity(0.08) : AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(isResult ? AppTheme.ColorToken.accent.opacity(0.22) : AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct SettingsThresholdSliderRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let tint: Color
+    let value: Int
+    var valueSuffix: String? = nil
+    let range: ClosedRange<Int>
+    let onChange: (Int) -> Void
+
+    @State private var isDragging = false
+    @State private var dragValue: Int?
+
+    private var displayedValue: Int { dragValue ?? value }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: systemImage, tint: tint)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 10)
+                valueBadge
+                stepper
+            }
+
+            sliderTrack
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(isDragging ? 0.92 : 0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isDragging ? AppTheme.ColorToken.accent.opacity(0.55) : AppTheme.ColorToken.subtleStroke, lineWidth: isDragging ? 1.5 : AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(
+            color: isDragging ? AppTheme.ColorToken.accent.opacity(0.12) : Color.clear,
+            radius: isDragging ? 10 : 0,
+            x: 0,
+            y: 5
+        )
+        .animation(.easeOut(duration: 0.16), value: isDragging)
+    }
+
+    private var valueBadge: some View {
+        Text(valueText)
+            .font(.system(size: isDragging ? 17 : 15, weight: .bold, design: .monospaced))
+            .foregroundStyle(isDragging ? Color.white : AppTheme.ColorToken.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.82)
+            .frame(minWidth: 58, maxWidth: 92)
+            .frame(height: 34)
+            .padding(.horizontal, 8)
+            .background(isDragging ? AppTheme.ColorToken.accent : AppTheme.ColorToken.panelBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(isDragging ? AppTheme.ColorToken.accent : AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .accessibilityLabel(Text("\(title)：\(valueText)"))
+    }
+
+    private var stepper: some View {
+        Stepper(
+            value: Binding(
+                get: { value },
+                set: { newValue in
+                    let clamped = clamp(newValue)
+                    guard clamped != value else { return }
+                    onChange(clamped)
+                }
+            ),
+            in: range
+        ) {
+            EmptyView()
+        }
+        .labelsHidden()
+        .frame(width: 34)
+    }
+
+    private var sliderTrack: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let progress = progress(for: displayedValue)
+            let thumbX = min(max(width * progress, 12), max(width - 12, 12))
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(AppTheme.ColorToken.subtleStroke.opacity(0.75))
+                    .frame(height: 8)
+                    .position(x: width / 2, y: 30)
+
+                Capsule()
+                    .fill(AppTheme.ColorToken.accent)
+                    .frame(width: max(thumbX, 0), height: 8)
+                    .position(x: thumbX / 2, y: 30)
+
+                thresholdTicks(width: width)
+
+                if isDragging {
+                    Text(valueText)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 8)
+                        .frame(height: 24)
+                        .background(AppTheme.ColorToken.accent)
+                        .clipShape(Capsule())
+                        .shadow(color: AppTheme.ColorToken.accent.opacity(0.25), radius: 6, x: 0, y: 3)
+                        .position(x: thumbX, y: 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
+
+                Circle()
+                    .fill(AppTheme.ColorToken.accent)
+                    .frame(width: isDragging ? 28 : 22, height: isDragging ? 28 : 22)
+                    .shadow(color: AppTheme.ColorToken.accent.opacity(0.25), radius: 6, x: 0, y: 3)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.92), lineWidth: 2)
+                    )
+                    .position(x: thumbX, y: 30)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        isDragging = true
+                        updateDragValue(locationX: gesture.location.x, width: width)
+                    }
+                    .onEnded { gesture in
+                        updateDragValue(locationX: gesture.location.x, width: width)
+                        dragValue = nil
+                        isDragging = false
+                    }
+            )
+        }
+        .frame(height: 48)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(valueText))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                let next = clamp(value + 1)
+                if next != value { onChange(next) }
+            case .decrement:
+                let next = clamp(value - 1)
+                if next != value { onChange(next) }
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    private func thresholdTicks(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach([0.0, 0.25, 0.5, 0.75, 1.0], id: \.self) { tick in
+                Capsule()
+                    .fill(AppTheme.ColorToken.secondaryText.opacity(0.20))
+                    .frame(width: 2, height: tick == 0.0 || tick == 1.0 ? 12 : 8)
+                    .position(x: width * tick, y: 30)
+            }
+        }
+    }
+
+    private func updateDragValue(locationX: CGFloat, width: CGFloat) {
+        let boundedX = min(max(locationX, 0), width)
+        let ratio = width == 0 ? 0 : boundedX / width
+        let raw = Double(range.lowerBound) + Double(range.upperBound - range.lowerBound) * Double(ratio)
+        let next = clamp(Int(raw.rounded()))
+        dragValue = next
+        guard next != value else { return }
+        onChange(next)
+    }
+
+    private func progress(for value: Int) -> CGFloat {
+        guard range.upperBound > range.lowerBound else { return 0 }
+        return CGFloat(value - range.lowerBound) / CGFloat(range.upperBound - range.lowerBound)
+    }
+
+    private func clamp(_ value: Int) -> Int {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    private var valueText: String {
+        if let valueSuffix, !valueSuffix.isEmpty {
+            return "\(displayedValue) \(valueSuffix)"
+        }
+        return "\(displayedValue)"
+    }
+}
+
 private struct SettingsDropdownSection<Content: View>: View {
     let title: String
     let value: String
@@ -1956,6 +2846,7 @@ private extension SettingsSection {
         case .ttsModels: return L10n.localize("settings.section.tts_models", comment: "")
         case .translationModels: return L10n.localize("settings.section.translation_models", comment: "")
         case .system: return L10n.localize("settings.section.system_root", comment: "")
+        case .textProcessing: return L10n.localize("settings.section.text_processing", comment: "")
         case .dataPrivacy: return L10n.localize("settings.section.data_privacy", comment: "")
         }
     }

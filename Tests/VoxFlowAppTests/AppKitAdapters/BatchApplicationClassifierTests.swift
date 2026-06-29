@@ -52,10 +52,10 @@ final class BatchApplicationClassifierTests: XCTestCase {
         XCTAssertNotNil(request)
         XCTAssertTrue(request!.text.contains("| App Name | Bundle ID | System Category | Search Query |"))
         XCTAssertTrue(request!.text.contains("| TestApp | com.test.app | userApplication | TestApp com.test.app macOS app what is it used for |"))
-        XCTAssertTrue(request!.systemPrompt.contains("搜索"))
+        XCTAssertTrue(request!.systemPrompt.contains("search"))
         XCTAssertTrue(request!.systemPrompt.lowercased().contains("web search"))
-        XCTAssertTrue(request!.systemPrompt.contains("无法搜索"))
-        XCTAssertTrue(request!.systemPrompt.contains("没有实际文本输入场景"))
+        XCTAssertTrue(request!.systemPrompt.contains("If search is unavailable"))
+        XCTAssertTrue(request!.systemPrompt.contains("without a real text-entry workflow"))
         XCTAssertFalse(request!.systemPrompt.contains("prompt"))
     }
 

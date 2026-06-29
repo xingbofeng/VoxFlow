@@ -1,6 +1,7 @@
 import XCTest
 import VoxFlowContextBoost
 import VoxFlowVoiceCorrection
+import VoxFlowTextProcessing
 @testable import VoxFlowApp
 
 @MainActor
@@ -201,7 +202,7 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         XCTAssertEqual(result.finalText, "Qwen3-ASR")
         XCTAssertEqual(contextProvider.requestedTargets.map { $0?.bundleID }, ["com.example.editor"])
-        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Temporary screen context terms") == true)
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(#""Qwen3-ASR""#) == true)
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains(#""Project Apollo""#) == true)
         XCTAssertEqual(result.trace?.contextBoost?.ocrCharacterCount, 120)
@@ -236,7 +237,7 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         XCTAssertEqual(result.finalText, "原始文本")
         XCTAssertTrue(contextProvider.requestedTargets.isEmpty)
-        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("Temporary screen context terms") == true)
         XCTAssertNil(result.trace?.contextBoost)
     }
 
@@ -296,7 +297,7 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(result.trace?.contextBoost?.hotwords, [])
         XCTAssertEqual(result.trace?.contextBoost?.failureReason, "no_ocr_context")
         XCTAssertFalse(result.trace?.contextBoost?.appliedToLLMPrompt == true)
-        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("临时屏幕上下文词") == true)
+        XCTAssertFalse(refiner.requests.first?.systemPrompt.contains("Temporary screen context terms") == true)
     }
 
     func testPipelineRecordsContextBoostTimeoutWhenOCRContextIsSlow() async {
@@ -1041,5 +1042,484 @@ final class TextProcessingPipelineTests: XCTestCase {
             evidence: [HotwordEvidence(reason: "test", weight: 5)],
             expiresAt: Date(timeIntervalSince1970: 1_800_000_120)
         )
+    }
+}
+
+// MARK: - Deterministic text processing integration tests
+
+@MainActor
+final class TextProcessingPipelineDeterministicIntegrationTests: XCTestCase {
+    /// When deterministic settings are explicitly disabled, the pipeline
+    /// must behave exactly as before: no pre-LLM or post-LLM processing.
+    func testDisabledSettingsAreNoOp() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("Hello世界"))
+        let settings = DeterministicTextProcessingSettings(enabled: false)
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("嗯Hello世界")
+
+        XCTAssertEqual(result.finalText, "Hello世界")
+        XCTAssertEqual(result.rawText, "嗯Hello世界")
+    }
+
+    /// With default settings (master on, all sub-toggles on except
+    /// longSentenceBreaking), pre-LLM filler filtering runs on the raw text,
+    /// and post-LLM punctuation adds a sentence-ending 。 to the CJK output.
+    func testDefaultsRunPreLLMFillerFilter() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("这个功能需要改一下"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { .defaults }
+        )
+
+        let result = await pipeline.process("嗯这个功能需要改一下")
+
+        // pre-LLM: filler removed → refiner receives cleaned text.
+        XCTAssertEqual(refiner.requests.first?.text, "这个功能需要改一下")
+        // post-LLM (defaults): punctuation adds 。 for CJK sentence.
+        XCTAssertTrue(result.finalText.hasSuffix("。"))
+        XCTAssertTrue(result.finalText.contains("这个功能需要改一下"))
+    }
+
+    /// pre-LLM filler filtering runs on the raw ASR text before it's sent to
+    /// the LLM. The refiner receives the cleaned text, not the raw text.
+    /// Post-LLM processors are disabled to isolate the pre-LLM behavior.
+    func testPreLLMFillerFilteringRunsBeforeRefiner() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("这个功能需要改一下"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: false,
+            punctuationOptimization: false,
+            fillerWordFiltering: true,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("嗯这个功能需要改一下")
+
+        XCTAssertEqual(result.finalText, "这个功能需要改一下")
+        // The refiner should have received the pre-processed (filler-removed)
+        // text, not the raw text with the filler.
+        XCTAssertEqual(refiner.requests.first?.text, "这个功能需要改一下")
+    }
+
+    /// post-LLM CJK-Latin spacing runs on the accepted LLM output before
+    /// insertion. The final text has the spacing applied. Other post-LLM
+    /// processors are disabled to isolate spacing.
+    func testPostLLMSpacingRunsAfterRefiner() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("Hello世界"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: false,
+            punctuationOptimization: false,
+            cjkLatinSpacing: true,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("Hello世界")
+
+        XCTAssertTrue(result.finalText.contains("Hello 世界"))
+    }
+
+    /// post-LLM punctuation optimization adds sentence-ending 。 for CJK text.
+    /// Other processors disabled to isolate punctuation.
+    func testPostLLMPunctuationAddsEnding() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("今天天气不错"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: false,
+            punctuationOptimization: true,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("今天天气不错")
+
+        XCTAssertTrue(result.finalText.hasSuffix("。"))
+    }
+
+    /// When LLM refinement fails, deterministic text processing still provides
+    /// the configured fallback cleanup before insertion.
+    func testDeterministicFallbackRunsWhenLLMFails() async {
+        let refiner = StubTextRefiner(
+            isEnabled: true,
+            isConfigured: true,
+            result: .failure(TestError.expected)
+        )
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true, punctuationOptimization: true, cjkLatinSpacing: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("Hello世界")
+
+        XCTAssertEqual(result.finalText, "Hello 世界。")
+        XCTAssertEqual(result.warnings, ["llm_refinement_failed"])
+    }
+
+    /// Deterministic processing is a normal dictation setting, so it should run
+    /// even when AI correction is disabled or unavailable.
+    func testDeterministicFallbackRunsWhenLLMIsDisabled() async {
+        let refiner = StubTextRefiner(
+            isEnabled: false,
+            isConfigured: true
+        )
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: true,
+            fillerWordFiltering: true,
+            cjkLatinSpacing: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("嗯Hello世界")
+
+        XCTAssertEqual(result.finalText, "Hello 世界。")
+        XCTAssertEqual(result.warnings, [])
+    }
+
+    /// pre-LLM smart number recognition converts Chinese numerals in quantity
+    /// and percent contexts before the LLM sees the text. Post-LLM processors
+    /// are disabled to isolate the pre-LLM behavior.
+    func testPreLLMSmartNumberRunsBeforeRefiner() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("进度30%"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: true,
+            punctuationOptimization: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("百分之三十的进度")
+
+        XCTAssertEqual(result.finalText, "进度30%")
+        // The refiner should have received the pre-processed text with the
+        // number already converted.
+        XCTAssertEqual(refiner.requests.first?.text, "30%的进度")
+    }
+
+    /// Coding style disables filler filtering and capitalization, but not
+    /// smart number recognition (which protects code-like regions via the
+    /// ProtectedRegions mask).
+    func testCodingStyleDisablesFillerFiltering() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let codingStyle = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.coding"))
+        // Make coding the default style so the pipeline resolves it without
+        // a manual rule or AI router.
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: codingStyle.id,
+                name: codingStyle.name,
+                category: codingStyle.category,
+                subtitle: codingStyle.subtitle,
+                mode: codingStyle.mode,
+                prompt: codingStyle.prompt,
+                sampleInput: codingStyle.sampleInput,
+                sampleOutput: codingStyle.sampleOutput,
+                llmProviderID: codingStyle.llmProviderID,
+                model: codingStyle.model,
+                temperature: codingStyle.temperature,
+                enabled: codingStyle.enabled,
+                builtIn: codingStyle.builtIn,
+                isDefault: true,
+                createdAt: codingStyle.createdAt,
+                updatedAt: codingStyle.updatedAt
+            )
+        )
+        let refiner = PromptAwareStubTextRefiner(result: .success("var um = 42"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true, fillerWordFiltering: true, autoCapitalization: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("var um = 42")
+
+        // Filler filter skipped in coding context: "um" preserved.
+        XCTAssertEqual(result.finalText, "var um = 42")
+    }
+
+    func testDeterministicTraceOmitsProcessorsSkippedByCodingContext() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let codingStyle = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.coding"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: codingStyle.id,
+                name: codingStyle.name,
+                category: codingStyle.category,
+                subtitle: codingStyle.subtitle,
+                mode: codingStyle.mode,
+                prompt: codingStyle.prompt,
+                sampleInput: codingStyle.sampleInput,
+                sampleOutput: codingStyle.sampleOutput,
+                llmProviderID: codingStyle.llmProviderID,
+                model: codingStyle.model,
+                temperature: codingStyle.temperature,
+                enabled: codingStyle.enabled,
+                builtIn: codingStyle.builtIn,
+                isDefault: true,
+                createdAt: codingStyle.createdAt,
+                updatedAt: codingStyle.updatedAt
+            )
+        )
+        let refiner = PromptAwareStubTextRefiner(result: .success("var um = 42"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: true,
+            punctuationOptimization: true,
+            fillerWordFiltering: true,
+            cjkLatinSpacing: true,
+            autoCapitalization: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("var um = 42")
+        let trace = try XCTUnwrap(result.trace?.deterministic)
+
+        XCTAssertTrue(trace.isCodingContext)
+        XCTAssertEqual(trace.preLLM.enabledProcessors, ["filler_word_filtering", "smart_number_recognition"])
+        XCTAssertEqual(trace.postLLM.enabledProcessors, ["punctuation_optimization", "cjk_latin_spacing"])
+        XCTAssertEqual(trace.preLLM.changedProcessorIDs, [])
+        XCTAssertEqual(trace.postLLM.changedProcessorIDs, [])
+        XCTAssertFalse(trace.postLLM.enabledProcessors.contains("auto_capitalization"))
+    }
+
+    func testDeterministicTraceHighlightsOnlyProcessorsThatChangedText() async throws {
+        let refinedText = "第一点，他上夜班时需要具体告诉我在哪个位置，第二点，在 2:00 时，他诊断区的车底到底是怎么折叠的"
+        let refiner = PromptAwareStubTextRefiner(result: .success(refinedText))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: false,
+            punctuationOptimization: true,
+            longSentenceBreaking: true,
+            fillerWordFiltering: false,
+            cjkLatinSpacing: true,
+            autoCapitalization: false,
+            longSentenceWordThreshold: 10,
+            longSentenceCJKThreshold: 18
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("第一点他上夜班哪里")
+        let trace = try XCTUnwrap(result.trace?.deterministic)
+
+        XCTAssertEqual(
+            trace.postLLM.enabledProcessors,
+            ["punctuation_optimization", "cjk_latin_spacing", "long_sentence_breaking"]
+        )
+        XCTAssertEqual(
+            trace.postLLM.changedProcessorIDs,
+            ["punctuation_optimization", "long_sentence_breaking"]
+        )
+        // highlightedProcessorIDs tracks ALL called processors, including
+        // those that did not change text. cjk_latin_spacing was called but
+        // did not modify the refined text, so it appears in highlighted but
+        // not in changedProcessorIDs.
+        XCTAssertTrue(trace.postLLM.highlightedProcessorIDs.contains("punctuation_optimization"))
+        XCTAssertTrue(trace.postLLM.highlightedProcessorIDs.contains("long_sentence_breaking"))
+        XCTAssertTrue(trace.postLLM.highlightedProcessorIDs.contains("cjk_latin_spacing"))
+        XCTAssertFalse(trace.postLLM.changedProcessorIDs?.contains("cjk_latin_spacing") ?? true)
+    }
+
+    func testDeterministicTraceDisplaysAllPhaseProcessorsButHighlightsOnlyCalledOnes() async throws {
+        let refiner = PromptAwareStubTextRefiner(result: .success("系统提示词不应该一上来"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: true,
+            punctuationOptimization: false,
+            longSentenceBreaking: false,
+            fillerWordFiltering: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("达到十万")
+        let trace = try XCTUnwrap(result.trace?.deterministic)
+
+        XCTAssertEqual(trace.preLLM.processorIDsForDisplay, ["filler_word_filtering", "smart_number_recognition"])
+        XCTAssertEqual(trace.preLLM.enabledProcessors, ["smart_number_recognition"])
+        XCTAssertEqual(trace.preLLM.changedProcessorIDs, ["smart_number_recognition"])
+        XCTAssertEqual(trace.preLLM.highlightedProcessorIDs, ["smart_number_recognition"])
+
+        XCTAssertEqual(
+            trace.postLLM.processorIDsForDisplay,
+            ["punctuation_optimization", "cjk_latin_spacing", "long_sentence_breaking", "auto_capitalization"]
+        )
+        XCTAssertEqual(trace.postLLM.enabledProcessors, [])
+        XCTAssertEqual(trace.postLLM.highlightedProcessorIDs, [])
+    }
+
+    func testDeterministicTraceHighlightsCalledProcessorEvenWhenTextIsUnchanged() async throws {
+        let refiner = PromptAwareStubTextRefiner(result: .success("Hello world."))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            smartNumberRecognition: false,
+            punctuationOptimization: true,
+            longSentenceBreaking: false,
+            fillerWordFiltering: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("Hello world.")
+        let trace = try XCTUnwrap(result.trace?.deterministic)
+
+        XCTAssertEqual(trace.postLLM.enabledProcessors, ["punctuation_optimization"])
+        XCTAssertEqual(trace.postLLM.changedProcessorIDs, [])
+        XCTAssertEqual(trace.postLLM.highlightedProcessorIDs, ["punctuation_optimization"])
+    }
+
+    /// Full pre+post pipeline: filler removed pre-LLM, spacing applied
+    /// post-LLM. The LLM only sees the cleaned text.
+    func testFullPipelinePrePostOrder() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("今天测试Hello世界"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: true,
+            fillerWordFiltering: true,
+            cjkLatinSpacing: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("嗯今天测试Hello世界")
+
+        // pre-LLM: filler removed → refiner receives "今天测试Hello世界".
+        XCTAssertEqual(refiner.requests.first?.text, "今天测试Hello世界")
+        // post-LLM: spacing + punctuation applied to the refined text.
+        XCTAssertTrue(result.finalText.contains("Hello 世界"))
+        XCTAssertTrue(result.finalText.hasSuffix("。"))
+    }
+
+    func testDeterministicTraceRecordsPreAndPostProcessingText() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("今天测试Hello世界"))
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: true,
+            fillerWordFiltering: true,
+            cjkLatinSpacing: true
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            deterministicSettingsProvider: { settings }
+        )
+
+        let result = await pipeline.process("嗯今天测试Hello世界")
+        let trace = result.trace?.deterministic
+
+        XCTAssertEqual(trace?.enabled, true)
+        XCTAssertEqual(trace?.preLLM.enabledProcessors, ["filler_word_filtering", "smart_number_recognition"])
+        XCTAssertEqual(trace?.postLLM.enabledProcessors, ["punctuation_optimization", "cjk_latin_spacing", "auto_capitalization"])
+        XCTAssertEqual(trace?.preLLM.changedProcessorIDs, ["filler_word_filtering"])
+        XCTAssertEqual(trace?.postLLM.changedProcessorIDs, ["punctuation_optimization", "cjk_latin_spacing"])
+        XCTAssertEqual(trace?.preLLM.changed, true)
+        XCTAssertEqual(trace?.postLLM.changed, true)
+        XCTAssertEqual(trace?.preLLM.inputText, "嗯今天测试Hello世界")
+        XCTAssertEqual(trace?.preLLM.outputText, "今天测试Hello世界")
+        XCTAssertEqual(trace?.postLLM.inputText, "今天测试Hello世界")
+        XCTAssertEqual(trace?.postLLM.outputText, result.finalText)
+        XCTAssertEqual(trace?.preLLM.inputCharacterCount, "嗯今天测试Hello世界".count)
+        XCTAssertEqual(trace?.preLLM.outputCharacterCount, "今天测试Hello世界".count)
+        XCTAssertFalse(trace?.preLLM.inputHash.contains("嗯今天测试Hello世界") ?? true)
+        XCTAssertFalse(trace?.postLLM.outputHash.contains("Hello 世界") ?? true)
+    }
+
+    // MARK: - Stubs
+
+    private final class PromptAwareStubTextRefiner: TextRefining, PromptAwareTextRefining, @unchecked Sendable {
+        var isEnabled = true
+        var isConfigured = true
+        var result: Result<String, Error>
+        private(set) var requests: [TextRefinementRequest] = []
+
+        init(result: Result<String, Error>) {
+            self.result = result
+        }
+
+        func refine(_ text: String) async throws -> String {
+            try await refine(
+                TextRefinementRequest(
+                    text: text,
+                    systemPrompt: PromptBuilder.conservativeSystemPrompt,
+                    model: nil,
+                    temperature: nil
+                )
+            )
+        }
+
+        func refine(_ request: TextRefinementRequest) async throws -> String {
+            requests.append(request)
+            return try result.get()
+        }
+    }
+
+    private final class StubTextRefiner: TextRefining, @unchecked Sendable {
+        var isEnabled: Bool
+        var isConfigured: Bool
+        var result: Result<String, Error>
+
+        init(
+            isEnabled: Bool,
+            isConfigured: Bool,
+            result: Result<String, Error> = .success("unused")
+        ) {
+            self.isEnabled = isEnabled
+            self.isConfigured = isConfigured
+            self.result = result
+        }
+
+        func refine(_ text: String) async throws -> String {
+            try result.get()
+        }
+    }
+
+    private enum TestError: Error {
+        case expected
     }
 }

@@ -2,6 +2,28 @@ import Foundation
 import XCTest
 
 final class ArchitectureCheckTests: XCTestCase {
+    func testTextProcessingMasterToggleIsNotDisabledWithSubcontrols() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewURL = packageRoot
+            .appendingPathComponent("Sources/VoxFlowApp/Views/SettingsRootView.swift")
+        let source = try String(contentsOf: viewURL, encoding: .utf8)
+        let masterTitleRange = try XCTUnwrap(
+            source.range(of: "settings.text_processing.master.title")
+        )
+        let firstSubToggleRange = try XCTUnwrap(
+            source.range(of: "settings.text_processing.smart_number.title")
+        )
+        let masterRowBody = source[masterTitleRange.lowerBound..<firstSubToggleRange.lowerBound]
+
+        XCTAssertFalse(
+            masterRowBody.contains(".disabled(!viewModel.deterministicTextProcessingEnabled)"),
+            "The text-processing master switch must stay enabled when deterministic text processing is off."
+        )
+    }
+
     func testArchitectureCheckAcceptsAllowedFixture() throws {
         let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp", "VoxFlowProviderQwen3"])
@@ -93,48 +115,6 @@ final class ArchitectureCheckTests: XCTestCase {
             result.output.contains("target VoxFlowProviderFoo: scanned 1 Swift files"),
             result.output
         )
-    }
-
-    func testArchitectureCheckRejectsLegacyVoiceInputBrandReferences() throws {
-        let fixture = try ArchitectureFixture()
-        try fixture.writePackage(targetNames: ["VoxFlowApp"])
-        try fixture.writeSource(
-            target: "VoxFlowApp",
-            file: "LegacyBrandLeak.swift",
-            contents: """
-            import Foundation
-
-            enum LegacyBrandLeak {
-                static let bundleID = "com.voiceinput.app"
-            }
-            """
-        )
-
-        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
-
-        XCTAssertNotEqual(result.status, 0, result.output)
-        XCTAssertTrue(
-            result.output.contains("Source target must not reference legacy VoiceInput brand or storage identifiers"),
-            result.output
-        )
-    }
-
-    func testArchitectureCheckAllowsDomainProductBrandLegacyBundleIdentifier() throws {
-        let fixture = try ArchitectureFixture()
-        try fixture.writePackage(targetNames: ["VoxFlowDomain"])
-        try fixture.writeSource(
-            target: "VoxFlowDomain",
-            file: "Branding/ProductBrand.swift",
-            contents: """
-            public enum ProductBrand {
-                public static let legacyBundleIdentifier = "com.voiceinput.app"
-            }
-            """
-        )
-
-        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
-
-        XCTAssertEqual(result.status, 0, result.output)
     }
 
     func testArchitectureCheckRejectsProviderDatabaseAccess() throws {

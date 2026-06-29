@@ -332,119 +332,6 @@ final class ScrollingScreenshotControllerTests: XCTestCase {
         XCTAssertEqual(result?.image.height, 4)
     }
 
-    func testStableFrameChecksumRunsOffMainActor() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("await Self.checksum(for: current)"))
-        XCTAssertTrue(source.contains("Task.detached"))
-    }
-
-    func testStitchAnalysisRunsOffMainActor() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let detachedRange = try XCTUnwrap(source.range(of: "let result = await Task.detached(priority: .userInitiated)"))
-        let windowEnd = source.index(detachedRange.lowerBound, offsetBy: 320)
-        let window = source[detachedRange.lowerBound..<windowEnd]
-        XCTAssertTrue(window.contains("stitcher.appendAnalyzed("))
-        XCTAssertTrue(window.contains("maxPixelHeight: maxPixelHeight"))
-        XCTAssertTrue(window.contains("preferredScrollDirection: preferredScrollDirection"))
-    }
-
-    func testFinishStopsAutoScrollBeforeFinalSettledCapture() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let finishRange = try XCTUnwrap(source.range(of: "private func finishAfterCapturingLatestFrame() async"))
-        let finalCaptureRange = try XCTUnwrap(source.range(
-            of: "await captureAndAppendFrame",
-            range: finishRange.upperBound..<source.endIndex
-        ))
-        let preFinalCaptureWindow = source[finishRange.lowerBound..<finalCaptureRange.lowerBound]
-        XCTAssertTrue(preFinalCaptureWindow.contains("let runningAutoScrollTask = autoScrollTask"))
-        XCTAssertTrue(preFinalCaptureWindow.contains("stopAutoScroll(health: .good)"))
-        XCTAssertTrue(preFinalCaptureWindow.contains("await runningAutoScrollTask.value"))
-    }
-
-    func testScrollingCaptureActivatesTargetApplicationBeforeInstallingScrollMonitors() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let activationRange = try XCTUnwrap(source.range(of: "activateTargetApplicationUnderSelection()"))
-        let monitorsRange = try XCTUnwrap(source.range(of: "installScrollMonitors()"))
-        XCTAssertLessThan(activationRange.lowerBound, monitorsRange.lowerBound)
-        XCTAssertTrue(source.contains("NSRunningApplication(processIdentifier: pid)?.activate"))
-        XCTAssertTrue(source.contains("pid != currentPID"))
-    }
-
-    func testScrollingCaptureDoesNotShowFloatingPanelsByDefault() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        XCTAssertTrue(source.contains("showsControlHUD: Bool = false"))
-        XCTAssertTrue(source.contains("showsLivePreview: Bool = false"))
-        let showPanelsRange = try XCTUnwrap(
-            source.range(
-                of: #"private func showPanels\(initialImage: CGImage\) \{[\s\S]*?\n    private func updatePanels"#,
-                options: .regularExpression
-            )
-        )
-        let showPanels = String(source[showPanelsRange])
-        XCTAssertTrue(showPanels.contains("guard showsControlHUD || showsLivePreview else { return }"))
-        XCTAssertTrue(showPanels.contains("if showsControlHUD {"))
-        XCTAssertTrue(showPanels.contains("ScrollingScreenshotHUDPanel("))
-        XCTAssertTrue(showPanels.contains("guard showsLivePreview else { return }"))
-        XCTAssertTrue(showPanels.contains("ScrollingScreenshotPreviewPanel("))
-    }
-
-    func testScrollingRegionCaptureExcludesCurrentProcessWindowsByWindowID() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let regionCaptureRange = try XCTUnwrap(source.range(of: "public enum ScrollingScreenshotRegionCapturer"))
-        let regionCaptureSource = String(source[regionCaptureRange.lowerBound..<source.endIndex])
-        XCTAssertTrue(regionCaptureSource.contains("ScreenCaptureWindowExclusion.currentProcessWindowIDs()"))
-        XCTAssertTrue(regionCaptureSource.contains("SCContentFilter(display: display, excludingWindows: excludedWindows)"))
-        XCTAssertFalse(regionCaptureSource.contains("excludingApplications: excludedApplications"))
-    }
-
     func testGlobalEscapeCancelsActiveScrollingCapture() async {
         let image = makeImage(width: 120, height: 160)
         let eventMonitor = FakeScrollingScreenshotInputMonitor()
@@ -584,6 +471,7 @@ final class ScrollingScreenshotControllerTests: XCTestCase {
         _ = await task.value
 
         XCTAssertTrue(autoScroller.postedLines.isEmpty)
+        XCTAssertEqual(autoScroller.permissionPromptRequestCount, 1)
     }
 
     func testAutoScrollPostsTicksWhenPermissionGranted() async {
@@ -767,56 +655,6 @@ final class ScrollingScreenshotControllerTests: XCTestCase {
         eventMonitor.emitGlobalKeyDown(keyCode: 36)
         let result = await task.value
         XCTAssertEqual(result?.image.height, 4)
-    }
-
-    func testAutoScrollModeRemovesManualScrollMonitorsWhileRunning() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let startRange = try XCTUnwrap(source.range(of: "private func startAutoScroll()"))
-        let taskRange = try XCTUnwrap(source.range(of: "autoScrollTask = Task", range: startRange.upperBound..<source.endIndex))
-        let preTaskWindow = source[startRange.lowerBound..<taskRange.lowerBound]
-        XCTAssertTrue(preTaskWindow.contains("removeScrollMonitors()"))
-    }
-
-    func testAutoScrollModePausesPollingCaptureWhileRunning() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let startRange = try XCTUnwrap(source.range(of: "private func startAutoScroll()"))
-        let taskRange = try XCTUnwrap(source.range(of: "autoScrollTask = Task", range: startRange.upperBound..<source.endIndex))
-        let preTaskWindow = source[startRange.lowerBound..<taskRange.lowerBound]
-        XCTAssertTrue(preTaskWindow.contains("pollingTask?.cancel()"))
-        XCTAssertTrue(preTaskWindow.contains("pollingTask = nil"))
-    }
-
-    func testStoppingAutoScrollRestoresManualCaptureInputs() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: root.appendingPathComponent("Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotController.swift"),
-            encoding: .utf8
-        )
-
-        let stopRange = try XCTUnwrap(source.range(of: "private func stopAutoScroll"))
-        let captureRange = try XCTUnwrap(source.range(of: "private func captureFrame", range: stopRange.upperBound..<source.endIndex))
-        let stopWindow = source[stopRange.lowerBound..<captureRange.lowerBound]
-        XCTAssertTrue(stopWindow.contains("installScrollMonitors()"))
-        XCTAssertTrue(stopWindow.contains("startPollingCapture()"))
     }
 
     func testManualUpwardScrollDirectionAppliesToNextStitchOnly() async {

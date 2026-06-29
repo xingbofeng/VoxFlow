@@ -25,6 +25,23 @@ final class SimulatedTypingInserterTests: XCTestCase {
         XCTAssertEqual(poster.postedTexts, ["你", "a", "👨‍👩‍👧‍👦"])
     }
 
+    func testSimulatedTypingRejectsMultilineTextWithoutPostingReturnKey() async {
+        let poster = CapturingTypingEventPoster()
+        let inserter = SimulatedTypingInserter(
+            eventPoster: poster,
+            permissionChecker: { true },
+            interClusterDelayNanoseconds: 0
+        )
+
+        let result = await inserter.insert("明天\n继续")
+
+        XCTAssertEqual(
+            result,
+            .unavailable(reason: "Simulated typing cannot safely insert line breaks")
+        )
+        XCTAssertTrue(poster.postedTexts.isEmpty)
+    }
+
     func testCancellationStopsBeforeRemainingClustersAndReturnsCancelled() async {
         let cancellationToken = TypingCancellationToken()
         let poster = CapturingTypingEventPoster {

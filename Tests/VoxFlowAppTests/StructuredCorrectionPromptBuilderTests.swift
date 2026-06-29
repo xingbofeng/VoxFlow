@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import VoxFlowPromptKit
 @testable import VoxFlowApp
 
 /// Snapshot tests for StructuredCorrectionPromptBuilder — verifies each
@@ -55,8 +56,8 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
     func testPromptStatesKnownCorrectionsAreNotUnconditional() {
         let prompt = builder.build(style: .default, context: makeContext())
         XCTAssertTrue(prompt.contains("known_corrections"))
-        XCTAssertTrue(prompt.contains("不是无条件替换"))
-        XCTAssertTrue(prompt.contains("结合上下文"))
+        XCTAssertTrue(prompt.contains("not unconditional replacement rules"))
+        XCTAssertTrue(prompt.contains("current context"))
     }
 
     // MARK: - Task 7.3: app_context only affects format
@@ -64,8 +65,7 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
     func testPromptStatesAppContextOnlyAffectsFormat() {
         let prompt = builder.build(style: .default, context: makeContext())
         XCTAssertTrue(prompt.contains("app_context"))
-        XCTAssertTrue(prompt.contains("只用于") || prompt.contains("只影响"))
-        XCTAssertTrue(prompt.contains("格式"))
+        XCTAssertTrue(prompt.contains("format") || prompt.contains("style"))
     }
 
     // MARK: - Task 7.12: Context injection
@@ -84,8 +84,8 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
     func testPromptInjectsOCRTemporaryTerms() {
         let prompt = builder.build(style: .default, context: makeContext())
         XCTAssertTrue(prompt.contains("Ghostty"))
-        XCTAssertTrue(prompt.contains("OCR 临时术语"))
-        XCTAssertTrue(prompt.contains("不进入学习"))
+        XCTAssertTrue(prompt.contains("OCR temporary terms"))
+        XCTAssertTrue(prompt.contains("do not learn"))
     }
 
     func testPromptInjectsAppContext() {
@@ -198,10 +198,10 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
         // but the actual context section should not inject empty values.
         // Check that the context section doesn't have the "## user_terms" header
         // when there are no terms to inject.
-        let contextSection = prompt.components(separatedBy: "## 待修正文本").last ?? ""
+        let contextSection = prompt.components(separatedBy: "## Text to correct").last ?? ""
         XCTAssertFalse(contextSection.contains("## user_terms"))
         XCTAssertFalse(contextSection.contains("## known_corrections"))
-        XCTAssertFalse(contextSection.contains("## OCR 临时术语"))
+        XCTAssertFalse(contextSection.contains("## OCR temporary terms"))
         XCTAssertFalse(contextSection.contains("## app_context"))
     }
 }
