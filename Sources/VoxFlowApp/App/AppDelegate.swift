@@ -1620,6 +1620,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateCheckCoordinator.dismissActivePromptAsNextTime()
             windowCoordinator.dismissHomeDetailOverlay()
         }
+        guard CGPreflightScreenCaptureAccess() else {
+            logger.warning("screenshot_ocr_blocked_screen_recording_permission")
+            showScreenRecordingPermissionGuide()
+            return
+        }
         let outcome = await screenshotOCRService.captureAndRecognize()
         guard !Task.isCancelled else { return }
         guard voiceTaskCoordinator.isWorkflowLeaseActive(lease) else {
@@ -1681,6 +1686,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
              .translationFailed, .summaryFailed:
             break
         }
+    }
+
+    private func showScreenRecordingPermissionGuide() {
+        presentPermissionGuide(
+            title: L10n.localize(
+                "permission.alert.title.screen_recording",
+                comment: "Screen recording permission alert title"
+            ),
+            subtitle: L10n.localize(
+                "permission.screen.recording.description",
+                comment: "Screen recording permission alert description"
+            ),
+            items: [
+                PermissionStatusItem(
+                    title: L10n.localize(
+                        "permission.item.screen_recording_title",
+                        comment: "Screen recording permission item title"
+                    ),
+                    subtitle: L10n.localize(
+                        "permission.item.screen_recording_subtitle",
+                        comment: "Screen recording permission item subtitle"
+                    ),
+                    systemImage: "rectangle.inset.filled.and.person.filled",
+                    status: PermissionSummary.statusText(false),
+                    granted: false,
+                    settingsURL: PermissionGuideContent.systemSettingsURL(for: .screenRecording)
+                )
+            ],
+            settingsURL: PermissionGuideContent.systemSettingsURL(for: .screenRecording)
+        )
     }
 
     private func saveScreenshotRecord(result: ScreenshotOCRResult) {

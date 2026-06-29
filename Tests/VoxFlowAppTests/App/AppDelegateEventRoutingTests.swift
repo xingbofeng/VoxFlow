@@ -258,6 +258,24 @@ final class AppDelegateEventRoutingTests: XCTestCase {
         )
     }
 
+    func testScreenshotOCRShowsScreenRecordingPermissionGuideBeforeCaptureWhenDenied() throws {
+        let sourceURL = try Self.repositoryRoot()
+            .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let method = try XCTUnwrap(
+            source.range(
+                of: #"private func handleScreenshotOCRShortcut\([\s\S]*?\n    private func showScreenRecordingPermissionGuide"#,
+                options: .regularExpression
+            ).map { String(source[$0]) }
+        )
+
+        let preflight = try XCTUnwrap(method.range(of: "CGPreflightScreenCaptureAccess()"))
+        let guide = try XCTUnwrap(method.range(of: "showScreenRecordingPermissionGuide()"))
+        let capture = try XCTUnwrap(method.range(of: "screenshotOCRService.captureAndRecognize()"))
+        XCTAssertLessThan(preflight.lowerBound, capture.lowerBound)
+        XCTAssertLessThan(guide.lowerBound, capture.lowerBound)
+    }
+
     func testScreenshotOCRResultPanelUsesPolicySoCompleteCanShowThumbnailBeforeExpansion() throws {
         let sourceURL = try Self.repositoryRoot()
             .appendingPathComponent("Sources/VoxFlowApp/App/AppDelegate.swift")

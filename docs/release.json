@@ -1,10 +1,10 @@
 {
-  "version": "1.10.0",
-  "tag": "v1.10.0",
-  "assetName": "VoxFlow-1.10.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.0/VoxFlow-1.10.0-macOS.dmg",
-  "releaseNotes": "新增智能纠错能力：围绕热词、文本替换、结构化 LLM 纠错和自动学习，把常见识别错词沉淀成可管理的词汇表。",
+  "version": "1.10.1",
+  "tag": "v1.10.1",
+  "assetName": "VoxFlow-1.10.1-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.10.1",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.10.1/VoxFlow-1.10.1-macOS.dmg",
+  "releaseNotes": "修复截图 OCR 在 1.10.0 中可能崩溃的问题，并在缺少屏幕录制权限时显示明确授权引导。",
   "draft": false,
   "prerelease": false
 }
