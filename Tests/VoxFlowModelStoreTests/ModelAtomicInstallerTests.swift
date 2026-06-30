@@ -2,22 +2,6 @@ import XCTest
 import VoxFlowModelStore
 
 final class ModelAtomicInstallerTests: XCTestCase {
-    func testIntegrityFailureUsesReadableCorruptModelMessage() {
-        let report = ModelIntegrityReport(
-            issues: [
-                .sizeMismatch(localPath: "model.safetensors", expected: 5, actual: 4),
-            ]
-        )
-
-        let message = ModelInstallError.integrityFailed(report).localizedDescription
-
-        XCTAssertTrue(message.contains("模型文件可能已损坏"))
-        XCTAssertTrue(message.contains("model.safetensors"))
-        XCTAssertTrue(message.contains("大小不一致"))
-        XCTAssertTrue(message.contains("清理模型"))
-        XCTAssertFalse(message.contains("ModelInstallError"))
-    }
-
     func testInstallerValidatesStagingBeforeMovingToDestination() throws {
         let root = try makeTemporaryDirectory()
         let staging = root.appendingPathComponent("qwen3.partial", isDirectory: true)

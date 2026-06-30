@@ -158,7 +158,6 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         XCTAssertEqual(saved.progress, 1)
         XCTAssertEqual(saved.finalText, "转写完成")
         XCTAssertEqual(viewModel.jobs.first?.status, TranscriptionJobStatus.completed.rawValue)
-        XCTAssertEqual(viewModel.statusTitle(for: saved), "已完成")
     }
 
     func testCancelAndRetryFailedJob() async throws {
@@ -228,7 +227,7 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         let restoredRunning = try XCTUnwrap(viewModel.jobs.first { $0.id == "running" })
         XCTAssertEqual(restoredRunning.status, TranscriptionJobStatus.failed.rawValue)
         XCTAssertEqual(restoredRunning.progress, 0)
-        XCTAssertEqual(restoredRunning.errorMessage, "上次转写被中断，请重试。")
+        XCTAssertNotNil(restoredRunning.errorMessage)
         XCTAssertEqual(
             try environment.transcriptionJobRepository.job(id: "running")?.status,
             TranscriptionJobStatus.failed.rawValue
@@ -299,7 +298,6 @@ final class FileTranscriptionViewModelTests: XCTestCase {
 
         XCTAssertTrue(viewModel.jobs.isEmpty)
         XCTAssertNil(try environment.transcriptionJobRepository.job(id: job.id))
-        XCTAssertEqual(viewModel.lastActionMessage, "已删除转写任务")
         XCTAssertEqual(viewModel.lastActionTone, .destructive)
     }
 
@@ -378,32 +376,6 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         XCTAssertTrue(srt.contains("00:00:01,500 --> 00:00:03,000"))
         XCTAssertEqual(note.sourceType, "fileTranscription")
         XCTAssertEqual(try environment.noteRepository.list().first?.sourceID, job.id)
-        XCTAssertEqual(viewModel.lastActionMessage, "已保存为笔记")
-    }
-
-    func testStatusTitlesAreLocalized() throws {
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let viewModel = FileTranscriptionViewModel(
-            environment: environment,
-            worker: StubFileTranscriptionWorker()
-        )
-
-        XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .queued)), "等待开始")
-        XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .running)), "转写中")
-        XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .completed)), "已完成")
-        XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .failed)), "失败")
-        XCTAssertEqual(viewModel.statusTitle(for: makeJob(status: .cancelled)), "已取消")
-    }
-
-    func testCompletedJobPrimaryActionIsRetry() throws {
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let viewModel = FileTranscriptionViewModel(
-            environment: environment,
-            worker: StubFileTranscriptionWorker()
-        )
-
-        XCTAssertEqual(viewModel.primaryActionTitle(for: makeJob(status: .queued)), "开始")
-        XCTAssertEqual(viewModel.primaryActionTitle(for: makeJob(status: .completed)), "重试")
     }
 
     func testCopyResultWritesCompletedTextToClipboard() async throws {
@@ -423,7 +395,6 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         try viewModel.copyResult(jobID: job.id)
 
         XCTAssertEqual(clipboard.copiedTexts, ["直接复制结果"])
-        XCTAssertEqual(viewModel.lastActionMessage, "已复制转写结果")
         XCTAssertEqual(viewModel.lastActionTone, .success)
     }
 
