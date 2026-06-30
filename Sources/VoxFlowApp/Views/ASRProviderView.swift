@@ -6,6 +6,7 @@ struct ASRProviderView: View {
     @State private var showGroqAPIKey = false
     @State private var showAliyunDashScopeAPIKey = false
     @State private var showTencentCloudCredentials = false
+    @State private var showVolcengineCredentials = false
     @State private var expandedProviderID: String?
 
     private var providerColumns: [GridItem] {
@@ -247,6 +248,9 @@ struct ASRProviderView: View {
         if provider.id == ASRProviderID.qwenCloudASR {
             aliyunDashScopeConfigurationControls
         }
+        if provider.id == ASRProviderID.volcengineDoubao {
+            volcengineConfigurationControls
+        }
     }
 
     private var groqConfigurationControls: some View {
@@ -456,6 +460,89 @@ struct ASRProviderView: View {
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
         .settingsRow()
+    }
+
+    private var volcengineConfigurationControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            HStack(spacing: 8) {
+                Text(L10n.localize("asr.provider.volcengine.configuration_title", comment: "Volcengine configuration title"))
+                    .font(.system(size: 13, weight: .semibold))
+                if viewModel.hasStoredVolcengineCredentials {
+                    Text(L10n.localize("asr.provider.credentials_saved", comment: "Credentials saved status"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.green)
+                }
+            }
+            Text(L10n.localize("asr.provider.volcengine.description", comment: "Volcengine ASR description"))
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            VStack(alignment: .leading, spacing: 8) {
+                volcengineCredentialField(L10n.localize("asr.provider.volcengine.app_id", comment: "Volcengine app ID"), text: $viewModel.volcengineAppIDInput, isSecret: false)
+                HStack(spacing: 8) {
+                    volcengineCredentialField(L10n.localize("asr.provider.volcengine.access_token", comment: "Volcengine access token"), text: $viewModel.volcengineAccessTokenInput, isSecret: true)
+                    Button {
+                        if showVolcengineCredentials {
+                            let stored = viewModel.storedVolcengineCredentialsForEditing()
+                            viewModel.volcengineAppIDInput = stored.appID
+                            viewModel.volcengineAccessTokenInput = stored.accessToken.isEmpty
+                                ? ""
+                                : ASRProviderViewModel.storedVolcengineSecretMask
+                            viewModel.volcengineSecretKeyInput = stored.secretKey.isEmpty
+                                ? ""
+                                : ASRProviderViewModel.storedVolcengineSecretMask
+                            showVolcengineCredentials = false
+                        } else {
+                            let stored = viewModel.storedVolcengineCredentialsForEditing()
+                            if viewModel.isMaskedVolcengineSecret(text: viewModel.volcengineAccessTokenInput) {
+                                viewModel.volcengineAccessTokenInput = stored.accessToken
+                            }
+                            if viewModel.isMaskedVolcengineSecret(text: viewModel.volcengineSecretKeyInput) {
+                                viewModel.volcengineSecretKeyInput = stored.secretKey
+                            }
+                            showVolcengineCredentials = true
+                        }
+                    } label: {
+                        Image(systemName: showVolcengineCredentials ? "eye.slash" : "eye")
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(showVolcengineCredentials ? L10n.localize("asr.provider.volcengine.hide_credentials", comment: "Hide Volcengine credentials") : L10n.localize("asr.provider.volcengine.show_credentials", comment: "Show Volcengine credentials"))
+                }
+                volcengineCredentialField(L10n.localize("asr.provider.volcengine.secret_key", comment: "Volcengine secret key"), text: $viewModel.volcengineSecretKeyInput, isSecret: true)
+            }
+            HStack(spacing: 8) {
+                Button(L10n.localize("asr.provider.save_configuration", comment: "Save ASR provider configuration")) {
+                    viewModel.saveVolcengineConfiguration()
+                }
+                Button(viewModel.isTestingVolcengine ? L10n.localize("asr.provider.testing_connection", comment: "Testing connection") : L10n.localize("asr.provider.test_connection", comment: "Test connection")) {
+                    Task { await viewModel.testVolcengineConnection() }
+                }
+                .disabled(viewModel.isTestingVolcengine)
+                if viewModel.hasStoredVolcengineCredentials {
+                    Button(L10n.localize("asr.provider.delete_credentials", comment: "Delete credentials"), role: .destructive) {
+                        viewModel.deleteVolcengineCredentials()
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            Text(L10n.localize("asr.provider.volcengine.privacy_note", comment: "Volcengine privacy note"))
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .settingsRow()
+    }
+
+    @ViewBuilder
+    private func volcengineCredentialField(_ placeholder: String, text: Binding<String>, isSecret: Bool) -> some View {
+        if isSecret && !showVolcengineCredentials {
+            SecureField(placeholder, text: text)
+                .textFieldStyle(.roundedBorder)
+        } else {
+            TextField(placeholder, text: text)
+                .textFieldStyle(.roundedBorder)
+        }
     }
 
     private func cardSelectionSurface(

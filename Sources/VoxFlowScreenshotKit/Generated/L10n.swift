@@ -1961,28 +1961,64 @@ internal enum ScreenshotL10n {
       internal enum Main {
         /// ===== Menu =====
         internal static let about = ScreenshotL10n.tr("Localizable", "menu.main.about", fallback: "About VoxFlow")
+        /// Actions
+        internal static let actions = ScreenshotL10n.tr("Localizable", "menu.main.actions", fallback: "Actions")
+        /// Agent Compose
+        internal static let agentCompose = ScreenshotL10n.tr("Localizable", "menu.main.agent_compose", fallback: "Agent Compose")
+        /// Agent Dispatch
+        internal static let agentDispatch = ScreenshotL10n.tr("Localizable", "menu.main.agent_dispatch", fallback: "Agent Dispatch")
+        /// Bring All to Front
+        internal static let bringAllToFront = ScreenshotL10n.tr("Localizable", "menu.main.bring_all_to_front", fallback: "Bring All to Front")
+        /// Check Permissions
+        internal static let checkPermissions = ScreenshotL10n.tr("Localizable", "menu.main.check_permissions", fallback: "Check Permissions")
         /// Check for Updates
         internal static let checkUpdates = ScreenshotL10n.tr("Localizable", "menu.main.check_updates", fallback: "Check for Updates")
+        /// Close Window
+        internal static let closeWindow = ScreenshotL10n.tr("Localizable", "menu.main.close_window", fallback: "Close Window")
         /// Copy
         internal static let copy = ScreenshotL10n.tr("Localizable", "menu.main.copy", fallback: "Copy")
         /// Cut
         internal static let cut = ScreenshotL10n.tr("Localizable", "menu.main.cut", fallback: "Cut")
+        /// Diagnostics
+        internal static let diagnostics = ScreenshotL10n.tr("Localizable", "menu.main.diagnostics", fallback: "Diagnostics")
         /// Edit
         internal static let edit = ScreenshotL10n.tr("Localizable", "menu.main.edit", fallback: "Edit")
+        /// GitHub
+        internal static let github = ScreenshotL10n.tr("Localizable", "menu.main.github", fallback: "GitHub")
+        /// Help
+        internal static let help = ScreenshotL10n.tr("Localizable", "menu.main.help", fallback: "Help")
         /// Hide VoxFlow
         internal static let hide = ScreenshotL10n.tr("Localizable", "menu.main.hide", fallback: "Hide VoxFlow")
         /// Hide Others
         internal static let hideOthers = ScreenshotL10n.tr("Localizable", "menu.main.hide_others", fallback: "Hide Others")
+        /// Minimize
+        internal static let minimize = ScreenshotL10n.tr("Localizable", "menu.main.minimize", fallback: "Minimize")
+        /// Open Palette
+        internal static let openPalette = ScreenshotL10n.tr("Localizable", "menu.main.open_palette", fallback: "Open Palette")
+        /// Open Workbench
+        internal static let openWorkbench = ScreenshotL10n.tr("Localizable", "menu.main.open_workbench", fallback: "Open Workbench")
         /// Paste
         internal static let paste = ScreenshotL10n.tr("Localizable", "menu.main.paste", fallback: "Paste")
         /// Quit VoxFlow
         internal static let quit = ScreenshotL10n.tr("Localizable", "menu.main.quit", fallback: "Quit VoxFlow")
         /// Redo
         internal static let redo = ScreenshotL10n.tr("Localizable", "menu.main.redo", fallback: "Redo")
+        /// Screenshot OCR
+        internal static let screenshotOcr = ScreenshotL10n.tr("Localizable", "menu.main.screenshot_ocr", fallback: "Screenshot OCR")
         /// Select All
         internal static let selectAll = ScreenshotL10n.tr("Localizable", "menu.main.select_all", fallback: "Select All")
+        /// Selection Action
+        internal static let selectionAction = ScreenshotL10n.tr("Localizable", "menu.main.selection_action", fallback: "Selection Action")
+        /// Settings...
+        internal static let settings = ScreenshotL10n.tr("Localizable", "menu.main.settings", fallback: "Settings...")
+        /// Start Dictation
+        internal static let startDictation = ScreenshotL10n.tr("Localizable", "menu.main.start_dictation", fallback: "Start Dictation")
         /// Undo
         internal static let undo = ScreenshotL10n.tr("Localizable", "menu.main.undo", fallback: "Undo")
+        /// Window
+        internal static let window = ScreenshotL10n.tr("Localizable", "menu.main.window", fallback: "Window")
+        /// Zoom
+        internal static let zoom = ScreenshotL10n.tr("Localizable", "menu.main.zoom", fallback: "Zoom")
       }
       internal enum ProviderTag {
         /// Accurate
@@ -5343,7 +5379,7 @@ internal enum ScreenshotL10n {
 
 extension ScreenshotL10n {
   private static func tr(_ table: String, _ key: String, _ args: CVarArg..., fallback value: String) -> String {
-    let format = Bundle.module.localizedString(forKey: key, value: value, table: table)
+    let format = ScreenshotL10n.bundle.localizedString(forKey: key, value: value, table: table)
     return String(format: format, locale: Locale.current, arguments: args)
   }
 }

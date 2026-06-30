@@ -762,6 +762,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LanguageManager.shared.setLanguage(language)
     }
 
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(startDictationFromMainMenu(_:)) {
+            menuItem.title = MainMenuDictationActionPresentation.title(
+                isRecording: dictationFeatureController.activeVoiceAction == .dictation
+            )
+        }
+        return true
+    }
+
     private func openSettings() {
         logger.debug("menu_open_settings")
         windowCoordinator.showSettings(tab: .asr)
@@ -792,10 +801,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.showMainWindow()
     }
 
+    @objc func openWorkbenchFromMainMenu(_ sender: Any?) {
+        openWorkbench()
+    }
+
+    @objc func openSettingsFromMainMenu(_ sender: Any?) {
+        openSettings()
+    }
+
     private func openGitHub() {
         logger.debug("menu_open_github")
         guard let url = URL(string: HelpExternalLinks.githubRepository) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    @objc func openGitHubFromMainMenu(_ sender: Any?) {
+        openGitHub()
     }
 
     @objc func checkForUpdates(_ sender: Any?) {
@@ -902,6 +923,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = await recordingPermissionService.resolveRecordingPermissions()
             checkAllPermissions()
         }
+    }
+
+    @objc func checkPermissionsFromMainMenu(_ sender: Any?) {
+        checkPermissions()
     }
 
     private func showRecordingPermissionsAlert() {
@@ -1041,6 +1066,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func performScreenshotOCRFromMenu(_ sender: Any?) {
         _ = performWorkflowShortcut(.screenshotOCR)
+    }
+
+    @objc func requestSelectionActionFromMainMenu(_ sender: Any?) {
+        _ = performWorkflowShortcut(.selectionAction)
     }
 
     private func performWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {
@@ -1212,6 +1241,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         paletteWindowController?.present()
     }
 
+    @objc func showPaletteFromMainMenu(_ sender: Any?) {
+        showPalette()
+    }
+
     private func handlePaletteAskAI(prompt: String) {
         logger.debug("palette_ask_ai_requested promptLen=\(prompt.count)")
         paletteWindowController?.close()
@@ -1234,7 +1267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handlePaletteCommand(_ command: PaletteCommand) {
         switch command {
-        case .recentAssets, .assetHistory:
+        case .recentAssets, .assetHistory, .searchFiles:
             break
         case .screenshotOCR:
             paletteWindowController?.close()
@@ -1257,6 +1290,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             dictationFeatureController.handlePress(action: action)
         }
+    }
+
+    @objc func startDictationFromMainMenu(_ sender: Any?) {
+        togglePaletteVoiceAction(.dictation)
     }
 
     private func showSelectionActionCard() {

@@ -251,6 +251,16 @@ enum ASRHotwordCapabilityMatrix {
             requiresConfiguration: true,
             unsupportedReason: nil
         ),
+        .volcengineDoubao: ASRHotwordCapability(
+            providerID: ASREngineType.volcengineDoubao.providerID,
+            engineType: .volcengineDoubao,
+            supportMode: .unsupported,
+            maxCount: 0,
+            maxBudget: 0,
+            budgetUnit: .count,
+            requiresConfiguration: false,
+            unsupportedReason: "provider_no_hotword_api"
+        ),
         // Unsupported providers
         .parakeetStreaming: ASRHotwordCapability(
             providerID: ASREngineType.parakeetStreaming.providerID,

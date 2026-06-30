@@ -39,6 +39,8 @@
 /* ===== 菜单 ===== */
 "menu.main.about" = "关于码上写";
 "menu.main.check_updates" = "检查更新";
+"menu.main.open_workbench" = "打开工作台";
+"menu.main.settings" = "设置...";
 "menu.main.hide" = "隐藏码上写";
 "menu.main.hide_others" = "隐藏其他";
 "menu.main.quit" = "退出码上写";
@@ -49,6 +51,21 @@
 "menu.main.copy" = "复制";
 "menu.main.paste" = "粘贴";
 "menu.main.select_all" = "全选";
+"menu.main.actions" = "操作";
+"menu.main.open_palette" = "打开启动台";
+"menu.main.screenshot_ocr" = "截图 OCR";
+"menu.main.selection_action" = "划词动作";
+"menu.main.start_dictation" = "开始听写";
+"menu.main.stop_dictation" = "停止听写";
+"menu.main.window" = "窗口";
+"menu.main.close_window" = "关闭窗口";
+"menu.main.minimize" = "最小化";
+"menu.main.zoom" = "缩放";
+"menu.main.bring_all_to_front" = "全部置前";
+"menu.main.diagnostics" = "诊断";
+"menu.main.check_permissions" = "检查权限";
+"menu.main.help" = "帮助与支持";
+"menu.main.github" = "GitHub";
 "menu.status.language" = "语言 / Language";
 "menu.status.asr_model" = "语音识别模型";
 "menu.status.llm_service" = "智能模型服务";
@@ -97,7 +114,7 @@
 "updates.prompt.no_summary_fallback" = "打开发布页查看详细更新内容。";
 "updates.prompt.current_version_prefix" = "当前版本：";
 "updates.prompt.latest_version_prefix" = "最新版本：";
-"updates.prompt.community_promo" = "欢迎加入用户群，获取使用技巧、反馈问题和新版本提醒。打开「帮助」→「社区支持」扫码入群。";
+"updates.prompt.community_promo" = "如果您在使用过程中遇到任何问题，请加微信：counterxing，或在GitHub提交issue并留下联系方式，我们会尽快联系并帮助您解决问题。";
 "updates.prompt.window_title" = "码上写更新";
 "updates.prompt.close_accessibility" = "关闭";
 "updates.prompt.close_help" = "关闭，下次提醒";
@@ -333,6 +350,7 @@
 /* ===== Palette ===== */
 "palette.search.home_placeholder" = "搜索应用、命令、资产...";
 "palette.search.assets_placeholder" = "搜索资产...";
+"palette.search.files_placeholder" = "搜索文件...";
 "palette.assets.empty_pinned_title" = "暂无置顶项目";
 "palette.assets.empty_pinned_subtitle" = "仍会显示建议和可用功能。";
 "palette.section.today" = "今天";
@@ -378,12 +396,14 @@
 "palette.root_item.title.open_website" = "打开网址";
 "palette.root_item.title.recent_assets" = "最近资产";
 "palette.root_item.title.asset_history" = "历史资产";
+"palette.root_item.title.search_files" = "搜索文件";
 "palette.root_item.title.screenshot_ocr" = "截图 OCR";
 "palette.root_item.title.agent_compose" = "帮我说";
 "palette.root_item.title.agent_dispatch" = "AI 编程";
 "palette.root_item.title.start_dictation" = "开始听写";
 "palette.root_item.subtitle.recent_assets" = "打开最近的语音、截图和剪切板";
 "palette.root_item.subtitle.asset_history" = "查看全部历史资产";
+"palette.root_item.subtitle.search_files" = "按文件名查找本地文件";
 "palette.root_item.subtitle.screenshot_ocr" = "选择区域并识别文字";
 "palette.root_item.subtitle.agent_compose" = "口述需求，生成可直接输入的文本";
 "palette.root_item.subtitle.agent_dispatch" = "激活 AI 编程控制台";
@@ -576,6 +596,25 @@
 "asset.action.quick_look" = "快速查看";
 "asset.action.rerun_ocr" = "重新运行 OCR";
 "asset.action.save_as_file" = "保存为文件";
+"palette.file_action.copy_name" = "复制名称";
+"palette.file_action.copy_path" = "复制路径";
+"palette.file_action.open" = "打开";
+"palette.file_action.quick_look" = "快速查看";
+"palette.file_action.show_in_finder" = "在 Finder 中显示";
+"palette.files.empty" = "没有找到文件";
+"palette.files.kind.file" = "文件";
+"palette.files.kind.folder" = "文件夹";
+"palette.files.metadata.created" = "创建时间";
+"palette.files.metadata.kind" = "类型";
+"palette.files.metadata.loading" = "正在加载详情";
+"palette.files.metadata.modified" = "修改时间";
+"palette.files.metadata.name" = "名称";
+"palette.files.metadata.size" = "大小";
+"palette.files.metadata.where" = "位置";
+"palette.files.section.partial" = "部分结果";
+"palette.files.section.recent" = "最近文件";
+"palette.files.section.results" = "搜索结果";
+"palette.files.section.searching" = "正在搜索";
 
 /* ===== Localization migration coverage ===== */
 "agent.session.status.exited" = "已退出";
@@ -1711,6 +1750,14 @@
 "asr.provider.aliyun.description" = "使用 DashScope 实时语音识别 WebSocket。接入地址固定为 wss://dashscope.aliyuncs.com/api-ws/v1/inference，鉴权使用 Authorization: Bearer 访问密钥。";
 "asr.provider.aliyun.api_key_placeholder" = "百炼访问密钥";
 "asr.provider.aliyun.privacy_note" = "录音会发送到阿里云百炼。访问密钥保存在本地凭据文件，可用眼睛按钮查看或隐藏。默认使用官方推荐语音识别模型。";
+"asr.provider.volcengine.configuration_title" = "火山云配置";
+"asr.provider.volcengine.description" = "使用豆包流式语音识别 2.0 WebSocket。先到 https://console.volcengine.com/speech/app?opt=create 创建语音应用，在 https://console.volcengine.com/speech/new/setting/activate 开通语音服务，再到 https://console.volcengine.com/speech/service/10038 获取 App ID、Access Token 和 Secret Key。";
+"asr.provider.volcengine.app_id" = "App ID";
+"asr.provider.volcengine.access_token" = "Access Token";
+"asr.provider.volcengine.secret_key" = "Secret Key";
+"asr.provider.volcengine.show_credentials" = "显示火山云凭据";
+"asr.provider.volcengine.hide_credentials" = "隐藏火山云凭据";
+"asr.provider.volcengine.privacy_note" = "录音会发送到火山引擎。App ID、Access Token 和 Secret Key 保存在本地凭据文件，可用眼睛按钮查看或隐藏。";
 "asr.provider.local_model.status_label" = "模型状态";
 "asr.provider.local_model.size_label" = "模型大小";
 "asr.provider.local_model.clean" = "清理模型";

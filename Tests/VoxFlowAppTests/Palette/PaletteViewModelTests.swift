@@ -10,7 +10,7 @@ final class PaletteViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.mode, .home)
         XCTAssertEqual(viewModel.searchPlaceholder, "搜索应用、命令、资产...")
         XCTAssertFalse(viewModel.showsAskAI)
-        XCTAssertEqual(viewModel.homeResults.map(\.title), ["最近资产", "历史资产", "截图 OCR", "帮我说", "AI 编程", "开始听写"])
+        XCTAssertEqual(viewModel.homeResults.map(\.title), ["最近资产", "历史资产", "搜索文件", "截图 OCR", "帮我说", "AI 编程", "开始听写"])
         XCTAssertEqual(viewModel.selectedHomeResultIndex, 0)
         XCTAssertEqual(viewModel.selectedHomeResult?.command, .recentAssets)
     }
@@ -218,13 +218,13 @@ final class PaletteViewModelTests: XCTestCase {
     func testPaletteVoiceCommandsRouteToDedicatedVoiceActions() {
         let viewModel = PaletteViewModel(repository: CapturingPaletteAssetRepository())
 
-        viewModel.selectHomeResult(at: 3)
+        viewModel.selectHomeResult(at: 4)
         XCTAssertEqual(viewModel.primaryKeyboardAction(), .activateCommand(.startAgentCompose))
 
-        viewModel.selectHomeResult(at: 4)
+        viewModel.selectHomeResult(at: 5)
         XCTAssertEqual(viewModel.primaryKeyboardAction(), .activateCommand(.startAgentDispatch))
 
-        viewModel.selectHomeResult(at: 5)
+        viewModel.selectHomeResult(at: 6)
         XCTAssertEqual(viewModel.primaryKeyboardAction(), .activateCommand(.startDictation))
     }
 
@@ -461,7 +461,7 @@ final class PaletteViewModelTests: XCTestCase {
 
     func testRootOpenActionReturnsCurrentPrimaryKeyboardAction() {
         let viewModel = PaletteViewModel(repository: CapturingPaletteAssetRepository())
-        viewModel.selectHomeResult(at: 2)
+        viewModel.selectHomeResult(at: 3)
 
         XCTAssertEqual(viewModel.performRootAction(.open), .activateCommand(.screenshotOCR))
     }

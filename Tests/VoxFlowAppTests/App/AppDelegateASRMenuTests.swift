@@ -13,6 +13,7 @@ final class AppDelegateASRMenuTests: XCTestCase {
                 "Groq",
                 "腾讯云",
                 "阿里云",
+                "火山云",
                 "FunASR Nano INT8",
                 "FunASR Nano FP32",
                 "Whisper Turbo",

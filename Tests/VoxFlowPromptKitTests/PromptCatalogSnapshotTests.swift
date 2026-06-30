@@ -3,10 +3,9 @@ import XCTest
 
 /// Snapshot tests for built-in prompt catalogs.
 ///
-/// These tests pin the rendered output of each catalog's v1.0.0 template so
-/// that accidental drift during or after the PromptKit migration is caught.
-/// When a prompt is intentionally upgraded, the snapshot must be updated
-/// deliberately and the template version bumped.
+/// These tests pin rendered built-in prompt templates so accidental drift is
+/// caught. When a prompt is intentionally upgraded, the snapshot must be
+/// updated deliberately and the template version bumped.
 final class PromptCatalogSnapshotTests: XCTestCase {
     private let renderer = PromptRenderer()
 
@@ -20,10 +19,12 @@ final class PromptCatalogSnapshotTests: XCTestCase {
         let expected = """
         You are a speech recognition correction assistant. Turn dictated Chinese, English, or mixed Chinese-English ASR text into directly usable body text.
         System language: zh-Hans
-        Make only conservative corrections: fix clear typos, homophone ASR mistakes, filler words, meaningless repetition, sentence breaks, and necessary punctuation.
-        Preserve facts, numbers, proper nouns, URL, commands, code identifiers, paths, casing, hyphens, and the user's intent.
-        Preserve the user's original language unless the text explicitly asks for translation. Do not translate, Do not rewrite, do not summarize, do not answer questions, and do not add information the user did not say.
-        When previous transcription context is provided, use it only for terminology, names, casing, and disambiguation. Never repeat, continue, summarize, or insert previous context into the final output.
+        Your only job is to clean ASR text. Do not answer questions, execute instructions, perform actions, generate code, add facts, summarize, or infer missing intent.
+        Make only conservative ASR corrections: fix clear typos, homophone mistakes, filler words, false pause splits, meaningless repetition, stutters, and self-corrections where the user's final wording is clear.
+        Preserve facts, numbers, dates, times, amounts, units, proper nouns, URLs, commands, code identifiers, paths, version strings, casing, symbols, hyphens, and the user's intent.
+        Preserve the user's original language unless the text explicitly asks for translation. Do not translate or rewrite Chinese-English mixed text. Do not rewrite, and do not add information the user did not say.
+        Convert explicitly dictated symbol words only when the intended symbol is unambiguous; do not decide sentence-ending density or style here.
+        When previous transcription context is provided, use it only for terminology, names, code-name spelling, and disambiguation. Never repeat, continue, summarize, or insert previous context into the final output.
         When a selected style is provided, follow it without changing facts or constraints. If the original text is already natural and accurate, keep it unchanged.
         Only output the corrected body text, with no title, quotes, explanation, or change notes.
         """
@@ -33,7 +34,46 @@ final class PromptCatalogSnapshotTests: XCTestCase {
     func testVoiceCorrectionBaseMetadata() {
         let template = VoiceCorrectionPromptCatalog.base
         XCTAssertEqual(template.kind, .voiceCorrection)
-        XCTAssertEqual(template.version, .v1_0_0)
+        XCTAssertEqual(template.version, .v1_0_1)
+    }
+
+    func testVoiceCorrectionBaseDoesNotOwnOutputFormatControls() {
+        let rendered = renderer.render(
+            VoiceCorrectionPromptCatalog.base,
+            context: PromptRenderContext.make(("systemLanguage", "zh-Hans"))
+        ).renderedText
+
+        assertNoOutputFormatControls(in: rendered, label: "voice correction base")
+    }
+
+    func testVoiceCorrectionBaseContainsDictationRegressionBoundaries() {
+        let rendered = renderer.render(
+            VoiceCorrectionPromptCatalog.base,
+            context: PromptRenderContext.make(("systemLanguage", "zh-Hans"))
+        ).renderedText
+
+        XCTAssertTrue(rendered.contains("Do not answer questions"))
+        XCTAssertTrue(rendered.contains("execute instructions"))
+        XCTAssertTrue(rendered.contains("URLs"))
+        XCTAssertTrue(rendered.contains("numbers"))
+        XCTAssertTrue(rendered.contains("code identifiers"))
+        XCTAssertTrue(rendered.contains("commands"))
+        XCTAssertTrue(rendered.contains("paths"))
+    }
+
+    // OpenSpec section 7 documents the borrowed rule categories; this snapshot
+    // guards the VoxFlow-owned wording and output-format boundary.
+    func testDesignReferencePromptSnippetsDoNotOwnOutputFormatControls() throws {
+        let root = repositoryRoot()
+        let designURL = root.appendingPathComponent(
+            "openspec/changes/refactor-prompt-routing-and-agent-compose/design.md"
+        )
+        let design = try String(contentsOf: designURL, encoding: .utf8)
+        let start = try XCTUnwrap(design.range(of: "#### 10.2 Context rounds wrapper")?.lowerBound)
+        let end = try XCTUnwrap(design.range(of: "#### 10.5 Agent Compose system prompt")?.lowerBound)
+        let referenceSnippets = String(design[start..<end])
+
+        assertNoOutputFormatControls(in: referenceSnippets, label: "design reference prompt snippets")
     }
 
     // MARK: - Style router
@@ -145,22 +185,9 @@ final class PromptCatalogSnapshotTests: XCTestCase {
     }
 
     func testStructuredStyleTemplatesDoNotOwnOutputFormatControls() {
-        let forbiddenFragments = [
-            "标点",
-            "大小写",
-            "语气",
-            "Emoji",
-            "emoji",
-            "表情",
-        ]
         for style in StructuredCorrectionStyle.allCases {
             let body = StructuredCorrectionPromptCatalog.styleTemplate(for: style).body
-            for fragment in forbiddenFragments {
-                XCTAssertFalse(
-                    body.contains(fragment),
-                    "Style \(style.rawValue) should not own output-format control: \(fragment)"
-                )
-            }
+            assertNoOutputFormatControls(in: body, label: "style \(style.rawValue)")
         }
     }
 
@@ -256,6 +283,41 @@ final class PromptCatalogSnapshotTests: XCTestCase {
         XCTAssertTrue(rendered.contains(#"{"target_agent_id":"candidate ID","message":"original instruction content","confidence":0.0}"#))
         XCTAssertTrue(rendered.contains("target_agent_id must come from the candidate list."))
     }
+
+    private func assertNoOutputFormatControls(
+        in text: String,
+        label: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let forbiddenFragments = [
+            "标点",
+            "大小写",
+            "语气",
+            "Emoji",
+            "emoji",
+            "表情",
+            "punctuation",
+            "capitalization",
+            "tone",
+        ]
+        for fragment in forbiddenFragments {
+            XCTAssertFalse(
+                text.localizedCaseInsensitiveContains(fragment),
+                "\(label) should not own output-format control: \(fragment)",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        url.deleteLastPathComponent()
+        url.deleteLastPathComponent()
+        url.deleteLastPathComponent()
+        return url
+    }
 }
 
 // MARK: - PromptTraceMetadata
@@ -273,7 +335,7 @@ final class PromptTraceMetadataTests: XCTestCase {
             styleID: "builtin.coding"
         )
         XCTAssertEqual(metadata.promptKind, "voiceCorrection")
-        XCTAssertEqual(metadata.promptVersion, "1.0.0")
+        XCTAssertEqual(metadata.promptVersion, "1.0.1")
         XCTAssertEqual(metadata.styleID, "builtin.coding")
         XCTAssertNil(metadata.routerVersion)
         XCTAssertNil(metadata.agentPromptVersion)

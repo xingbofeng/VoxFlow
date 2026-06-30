@@ -44,6 +44,11 @@ enum PermissionSummary {
                 L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
                 L10n.localize("permission.alert.body.aliyun_engine", comment: "Permission body for Aliyun engine")
             )
+        case .volcengineDoubao:
+            return (
+                L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),
+                L10n.localize("permission.alert.body.microphone_only_cloud", comment: "Permission body for Volcengine engine")
+            )
         }
     }
 

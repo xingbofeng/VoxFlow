@@ -1,4 +1,5 @@
 import AppKit
+import QuickLookUI
 import SwiftUI
 
 @MainActor
@@ -51,6 +52,7 @@ final class PaletteWindowController: NSWindowController {
     private let onCommand: (PaletteCommand) -> Void
     private let onAskAI: (String) -> Void
     private let onTranslate: (String) -> Void
+    private var quickLookFileURL: URL?
     private var previousTarget: DictationTarget?
     private var localKeyMonitor: Any?
     private var localMouseMonitor: Any?
@@ -120,6 +122,9 @@ final class PaletteWindowController: NSWindowController {
                     Task { @MainActor in
                         await self?.performAssetAction(action, on: asset)
                     }
+                },
+                onFileAction: { [weak self] action, file in
+                    self?.performFileAction(action, on: file)
                 },
                 onOpenApplication: { [weak self] path, itemID in
                     self?.performOpenApplication(path: path, itemID: itemID)
@@ -191,7 +196,8 @@ final class PaletteWindowController: NSWindowController {
         }
 
         let modifierFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if modifierFlags.contains(.command),
+        if viewModel.mode == .recentAssets,
+           modifierFlags.contains(.command),
            event.charactersIgnoringModifiers?.lowercased() == "p" {
             viewModel.toggleTypeFilter()
             return true
@@ -217,6 +223,31 @@ final class PaletteWindowController: NSWindowController {
                     return true
                 case 36, 76:
                     performSelectedRootAction(viewModel.selectedRootActionPanelAction())
+                    return true
+                default:
+                    return false
+                }
+            }
+            if viewModel.mode == .fileSearch {
+                if let shortcutAction = fileActionPanelShortcutAction(for: event, modifierFlags: modifierFlags) {
+                    performSelectedFileAction(shortcutAction)
+                    return true
+                }
+                switch event.keyCode {
+                case 125:
+                    viewModel.moveActionSelectionDown()
+                    return true
+                case 126:
+                    viewModel.moveActionSelectionUp()
+                    return true
+                case 36, 76:
+                    let shortcutAction: PaletteFileAction?
+                    if modifierFlags.contains(.command) {
+                        shortcutAction = .copyPath
+                    } else {
+                        shortcutAction = viewModel.selectedFileActionPanelAction()
+                    }
+                    performSelectedFileAction(shortcutAction)
                     return true
                 default:
                     return false
@@ -296,6 +327,11 @@ final class PaletteWindowController: NSWindowController {
                     await performAssetAction(action, on: asset)
                 }
             }
+        case let .performFileAction(action, fileID):
+            guard let file = viewModel.fileResults.first(where: { $0.id == fileID }) else {
+                return
+            }
+            performFileAction(action, on: file)
         case let .askAI(prompt):
             performAskAI(prompt: prompt)
         case let .translate(text):
@@ -356,6 +392,11 @@ final class PaletteWindowController: NSWindowController {
         }
     }
 
+    private func performSelectedFileAction(_ action: PaletteFileAction?) {
+        guard let action, let file = viewModel.selectedFile else { return }
+        performFileAction(action, on: file)
+    }
+
     private func actionPanelShortcutAction(
         for event: NSEvent,
         modifierFlags: NSEvent.ModifierFlags
@@ -378,6 +419,23 @@ final class PaletteWindowController: NSWindowController {
         }
         if modifierFlags.contains(.control), key == "x" {
             return .delete
+        }
+        return nil
+    }
+
+    private func fileActionPanelShortcutAction(
+        for event: NSEvent,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> PaletteFileAction? {
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if modifierFlags.contains(.command) {
+                return .copyPath
+            }
+            return nil
+        }
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        if modifierFlags.contains(.command), key == "y" {
+            return .quickLook
         }
         return nil
     }
@@ -416,6 +474,38 @@ final class PaletteWindowController: NSWindowController {
             window?.orderFrontRegardless()
             window?.makeKey()
         }
+    }
+
+    private func performFileAction(_ action: PaletteFileAction, on file: PaletteFileItem) {
+        switch action {
+        case .open:
+            NSWorkspace.shared.open(file.url)
+            viewModel.dismissActionPanel()
+            close()
+        case .showInFinder:
+            NSWorkspace.shared.activateFileViewerSelecting([file.url])
+            viewModel.dismissActionPanel()
+            close()
+        case .quickLook:
+            quickLookFileURL = file.url
+            if let panel = QLPreviewPanel.shared() {
+                panel.dataSource = self
+                panel.makeKeyAndOrderFront(nil)
+            }
+            viewModel.dismissActionPanel()
+        case .copyPath:
+            copyToPasteboard(file.url.path)
+            viewModel.dismissActionPanel()
+        case .copyName:
+            copyToPasteboard(file.name)
+            viewModel.dismissActionPanel()
+        }
+    }
+
+    private func copyToPasteboard(_ value: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
     }
 
     private func installKeyMonitors() {
@@ -481,6 +571,16 @@ final class PaletteWindowController: NSWindowController {
             appName: application.localizedName,
             pid: Int(application.processIdentifier)
         )
+    }
+}
+
+extension PaletteWindowController: @preconcurrency QLPreviewPanelDataSource {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        quickLookFileURL == nil ? 0 : 1
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        quickLookFileURL as NSURL?
     }
 }
 

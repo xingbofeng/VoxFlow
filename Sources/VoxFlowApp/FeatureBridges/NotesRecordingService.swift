@@ -276,7 +276,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
         }
         switch currentEngineType {
         case .funASR, .senseVoice, .paraformer, .groqWhisper,
-             .parakeetStreaming, .omnilingualASR:
+             .parakeetStreaming, .omnilingualASR, .volcengineDoubao:
             return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
         case .apple, .whisper, .qwen3, .nvidiaNemotron, .tencentCloud,
              .aliyunDashScope:

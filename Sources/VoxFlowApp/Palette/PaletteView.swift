@@ -8,14 +8,12 @@ struct PaletteView: View {
     var onCommand: (PaletteCommand) -> Void = { _ in }
     var onDefaultAction: (PaletteDefaultAction) -> Void = { _ in }
     var onAssetAction: (AssetAction, AssetItem) -> Void = { _, _ in }
+    var onFileAction: (PaletteFileAction, PaletteFileItem) -> Void = { _, _ in }
     var onOpenApplication: (String, PaletteRootItemID) -> Void = { _, _ in }
     var onAskAI: (String) -> Void = { _ in }
     var onTranslate: (String) -> Void = { _ in }
     var onActivateQuicklink: (PaletteQuicklink, String) -> Void = { _, _ in }
     var onOpenURL: (String) -> Void = { _ in }
-
-    private let homeSearchPlaceholder = L10n.localize("palette.search.home_placeholder", comment: "")
-    private let assetSearchPlaceholder = L10n.localize("palette.search.assets_placeholder", comment: "")
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -58,7 +56,7 @@ struct PaletteView: View {
 
     private var searchHeader: some View {
         HStack(spacing: 12) {
-            if viewModel.mode == .recentAssets {
+            if viewModel.mode != .home {
                 Button {
                     viewModel.goBack()
                 } label: {
@@ -72,7 +70,7 @@ struct PaletteView: View {
             }
 
             TextField(
-                viewModel.mode == .home ? homeSearchPlaceholder : assetSearchPlaceholder,
+                viewModel.searchPlaceholder,
                 text: Binding(
                     get: { viewModel.searchText },
                     set: { text in
@@ -115,6 +113,8 @@ struct PaletteView: View {
             homeResultList
         case .recentAssets:
             assetBrowser
+        case .fileSearch:
+            fileBrowser
         }
     }
 
@@ -146,7 +146,7 @@ struct PaletteView: View {
     }
 
     private func rootResultButton(_ item: PaletteRootItem, index: Int) -> some View {
-        let isSelected = viewModel.selectedHomeResultIndex == index
+        let isSelected = viewModel.selectedRootItemID == item.id
         return Button {
             viewModel.selectHomeResult(at: index)
             performPrimaryAction()
@@ -173,6 +173,7 @@ struct PaletteView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PaletteRowButtonStyle())
+        .focusable(false)
         .background {
             PaletteRowSelectionHighlight(isSelected: isSelected)
         }
@@ -233,6 +234,7 @@ struct PaletteView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(PaletteRowButtonStyle())
+                        .focusable(false)
                         .background {
                             PaletteRowSelectionHighlight(isSelected: isSelected)
                         }
@@ -287,6 +289,20 @@ struct PaletteView: View {
         }
     }
 
+    private func scrollFileSelectionIntoView(_ proxy: ScrollViewProxy) {
+        guard viewModel.fileResults.indices.contains(viewModel.selectedFileIndex) else { return }
+        let file = viewModel.fileResults[viewModel.selectedFileIndex]
+        withAnimation(.easeOut(duration: 0.12)) {
+            proxy.scrollTo(
+                file.id,
+                anchor: paletteScrollAnchor(
+                    index: viewModel.selectedFileIndex,
+                    count: viewModel.fileResults.count
+                )
+            )
+        }
+    }
+
     private func paletteScrollAnchor(index: Int, count: Int) -> UnitPoint {
         if index == 0 {
             return .top
@@ -316,6 +332,240 @@ struct PaletteView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var fileBrowser: some View {
+        HStack(spacing: 0) {
+            fileList
+                .frame(width: 340)
+            Divider()
+            filePreviewPane
+        }
+    }
+
+    private var fileList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    fileSectionHeader
+                    ForEach(Array(viewModel.fileResults.enumerated()), id: \.element.id) { index, file in
+                        let isSelected = viewModel.selectedFileIndex == index
+                        Button {
+                            viewModel.selectFile(at: index)
+                        } label: {
+                            HStack(spacing: 12) {
+                                fileIcon(file)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(file.name)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .lineLimit(1)
+                                    Text(file.displayPath)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(height: 50)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PaletteRowButtonStyle())
+                        .focusable(false)
+                        .background {
+                            PaletteRowSelectionHighlight(isSelected: isSelected)
+                        }
+                        .id(file.id)
+                        .simultaneousGesture(
+                            TapGesture(count: 2).onEnded {
+                                viewModel.selectFile(at: index)
+                                onFileAction(.open, file)
+                            }
+                        )
+                        .overlay {
+                            RightClickActionView {
+                                viewModel.selectFile(at: index)
+                                viewModel.presentActionPanel()
+                            }
+                        }
+                    }
+
+                    if viewModel.fileResults.isEmpty {
+                        if viewModel.fileSearchState == .searching {
+                            fileSearchingRow
+                        } else {
+                            fileEmptyRow
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 14)
+            }
+            .onChange(of: viewModel.selectedFileIndex) { _, _ in
+                scrollFileSelectionIntoView(proxy)
+            }
+            .onChange(of: viewModel.fileResults.map(\.id).joined(separator: "|")) { _, _ in
+                scrollFileSelectionIntoView(proxy)
+            }
+        }
+    }
+
+    private var filePreviewPane: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let file = viewModel.selectedFile {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 14) {
+                        filePreviewIcon(file)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(file.name)
+                                .font(.system(size: 20, weight: .semibold))
+                                .lineLimit(2)
+                            Text(file.displayPath)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Divider()
+
+                    if let metadata = viewModel.selectedFileMetadata {
+                        fileMetadataRows(metadata)
+                    } else {
+                        Text(L10n.localize("palette.files.metadata.loading", comment: ""))
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(22)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else if viewModel.fileSearchState == .searching {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.regular)
+                    Text(L10n.localize("palette.files.section.searching", comment: ""))
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary)
+                    Text(L10n.localize("palette.files.empty", comment: ""))
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    private func fileMetadataRows(_ metadata: PaletteFileMetadata) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            fileMetadataRow(
+                label: L10n.localize("palette.files.metadata.name", comment: ""),
+                value: metadata.name
+            )
+            fileMetadataRow(
+                label: L10n.localize("palette.files.metadata.where", comment: ""),
+                value: metadata.path
+            )
+            if let kind = metadata.kind {
+                fileMetadataRow(
+                    label: L10n.localize("palette.files.metadata.kind", comment: ""),
+                    value: kind
+                )
+            }
+            if let size = metadata.sizeDescription {
+                fileMetadataRow(
+                    label: L10n.localize("palette.files.metadata.size", comment: ""),
+                    value: size
+                )
+            }
+            if let createdAt = metadata.createdAt {
+                fileMetadataRow(
+                    label: L10n.localize("palette.files.metadata.created", comment: ""),
+                    value: fileMetadataDateFormatter.string(from: createdAt)
+                )
+            }
+            if let modifiedAt = metadata.modifiedAt {
+                fileMetadataRow(
+                    label: L10n.localize("palette.files.metadata.modified", comment: ""),
+                    value: fileMetadataDateFormatter.string(from: modifiedAt)
+                )
+            }
+        }
+    }
+
+    private func fileMetadataRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 72, alignment: .leading)
+            Text(value)
+                .font(.system(size: 13))
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var fileSectionHeader: some View {
+        HStack(spacing: 8) {
+            Text(fileSectionTitle)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.secondary)
+            if viewModel.fileSearchState == .searching {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 4)
+    }
+
+    private var fileSectionTitle: String {
+        switch viewModel.fileSearchState {
+        case .showingRecent:
+            return L10n.localize("palette.files.section.recent", comment: "")
+        case .searching:
+            return L10n.localize("palette.files.section.searching", comment: "")
+        case .timedOut:
+            return L10n.localize("palette.files.section.partial", comment: "")
+        case .idle, .completed, .failed:
+            return L10n.localize("palette.files.section.results", comment: "")
+        }
+    }
+
+    private var fileSearchingRow: some View {
+        HStack(spacing: 13) {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 28, height: 28)
+            Text(L10n.localize("palette.files.section.searching", comment: ""))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 15)
+        .frame(height: 50)
+    }
+
+    private var fileEmptyRow: some View {
+        HStack(spacing: 13) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 28, height: 28)
+                .foregroundStyle(.secondary)
+            Text(L10n.localize("palette.files.empty", comment: ""))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 15)
+        .frame(height: 50)
     }
 
     private var footer: some View {
@@ -367,8 +617,11 @@ struct PaletteView: View {
         if viewModel.mode == .home, let item = viewModel.selectedRootItem {
             rootIcon(for: item)
                 .scaleEffect(0.72)
-        } else if let asset = viewModel.selectedAsset {
+        } else if viewModel.mode == .recentAssets, let asset = viewModel.selectedAsset {
             assetIcon(asset)
+                .scaleEffect(0.67)
+        } else if viewModel.mode == .fileSearch, let file = viewModel.selectedFile {
+            fileIcon(file)
                 .scaleEffect(0.67)
         } else {
             Image(systemName: "tray.full")
@@ -437,7 +690,8 @@ struct PaletteView: View {
                             .fill(index == viewModel.selectedActionIndex ? Color(nsColor: .separatorColor).opacity(0.52) : .clear)
                     )
                 }
-            } else if let asset = viewModel.selectedAsset,
+            } else if viewModel.mode == .recentAssets,
+               let asset = viewModel.selectedAsset,
                let actions = try? viewModel.actionPanelActionsForSelectedAsset() {
                 ForEach(Array(actions.enumerated()), id: \.element.rawValue) { index, action in
                     actionMenuRow(action: action) {
@@ -445,6 +699,17 @@ struct PaletteView: View {
                         if action == .delete {
                             try? viewModel.reloadAssets()
                         }
+                        viewModel.isActionPanelPresented = false
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(index == viewModel.selectedActionIndex ? Color(nsColor: .separatorColor).opacity(0.52) : .clear)
+                    )
+                }
+            } else if viewModel.mode == .fileSearch, let file = viewModel.selectedFile {
+                ForEach(Array(viewModel.fileActionPanelActionsForSelectedFile().enumerated()), id: \.element.rawValue) { index, action in
+                    fileActionMenuRow(action: action) {
+                        onFileAction(action, file)
                         viewModel.isActionPanelPresented = false
                     }
                     .background(
@@ -507,6 +772,27 @@ struct PaletteView: View {
         .buttonStyle(PaletteActionMenuButtonStyle(isDestructive: action == .delete))
     }
 
+    private func fileActionMenuRow(action: PaletteFileAction, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            HStack(spacing: 12) {
+                Image(systemName: action.systemImageName)
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 24)
+                Text(action.displayTitle)
+                    .font(.system(size: 16, weight: .medium))
+                Spacer()
+                ForEach(action.shortcutBadges, id: \.self) { badge in
+                    Text(badge)
+                        .keyboardBadge()
+                }
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 42)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PaletteActionMenuButtonStyle())
+    }
+
     private func activate(_ command: PaletteCommand) {
         do {
             try viewModel.activate(command)
@@ -516,9 +802,16 @@ struct PaletteView: View {
     }
 
     private func performPrimaryAction() {
-        if viewModel.mode == .home {
+        switch viewModel.mode {
+        case .home:
             performKeyboardAction(viewModel.primaryKeyboardAction())
             return
+        case .fileSearch:
+            guard let file = viewModel.selectedFile else { return }
+            onFileAction(.open, file)
+            return
+        case .recentAssets:
+            break
         }
         guard let asset = viewModel.selectedAsset else {
             if let command = viewModel.selectedHomeResult?.command {
@@ -547,6 +840,9 @@ struct PaletteView: View {
             if case let .assetAction(assetAction) = defaultAction {
                 onAssetAction(assetAction, asset)
             }
+        case let .performFileAction(action, fileID):
+            guard let file = viewModel.fileResults.first(where: { $0.id == fileID }) else { return }
+            onFileAction(action, file)
         case let .askAI(prompt):
             onAskAI(prompt)
         case let .translate(text):
@@ -563,6 +859,8 @@ struct PaletteView: View {
         switch command {
         case .recentAssets, .assetHistory:
             systemName = "tray.full"
+        case .searchFiles:
+            systemName = "doc.text.magnifyingglass"
         case .screenshotOCR:
             systemName = "text.viewfinder"
         case .startAgentCompose:
@@ -725,6 +1023,51 @@ struct PaletteView: View {
         .frame(width: 30, height: 30)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+    }
+
+    private func fileIcon(_ file: PaletteFileItem) -> some View {
+        Group {
+            if FileManager.default.fileExists(atPath: file.url.path) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: file.url.path))
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: file.isDirectory ? "folder" : "doc")
+            }
+        }
+        .font(.system(size: 18, weight: .medium))
+        .frame(width: 30, height: 30)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+    }
+
+    @ViewBuilder
+    private func filePreviewIcon(_ file: PaletteFileItem) -> some View {
+        if case let .image(url) = viewModel.selectedFileMetadata?.previewKind,
+           let image = NSImage(contentsOf: url) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 54, height: 54)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else if FileManager.default.fileExists(atPath: file.url.path) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: file.url.path))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 54, height: 54)
+        } else {
+            Image(systemName: file.isDirectory ? "folder" : "doc")
+                .font(.system(size: 38, weight: .medium))
+                .frame(width: 54, height: 54)
+                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        }
+    }
+
+    private var fileMetadataDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
     }
 
     private func assetSubtitle(_ asset: AssetItem) -> String {
@@ -982,6 +1325,34 @@ private extension AssetAction {
             return ["↩"]
         case .copyFilePath:
             return ["⌘", "↩"]
+        default:
+            return []
+        }
+    }
+}
+
+private extension PaletteFileAction {
+    var systemImageName: String {
+        switch self {
+        case .open:
+            return "arrow.up.right.square"
+        case .showInFinder:
+            return "folder"
+        case .quickLook:
+            return "eye"
+        case .copyPath, .copyName:
+            return "doc.on.doc"
+        }
+    }
+
+    var shortcutBadges: [String] {
+        switch self {
+        case .open:
+            return ["↩"]
+        case .copyPath:
+            return ["⌘", "↩"]
+        case .quickLook:
+            return ["⌘", "Y"]
         default:
             return []
         }

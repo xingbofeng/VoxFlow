@@ -4,11 +4,13 @@ import Foundation
 enum PaletteMode: Equatable, Sendable {
     case home
     case recentAssets
+    case fileSearch
 }
 
 enum PaletteCommand: String, Equatable, Sendable {
     case recentAssets
     case assetHistory
+    case searchFiles
     case screenshotOCR
     case startAgentCompose
     case startAgentDispatch
@@ -76,6 +78,7 @@ enum PaletteKeyboardAction: Equatable, Sendable {
     case activateCommand(PaletteCommand)
     case openApplication(path: String, itemID: PaletteRootItemID)
     case performAssetAction(PaletteDefaultAction, assetID: String)
+    case performFileAction(PaletteFileAction, fileID: String)
     case askAI(prompt: String)
     case translate(text: String)
     case activateQuicklink(PaletteQuicklink, query: String)
@@ -95,8 +98,15 @@ final class PaletteViewModel: ObservableObject {
     private let usageStore: any PaletteUsageStoring
     private let searchIndex: PaletteRootSearchIndex
     private let composer: PaletteRootComposer
+    private let fileSearchService: any PaletteFileSearching
+    private let recentFileProvider: any PaletteRecentFileProviding
+    private let fileSearchCache: PaletteFileSearchCache
+    private let fileMetadataProvider: any PaletteFileMetadataProviding
+    private let fileSearchDebounceNanoseconds: UInt64
     private let now: () -> Date
     private let rootItems: [PaletteRootItem]
+    private var fileSearchTask: Task<Void, Never>?
+    private var fileMetadataTask: Task<Void, Never>?
 
     /// 是否启用 Palette 动态能力（问 AI / Quicklinks / URL 打开）。
     /// 默认 false 保留纯 launcher 行为；生产环境由装配层显式传 true 启用。
@@ -108,8 +118,12 @@ final class PaletteViewModel: ObservableObject {
     @Published private(set) var selectedHomeResultIndex: Int = 0
     @Published private(set) var selectedRootItemID: PaletteRootItemID?
     @Published private(set) var selectedAssetIndex: Int = 0
+    @Published private(set) var selectedFileIndex: Int = 0
     @Published private(set) var selectedActionIndex: Int = 0
     @Published private(set) var searchText: String = ""
+    @Published private(set) var fileResults: [PaletteFileItem] = []
+    @Published private(set) var fileSearchState: PaletteFileSearchState = .idle
+    @Published private(set) var selectedFileMetadata: PaletteFileMetadata?
     @Published private(set) var searchFocusRequestID: Int = 0
     @Published var isActionPanelPresented = false
     @Published var isTypeFilterPresented = false
@@ -121,6 +135,11 @@ final class PaletteViewModel: ObservableObject {
         favoritesStore: (any PaletteFavoritesStoring)? = nil,
         usageStore: (any PaletteUsageStoring)? = nil,
         searchIndex: PaletteRootSearchIndex = PaletteRootSearchIndex(),
+        fileSearchService: (any PaletteFileSearching)? = nil,
+        recentFileProvider: (any PaletteRecentFileProviding)? = nil,
+        fileSearchCache: PaletteFileSearchCache = PaletteFileSearchCache(),
+        fileMetadataProvider: (any PaletteFileMetadataProviding)? = nil,
+        fileSearchDebounceNanoseconds: UInt64 = 200_000_000,
         showsAskAI: Bool = false,
         now: @escaping () -> Date = Date.init
     ) {
@@ -129,6 +148,11 @@ final class PaletteViewModel: ObservableObject {
         self.favoritesStore = favoritesStore ?? UserDefaultsPaletteFavoritesStore()
         self.usageStore = usageStore ?? UserDefaultsPaletteUsageStore()
         self.searchIndex = searchIndex
+        self.fileSearchService = fileSearchService ?? SystemPaletteFileSearchService()
+        self.recentFileProvider = recentFileProvider ?? SystemPaletteRecentFileProvider()
+        self.fileSearchCache = fileSearchCache
+        self.fileMetadataProvider = fileMetadataProvider ?? SystemPaletteFileMetadataProvider()
+        self.fileSearchDebounceNanoseconds = fileSearchDebounceNanoseconds
         self.showsAskAI = showsAskAI
         self.composer = PaletteRootComposer(searchIndex: searchIndex, now: now)
         self.now = now
@@ -143,6 +167,8 @@ final class PaletteViewModel: ObservableObject {
             return L10n.localize("palette.search.home_placeholder", comment: "")
         case .recentAssets:
             return L10n.localize("palette.search.assets_placeholder", comment: "")
+        case .fileSearch:
+            return L10n.localize("palette.search.files_placeholder", comment: "")
         }
     }
 
@@ -186,6 +212,15 @@ final class PaletteViewModel: ObservableObject {
             isActionPanelPresented = false
             isTypeFilterPresented = false
             try reloadAssets()
+        case .searchFiles:
+            mode = .fileSearch
+            selectedTypeFilter = .all
+            searchText = ""
+            selectedFileIndex = 0
+            selectedActionIndex = 0
+            isActionPanelPresented = false
+            isTypeFilterPresented = false
+            loadRecentFiles()
         case .screenshotOCR, .startAgentCompose, .startAgentDispatch, .startDictation:
             throw PaletteViewModelError.unsupportedCommand
         }
@@ -197,8 +232,14 @@ final class PaletteViewModel: ObservableObject {
         assets = []
         selectedHomeResultIndex = 0
         selectedAssetIndex = 0
+        selectedFileIndex = 0
         selectedActionIndex = 0
         searchText = ""
+        fileSearchTask?.cancel()
+        fileMetadataTask?.cancel()
+        fileResults = []
+        fileSearchState = .idle
+        selectedFileMetadata = nil
         isActionPanelPresented = false
         isTypeFilterPresented = false
         syncSelectedRootItemID()
@@ -213,8 +254,14 @@ final class PaletteViewModel: ObservableObject {
         selectedHomeResultIndex = 0
         isActionPanelPresented = false
         syncSelectedRootItemID()
-        guard mode == .recentAssets else { return }
-        try reloadAssets()
+        switch mode {
+        case .home:
+            return
+        case .recentAssets:
+            try reloadAssets()
+        case .fileSearch:
+            scheduleFileSearch(for: text)
+        }
     }
 
     func selectTypeFilter(_ filter: PaletteAssetTypeFilter) throws {
@@ -238,6 +285,14 @@ final class PaletteViewModel: ObservableObject {
         isActionPanelPresented = false
     }
 
+    func selectFile(at index: Int) {
+        guard fileResults.indices.contains(index) else { return }
+        selectedFileIndex = index
+        selectedActionIndex = 0
+        isActionPanelPresented = false
+        loadSelectedFileMetadata()
+    }
+
     func moveSelectionDown() {
         switch mode {
         case .home:
@@ -246,6 +301,11 @@ final class PaletteViewModel: ObservableObject {
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(after: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
+        case .fileSearch:
+            selectedFileIndex = Self.wrappedIndex(after: selectedFileIndex, count: fileResults.count)
+            selectedActionIndex = 0
+            isActionPanelPresented = false
+            loadSelectedFileMetadata()
         }
     }
 
@@ -257,6 +317,11 @@ final class PaletteViewModel: ObservableObject {
         case .recentAssets:
             selectedAssetIndex = Self.wrappedIndex(before: selectedAssetIndex, count: assets.count)
             isActionPanelPresented = false
+        case .fileSearch:
+            selectedFileIndex = Self.wrappedIndex(before: selectedFileIndex, count: fileResults.count)
+            selectedActionIndex = 0
+            isActionPanelPresented = false
+            loadSelectedFileMetadata()
         }
     }
 
@@ -285,6 +350,11 @@ final class PaletteViewModel: ObservableObject {
                 return .none
             }
             return .performAssetAction(defaultAction(for: selectedAsset), assetID: selectedAsset.id)
+        case .fileSearch:
+            guard let selectedFile else {
+                return .none
+            }
+            return .performFileAction(.open, fileID: selectedFile.id)
         }
     }
 
@@ -297,6 +367,11 @@ final class PaletteViewModel: ObservableObject {
             }
         case .recentAssets:
             guard selectedAsset != nil else {
+                isActionPanelPresented = false
+                return
+            }
+        case .fileSearch:
+            guard selectedFile != nil else {
                 isActionPanelPresented = false
                 return
             }
@@ -325,6 +400,12 @@ final class PaletteViewModel: ObservableObject {
             selectedActionIndex = Self.wrappedIndex(after: selectedActionIndex, count: actions.count)
             return
         }
+        if mode == .fileSearch {
+            let actions = fileActionPanelActionsForSelectedFile()
+            guard !actions.isEmpty else { return }
+            selectedActionIndex = Self.wrappedIndex(after: selectedActionIndex, count: actions.count)
+            return
+        }
         guard let actions = try? actionPanelActionsForSelectedAsset(), !actions.isEmpty else { return }
         selectedActionIndex = Self.wrappedIndex(after: selectedActionIndex, count: actions.count)
     }
@@ -332,6 +413,12 @@ final class PaletteViewModel: ObservableObject {
     func moveActionSelectionUp() {
         if mode == .home {
             let actions = rootActionPanelActionsForSelectedRootItem()
+            guard !actions.isEmpty else { return }
+            selectedActionIndex = Self.wrappedIndex(before: selectedActionIndex, count: actions.count)
+            return
+        }
+        if mode == .fileSearch {
+            let actions = fileActionPanelActionsForSelectedFile()
             guard !actions.isEmpty else { return }
             selectedActionIndex = Self.wrappedIndex(before: selectedActionIndex, count: actions.count)
             return
@@ -345,6 +432,17 @@ final class PaletteViewModel: ObservableObject {
               actions.indices.contains(selectedActionIndex) else {
             return nil
         }
+        return actions[selectedActionIndex]
+    }
+
+    func fileActionPanelActionsForSelectedFile() -> [PaletteFileAction] {
+        guard selectedFile != nil else { return [] }
+        return [.open, .showInFinder, .quickLook, .copyPath, .copyName]
+    }
+
+    func selectedFileActionPanelAction() -> PaletteFileAction? {
+        let actions = fileActionPanelActionsForSelectedFile()
+        guard actions.indices.contains(selectedActionIndex) else { return nil }
         return actions[selectedActionIndex]
     }
 
@@ -438,6 +536,11 @@ final class PaletteViewModel: ObservableObject {
         return assets[selectedAssetIndex]
     }
 
+    var selectedFile: PaletteFileItem? {
+        guard fileResults.indices.contains(selectedFileIndex) else { return nil }
+        return fileResults[selectedFileIndex]
+    }
+
     var selectedHomeResult: PaletteHomeResult? {
         guard let selectedRootItem,
               case let .command(command) = selectedRootItem.activation else {
@@ -452,6 +555,9 @@ final class PaletteViewModel: ObservableObject {
     }
 
     var footerPrimaryActionTitle: String {
+        if mode == .fileSearch {
+            return PaletteFileAction.open.displayTitle
+        }
         guard let selectedAsset else {
             return L10n.localize("palette.root_item.action.open", comment: "")
         }
@@ -476,6 +582,100 @@ final class PaletteViewModel: ObservableObject {
             return selectedRootItem?.title ?? ""
         case .recentAssets:
             return selectedAsset?.title ?? L10n.localize("palette.root_item.title.recent_assets", comment: "")
+        case .fileSearch:
+            return selectedFile?.name ?? L10n.localize("palette.root_item.title.search_files", comment: "")
+        }
+    }
+
+    private func loadRecentFiles() {
+        fileSearchTask?.cancel()
+        selectedFileIndex = 0
+        selectedActionIndex = 0
+        isActionPanelPresented = false
+        fileSearchState = fileResults.isEmpty ? .searching : .showingRecent
+        loadSelectedFileMetadata()
+        fileSearchTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let recent = await recentFileProvider.recentFiles(limit: PaletteFileSearchQuery.recentLimit)
+            guard !Task.isCancelled else { return }
+            guard searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            fileResults = recent
+            selectedFileIndex = 0
+            fileSearchState = recent.isEmpty ? .idle : .showingRecent
+            loadSelectedFileMetadata()
+        }
+    }
+
+    private func scheduleFileSearch(for text: String) {
+        let plan = PaletteFileSearchQuery.plan(for: text)
+        selectedFileIndex = 0
+        selectedActionIndex = 0
+        isActionPanelPresented = false
+        fileSearchTask?.cancel()
+
+        guard plan.strategy != .recentOnly else {
+            loadRecentFiles()
+            return
+        }
+
+        let cacheKey = PaletteFileSearchCacheKey(
+            normalizedQuery: plan.normalizedQuery,
+            scope: plan.scope,
+            strategy: plan.strategy
+        )
+        if let cached = fileSearchCache.results(for: cacheKey) {
+            fileResults = cached
+        } else {
+            let filtered = fileResults.filter { item in
+                item.name.localizedCaseInsensitiveContains(plan.normalizedQuery)
+                    || item.displayPath.localizedCaseInsensitiveContains(plan.normalizedQuery)
+            }
+            if !filtered.isEmpty {
+                fileResults = Array(filtered.prefix(plan.limit))
+            }
+        }
+        loadSelectedFileMetadata()
+        fileSearchState = .searching
+
+        fileSearchTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: fileSearchDebounceNanoseconds)
+            guard !Task.isCancelled else { return }
+            let request = PaletteFileSearchRequest(
+                query: plan.normalizedQuery,
+                scope: plan.scope,
+                strategy: plan.strategy,
+                limit: plan.limit,
+                timeoutMilliseconds: plan.timeoutMilliseconds
+            )
+            let response = await fileSearchService.search(request)
+            guard !Task.isCancelled else { return }
+            guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == plan.normalizedQuery else { return }
+            guard response.query == plan.normalizedQuery else { return }
+            fileResults = response.items
+            selectedFileIndex = min(selectedFileIndex, max(fileResults.count - 1, 0))
+            loadSelectedFileMetadata()
+            if response.completion == .completed {
+                fileSearchCache.store(response.items, for: cacheKey)
+                fileSearchState = .completed
+            } else if response.completion == .timedOut {
+                fileSearchState = .timedOut
+            } else {
+                fileSearchState = .idle
+            }
+        }
+    }
+
+    private func loadSelectedFileMetadata() {
+        fileMetadataTask?.cancel()
+        selectedFileMetadata = nil
+        guard let file = selectedFile else { return }
+        fileMetadataTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let metadata = await fileMetadataProvider.metadata(for: file)
+            guard !Task.isCancelled else { return }
+            guard selectedFile?.id == file.id else { return }
+            selectedFileMetadata = metadata
         }
     }
 

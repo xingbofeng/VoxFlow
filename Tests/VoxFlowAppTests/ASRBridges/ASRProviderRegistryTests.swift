@@ -127,8 +127,12 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertNil(aliyun.engineType)
         XCTAssertEqual(aliyun.statusMessage, "请先配置百炼访问密钥")
 
+        let volcengine = try XCTUnwrap(registry.descriptor(id: ASRProviderID.volcengineDoubao))
+        XCTAssertFalse(volcengine.isAvailable)
+        XCTAssertNil(volcengine.engineType)
+        XCTAssertEqual(volcengine.statusMessage, "需要配置 App ID、Access Token 和 Secret Key")
+
         let unsupportedProviderIDs = [
-            ASRProviderID.volcengineDoubao,
             ASRProviderID.mistralVoxtral,
             ASRProviderID.assemblyAI,
             ASRProviderID.elevenLabsScribe,

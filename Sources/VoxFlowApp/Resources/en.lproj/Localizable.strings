@@ -39,6 +39,8 @@
 /* ===== Menu ===== */
 "menu.main.about" = "About VoxFlow";
 "menu.main.check_updates" = "Check for Updates";
+"menu.main.open_workbench" = "Open Workbench";
+"menu.main.settings" = "Settings...";
 "menu.main.hide" = "Hide VoxFlow";
 "menu.main.hide_others" = "Hide Others";
 "menu.main.quit" = "Quit VoxFlow";
@@ -49,6 +51,21 @@
 "menu.main.copy" = "Copy";
 "menu.main.paste" = "Paste";
 "menu.main.select_all" = "Select All";
+"menu.main.actions" = "Actions";
+"menu.main.open_palette" = "Open Palette";
+"menu.main.screenshot_ocr" = "Screenshot OCR";
+"menu.main.selection_action" = "Selection Action";
+"menu.main.start_dictation" = "Start Dictation";
+"menu.main.stop_dictation" = "Stop Dictation";
+"menu.main.window" = "Window";
+"menu.main.close_window" = "Close Window";
+"menu.main.minimize" = "Minimize";
+"menu.main.zoom" = "Zoom";
+"menu.main.bring_all_to_front" = "Bring All to Front";
+"menu.main.diagnostics" = "Diagnostics";
+"menu.main.check_permissions" = "Check Permissions";
+"menu.main.help" = "Support";
+"menu.main.github" = "GitHub";
 "menu.status.language" = "Language";
 "menu.status.asr_model" = "ASR Models";
 "menu.status.llm_service" = "LLM Service";
@@ -97,7 +114,7 @@
 "updates.prompt.no_summary_fallback" = "Open the release page to see all details.";
 "updates.prompt.current_version_prefix" = "Current version:";
 "updates.prompt.latest_version_prefix" = "Latest version:";
-"updates.prompt.community_promo" = "Join the user group for tips, feedback, and new release updates. Open Help → Community support and scan the group QR code.";
+"updates.prompt.community_promo" = "If you encounter any issues during use, please add WeChat: counterxing, or submit an issue on GitHub and leave your contact information. We will contact you as soon as possible and help you resolve the issue.";
 "updates.prompt.window_title" = "VoxFlow Update";
 "updates.prompt.close_accessibility" = "Close";
 "updates.prompt.close_help" = "Close and remind me later";
@@ -233,6 +250,7 @@
 /* ===== Palette ===== */
 "palette.search.home_placeholder" = "Search apps, commands, and assets...";
 "palette.search.assets_placeholder" = "Search assets...";
+"palette.search.files_placeholder" = "Search files...";
 "palette.assets.empty_pinned_title" = "No pinned items";
 "palette.assets.empty_pinned_subtitle" = "Suggestions and available features are still shown.";
 "palette.section.today" = "Today";
@@ -278,12 +296,14 @@
 "palette.root_item.title.open_website" = "Open URL";
 "palette.root_item.title.recent_assets" = "Recent Assets";
 "palette.root_item.title.asset_history" = "Asset History";
+"palette.root_item.title.search_files" = "Search Files";
 "palette.root_item.title.screenshot_ocr" = "Screenshot OCR";
 "palette.root_item.title.agent_compose" = "Speak for Me";
 "palette.root_item.title.agent_dispatch" = "AI Coding";
 "palette.root_item.title.start_dictation" = "Start Dictation";
 "palette.root_item.subtitle.recent_assets" = "Open recent voice, screenshot, and clipboard assets";
 "palette.root_item.subtitle.asset_history" = "View all asset history";
+"palette.root_item.subtitle.search_files" = "Find local files by name";
 "palette.root_item.subtitle.screenshot_ocr" = "Select and OCR an area";
 "palette.root_item.subtitle.agent_compose" = "Dictate your request to produce directly inputtable text";
 "palette.root_item.subtitle.agent_dispatch" = "Activate AI coding control console";
@@ -551,6 +571,25 @@
 "asset.action.quick_look" = "Quick Look";
 "asset.action.rerun_ocr" = "Rerun OCR";
 "asset.action.save_as_file" = "Save as File";
+"palette.file_action.copy_name" = "Copy Name";
+"palette.file_action.copy_path" = "Copy Path";
+"palette.file_action.open" = "Open";
+"palette.file_action.quick_look" = "Quick Look";
+"palette.file_action.show_in_finder" = "Show in Finder";
+"palette.files.empty" = "No files found";
+"palette.files.kind.file" = "File";
+"palette.files.kind.folder" = "Folder";
+"palette.files.metadata.created" = "Created";
+"palette.files.metadata.kind" = "Kind";
+"palette.files.metadata.loading" = "Loading details";
+"palette.files.metadata.modified" = "Modified";
+"palette.files.metadata.name" = "Name";
+"palette.files.metadata.size" = "Size";
+"palette.files.metadata.where" = "Where";
+"palette.files.section.partial" = "Partial Results";
+"palette.files.section.recent" = "Recent Files";
+"palette.files.section.results" = "Results";
+"palette.files.section.searching" = "Searching";
 
 /* ===== Localization migration coverage ===== */
 "agent.session.status.exited" = "Exited";
@@ -1711,6 +1750,14 @@
 "asr.provider.aliyun.description" = "Use DashScope real-time ASR over WebSocket. The endpoint is wss://dashscope.aliyuncs.com/api-ws/v1/inference and authentication uses Authorization: Bearer with the API key.";
 "asr.provider.aliyun.api_key_placeholder" = "Bailian API key";
 "asr.provider.aliyun.privacy_note" = "Audio is sent to Alibaba Cloud Bailian. The API key is stored in local credentials and can be shown or hidden with the eye button. The recommended ASR model is used by default.";
+"asr.provider.volcengine.configuration_title" = "Volcengine Configuration";
+"asr.provider.volcengine.description" = "Use Doubao streaming ASR 2.0 over WebSocket. Create the speech app at https://console.volcengine.com/speech/app?opt=create, enable the speech service at https://console.volcengine.com/speech/new/setting/activate, then get the App ID, Access Token, and Secret Key from https://console.volcengine.com/speech/service/10038.";
+"asr.provider.volcengine.app_id" = "App ID";
+"asr.provider.volcengine.access_token" = "Access Token";
+"asr.provider.volcengine.secret_key" = "Secret Key";
+"asr.provider.volcengine.show_credentials" = "Show Volcengine credentials";
+"asr.provider.volcengine.hide_credentials" = "Hide Volcengine credentials";
+"asr.provider.volcengine.privacy_note" = "Audio is sent to Volcengine. The App ID, Access Token, and Secret Key are stored in local credentials and can be shown or hidden with the eye button.";
 "asr.provider.local_model.status_label" = "Model Status";
 "asr.provider.local_model.size_label" = "Model Size";
 "asr.provider.local_model.clean" = "Clean Model";

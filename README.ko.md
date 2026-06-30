@@ -7,7 +7,13 @@
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Swift-6.0%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6+">
+    <a href="https://github.com/xingbofeng/VoxFlow/actions/workflows/ci.yml"><img src="https://github.com/xingbofeng/VoxFlow/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
     <a href="https://github.com/xingbofeng/VoxFlow/releases/latest"><img src="https://img.shields.io/github/v/release/xingbofeng/VoxFlow?style=flat-square&label=release" alt="Latest release"></a>
+    <a href="https://github.com/xingbofeng/VoxFlow/stargazers"><img src="https://img.shields.io/github/stars/xingbofeng/VoxFlow?style=flat-square&logo=github&label=stars" alt="GitHub stars"></a>
+    <a href="https://github.com/xingbofeng/VoxFlow/network/members"><img src="https://img.shields.io/github/forks/xingbofeng/VoxFlow?style=flat-square&logo=github&label=forks" alt="GitHub forks"></a>
+    <a href="https://github.com/xingbofeng/VoxFlow/graphs/contributors"><img src="https://img.shields.io/github/contributors/xingbofeng/VoxFlow?style=flat-square" alt="Contributors"></a>
+    <a href="https://github.com/xingbofeng/VoxFlow/releases"><img src="https://img.shields.io/github/downloads/xingbofeng/VoxFlow/total?style=flat-square" alt="Downloads"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-10B981?style=flat-square" alt="License: GPL-3.0-or-later"></a>
   </p>
   <p>
@@ -176,7 +182,7 @@ VoxFlow에는 전체 자산 워크벤치도 포함됩니다.
 
 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest)에서 최신 버전을 다운로드합니다.
 
-1. `VoxFlow-1.12.0-macOS.dmg` 열기
+1. `VoxFlow-1.12.1-macOS.dmg` 열기
 2. `VoxFlow`를 `Applications` 폴더로 드래그
 3. 첫 실행 시 macOS가 앱을 확인할 수 없다고 하면, Control-click 후 **Open** 선택
 

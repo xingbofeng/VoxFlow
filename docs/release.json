@@ -1,10 +1,10 @@
 {
-  "version": "1.12.0",
-  "tag": "v1.12.0",
-  "assetName": "VoxFlow-1.12.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.12.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.12.0/VoxFlow-1.12.0-macOS.dmg",
-  "releaseNotes": "新增风格级输出格式控制，可为日常、聊天、邮件、编程等风格分别设置句末标点、大小写、语气和表情倾向；帮助页新增交流群入口，方便查看加入方式。",
+  "version": "1.12.1",
+  "tag": "v1.12.1",
+  "assetName": "VoxFlow-1.12.1-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.12.1",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.12.1/VoxFlow-1.12.1-macOS.dmg",
+  "releaseNotes": "新增火山云豆包流式语音识别支持，可配置 App ID、Access Token 和 Secret Key 后用于实时云端听写。",
   "draft": false,
   "prerelease": false
 }

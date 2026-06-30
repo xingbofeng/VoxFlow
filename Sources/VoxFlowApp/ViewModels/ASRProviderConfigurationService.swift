@@ -3,6 +3,7 @@ import VoxFlowProviderAliyunDashScope
 import VoxFlowProviderCloudCore
 import VoxFlowProviderGroq
 import VoxFlowProviderTencentCloud
+import VoxFlowProviderVolcengine
 
 struct GroqASRConfigurationInputState {
     let apiKeyInput: String
@@ -21,6 +22,12 @@ struct AliyunDashScopeASRConfigurationInputState {
     let apiKeyInput: String
     let modelInput: String
     let vocabularyIDInput: String
+}
+
+struct VolcengineASRConfigurationInputState {
+    let appIDInput: String
+    let accessTokenInput: String
+    let secretKeyInput: String
 }
 
 @MainActor
@@ -149,11 +156,70 @@ final class ASRProviderConfigurationService {
         try asrManager.saveAliyunDashScopeAPIKey("")
     }
 
+    func saveVolcengineConfiguration(
+        appIDInput: String,
+        accessTokenInput: String,
+        secretKeyInput: String,
+        secretMask: String
+    ) throws -> VolcengineASRConfigurationInputState {
+        let stored = asrManager.storedVolcengineCredentials()
+        let appID = try resolvedCloudCredentialValue(
+            input: appIDInput,
+            stored: stored.appID,
+            secretMask: secretMask,
+            missingError: VolcengineASRConfigurationError.emptyAppID
+        )
+        let accessToken = try resolvedCloudCredentialValue(
+            input: accessTokenInput,
+            stored: stored.accessToken,
+            secretMask: secretMask,
+            missingError: VolcengineASRConfigurationError.emptyAccessToken
+        )
+        let secretKey = try resolvedCloudCredentialValue(
+            input: secretKeyInput,
+            stored: stored.secretKey,
+            secretMask: secretMask,
+            missingError: VolcengineASRConfigurationError.emptySecretKey
+        )
+        try asrManager.saveVolcengineCredentials(
+            appID: appID,
+            accessToken: accessToken,
+            secretKey: secretKey
+        )
+        return VolcengineASRConfigurationInputState(
+            appIDInput: appID,
+            accessTokenInput: secretMask,
+            secretKeyInput: secretMask
+        )
+    }
+
+    func testVolcengineConnection() async throws -> ASRProviderHealthResult {
+        try await asrManager.testVolcengineConnection()
+    }
+
+    func deleteVolcengineCredentials() throws {
+        try asrManager.deleteVolcengineCredentials()
+    }
+
     private func resolvedTencentValue(
         input: String,
         stored: String,
         secretMask: String,
         missingError: TencentCloudASRConfigurationError
+    ) throws -> String {
+        try resolvedCloudCredentialValue(
+            input: input,
+            stored: stored,
+            secretMask: secretMask,
+            missingError: missingError
+        )
+    }
+
+    private func resolvedCloudCredentialValue<E: Error>(
+        input: String,
+        stored: String,
+        secretMask: String,
+        missingError: E
     ) throws -> String {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == secretMask, !stored.isEmpty {

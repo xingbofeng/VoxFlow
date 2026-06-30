@@ -157,6 +157,8 @@ struct ASRFileTranscriptionWorker: FileTranscriptionWorking, @unchecked Sendable
             return .tencentCloud
         case ASRProviderID.qwenCloudASR:
             return .aliyunDashScope
+        case ASRProviderID.volcengineDoubao:
+            return .volcengineDoubao
         default:
             return nil
         }

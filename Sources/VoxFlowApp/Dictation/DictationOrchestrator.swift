@@ -560,7 +560,7 @@ final class DictationOrchestrator {
         }
         switch currentConfiguration.engineType {
         case .funASR, .senseVoice, .paraformer, .groqWhisper, .tencentCloud,
-             .aliyunDashScope, .parakeetStreaming, .omnilingualASR:
+             .aliyunDashScope, .volcengineDoubao, .parakeetStreaming, .omnilingualASR:
             return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
         case .apple, .whisper, .qwen3, .nvidiaNemotron:
             return finalTimeoutNanoseconds
@@ -1292,6 +1292,8 @@ extension ASREngineType {
             return ASRProviderID.tencentCloudASR
         case .aliyunDashScope:
             return ASRProviderID.qwenCloudASR
+        case .volcengineDoubao:
+            return ASRProviderID.volcengineDoubao
         }
     }
 }

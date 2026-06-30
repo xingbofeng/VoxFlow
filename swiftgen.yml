@@ -3,7 +3,7 @@
 # 生成产物提交进仓库，由 `make gen-l10n` 重新生成。
 #
 # VoxFlowApp 走 L10n.bundle：发布包优先 Bundle.main，SwiftPM 测试回退源码 Resources。
-# VoxFlowScreenshotKit 用 Bundle.module。
+# VoxFlowScreenshotKit 走 ScreenshotL10n.bundle：发布包优先 packaged app resource bundle，SwiftPM 测试回退源码 Resources。
 
 strings:
   inputs:
@@ -18,5 +18,5 @@ strings:
     - templateName: structured-swift5
       output: Sources/VoxFlowScreenshotKit/Generated/L10n.swift
       params:
-        bundle: Bundle.module
+        bundle: ScreenshotL10n.bundle
         enumName: ScreenshotL10n
