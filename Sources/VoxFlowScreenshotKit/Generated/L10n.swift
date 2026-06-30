@@ -771,6 +771,14 @@ internal enum ScreenshotL10n {
         internal static let subtitle = ScreenshotL10n.tr("Localizable", "help.overlay.subtitle", fallback: "Find community and project links.")
         /// Community
         internal static let title = ScreenshotL10n.tr("Localizable", "help.overlay.title", fallback: "Community")
+        /// Scan to join the VoxFlow user group.
+        internal static let userGroupSubtitle = ScreenshotL10n.tr("Localizable", "help.overlay.user_group_subtitle", fallback: "Scan to join the VoxFlow user group.")
+        /// User group
+        internal static let userGroupTitle = ScreenshotL10n.tr("Localizable", "help.overlay.user_group_title", fallback: "User group")
+        /// Scan to add WeChat for feedback.
+        internal static let wechatSubtitle = ScreenshotL10n.tr("Localizable", "help.overlay.wechat_subtitle", fallback: "Scan to add WeChat for feedback.")
+        /// Add WeChat
+        internal static let wechatTitle = ScreenshotL10n.tr("Localizable", "help.overlay.wechat_title", fallback: "Add WeChat")
       }
       internal enum Page {
         /// Tips, shortcuts, permissions, and project links.
@@ -999,6 +1007,30 @@ internal enum ScreenshotL10n {
           /// Whisper Local
           internal static let whisper = ScreenshotL10n.tr("Localizable", "home.detail.asr.whisper", fallback: "Whisper Local")
         }
+        internal enum Comparison {
+          /// Similarity %d%%
+          internal static func similarityFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.comparison.similarity_format", p1, fallback: "Similarity %d%%")
+          }
+          internal enum Accessibility {
+            /// Deleted: %@
+            internal static func deletedFormat(_ p1: Any) -> String {
+              return ScreenshotL10n.tr("Localizable", "home.detail.comparison.accessibility.deleted_format", String(describing: p1), fallback: "Deleted: %@")
+            }
+            /// Inserted: %@
+            internal static func insertedFormat(_ p1: Any) -> String {
+              return ScreenshotL10n.tr("Localizable", "home.detail.comparison.accessibility.inserted_format", String(describing: p1), fallback: "Inserted: %@")
+            }
+          }
+          internal enum Mode {
+            /// Comparison
+            internal static let comparison = ScreenshotL10n.tr("Localizable", "home.detail.comparison.mode.comparison", fallback: "Comparison")
+            /// Processed
+            internal static let processed = ScreenshotL10n.tr("Localizable", "home.detail.comparison.mode.processed", fallback: "Processed")
+            /// Source
+            internal static let source = ScreenshotL10n.tr("Localizable", "home.detail.comparison.mode.source", fallback: "Source")
+          }
+        }
         internal enum Context {
           /// Added to Prompt
           internal static let applied = ScreenshotL10n.tr("Localizable", "home.detail.context.applied", fallback: "Added to Prompt")
@@ -1006,16 +1038,32 @@ internal enum ScreenshotL10n {
           internal static let candidateCount = ScreenshotL10n.tr("Localizable", "home.detail.context.candidate_count", fallback: "Candidate Count")
           /// Candidate Evidence
           internal static let candidateEvidence = ScreenshotL10n.tr("Localizable", "home.detail.context.candidate_evidence", fallback: "Candidate Evidence")
+          /// Compressed to %d KB
+          internal static func compressedFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.context.compressed_format", p1, fallback: "Compressed to %d KB")
+          }
           /// No usable keywords were recognized in the current window.
           internal static let failureNoOcrContext = ScreenshotL10n.tr("Localizable", "home.detail.context.failure_no_ocr_context", fallback: "No usable keywords were recognized in the current window.")
           /// Image OCR context collection timed out; correction continued.
           internal static let failureTimeout = ScreenshotL10n.tr("Localizable", "home.detail.context.failure_timeout", fallback: "Image OCR context collection timed out; correction continued.")
+          /// Image input disabled
+          internal static let imageDisabled = ScreenshotL10n.tr("Localizable", "home.detail.context.image_disabled", fallback: "Image input disabled")
           /// No usable hotwords extracted
           internal static let noHotwords = ScreenshotL10n.tr("Localizable", "home.detail.context.no_hotwords", fallback: "No usable hotwords extracted")
+          /// No readable context preview
+          internal static let noReadablePreview = ScreenshotL10n.tr("Localizable", "home.detail.context.no_readable_preview", fallback: "No readable context preview")
+          /// No context screenshot attached
+          internal static let noScreenshot = ScreenshotL10n.tr("Localizable", "home.detail.context.no_screenshot", fallback: "No context screenshot attached")
           /// Not Applied
           internal static let notApplied = ScreenshotL10n.tr("Localizable", "home.detail.context.not_applied", fallback: "Not Applied")
           /// OCR Characters
           internal static let ocrCharacters = ScreenshotL10n.tr("Localizable", "home.detail.context.ocr_characters", fallback: "OCR Characters")
+          /// Readable context preview
+          internal static let readablePreview = ScreenshotL10n.tr("Localizable", "home.detail.context.readable_preview", fallback: "Readable context preview")
+          /// Screenshot capture failed
+          internal static let screenshotFailed = ScreenshotL10n.tr("Localizable", "home.detail.context.screenshot_failed", fallback: "Screenshot capture failed")
+          /// Context screenshot
+          internal static let screenshotTitle = ScreenshotL10n.tr("Localizable", "home.detail.context.screenshot_title", fallback: "Context screenshot")
           /// Context Source
           internal static let source = ScreenshotL10n.tr("Localizable", "home.detail.context.source", fallback: "Context Source")
           /// Source App
@@ -1039,7 +1087,87 @@ internal enum ScreenshotL10n {
           /// Smart model correction service
           internal static let legacyOpenai = ScreenshotL10n.tr("Localizable", "home.detail.correction.legacy_openai", fallback: "Smart model correction service")
         }
+        internal enum Deterministic {
+          /// After
+          internal static let after = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.after", fallback: "After")
+          /// Before
+          internal static let before = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.before", fallback: "Before")
+          /// Changed
+          internal static let changed = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.changed", fallback: "Changed")
+          /// Characters
+          internal static let characters = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.characters", fallback: "Characters")
+          /// Character count changed from %d to %d
+          internal static func charactersChangedFormat(_ p1: Int, _ p2: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.deterministic.characters_changed_format", p1, p2, fallback: "Character count changed from %d to %d")
+          }
+          /// Character count stayed at %d
+          internal static func charactersSameFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.deterministic.characters_same_format", p1, fallback: "Character count stayed at %d")
+          }
+          /// Coding context
+          internal static let codingContext = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.coding_context", fallback: "Coding context")
+          /// Processing context
+          internal static let context = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.context", fallback: "Processing context")
+          /// Disabled
+          internal static let disabled = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.disabled", fallback: "Disabled")
+          /// Effective rules
+          internal static let effectiveRules = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.effective_rules", fallback: "Effective rules")
+          /// Empty
+          internal static let emptyText = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.empty_text", fallback: "Empty")
+          /// Enabled
+          internal static let enabled = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.enabled", fallback: "Enabled")
+          /// Content fingerprint
+          internal static let hash = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.hash", fallback: "Content fingerprint")
+          /// Text processing
+          internal static let master = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.master", fallback: "Text processing")
+          /// No processors enabled
+          internal static let noProcessors = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.no_processors", fallback: "No processors enabled")
+          /// No processors were enabled for this phase.
+          internal static let noProcessorsSentence = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.no_processors_sentence", fallback: "No processors were enabled for this phase.")
+          /// Ordinary dictation
+          internal static let normalContext = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.normal_context", fallback: "Ordinary dictation")
+          /// Post-processing
+          internal static let postLlm = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.post_llm", fallback: "Post-processing")
+          /// Normalizes format after the LLM returns, before insertion
+          internal static let postLlmSubtitle = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.post_llm_subtitle", fallback: "Normalizes format after the LLM returns, before insertion")
+          /// Pre-processing
+          internal static let preLlm = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.pre_llm", fallback: "Pre-processing")
+          /// Cleans ASR text before sending it to the LLM
+          internal static let preLlmSubtitle = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.pre_llm_subtitle", fallback: "Cleans ASR text before sending it to the LLM")
+          /// Enabled processors
+          internal static let processors = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.processors", fallback: "Enabled processors")
+          /// Enabled in this phase: %@
+          internal static func processorsFormat(_ p1: Any) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.deterministic.processors_format", String(describing: p1), fallback: "Enabled in this phase: %@")
+          }
+          /// Selected rule: %@
+          internal static func selectedRuleFormat(_ p1: Any) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.deterministic.selected_rule_format", String(describing: p1), fallback: "Selected rule: %@")
+          }
+          /// Disabled
+          internal static let skipped = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.skipped", fallback: "Disabled")
+          /// Local cleanup changed this text
+          internal static let summaryChanged = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.summary_changed", fallback: "Local cleanup changed this text")
+          /// Coding context detected, so identifiers, commands and variable names are protected.
+          internal static let summaryCoding = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.summary_coding", fallback: "Coding context detected, so identifiers, commands and variable names are protected.")
+          /// Predictable text cleanup before and after LLM correction, without another model call.
+          internal static let summaryNormal = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.summary_normal", fallback: "Predictable text cleanup before and after LLM correction, without another model call.")
+          /// Local cleanup checked this text and made no changes
+          internal static let summaryUnchanged = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.summary_unchanged", fallback: "Local cleanup checked this text and made no changes")
+          /// This older record did not save before/after text.
+          internal static let textUnavailable = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.text_unavailable", fallback: "This older record did not save before/after text.")
+          /// Unchanged
+          internal static let unchanged = ScreenshotL10n.tr("Localizable", "home.detail.deterministic.unchanged", fallback: "Unchanged")
+        }
         internal enum Diagnostic {
+          /// Executed, no additional details
+          internal static let executedNoDetail = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.executed_no_detail", fallback: "Executed, no additional details")
+          /// Full diagnostic data
+          internal static let fullData = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.full_data", fallback: "Full diagnostic data")
+          /// No processing pipeline recorded
+          internal static let missingPipeline = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.missing_pipeline", fallback: "No processing pipeline recorded")
+          /// No diagnostic data recorded for this step
+          internal static let noTrace = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.no_trace", fallback: "No diagnostic data recorded for this step")
           /// No warnings
           internal static let noWarnings = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.no_warnings", fallback: "No warnings")
           /// Full trace recorded
@@ -1052,12 +1180,146 @@ internal enum ScreenshotL10n {
           internal static let taskMetadata = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.task_metadata", fallback: "Task Metadata")
           /// Warnings & Errors
           internal static let warnings = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.warnings", fallback: "Warnings & Errors")
+          internal enum ContextExcluded {
+            /// Different app
+            internal static let differentApp = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.different_app", fallback: "Different app")
+            /// Same-app context was off
+            internal static let disabled = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.disabled", fallback: "Same-app context was off")
+            /// Reference rounds were set to 0
+            internal static let disabledByZeroRounds = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.disabled_by_zero_rounds", fallback: "Reference rounds were set to 0")
+            /// History text was empty
+            internal static let emptyFinalText = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.empty_final_text", fallback: "History text was empty")
+            /// Past the reference window
+            internal static let expired = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.expired", fallback: "Past the reference window")
+            /// Missing history or target app
+            internal static let missingHistoryOrTarget = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.missing_history_or_target", fallback: "Missing history or target app")
+            /// Secure fields do not use context
+            internal static let secureField = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.secure_field", fallback: "Secure fields do not use context")
+            /// Had processing warnings that should not be reused
+            internal static let unsafeWarning = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.context_excluded.unsafe_warning", fallback: "Had processing warnings that should not be reused")
+          }
+          internal enum FallbackReason {
+            /// The text was too limited or uncertain, so the default style was used
+            internal static let fallback = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.fallback", fallback: "The text was too limited or uncertain, so the default style was used")
+            /// Smart routing returned an unreadable result, so the default style was used
+            internal static let invalidResponse = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.invalid_response", fallback: "Smart routing returned an unreadable result, so the default style was used")
+            /// No selectable styles were available, so the default style was used
+            internal static let noCandidates = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.no_candidates", fallback: "No selectable styles were available, so the default style was used")
+            /// The model service was not ready, so the default style was used
+            internal static let refinerNotReady = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.refiner_not_ready", fallback: "The model service was not ready, so the default style was used")
+            /// The smart routing request failed, so the default style was used
+            internal static let requestFailed = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.request_failed", fallback: "The smart routing request failed, so the default style was used")
+            /// No smart routing result was available, so the default style was used
+            internal static let routerUnavailable = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.fallback_reason.router_unavailable", fallback: "No smart routing result was available, so the default style was used")
+          }
+          internal enum RouteSource {
+            /// AI route cache
+            internal static let aiRouteCache = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.route_source.ai_route_cache", fallback: "AI route cache")
+            /// AI smart selection
+            internal static let aiRouter = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.route_source.ai_router", fallback: "AI smart selection")
+            /// Default style
+            internal static let `default` = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.route_source.default", fallback: "Default style")
+            /// Fallback rule
+            internal static let fallback = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.route_source.fallback", fallback: "Fallback rule")
+            /// Manual app rule
+            internal static let manualRule = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.route_source.manual_rule", fallback: "Manual app rule")
+          }
+          internal enum Summary {
+            /// Candidate styles
+            internal static let candidateStyles = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.candidate_styles", fallback: "Candidate styles")
+            /// History records
+            internal static let contextHistoryCount = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.context_history_count", fallback: "History records")
+            /// Same-app context
+            internal static let contextRounds = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.context_rounds", fallback: "Same-app context")
+            /// Status
+            internal static let contextRoundsStatus = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.context_rounds_status", fallback: "Status")
+            /// Referenced rounds
+            internal static let contextRoundsUsage = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.context_rounds_usage", fallback: "Referenced rounds")
+            /// items
+            internal static let countUnit = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.count_unit", fallback: "items")
+            /// Disabled
+            internal static let disabled = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.disabled", fallback: "Disabled")
+            /// Duration
+            internal static let duration = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.duration", fallback: "Duration")
+            /// Enabled
+            internal static let enabled = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.enabled", fallback: "Enabled")
+            /// Service endpoint
+            internal static let endpoint = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.endpoint", fallback: "Service endpoint")
+            /// Excluded reasons
+            internal static let excludedReasons = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.excluded_reasons", fallback: "Excluded reasons")
+            /// Failure reason
+            internal static let failureReason = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.failure_reason", fallback: "Failure reason")
+            /// Fallback reason
+            internal static let fallbackReason = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.fallback_reason", fallback: "Fallback reason")
+            /// Model call
+            internal static let llm = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.llm", fallback: "Model call")
+            /// Model
+            internal static let model = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.model", fallback: "Model")
+            /// Prompt hash
+            internal static let promptHash = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.prompt_hash", fallback: "Prompt hash")
+            /// Prompt kind
+            internal static let promptKind = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.prompt_kind", fallback: "Prompt kind")
+            /// Prompt style
+            internal static let promptStyle = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.prompt_style", fallback: "Prompt style")
+            /// Prompt version
+            internal static let promptVersion = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.prompt_version", fallback: "Prompt version")
+            /// Provider
+            internal static let provider = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.provider", fallback: "Provider")
+            /// Response
+            internal static let response = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.response", fallback: "Response")
+            /// rounds
+            internal static let roundsUnit = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.rounds_unit", fallback: "rounds")
+            /// Route source
+            internal static let routeSource = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.route_source", fallback: "Route source")
+            /// Router version
+            internal static let routerVersion = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.router_version", fallback: "Router version")
+            /// Selected style
+            internal static let selectedStyle = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.selected_style", fallback: "Selected style")
+            /// Style routing
+            internal static let styleRoute = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.style_route", fallback: "Style routing")
+            /// Task time
+            internal static let taskTime = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.task_time", fallback: "Task time")
+            /// Temperature
+            internal static let temperature = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.temperature", fallback: "Temperature")
+            /// Vocabulary correction
+            internal static let voiceCorrection = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.voice_correction", fallback: "Vocabulary correction")
+            /// Applied
+            internal static let voiceCorrectionApplied = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.voice_correction_applied", fallback: "Applied")
+            /// Candidate hits
+            internal static let voiceCorrectionCandidates = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.voice_correction_candidates", fallback: "Candidate hits")
+            /// Correction warnings
+            internal static let voiceCorrectionWarnings = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.voice_correction_warnings", fallback: "Correction warnings")
+            /// Warnings & errors
+            internal static let warnings = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.warnings", fallback: "Warnings & errors")
+            /// Wrapper version
+            internal static let wrapperVersion = ScreenshotL10n.tr("Localizable", "home.detail.diagnostic.summary.wrapper_version", fallback: "Wrapper version")
+          }
+        }
+        internal enum Diff {
+          /// Processing failed
+          internal static let failed = ScreenshotL10n.tr("Localizable", "home.detail.diff.failed", fallback: "Processing failed")
+          /// Corrected · %d items
+          internal static func modifiedFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "home.detail.diff.modified_format", p1, fallback: "Corrected · %d items")
+          }
+          /// Corrected
+          internal static let modifiedFormatOne = ScreenshotL10n.tr("Localizable", "home.detail.diff.modified_format_one", fallback: "Corrected")
+          /// Unmodified
+          internal static let unmodified = ScreenshotL10n.tr("Localizable", "home.detail.diff.unmodified", fallback: "Unmodified")
         }
         internal enum Dispatch {
           /// No dispatch result recorded
           internal static let empty = ScreenshotL10n.tr("Localizable", "home.detail.dispatch.empty", fallback: "No dispatch result recorded")
           /// Dispatch Result
           internal static let title = ScreenshotL10n.tr("Localizable", "home.detail.dispatch.title", fallback: "Dispatch Result")
+        }
+        internal enum Feedback {
+          /// Reprocessing history record…
+          internal static let reprocessStarted = ScreenshotL10n.tr("Localizable", "home.detail.feedback.reprocess_started", fallback: "Reprocessing history record…")
+          /// Reprocessed; text is unchanged
+          internal static let reprocessUnchanged = ScreenshotL10n.tr("Localizable", "home.detail.feedback.reprocess_unchanged", fallback: "Reprocessed; text is unchanged")
+          /// Reprocessed and updated text
+          internal static let reprocessUpdated = ScreenshotL10n.tr("Localizable", "home.detail.feedback.reprocess_updated", fallback: "Reprocessed and updated text")
         }
         internal enum Language {
           /// English (US)
@@ -1158,12 +1420,54 @@ internal enum ScreenshotL10n {
         internal enum Pipeline {
           /// Inserted
           internal static let outputDone = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.output_done", fallback: "Inserted")
+          /// Processing pipeline
+          internal static let title = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.title", fallback: "Processing pipeline")
+          internal enum Status {
+            /// Executed
+            internal static let executed = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.executed", fallback: "Executed")
+            /// Failed
+            internal static let failed = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.failed", fallback: "Failed")
+            /// Hit
+            internal static let hit = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.hit", fallback: "Hit")
+            /// Local processing complete
+            internal static let local = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.local", fallback: "Local processing complete")
+            /// No hit
+            internal static let missed = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.missed", fallback: "No hit")
+            /// Changed
+            internal static let modified = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.modified", fallback: "Changed")
+            /// Skipped
+            internal static let skipped = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.skipped", fallback: "Skipped")
+            /// Success
+            internal static let success = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.status.success", fallback: "Success")
+          }
+          internal enum Step {
+            /// ASR
+            internal static let asr = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.asr", fallback: "ASR")
+            /// Context
+            internal static let context = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.context", fallback: "Context")
+            /// Local cleanup
+            internal static let deterministic = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.deterministic", fallback: "Local cleanup")
+            /// LLM correction
+            internal static let llm = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.llm", fallback: "LLM correction")
+            /// Output
+            internal static let output = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.output", fallback: "Output")
+            /// Style routing
+            internal static let styleRoute = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.style_route", fallback: "Style routing")
+            /// Text replacement
+            internal static let textReplacement = ScreenshotL10n.tr("Localizable", "home.detail.pipeline.step.text_replacement", fallback: "Text replacement")
+          }
         }
         internal enum RequestJson {
           /// Full request body was not saved in default privacy mode.
           internal static let redacted = ScreenshotL10n.tr("Localizable", "home.detail.request_json.redacted", fallback: "Full request body was not saved in default privacy mode.")
           /// Show Full Request
           internal static let show = ScreenshotL10n.tr("Localizable", "home.detail.request_json.show", fallback: "Show Full Request")
+        }
+        internal enum Section {
+          /// Advanced diagnostics
+          internal static let diagnostic = ScreenshotL10n.tr("Localizable", "home.detail.section.diagnostic", fallback: "Advanced diagnostics")
+          /// Transcription info
+          internal static let transcriptionInfo = ScreenshotL10n.tr("Localizable", "home.detail.section.transcription_info", fallback: "Transcription info")
         }
         internal enum Status {
           /// Failed
@@ -1174,6 +1478,8 @@ internal enum ScreenshotL10n {
         internal enum Style {
           /// Casual
           internal static let casual = ScreenshotL10n.tr("Localizable", "home.detail.style.casual", fallback: "Casual")
+          /// Chat
+          internal static let chat = ScreenshotL10n.tr("Localizable", "home.detail.style.chat", fallback: "Chat")
           /// Coding
           internal static let coding = ScreenshotL10n.tr("Localizable", "home.detail.style.coding", fallback: "Coding")
           /// Email
@@ -1192,6 +1498,8 @@ internal enum ScreenshotL10n {
           internal static let agentCompose = ScreenshotL10n.tr("Localizable", "home.detail.subtitle.agent_compose", fallback: "View voice intent, generated result, and processing details.")
           /// View the voice command, assistant dispatch result, and failure details.
           internal static let agentDispatch = ScreenshotL10n.tr("Localizable", "home.detail.subtitle.agent_dispatch", fallback: "View the voice command, assistant dispatch result, and failure details.")
+          /// Review recognition results, processing pipeline and diagnostics
+          internal static let unified = ScreenshotL10n.tr("Localizable", "home.detail.subtitle.unified", fallback: "Review recognition results, processing pipeline and diagnostics")
           /// Compare raw recognition with final text and inspect this processing pipeline.
           internal static let withTrace = ScreenshotL10n.tr("Localizable", "home.detail.subtitle.with_trace", fallback: "Compare raw recognition with final text and inspect this processing pipeline.")
           /// Compare raw recognition with final text; older records can be reprocessed to inspect the pipeline.
@@ -1314,6 +1622,12 @@ internal enum ScreenshotL10n {
           internal static let llmRefinementCancelled = ScreenshotL10n.tr("Localizable", "home.detail.warning.llm_refinement_cancelled", fallback: "Text correction was cancelled, so the raw recognition text was used directly.")
           /// Model call failed; the raw recognition text was preserved.
           internal static let llmRefinementFailed = ScreenshotL10n.tr("Localizable", "home.detail.warning.llm_refinement_failed", fallback: "Model call failed; the raw recognition text was preserved.")
+          /// The model rewrite did not pass safety checks, so the raw recognition text was preserved.
+          internal static let llmRefinementRejected = ScreenshotL10n.tr("Localizable", "home.detail.warning.llm_refinement_rejected", fallback: "The model rewrite did not pass safety checks, so the raw recognition text was preserved.")
+          /// The model response format was unexpected, so the model text was preserved.
+          internal static let llmStructuredParseFailed = ScreenshotL10n.tr("Localizable", "home.detail.warning.llm_structured_parse_failed", fallback: "The model response format was unexpected, so the model text was preserved.")
+          /// Prompt context could not be built, so correction continued with the base prompt.
+          internal static let promptContextFailed = ScreenshotL10n.tr("Localizable", "home.detail.warning.prompt_context_failed", fallback: "Prompt context could not be built, so correction continued with the base prompt.")
           /// Screen recording permission is missing, so screenshot visual context could not be read; generation used only speech and readable text.
           internal static let screenRecordingNotAuthorized = ScreenshotL10n.tr("Localizable", "home.detail.warning.screen_recording_not_authorized", fallback: "Screen recording permission is missing, so screenshot visual context could not be read; generation used only speech and readable text.")
           /// Secure input was detected, so window content reading was skipped.
@@ -1324,6 +1638,12 @@ internal enum ScreenshotL10n {
           internal static let visionNotSupportedAgent = ScreenshotL10n.tr("Localizable", "home.detail.warning.vision_not_supported_agent", fallback: "The current model configuration does not support screenshot visual context, so generation used only speech and readable text.")
           /// Reading screenshot visual context timed out; processing continued.
           internal static let visualFallbackTimeout = ScreenshotL10n.tr("Localizable", "home.detail.warning.visual_fallback_timeout", fallback: "Reading screenshot visual context timed out; processing continued.")
+          /// Voice correction failed, so the current text was used.
+          internal static let voiceCorrectionFailed = ScreenshotL10n.tr("Localizable", "home.detail.warning.voice_correction_failed", fallback: "Voice correction failed, so the current text was used.")
+          /// A voice correction rule failed, so the failed rule was skipped and processing continued.
+          internal static let voiceCorrectionProcessingFailed = ScreenshotL10n.tr("Localizable", "home.detail.warning.voice_correction_processing_failed", fallback: "A voice correction rule failed, so the failed rule was skipped and processing continued.")
+          /// Voice correction had no usable rule snapshot, so rule matching was skipped.
+          internal static let voiceCorrectionSnapshotUnavailable = ScreenshotL10n.tr("Localizable", "home.detail.warning.voice_correction_snapshot_unavailable", fallback: "Voice correction had no usable rule snapshot, so rule matching was skipped.")
         }
         internal enum Warnings {
           /// Processing Warnings
@@ -2907,6 +3227,26 @@ internal enum ScreenshotL10n {
         /// Unknown device
         internal static let unknownDevice = ScreenshotL10n.tr("Localizable", "settings.audio_input.unknown_device", fallback: "Unknown device")
       }
+      internal enum CrashReport {
+        internal enum Summary {
+          /// Time
+          internal static let dateTime = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.date_time", fallback: "Time")
+          /// Exception
+          internal static let exception = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.exception", fallback: "Exception")
+          /// Bundle ID
+          internal static let identifier = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.identifier", fallback: "Bundle ID")
+          /// Process
+          internal static let process = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.process", fallback: "Process")
+          /// Top frame
+          internal static let topFrame = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.top_frame", fallback: "Top frame")
+          /// Unknown
+          internal static let unknown = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.unknown", fallback: "Unknown")
+          /// Unknown exception
+          internal static let unknownException = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.unknown_exception", fallback: "Unknown exception")
+          /// Version
+          internal static let version = ScreenshotL10n.tr("Localizable", "settings.crash_report.summary.version", fallback: "Version")
+        }
+      }
       internal enum Data {
         /// Clear history
         internal static let clearHistory = ScreenshotL10n.tr("Localizable", "settings.data.clear_history", fallback: "Clear history")
@@ -3062,10 +3402,22 @@ internal enum ScreenshotL10n {
         internal static let agentSessionStopped = ScreenshotL10n.tr("Localizable", "settings.message.agent_session_stopped", fallback: "Agent session stopped")
         /// All local models deleted
         internal static let allModelsDeleted = ScreenshotL10n.tr("Localizable", "settings.message.all_models_deleted", fallback: "All local models deleted")
-        /// Analytics settings updated
-        internal static let analyticsSettingsUpdated = ScreenshotL10n.tr("Localizable", "settings.message.analytics_settings_updated", fallback: "Analytics settings updated")
         /// Audio settings updated
         internal static let audioSettingsUpdated = ScreenshotL10n.tr("Localizable", "settings.message.audio_settings_updated", fallback: "Audio settings updated")
+        /// Review the crash report summary before sending
+        internal static let crashReportConfirmBeforeSend = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_confirm_before_send", fallback: "Review the crash report summary before sending")
+        /// Crash reporting endpoint is not configured
+        internal static let crashReportSendMissingDsn = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_send_missing_dsn", fallback: "Crash reporting endpoint is not configured")
+        /// Latest system crash report is ready to send
+        internal static let crashReportSendPlaceholder = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_send_placeholder", fallback: "Latest system crash report is ready to send")
+        /// Latest system crash report sent. You can also enable Crash Logs to report future crashes automatically.
+        internal static let crashReportSendSuccess = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_send_success", fallback: "Latest system crash report sent. You can also enable Crash Logs to report future crashes automatically.")
+        /// No recent system crash report was found
+        internal static let crashReportSendUnavailable = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_send_unavailable", fallback: "No recent system crash report was found")
+        /// Latest system crash report found
+        internal static let crashReportSummaryReady = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_summary_ready", fallback: "Latest system crash report found")
+        /// No recent system crash report was found
+        internal static let crashReportSummaryUnavailable = ScreenshotL10n.tr("Localizable", "settings.message.crash_report_summary_unavailable", fallback: "No recent system crash report was found")
         /// dispatch Log cleared
         internal static let dispatchLogCleared = ScreenshotL10n.tr("Localizable", "settings.message.dispatch_log_cleared", fallback: "dispatch Log cleared")
         /// Data export prepared
@@ -3196,14 +3548,12 @@ internal enum ScreenshotL10n {
         internal static let speechTitle = ScreenshotL10n.tr("Localizable", "settings.permissions.speech_title", fallback: "Speech Recognition")
       }
       internal enum Privacy {
-        /// Share anonymous product diagnostics.
-        internal static let analyticsSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.analytics_subtitle", fallback: "Share anonymous product diagnostics.")
-        /// Analytics
-        internal static let analyticsTitle = ScreenshotL10n.tr("Localizable", "settings.privacy.analytics_title", fallback: "Analytics")
-        /// Keep local logs for troubleshooting.
-        internal static let crashLogsSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.crash_logs_subtitle", fallback: "Keep local logs for troubleshooting.")
+        /// Off by default. When enabled, anonymous crash reports are sent automatically. They do not include audio, transcripts, clipboard, screenshots, or prompts.
+        internal static let crashLogsSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.crash_logs_subtitle", fallback: "Off by default. When enabled, anonymous crash reports are sent automatically. They do not include audio, transcripts, clipboard, screenshots, or prompts.")
         /// Crash Logs
         internal static let crashLogsTitle = ScreenshotL10n.tr("Localizable", "settings.privacy.crash_logs_title", fallback: "Crash Logs")
+        /// View privacy policy
+        internal static let crashReportPrivacyLink = ScreenshotL10n.tr("Localizable", "settings.privacy.crash_report_privacy_link", fallback: "View privacy policy")
         /// Control local data and diagnostics.
         internal static let groupSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.group_subtitle", fallback: "Control local data and diagnostics.")
         /// Privacy
@@ -3216,6 +3566,16 @@ internal enum ScreenshotL10n {
         internal static let llmTraceSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.llm_trace_subtitle", fallback: "Review and clear local prompt diagnostics.")
         /// LLM Traces
         internal static let llmTraceTitle = ScreenshotL10n.tr("Localizable", "settings.privacy.llm_trace_title", fallback: "LLM Traces")
+        /// Send crash report?
+        internal static let manualCrashReportConfirmTitle = ScreenshotL10n.tr("Localizable", "settings.privacy.manual_crash_report_confirm_title", fallback: "Send crash report?")
+        /// Send Latest Report
+        internal static let manualCrashReportSendLatest = ScreenshotL10n.tr("Localizable", "settings.privacy.manual_crash_report_send_latest", fallback: "Send Latest Report")
+        /// Even if Crash Logs is off, you can send the latest system crash report after a crash.
+        internal static let manualCrashReportSubtitle = ScreenshotL10n.tr("Localizable", "settings.privacy.manual_crash_report_subtitle", fallback: "Even if Crash Logs is off, you can send the latest system crash report after a crash.")
+        /// Just crashed?
+        internal static let manualCrashReportTitle = ScreenshotL10n.tr("Localizable", "settings.privacy.manual_crash_report_title", fallback: "Just crashed?")
+        /// View Summary
+        internal static let manualCrashReportViewSummary = ScreenshotL10n.tr("Localizable", "settings.privacy.manual_crash_report_view_summary", fallback: "View Summary")
       }
       internal enum Section {
         /// Correction Models
@@ -3228,6 +3588,8 @@ internal enum ScreenshotL10n {
         internal static let general = ScreenshotL10n.tr("Localizable", "settings.section.general", fallback: "General")
         /// System
         internal static let systemRoot = ScreenshotL10n.tr("Localizable", "settings.section.system_root", fallback: "System")
+        /// Text Processing
+        internal static let textProcessing = ScreenshotL10n.tr("Localizable", "settings.section.text_processing", fallback: "Text Processing")
         /// Translation Models
         internal static let translationModels = ScreenshotL10n.tr("Localizable", "settings.section.translation_models", fallback: "Translation Models")
         /// TTS Models
@@ -3256,8 +3618,8 @@ internal enum ScreenshotL10n {
         }
       }
       internal enum Storage {
-        /// Diagnostic information is kept only in local Application Support/VoxFlow directory. VoxFlow does not automatically upload audio, transcripts, or crash logs.
-        internal static let diagnosticPrivacyNotice = ScreenshotL10n.tr("Localizable", "settings.storage.diagnostic_privacy_notice", fallback: "Diagnostic information is kept only in local Application Support/VoxFlow directory. VoxFlow does not automatically upload audio, transcripts, or crash logs.")
+        /// Diagnostic information stays in the local Application Support/VoxFlow directory by default. If Crash Logs is enabled, VoxFlow sends diagnostics that help investigate crashes.
+        internal static let diagnosticPrivacyNotice = ScreenshotL10n.tr("Localizable", "settings.storage.diagnostic_privacy_notice", fallback: "Diagnostic information stays in the local Application Support/VoxFlow directory by default. If Crash Logs is enabled, VoxFlow sends diagnostics that help investigate crashes.")
         /// . Current database is located at
         internal static let readOnlyMessage = ScreenshotL10n.tr("Localizable", "settings.storage.read_only_message", fallback: ". Current database is located at")
         /// VoxFlow may not reliably save new history, settings, or task states. Check folder permissions, or copy your data elsewhere before repairing storage.
@@ -3599,6 +3961,112 @@ internal enum ScreenshotL10n {
           }
         }
       }
+      internal enum TextProcessing {
+        internal enum AutoCapitalization {
+          /// Capitalize the first letter of natural English sentences, skipped in coding contexts
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.auto_capitalization.subtitle", fallback: "Capitalize the first letter of natural English sentences, skipped in coding contexts")
+          /// Auto capitalization
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.auto_capitalization.title", fallback: "Auto capitalization")
+        }
+        internal enum CjkLatinSpacing {
+          /// Insert a space between CJK and Latin/digit characters, protecting URLs, paths and code
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.cjk_latin_spacing.subtitle", fallback: "Insert a space between CJK and Latin/digit characters, protecting URLs, paths and code")
+          /// CJK-Latin spacing
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.cjk_latin_spacing.title", fallback: "CJK-Latin spacing")
+        }
+        internal enum FillerFilter {
+          /// Remove pure fillers like "um", "uh" while preserving discourse markers
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.filler_filter.subtitle", fallback: "Remove pure fillers like \"um\", \"uh\" while preserving discourse markers")
+          /// Filler word filtering
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.filler_filter.title", fallback: "Filler word filtering")
+        }
+        internal enum Group {
+          /// Lightweight text cleanup that runs before and after LLM correction
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.group.subtitle", fallback: "Lightweight text cleanup that runs before and after LLM correction")
+          /// Deterministic Text Processing
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.group.title", fallback: "Deterministic Text Processing")
+        }
+        internal enum LongSentence {
+          /// Split overly long sentences at semantic boundaries
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.long_sentence.subtitle", fallback: "Split overly long sentences at semantic boundaries")
+          /// Long sentence breaking
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.long_sentence.title", fallback: "Long sentence breaking")
+        }
+        internal enum Master {
+          /// When off, all processors below are skipped
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.master.subtitle", fallback: "When off, all processors below are skipped")
+          /// Enable text processing
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.master.title", fallback: "Enable text processing")
+        }
+        internal enum Punctuation {
+          /// Complete sentence-ending punctuation, normalize half-width to full-width in CJK
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.punctuation.subtitle", fallback: "Complete sentence-ending punctuation, normalize half-width to full-width in CJK")
+          /// Punctuation optimization
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.punctuation.title", fallback: "Punctuation optimization")
+        }
+        internal enum SmartNumber {
+          /// Convert Chinese numerals to digits in quantity, date, time and percent contexts
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.smart_number.subtitle", fallback: "Convert Chinese numerals to digits in quantity, date, time and percent contexts")
+          /// Smart number recognition
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.smart_number.title", fallback: "Smart number recognition")
+        }
+        internal enum Thresholds {
+          /// Adjust thresholds
+          internal static let configure = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.configure", fallback: "Adjust thresholds")
+          /// Done
+          internal static let done = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.done", fallback: "Done")
+          /// After
+          internal static let exampleAfter = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.example_after", fallback: "After")
+          /// Before
+          internal static let exampleBefore = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.example_before", fallback: "Before")
+          /// Updates as thresholds change
+          internal static let exampleLivePreview = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.example_live_preview", fallback: "Updates as thresholds change")
+          /// Examples
+          internal static let examples = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.examples", fallback: "Examples")
+          /// Long sentence: max CJK characters per line
+          internal static let longSentenceCjk = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_cjk", fallback: "Long sentence: max CJK characters per line")
+          /// CJK lines above this character count split only at natural boundaries such as commas, enumeration marks, or semicolons
+          internal static let longSentenceCjkSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_cjk_subtitle", fallback: "CJK lines above this character count split only at natural boundaries such as commas, enumeration marks, or semicolons")
+          /// Splits only at natural boundaries such as commas, enumeration marks, or semicolons after the threshold
+          internal static let longSentenceEditorSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_editor_subtitle", fallback: "Splits only at natural boundaries such as commas, enumeration marks, or semicolons after the threshold")
+          /// Max %d words per line · Max %d chars per line
+          internal static func longSentenceSummaryFormat(_ p1: Int, _ p2: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_summary_format", p1, p2, fallback: "Max %d words per line · Max %d chars per line")
+          }
+          /// Long sentence: max English words per line
+          internal static let longSentenceWord = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_word", fallback: "Long sentence: max English words per line")
+          /// English lines above this word count split only at natural boundaries such as commas or semicolons
+          internal static let longSentenceWordSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.long_sentence_word_subtitle", fallback: "English lines above this word count split only at natural boundaries such as commas or semicolons")
+          /// Punctuation: min CJK characters for CJK context
+          internal static let punctuationCjk = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_cjk", fallback: "Punctuation: min CJK characters for CJK context")
+          /// Treat text as CJK context after this many CJK characters and convert adjacent half-width punctuation to full-width
+          internal static let punctuationCjkSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_cjk_subtitle", fallback: "Treat text as CJK context after this many CJK characters and convert adjacent half-width punctuation to full-width")
+          /// Controls English sentence-ending periods and full-width punctuation conversion in CJK context
+          internal static let punctuationEditorSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_editor_subtitle", fallback: "Controls English sentence-ending periods and full-width punctuation conversion in CJK context")
+          /// Word threshold %d words · Character threshold %d chars
+          internal static func punctuationSummaryFormat(_ p1: Int, _ p2: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_summary_format", p1, p2, fallback: "Word threshold %d words · Character threshold %d chars")
+          }
+          /// Punctuation: min English words for sentence ending
+          internal static let punctuationWord = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_word", fallback: "Punctuation: min English words for sentence ending")
+          /// Add an English sentence-ending period only after this many words; English half-width punctuation stays unchanged
+          internal static let punctuationWordSubtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.punctuation_word_subtitle", fallback: "Add an English sentence-ending period only after this many words; English half-width punctuation stays unchanged")
+          /// Reset Defaults
+          internal static let resetDefaults = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.reset_defaults", fallback: "Reset Defaults")
+          /// Restore the default thresholds for this processor
+          internal static let resetDefaultsHelp = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.reset_defaults_help", fallback: "Restore the default thresholds for this processor")
+          /// Default thresholds restored
+          internal static let resetFeedback = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.reset_feedback", fallback: "Default thresholds restored")
+          /// Fine-tune when each processor triggers
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.subtitle", fallback: "Fine-tune when each processor triggers")
+          /// Advanced thresholds
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.title", fallback: "Advanced thresholds")
+          /// chars
+          internal static let unitChars = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.unit_chars", fallback: "chars")
+          /// words
+          internal static let unitWords = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.unit_words", fallback: "words")
+        }
+      }
       internal enum Window {
         /// VoxFlow Settings
         internal static let titleFormat = ScreenshotL10n.tr("Localizable", "settings.window.title_format", fallback: "VoxFlow Settings")
@@ -3776,8 +4244,8 @@ internal enum ScreenshotL10n {
         internal static let buttonStartScan = ScreenshotL10n.tr("Localizable", "smart.config.button_start_scan", fallback: "Start scan")
         /// Close
         internal static let close = ScreenshotL10n.tr("Localizable", "smart.config.close", fallback: "Close")
-        /// Smart configuration is ready.
-        internal static let completedMessage = ScreenshotL10n.tr("Localizable", "smart.config.completed_message", fallback: "Smart configuration is ready.")
+        /// App recommendations have been applied.
+        internal static let completedMessage = ScreenshotL10n.tr("Localizable", "smart.config.completed_message", fallback: "App recommendations have been applied.")
         /// Configuration complete
         internal static let completedTitle = ScreenshotL10n.tr("Localizable", "smart.config.completed_title", fallback: "Configuration complete")
         /// Found: %@
@@ -3788,10 +4256,12 @@ internal enum ScreenshotL10n {
         internal static let emptySubtitle = ScreenshotL10n.tr("Localizable", "smart.config.empty_subtitle", fallback: "No installed apps matched a known preset yet. You can still let smart classification fill in the gaps or add your own rules.")
         /// No known apps matched
         internal static let emptyTitle = ScreenshotL10n.tr("Localizable", "smart.config.empty_title", fallback: "No known apps matched")
+        /// Configure an AI model in Settings before using app recommendations.
+        internal static let errorLlmRequired = ScreenshotL10n.tr("Localizable", "smart.config.error_llm_required", fallback: "Configure an AI model in Settings before using app recommendations.")
         /// Configuration failed
         internal static let failedTitle = ScreenshotL10n.tr("Localizable", "smart.config.failed_title", fallback: "Configuration failed")
-        /// Scan installed apps, recognize known apps, and add smart voice input recommendations.
-        internal static let idleSubtitle = ScreenshotL10n.tr("Localizable", "smart.config.idle_subtitle", fallback: "Scan installed apps, recognize known apps, and add smart voice input recommendations.")
+        /// Scan installed apps, recognize known apps, and generate app style rules in bulk.
+        internal static let idleSubtitle = ScreenshotL10n.tr("Localizable", "smart.config.idle_subtitle", fallback: "Scan installed apps, recognize known apps, and generate app style rules in bulk.")
         /// Ready to scan apps
         internal static let idleTitle = ScreenshotL10n.tr("Localizable", "smart.config.idle_title", fallback: "Ready to scan apps")
         /// Applying recommendations...
@@ -3816,16 +4286,22 @@ internal enum ScreenshotL10n {
     }
     internal enum Style {
       internal enum Action {
+        /// Configure auto-match
+        internal static let configureAutoMatch = ScreenshotL10n.tr("Localizable", "style.action.configure_auto_match", fallback: "Configure auto-match")
+        /// Configure output format
+        internal static let configureOutputFormat = ScreenshotL10n.tr("Localizable", "style.action.configure_output_format", fallback: "Configure output format")
         /// Confirm
         internal static let confirm = ScreenshotL10n.tr("Localizable", "style.action.confirm", fallback: "Confirm")
         /// Done
         internal static let done = ScreenshotL10n.tr("Localizable", "style.action.done", fallback: "Done")
+        /// Generate with AI
+        internal static let generateAutoMatchDescription = ScreenshotL10n.tr("Localizable", "style.action.generate_auto_match_description", fallback: "Generate with AI")
         /// Manage apps
         internal static let manageApps = ScreenshotL10n.tr("Localizable", "style.action.manage_apps", fallback: "Manage apps")
         /// Restore default
         internal static let restoreDefault = ScreenshotL10n.tr("Localizable", "style.action.restore_default", fallback: "Restore default")
-        /// Smart configuration
-        internal static let smartConfiguration = ScreenshotL10n.tr("Localizable", "style.action.smart_configuration", fallback: "Smart configuration")
+        /// App recommendations
+        internal static let smartConfiguration = ScreenshotL10n.tr("Localizable", "style.action.smart_configuration", fallback: "App recommendations")
       }
       internal enum AppRouting {
         /// No application bindings yet.
@@ -3834,12 +4310,80 @@ internal enum ScreenshotL10n {
         internal static let rescan = ScreenshotL10n.tr("Localizable", "style.app_routing.rescan", fallback: "Rescan apps")
         /// Select apps for this style.
         internal static let selectAppForStyle = ScreenshotL10n.tr("Localizable", "style.app_routing.select_app_for_style", fallback: "Select apps for this style.")
+        /// AI
+        internal static let sourceAiAuto = ScreenshotL10n.tr("Localizable", "style.app_routing.source_ai_auto", fallback: "AI")
+        /// Temp
+        internal static let sourceTemporary = ScreenshotL10n.tr("Localizable", "style.app_routing.source_temporary", fallback: "Temp")
         /// App routing
         internal static let title = ScreenshotL10n.tr("Localizable", "style.app_routing.title", fallback: "App routing")
+        internal enum AutoMatchSummary {
+          /// AI auto-match: on · this style is selectable
+          internal static let eligible = ScreenshotL10n.tr("Localizable", "style.app_routing.auto_match_summary.eligible", fallback: "AI auto-match: on · this style is selectable")
+          /// AI auto-match: off
+          internal static let globalOff = ScreenshotL10n.tr("Localizable", "style.app_routing.auto_match_summary.global_off", fallback: "AI auto-match: off")
+          /// AI auto-match: on · add a description so this style can be selected
+          internal static let noDescription = ScreenshotL10n.tr("Localizable", "style.app_routing.auto_match_summary.no_description", fallback: "AI auto-match: on · add a description so this style can be selected")
+          /// AI auto-match: on · this style is not in the candidate pool
+          internal static let styleExcluded = ScreenshotL10n.tr("Localizable", "style.app_routing.auto_match_summary.style_excluded", fallback: "AI auto-match: on · this style is not in the candidate pool")
+        }
+      }
+      internal enum Automatch {
+        internal enum Action {
+          /// Cancel
+          internal static let cancel = ScreenshotL10n.tr("Localizable", "style.automatch.action.cancel", fallback: "Cancel")
+          /// Save
+          internal static let save = ScreenshotL10n.tr("Localizable", "style.automatch.action.save", fallback: "Save")
+        }
+        internal enum Context {
+          /// Reference recent successful dictations from the same App only. Previous text is never shown as a prompt preview here.
+          internal static let description = ScreenshotL10n.tr("Localizable", "style.automatch.context.description", fallback: "Reference recent successful dictations from the same App only. Previous text is never shown as a prompt preview here.")
+          /// Rounds: %d
+          internal static func roundsFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "style.automatch.context.rounds_format", p1, fallback: "Rounds: %d")
+          }
+          /// rounds
+          internal static let roundsSuffix = ScreenshotL10n.tr("Localizable", "style.automatch.context.rounds_suffix", fallback: "rounds")
+          /// Rounds
+          internal static let roundsTitle = ScreenshotL10n.tr("Localizable", "style.automatch.context.rounds_title", fallback: "Rounds")
+          /// Use recent same-app context
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.context.title", fallback: "Use recent same-app context")
+          /// Keep for: %d h
+          internal static func ttlFormat(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "style.automatch.context.ttl_format", p1, fallback: "Keep for: %d h")
+          }
+          /// hours
+          internal static let ttlSuffix = ScreenshotL10n.tr("Localizable", "style.automatch.context.ttl_suffix", fallback: "hours")
+          /// Keep for
+          internal static let ttlTitle = ScreenshotL10n.tr("Localizable", "style.automatch.context.ttl_title", fallback: "Keep for")
+        }
+        internal enum Description {
+          /// Generating description…
+          internal static let generating = ScreenshotL10n.tr("Localizable", "style.automatch.description.generating", fallback: "Generating description…")
+          /// Used only by the AI router to understand this style. It is not added to the polish prompt.
+          internal static let hint = ScreenshotL10n.tr("Localizable", "style.automatch.description.hint", fallback: "Used only by the AI router to understand this style. It is not added to the polish prompt.")
+          /// Describe when this style fits best, for example: technical reviews and code discussions.
+          internal static let placeholder = ScreenshotL10n.tr("Localizable", "style.automatch.description.placeholder", fallback: "Describe when this style fits best, for example: technical reviews and code discussions.")
+          /// Style description
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.description.title", fallback: "Style description")
+        }
+        internal enum Global {
+          /// Allow VoxFlow to choose a fitting style based on what you say and the active app, when no manual rule applies.
+          internal static let description = ScreenshotL10n.tr("Localizable", "style.automatch.global.description", fallback: "Allow VoxFlow to choose a fitting style based on what you say and the active app, when no manual rule applies.")
+          /// AI smart selection
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.global.title", fallback: "AI smart selection")
+        }
+        internal enum Sheet {
+          /// Configure this style's auto-match eligibility, description, and same-app context. Manual app rules always take priority.
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.automatch.sheet.subtitle", fallback: "Configure this style's auto-match eligibility, description, and same-app context. Manual app rules always take priority.")
+          /// Configure auto-match
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.sheet.title", fallback: "Configure auto-match")
+        }
       }
       internal enum Error {
         /// Choose an app first.
         internal static let applicationIdentityRequired = ScreenshotL10n.tr("Localizable", "style.error.application_identity_required", fallback: "Choose an app first.")
+        /// Couldn't generate a description. Please write one manually.
+        internal static let autoMatchDescriptionUnavailable = ScreenshotL10n.tr("Localizable", "style.error.auto_match_description_unavailable", fallback: "Couldn't generate a description. Please write one manually.")
         /// Style not found.
         internal static let notFound = ScreenshotL10n.tr("Localizable", "style.error.not_found", fallback: "Style not found.")
         /// Prompt cannot be empty.
@@ -3850,15 +4394,133 @@ internal enum ScreenshotL10n {
         internal static let appRuleDeleted = ScreenshotL10n.tr("Localizable", "style.feedback.app_rule_deleted", fallback: "App rule deleted")
         /// App rule saved
         internal static let appRuleSaved = ScreenshotL10n.tr("Localizable", "style.feedback.app_rule_saved", fallback: "App rule saved")
-        /// Prompt reset
-        internal static let resetPrompt = ScreenshotL10n.tr("Localizable", "style.feedback.reset_prompt", fallback: "Prompt reset")
+        /// AI smart selection is off
+        internal static let autoMatchGlobalOff = ScreenshotL10n.tr("Localizable", "style.feedback.auto_match_global_off", fallback: "AI smart selection is off")
+        /// AI smart selection is on
+        internal static let autoMatchGlobalOn = ScreenshotL10n.tr("Localizable", "style.feedback.auto_match_global_on", fallback: "AI smart selection is on")
+        /// Auto-match settings saved
+        internal static let autoMatchSaved = ScreenshotL10n.tr("Localizable", "style.feedback.auto_match_saved", fallback: "Auto-match settings saved")
+        /// Output format saved
+        internal static let outputFormatSaved = ScreenshotL10n.tr("Localizable", "style.feedback.output_format_saved", fallback: "Output format saved")
+        /// Default style settings restored
+        internal static let resetPrompt = ScreenshotL10n.tr("Localizable", "style.feedback.reset_prompt", fallback: "Default style settings restored")
         /// Style saved
         internal static let saved = ScreenshotL10n.tr("Localizable", "style.feedback.saved", fallback: "Style saved")
         /// Default style set
         internal static let setDefault = ScreenshotL10n.tr("Localizable", "style.feedback.set_default", fallback: "Default style set")
       }
+      internal enum OutputFormat {
+        internal enum Action {
+          /// Cancel
+          internal static let cancel = ScreenshotL10n.tr("Localizable", "style.output_format.action.cancel", fallback: "Cancel")
+          /// Save
+          internal static let save = ScreenshotL10n.tr("Localizable", "style.output_format.action.save", fallback: "Save")
+        }
+        internal enum Capitalization {
+          /// Normal
+          internal static let normal = ScreenshotL10n.tr("Localizable", "style.output_format.capitalization.normal", fallback: "Normal")
+          /// Preserve
+          internal static let preserve = ScreenshotL10n.tr("Localizable", "style.output_format.capitalization.preserve", fallback: "Preserve")
+          /// Chat-like
+          internal static let relaxed = ScreenshotL10n.tr("Localizable", "style.output_format.capitalization.relaxed", fallback: "Chat-like")
+          /// Capitalization
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.capitalization.title", fallback: "Capitalization")
+        }
+        internal enum Card {
+          /// Output format
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.card.title", fallback: "Output format")
+        }
+        internal enum Emoji {
+          /// Natural
+          internal static let natural = ScreenshotL10n.tr("Localizable", "style.output_format.emoji.natural", fallback: "Natural")
+          /// None
+          internal static let `none` = ScreenshotL10n.tr("Localizable", "style.output_format.emoji.none", fallback: "None")
+          /// Always add 🤣
+          internal static let `required` = ScreenshotL10n.tr("Localizable", "style.output_format.emoji.required", fallback: "Always add 🤣")
+          /// Emoji
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.emoji.title", fallback: "Emoji")
+        }
+        internal enum Options {
+          /// Format options
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.options.title", fallback: "Format options")
+        }
+        internal enum Preview {
+          /// Input
+          internal static let input = ScreenshotL10n.tr("Localizable", "style.output_format.preview.input", fallback: "Input")
+          /// Output
+          internal static let output = ScreenshotL10n.tr("Localizable", "style.output_format.preview.output", fallback: "Output")
+          /// .
+          internal static let period = ScreenshotL10n.tr("Localizable", "style.output_format.preview.period", fallback: ".")
+          /// this afternoon i will align the login flow and API response then i will send a short update to the group later thanks
+          internal static let sample = ScreenshotL10n.tr("Localizable", "style.output_format.preview.sample", fallback: "this afternoon i will align the login flow and API response then i will send a short update to the group later thanks")
+          /// Live preview
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.preview.title", fallback: "Live preview")
+          internal enum Emoji {
+            ///  😊
+            internal static let natural = ScreenshotL10n.tr("Localizable", "style.output_format.preview.emoji.natural", fallback: " 😊")
+            ///  🎉
+            internal static let `required` = ScreenshotL10n.tr("Localizable", "style.output_format.preview.emoji.required", fallback: " 🎉")
+          }
+          internal enum English {
+            /// Then I will send a short update to the group
+            internal static let normal = ScreenshotL10n.tr("Localizable", "style.output_format.preview.english.normal", fallback: "Then I will send a short update to the group")
+            /// then i will send a short update to the group
+            internal static let preserve = ScreenshotL10n.tr("Localizable", "style.output_format.preview.english.preserve", fallback: "then i will send a short update to the group")
+            /// then i will send a short update to the group
+            internal static let relaxed = ScreenshotL10n.tr("Localizable", "style.output_format.preview.english.relaxed", fallback: "then i will send a short update to the group")
+          }
+          internal enum Output {
+            /// This afternoon I will move the login flow and API response forward, and %@
+            internal static func energetic(_ p1: Any) -> String {
+              return ScreenshotL10n.tr("Localizable", "style.output_format.preview.output.energetic", String(describing: p1), fallback: "This afternoon I will move the login flow and API response forward, and %@")
+            }
+            /// This afternoon I will align the login flow and API response, and %@
+            internal static func natural(_ p1: Any) -> String {
+              return ScreenshotL10n.tr("Localizable", "style.output_format.preview.output.natural", String(describing: p1), fallback: "This afternoon I will align the login flow and API response, and %@")
+            }
+            /// This afternoon I will align the login flow and API response. %@
+            internal static func restrained(_ p1: Any) -> String {
+              return ScreenshotL10n.tr("Localizable", "style.output_format.preview.output.restrained", String(describing: p1), fallback: "This afternoon I will align the login flow and API response. %@")
+            }
+          }
+        }
+        internal enum Punctuation {
+          /// Complete
+          internal static let complete = ScreenshotL10n.tr("Localizable", "style.output_format.punctuation.complete", fallback: "Complete")
+          /// Light
+          internal static let less = ScreenshotL10n.tr("Localizable", "style.output_format.punctuation.less", fallback: "Light")
+          /// Preserve
+          internal static let preserve = ScreenshotL10n.tr("Localizable", "style.output_format.punctuation.preserve", fallback: "Preserve")
+          /// Punctuation
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.punctuation.title", fallback: "Punctuation")
+        }
+        internal enum Rules {
+          /// Preview uses local deterministic rules only and does not call the real LLM. After saving, VoxFlow injects these output-format rules into the model prompt at runtime and applies a final post-processing fallback.
+          internal static let description = ScreenshotL10n.tr("Localizable", "style.output_format.rules.description", fallback: "Preview uses local deterministic rules only and does not call the real LLM. After saving, VoxFlow injects these output-format rules into the model prompt at runtime and applies a final post-processing fallback.")
+          /// Rule notes
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.rules.title", fallback: "Rule notes")
+        }
+        internal enum Sheet {
+          /// Configure punctuation, capitalization, tone, and emoji for this style. Output format takes priority over the Markdown prompt below.
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.output_format.sheet.subtitle", fallback: "Configure punctuation, capitalization, tone, and emoji for this style. Output format takes priority over the Markdown prompt below.")
+          /// Configure output format
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.sheet.title", fallback: "Configure output format")
+        }
+        internal enum Tone {
+          /// Energetic
+          internal static let energetic = ScreenshotL10n.tr("Localizable", "style.output_format.tone.energetic", fallback: "Energetic")
+          /// Natural
+          internal static let natural = ScreenshotL10n.tr("Localizable", "style.output_format.tone.natural", fallback: "Natural")
+          /// Restrained
+          internal static let restrained = ScreenshotL10n.tr("Localizable", "style.output_format.tone.restrained", fallback: "Restrained")
+          /// Tone
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.output_format.tone.title", fallback: "Tone")
+        }
+      }
       internal enum Profile {
         internal enum Casual {
+          /// Use for everyday notes, browsers, utility apps, and general dictation that should keep a natural tone.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.casual.auto_match_description", fallback: "Use for everyday notes, browsers, utility apps, and general dictation that should keep a natural tone.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.casual.category", fallback: "Built-in")
           /// Casual
@@ -3867,6 +4529,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.casual.subtitle", fallback: "Natural conversational tone")
         }
         internal enum Chat {
+          /// Use for instant messages, group chats, community replies, and relaxed conversational text.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.chat.auto_match_description", fallback: "Use for instant messages, group chats, community replies, and relaxed conversational text.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.chat.category", fallback: "Built-in")
           /// Chat
@@ -3875,6 +4539,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.chat.subtitle", fallback: "For instant messages and chat")
         }
         internal enum Coding {
+          /// Use for code editors, terminals, developer tools, technical discussion, and inputs that must preserve technical terms.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.coding.auto_match_description", fallback: "Use for code editors, terminals, developer tools, technical discussion, and inputs that must preserve technical terms.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.coding.category", fallback: "Built-in")
           /// Coding
@@ -3883,6 +4549,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.coding.subtitle", fallback: "Prioritize technical terms")
         }
         internal enum Email {
+          /// Use for email, formal messages, async communication, and text that should sound clear and polite.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.email.auto_match_description", fallback: "Use for email, formal messages, async communication, and text that should sound clear and polite.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.email.category", fallback: "Built-in")
           /// Email
@@ -3891,6 +4559,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.email.subtitle", fallback: "For email and messages")
         }
         internal enum Energetic {
+          /// Use for encouragement, operations, events, team updates, and short text that should feel more positive.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.energetic.auto_match_description", fallback: "Use for encouragement, operations, events, team updates, and short text that should feel more positive.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.energetic.category", fallback: "Built-in")
           /// Energetic
@@ -3899,6 +4569,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.energetic.subtitle", fallback: "Livelier without overdoing it")
         }
         internal enum Formal {
+          /// Use for reports, documents, plans, meeting notes, and content that needs a more formal written style.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.formal.auto_match_description", fallback: "Use for reports, documents, plans, meeting notes, and content that needs a more formal written style.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.formal.category", fallback: "Built-in")
           /// Formal
@@ -3907,6 +4579,8 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "style.profile.formal.subtitle", fallback: "Better for reports and documents")
         }
         internal enum Original {
+          /// Use when the original spoken content should be preserved and only recognition errors or punctuation should be corrected.
+          internal static let autoMatchDescription = ScreenshotL10n.tr("Localizable", "style.profile.original.auto_match_description", fallback: "Use when the original spoken content should be preserved and only recognition errors or punctuation should be corrected.")
           /// Built-in
           internal static let category = ScreenshotL10n.tr("Localizable", "style.profile.original.category", fallback: "Built-in")
           /// Original
@@ -4194,6 +4868,8 @@ internal enum ScreenshotL10n {
         internal static let closeAccessibility = ScreenshotL10n.tr("Localizable", "updates.prompt.close_accessibility", fallback: "Close")
         /// Close and remind me later
         internal static let closeHelp = ScreenshotL10n.tr("Localizable", "updates.prompt.close_help", fallback: "Close and remind me later")
+        /// Join the user group for tips, feedback, and new release updates. Open Help → Community support and scan the group QR code.
+        internal static let communityPromo = ScreenshotL10n.tr("Localizable", "updates.prompt.community_promo", fallback: "Join the user group for tips, feedback, and new release updates. Open Help → Community support and scan the group QR code.")
         /// Current version:
         internal static let currentVersionPrefix = ScreenshotL10n.tr("Localizable", "updates.prompt.current_version_prefix", fallback: "Current version:")
         /// Unable to retrieve latest release right now, please try again later.
@@ -4667,7 +5343,7 @@ internal enum ScreenshotL10n {
 
 extension ScreenshotL10n {
   private static func tr(_ table: String, _ key: String, _ args: CVarArg..., fallback value: String) -> String {
-    let format = ScreenshotL10n.bundle.localizedString(forKey: key, value: value, table: table)
-    return String(format: format, locale: ScreenshotL10n.locale, arguments: args)
+    let format = Bundle.module.localizedString(forKey: key, value: value, table: table)
+    return String(format: format, locale: Locale.current, arguments: args)
   }
 }

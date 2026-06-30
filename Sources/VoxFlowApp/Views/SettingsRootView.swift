@@ -130,6 +130,7 @@ struct SettingsRootView: View {
     @State private var showDeleteAllLocalModelsConfirmation = false
     @State private var showAgentCLIRegistrationConfirmation = false
     @State private var showAgentCLIUnregistrationConfirmation = false
+    @State private var showCrashReportSendConfirmation = false
     @State private var openDropdown: SettingsDropdown?
     @State private var textProcessingThresholdEditor: TextProcessingThresholdEditor?
     @State private var pendingInterfaceLanguage: AppLanguage?
@@ -186,11 +187,7 @@ struct SettingsRootView: View {
             Button(L10n.localize("settings.task.action.cancel", comment: "Cancel action"), role: .cancel) {}
         } message: {
             Text(
-                String(
-                    format: L10n.localize(
-                        "settings.task.dialog.delete_all_local_models.message_format",
-                        comment: "Delete all local model confirmation message"
-                    ),
+                L10n.format("settings.task.dialog.delete_all_local_models.message_format", comment: "Delete all local model confirmation message",
                     viewModel.localModelStorageDescription()
                 )
             )
@@ -228,6 +225,18 @@ struct SettingsRootView: View {
                 + " "
                 + preview.profileURL.path
             )
+        }
+        .confirmationDialog(
+            L10n.localize("settings.privacy.manual_crash_report_confirm_title", comment: ""),
+            isPresented: $showCrashReportSendConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.localize("settings.privacy.manual_crash_report_send_latest", comment: "")) {
+                viewModel.sendLatestCrashReport()
+            }
+            Button(L10n.localize("settings.task.action.cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(viewModel.latestCrashReportSummaryText ?? "")
         }
         .onAppear {
             viewModel.loadIfNeeded()
@@ -277,6 +286,9 @@ struct SettingsRootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
                 .zIndex(10)
+                .onExitCommand {
+                    self.textProcessingThresholdEditor = nil
+                }
             }
             .ignoresSafeArea(.container, edges: [])
         }
@@ -712,8 +724,7 @@ struct SettingsRootView: View {
                     if let status = viewModel.agentCLIRegistrationStatus {
                         Text(status.isOnCurrentPath
                              ? L10n.localize("settings.task.agent_cli.registered_status", comment: "Agent CLI registered status")
-                             : String(
-                                format: L10n.localize("settings.task.agent_cli.registered_with_path_status", comment: "Agent CLI registered with path status"),
+                             : L10n.format("settings.task.agent_cli.registered_with_path_status", comment: "Agent CLI registered with path status",
                                 status.binDirectory.path
                              )
                         )
@@ -1112,16 +1123,14 @@ struct SettingsRootView: View {
     }
 
     private var punctuationThresholdSummary: String {
-        String(
-            format: L10n.localize("settings.text_processing.thresholds.punctuation_summary_format", comment: "Punctuation threshold summary"),
+        L10n.format("settings.text_processing.thresholds.punctuation_summary_format", comment: "Punctuation threshold summary",
             viewModel.deterministicPunctuationWordThreshold,
             viewModel.deterministicPunctuationCJKThreshold
         )
     }
 
     private var longSentenceThresholdSummary: String {
-        String(
-            format: L10n.localize("settings.text_processing.thresholds.long_sentence_summary_format", comment: "Long sentence threshold summary"),
+        L10n.format("settings.text_processing.thresholds.long_sentence_summary_format", comment: "Long sentence threshold summary",
             viewModel.deterministicLongSentenceWordThreshold,
             viewModel.deterministicLongSentenceCJKThreshold
         )
@@ -1356,27 +1365,49 @@ struct SettingsRootView: View {
                 systemImage: "chart.bar",
                 tint: .purple
             ) {
-                SettingsToggleRow(
-                    title: L10n.localize("settings.privacy.analytics_title", comment: ""),
-                    subtitle: L10n.localize("settings.privacy.analytics_subtitle", comment: ""),
-                    systemImage: "chart.bar",
-                    tint: .purple,
-                    isOn: analyticsBinding
-                )
-                systemToggle(
-                    .crashLogs,
-                    L10n.localize("settings.privacy.crash_logs_title", comment: ""),
-                    L10n.localize("settings.privacy.crash_logs_subtitle", comment: ""),
-                    "ladybug",
-                    tint: .purple
-                )
-                systemToggle(
-                    .llmTraceDiagnostics,
-                    L10n.localize("settings.privacy.llm_trace_title", comment: ""),
-                    L10n.localize("settings.privacy.llm_trace_subtitle", comment: ""),
-                    "doc.text.magnifyingglass",
-                    tint: .orange
-                )
+                ForEach(SettingsPrivacyPresentation.toggleRows) { row in
+                    systemToggle(
+                        row.option,
+                        row.title,
+                        row.subtitle,
+                        row.systemImage,
+                        tint: row.option == .crashLogs ? .purple : .orange
+                    )
+                }
+
+                let support = SettingsPrivacyPresentation.manualCrashReportSupport
+                HStack(alignment: .center, spacing: 14) {
+                    SettingsRowIcon(systemImage: "exclamationmark.bubble", tint: .orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(support.title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        Text(support.subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button(support.viewSummaryButtonTitle) {
+                        viewModel.viewLatestCrashReportSummary()
+                    }
+                    Button(support.sendLatestButtonTitle) {
+                        showCrashReportSendConfirmation = viewModel.prepareLatestCrashReportSendConfirmation()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .buttonStyle(.bordered)
+                .settingsRow()
+
+                if let summary = viewModel.latestCrashReportSummaryText {
+                    Text(summary)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .settingsRow()
+                }
+
                 Button(L10n.localize("settings.privacy.llm_trace_delete", comment: ""), role: .destructive) {
                     viewModel.clearLLMTraceDiagnostics()
                 }
@@ -1760,13 +1791,6 @@ struct SettingsRootView: View {
                     )
                 }
             }
-        )
-    }
-
-    private var analyticsBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.analyticsEnabled },
-            set: { value in perform { try viewModel.setAnalyticsEnabled(value) } }
         )
     }
 
@@ -2764,8 +2788,7 @@ private struct SettingsRestartConfirmationModal: View {
                         Text(L10n.localize("settings.interface_language.restart_dialog.title", comment: "Restart language dialog title"))
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Text(String(
-                            format: L10n.localize("settings.interface_language.restart_dialog.message_format", comment: "Restart language dialog message"),
+                        Text(L10n.format("settings.interface_language.restart_dialog.message_format", comment: "Restart language dialog message",
                             languageName
                         ))
                         .font(.system(size: 13))

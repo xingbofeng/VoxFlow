@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import plistlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -72,6 +73,18 @@ def main() -> int:
         text = read_text(ROOT / relative)
         found = re.findall(r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", text)
         require(found == [dmg_name], f"{relative} DMG reference is stale: {found}", failures)
+
+    if os.environ.get("VOXFLOW_RELEASE_CHECK_REQUIRE_SENTRY") == "1":
+        sentry_dsn = os.environ.get("VOXFLOW_SENTRY_DSN", "").strip()
+        require(sentry_dsn, "VOXFLOW_SENTRY_DSN is required for production release builds", failures)
+        require(os.environ.get("SENTRY_AUTH_TOKEN", "").strip(), "SENTRY_AUTH_TOKEN is required for dSYM upload", failures)
+        require(os.environ.get("SENTRY_ORG", "").strip(), "SENTRY_ORG is required for dSYM upload", failures)
+        require(os.environ.get("SENTRY_PROJECT", "").strip(), "SENTRY_PROJECT is required for dSYM upload", failures)
+        require(
+            (ROOT / "scripts/upload-sentry-dsym.sh").exists(),
+            "scripts/upload-sentry-dsym.sh is required for dSYM upload",
+            failures,
+        )
 
     if failures:
         for failure in failures:

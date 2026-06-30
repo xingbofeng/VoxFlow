@@ -67,6 +67,9 @@ struct ScreenshotRecordView: View {
                             self.selectedRecord = nil
                         }
                     }
+                    .onExitCommand {
+                        self.selectedRecord = nil
+                    }
             }
         }
         .onAppear {
@@ -148,8 +151,7 @@ struct ScreenshotRecordView: View {
             .frame(width: 240)
 
             Text(
-                String(
-                    format: L10n.localize("screenshot.record.total_count_format", comment: ""),
+                L10n.format("screenshot.record.total_count_format", comment: "",
                     viewModel.totalRecords
                 )
             )
@@ -164,8 +166,7 @@ struct ScreenshotRecordView: View {
             ) {
                 ForEach([20, 50, 100], id: \.self) { size in
                     Text(
-                        String(
-                            format: L10n.localize("screenshot.record.page_size_format", comment: ""),
+                        L10n.format("screenshot.record.page_size_format", comment: "",
                             size
                         )
                     )
@@ -405,8 +406,7 @@ private struct ScreenshotRecordCard: View {
                     Text(audioModeTitle(record.audioMode))
                 } else {
                     Text(
-                        String(
-                            format: L10n.localize("screenshot.record.char_count_format", comment: ""),
+                        L10n.format("screenshot.record.char_count_format", comment: "",
                             record.charCount
                         )
                     )

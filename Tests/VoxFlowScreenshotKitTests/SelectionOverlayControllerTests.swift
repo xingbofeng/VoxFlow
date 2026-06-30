@@ -317,6 +317,42 @@ final class SelectionOverlayControllerTests: XCTestCase {
         XCTAssertFalse(view.shouldDelayWindowOrdering(for: event))
     }
 
+    func testAppKitOverlayRightClickRequestsCancellation() throws {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2,
+            isPrimary: true
+        )
+        var didRequestCancellation = false
+        let view = SelectionOverlayContentView(
+            configuration: SelectionOverlayWindowConfiguration(display: display),
+            eventHandler: { event in
+                if case .cancelRequested = event {
+                    didRequestCancellation = true
+                }
+            }
+        )
+        let event = try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: .rightMouseDown,
+                location: CGPoint(x: 20, y: 20),
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                eventNumber: 1,
+                clickCount: 1,
+                pressure: 1
+            )
+        )
+
+        view.rightMouseDown(with: event)
+
+        XCTAssertTrue(didRequestCancellation)
+    }
+
     func testSelectionCursorResolverUsesMoveResizeAndMarqueeCursors() {
         let state = SelectionState(
             displayFrame: CGRect(x: 0, y: 0, width: 400, height: 300),
@@ -449,6 +485,41 @@ final class SelectionOverlayControllerTests: XCTestCase {
         controller.updateSelection(to: CGPoint(x: 240, y: 180))
 
         factory.windows.first?.emit(.doubleClick(CGPoint(x: 170, y: 130)))
+
+        XCTAssertEqual(
+            results,
+            [
+                .accepted(
+                    SelectionState(
+                        displayFrame: display.frame,
+                        displayScale: display.scale,
+                        startPoint: CGPoint(x: 100, y: 80),
+                        currentPoint: CGPoint(x: 240, y: 180)
+                    )
+                )
+            ]
+        )
+        XCTAssertEqual(factory.windows.first?.closeCallCount, 1)
+    }
+
+    func testCopyShortcutWithoutSelectedAnnotationConfirmsCapture() {
+        let display = ScreenshotDisplay(
+            id: 1,
+            name: "Built-in",
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2,
+            isPrimary: true
+        )
+        let factory = FakeSelectionOverlayWindowFactory()
+        var results: [SelectionOverlayResult] = []
+        let controller = SelectionOverlayController(windowFactory: factory) { result in
+            results.append(result)
+        }
+        controller.present(displays: [display])
+        controller.beginSelection(on: display.id, at: CGPoint(x: 100, y: 80))
+        controller.updateSelection(to: CGPoint(x: 240, y: 180))
+
+        factory.windows.first?.emit(.copyShortcutRequested)
 
         XCTAssertEqual(
             results,
@@ -1446,7 +1517,7 @@ final class SelectionOverlayControllerTests: XCTestCase {
 
         controller.handleToolbarRole(.select)
         factory.windows.first?.emit(.annotationSelectionRequested(CGPoint(x: 30, y: 30)))
-        controller.handleToolbarRole(.copy)
+        factory.windows.first?.emit(.copyShortcutRequested)
         controller.handleToolbarRole(.paste)
         controller.handleToolbarRole(.duplicate)
         controller.handleToolbarRole(.complete)

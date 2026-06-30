@@ -87,6 +87,7 @@ final class AppTextRuntime {
             correctionTargetRepository: environment.correctionTargetRepository,
             correctionEvidenceRepository: environment.correctionEvidenceRepository,
             hotwordFileSyncService: environment.hotwordFileSyncService,
+            historyRepository: environment.historyRepository,
             structuredLearningEnabled: {
                 (try? VoiceCorrectionSettingsStore.bool(
                     .autoLearningEnabled,
@@ -102,6 +103,9 @@ final class AppTextRuntime {
                 DeterministicTextProcessingSettingsStore.load(
                     storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
                 )
+            },
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettingsStore(settingsRepository: environment.settingsRepository).load()
             }
         )
     }

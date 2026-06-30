@@ -15,19 +15,11 @@ enum ScreenshotImageStorageError: Error, LocalizedError {
         case .pngEncodingFailed:
             return L10n.localize("screenshot.image_storage.error.png_encode_failed", comment: "")
         case .writeFailed(let reason):
-            return String(
-                format: L10n.localize(
-                    "screenshot.image_storage.error.write_failed",
-                    comment: ""
-                ),
+            return L10n.format("screenshot.image_storage.error.write_failed", comment: "",
                 reason
             )
         case .deleteFailed(let reason):
-            return String(
-                format: L10n.localize(
-                    "screenshot.image_storage.error.delete_failed",
-                    comment: ""
-                ),
+            return L10n.format("screenshot.image_storage.error.delete_failed", comment: "",
                 reason
             )
         }

@@ -377,9 +377,9 @@ enum AgentHelperManagerError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case let .helperMissing(path): return String(format: L10n.localize("agent.helper.error_component_missing_format", comment: "AI helper component missing error"), path)
-        case let .shimMissing(path): return String(format: L10n.localize("agent.helper.error_shim_missing_format", comment: "Agent shim missing error"), path)
-        case let .commandConflict(path): return String(format: L10n.localize("agent.helper.error_command_conflict_format", comment: "Command conflict error"), path)
+        case let .helperMissing(path): return L10n.format("agent.helper.error_component_missing_format", comment: "AI helper component missing error", path)
+        case let .shimMissing(path): return L10n.format("agent.helper.error_shim_missing_format", comment: "Agent shim missing error", path)
+        case let .commandConflict(path): return L10n.format("agent.helper.error_command_conflict_format", comment: "Command conflict error", path)
         }
     }
 }

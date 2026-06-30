@@ -9,24 +9,31 @@ import VoxFlowPromptKit
 final class StyleRouteTraceTests: XCTestCase {
 
     func testClassifyWithTraceRecordsCandidatesResponseAndSelection() async throws {
-        let refiner = StubRefiner(response: "builtin.coding", isEnabled: true, isConfigured: true)
+        let refiner = StubRefiner(response: "2", isEnabled: true, isConfigured: true)
         let classifier = LLMApplicationStyleClassifier(refiner: refiner)
         let styles = [
-            Self.makeStyle(id: "builtin.chat", enabled: true),
-            Self.makeStyle(id: "builtin.coding", enabled: true),
+            Self.makeStyle(id: "builtin.email", enabled: true, allowAutoMatch: false),
+            Self.makeStyle(id: "builtin.chat", enabled: true, description: "适合即时聊天"),
+            Self.makeStyle(id: "builtin.coding", enabled: true, description: "适合代码和技术讨论"),
         ]
         let outcome = try await classifier.classifyWithTrace(
             target: DictationTarget(bundleID: "com.apple.dt.Xcode", appName: "Xcode"),
+            transcript: "帮我解释这个 Swift 编译错误",
             styles: styles
         )
         XCTAssertEqual(outcome.styleID, "builtin.coding")
         XCTAssertEqual(outcome.trace.candidateStyleIDs, ["builtin.chat", "builtin.coding"])
-        XCTAssertEqual(outcome.trace.routerResponse, "builtin.coding")
+        XCTAssertEqual(outcome.trace.routerResponse, "2")
         XCTAssertEqual(outcome.trace.selectedStyleID, "builtin.coding")
         XCTAssertNil(outcome.trace.fallbackReason)
+        XCTAssertEqual(outcome.trace.styleSelectionSource, "aiRouter")
         XCTAssertEqual(outcome.trace.routerVersion, "1.0.0")
         XCTAssertNotNil(outcome.trace.durationMS)
         XCTAssertFalse(outcome.trace.renderedPromptHash.isEmpty)
+        XCTAssertTrue(refiner.lastRequest?.systemPrompt.contains("1. 适合即时聊天") == true)
+        XCTAssertTrue(refiner.lastRequest?.systemPrompt.contains("2. 适合代码和技术讨论") == true)
+        XCTAssertFalse(refiner.lastRequest?.systemPrompt.contains("builtin.email") == true)
+        XCTAssertTrue(refiner.lastRequest?.text.contains("帮我解释这个 Swift 编译错误") == true)
     }
 
     func testClassifyWithTraceRecordsFallbackOnInvalidResponse() async throws {
@@ -40,6 +47,7 @@ final class StyleRouteTraceTests: XCTestCase {
         XCTAssertNil(outcome.styleID)
         XCTAssertNil(outcome.trace.selectedStyleID)
         XCTAssertEqual(outcome.trace.fallbackReason, "invalid_response")
+        XCTAssertEqual(outcome.trace.styleSelectionSource, "fallback")
         XCTAssertEqual(outcome.trace.routerResponse, "我认为应该选择 2")
     }
 
@@ -53,6 +61,7 @@ final class StyleRouteTraceTests: XCTestCase {
         )
         XCTAssertNil(outcome.styleID)
         XCTAssertEqual(outcome.trace.fallbackReason, "request_failed")
+        XCTAssertEqual(outcome.trace.styleSelectionSource, "fallback")
         XCTAssertNil(outcome.trace.routerResponse)
         XCTAssertNotNil(outcome.trace.durationMS)
     }
@@ -68,6 +77,7 @@ final class StyleRouteTraceTests: XCTestCase {
         XCTAssertNil(outcome.styleID)
         XCTAssertEqual(outcome.trace.fallbackReason, "refiner_not_ready")
         XCTAssertEqual(outcome.trace.candidateStyleIDs, ["builtin.chat"])
+        XCTAssertEqual(outcome.trace.styleSelectionSource, "fallback")
     }
 
     func testSafeForPersistenceDropsRawRouterResponse() {
@@ -76,6 +86,7 @@ final class StyleRouteTraceTests: XCTestCase {
             routerResponse: "raw model output that might echo user content",
             selectedStyleID: "builtin.chat",
             fallbackReason: nil,
+            styleSelectionSource: "aiRouter",
             routerVersion: "1.0.0",
             renderedPromptHash: "h",
             durationMS: 5
@@ -84,14 +95,21 @@ final class StyleRouteTraceTests: XCTestCase {
         XCTAssertNil(safe.routerResponse)
         XCTAssertEqual(safe.selectedStyleID, "builtin.chat")
         XCTAssertEqual(safe.candidateStyleIDs, ["builtin.chat"])
+        XCTAssertEqual(safe.styleSelectionSource, "aiRouter")
         XCTAssertEqual(safe.routerVersion, "1.0.0")
         XCTAssertEqual(safe.durationMS, 5)
     }
 
     // MARK: - Fixtures
 
-    private static func makeStyle(id: String, enabled: Bool) -> StyleProfileRecord {
-        StyleProfileRecord(
+    private static func makeStyle(
+        id: String,
+        enabled: Bool,
+        allowAutoMatch: Bool = true,
+        description: String? = nil
+    ) -> StyleProfileRecord {
+        let resolvedDescription = description ?? "适合 \(id)"
+        return StyleProfileRecord(
             id: id,
             name: id,
             category: "test",
@@ -107,7 +125,9 @@ final class StyleRouteTraceTests: XCTestCase {
             builtIn: false,
             isDefault: false,
             createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            allowAutoMatch: allowAutoMatch,
+            autoMatchDescription: resolvedDescription
         )
     }
 }
@@ -115,6 +135,7 @@ final class StyleRouteTraceTests: XCTestCase {
 private final class StubRefiner: PromptAwareTextRefining, @unchecked Sendable {
     var isEnabled: Bool
     var isConfigured: Bool
+    private(set) var lastRequest: TextRefinementRequest?
     private let response: String
     private let error: Error?
 
@@ -128,6 +149,7 @@ private final class StubRefiner: PromptAwareTextRefining, @unchecked Sendable {
     func refine(_ text: String) async throws -> String { response }
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
+        lastRequest = request
         if let error { throw error }
         return response
     }

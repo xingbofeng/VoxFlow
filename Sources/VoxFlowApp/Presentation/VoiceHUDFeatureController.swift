@@ -217,8 +217,7 @@ final class VoiceHUDFeatureController {
         switch presentation {
         case let .sent(agentName):
             showTemporaryMessage(
-                String(
-                    format: L10n.localize("hud.feedback.sent_to_agent_format", comment: ""),
+                L10n.format("hud.feedback.sent_to_agent_format", comment: "",
                     agentName
                 ),
                 duration: 2.2,
@@ -227,8 +226,7 @@ final class VoiceHUDFeatureController {
         case let .failure(message, retainedText):
             let detail = retainedText.isEmpty
                 ? message
-                : String(
-                    format: L10n.localize("hud.feedback.command_retained_format", comment: ""),
+                : L10n.format("hud.feedback.command_retained_format", comment: "",
                     message
                 )
             showTemporaryMessage(detail, duration: 5.0)
@@ -271,8 +269,7 @@ final class VoiceHUDFeatureController {
         undo: @escaping () -> Void
     ) {
         let message = event.items.count == 1
-            ? String(
-                format: L10n.localize("hud.feedback.undo_prompt_format", comment: ""),
+            ? L10n.format("hud.feedback.undo_prompt_format", comment: "",
                 event.message
             )
             : event.message
@@ -316,8 +313,7 @@ final class VoiceHUDFeatureController {
             )
         case .clipboardImageOCRFailed(let reason):
             showTemporaryMessage(
-                String(
-                    format: L10n.localize("hud.feedback.clipboard_ocr_failed_format", comment: ""),
+                L10n.format("hud.feedback.clipboard_ocr_failed_format", comment: "",
                     reason
                 ),
                 duration: 3.0

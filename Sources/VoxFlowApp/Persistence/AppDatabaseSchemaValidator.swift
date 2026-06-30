@@ -72,6 +72,15 @@ enum AppDatabaseSchemaValidator {
 
     private static let expectedTables: [ExpectedTable] = [
         ExpectedTable(
+            name: "style_profiles",
+            columns: [
+                "id", "name", "category", "subtitle", "mode", "prompt", "sample_input",
+                "sample_output", "llm_provider_id", "model", "temperature", "enabled",
+                "built_in", "is_default", "created_at", "updated_at",
+                "output_format_json", "allow_auto_match", "auto_match_description"
+            ]
+        ),
+        ExpectedTable(
             name: "dictation_history",
             columns: [
                 "id", "raw_text", "final_text", "language", "asr_provider_id",

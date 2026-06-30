@@ -51,11 +51,23 @@ VERSION := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString
 DMG_NAME := VoxFlow-$(VERSION)-macOS
 DMG_FILE := dist/$(DMG_NAME).dmg
 UPDATE_DEBUG_ENV_KEYS := VOXFLOW_UPDATE_CHECK_MOCK VOXFLOW_UPDATE_CHECK_FIXTURE
+LOCAL_ENV_FILE ?= .env.local
+SENTRY_CLI_VERSION ?= 2.52.0
+SENTRY_CLI := $(CURDIR)/.build/tools/sentry-cli
+
+ifneq ($(wildcard $(LOCAL_ENV_FILE)),)
+include $(LOCAL_ENV_FILE)
+endif
+
+export VOXFLOW_SENTRY_DSN
+export SENTRY_AUTH_TOKEN
+export SENTRY_ORG
+export SENTRY_PROJECT
 
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev install dmg release release-check apply-launch-env clean debug prelaunch-cleanup gen-l10n lint i18n-check
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup gen-l10n lint i18n-check
 
 all: build
 
@@ -107,6 +119,7 @@ build: prepare-runtime prepare-agent-helper
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
+	@if [ -n "$${VOXFLOW_SENTRY_DSN:-}" ]; then /usr/libexec/PlistBuddy -c "Set :VoxFlowSentryDSN $${VOXFLOW_SENTRY_DSN}" "$(BUNDLE_DIR)/Contents/Info.plist"; fi
 	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
@@ -150,6 +163,7 @@ build-native: prepare-runtime prepare-agent-helper
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_DEFAULT_METALLIB)"
 	@cp "$(PLIST)" "$(BUNDLE_DIR)/Contents/"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(CURRENT_BUNDLE_ID)" "$(BUNDLE_DIR)/Contents/Info.plist"
+	@if [ -n "$${VOXFLOW_SENTRY_DSN:-}" ]; then /usr/libexec/PlistBuddy -c "Set :VoxFlowSentryDSN $${VOXFLOW_SENTRY_DSN}" "$(BUNDLE_DIR)/Contents/Info.plist"; fi
 	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(BUNDLE_DIR)/Contents/Resources/"
@@ -195,6 +209,7 @@ build-dev: prepare-runtime prepare-agent-helper
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(DEV_BUNDLE_ID)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleName $(DEV_BUNDLE_NAME)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $(DEV_DISPLAY_NAME)" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
+	@if [ -n "$${VOXFLOW_SENTRY_DSN:-}" ]; then /usr/libexec/PlistBuddy -c "Set :VoxFlowSentryDSN $${VOXFLOW_SENTRY_DSN}" "$(DEV_BUNDLE_DIR)/Contents/Info.plist"; fi
 	@/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$(DEV_BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$(DEV_BUNDLE_DIR)/Contents/Info.plist" >/dev/null
 	@cp "$(ICON)" "$(DEV_BUNDLE_DIR)/Contents/Resources/"
@@ -240,6 +255,15 @@ run-dev: prelaunch-cleanup build-dev apply-launch-env
 	echo "❌ Expected dev app to launch from $(CURDIR)/$(DEV_BUNDLE_DIR), but running $(APP_NAME) processes are:"; \
 	ps -axo pid,command | grep -F "/$(APP_NAME).app/Contents/MacOS/$(APP_NAME)" | grep -v grep || true; \
 	exit 1
+
+$(SENTRY_CLI):
+	@mkdir -p "$(dir $(SENTRY_CLI))"
+	curl -sL "https://downloads.sentry-cdn.com/sentry-cli/$(SENTRY_CLI_VERSION)/sentry-cli-Darwin-universal" -o "$(SENTRY_CLI)"
+	chmod +x "$(SENTRY_CLI)"
+	"$(SENTRY_CLI)" --version
+
+sentry-upload-dev-dsym: build-dev $(SENTRY_CLI)
+	PATH="$(dir $(SENTRY_CLI)):$$PATH" scripts/upload-sentry-dsym.sh "$(DEV_BUNDLE_DIR)" "$(DEV_BUNDLE_DIR).dSYM"
 
 apply-launch-env:
 	@for key in $(UPDATE_DEBUG_ENV_KEYS); do \

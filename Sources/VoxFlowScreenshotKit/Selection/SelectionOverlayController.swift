@@ -234,6 +234,7 @@ public enum SelectionOverlayWindowEvent: Sendable {
     case annotationResizeChanged(CGPoint)
     case annotationResizeEnded(CGPoint)
     case deleteSelectedAnnotationRequested
+    case copyShortcutRequested
     case annotationTextCommitted(CGPoint, String)
     case selectionBegan(CGPoint)
     case selectionChanged(CGPoint)
@@ -709,6 +710,12 @@ public final class SelectionOverlayController {
             endAnnotationResize()
         case .deleteSelectedAnnotationRequested:
             deleteSelectedAnnotation()
+        case .copyShortcutRequested:
+            if annotationDocument.selectedElementIDs.isEmpty {
+                completeSelection(kind: .complete)
+            } else {
+                copySelectedAnnotations()
+            }
         case .annotationTextCommitted(let localPoint, let text):
             commitTextAnnotation(text, at: localPoint, on: display)
         case .selectionBegan(let point):
@@ -1909,7 +1916,7 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
                 && !event.modifierFlags.contains(.control):
             eventHandler(.toolbarRole(.redo))
         case 8 where event.isCommandSelectionShortcut:
-            eventHandler(.toolbarRole(.copy))
+            eventHandler(.copyShortcutRequested)
         case 9 where event.isCommandSelectionShortcut:
             eventHandler(.toolbarRole(.paste))
         case 2 where event.isCommandSelectionShortcut:
@@ -1957,7 +1964,7 @@ private final class AppKitSelectionOverlayWindow: NSPanel, SelectionOverlayWindo
                 return nil
             }
             if event.keyCode == 8, event.isCommandSelectionShortcut {
-                self?.eventHandler(.toolbarRole(.copy))
+                self?.eventHandler(.copyShortcutRequested)
                 return nil
             }
             if event.keyCode == 9, event.isCommandSelectionShortcut {
@@ -2309,6 +2316,11 @@ final class SelectionOverlayContentView: NSView {
             activeSelectionResizeCursorKind = cursorKind.isResize ? cursorKind : nil
         }
         pointerEventRouter.mouseDown(atGlobalPoint: globalPoint)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard !isScrollCapturing else { return }
+        eventHandler(.cancelRequested)
     }
 
     override func mouseDragged(with event: NSEvent) {

@@ -161,11 +161,19 @@ struct DependencyContainer {
                 enabled: storedBool(
                     forKey: SettingsSystemOption.llmTraceDiagnostics.rawValue,
                     in: settingsRepository,
-                    defaultValue: false
+                    defaultValue: SettingsSystemOption.llmTraceDiagnostics.defaultValue
                 ),
                 directory: paths.llmTraceDiagnosticsDirectory
             )
         }
+        CrashReporterService.shared.configure(
+            enabled: storedBool(
+                forKey: SettingsSystemOption.crashLogs.rawValue,
+                in: settingsRepository,
+                defaultValue: false
+            ),
+            configuration: .live()
+        )
 
         return DependencyContainer(
             clock: clock,

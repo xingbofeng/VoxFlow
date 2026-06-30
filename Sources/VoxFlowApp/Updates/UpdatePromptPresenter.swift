@@ -24,6 +24,7 @@ struct UpdatePromptPresentation: Identifiable {
     let primaryTitle: String
     let secondaryTitle: String?
     let destructiveTitle: String?
+    let showsCommunityQRCodes: Bool
 }
 
 @MainActor
@@ -75,7 +76,8 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
             iconName: "arrow.down.circle.fill",
             primaryTitle: actionDownloadTitle,
             secondaryTitle: actionRemindTomorrowTitle,
-            destructiveTitle: actionIgnoreTitle
+            destructiveTitle: actionIgnoreTitle,
+            showsCommunityQRCodes: true
         )
         let action = await present(presentation)
         if action == .download {
@@ -92,7 +94,8 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
                 iconName: "checkmark.circle.fill",
                 primaryTitle: actionDismissTitle,
                 secondaryTitle: nil,
-                destructiveTitle: nil
+                destructiveTitle: nil,
+                showsCommunityQRCodes: false
             )
         )
     }
@@ -105,7 +108,8 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
                 iconName: "exclamationmark.triangle.fill",
                 primaryTitle: actionDismissTitle,
                 secondaryTitle: nil,
-                destructiveTitle: nil
+                destructiveTitle: nil,
+                showsCommunityQRCodes: false
             )
         )
     }
@@ -128,11 +132,14 @@ final class UpdatePromptPresenter: UpdatePromptPresenting {
         let summary = notes.isEmpty ? noNotesMessage : String(notes.prefix(600))
         let currentVersionLine = "\(L10n.localize("updates.prompt.current_version_prefix", comment: "Current version label")) \(currentVersion)"
         let latestVersionLine = "\(L10n.localize("updates.prompt.latest_version_prefix", comment: "Latest version label")) \(release.version)"
+        let communityPromo = L10n.localize("updates.prompt.community_promo", comment: "Community group promotion in update prompt")
         return """
         \(currentVersionLine)
         \(latestVersionLine)
 
         \(summary)
+
+        \(communityPromo)
         """
     }
 }
@@ -153,7 +160,7 @@ private final class UpdatePromptWindowController: NSWindowController, NSWindowDe
 
     private init(presentation: UpdatePromptPresentation) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 260),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: presentation.showsCommunityQRCodes ? 590 : 340),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -250,14 +257,33 @@ private struct UpdatePromptView: View {
                         Text(presentation.title)
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Text(presentation.message)
-                            .font(.system(size: 13))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            .lineSpacing(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .textSelection(.enabled)
+                        ScrollView {
+                            Text(presentation.message)
+                                .font(.system(size: 13))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                .lineSpacing(3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxHeight: presentation.showsCommunityQRCodes ? 130 : 180)
                     }
                     .padding(.trailing, 28)
+                }
+
+                if presentation.showsCommunityQRCodes {
+                    HStack(alignment: .top, spacing: 14) {
+                        UpdatePromptQRCodeCard(
+                            title: L10n.localize("help.overlay.wechat_title", comment: "Author WeChat QR card title"),
+                            subtitle: L10n.localize("help.overlay.wechat_subtitle", comment: "Author WeChat QR card subtitle"),
+                            resourceName: "AuthorWeChatQRCode"
+                        )
+                        UpdatePromptQRCodeCard(
+                            title: L10n.localize("help.overlay.user_group_title", comment: "User group QR card title"),
+                            subtitle: L10n.localize("help.overlay.user_group_subtitle", comment: "User group QR card subtitle"),
+                            resourceName: "UserGroupQRCode"
+                        )
+                    }
+                    .padding(.leading, 58)
                 }
 
                 HStack(spacing: 10) {
@@ -300,8 +326,61 @@ private struct UpdatePromptView: View {
             .help(L10n.localize("updates.prompt.close_help", comment: "Close button helper text"))
             .padding(16)
         }
-        .frame(width: 480)
+        .frame(width: presentation.showsCommunityQRCodes ? 680 : 480)
         .background(Color(nsColor: .textBackgroundColor))
         .tint(AppTheme.ColorToken.accent)
+    }
+}
+
+private struct UpdatePromptQRCodeCard: View {
+    let title: String
+    let subtitle: String
+    let resourceName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(2)
+            }
+
+            if let image = QRCodeImage.load(resourceName: resourceName) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 230, height: 292)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                    )
+            } else {
+                ContentUnavailableView(
+                    L10n.localize("help.qr_unavailable.title", comment: "QR code loading failed title"),
+                    systemImage: "qrcode",
+                    description: Text(L10n.localize("help.qr_unavailable.description", comment: "QR code loading failed message"))
+                )
+                .frame(width: 230, height: 180)
+            }
+        }
+        .frame(width: 230, alignment: .topLeading)
+    }
+}
+
+private enum QRCodeImage {
+    static func load(resourceName: String) -> NSImage? {
+        guard let url = VoxFlowAppResourceBundle.url(
+            forResource: resourceName,
+            withExtension: "jpg"
+        ) else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
     }
 }

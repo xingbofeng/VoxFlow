@@ -228,8 +228,7 @@ struct HelpView: View {
         guard settingsViewModel.middleMouseRecordingEnabled else {
             return keyboardShortcut
         }
-        return String(
-            format: L10n.localize("help.shortcuts.display_name_with_middle_mouse", comment: "Help shortcut title with middle mouse support"),
+        return L10n.format("help.shortcuts.display_name_with_middle_mouse", comment: "Help shortcut title with middle mouse support",
             keyboardShortcut
         )
     }
@@ -298,27 +297,21 @@ private struct SupportCommunityOverlay: View {
                     url: HelpExternalLinks.githubRepository
                 )
 
-                if let image = WeChatQRCodeImage.load() {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 320, height: 408)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
-                        )
-                } else {
-                    ContentUnavailableView(
-                        L10n.localize("help.qr_unavailable.title", comment: "QR code loading failed title"),
-                        systemImage: "qrcode",
-                        description: Text(L10n.localize("help.qr_unavailable.description", comment: "QR code loading failed message"))
+                HStack(alignment: .top, spacing: 14) {
+                    SupportQRCodeCard(
+                        title: L10n.localize("help.overlay.wechat_title", comment: "Author WeChat QR card title"),
+                        subtitle: L10n.localize("help.overlay.wechat_subtitle", comment: "Author WeChat QR card subtitle"),
+                        resourceName: "AuthorWeChatQRCode"
                     )
-                    .frame(width: 320, height: 240)
+                    SupportQRCodeCard(
+                        title: L10n.localize("help.overlay.user_group_title", comment: "User group QR card title"),
+                        subtitle: L10n.localize("help.overlay.user_group_subtitle", comment: "User group QR card subtitle"),
+                        resourceName: "UserGroupQRCode"
+                    )
                 }
             }
             .padding(22)
-            .frame(width: 380)
+            .frame(width: 680)
             .background(AppTheme.ColorToken.panelBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
@@ -330,10 +323,51 @@ private struct SupportCommunityOverlay: View {
     }
 }
 
-private enum WeChatQRCodeImage {
-    static func load() -> NSImage? {
+private struct SupportQRCodeCard: View {
+    let title: String
+    let subtitle: String
+    let resourceName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(2)
+            }
+
+            if let image = QRCodeImage.load(resourceName: resourceName) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 300, height: 386)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                    )
+            } else {
+                ContentUnavailableView(
+                    L10n.localize("help.qr_unavailable.title", comment: "QR code loading failed title"),
+                    systemImage: "qrcode",
+                    description: Text(L10n.localize("help.qr_unavailable.description", comment: "QR code loading failed message"))
+                )
+                .frame(width: 300, height: 240)
+            }
+        }
+        .frame(width: 300, alignment: .topLeading)
+    }
+}
+
+private enum QRCodeImage {
+    static func load(resourceName: String) -> NSImage? {
         guard let url = VoxFlowAppResourceBundle.url(
-            forResource: "AuthorWeChatQRCode",
+            forResource: resourceName,
             withExtension: "jpg"
         ) else {
             return nil

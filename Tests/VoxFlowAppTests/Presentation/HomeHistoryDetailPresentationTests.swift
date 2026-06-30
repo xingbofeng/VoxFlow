@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowPromptKit
 import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
@@ -154,6 +155,82 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: 15_994), "16.0 秒")
         XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: 123), "0.1 秒")
         XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: nil), "未记录")
+    }
+
+    func testFullDiagnosticSummaryIsUserReadableAndDoesNotExposeRawJSON() {
+        let metadata = PromptTraceMetadata(
+            promptKind: .voiceCorrection,
+            promptVersion: .v1_0_0,
+            renderedPromptHash: "prompt-hash",
+            styleID: "builtin.chat"
+        )
+        let detail = makeDetail(
+            trace: TextProcessingTrace(
+                llm: LLMRefinementTrace(
+                    providerID: "provider",
+                    providerName: "Groq",
+                    endpoint: "https://api.example.com/v1/chat/completions",
+                    model: "gpt-oss-20b",
+                    temperature: 0.4,
+                    timeoutSeconds: 30,
+                    requestBodyJSON: #"{"messages":[{"role":"system","content":"完整系统提示"},{"role":"user","content":"完整用户请求"}]}"#,
+                    responseText: #"{"polished":"最终文本"}"#,
+                    statusCode: 200,
+                    durationMS: 900,
+                    promptMetadata: metadata
+                ),
+                contextRounds: ContextRoundsTrace(
+                    enabled: true,
+                    requestedRounds: 3,
+                    usedRounds: 2,
+                    contextHistoryIDs: ["history-a", "history-b"],
+                    excludedReasons: ["expired"],
+                    wrapperVersion: "1.0.0"
+                ),
+                voiceCorrection: VoiceCorrectionTrace(),
+                styleRoute: StyleRouteTrace(
+                    candidateStyleIDs: ["builtin.chat", "builtin.coding"],
+                    routerResponse: nil,
+                    selectedStyleID: "builtin.chat",
+                    fallbackReason: nil,
+                    styleSelectionSource: "aiRouteCache",
+                    routerVersion: "1.0.0",
+                    renderedPromptHash: "route-hash",
+                    durationMS: 88
+                )
+            ),
+            warnings: ["llm_structured_parse_failed"]
+        )
+
+        let summary = HomeHistoryDetailPresentation.userVisibleDiagnosticSummary(for: detail)
+
+        XCTAssertTrue(summary.contains("服务地址: https://api.example.com/v1/chat/completions"))
+        XCTAssertTrue(summary.contains("路由来源: AI 路由缓存"))
+        XCTAssertTrue(summary.contains("选中风格: 聊天风格"))
+        XCTAssertTrue(summary.contains("引用轮数: 2 / 3 轮"))
+        XCTAssertTrue(summary.contains("排除原因: 超过可引用时间"))
+        XCTAssertFalse(summary.contains("expired"))
+        XCTAssertTrue(summary.contains("模型: gpt-oss-20b"))
+        XCTAssertTrue(summary.contains("提示词哈希: prompt-hash"))
+        XCTAssertFalse(summary.contains("requestBodyJSON"))
+        XCTAssertFalse(summary.contains("完整系统提示"))
+        XCTAssertFalse(summary.contains("完整用户请求"))
+        XCTAssertFalse(summary.contains(#""messages""#))
+    }
+
+    func testDiagnosticReasonCodesUseUserReadableLabels() {
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.styleRouteFallbackReasonText("router_unavailable"),
+            "未能获得智能路由结果，已使用默认风格"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextRoundsExcludedReasonText("different_app"),
+            "不同应用"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.contextRoundsExcludedReasonText("unknown_reason"),
+            "unknown_reason"
+        )
     }
 
     func testContextBoostTracePresentationUsesUserReadableLabels() {
@@ -346,7 +423,8 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         finalText: String = "测试最终",
         trace: TextProcessingTrace? = nil,
         taskMode: VoiceTaskMode? = nil,
-        contextPreview: String? = nil
+        contextPreview: String? = nil,
+        warnings: [String] = []
     ) -> HomeHistoryDetail {
         HomeHistoryDetail(
             id: "test",
@@ -361,7 +439,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
             durationMS: 1000,
             charCount: finalText.count,
             cpm: 200,
-            warnings: [],
+            warnings: warnings,
             trace: trace,
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             updatedAt: Date(timeIntervalSince1970: 1_700_000_100),
@@ -608,6 +686,103 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
             HomeHistoryDetailPresentation.diffStatusText(for: detail),
             expected
         )
+    }
+
+    // MARK: - Deterministic phase comparison input
+
+    private func makePhase(
+        inputText: String? = nil,
+        outputText: String? = nil,
+        inputHash: String = "hash",
+        outputHash: String = "hash"
+    ) -> DeterministicProcessingPhaseTrace {
+        DeterministicProcessingPhaseTrace(
+            phase: "pre_llm",
+            enabledProcessors: ["punctuation_optimization"],
+            displayProcessorIDs: nil,
+            changedProcessorIDs: [],
+            inputCharacterCount: inputText?.count ?? 0,
+            outputCharacterCount: outputText?.count ?? 0,
+            inputText: inputText,
+            outputText: outputText,
+            inputHash: inputHash,
+            outputHash: outputHash
+        )
+    }
+
+    func testDeterministicComparisonInputUsesPhaseInputAndOutputNotTopLevelRawFinal() {
+        let phase = makePhase(
+            inputText: "处理前文本",
+            outputText: "处理后文本",
+            inputHash: "in",
+            outputHash: "out"
+        )
+        // Top-level raw/final on the detail are deliberately different from
+        // the phase's input/output to catch any accidental wiring.
+        let detail = makeDetail(rawText: "顶层原文", finalText: "顶层最终", trace: nil)
+
+        let input = HomeHistoryDetailPresentation.deterministicComparisonInput(for: phase)
+        XCTAssertEqual(input?.sourceText, "处理前文本")
+        XCTAssertEqual(input?.processedText, "处理后文本")
+        XCTAssertNotEqual(input?.sourceText, detail.rawText)
+        XCTAssertNotEqual(input?.processedText, detail.finalText)
+    }
+
+    func testDeterministicComparisonInputReturnsNilWhenPhaseMissingBeforeOrAfterText() {
+        let noInput = makePhase(inputText: nil, outputText: "处理后")
+        XCTAssertNil(HomeHistoryDetailPresentation.deterministicComparisonInput(for: noInput))
+
+        let noOutput = makePhase(inputText: "处理前", outputText: nil)
+        XCTAssertNil(HomeHistoryDetailPresentation.deterministicComparisonInput(for: noOutput))
+
+        let bothNil = makePhase(inputText: nil, outputText: nil)
+        XCTAssertNil(HomeHistoryDetailPresentation.deterministicComparisonInput(for: bothNil))
+    }
+
+    func testDeterministicComparisonInputUsesLocalizedSourceAndProcessedTitles() {
+        let phase = makePhase(inputText: "a", outputText: "b", inputHash: "a", outputHash: "b")
+        let input = HomeHistoryDetailPresentation.deterministicComparisonInput(for: phase)
+
+        XCTAssertEqual(input?.sourceTitle, L10n.localize("home.detail.comparison.mode.source", comment: "Source mode label"))
+        XCTAssertEqual(input?.processedTitle, L10n.localize("home.detail.comparison.mode.processed", comment: "Processed mode label"))
+    }
+
+    func testDeterministicComparisonInputPreAndPostLLMPhasesUseTheirOwnTexts() {
+        let prePhase = DeterministicProcessingPhaseTrace(
+            phase: "pre_llm",
+            enabledProcessors: ["punctuation_optimization"],
+            displayProcessorIDs: nil,
+            changedProcessorIDs: [],
+            inputCharacterCount: 4,
+            outputCharacterCount: 4,
+            inputText: "pre输入",
+            outputText: "pre输出",
+            inputHash: "pre-in",
+            outputHash: "pre-out"
+        )
+        let postPhase = DeterministicProcessingPhaseTrace(
+            phase: "post_llm",
+            enabledProcessors: ["cjk_latin_spacing"],
+            displayProcessorIDs: nil,
+            changedProcessorIDs: [],
+            inputCharacterCount: 5,
+            outputCharacterCount: 5,
+            inputText: "post输入",
+            outputText: "post输出",
+            inputHash: "post-in",
+            outputHash: "post-out"
+        )
+
+        let preInput = HomeHistoryDetailPresentation.deterministicComparisonInput(for: prePhase)
+        let postInput = HomeHistoryDetailPresentation.deterministicComparisonInput(for: postPhase)
+
+        XCTAssertEqual(preInput?.sourceText, "pre输入")
+        XCTAssertEqual(preInput?.processedText, "pre输出")
+        XCTAssertEqual(postInput?.sourceText, "post输入")
+        XCTAssertEqual(postInput?.processedText, "post输出")
+        // Phases must not cross-reference each other's text.
+        XCTAssertNotEqual(preInput?.sourceText, postInput?.sourceText)
+        XCTAssertNotEqual(preInput?.processedText, postInput?.processedText)
     }
 
     func testDefaultSelectedStepStartsFromASRWhenLLMAvailable() {

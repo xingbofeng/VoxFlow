@@ -14,6 +14,8 @@ let package = Package(
         .package(url: "https://github.com/soniqo/speech-swift.git", from: "0.0.21"),
         .package(url: "https://github.com/ordo-one/FuzzyMatch.git", from: "1.4.0"),
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.0.2"),
+        .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "9.19.0"),
+        .package(path: "Packages/TextDiffing"),
         .package(path: "Packages/VoxFlowContextBoostKit"),
         .package(path: "Packages/VoxFlowVoiceCorrectionKit")
     ],
@@ -249,12 +251,15 @@ let package = Package(
                 .product(name: "MADLADTranslation", package: "speech-swift"),
                 .product(name: "Qwen3TTS", package: "speech-swift"),
                 .product(name: "Qwen3Chat", package: "speech-swift"),
-                .product(name: "MarkdownUI", package: "swift-markdown-ui")
+                .product(name: "MarkdownUI", package: "swift-markdown-ui"),
+                .product(name: "Sentry", package: "sentry-cocoa"),
+                .product(name: "TextDiffing", package: "TextDiffing")
             ],
             path: "Sources/VoxFlowApp",
             exclude: ["Resources/Info.plist", "Resources/zh-Hans.lproj", "Resources/zh-Hant.lproj", "Resources/en.lproj", "Resources/ja.lproj", "Resources/ko.lproj"],
             resources: [
                 .copy("Resources/AuthorWeChatQRCode.jpg"),
+                .copy("Resources/UserGroupQRCode.jpg"),
                 .copy("Resources/GitHubMark.png"),
                 .copy("Resources/ASRAppleSpeech.png"),
                 .copy("Resources/ASRAssemblyAI.png"),

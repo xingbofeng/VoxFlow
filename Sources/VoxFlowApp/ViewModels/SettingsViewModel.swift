@@ -54,7 +54,6 @@ enum SettingsKey {
     static let audioVoiceEnhancementEnabled = "settings.audio.voiceEnhancementEnabled"
     static let audioMuteWhileRecordingEnabled = "settings.audio.muteWhileRecordingEnabled"
     static let performanceOptimizationEnabled = "settings.performance.optimizationEnabled"
-    static let analyticsEnabled = "settings.privacy.analyticsEnabled"
     static let outputTextInputMode = "settings.output.textInputMode"
     static let agentDispatchEnabled = "settings.agentDispatch.enabled"
     static let agentDispatchExactDirectEnabled = "settings.agentDispatch.exactDirectEnabled"
@@ -67,7 +66,6 @@ enum SettingsKey {
         audioVoiceEnhancementEnabled,
         audioMuteWhileRecordingEnabled,
         performanceOptimizationEnabled,
-        analyticsEnabled,
         outputTextInputMode,
         agentDispatchEnabled,
         agentDispatchExactDirectEnabled,
@@ -93,13 +91,16 @@ enum SettingsSystemOption: String, CaseIterable, Sendable {
 
     var defaultValue: Bool {
         switch self {
-        case .restoreClipboard, .clipboardImageOCR, .hideDockIconWhenWorkbenchCloses:
+        case .restoreClipboard, .clipboardImageOCR, .hideDockIconWhenWorkbenchCloses, .llmTraceDiagnostics:
             return true
         default:
             return false
         }
     }
 }
+
+typealias LatestCrashReportProviding = () -> SystemCrashReport?
+typealias ManualCrashReportSending = (ManualCrashReportPayload) -> CrashReportSendResult
 
 struct AudioInputDevice: Equatable, Identifiable, Sendable {
     let id: String
@@ -117,8 +118,7 @@ struct SettingsStorageStatus: Equatable, Sendable {
         switch storageHealth {
         case let .persistent(databaseURL):
             title = L10n.localize("settings.storage.title.persistent", comment: "")
-            message = String(
-                format: L10n.localize("settings.storage.message.persistent", comment: ""),
+            message = L10n.format("settings.storage.message.persistent", comment: "",
                 databaseURL.path
             )
             isHealthy = true
@@ -134,8 +134,7 @@ struct SettingsStorageStatus: Equatable, Sendable {
             badgeText = L10n.localize("settings.storage.badge.read_only", comment: "")
         case let .migrationRequired(databaseURL, reason):
             title = L10n.localize("settings.storage.title.migration_required", comment: "")
-            message = String(
-                format: L10n.localize("settings.storage.message.migration_required", comment: ""),
+            message = L10n.format("settings.storage.message.migration_required", comment: "",
                 reason,
                 databaseURL.path
             )
@@ -143,8 +142,7 @@ struct SettingsStorageStatus: Equatable, Sendable {
             badgeText = L10n.localize("settings.storage.badge.migration_required", comment: "")
         case let .corrupt(databaseURL, reason):
             title = L10n.localize("settings.storage.title.corrupt", comment: "")
-            message = String(
-                format: L10n.localize("settings.storage.message.corrupt", comment: ""),
+            message = L10n.format("settings.storage.message.corrupt", comment: "",
                 reason,
                 databaseURL.path
             )
@@ -152,16 +150,14 @@ struct SettingsStorageStatus: Equatable, Sendable {
             badgeText = L10n.localize("settings.storage.badge.corrupt", comment: "")
         case let .unavailable(reason):
             title = L10n.localize("settings.storage.title.unavailable", comment: "")
-            message = String(
-                format: L10n.localize("settings.storage.message.unavailable", comment: ""),
+            message = L10n.format("settings.storage.message.unavailable", comment: "",
                 reason
             )
             isHealthy = false
             badgeText = L10n.localize("settings.storage.badge.unavailable", comment: "")
         case let .volatile(reason):
             title = L10n.localize("settings.storage.title.volatile", comment: "")
-            message = String(
-                format: L10n.localize("settings.storage.message.volatile", comment: ""),
+            message = L10n.format("settings.storage.message.volatile", comment: "",
                 reason
             )
             isHealthy = false
@@ -306,7 +302,6 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var voiceEnhancementEnabled = false
     @Published private(set) var muteWhileRecordingEnabled = false
     @Published private(set) var performanceOptimizationEnabled = false
-    @Published private(set) var analyticsEnabled = false
     @Published private(set) var textInputMode: TextInputMode = .automatic
     @Published private(set) var recognitionLanguages: [RecognitionLanguage] = RecognitionLanguage.allCases
     @Published private(set) var selectedRecognitionLanguage: RecognitionLanguage = .default
@@ -318,6 +313,8 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var screenRecordingGranted = false
     @Published private(set) var storageStatus: SettingsStorageStatus
     @Published private(set) var exportedDataJSON: String?
+    @Published private(set) var latestCrashReportSummaryText: String?
+    @Published private(set) var latestCrashReportAwaitingSendConfirmation = false
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
 
@@ -365,6 +362,8 @@ final class SettingsViewModel: ObservableObject {
     private let paths: ApplicationSupportPaths?
     private let fileManager: FileManager
     private let clipboardWriter: ClipboardWriting
+    private let latestCrashReportProvider: LatestCrashReportProviding
+    private let manualCrashReportSender: ManualCrashReportSending
     private var languageObserverID: UUID?
     private var hasLoaded = false
 
@@ -380,7 +379,13 @@ final class SettingsViewModel: ObservableObject {
         launchAtLoginManager: any LaunchAtLoginManaging = SystemLaunchAtLoginManager(),
         paths: ApplicationSupportPaths? = nil,
         fileManager: FileManager = .default,
-        clipboardWriter: ClipboardWriting = GeneralPasteboardWriter()
+        clipboardWriter: ClipboardWriting = GeneralPasteboardWriter(),
+        latestCrashReportProvider: @escaping LatestCrashReportProviding = {
+            SystemCrashReportScanner().latestReport()
+        },
+        manualCrashReportSender: @escaping ManualCrashReportSending = { payload in
+            CrashReporterService.shared.sendManualCrashReport(payload, configuration: .live())
+        }
     ) {
         self.environment = environment
         self.shortcutManager = shortcutManager
@@ -394,6 +399,8 @@ final class SettingsViewModel: ObservableObject {
         self.paths = paths ?? environment.paths
         self.fileManager = fileManager
         self.clipboardWriter = clipboardWriter
+        self.latestCrashReportProvider = latestCrashReportProvider
+        self.manualCrashReportSender = manualCrashReportSender
         self.storageStatus = SettingsStorageStatus(storageHealth: environment.storageHealth)
         load()
         languageObserverID = languageManager.observeLanguageChanges { [weak self] language in
@@ -479,7 +486,6 @@ final class SettingsViewModel: ObservableObject {
             voiceEnhancementEnabled = try readBool(SettingsKey.audioVoiceEnhancementEnabled, defaultValue: false)
             muteWhileRecordingEnabled = try readBool(SettingsKey.audioMuteWhileRecordingEnabled, defaultValue: false)
             performanceOptimizationEnabled = try readBool(SettingsKey.performanceOptimizationEnabled, defaultValue: false)
-            analyticsEnabled = try readBool(SettingsKey.analyticsEnabled, defaultValue: false)
             recognitionLanguages = languageManager.allLanguages
             selectedRecognitionLanguage = languageManager.currentLanguage
             interfaceLanguage = interfaceLanguageManager.currentLanguage
@@ -585,7 +591,7 @@ final class SettingsViewModel: ObservableObject {
         selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = false
         lastError = nil
-        lastActionMessage = String(format: L10n.localize("settings.message.action_shortcut_updated_format", comment: ""), action.displayName)
+        lastActionMessage = L10n.format("settings.message.action_shortcut_updated_format", comment: "", action.displayName)
         Self.logger.info("settings_vm_update_action_shortcut_success action=\(action.rawValue) keyCode=\(keyCode.map(String.init) ?? "nil")")
     }
 
@@ -613,7 +619,7 @@ final class SettingsViewModel: ObservableObject {
         selectionAskAIShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .selectionAskAI)
         shortcutConflict = shortcutManager.hasConflict()
         lastError = nil
-        lastActionMessage = String(format: L10n.localize("settings.message.workflow_shortcut_updated_format", comment: ""), shortcut.displayName)
+        lastActionMessage = L10n.format("settings.message.workflow_shortcut_updated_format", comment: "", shortcut.displayName)
         Self.logger.info("settings_vm_update_workflow_shortcut_success shortcut=\(shortcut.displayName) keyCode=\(keyCode.map(String.init) ?? "nil") conflict=\(shortcutConflict)")
     }
 
@@ -952,7 +958,7 @@ final class SettingsViewModel: ObservableObject {
             )
         } catch {
             return AgentMCPLogSnapshot(
-                text: String(format: L10n.localize("settings.message.mcp_log_read_failed", comment: ""), error.localizedDescription),
+                text: L10n.format("settings.message.mcp_log_read_failed", comment: "", error.localizedDescription),
                 fileExists: false
             )
         }
@@ -1078,13 +1084,6 @@ final class SettingsViewModel: ObservableObject {
         lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.system_settings_updated", comment: ""))
     }
 
-    func setAnalyticsEnabled(_ enabled: Bool) throws {
-        analyticsEnabled = enabled
-        try setBool(SettingsKey.analyticsEnabled, value: enabled)
-        lastError = nil
-        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.analytics_settings_updated", comment: ""))
-    }
-
     func setMiddleMouseRecordingEnabled(_ enabled: Bool) throws {
         middleMouseRecordingEnabled = enabled
         shortcutManager.middleMouseRecordingEnabled = enabled
@@ -1126,7 +1125,7 @@ final class SettingsViewModel: ObservableObject {
             systemOptions[.launchAtLogin] = actualValue
             try? setBool(SettingsSystemOption.launchAtLogin.rawValue, value: actualValue)
             applyRuntimeSettingsSnapshot()
-            lastError = String(format: L10n.localize("settings.error.launch_at_login_failed", comment: ""), error.localizedDescription)
+            lastError = L10n.format("settings.error.launch_at_login_failed", comment: "", error.localizedDescription)
             lastActionMessage = nil
             Self.logger.error("settings_vm_set_launch_at_login_failed requested=\(enabled) actual=\(actualValue) error=\(error.localizedDescription)")
             throw error
@@ -1137,6 +1136,67 @@ final class SettingsViewModel: ObservableObject {
         LLMDiagnosticCapture.shared.clear()
         lastError = nil
         lastActionMessage = L10n.localize("settings.message.mcp_diagnostics_cleared", comment: "")
+    }
+
+    func viewLatestCrashReportSummary() {
+        _ = prepareLatestCrashReportSendConfirmation()
+    }
+
+    @discardableResult
+    func prepareLatestCrashReportSendConfirmation() -> Bool {
+        guard let report = latestCrashReportProvider() else {
+            lastError = nil
+            latestCrashReportSummaryText = nil
+            latestCrashReportAwaitingSendConfirmation = false
+            lastActionMessage = L10n.localize("settings.message.crash_report_summary_unavailable", comment: "")
+            return false
+        }
+        lastError = nil
+        latestCrashReportSummaryText = Self.crashReportSummaryText(report.summary)
+        latestCrashReportAwaitingSendConfirmation = true
+        lastActionMessage = L10n.localize("settings.message.crash_report_summary_ready", comment: "")
+        return true
+    }
+
+    func sendLatestCrashReport() {
+        guard latestCrashReportAwaitingSendConfirmation else {
+            lastError = nil
+            if latestCrashReportSummaryText == nil {
+                _ = prepareLatestCrashReportSendConfirmation()
+            }
+            lastActionMessage = L10n.localize("settings.message.crash_report_confirm_before_send", comment: "")
+            return
+        }
+        guard let report = latestCrashReportProvider() else {
+            lastError = nil
+            latestCrashReportSummaryText = nil
+            latestCrashReportAwaitingSendConfirmation = false
+            lastActionMessage = L10n.localize("settings.message.crash_report_send_unavailable", comment: "")
+            return
+        }
+        guard let raw = try? String(contentsOf: report.url, encoding: .utf8) else {
+            lastError = nil
+            latestCrashReportSummaryText = nil
+            latestCrashReportAwaitingSendConfirmation = false
+            lastActionMessage = L10n.localize("settings.message.crash_report_send_unavailable", comment: "")
+            return
+        }
+
+        let payload = ManualCrashReportPayload(
+            summary: report.summary,
+            sanitizedBody: SystemCrashReportSanitizer(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+                .sanitize(raw)
+        )
+        let result = manualCrashReportSender(payload)
+        lastError = nil
+        latestCrashReportSummaryText = Self.crashReportSummaryText(report.summary)
+        latestCrashReportAwaitingSendConfirmation = false
+        lastActionMessage = switch result {
+        case .sent:
+            L10n.localize("settings.message.crash_report_send_success", comment: "")
+        case .missingDSN:
+            L10n.localize("settings.message.crash_report_send_missing_dsn", comment: "")
+        }
     }
 
     func setTextInputMode(_ mode: TextInputMode) throws {
@@ -1453,8 +1513,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func mcpDiagnosticsText(for agent: AgentSessionCard, logText: String) -> String {
-        String(
-            format: L10n.localize("settings.agent.mcp.diagnostics_format", comment: ""),
+        L10n.format("settings.agent.mcp.diagnostics_format", comment: "",
             agent.mcpCommand ?? "-",
             agent.mcpArgs.isEmpty ? "-" : agent.mcpArgs.joined(separator: " "),
             agent.mcpConfigPath ?? "-",
@@ -1569,10 +1628,26 @@ final class SettingsViewModel: ObservableObject {
         return try JSONDecoder().decode(DecodedSettingValue<T>.self, from: data).value
     }
 
+    private static func crashReportSummaryText(_ summary: SystemCrashReportSummary) -> String {
+        let unknown = L10n.localize("settings.crash_report.summary.unknown", comment: "")
+        return [
+            "\(L10n.localize("settings.crash_report.summary.process", comment: "")): \(summary.processName)",
+            "\(L10n.localize("settings.crash_report.summary.identifier", comment: "")): \(summary.identifier ?? unknown)",
+            "\(L10n.localize("settings.crash_report.summary.version", comment: "")): \(summary.version ?? unknown)",
+            "\(L10n.localize("settings.crash_report.summary.date_time", comment: "")): \(summary.dateTime ?? unknown)",
+            "\(L10n.localize("settings.crash_report.summary.exception", comment: "")): \(summary.exceptionType)",
+            "\(L10n.localize("settings.crash_report.summary.top_frame", comment: "")): \(summary.crashedThreadTopFrames.first ?? unknown)",
+        ].joined(separator: "\n")
+    }
+
     private func applyRuntimeSettingsSnapshot() {
         LLMDiagnosticCapture.shared.configure(
             enabled: systemOption(.llmTraceDiagnostics),
             directory: paths?.llmTraceDiagnosticsDirectory
+        )
+        CrashReporterService.shared.configure(
+            enabled: systemOption(.crashLogs),
+            configuration: .live()
         )
     }
 
@@ -1629,9 +1704,9 @@ final class SettingsViewModel: ObservableObject {
         }
         switch environment.storageHealth {
         case .unavailable, .volatile:
-            return String(format: L10n.localize("settings.storage.message.session_only", comment: ""), message)
+            return L10n.format("settings.storage.message.session_only", comment: "", message)
         case .readOnly, .migrationRequired, .corrupt:
-            return String(format: L10n.localize("settings.storage.message.warning", comment: ""), message, storageStatus.badgeText)
+            return L10n.format("settings.storage.message.warning", comment: "", message, storageStatus.badgeText)
         case .persistent:
             return message
         }

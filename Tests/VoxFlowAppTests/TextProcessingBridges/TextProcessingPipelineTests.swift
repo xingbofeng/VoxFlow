@@ -84,6 +84,8 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(refiner.requests.first?.model, "model-a")
         XCTAssertEqual(refiner.requests.first?.temperature, 0.2)
         XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Vibe Coding") == true)
+        XCTAssertTrue(refiner.requests.first?.systemPrompt.contains("Runtime Polished Text Formatting Rules") == true)
+        XCTAssertFalse(style.prompt.contains("Runtime Polished Text Formatting Rules"))
     }
 
     func testPipelineSelectsStyleByTargetApplicationRule() async throws {
@@ -211,6 +213,147 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.score, 5)
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.source, "ocrShape")
         XCTAssertEqual(result.trace?.contextBoost?.hotwordDetails.first?.evidenceReasons, ["test"])
+    }
+
+    func testPipelineInjectsSameAppContextRoundsIntoLLMRequestText() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let history = StubHistoryRepository(entries: [
+            Self.historyEntry(
+                id: "same-new",
+                finalText: "上一次提到 Qwen3-ASR 的部署方案",
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                createdAt: Date().addingTimeInterval(-60)
+            ),
+            Self.historyEntry(
+                id: "same-old",
+                finalText: "更早一次提到 MLX worker",
+                bundleID: "com.example.editor",
+                appName: "Editor",
+                createdAt: Date().addingTimeInterval(-120)
+            ),
+            Self.historyEntry(
+                id: "other-app",
+                finalText: "其他 App 的内容不应该进入上下文",
+                bundleID: "com.example.chat",
+                appName: "Chat",
+                createdAt: Date().addingTimeInterval(-30)
+            ),
+        ])
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: history,
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(enabled: true, maxRounds: 2, ttlHours: 24)
+                )
+            }
+        )
+
+        let result = await pipeline.process(
+            "继续说刚刚那个方案",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext()
+        )
+
+        let requestText = refiner.requests.first?.text ?? ""
+        XCTAssertEqual(result.finalText, "修正文本")
+        XCTAssertTrue(requestText.contains("Previous context, do not repeat"))
+        XCTAssertTrue(requestText.contains("上一次提到 Qwen3-ASR 的部署方案"))
+        XCTAssertTrue(requestText.contains("更早一次提到 MLX worker"))
+        XCTAssertFalse(requestText.contains("其他 App 的内容不应该进入上下文"))
+        XCTAssertTrue(requestText.contains("Current ASR text:\n继续说刚刚那个方案"))
+        XCTAssertEqual(result.trace?.contextRounds?.usedRounds, 2)
+        XCTAssertEqual(result.trace?.contextRounds?.contextHistoryIDs, ["same-new", "same-old"])
+    }
+
+    func testPipelineSkipsContextRoundsForSecureField() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: [
+                Self.historyEntry(
+                    id: "same-new",
+                    finalText: "密码框不应该引用历史上下文",
+                    bundleID: "com.example.editor",
+                    appName: "Editor",
+                    createdAt: Date().addingTimeInterval(-60)
+                ),
+            ]),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(enabled: true, maxRounds: 2, ttlHours: 24)
+                )
+            }
+        )
+
+        let result = await pipeline.process(
+            "敏感输入",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext(isSecureField: true)
+        )
+
+        XCTAssertEqual(refiner.requests.first?.text, "敏感输入")
+        XCTAssertEqual(result.trace?.contextRounds?.usedRounds, 0)
+        XCTAssertEqual(result.trace?.contextRounds?.excludedReasons, ["secure_field"])
+    }
+
+    func testPipelineSkipsContextRoundsWhenHistoryIsExpired() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: [
+                Self.historyEntry(
+                    id: "expired",
+                    finalText: "过期历史不应该进入上下文",
+                    bundleID: "com.example.editor",
+                    appName: "Editor",
+                    createdAt: Date().addingTimeInterval(-7200)
+                ),
+            ]),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(enabled: true, maxRounds: 2, ttlHours: 1)
+                )
+            }
+        )
+
+        let result = await pipeline.process(
+            "继续",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(refiner.requests.first?.text, "继续")
+        XCTAssertEqual(result.trace?.contextRounds?.usedRounds, 0)
+        XCTAssertEqual(result.trace?.contextRounds?.excludedReasons, ["expired"])
+    }
+
+    func testPipelineDoesNotInjectEmptyContextRoundsWhenNoHistoryMatches() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: []),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(enabled: true, maxRounds: 2, ttlHours: 24)
+                )
+            }
+        )
+
+        let result = await pipeline.process(
+            "没有历史也要正常处理",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(refiner.requests.first?.text, "没有历史也要正常处理")
+        XCTAssertEqual(result.trace?.contextRounds?.usedRounds, 0)
+        XCTAssertEqual(result.trace?.contextRounds?.contextHistoryIDs, [])
     }
 
     func testPipelineDoesNotCaptureContextWhenContextBoostToggleIsDisabled() async {
@@ -540,10 +683,95 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         XCTAssertEqual(result.finalText, "使用 VoxFlow")
         XCTAssertEqual(result.warnings, [])
+        let request = try XCTUnwrap(refiner.requests.first)
+        XCTAssertFalse(request.systemPrompt.contains("VoxFlow"))
+        XCTAssertFalse(request.systemPrompt.contains("应用：Editor"))
+        XCTAssertTrue(request.text.contains("user_terms"))
+        XCTAssertTrue(request.text.contains("VoxFlow"))
+        XCTAssertTrue(request.text.contains("应用：Editor"))
+    }
+
+    func testStructuredPipelineKeepsJSONProtocolWhenRuntimeOutputFormatRulesAreAppended() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let chat = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.chat"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: chat.id,
+                name: chat.name,
+                category: chat.category,
+                subtitle: chat.subtitle,
+                mode: chat.mode,
+                prompt: chat.prompt,
+                sampleInput: chat.sampleInput,
+                sampleOutput: chat.sampleOutput,
+                llmProviderID: chat.llmProviderID,
+                model: chat.model,
+                temperature: chat.temperature,
+                enabled: chat.enabled,
+                builtIn: chat.builtIn,
+                isDefault: true,
+                createdAt: chat.createdAt,
+                updatedAt: chat.updatedAt,
+                outputFormat: chat.outputFormat,
+                allowAutoMatch: chat.allowAutoMatch,
+                autoMatchDescription: chat.autoMatchDescription
+            )
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"等会儿把链接发你。","corrections":[],"key_terms":[]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder()
+        )
+
+        let result = await pipeline.process(
+            "等会儿把链接发你",
+            target: DictationTarget(bundleID: "com.example.chat", appName: "Chat", pid: 42),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(result.finalText, "等会儿把链接发你")
+        XCTAssertEqual(result.warnings, [])
+        XCTAssertEqual(result.styleID, "builtin.chat")
+        XCTAssertEqual(result.trace?.deterministic?.postLLM.enabledProcessors, ["style_output_format"])
+        XCTAssertEqual(result.trace?.deterministic?.postLLM.changedProcessorIDs, ["style_output_format"])
         let systemPrompt = try XCTUnwrap(refiner.requests.first?.systemPrompt)
-        XCTAssertTrue(systemPrompt.contains("user_terms"))
-        XCTAssertTrue(systemPrompt.contains("VoxFlow"))
-        XCTAssertTrue(systemPrompt.contains("应用：Editor"))
+        XCTAssertTrue(systemPrompt.contains("Output JSON only"))
+        XCTAssertTrue(systemPrompt.contains("Runtime Polished Text Formatting Rules"))
+        XCTAssertLessThan(
+            try XCTUnwrap(systemPrompt.range(of: "Output JSON only")?.lowerBound),
+            try XCTUnwrap(systemPrompt.range(of: "Runtime Polished Text Formatting Rules")?.lowerBound)
+        )
+        XCTAssertEqual(refiner.requests.first?.promptMetadata?.promptVersion, "1.2.1")
+    }
+
+    func testStructuredPipelineFallsBackToCurrentTextWhenModelEchoesPromptContext() async {
+        let echoedPromptContext = """
+        ## user_terms (user hotwords, reference only)
+        MySQL, Claude, Hello World, Apple, token
+
+        ## app_context (application/window context; affects format and style only)
+        应用：Ghostty
+        Bundle ID：com.mitchellh.ghostty
+        """
+        let refiner = PromptAwareStubTextRefiner(result: .success(echoedPromptContext))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder()
+        )
+
+        let result = await pipeline.process(
+            "那去铁是怎么掉呢？能不能给我一个案例呢？",
+            target: DictationTarget(bundleID: "com.mitchellh.ghostty", appName: "Ghostty"),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(result.finalText, "那去铁是怎么掉呢？能不能给我一个案例呢？")
+        XCTAssertTrue(result.warnings.contains("llm_structured_parse_failed"))
+        XCTAssertFalse(result.finalText.contains("## user_terms"))
+        XCTAssertFalse(result.finalText.contains("Bundle ID"))
     }
 
     func testStructuredPipelineInjectsRelevantKnownCorrectionsIntoPrompt() async throws {
@@ -571,10 +799,11 @@ final class TextProcessingPipelineTests: XCTestCase {
             correctionContext: Self.dictationContext()
         )
 
-        let systemPrompt = try XCTUnwrap(refiner.requests.first?.systemPrompt)
-        XCTAssertTrue(systemPrompt.contains("known_corrections"))
-        XCTAssertTrue(systemPrompt.contains("口子空间 -> 扣子空间"))
-        XCTAssertFalse(systemPrompt.contains("陈瑞 -> 陈睿"))
+        let request = try XCTUnwrap(refiner.requests.first)
+        XCTAssertFalse(request.systemPrompt.contains("口子空间 -> 扣子空间"))
+        XCTAssertTrue(request.text.contains("known_corrections"))
+        XCTAssertTrue(request.text.contains("口子空间 -> 扣子空间"))
+        XCTAssertFalse(request.text.contains("陈瑞 -> 陈睿"))
     }
 
     func testStructuredPipelinePromotesRepeatedKeyTermsToHotwords() async throws {
@@ -814,6 +1043,33 @@ final class TextProcessingPipelineTests: XCTestCase {
         )
     }
 
+    private static func historyEntry(
+        id: String,
+        finalText: String,
+        bundleID: String?,
+        appName: String?,
+        createdAt: Date
+    ) -> DictationHistoryEntry {
+        DictationHistoryEntry(
+            id: id,
+            rawText: finalText,
+            finalText: finalText,
+            language: "zh-CN",
+            asrProviderID: "test-asr",
+            llmProviderID: nil,
+            styleID: nil,
+            durationMS: 1000,
+            charCount: finalText.count,
+            cpm: 60,
+            targetAppBundleID: bundleID,
+            targetAppName: appName,
+            processingWarningsJSON: nil,
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            deletedAt: nil
+        )
+    }
+
     private final class StubTextRefiner: TextRefining, @unchecked Sendable {
         var isEnabled: Bool
         var isConfigured: Bool
@@ -832,6 +1088,32 @@ final class TextProcessingPipelineTests: XCTestCase {
         func refine(_ text: String) async throws -> String {
             try result.get()
         }
+    }
+
+    private final class StubHistoryRepository: HistoryRepository {
+        private var entries: [DictationHistoryEntry]
+
+        init(entries: [DictationHistoryEntry]) {
+            self.entries = entries
+        }
+
+        func save(_ entry: DictationHistoryEntry) throws {
+            entries.insert(entry, at: 0)
+        }
+
+        func entry(id: String) throws -> DictationHistoryEntry? {
+            entries.first { $0.id == id }
+        }
+
+        func listRecent(limit: Int) throws -> [DictationHistoryEntry] {
+            Array(entries.prefix(limit))
+        }
+
+        func search(_ query: String, limit: Int) throws -> [DictationHistoryEntry] {
+            Array(entries.filter { $0.finalText.contains(query) }.prefix(limit))
+        }
+
+        func softDelete(id: String, deletedAt: Date) throws {}
     }
 
     private final class PromptAwareStubTextRefiner: TextRefining, PromptAwareTextRefining, @unchecked Sendable {
@@ -1311,7 +1593,7 @@ final class TextProcessingPipelineDeterministicIntegrationTests: XCTestCase {
 
         XCTAssertTrue(trace.isCodingContext)
         XCTAssertEqual(trace.preLLM.enabledProcessors, ["filler_word_filtering", "smart_number_recognition"])
-        XCTAssertEqual(trace.postLLM.enabledProcessors, ["punctuation_optimization", "cjk_latin_spacing"])
+        XCTAssertEqual(trace.postLLM.enabledProcessors, ["cjk_latin_spacing", "style_output_format"])
         XCTAssertEqual(trace.preLLM.changedProcessorIDs, [])
         XCTAssertEqual(trace.postLLM.changedProcessorIDs, [])
         XCTAssertFalse(trace.postLLM.enabledProcessors.contains("auto_capitalization"))

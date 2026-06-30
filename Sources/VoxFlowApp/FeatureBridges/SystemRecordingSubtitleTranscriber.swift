@@ -20,9 +20,9 @@ enum RecordingSubtitleTranscriptionError: Error, Equatable, LocalizedError {
         case .speechPermissionDenied:
             return L10n.localize("subtitle.error.recognition_permission_required", comment: "")
         case .audioExtractionFailed(let reason):
-            return String(format: L10n.localize("subtitle.error.audio_extraction_failed_format", comment: ""), reason)
+            return L10n.format("subtitle.error.audio_extraction_failed_format", comment: "", reason)
         case .recognitionFailed(let reason):
-            return String(format: L10n.localize("subtitle.error.subtitle_generation_failed_format", comment: ""), reason)
+            return L10n.format("subtitle.error.subtitle_generation_failed_format", comment: "", reason)
         }
     }
 }

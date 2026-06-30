@@ -85,7 +85,7 @@ struct VibeCodingStatusView: View {
             }
 
             if !viewModel.inactiveAgentSessions.isEmpty {
-                Text(String(format: L10n.localize("vibe.current_agents.inactive_count_format", comment: "Hidden inactive sessions notice"), viewModel.inactiveAgentSessions.count))
+                Text(L10n.format("vibe.current_agents.inactive_count_format", comment: "Hidden inactive sessions notice", viewModel.inactiveAgentSessions.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .settingsRow()
@@ -165,7 +165,7 @@ struct VibeCodingStatusView: View {
                         .lineLimit(1)
                 }
                 if !agent.providerSessionRefs.isEmpty {
-                    Text(String(format: L10n.localize("vibe.agent.associated_refs_format", comment: "Associated session logs count"), agent.providerSessionRefs.count))
+                    Text(L10n.format("vibe.agent.associated_refs_format", comment: "Associated session logs count", agent.providerSessionRefs.count))
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -199,10 +199,10 @@ struct VibeCodingStatusView: View {
             return L10n.localize("vibe.mcp.disabled", comment: "MCP channel disabled")
         }
         if let reportedAt = agent.mcpReportedAt {
-            return String(format: L10n.localize("vibe.mcp.reported_with_time", comment: "MCP reported with relative time"), relativeTimeText(since: reportedAt))
+            return L10n.format("vibe.mcp.reported_with_time", comment: "MCP reported with relative time", relativeTimeText(since: reportedAt))
         }
         if let seenAt = agent.mcpSeenAt {
-            return String(format: L10n.localize("vibe.mcp.connected_with_time", comment: "MCP connected with relative time"), relativeTimeText(since: seenAt))
+            return L10n.format("vibe.mcp.connected_with_time", comment: "MCP connected with relative time", relativeTimeText(since: seenAt))
         }
         if agent.mcpInjected {
             return L10n.localize("vibe.mcp.connected_waiting", comment: "MCP connected but waiting")
@@ -228,15 +228,15 @@ struct VibeCodingStatusView: View {
             return L10n.localize("vibe.mcp.help_disabled", comment: "MCP help for disabled state")
         }
         if let reportedAt = agent.mcpReportedAt {
-            return String(format: L10n.localize("vibe.mcp.help_reported_format", comment: "MCP reported help text"), relativeTimeText(since: reportedAt))
+            return L10n.format("vibe.mcp.help_reported_format", comment: "MCP reported help text", relativeTimeText(since: reportedAt))
         }
         if let seenAt = agent.mcpSeenAt {
-            let request = agent.mcpLastRequest.map { String(format: L10n.localize("vibe.mcp.request_line", comment: "Recent request log line"), $0) } ?? ""
-            return String(format: L10n.localize("vibe.mcp.help_connected_without_report", comment: "MCP connected no report help text"), relativeTimeText(since: seenAt), request)
+            let request = agent.mcpLastRequest.map { L10n.format("vibe.mcp.request_line", comment: "Recent request log line", $0) } ?? ""
+            return L10n.format("vibe.mcp.help_connected_without_report", comment: "MCP connected no report help text", relativeTimeText(since: seenAt), request)
         }
         if agent.mcpInjected {
-            let config = agent.mcpConfigPath.map { String(format: L10n.localize("vibe.mcp.config_line", comment: "MCP config file line"), $0) } ?? ""
-            return String(format: L10n.localize("vibe.mcp.help_injected_without_reading", comment: "MCP injected but not read help text"), config)
+            let config = agent.mcpConfigPath.map { L10n.format("vibe.mcp.config_line", comment: "MCP config file line", $0) } ?? ""
+            return L10n.format("vibe.mcp.help_injected_without_reading", comment: "MCP injected but not read help text", config)
         }
         return L10n.localize("vibe.mcp.help_not_connected", comment: "MCP not connected help text")
     }
@@ -247,12 +247,12 @@ struct VibeCodingStatusView: View {
             return L10n.localize("vibe.time.just_now", comment: "Relative time just now")
         }
         if seconds < 3_600 {
-            return String(format: L10n.localize("vibe.time.minutes_ago", comment: "Relative minutes ago"), Int(seconds / 60))
+            return L10n.format("vibe.time.minutes_ago", comment: "Relative minutes ago", Int(seconds / 60))
         }
         if seconds < 86_400 {
-            return String(format: L10n.localize("vibe.time.hours_ago", comment: "Relative hours ago"), Int(seconds / 3_600))
+            return L10n.format("vibe.time.hours_ago", comment: "Relative hours ago", Int(seconds / 3_600))
         }
-        return String(format: L10n.localize("vibe.time.days_ago", comment: "Relative days ago"), Int(seconds / 86_400))
+        return L10n.format("vibe.time.days_ago", comment: "Relative days ago", Int(seconds / 86_400))
     }
 
     @ViewBuilder

@@ -40,6 +40,11 @@ struct StyleRecommendationGroup: Identifiable, Equatable {
     var recommendations: [ApplicationStyleRecommendation]
 }
 
+struct SmartConfigurationApplyResult: Equatable {
+    let appliedCount: Int
+    let primaryStyleID: String?
+}
+
 // MARK: - SmartConfigurationViewModel
 
 @MainActor
@@ -160,11 +165,17 @@ final class SmartConfigurationViewModel: ObservableObject {
 
     // MARK: - Confirm
 
-    func confirm() throws {
+    func confirm() throws -> SmartConfigurationApplyResult {
         phase = .applying
         var appliedCount = 0
+        var styleCounts: [String: Int] = [:]
+        var styleOrder: [String] = []
 
         for rec in recommendations {
+            if styleCounts[rec.suggestedStyleID] == nil {
+                styleOrder.append(rec.suggestedStyleID)
+            }
+            styleCounts[rec.suggestedStyleID, default: 0] += 1
             let rule = AppStyleRule(
                 id: UUID().uuidString,
                 bundleID: rec.bundleID,
@@ -178,7 +189,15 @@ final class SmartConfigurationViewModel: ObservableObject {
         recommendations.removeAll()
         phase = .completed
         lastError = nil
-        lastActionMessage = String(format: L10n.localize("smart.config.action_applied_format", comment: ""), appliedCount)
+        lastActionMessage = SmartConfigurationText.appliedRecommendationCount(appliedCount)
+
+        let primaryStyleID = styleOrder.max { lhs, rhs in
+            (styleCounts[lhs] ?? 0) < (styleCounts[rhs] ?? 0)
+        }
+        return SmartConfigurationApplyResult(
+            appliedCount: appliedCount,
+            primaryStyleID: primaryStyleID
+        )
     }
 
     // MARK: - Cancel

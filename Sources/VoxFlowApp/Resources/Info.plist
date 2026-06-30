@@ -29,9 +29,11 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.11.0</string>
+    <string>1.12.0</string>
     <key>CFBundleVersion</key>
-    <string>21</string>
+    <string>22</string>
+    <key>VoxFlowSentryDSN</key>
+    <string></string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>LSMultipleInstancesProhibited</key>

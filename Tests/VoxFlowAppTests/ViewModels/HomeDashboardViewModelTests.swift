@@ -1085,7 +1085,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
                 rawText: "完整敏感原文",
                 finalText: "完整敏感最终文本",
                 processingWarningsJSON: #"["llm_refinement_failed"]"#,
-                processingTraceJSON: #"{"voiceCorrection":{"candidateEvents":[],"appliedEvents":[],"warnings":[],"failureReason":"敏感失败详情"}}"#
+                processingTraceJSON: #"{"contextRounds":{"enabled":true,"requestedRounds":3,"usedRounds":2,"contextHistoryIDs":["same-app-new","same-app-old"],"excludedReasons":["expired"],"wrapperVersion":"context-rounds-wrapper.v1"},"styleRoute":{"candidateStyleIDs":["builtin.chat","builtin.coding"],"routerResponse":"敏感模型输出","selectedStyleID":"builtin.coding","fallbackReason":null,"styleSelectionSource":"aiRouter","routerVersion":"1.0.0","renderedPromptHash":"abc123","durationMS":88},"voiceCorrection":{"candidateEvents":[],"appliedEvents":[],"warnings":[],"failureReason":"敏感失败详情"}}"#
             )
         )
         let clipboard = CapturingClipboardWriter()
@@ -1107,6 +1107,20 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertTrue(json.contains(#""finalTextLength":"#))
         XCTAssertTrue(json.contains(#""warnings":["llm_refinement_failed"]"#))
         XCTAssertTrue(json.contains(#""hasTrace":true"#))
+        XCTAssertTrue(json.contains(#""hasContextRounds":true"#))
+        XCTAssertTrue(json.contains(#""contextRoundsRequested":3"#))
+        XCTAssertTrue(json.contains(#""contextRoundsUsed":2"#))
+        XCTAssertTrue(json.contains(#""contextRoundsHistoryIDs":["same-app-new","same-app-old"]"#))
+        XCTAssertTrue(json.contains(#""contextRoundsExcludedReasons":["expired"]"#))
+        XCTAssertTrue(json.contains(#""contextRoundsWrapperVersion":"context-rounds-wrapper.v1""#))
+        XCTAssertTrue(json.contains(#""hasStyleRoute":true"#))
+        XCTAssertTrue(json.contains(#""styleRouteCandidateStyleIDs":["builtin.chat","builtin.coding"]"#))
+        XCTAssertTrue(json.contains(#""styleRouteSelectedStyleID":"builtin.coding""#))
+        XCTAssertTrue(json.contains(#""styleSelectionSource":"aiRouter""#))
+        XCTAssertTrue(json.contains(#""styleRouteRouterVersion":"1.0.0""#))
+        XCTAssertTrue(json.contains(#""styleRouteRenderedPromptHash":"abc123""#))
+        XCTAssertTrue(json.contains(#""styleRouteDurationMS":88"#))
+        XCTAssertFalse(json.contains("敏感模型输出"))
         XCTAssertNil(viewModel.lastError)
         XCTAssertEqual(viewModel.lastActionMessage, "已复制诊断信息")
     }

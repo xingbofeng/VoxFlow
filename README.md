@@ -176,7 +176,7 @@ VoxFlow also includes a full asset workbench:
 
 Download the latest version from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.11.0-macOS.dmg`
+1. Open `VoxFlow-1.12.0-macOS.dmg`
 2. Drag `VoxFlow` into the `Applications` folder
 3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**
 
@@ -409,10 +409,19 @@ original license notices and attribution. See `docs/third-party-licenses.md`.
 
 Follow me on X: [@Counterxing](https://x.com/Counterxing)
 
-## WeChat
+## WeChat And User Group
 
-Scan the QR code below to add the author on WeChat and share feedback or usage notes.
+Scan the QR codes below to add the author on WeChat or join the VoxFlow user group. The group is the easiest place to get usage tips, share feedback, and hear about new releases.
 
-<p align="center">
-  <img src="Sources/VoxFlowApp/Resources/AuthorWeChatQRCode.jpg" alt="Author WeChat QR code" width="320">
-</p>
+<table>
+  <tr>
+    <td align="center">
+      <strong>Add WeChat</strong><br>
+      <img src="Sources/VoxFlowApp/Resources/AuthorWeChatQRCode.jpg" alt="Author WeChat QR code" width="300">
+    </td>
+    <td align="center">
+      <strong>Join the user group</strong><br>
+      <img src="Sources/VoxFlowApp/Resources/UserGroupQRCode.jpg" alt="VoxFlow user group QR code" width="300">
+    </td>
+  </tr>
+</table>

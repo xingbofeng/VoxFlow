@@ -50,14 +50,17 @@ struct NotesView: View {
     @ViewBuilder
     private var notePreviewOverlay: some View {
         if let note = viewModel.previewedNote {
-            Color.black.opacity(0.24)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    viewModel.dismissPreview()
-                }
+            ZStack {
+                Color.black.opacity(0.24)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        viewModel.dismissPreview()
+                    }
 
-            NoteMarkdownPreviewModal(note: note, onClose: viewModel.dismissPreview)
-                .onTapGesture {}
+                NoteMarkdownPreviewModal(note: note, onClose: viewModel.dismissPreview)
+                    .onTapGesture {}
+            }
+            .onExitCommand(perform: viewModel.dismissPreview)
         }
     }
 
@@ -88,8 +91,7 @@ struct NotesView: View {
 
                 HStack(alignment: .center) {
                     Text(
-                        String(
-                            format: L10n.localize("notes.editor.character_count_format", comment: "Character count in quick capture"),
+                        L10n.format("notes.editor.character_count_format", comment: "Character count in quick capture",
                             viewModel.characterCount
                         )
                     )

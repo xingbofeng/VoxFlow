@@ -1,8 +1,10 @@
 import Foundation
+import VoxFlowPromptKit
 
 final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendable {
     private let refiner: any PromptAwareTextRefining
     private let isEnabled: @Sendable () async -> Bool
+    private let renderer = PromptRenderer()
 
     init(
         refiner: any PromptAwareTextRefining,
@@ -36,17 +38,15 @@ final class LLMAgentTargetResolver: AgentTargetModelResolving, @unchecked Sendab
             options: [.sortedKeys]
         )
         let input = String(data: inputData, encoding: .utf8) ?? "{}"
+        let renderResult = renderer.render(AgentTargetResolutionPromptCatalog.system)
         let response = try await refiner.refine(
             TextRefinementRequest(
                 text: input,
-                systemPrompt: """
-                You only reroute the dictated instruction to one target task agent from candidate_agents. Do not send messages or create new task agents.
-                Return exactly one line of JSON: {"target_agent_id":"candidate ID","message":"original instruction content","confidence":0.0}.
-                When uncertain, confidence must be lower than 0.60. target_agent_id must come from the candidate list.
-                """,
+                systemPrompt: renderResult.renderedText,
                 model: nil,
                 temperature: 0,
-                purpose: .directTask
+                purpose: .directTask,
+                promptMetadata: PromptTraceMetadata.from(result: renderResult)
             )
         )
         let json = response

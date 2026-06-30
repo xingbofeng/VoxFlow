@@ -62,7 +62,7 @@ struct RecordingSubtitleEditorPresentation: Equatable {
             title: L10n.localize("subtitle.editor.title_add", comment: ""),
             videoPath: draft.sourceVideoPath,
             segmentListTitle: L10n.localize("subtitle.editor.segment_list_title", comment: ""),
-            segmentCountText: String(format: L10n.localize("subtitle.editor.segment_count_format", comment: ""), draft.segments.count),
+            segmentCountText: L10n.format("subtitle.editor.segment_count_format", comment: "", draft.segments.count),
             segments: draft.segments.map(RecordingSubtitleEditorSegmentPresentation.make(segment:)),
             styleSummary: RecordingSubtitleStyle.summary,
             footerActions: [
@@ -190,7 +190,7 @@ struct RecordingSubtitleEditorView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 Spacer()
-                Text(presentation?.segmentCountText ?? String(format: L10n.localize("subtitle.editor.segment_count_format", comment: ""), segments.count))
+                Text(presentation?.segmentCountText ?? L10n.format("subtitle.editor.segment_count_format", comment: "", segments.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -265,7 +265,7 @@ struct RecordingSubtitleEditorView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Text(String(format: L10n.localize("subtitle.editor.style_summary_format", comment: ""), presentation?.styleSummary ?? RecordingSubtitleStyle.summary))
+            Text(L10n.format("subtitle.editor.style_summary_format", comment: "", presentation?.styleSummary ?? RecordingSubtitleStyle.summary))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             Spacer()

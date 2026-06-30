@@ -316,8 +316,7 @@ enum NotesRecordingError: LocalizedError, Equatable {
                 L10n.localize("notes_recording.error.speech_permission_denied", comment: "Speech recognition permission denied")
             )
         case .unsupportedLanguage(let identifier):
-            return String(
-                format: L10n.localize("app.notes_recording.error.unsupported_language_format", comment: ""),
+            return L10n.format("app.notes_recording.error.unsupported_language_format", comment: "",
                 identifier
             )
         case .finalResultTimedOut:

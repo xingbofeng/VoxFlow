@@ -500,7 +500,7 @@ final class SettingsWindowController: NSWindowController {
             41: ";", 39: "'", 43: ",", 47: ".", 44: "/",
             50: "`",
         ]
-        return map[keyCode] ?? String(format: L10n.localize("settings.window.keycode.unknown_format", comment: ""), keyCode)
+        return map[keyCode] ?? L10n.format("settings.window.keycode.unknown_format", comment: "", keyCode)
     }
 
     // MARK: - Settings Loading
@@ -553,7 +553,7 @@ final class SettingsWindowController: NSWindowController {
 
         let modelSize = asrManager.qwen3ModelSize
         setModelDownloadInProgress(true)
-        setASRStatus(String(format: L10n.localize("settings.window.asr.status.preparing_download_format", comment: ""), modelSize.rawValue), color: .secondaryLabelColor)
+        setASRStatus(L10n.format("settings.window.asr.status.preparing_download_format", comment: "", modelSize.rawValue), color: .secondaryLabelColor)
 
         modelDownloadTask = Task { [weak self] in
             do {
@@ -570,14 +570,14 @@ final class SettingsWindowController: NSWindowController {
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
                     self.modelDownloadProgress.doubleValue = 1
-                    self.setASRStatus(String(format: L10n.localize("settings.window.asr.status.download_complete_format", comment: ""), modelURL.path), color: .systemGreen)
+                    self.setASRStatus(L10n.format("settings.window.asr.status.download_complete_format", comment: "", modelURL.path), color: .systemGreen)
                 }
             } catch {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
-                    self.setASRStatus(String(format: L10n.localize("settings.window.asr.status.download_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
+                    self.setASRStatus(L10n.format("settings.window.asr.status.download_failed_format", comment: "", error.localizedDescription), color: .systemRed)
                 }
             }
         }
@@ -607,10 +607,10 @@ final class SettingsWindowController: NSWindowController {
         let path = asrManager.qwen3ModelPath
         if let path = path, !path.isEmpty {
             if asrManager.isQwen3ModelAvailable {
-                asrStatusLabel.stringValue = String(format: L10n.localize("settings.window.asr.status.configured_format", comment: ""), path)
+                asrStatusLabel.stringValue = L10n.format("settings.window.asr.status.configured_format", comment: "", path)
                 asrStatusLabel.textColor = .systemGreen
             } else {
-                asrStatusLabel.stringValue = String(format: L10n.localize("settings.window.asr.status.incomplete_format", comment: ""), path)
+                asrStatusLabel.stringValue = L10n.format("settings.window.asr.status.incomplete_format", comment: "", path)
                 asrStatusLabel.textColor = .systemRed
             }
         } else {
@@ -628,7 +628,7 @@ final class SettingsWindowController: NSWindowController {
         modelDownloadProgress.doubleValue = progress.overallProgress
         let percent = Int(progress.overallProgress * 100)
         setASRStatus(
-            String(format: L10n.localize("settings.window.asr.status.downloading_format", comment: ""), percent, progress.fileIndex + 1, progress.fileCount, progress.fileName),
+            L10n.format("settings.window.asr.status.downloading_format", comment: "", percent, progress.fileIndex + 1, progress.fileCount, progress.fileName),
             color: .secondaryLabelColor
         )
     }
@@ -663,7 +663,7 @@ final class SettingsWindowController: NSWindowController {
         do {
             try refiner.setAPIKey(apiKey.isEmpty ? nil : apiKey)
         } catch {
-            setLLMStatus(String(format: L10n.localize("settings.window.llm.status.api_key_save_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
+            setLLMStatus(L10n.format("settings.window.llm.status.api_key_save_failed_format", comment: "", error.localizedDescription), color: .systemRed)
             return
         }
 
@@ -706,7 +706,7 @@ final class SettingsWindowController: NSWindowController {
                 case .success(let message):
                     self.setLLMStatus(message, color: .systemGreen)
                 case .failure(let error):
-                    self.setLLMStatus(String(format: L10n.localize("settings.window.llm.status.connection_failed_format", comment: ""), error.localizedDescription), color: .systemRed)
+                    self.setLLMStatus(L10n.format("settings.window.llm.status.connection_failed_format", comment: "", error.localizedDescription), color: .systemRed)
                 }
             }
         }

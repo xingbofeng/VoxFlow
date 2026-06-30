@@ -16,6 +16,7 @@ public enum VoiceCorrectionPromptCatalog {
         Make only conservative corrections: fix clear typos, homophone ASR mistakes, filler words, meaningless repetition, sentence breaks, and necessary punctuation.
         Preserve facts, numbers, proper nouns, URL, commands, code identifiers, paths, casing, hyphens, and the user's intent.
         Preserve the user's original language unless the text explicitly asks for translation. Do not translate, Do not rewrite, do not summarize, do not answer questions, and do not add information the user did not say.
+        When previous transcription context is provided, use it only for terminology, names, casing, and disambiguation. Never repeat, continue, summarize, or insert previous context into the final output.
         When a selected style is provided, follow it without changing facts or constraints. If the original text is already natural and accurate, keep it unchanged.
         Only output the corrected body text, with no title, quotes, explanation, or change notes.
         """

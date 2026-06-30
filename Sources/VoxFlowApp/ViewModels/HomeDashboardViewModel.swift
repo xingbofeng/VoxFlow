@@ -214,6 +214,21 @@ private struct HistoryDiagnosticPayload: Encodable {
         let hasLLM: Bool
         let hasOutput: Bool
         let hasContextBoost: Bool
+        let hasContextRounds: Bool
+        let contextRoundsEnabled: Bool?
+        let contextRoundsRequested: Int?
+        let contextRoundsUsed: Int?
+        let contextRoundsHistoryIDs: [String]?
+        let contextRoundsExcludedReasons: [String]?
+        let contextRoundsWrapperVersion: String?
+        let hasStyleRoute: Bool
+        let styleRouteCandidateStyleIDs: [String]?
+        let styleRouteSelectedStyleID: String?
+        let styleRouteFallbackReason: String?
+        let styleSelectionSource: String?
+        let styleRouteRouterVersion: String?
+        let styleRouteRenderedPromptHash: String?
+        let styleRouteDurationMS: Int?
         let hasVoiceCorrection: Bool
         let voiceCorrectionCandidateCount: Int
         let voiceCorrectionAppliedCount: Int
@@ -224,6 +239,21 @@ private struct HistoryDiagnosticPayload: Encodable {
             hasLLM = trace?.llm != nil
             hasOutput = trace?.output != nil
             hasContextBoost = trace?.contextBoost != nil
+            hasContextRounds = trace?.contextRounds != nil
+            contextRoundsEnabled = trace?.contextRounds?.enabled
+            contextRoundsRequested = trace?.contextRounds?.requestedRounds
+            contextRoundsUsed = trace?.contextRounds?.usedRounds
+            contextRoundsHistoryIDs = trace?.contextRounds?.contextHistoryIDs
+            contextRoundsExcludedReasons = trace?.contextRounds?.excludedReasons
+            contextRoundsWrapperVersion = trace?.contextRounds?.wrapperVersion
+            hasStyleRoute = trace?.styleRoute != nil
+            styleRouteCandidateStyleIDs = trace?.styleRoute?.candidateStyleIDs
+            styleRouteSelectedStyleID = trace?.styleRoute?.selectedStyleID
+            styleRouteFallbackReason = trace?.styleRoute?.fallbackReason
+            styleSelectionSource = trace?.styleRoute?.styleSelectionSource
+            styleRouteRouterVersion = trace?.styleRoute?.routerVersion
+            styleRouteRenderedPromptHash = trace?.styleRoute?.renderedPromptHash
+            styleRouteDurationMS = trace?.styleRoute?.durationMS
             hasVoiceCorrection = trace?.voiceCorrection != nil
             voiceCorrectionCandidateCount = trace?.voiceCorrection?.candidateEvents.count ?? 0
             voiceCorrectionAppliedCount = trace?.voiceCorrection?.appliedEvents.count ?? 0
@@ -526,8 +556,7 @@ final class HomeDashboardViewModel: ObservableObject {
             try reloadDashboardAggregate()
             try reloadAssetPage()
             lastError = nil
-            lastActionMessage = String(
-                format: L10n.localize("home.feedback.assets_deleted_format", comment: "Assets deleted message"),
+            lastActionMessage = L10n.format("home.feedback.assets_deleted_format", comment: "Assets deleted message",
                 ids.count
             )
             lastActionTone = .destructive
@@ -730,8 +759,7 @@ final class HomeDashboardViewModel: ObservableObject {
         guard let selectedActivityDate else {
             return L10n.localize("home.stats.today_added", comment: "Today added stat")
         }
-        return String(
-            format: L10n.localize("home.stats.date_added_format", comment: "Date added stat"),
+        return L10n.format("home.stats.date_added_format", comment: "Date added stat",
             dateTitle(for: selectedActivityDate)
         )
     }

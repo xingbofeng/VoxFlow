@@ -208,13 +208,11 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
                 }
                 statusMessage = message == configRequiredMessage
                     ? message
-                    : String(
-                        format: L10n.localize(
-                            partialText.isEmpty
-                                ? "screenshot.result.translation_failed_format"
-                                : "screenshot.result.translation_partial_format",
-                            comment: ""
-                        ),
+                    : L10n.format(
+                        partialText.isEmpty
+                            ? "screenshot.result.translation_failed_format"
+                            : "screenshot.result.translation_partial_format",
+                        comment: "",
                         message
                     )
                 Self.logger.warning("ScreenshotOCRResultViewModel translate failed reason=\(message)")
@@ -264,13 +262,11 @@ final class ScreenshotOCRResultViewModel: ObservableObject {
                 }
                 statusMessage = message == configRequiredMessage
                     ? message
-                    : String(
-                        format: L10n.localize(
-                            partialText.isEmpty
-                                ? "screenshot.result.summary_failed_format"
-                                : "screenshot.result.summary_partial_format",
-                            comment: ""
-                        ),
+                    : L10n.format(
+                        partialText.isEmpty
+                            ? "screenshot.result.summary_failed_format"
+                            : "screenshot.result.summary_partial_format",
+                        comment: "",
                         message
                     )
                 Self.logger.warning("ScreenshotOCRResultViewModel summarize failed reason=\(message)")

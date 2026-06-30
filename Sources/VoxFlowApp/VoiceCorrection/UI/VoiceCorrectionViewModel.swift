@@ -96,10 +96,10 @@ struct VoiceCorrectionTargetRow: Identifiable, Equatable {
     }
     var scopeTitle: String
     var correctionCountText: String {
-        String(format: L10n.localize("correction.target.correction_count_format", comment: ""), projection.appliedCount)
+        L10n.format("correction.target.correction_count_format", comment: "", projection.appliedCount)
     }
     var hitCountText: String {
-        String(format: L10n.localize("vocabulary.hotwords.hit_count_format", comment: ""), projection.target.hitCount)
+        L10n.format("vocabulary.hotwords.hit_count_format", comment: "", projection.target.hitCount)
     }
     var recentUseText: String
     var statusTitle: String
@@ -867,10 +867,10 @@ final class VoiceCorrectionViewModel: ObservableObject {
             return L10n.localize("correction.time.just_now", comment: "")
         }
         if interval < 3_600 {
-            return String(format: L10n.localize("correction.time.minutes_ago_format", comment: ""), Int(interval / 60))
+            return L10n.format("correction.time.minutes_ago_format", comment: "", Int(interval / 60))
         }
         if interval < 86_400 {
-            return String(format: L10n.localize("correction.time.hours_ago_format", comment: ""), Int(interval / 3_600))
+            return L10n.format("correction.time.hours_ago_format", comment: "", Int(interval / 3_600))
         }
         return L10n.localize("correction.time.yesterday", comment: "")
     }

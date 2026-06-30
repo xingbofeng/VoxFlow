@@ -176,7 +176,7 @@ VoxFlow에는 전체 자산 워크벤치도 포함됩니다.
 
 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest)에서 최신 버전을 다운로드합니다.
 
-1. `VoxFlow-1.11.0-macOS.dmg` 열기
+1. `VoxFlow-1.12.0-macOS.dmg` 열기
 2. `VoxFlow`를 `Applications` 폴더로 드래그
 3. 첫 실행 시 macOS가 앱을 확인할 수 없다고 하면, Control-click 후 **Open** 선택
 

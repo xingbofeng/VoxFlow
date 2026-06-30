@@ -103,6 +103,7 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
     var llm: LLMRefinementTrace? = nil
     var output: OutputDeliveryTrace? = nil
     var contextBoost: ContextBoostTrace? = nil
+    var contextRounds: ContextRoundsTrace? = nil
     var voiceCorrection: VoiceCorrectionTrace? = nil
     var styleRoute: StyleRouteTrace? = nil
     var deterministic: DeterministicProcessingTrace? = nil
@@ -112,6 +113,7 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
             llm: llm?.safeForPersistence(),
             output: output,
             contextBoost: contextBoost?.safeForPersistence(),
+            contextRounds: contextRounds?.safeForPersistence(),
             voiceCorrection: voiceCorrection?.safeForPersistence(),
             // StyleRouteTrace is safe (IDs, version, hash, latency, reason
             // code) but the raw routerResponse may echo model output that
@@ -120,6 +122,19 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
             styleRoute: styleRoute?.safeForPersistence(),
             deterministic: deterministic?.safeForPersistence()
         )
+    }
+}
+
+struct ContextRoundsTrace: Equatable, Codable, Sendable {
+    let enabled: Bool
+    let requestedRounds: Int
+    let usedRounds: Int
+    let contextHistoryIDs: [String]
+    let excludedReasons: [String]
+    let wrapperVersion: String
+
+    func safeForPersistence() -> ContextRoundsTrace {
+        self
     }
 }
 
@@ -570,6 +585,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     private let correctionTargetRepository: (any CorrectionTargetRepository)?
     private let correctionEvidenceRepository: (any CorrectionEvidenceRepository)?
     private let hotwordFileSyncService: HotwordFileSyncService?
+    private let historyRepository: (any HistoryRepository)?
     private let structuredLearningEnabled: () -> Bool
     private let voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)?
     private let contextBoostProvider: (any CurrentWindowOCRContextProviding)?
@@ -577,6 +593,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     /// `.defaults` (all-off no-op) when not configured, preserving current
     /// behavior for existing users and for pipelines without a settings store.
     private let deterministicSettingsProvider: @MainActor () -> DeterministicTextProcessingSettings
+    private let autoMatchSettingsProvider: @MainActor () -> StyleAutoMatchSettings
     private let contextBoostCoordinator: ContextBoostPrefetchCoordinator?
     private let contextBoostEnabled: @Sendable () -> Bool
     private let contextBoostSuppressed: @Sendable () -> Bool
@@ -592,6 +609,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         correctionTargetRepository: (any CorrectionTargetRepository)? = nil,
         correctionEvidenceRepository: (any CorrectionEvidenceRepository)? = nil,
         hotwordFileSyncService: HotwordFileSyncService? = nil,
+        historyRepository: (any HistoryRepository)? = nil,
         structuredLearningEnabled: @escaping () -> Bool = { true },
         voiceCorrectionProcessor: (any VoiceCorrectionTextProcessing)? = nil,
         contextBoostProvider: (any CurrentWindowOCRContextProviding)? = nil,
@@ -613,7 +631,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 cjkLatinSpacing: false,
                 autoCapitalization: false
             )
-        }
+        },
+        autoMatchSettingsProvider: @escaping @MainActor () -> StyleAutoMatchSettings = { StyleAutoMatchSettings() }
     ) {
         self.refiner = refiner
         self.styleRepository = styleRepository
@@ -624,6 +643,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         self.correctionTargetRepository = correctionTargetRepository
         self.correctionEvidenceRepository = correctionEvidenceRepository
         self.hotwordFileSyncService = hotwordFileSyncService
+        self.historyRepository = historyRepository
         self.structuredLearningEnabled = structuredLearningEnabled
         self.voiceCorrectionProcessor = voiceCorrectionProcessor
         self.contextBoostProvider = contextBoostProvider
@@ -632,6 +652,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         self.contextBoostSuppressed = contextBoostSuppressed
         self.contextBoostTimeoutNanoseconds = contextBoostTimeoutNanoseconds
         self.deterministicSettingsProvider = deterministicSettingsProvider
+        self.autoMatchSettingsProvider = autoMatchSettingsProvider
     }
 
     func prepareContextBoost(target: DictationTarget?) {
@@ -713,6 +734,9 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         var deterministicPreOutput = text
         var deterministicPostInput = text
         var deterministicPostOutput = text
+        let resolvedStyle = await resolveStyleForProcessing(target: target, transcript: text, warnings: &warnings)
+        isCodingContext = resolvedStyle?.id == "builtin.coding"
+        let outputFormat = effectiveOutputFormat(for: resolvedStyle)
 
         if refiner.isEnabled, refiner.isConfigured {
             do {
@@ -722,12 +746,6 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 let contextSnapshot = contextBoostOutcome?.snapshot
                 contextBoostTrace = contextTrace(from: contextBoostOutcome, target: target)
 
-                // Resolve style upfront so pre-LLM processing knows whether
-                // this is a coding context (skip filler/capitalization) and
-                // buildPrompt can reuse the same resolution without a second
-                // router call.
-                let resolvedStyle = try await resolveStyle(for: target)
-                isCodingContext = resolvedStyle?.id == "builtin.coding"
                 deterministicPreInput = text
                 let preProcessedText = deterministicPipeline.preLLM(
                     text,
@@ -741,20 +759,32 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     rawText: text,
                     style: resolvedStyle,
                     target: target,
+                    outputFormat: outputFormat,
                     temporaryHotwords: contextSnapshot?.hotwords ?? []
                 )
                 warnings.append(contentsOf: prompt.warnings)
+                let contextRoundsOutcome = contextRoundsRequestText(
+                    currentText: text,
+                    target: target,
+                    correctionContext: correctionContext
+                )
                 var refinedText: String
                 let promptMetadata: PromptBuildResult?
                 var localLLMProviderID: String?
                 var localLLMTrace: LLMRefinementTrace?
                 if let promptAwareRefiner = refiner as? any PromptAwareTextRefining {
                     (refiner as? RefinementTraceProviding)?.clearLastTrace()
+                    let requestText = requestText(
+                        prompt: prompt,
+                        contextRoundsRequestText: contextRoundsOutcome.requestText,
+                        hasContextRounds: (contextRoundsOutcome.trace?.usedRounds ?? 0) > 0
+                    )
                     let request = TextRefinementRequest(
-                        text: text,
+                        text: requestText,
                         systemPrompt: prompt.result.systemPrompt,
                         model: prompt.result.model,
                         temperature: prompt.result.temperature,
+                        purpose: prompt.isStructured ? .directTask : .dictationCorrection,
                         promptMetadata: prompt.result.promptMetadata
                     )
                     if prompt.isStructured,
@@ -792,6 +822,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 let structuredParseResult = parseStructuredOutputIfNeeded(
                     refinedText,
                     isStructured: prompt.isStructured,
+                    fallbackText: text,
                     correctionContext: correctionContext
                 )
                 refinedText = structuredParseResult.text
@@ -813,7 +844,11 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 // CJK-Latin spacing, long sentence breaking, and context-aware
                 // capitalization. No-op when settings are at defaults.
                 deterministicPostInput = text
-                text = deterministicPipeline.postLLM(text, isCodingContext: isCodingContext)
+                text = deterministicPipeline.postLLM(
+                    text,
+                    isCodingContext: isCodingContext,
+                    outputFormatPolicy: outputFormat?.deterministicPolicy
+                )
                 deterministicPostOutput = text
                 didRunDeterministicPostProcessing = true
                 llmProviderID = localLLMProviderID ?? (refiner as? any ActiveLLMProviderIdentifying)?.activeProviderID
@@ -821,6 +856,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 trace = TextProcessingTrace(
                     llm: localLLMTrace ?? (refiner as? RefinementTraceProviding)?.lastTrace,
                     contextBoost: contextBoostTrace,
+                    contextRounds: contextRoundsOutcome.trace,
                     styleRoute: styleSelector?.lastRouteTrace
                 )
             } catch {
@@ -842,7 +878,11 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 didRunDeterministicPreProcessing = true
             }
             deterministicPostInput = text
-            text = deterministicPipeline.postLLM(text, isCodingContext: isCodingContext)
+            text = deterministicPipeline.postLLM(
+                text,
+                isCodingContext: isCodingContext,
+                outputFormatPolicy: outputFormat?.deterministicPolicy
+            )
             deterministicPostOutput = text
             didRunDeterministicPostProcessing = true
         }
@@ -854,7 +894,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             preInput: deterministicPreInput,
             preOutput: deterministicPreOutput,
             postInput: deterministicPostInput,
-            postOutput: deterministicPostOutput
+            postOutput: deterministicPostOutput,
+            outputFormatPolicy: outputFormat?.deterministicPolicy
         )
         trace = deterministicUpdatedTrace
 
@@ -911,12 +952,20 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         preInput: String,
         preOutput: String,
         postInput: String,
-        postOutput: String
+        postOutput: String,
+        outputFormatPolicy: StyleOutputFormatPolicy?
     ) -> DeterministicProcessingTrace {
         let effective = settings.effectiveSettings()
         let pipeline = DeterministicTextPipeline(settings: effective)
         let preSteps = pipeline.preLLMSteps(preInput, isCodingContext: isCodingContext)
-        let postSteps = pipeline.postLLMSteps(postInput, isCodingContext: isCodingContext)
+        let postSteps = pipeline.postLLMSteps(
+            postInput,
+            isCodingContext: isCodingContext,
+            outputFormatPolicy: outputFormatPolicy
+        )
+        let postDisplayProcessorIDs = effective.enabled || outputFormatPolicy != nil
+            ? Self.postLLMProcessorIDs + (outputFormatPolicy != nil ? ["style_output_format"] : [])
+            : []
         return DeterministicProcessingTrace(
             enabled: effective.enabled,
             isCodingContext: isCodingContext,
@@ -935,7 +984,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             postLLM: DeterministicProcessingPhaseTrace(
                 phase: "post_llm",
                 enabledProcessors: postSteps.map(\.id),
-                displayProcessorIDs: effective.enabled ? Self.postLLMProcessorIDs : [],
+                displayProcessorIDs: postDisplayProcessorIDs,
                 changedProcessorIDs: postSteps.filter(\.changed).map(\.id),
                 inputCharacterCount: postInput.count,
                 outputCharacterCount: postOutput.count,
@@ -963,17 +1012,173 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     /// style selector when present (which may consult manual rules, the AI
     /// router, or fall back to the default), otherwise queries the repository
     /// for the default profile. Returns nil when no profile is available.
-    private func resolveStyle(for target: DictationTarget?) async throws -> StyleProfileRecord? {
+    private func resolveStyle(for target: DictationTarget?, transcript: String?) async throws -> StyleProfileRecord? {
         if let styleSelector {
-            return try await styleSelector.style(for: target)
+            return try await styleSelector.style(for: target, transcript: transcript)
         }
         return try styleRepository?.defaultProfile()
+    }
+
+    private func resolveStyleForProcessing(
+        target: DictationTarget?,
+        transcript: String?,
+        warnings: inout [String]
+    ) async -> StyleProfileRecord? {
+        do {
+            return try await resolveStyle(for: target, transcript: transcript)
+        } catch {
+            AppLogger.general.error("Style resolution failed: \(error.localizedDescription)")
+            warnings.append("style_resolution_failed")
+            return nil
+        }
+    }
+
+    private func effectiveOutputFormat(for style: StyleProfileRecord?) -> StyleOutputFormat? {
+        guard let style, style.enabled else { return nil }
+        return style.outputFormat
+            ?? StyleOutputFormat.builtInDefault(for: style.id)
+            ?? StyleOutputFormat.systemDefault
+    }
+
+    private func contextRoundsRequestText(
+        currentText: String,
+        target: DictationTarget?,
+        correctionContext: CorrectionContext?
+    ) -> (requestText: String, trace: ContextRoundsTrace?) {
+        let settings = autoMatchSettingsProvider().contextRounds
+        let requestedRounds = settings.enabled ? settings.maxRounds : 0
+        guard settings.enabled, requestedRounds > 0 else {
+            return (
+                currentText,
+                ContextRoundsTrace(
+                    enabled: settings.enabled,
+                    requestedRounds: requestedRounds,
+                    usedRounds: 0,
+                    contextHistoryIDs: [],
+                    excludedReasons: settings.enabled ? ["disabled_by_zero_rounds"] : ["disabled"],
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                )
+            )
+        }
+        guard correctionContext?.isSecureField != true else {
+            return (
+                currentText,
+                ContextRoundsTrace(
+                    enabled: true,
+                    requestedRounds: requestedRounds,
+                    usedRounds: 0,
+                    contextHistoryIDs: [],
+                    excludedReasons: ["secure_field"],
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                )
+            )
+        }
+        guard let historyRepository, let target else {
+            return (
+                currentText,
+                ContextRoundsTrace(
+                    enabled: true,
+                    requestedRounds: requestedRounds,
+                    usedRounds: 0,
+                    contextHistoryIDs: [],
+                    excludedReasons: ["missing_history_or_target"],
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                )
+            )
+        }
+        let cutoff = Date().addingTimeInterval(-TimeInterval(settings.ttlHours * 3600))
+        let recent = (try? historyRepository.listRecent(limit: 80)) ?? []
+        var excludedReasons: [String] = []
+        let candidates = recent.filter { entry in
+            guard entry.createdAt >= cutoff else {
+                excludedReasons.append("expired")
+                return false
+            }
+            guard sameApp(entry: entry, target: target) else {
+                excludedReasons.append("different_app")
+                return false
+            }
+            guard !entry.finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                excludedReasons.append("empty_final_text")
+                return false
+            }
+            guard !containsUnsafeContextRoundWarning(entry.processingWarningsJSON) else {
+                excludedReasons.append("unsafe_warning")
+                return false
+            }
+            return true
+        }
+        let selected = Array(candidates.prefix(requestedRounds))
+        guard !selected.isEmpty else {
+            return (
+                currentText,
+                ContextRoundsTrace(
+                    enabled: true,
+                    requestedRounds: requestedRounds,
+                    usedRounds: 0,
+                    contextHistoryIDs: [],
+                    excludedReasons: Array(Set(excludedReasons)).sorted(),
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                )
+            )
+        }
+        let previousContext = selected
+            .map(\.finalText)
+            .joined(separator: "\n\n---\n\n")
+        let wrapper = PromptRenderer().render(
+            ContextRoundsPromptCatalog.wrapper,
+            context: PromptRenderContext(variables: [
+                "previousContext": previousContext,
+                "currentInput": currentText
+            ])
+        )
+        return (
+            wrapper.renderedText,
+            ContextRoundsTrace(
+                enabled: true,
+                requestedRounds: requestedRounds,
+                usedRounds: selected.count,
+                contextHistoryIDs: selected.map(\.id),
+                excludedReasons: Array(Set(excludedReasons)).sorted(),
+                wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+            )
+        )
+    }
+
+    private func sameApp(entry: DictationHistoryEntry, target: DictationTarget) -> Bool {
+        if let targetBundleID = normalized(target.bundleID),
+           let entryBundleID = normalized(entry.targetAppBundleID) {
+            return targetBundleID == entryBundleID
+        }
+        guard target.bundleID == nil || entry.targetAppBundleID == nil,
+              let targetAppName = normalized(target.appName),
+              let entryAppName = normalized(entry.targetAppName) else {
+            return false
+        }
+        return targetAppName == entryAppName
+    }
+
+    private func normalized(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
+    }
+
+    private func containsUnsafeContextRoundWarning(_ warningsJSON: String?) -> Bool {
+        guard let warningsJSON, let data = warningsJSON.data(using: .utf8),
+              let warnings = try? JSONDecoder().decode([String].self, from: data) else {
+            return false
+        }
+        return warnings.contains { warning in
+            warning == "llm_refinement_failed" || warning == "llm_refinement_rejected"
+        }
     }
 
     private func buildPrompt(
         rawText: String,
         style: StyleProfileRecord?,
         target: DictationTarget?,
+        outputFormat: StyleOutputFormat?,
         temporaryHotwords: [TemporaryHotword] = []
     ) -> (result: PromptBuildResult, warnings: [String], isStructured: Bool) {
         if let structuredPromptBuilder {
@@ -984,6 +1189,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                         style: style,
                         rawText: rawText,
                         target: target,
+                        outputFormat: outputFormat,
                         temporaryHotwords: temporaryHotwords
                     ),
                     [],
@@ -995,6 +1201,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                         builder: structuredPromptBuilder,
                         rawText: rawText,
                         target: target,
+                        outputFormat: outputFormat,
                         temporaryHotwords: temporaryHotwords
                     ),
                     ["prompt_context_failed"],
@@ -1003,13 +1210,65 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             }
         }
         return (
-            promptBuilder.build(
-                style: style,
-                temporaryHotwords: temporaryHotwords
+            appendOutputFormatRules(
+                to: promptBuilder.build(
+                    style: style,
+                    temporaryHotwords: temporaryHotwords
+                ),
+                outputFormat: outputFormat
             ),
             [],
             false
         )
+    }
+
+    private func appendOutputFormatRules(
+        to result: PromptBuildResult,
+        outputFormat: StyleOutputFormat?
+    ) -> PromptBuildResult {
+        guard let outputFormat else { return result }
+        let systemPrompt = [result.systemPrompt, outputFormat.promptRules]
+            .joined(separator: "\n\n---\n\n")
+        let metadata = result.promptMetadata.map {
+            PromptTraceMetadata(
+                promptKind: $0.promptKind,
+                promptVersion: $0.promptVersion,
+                renderedPromptHash: PromptRenderer.hash(renderedPrompt: systemPrompt),
+                styleID: $0.styleID,
+                routerVersion: $0.routerVersion,
+                agentPromptVersion: $0.agentPromptVersion
+            )
+        }
+        return PromptBuildResult(
+            systemPrompt: systemPrompt,
+            requestContext: result.requestContext,
+            llmProviderID: result.llmProviderID,
+            styleID: result.styleID,
+            model: result.model,
+            temperature: result.temperature,
+            promptMetadata: metadata
+        )
+    }
+
+    private func requestText(
+        prompt: (result: PromptBuildResult, warnings: [String], isStructured: Bool),
+        contextRoundsRequestText: String,
+        hasContextRounds: Bool
+    ) -> String {
+        guard prompt.isStructured else {
+            return contextRoundsRequestText
+        }
+        var sections: [String] = []
+        if let requestContext = prompt.result.requestContext,
+           !requestContext.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(requestContext)
+        }
+        if hasContextRounds {
+            sections.append(contextRoundsRequestText)
+        } else {
+            sections.append("Current ASR text:\n\(contextRoundsRequestText)")
+        }
+        return sections.joined(separator: "\n\n---\n\n")
     }
 
     private func buildStructuredPrompt(
@@ -1017,6 +1276,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         style: StyleProfileRecord?,
         rawText: String,
         target: DictationTarget?,
+        outputFormat: StyleOutputFormat?,
         temporaryHotwords: [TemporaryHotword]
     ) throws -> PromptBuildResult {
         let enabledStyle = style?.enabled == true ? style : nil
@@ -1028,7 +1288,11 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             ocrTemporaryTerms: temporaryHotwords.map(\.text),
             appContext: structuredAppContext(target: target)
         )
-        let systemPrompt = builder.build(style: structuredStyle, context: context)
+        let systemPrompt = builder.buildSystem(
+            style: structuredStyle,
+            outputFormatRules: outputFormat?.promptRules
+        )
+        let requestContext = builder.buildRequestContext(context: context, includeRawText: false)
         let template = StructuredCorrectionPromptCatalog.styleTemplate(for: structuredStyle)
         let metadata = PromptTraceMetadata(
             promptKind: template.kind,
@@ -1043,6 +1307,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         )
         return PromptBuildResult(
             systemPrompt: systemPrompt,
+            requestContext: requestContext,
             llmProviderID: enabledStyle?.llmProviderID,
             styleID: enabledStyle?.id,
             model: enabledStyle?.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -1057,6 +1322,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         builder: StructuredCorrectionPromptBuilder,
         rawText: String,
         target: DictationTarget?,
+        outputFormat: StyleOutputFormat?,
         temporaryHotwords: [TemporaryHotword]
     ) -> PromptBuildResult {
         let context = StructuredCorrectionPromptContext(
@@ -1066,7 +1332,11 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             ocrTemporaryTerms: temporaryHotwords.map(\.text),
             appContext: structuredAppContext(target: target)
         )
-        let systemPrompt = builder.build(style: .default, context: context)
+        let systemPrompt = builder.buildSystem(
+            style: .default,
+            outputFormatRules: outputFormat?.promptRules
+        )
+        let requestContext = builder.buildRequestContext(context: context, includeRawText: false)
         let template = StructuredCorrectionPromptCatalog.styleTemplate(for: .default)
         let metadata = PromptTraceMetadata(
             promptKind: template.kind,
@@ -1078,6 +1348,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         )
         return PromptBuildResult(
             systemPrompt: systemPrompt,
+            requestContext: requestContext,
             llmProviderID: nil,
             styleID: nil,
             model: nil,
@@ -1136,6 +1407,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     private func parseStructuredOutputIfNeeded(
         _ refinedText: String,
         isStructured: Bool,
+        fallbackText: String,
         correctionContext: CorrectionContext?
     ) -> (text: String, warnings: [String]) {
         guard isStructured else { return (refinedText, []) }
@@ -1143,8 +1415,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         case .success(let output):
             learnFromStructuredOutputIfNeeded(output, correctionContext: correctionContext)
             return (output.polished, [])
-        case .fallback(let rawText, let reason):
-            return (rawText, [reason])
+        case .fallback(_, let reason):
+            return (fallbackText, [reason])
         }
     }
 

@@ -179,6 +179,7 @@ private extension TextProcessingTrace {
             ),
             output: output,
             contextBoost: contextBoost?.safeForPersistence(),
+            contextRounds: contextRounds?.safeForPersistence(),
             voiceCorrection: voiceCorrection?.safeForPersistence(),
             // Diagnostic mode is opt-in. Preserve the route trace's safe
             // fields (IDs, version, hash, latency, reason) but drop raw

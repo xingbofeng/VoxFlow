@@ -16,6 +16,26 @@ enum HomeHistoryDetailPresentation {
         return L10n.localize("home.detail.trace.missing_agent_compose", comment: "Missing agent compose trace message")
     }
 
+    /// Builds a `TextComparisonInput` for a deterministic processing phase.
+    ///
+    /// The input uses the phase's own `inputText` / `outputText` — never the
+    /// top-level `rawText` / `finalText` from the home detail. Returns nil
+    /// when the phase lacks before/after text (old trace fallback).
+    static func deterministicComparisonInput(
+        for phase: DeterministicProcessingPhaseTrace
+    ) -> TextComparisonInput? {
+        guard let inputText = phase.inputText, let outputText = phase.outputText else {
+            return nil
+        }
+        return TextComparisonInput(
+            sourceTitle: L10n.localize("home.detail.comparison.mode.source", comment: "Source mode label"),
+            processedTitle: L10n.localize("home.detail.comparison.mode.processed", comment: "Processed mode label"),
+            sourceText: inputText,
+            processedText: outputText,
+            emptyPlaceholder: L10n.localize("home.detail.deterministic.empty_text", comment: "Empty deterministic text placeholder")
+        )
+    }
+
     static func languageName(for identifier: String) -> String {
         switch identifier {
         case "zh-CN":
@@ -95,6 +115,8 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.style.formal", comment: "Formal style")
         case "builtin.casual":
             return L10n.localize("home.detail.style.casual", comment: "Casual style")
+        case "builtin.chat":
+            return L10n.localize("home.detail.style.chat", comment: "Chat style")
         case "builtin.energetic":
             return L10n.localize("home.detail.style.energetic", comment: "Energetic style")
         case "builtin.coding":
@@ -111,7 +133,7 @@ enum HomeHistoryDetailPresentation {
     static func durationText(milliseconds: Int?) -> String {
         guard let milliseconds else { return L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded") }
         let seconds = Double(max(milliseconds, 0)) / 1_000
-        return String(format: L10n.localize("home.detail.duration_seconds_format", comment: "Duration in seconds"), seconds)
+        return L10n.format("home.detail.duration_seconds_format", comment: "Duration in seconds", seconds)
     }
 
     static func contextBoostStatusText(appliedToPrompt: Bool) -> String {
@@ -154,10 +176,10 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.voice_correction.status_failed", comment: "Voice correction failed")
         }
         if appliedCount > 0 {
-            return String(format: L10n.localize("home.detail.voice_correction.status_applied_format", comment: "Applied replacements status"), appliedCount)
+            return L10n.format("home.detail.voice_correction.status_applied_format", comment: "Applied replacements status", appliedCount)
         }
         if candidateCount > 0 {
-            return String(format: L10n.localize("home.detail.voice_correction.status_candidates_format", comment: "Candidate hits status"), candidateCount)
+            return L10n.format("home.detail.voice_correction.status_candidates_format", comment: "Candidate hits status", candidateCount)
         }
         return L10n.localize("home.detail.voice_correction.status_no_hits", comment: "No voice correction hits status")
     }
@@ -167,7 +189,7 @@ enum HomeHistoryDetailPresentation {
         case .global:
             return L10n.localize("home.detail.voice_correction.scope_global", comment: "Global scope")
         case .application(let bundleIdentifier):
-            return String(format: L10n.localize("home.detail.voice_correction.scope_application_format", comment: "Application scope"), bundleIdentifier)
+            return L10n.format("home.detail.voice_correction.scope_application_format", comment: "Application scope", bundleIdentifier)
         }
     }
 
@@ -266,6 +288,219 @@ enum HomeHistoryDetailPresentation {
             ].joined(separator: "\n")
         }
         return responseText
+    }
+
+    static func userVisibleDiagnosticSummary(for detail: HomeHistoryDetail) -> String {
+        var sections: [String] = []
+
+        var overview: [String] = []
+        if let endpoint = detail.trace?.llm?.endpoint, !endpoint.isEmpty {
+            overview.append(line("home.detail.diagnostic.summary.endpoint", endpoint))
+        }
+        overview.append(line("home.detail.diagnostic.summary.response", pipelineStatusText(for: detail)))
+        overview.append(line(
+            "home.detail.diagnostic.summary.warnings",
+            detail.warnings.isEmpty
+                ? L10n.localize("home.detail.diagnostic.no_warnings", comment: "No warnings")
+                : detail.warnings.map { warningMessage(for: $0, taskMode: detail.taskMode) }.joined(separator: "、")
+        ))
+        overview.append(line("home.detail.diagnostic.summary.task_time", dateRange(detail.createdAt, detail.updatedAt)))
+        sections.append(overview.joined(separator: "\n"))
+
+        if let route = detail.trace?.styleRoute {
+            sections.append(styleRouteSummary(route))
+        }
+
+        if let rounds = detail.trace?.contextRounds {
+            sections.append(contextRoundsSummary(rounds))
+        }
+
+        if let voiceCorrection = detail.trace?.voiceCorrection {
+            sections.append(voiceCorrectionSummary(voiceCorrection))
+        }
+
+        if let llm = detail.trace?.llm {
+            sections.append(llmSummary(llm))
+        }
+
+        if sections.count == 1, detail.trace == nil {
+            sections.append(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+        }
+        return sections.joined(separator: "\n\n")
+    }
+
+    private static func styleRouteSummary(_ route: StyleRouteTrace) -> String {
+        var rows = [sectionTitle("home.detail.diagnostic.summary.style_route")]
+        rows.append(line(
+            "home.detail.diagnostic.summary.route_source",
+            styleSelectionSourceText(route.styleSelectionSource)
+        ))
+        rows.append(line(
+            "home.detail.diagnostic.summary.selected_style",
+            styleName(for: route.selectedStyleID)
+        ))
+        if !route.candidateStyleIDs.isEmpty {
+            rows.append(line(
+                "home.detail.diagnostic.summary.candidate_styles",
+                route.candidateStyleIDs.map { styleName(for: $0) }.joined(separator: "、")
+            ))
+        }
+        if let fallbackReason = route.fallbackReason, !fallbackReason.isEmpty {
+            rows.append(line("home.detail.diagnostic.summary.fallback_reason", styleRouteFallbackReasonText(fallbackReason)))
+        }
+        rows.append(line("home.detail.diagnostic.summary.router_version", route.routerVersion))
+        if !route.renderedPromptHash.isEmpty {
+            rows.append(line("home.detail.diagnostic.summary.prompt_hash", route.renderedPromptHash))
+        }
+        if let durationMS = route.durationMS {
+            rows.append(line("home.detail.diagnostic.summary.duration", durationText(milliseconds: durationMS)))
+        }
+        return rows.joined(separator: "\n")
+    }
+
+    private static func contextRoundsSummary(_ rounds: ContextRoundsTrace) -> String {
+        var rows = [sectionTitle("home.detail.diagnostic.summary.context_rounds")]
+        rows.append(line(
+            "home.detail.diagnostic.summary.context_rounds_status",
+            rounds.enabled
+                ? L10n.localize("home.detail.diagnostic.summary.enabled", comment: "Enabled")
+                : L10n.localize("home.detail.diagnostic.summary.disabled", comment: "Disabled")
+        ))
+        rows.append(line(
+            "home.detail.diagnostic.summary.context_rounds_usage",
+            "\(rounds.usedRounds) / \(rounds.requestedRounds) \(L10n.localize("home.detail.diagnostic.summary.rounds_unit", comment: "Rounds unit"))"
+        ))
+        if !rounds.contextHistoryIDs.isEmpty {
+            rows.append(line(
+                "home.detail.diagnostic.summary.context_history_count",
+                countText(rounds.contextHistoryIDs.count)
+            ))
+        }
+        if !rounds.excludedReasons.isEmpty {
+            rows.append(line(
+                "home.detail.diagnostic.summary.excluded_reasons",
+                rounds.excludedReasons.map { contextRoundsExcludedReasonText($0) }.joined(separator: "、")
+            ))
+        }
+        rows.append(line("home.detail.diagnostic.summary.wrapper_version", rounds.wrapperVersion))
+        return rows.joined(separator: "\n")
+    }
+
+    private static func voiceCorrectionSummary(_ trace: VoiceCorrectionTrace) -> String {
+        var rows = [sectionTitle("home.detail.diagnostic.summary.voice_correction")]
+        rows.append(line(
+            "home.detail.diagnostic.summary.voice_correction_candidates",
+            countText(trace.candidateEvents.count)
+        ))
+        rows.append(line(
+            "home.detail.diagnostic.summary.voice_correction_applied",
+            countText(trace.appliedEvents.count)
+        ))
+        rows.append(line(
+            "home.detail.diagnostic.summary.voice_correction_warnings",
+            trace.warnings.isEmpty ? L10n.localize("home.detail.diagnostic.no_warnings", comment: "No warnings") : trace.warnings.joined(separator: "、")
+        ))
+        if let failureReason = trace.failureReason, !failureReason.isEmpty {
+            rows.append(line("home.detail.diagnostic.summary.failure_reason", failureReason))
+        }
+        return rows.joined(separator: "\n")
+    }
+
+    private static func llmSummary(_ llm: LLMRefinementTrace) -> String {
+        var rows = [sectionTitle("home.detail.diagnostic.summary.llm")]
+        rows.append(line("home.detail.diagnostic.summary.provider", llm.providerName))
+        rows.append(line("home.detail.diagnostic.summary.model", llm.model))
+        rows.append(line(
+            "home.detail.diagnostic.summary.temperature",
+            String(format: "%.2f", llm.temperature)
+        ))
+        if let metadata = llm.promptMetadata {
+            rows.append(line("home.detail.diagnostic.summary.prompt_kind", metadata.promptKind))
+            rows.append(line("home.detail.diagnostic.summary.prompt_version", metadata.promptVersion))
+            rows.append(line("home.detail.diagnostic.summary.prompt_hash", metadata.renderedPromptHash))
+            if let styleID = metadata.styleID {
+                rows.append(line("home.detail.diagnostic.summary.prompt_style", styleName(for: styleID)))
+            }
+        }
+        return rows.joined(separator: "\n")
+    }
+
+    private static func styleSelectionSourceText(_ source: String?) -> String {
+        switch source {
+        case "manualRule":
+            return L10n.localize("home.detail.diagnostic.route_source.manual_rule", comment: "Manual app rule")
+        case "aiRouter":
+            return L10n.localize("home.detail.diagnostic.route_source.ai_router", comment: "AI router")
+        case "aiRouteCache":
+            return L10n.localize("home.detail.diagnostic.route_source.ai_route_cache", comment: "AI route cache")
+        case "default":
+            return L10n.localize("home.detail.diagnostic.route_source.default", comment: "Default style")
+        case "fallback":
+            return L10n.localize("home.detail.diagnostic.route_source.fallback", comment: "Fallback")
+        case nil, "":
+            return L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+        default:
+            return source ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+        }
+    }
+
+    static func styleRouteFallbackReasonText(_ reason: String) -> String {
+        switch reason {
+        case "router_unavailable":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.router_unavailable", comment: "Style router unavailable fallback reason")
+        case "fallback":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.fallback", comment: "Style router returned fallback")
+        case "request_failed":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.request_failed", comment: "Style router request failed")
+        case "refiner_not_ready":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.refiner_not_ready", comment: "Style router model not ready")
+        case "no_candidates":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.no_candidates", comment: "No style route candidates")
+        case "invalid_response":
+            return L10n.localize("home.detail.diagnostic.fallback_reason.invalid_response", comment: "Style router invalid response")
+        default:
+            return reason
+        }
+    }
+
+    static func contextRoundsExcludedReasonText(_ reason: String) -> String {
+        switch reason {
+        case "different_app":
+            return L10n.localize("home.detail.diagnostic.context_excluded.different_app", comment: "Context history excluded because it belongs to another app")
+        case "expired":
+            return L10n.localize("home.detail.diagnostic.context_excluded.expired", comment: "Context history excluded because it expired")
+        case "empty_final_text":
+            return L10n.localize("home.detail.diagnostic.context_excluded.empty_final_text", comment: "Context history excluded because final text is empty")
+        case "unsafe_warning":
+            return L10n.localize("home.detail.diagnostic.context_excluded.unsafe_warning", comment: "Context history excluded because it has unsafe warnings")
+        case "secure_field":
+            return L10n.localize("home.detail.diagnostic.context_excluded.secure_field", comment: "Context disabled for secure text field")
+        case "missing_history_or_target":
+            return L10n.localize("home.detail.diagnostic.context_excluded.missing_history_or_target", comment: "Context unavailable due to missing history or target")
+        case "disabled":
+            return L10n.localize("home.detail.diagnostic.context_excluded.disabled", comment: "Context rounds disabled")
+        case "disabled_by_zero_rounds":
+            return L10n.localize("home.detail.diagnostic.context_excluded.disabled_by_zero_rounds", comment: "Context rounds disabled by zero rounds")
+        default:
+            return reason
+        }
+    }
+
+    private static func line(_ key: String, _ value: String) -> String {
+        "\(L10n.localize(key, comment: "")): \(value)"
+    }
+
+    private static func sectionTitle(_ key: String) -> String {
+        "\(L10n.localize(key, comment: ""))"
+    }
+
+    private static func countText(_ count: Int) -> String {
+        "\(count) \(L10n.localize("home.detail.diagnostic.summary.count_unit", comment: "Count unit"))"
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func dateRange(_ start: Date, _ end: Date) -> String {
+        "\(DateFormatter.localizedString(from: start, dateStyle: .short, timeStyle: .short)) · \(DateFormatter.localizedString(from: end, dateStyle: .short, timeStyle: .short))"
     }
 
     static func learningPair(
@@ -463,8 +698,7 @@ enum HomeHistoryDetailPresentation {
         }
         // If voice correction applied replacements, show "已修正 · N 处".
         if let vc = detail.trace?.voiceCorrection, !vc.appliedEvents.isEmpty {
-            return String(
-                format: L10n.localize("home.detail.diff.modified_format", comment: "Diff modified format"),
+            return L10n.format("home.detail.diff.modified_format", comment: "Diff modified format",
                 vc.appliedEvents.count
             )
         }

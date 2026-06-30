@@ -24,6 +24,7 @@
 | 路径 | 当前归属 | 目标归属 | 备注 |
 | --- | --- | --- | --- |
 | `Sources/VoxFlowApp/Resources/AuthorWeChatQRCode.jpg` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowFeatures` | 帮助 / 关于界面渲染。 |
+| `Sources/VoxFlowApp/Resources/UserGroupQRCode.jpg` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowFeatures` | 帮助页社区用户群二维码。 |
 | `Sources/VoxFlowApp/Resources/GitHubMark.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowDesignSystem` | 作为模板图加载，用于主题着色。 |
 | `Sources/VoxFlowApp/Resources/ASRAppleSpeech.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderApple` | Apple Speech Provider 卡片图标。 |
 | `Sources/VoxFlowApp/Resources/ASRAssemblyAI.png` | `VoxFlowApp` SwiftPM resource bundle | 在线 ASR 目录 | AssemblyAI Provider 卡片图标。 |

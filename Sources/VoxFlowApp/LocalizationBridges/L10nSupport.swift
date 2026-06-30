@@ -29,6 +29,10 @@ extension L10n {
         bundle.localizedString(forKey: key, value: key, table: "Localizable")
     }
 
+    static func format(_ key: String, comment: String = "", _ arguments: CVarArg...) -> String {
+        String(format: localize(key, comment: comment), locale: locale, arguments: arguments)
+    }
+
     private static var explicitInterfaceLanguageBundle: Bundle? {
         guard let rawValue = explicitInterfaceLanguageCode else {
             return nil
