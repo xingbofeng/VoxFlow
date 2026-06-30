@@ -51,7 +51,14 @@ CREATE TABLE IF NOT EXISTS style_profiles (
     built_in INTEGER NOT NULL DEFAULT 0,
     is_default INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    output_format_json TEXT,
+    -- Style auto-match (OpenSpec refactor-prompt-routing-and-agent-compose §4):
+    -- allow_auto_match=0 means the style never participates in the AI router,
+    -- even when enabled=1. auto_match_description is the short label the router
+    -- reads; NULL/empty styles are excluded from router candidates.
+    allow_auto_match INTEGER NOT NULL DEFAULT 0,
+    auto_match_description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS asr_providers (

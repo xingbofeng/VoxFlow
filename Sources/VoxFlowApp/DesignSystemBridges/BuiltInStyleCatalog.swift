@@ -203,6 +203,9 @@ enum BuiltInStyleCatalog {
         if legacyPrompts[profileID]?.contains(prompt) == true {
             return true
         }
+        if shouldUpgradeOutputFormatOwnedStructuredPrompt(prompt) {
+            return true
+        }
         guard let heading = legacyHeading(for: profileID) else {
             return false
         }
@@ -213,6 +216,28 @@ enum BuiltInStyleCatalog {
             && trimmed.contains("**与 LLM 纠错的关系**")
             && trimmed.contains("输出只包含")
             && !trimmed.contains("# Critical Protocol")
+    }
+
+    private static func shouldUpgradeOutputFormatOwnedStructuredPrompt(_ prompt: String) -> Bool {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains("# Critical Protocol"),
+              trimmed.contains("# Guidelines") || trimmed.contains("# Guidelines & Rules") else {
+            return false
+        }
+        let outputFormatOwnedFragments = [
+            "口头标点处理",
+            "标点命令",
+            "少标点",
+            "句末不加",
+            "大小写",
+            "语气保留",
+            "保留语气",
+            "聊天语气",
+            "Emoji 风格化",
+            "适当添加 Emoji",
+            "emoji 只能",
+        ]
+        return outputFormatOwnedFragments.contains { trimmed.contains($0) }
     }
 
     private static func legacyHeading(for profileID: String) -> String? {
@@ -239,6 +264,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.original.name", comment: ""),
                 category: L10n.localize("style.profile.original.category", comment: ""),
                 subtitle: L10n.localize("style.profile.original.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.original.auto_match_description", comment: ""),
                 mode: "raw",
                 prompt: StructuredCorrectionPromptBuilder.originalTemplate,
                 sampleInput: "今天同步一下项目进展",
@@ -252,6 +278,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.formal.name", comment: ""),
                 category: L10n.localize("style.profile.formal.category", comment: ""),
                 subtitle: L10n.localize("style.profile.formal.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.formal.auto_match_description", comment: ""),
                 mode: "formal",
                 prompt: StructuredCorrectionPromptBuilder.formalTemplate,
                 sampleInput: "这个方案大概能跑",
@@ -265,6 +292,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.casual.name", comment: ""),
                 category: L10n.localize("style.profile.casual.category", comment: ""),
                 subtitle: L10n.localize("style.profile.casual.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.casual.auto_match_description", comment: ""),
                 mode: "casual",
                 prompt: StructuredCorrectionPromptBuilder.casualTemplate,
                 sampleInput: "等会儿我把链接发你",
@@ -278,6 +306,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.chat.name", comment: ""),
                 category: L10n.localize("style.profile.chat.category", comment: ""),
                 subtitle: L10n.localize("style.profile.chat.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.chat.auto_match_description", comment: ""),
                 mode: "chat",
                 prompt: StructuredCorrectionPromptBuilder.chatTemplate,
                 sampleInput: "等会儿我把链接发你",
@@ -291,6 +320,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.energetic.name", comment: ""),
                 category: L10n.localize("style.profile.energetic.category", comment: ""),
                 subtitle: L10n.localize("style.profile.energetic.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.energetic.auto_match_description", comment: ""),
                 mode: "energetic",
                 prompt: StructuredCorrectionPromptBuilder.energeticTemplate,
                 sampleInput: "我们今天继续推进",
@@ -304,6 +334,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.coding.name", comment: ""),
                 category: L10n.localize("style.profile.coding.category", comment: ""),
                 subtitle: L10n.localize("style.profile.coding.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.coding.auto_match_description", comment: ""),
                 mode: "coding",
                 prompt: StructuredCorrectionPromptBuilder.codingTemplate,
                 sampleInput: "配森",
@@ -317,6 +348,7 @@ enum BuiltInStyleCatalog {
                 name: L10n.localize("style.profile.email.name", comment: ""),
                 category: L10n.localize("style.profile.email.category", comment: ""),
                 subtitle: L10n.localize("style.profile.email.subtitle", comment: ""),
+                autoMatchDescription: L10n.localize("style.profile.email.auto_match_description", comment: ""),
                 mode: "email",
                 prompt: StructuredCorrectionPromptBuilder.emailTemplate,
                 sampleInput: "麻烦你明天之前给我反馈",
@@ -333,6 +365,7 @@ enum BuiltInStyleCatalog {
         name: String,
         category: String,
         subtitle: String,
+        autoMatchDescription: String,
         mode: String,
         prompt: String,
         sampleInput: String,
@@ -341,7 +374,7 @@ enum BuiltInStyleCatalog {
         isDefault: Bool,
         now: Date
     ) -> StyleProfileRecord {
-        StyleProfileRecord(
+        return StyleProfileRecord(
             id: id,
             name: name,
             category: category,
@@ -357,7 +390,10 @@ enum BuiltInStyleCatalog {
             builtIn: true,
             isDefault: isDefault,
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
+            outputFormat: StyleOutputFormat.builtInDefault(for: id),
+            allowAutoMatch: true,
+            autoMatchDescription: autoMatchDescription
         )
     }
 }
@@ -377,9 +413,13 @@ enum BuiltInStyleSeeder {
                 continue
             }
 
-            if existing.builtIn,
-               BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(existing.prompt, profileID: profile.id) {
-                try styleRepository.save(profile.upgradingLegacyPrompt(from: existing, updatedAt: now))
+            if existing.builtIn {
+                let shouldUpgradePrompt = BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(existing.prompt, profileID: profile.id)
+                let shouldUpgradeAutoMatch = existing.autoMatchDescription?
+                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+                if shouldUpgradePrompt || shouldUpgradeAutoMatch {
+                    try styleRepository.save(profile.upgradingBuiltInDefaults(from: existing, updatedAt: now))
+                }
             }
         }
     }
@@ -387,7 +427,7 @@ enum BuiltInStyleSeeder {
 
 private extension StyleProfileRecord {
     func withDefault(_ value: Bool) -> StyleProfileRecord {
-        StyleProfileRecord(
+        return StyleProfileRecord(
             id: id,
             name: name,
             category: category,
@@ -403,28 +443,41 @@ private extension StyleProfileRecord {
             builtIn: builtIn,
             isDefault: value,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            outputFormat: outputFormat,
+            allowAutoMatch: allowAutoMatch,
+            autoMatchDescription: autoMatchDescription
         )
     }
 
-    func upgradingLegacyPrompt(from existing: StyleProfileRecord, updatedAt: Date) -> StyleProfileRecord {
-        StyleProfileRecord(
+    func upgradingBuiltInDefaults(from existing: StyleProfileRecord, updatedAt: Date) -> StyleProfileRecord {
+        let shouldUpgradePrompt = BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(existing.prompt, profileID: id)
+        let existingDescription = existing.autoMatchDescription?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let needsAutoMatchDefaults = existingDescription?.isEmpty ?? true
+        let upgradedDescription = existingDescription?.isEmpty == false
+            ? existing.autoMatchDescription
+            : autoMatchDescription
+        return StyleProfileRecord(
             id: id,
             name: name,
             category: category,
             subtitle: subtitle,
             mode: mode,
-            prompt: prompt,
+            prompt: shouldUpgradePrompt ? prompt : existing.prompt,
             sampleInput: sampleInput,
             sampleOutput: sampleOutput,
             llmProviderID: existing.llmProviderID,
             model: existing.model,
-            temperature: temperature,
+            temperature: shouldUpgradePrompt ? temperature : existing.temperature,
             enabled: existing.enabled,
             builtIn: builtIn,
             isDefault: existing.isDefault,
             createdAt: existing.createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            outputFormat: existing.outputFormat ?? outputFormat,
+            allowAutoMatch: needsAutoMatchDefaults ? true : existing.allowAutoMatch,
+            autoMatchDescription: upgradedDescription
         )
     }
 }

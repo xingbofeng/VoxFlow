@@ -21,7 +21,15 @@ RESOURCE_ROOTS = [
     Path("Sources/VoxFlowScreenshotKit/Resources"),
 ]
 
+SWIFT_SOURCE_ROOTS = [
+    Path("Sources"),
+]
+
 EXPECTED_LANGUAGES = {"en", "zh-Hans", "zh-Hant", "ja", "ko"}
+
+UNSAFE_LOCALIZED_FORMAT_BASELINE = 0
+
+UNSAFE_LOCALIZED_FORMAT = re.compile(r"String\s*\(\s*format\s*:\s*L10n\.localize\s*\(", re.MULTILINE)
 
 VISIBLE_QUALITY_PREFIXES = (
     "home.",
@@ -320,10 +328,29 @@ def check_root(root: Path) -> list[str]:
     return errors
 
 
+def unsafe_localized_format_violations() -> list[str]:
+    violations: list[str] = []
+    for root in SWIFT_SOURCE_ROOTS:
+        for path in sorted(root.rglob("*.swift")):
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if UNSAFE_LOCALIZED_FORMAT.search(line):
+                    violations.append(f"{path}:{line_number}: {line.strip()}")
+    return violations
+
+
 def main() -> int:
     errors: list[str] = []
     for root in RESOURCE_ROOTS:
         errors.extend(check_root(root))
+
+    unsafe_format_violations = unsafe_localized_format_violations()
+    if len(unsafe_format_violations) > UNSAFE_LOCALIZED_FORMAT_BASELINE:
+        added = len(unsafe_format_violations) - UNSAFE_LOCALIZED_FORMAT_BASELINE
+        errors.append(
+            "Unsafe localized String(format:) usage increased by "
+            f"{added}; prefer generated SwiftGen typed localization helpers."
+        )
+        errors.extend(unsafe_format_violations[-added:])
 
     if errors:
         print("Localization check failed:")
@@ -331,7 +358,10 @@ def main() -> int:
             print(f"  - {error}")
         return 1
 
-    print("Localization check passed: key parity, duplicates, empty values, and visible-copy heuristics are clean.")
+    print(
+        "Localization check passed: key parity, duplicates, empty values, visible-copy heuristics, "
+        "and unsafe localized format baseline are clean."
+    )
     return 0
 
 

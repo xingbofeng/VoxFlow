@@ -178,6 +178,30 @@ enum AppDatabase {
                 },
                 DatabaseMigration(id: 20, name: "voice_correction_evidence") { connection in
                     try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 21, name: "style_profiles_auto_match") { connection in
+                    // 为老库幂等补齐 style 自动匹配列；新库由 bundled schema 直接建表。
+                    // allow_auto_match 默认 0：既有 style 不主动加入 AI router 候选，
+                    // 用户必须显式打开参与自动匹配 (OpenSpec §4.1)。
+                    try connection.addColumnIfNeeded(
+                        table: "style_profiles",
+                        column: "allow_auto_match",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "style_profiles",
+                        column: "auto_match_description",
+                        definition: "TEXT"
+                    )
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 22, name: "style_profiles_output_format") { connection in
+                    try connection.addColumnIfNeeded(
+                        table: "style_profiles",
+                        column: "output_format_json",
+                        definition: "TEXT"
+                    )
+                    try applyBundledSchema(on: connection)
                 }
             ],
             clock: clock

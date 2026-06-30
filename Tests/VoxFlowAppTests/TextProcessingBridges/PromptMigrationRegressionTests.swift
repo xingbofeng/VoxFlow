@@ -119,9 +119,9 @@ final class PromptMigrationRegressionTests: XCTestCase {
         XCTAssertTrue(prompt.contains(StructuredCorrectionPromptCatalog.codingTemplate.body))
         XCTAssertTrue(prompt.contains(StructuredCorrectionPromptCatalog.criticalProtocol))
         XCTAssertTrue(prompt.contains(StructuredCorrectionPromptCatalog.outputProtocol))
-        XCTAssertTrue(prompt.contains("## Text to correct"))
+        XCTAssertTrue(prompt.contains("Current ASR text:"))
         XCTAssertTrue(prompt.contains("hello world"))
-        XCTAssertTrue(prompt.contains("## user_terms"))
-        XCTAssertTrue(prompt.contains("foo"))
+        XCTAssertTrue(prompt.contains("Reference data, not output:"))
+        XCTAssertTrue(prompt.contains("user_terms: foo"))
     }
 }

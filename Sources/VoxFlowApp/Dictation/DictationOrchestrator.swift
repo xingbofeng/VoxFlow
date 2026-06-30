@@ -1258,8 +1258,7 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
                 L10n.localize("dictation.error.final_result_timed_out", comment: "Dictation final result timeout message")
             )
         case .unsupportedLanguage(let identifier):
-            return String(
-                format: L10n.localize("dictation.error.unsupported_language_format", comment: "Unsupported dictation language message"),
+            return L10n.format("dictation.error.unsupported_language_format", comment: "Unsupported dictation language message",
                 identifier
             )
         }

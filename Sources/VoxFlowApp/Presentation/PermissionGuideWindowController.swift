@@ -212,6 +212,6 @@ private struct PermissionGuideView: View {
         .onTapGesture {
             onOpenItemSettings(item)
         }
-        .help(item.settingsURL == nil ? "" : String(format: L10n.localize("window.permission.open_item_settings_help_format", comment: ""), item.title))
+        .help(item.settingsURL == nil ? "" : L10n.format("window.permission.open_item_settings_help_format", comment: "", item.title))
     }
 }

@@ -308,19 +308,16 @@ final class LLMRefiner: @unchecked Sendable {
                     L10n.localize("llm.refiner.error.invalid_response", comment: "LLM refiner invalid response")
                 )
             case .httpError(let code):
-                return String(
-                    format: L10n.localize("llm.refiner.error.http_error_format", comment: "LLM refiner HTTP error"),
+                return L10n.format("llm.refiner.error.http_error_format", comment: "LLM refiner HTTP error",
                     code
                 )
             case .apiError(let code, let message):
-                return String(
-                    format: L10n.localize("llm.refiner.error.api_error_format", comment: "LLM refiner API error"),
+                return L10n.format("llm.refiner.error.api_error_format", comment: "LLM refiner API error",
                     code,
                     message
                 )
             case .networkError(let error):
-                return String(
-                    format: L10n.localize("llm.refiner.error.network_error_format", comment: "LLM refiner network error"),
+                return L10n.format("llm.refiner.error.network_error_format", comment: "LLM refiner network error",
                     error.localizedDescription
                 )
             }

@@ -131,8 +131,7 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = trimmed.isEmpty
             ? L10n.localize("palette.root_item.ask_ai.subtitle_empty", comment: "")
-            : String(
-                format: L10n.localize("palette.root_item.ask_ai.subtitle_with_query", comment: ""),
+            : L10n.format("palette.root_item.ask_ai.subtitle_with_query", comment: "",
                 Self.truncated(trimmed)
             )
         return PaletteRootItem(
@@ -150,8 +149,7 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let subtitle = trimmed.isEmpty
             ? L10n.localize("palette.root_item.translate.subtitle_empty", comment: "")
-            : String(
-                format: L10n.localize("palette.root_item.translate.subtitle_with_query", comment: ""),
+            : L10n.format("palette.root_item.translate.subtitle_with_query", comment: "",
                 Self.truncated(trimmed)
             )
         return PaletteRootItem(
@@ -169,14 +167,12 @@ struct PaletteRootItem: Equatable, Identifiable, Sendable {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = trimmed.isEmpty
             ? link.title
-            : String(
-                format: L10n.localize("palette.root_item.quicklink.search_title_format", comment: ""),
+            : L10n.format("palette.root_item.quicklink.search_title_format", comment: "",
                 link.title
             )
         let subtitle = trimmed.isEmpty
             ? link.homepageURL
-            : String(
-                format: L10n.localize("palette.root_item.quicklink.search_subtitle_format", comment: ""),
+            : L10n.format("palette.root_item.quicklink.search_subtitle_format", comment: "",
                 Self.truncated(trimmed)
             )
         return PaletteRootItem(

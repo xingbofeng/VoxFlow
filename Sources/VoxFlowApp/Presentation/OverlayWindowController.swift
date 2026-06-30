@@ -1076,8 +1076,7 @@ final class OverlayWindowController: NSWindowController {
         number: Int,
         action: SelectionActionKind
     ) {
-        button.toolTip = String(
-            format: L10n.localize("hud.selection_action_button_tooltip_format", comment: ""),
+        button.toolTip = L10n.format("hud.selection_action_button_tooltip_format", comment: "",
             String(number),
             action.title
         )

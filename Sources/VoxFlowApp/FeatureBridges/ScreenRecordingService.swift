@@ -74,11 +74,11 @@ enum ScreenRecordingServiceError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .displayNotFound: return L10n.localize("recording.error.display_not_found", comment: "")
-        case .writerSetupFailed(let r): return String(format: L10n.localize("recording.error.writer_setup_failed_format", comment: ""), r)
-        case .writerStartFailed(let r): return String(format: L10n.localize("recording.error.writer_start_failed_format", comment: ""), r)
-        case .streamStartFailed(let r): return String(format: L10n.localize("recording.error.stream_start_failed_format", comment: ""), r)
+        case .writerSetupFailed(let r): return L10n.format("recording.error.writer_setup_failed_format", comment: "", r)
+        case .writerStartFailed(let r): return L10n.format("recording.error.writer_start_failed_format", comment: "", r)
+        case .streamStartFailed(let r): return L10n.format("recording.error.stream_start_failed_format", comment: "", r)
         case .microphonePermissionDenied: return L10n.localize("recording.error.microphone_permission_denied", comment: "")
-        case .finalizeFailed(let r): return String(format: L10n.localize("recording.error.finalize_failed_format", comment: ""), r)
+        case .finalizeFailed(let r): return L10n.format("recording.error.finalize_failed_format", comment: "", r)
         case .notRunning: return L10n.localize("recording.error.not_running", comment: "")
         }
     }

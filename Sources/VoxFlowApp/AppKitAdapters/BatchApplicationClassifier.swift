@@ -11,10 +11,16 @@ struct BatchClassificationResult: Equatable, Sendable {
 // MARK: - BatchApplicationClassifying
 
 protocol BatchApplicationClassifying: Sendable {
+    var isConfigured: Bool { get }
+
     func classifyBatch(
         apps: [InstalledApplication],
         enabledStyles: [StyleProfileRecord]
     ) async throws -> [BatchClassificationResult]
+}
+
+extension BatchApplicationClassifying {
+    var isConfigured: Bool { true }
 }
 
 // MARK: - LLMBatchApplicationClassifier
@@ -31,6 +37,10 @@ final class LLMBatchApplicationClassifier: BatchApplicationClassifying, @uncheck
     ) {
         self.refiner = refiner
         self.timeoutSeconds = timeoutSeconds
+    }
+
+    var isConfigured: Bool {
+        refiner.isConfigured
     }
 
     func classifyBatch(

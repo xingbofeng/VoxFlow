@@ -51,8 +51,7 @@ private struct HomeAssetSection: View {
                     Label(L10n.localize("home.assets.title", comment: "Home assets title"), systemImage: "tray.full")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.primaryText)
-                    Text(String(
-                        format: L10n.localize("home.assets.count_format", comment: "Home assets count"),
+                    Text(L10n.format("home.assets.count_format", comment: "Home assets count",
                         viewModel.totalAssetCount
                     ))
                         .font(.system(size: 12, weight: .medium))
@@ -99,8 +98,7 @@ private struct HomeAssetSection: View {
                         set: { viewModel.updateAssetPageSize($0) }
                     )) {
                         ForEach([20, 50, 100], id: \.self) { size in
-                            Text(String(
-                                format: L10n.localize("home.assets.page_size_option_format", comment: "Page size option"),
+                            Text(L10n.format("home.assets.page_size_option_format", comment: "Page size option",
                                 size
                             )).tag(size)
                         }
@@ -493,13 +491,11 @@ private struct HomeActivityCard: View {
     private var summaryText: String {
         guard let selectedDate,
               let selectedDay = activity.days.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }) else {
-            return String(
-                format: L10n.localize("home.activity.this_week_assets_format", comment: "This week assets"),
+            return L10n.format("home.activity.this_week_assets_format", comment: "This week assets",
                 activity.thisWeekAssets
             )
         }
-        return String(
-            format: L10n.localize("home.activity.day_assets_format", comment: "Day assets"),
+        return L10n.format("home.activity.day_assets_format", comment: "Day assets",
             Self.dateFormatter.string(from: selectedDate),
             selectedDay.assetCount
         )
@@ -557,8 +553,7 @@ private struct HomeActivityCard: View {
     private static func tooltipText(for day: HomeActivityDay) -> String {
         let dateText = dateFormatter.string(from: day.date)
         guard day.assetCount > 0 else {
-            return String(
-                format: L10n.localize("home.activity.tooltip_empty_format", comment: "Activity tooltip empty"),
+            return L10n.format("home.activity.tooltip_empty_format", comment: "Activity tooltip empty",
                 dateText
             )
         }
@@ -716,6 +711,13 @@ struct HomeDetailOverlay: View {
 
 enum HomeHistoryDetailLayout {
     static let usesScrollableContent = true
+    /// When true, the Header and top result comparison area live above the
+    /// diagnostic `ScrollView`; only dispatch info, transcription info,
+    /// pipeline, warnings, and diagnostics scroll.
+    static let usesFixedResultSection = true
+    /// When true, the lower diagnostic region scrolls independently while the
+    /// Header and top result comparison stay visible.
+    static let scrollsDiagnosticsBelowResults = true
     static let modalWidth: CGFloat = 980
     static let modalMinHeight: CGFloat = 480
     static let modalIdealHeight: CGFloat = 680
@@ -742,9 +744,12 @@ private struct HomeHistoryDetailModal: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 16)
+            // Fixed top result area: Header and result comparison stay visible
+            // while only the lower diagnostic content scrolls below.
+            resultComparisonSection
+                .padding(.bottom, 12)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    resultComparisonSection
                     if detail.taskMode == .agentDispatch {
                         dispatchSection
                     }
@@ -878,42 +883,46 @@ private struct HomeHistoryDetailModal: View {
 
     private var resultComparisonSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                if isEditingFinalText {
+            if isEditingFinalText {
+                // Edit mode keeps the existing two-card layout so the user can
+                // edit the final text while still seeing the raw recognition.
+                HStack(alignment: .top, spacing: 12) {
                     EditableDetailTextBlock(
                         title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
                         subtitle: L10n.localize("home.detail.text.edit_subtitle", comment: "Edited final text subtitle"),
                         text: $editedFinalText,
                         error: editError
                     )
-                } else {
                     DetailTextBlock(
-                        title: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
-                        subtitle: detail.taskMode == .agentCompose
-                            ? L10n.localize("home.detail.text.agent_compose_final_subtitle", comment: "Agent compose final text subtitle")
-                            : detail.taskMode == .agentDispatch
-                                ? L10n.localize("home.detail.text.agent_dispatch_final_subtitle", comment: "Agent dispatch final text subtitle")
-                                : L10n.localize("home.detail.text.dictation_final_subtitle", comment: "Dictation final text subtitle"),
-                        text: detail.finalText,
-                        highlighted: true
+                        title: rawCardTitle,
+                        subtitle: rawCardSubtitle,
+                        text: detail.rawText,
+                        highlighted: false
                     )
                 }
-                DetailTextBlock(
-                    title: detail.taskMode == .agentCompose ? L10n.localize("home.detail.text.voice_intent_title", comment: "Voice intent title") : L10n.localize("home.detail.text.raw_title", comment: "Raw recognition title"),
-                    subtitle: detail.taskMode == .agentCompose
-                        ? L10n.localize("home.detail.text.voice_intent_subtitle", comment: "Voice intent subtitle")
-                        : L10n.localize("home.detail.text.raw_subtitle", comment: "Raw recognition subtitle"),
-                    text: detail.rawText,
-                    highlighted: false
-                )
+            } else {
+                // View mode replaces the two-card layout with a single
+                // TextComparisonView that toggles between source / processed /
+                // comparison. The task-mode subtitle stays above it so users
+                // still know what the final text represents.
+                Text(taskModeFinalSubtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextComparisonView(input: TextComparisonInput(
+                    sourceTitle: rawCardTitle,
+                    processedTitle: L10n.localize("home.detail.text.final_title", comment: "Final text title"),
+                    sourceText: detail.rawText,
+                    processedText: detail.finalText,
+                    emptyPlaceholder: L10n.localize("home.detail.deterministic.empty_text", comment: "Empty deterministic text placeholder")
+                ))
             }
             diffPillRow
             if let learnedEditPair {
                 HStack(spacing: 8) {
                     Image(systemName: "wand.and.stars")
                         .foregroundStyle(AppTheme.ColorToken.accent)
-                    Text(String(
-                        format: L10n.localize("home.detail.learning.saved_format", comment: "Saved edit learning message"),
+                    Text(L10n.format("home.detail.learning.saved_format", comment: "Saved edit learning message",
                         learnedEditPair.original,
                         learnedEditPair.replacement
                     ))
@@ -929,6 +938,29 @@ private struct HomeHistoryDetailModal: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+        }
+    }
+
+    private var rawCardTitle: String {
+        detail.taskMode == .agentCompose
+            ? L10n.localize("home.detail.text.voice_intent_title", comment: "Voice intent title")
+            : L10n.localize("home.detail.text.raw_title", comment: "Raw recognition title")
+    }
+
+    private var rawCardSubtitle: String {
+        detail.taskMode == .agentCompose
+            ? L10n.localize("home.detail.text.voice_intent_subtitle", comment: "Voice intent subtitle")
+            : L10n.localize("home.detail.text.raw_subtitle", comment: "Raw recognition subtitle")
+    }
+
+    private var taskModeFinalSubtitle: String {
+        switch detail.taskMode {
+        case .agentCompose:
+            return L10n.localize("home.detail.text.agent_compose_final_subtitle", comment: "Agent compose final text subtitle")
+        case .agentDispatch:
+            return L10n.localize("home.detail.text.agent_dispatch_final_subtitle", comment: "Agent dispatch final text subtitle")
+        default:
+            return L10n.localize("home.detail.text.dictation_final_subtitle", comment: "Dictation final text subtitle")
         }
     }
 
@@ -1202,14 +1234,14 @@ private struct HomeHistoryDetailModal: View {
                     Text(L10n.localize("home.detail.pipeline.step.style_route", comment: "Style route step title"))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    Text(trace.candidateStyleIDs.joined(separator: "、"))
-                        .font(.system(size: 11, design: .monospaced))
+                    Text(trace.candidateStyleIDs.map { HomeHistoryDetailPresentation.styleName(for: $0) }.joined(separator: "、"))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.ColorToken.primaryText)
                         .textSelection(.enabled)
                 }
             }
             if let fallbackReason = trace.fallbackReason, !fallbackReason.isEmpty {
-                Text(String(format: L10n.localize("home.detail.reason_format", comment: "Reason format"), fallbackReason))
+                Text(L10n.format("home.detail.reason_format", comment: "Reason format", HomeHistoryDetailPresentation.styleRouteFallbackReasonText(fallbackReason)))
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -1266,8 +1298,8 @@ private struct HomeHistoryDetailModal: View {
                     title: L10n.localize("home.detail.meta.style", comment: "Writing style"),
                     value: HomeHistoryDetailPresentation.styleName(for: detail.styleID)
                 )
-                DetailMetaItem(title: L10n.localize("home.detail.meta.text_length", comment: "Text length"), value: String(format: L10n.localize("home.detail.meta.characters_format", comment: "Character count"), detail.charCount))
-                DetailMetaItem(title: L10n.localize("home.detail.meta.processing_speed", comment: "Processing speed"), value: String(format: L10n.localize("home.detail.meta.cpm_format", comment: "Characters per minute"), Int(detail.cpm.rounded())))
+                DetailMetaItem(title: L10n.localize("home.detail.meta.text_length", comment: "Text length"), value: L10n.format("home.detail.meta.characters_format", comment: "Character count", detail.charCount))
+                DetailMetaItem(title: L10n.localize("home.detail.meta.processing_speed", comment: "Processing speed"), value: L10n.format("home.detail.meta.cpm_format", comment: "Characters per minute", Int(detail.cpm.rounded())))
                 DetailMetaItem(title: L10n.localize("home.detail.meta.created_at", comment: "Created at"), value: Self.format(detail.createdAt))
                 DetailMetaItem(title: L10n.localize("home.detail.meta.updated_at", comment: "Updated at"), value: Self.format(detail.updatedAt))
             }
@@ -1363,21 +1395,23 @@ private struct HomeHistoryDetailModal: View {
                 systemImage: "curlybraces",
                 isExpanded: $isDiagnosticFullExpanded
             ) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        viewModel.copySelectedTaskDiagnostic()
-                    } label: {
-                        Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "doc.on.doc")
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Button {
+                            viewModel.copySelectedTaskDiagnostic()
+                        } label: {
+                            Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
 
-                    Text(fullDiagnosticSummary)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
+                    DiagnosticReadableSummaryView(
+                        summary: HomeHistoryDetailPresentation.userVisibleDiagnosticSummary(for: detail)
+                    )
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(16)
@@ -1412,24 +1446,6 @@ private struct HomeHistoryDetailModal: View {
             responseText: llmTrace.responseText,
             errorMessage: llmTrace.errorMessage
         )
-    }
-
-    private var fullDiagnosticSummary: String {
-        var rows: [String] = [
-            "\(L10n.localize("home.detail.diagnostic.response", comment: "Response diagnostic group")): \(HomeHistoryDetailPresentation.pipelineStatusText(for: detail))",
-            "\(L10n.localize("home.detail.diagnostic.warnings", comment: "Warnings diagnostic group")): \(detail.warnings.isEmpty ? L10n.localize("home.detail.diagnostic.no_warnings", comment: "No warnings") : detail.warnings.joined(separator: "、"))",
-            "\(L10n.localize("home.detail.diagnostic.task_metadata", comment: "Task metadata diagnostic group")): \(Self.format(detail.createdAt)) · \(Self.format(detail.updatedAt))"
-        ]
-        if let endpoint = detail.trace?.llm?.endpoint {
-            rows.insert("\(L10n.localize("home.detail.meta.endpoint", comment: "Service endpoint")): \(endpoint)", at: 0)
-        }
-        if let trace = detail.trace,
-           let data = try? JSONEncoder().encode(trace),
-           let json = String(data: data, encoding: .utf8) {
-            rows.append("")
-            rows.append(json)
-        }
-        return rows.joined(separator: "\n")
     }
 
     // MARK: - Dispatch section (for agentDispatch mode)
@@ -1479,8 +1495,8 @@ private struct HomeHistoryDetailModal: View {
                 DetailMetaItem(
                     title: L10n.localize("home.detail.meta.call_result", comment: "Call result"),
                     value: llmTrace.succeeded
-                        ? String(format: L10n.localize("home.detail.meta.call_success_format", comment: "Call success with optional status"), llmTrace.statusCode.map { "（\($0)）" } ?? "")
-                        : String(format: L10n.localize("home.detail.meta.call_failure_format", comment: "Call failure with optional status"), llmTrace.statusCode.map { "（\($0)）" } ?? "")
+                        ? L10n.format("home.detail.meta.call_success_format", comment: "Call success with optional status", llmTrace.statusCode.map { "（\($0)）" } ?? "")
+                        : L10n.format("home.detail.meta.call_failure_format", comment: "Call failure with optional status", llmTrace.statusCode.map { "（\($0)）" } ?? "")
                 )
             }
             DetailMetaItem(title: L10n.localize("home.detail.meta.endpoint", comment: "Service endpoint"), value: llmTrace.endpoint)
@@ -1581,7 +1597,7 @@ private struct ContextBoostTraceBlock: View {
                     title: L10n.localize("home.detail.context.source", comment: "Context source"),
                     value: HomeHistoryDetailPresentation.contextBoostSourceName(for: trace.source)
                 )
-                DetailMetaItem(title: L10n.localize("home.detail.context.ttl", comment: "Context TTL"), value: String(format: L10n.localize("home.detail.seconds_format", comment: "Seconds format"), trace.ttlSeconds))
+                DetailMetaItem(title: L10n.localize("home.detail.context.ttl", comment: "Context TTL"), value: L10n.format("home.detail.seconds_format", comment: "Seconds format", trace.ttlSeconds))
                 if let ocrCharacterCount = trace.ocrCharacterCount {
                     DetailMetaItem(title: L10n.localize("home.detail.context.ocr_characters", comment: "OCR character count"), value: "\(ocrCharacterCount)")
                 }
@@ -1625,7 +1641,7 @@ private struct ContextBoostTraceBlock: View {
             }
 
             if let failureReason = trace.failureReason, !failureReason.isEmpty {
-                Text(String(format: L10n.localize("home.detail.reason_format", comment: "Reason format"), HomeHistoryDetailPresentation.contextBoostFailureReasonText(failureReason)))
+                Text(L10n.format("home.detail.reason_format", comment: "Reason format", HomeHistoryDetailPresentation.contextBoostFailureReasonText(failureReason)))
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1739,8 +1755,7 @@ private struct DeterministicPhaseBlock: View {
                         }
                     }
                     if let selectedProcessorID {
-                        Text(String(
-                            format: L10n.localize("home.detail.deterministic.selected_rule_format", comment: "Selected deterministic rule format"),
+                        Text(L10n.format("home.detail.deterministic.selected_rule_format", comment: "Selected deterministic rule format",
                             Self.processorName(selectedProcessorID)
                         ))
                         .font(.system(size: 11))
@@ -1749,8 +1764,11 @@ private struct DeterministicPhaseBlock: View {
                 }
             }
 
-            if let inputText = phase.inputText, let outputText = phase.outputText {
-                DeterministicBeforeAfterView(inputText: inputText, outputText: outputText)
+            if let comparisonInput = HomeHistoryDetailPresentation.deterministicComparisonInput(for: phase) {
+                // The phase's own input/output is compared here, not the
+                // top-level raw/final text. Default mode is .comparison when
+                // the phase changed and .processed when unchanged.
+                TextComparisonView(input: comparisonInput)
             } else {
                 Text(L10n.localize("home.detail.deterministic.text_unavailable", comment: "Old deterministic trace has no text"))
                     .font(.system(size: 11))
@@ -1797,13 +1815,11 @@ private struct DeterministicPhaseBlock: View {
 
     private var characterChangeText: String {
         if phase.inputCharacterCount == phase.outputCharacterCount {
-            return String(
-                format: L10n.localize("home.detail.deterministic.characters_same_format", comment: "Same character count format"),
+            return L10n.format("home.detail.deterministic.characters_same_format", comment: "Same character count format",
                 phase.outputCharacterCount
             )
         }
-        return String(
-            format: L10n.localize("home.detail.deterministic.characters_changed_format", comment: "Changed character count format"),
+        return L10n.format("home.detail.deterministic.characters_changed_format", comment: "Changed character count format",
             phase.inputCharacterCount,
             phase.outputCharacterCount
         )
@@ -1823,6 +1839,8 @@ private struct DeterministicPhaseBlock: View {
             return L10n.localize("settings.text_processing.long_sentence.title", comment: "Long sentence")
         case "auto_capitalization":
             return L10n.localize("settings.text_processing.auto_capitalization.title", comment: "Auto capitalization")
+        case "style_output_format":
+            return L10n.localize("style.output_format.card.title", comment: "Output format")
         default:
             return id
         }
@@ -1871,50 +1889,6 @@ private struct DeterministicRuleTag: View {
     private var borderColor: Color {
         if isSelected { return AppTheme.ColorToken.accent }
         return isHighlighted ? AppTheme.ColorToken.accent.opacity(0.28) : AppTheme.ColorToken.subtleStroke
-    }
-}
-
-private struct DeterministicBeforeAfterView: View {
-    let inputText: String
-    let outputText: String
-
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8)], spacing: 8) {
-            DeterministicTextSnapshot(
-                title: L10n.localize("home.detail.deterministic.before", comment: "Before deterministic processing"),
-                text: inputText
-            )
-            DeterministicTextSnapshot(
-                title: L10n.localize("home.detail.deterministic.after", comment: "After deterministic processing"),
-                text: outputText
-            )
-        }
-    }
-}
-
-private struct DeterministicTextSnapshot: View {
-    let title: String
-    let text: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            Text(text.isEmpty ? L10n.localize("home.detail.deterministic.empty_text", comment: "Empty deterministic text placeholder") : text)
-                .font(.system(size: 12))
-                .foregroundStyle(AppTheme.ColorToken.primaryText)
-                .textSelection(.enabled)
-                .lineLimit(5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(AppTheme.ColorToken.panelBackground.opacity(0.82))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        }
     }
 }
 
@@ -2001,8 +1975,8 @@ private struct VoiceCorrectionTraceBlock: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
-                DetailMetaItem(title: L10n.localize("home.detail.voice_correction.candidates", comment: "Voice correction candidates"), value: String(format: L10n.localize("home.detail.items_format", comment: "Items count"), trace.candidateEvents.count))
-                DetailMetaItem(title: L10n.localize("home.detail.voice_correction.replacements", comment: "Voice correction replacements"), value: String(format: L10n.localize("home.detail.replacements_format", comment: "Replacements count"), trace.appliedEvents.count))
+                DetailMetaItem(title: L10n.localize("home.detail.voice_correction.candidates", comment: "Voice correction candidates"), value: L10n.format("home.detail.items_format", comment: "Items count", trace.candidateEvents.count))
+                DetailMetaItem(title: L10n.localize("home.detail.voice_correction.replacements", comment: "Voice correction replacements"), value: L10n.format("home.detail.replacements_format", comment: "Replacements count", trace.appliedEvents.count))
                 DetailMetaItem(title: L10n.localize("home.detail.voice_correction.method", comment: "Voice correction method"), value: L10n.localize("home.detail.voice_correction.title", comment: "Text replacement trace title"))
             }
 
@@ -2029,7 +2003,7 @@ private struct VoiceCorrectionTraceBlock: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if displayedEvents.count > 6 {
-                            Text(String(format: L10n.localize("home.detail.voice_correction.more_format", comment: "More hidden events"), displayedEvents.count - 6))
+                            Text(L10n.format("home.detail.voice_correction.more_format", comment: "More hidden events", displayedEvents.count - 6))
                                 .font(.system(size: 10))
                                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
                         }
@@ -2038,14 +2012,14 @@ private struct VoiceCorrectionTraceBlock: View {
             }
 
             if !trace.warnings.isEmpty {
-                Text(String(format: L10n.localize("home.detail.warning_format", comment: "Warning format"), trace.warnings.joined(separator: "、")))
+                Text(L10n.format("home.detail.warning_format", comment: "Warning format", trace.warnings.joined(separator: "、")))
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let failureReason = trace.failureReason, !failureReason.isEmpty {
-                Text(String(format: L10n.localize("home.detail.reason_format", comment: "Reason format"), failureReason))
+                Text(L10n.format("home.detail.reason_format", comment: "Reason format", failureReason))
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2185,6 +2159,7 @@ private struct DiagnosticDisclosureRow<Content: View>: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             content
                 .padding(.top, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label(title, systemImage: systemImage)
                 .font(.system(size: 13, weight: .semibold))
@@ -2197,6 +2172,86 @@ private struct DiagnosticDisclosureRow<Content: View>: View {
                 .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct DiagnosticReadableSummaryView: View {
+    let summary: String
+
+    private var sections: [[String]] {
+        summary
+            .components(separatedBy: "\n\n")
+            .map {
+                $0.split(separator: "\n", omittingEmptySubsequences: true)
+                    .map(String.init)
+            }
+            .filter { !$0.isEmpty }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(sections.enumerated()), id: \.offset) { _, lines in
+                diagnosticSection(lines)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textSelection(.enabled)
+    }
+
+    private func diagnosticSection(_ lines: [String]) -> some View {
+        let firstLine = lines.first ?? ""
+        let hasExplicitTitle = !firstLine.contains(":")
+        let title = hasExplicitTitle ? firstLine : nil
+        let rowLines = hasExplicitTitle ? Array(lines.dropFirst()) : lines
+
+        return VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+            }
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(Array(rowLines.enumerated()), id: \.offset) { _, line in
+                    diagnosticLine(line)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.panelBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func diagnosticLine(_ line: String) -> some View {
+        let parts = splitDiagnosticLine(line)
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(parts.label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .frame(width: 92, alignment: .leading)
+            Text(parts.value)
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func splitDiagnosticLine(_ line: String) -> (label: String, value: String) {
+        guard let separator = line.firstIndex(of: ":") else {
+            return ("", line)
+        }
+        let label = String(line[..<separator])
+        let valueStart = line.index(after: separator)
+        return (
+            label.trimmingCharacters(in: .whitespacesAndNewlines),
+            String(line[valueStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        )
     }
 }
 
@@ -2484,7 +2539,7 @@ private struct SourceApplicationIcon: View {
         .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
         .help(appName)
         .accessibilityLabel(
-            String(format: L10n.localize("home.detail.meta.application_accessibility_format", comment: "Application accessibility label"), appName)
+            L10n.format("home.detail.meta.application_accessibility_format", comment: "Application accessibility label", appName)
         )
     }
 }

@@ -50,6 +50,12 @@ jobs:
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
       - name: Check release metadata
+        env:
+          VOXFLOW_RELEASE_CHECK_REQUIRE_SENTRY: "1"
+          VOXFLOW_SENTRY_DSN: ${{ secrets.VOXFLOW_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: make release-check
 
       - name: Verify release version metadata
@@ -162,6 +168,8 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-mlx-metallib-
 
       - name: Build release DMG
+        env:
+          VOXFLOW_SENTRY_DSN: ${{ secrets.VOXFLOW_SENTRY_DSN }}
         run: |
           start=$(date +%s)
           security unlock-keychain -p "$VOXFLOW_RELEASE_KEYCHAIN_PASSWORD" "$VOXFLOW_RELEASE_KEYCHAIN_PATH"
@@ -175,6 +183,20 @@ jobs:
           echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
           echo "| make dmg | $duration |" >> "$GITHUB_STEP_SUMMARY"
           echo "| MLX metallib cache hit | ${{ steps.mlx-metallib-cache.outputs.cache-hit || 'false' }} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install sentry-cli
+        run: |
+          if ! command -v sentry-cli >/dev/null 2>&1; then
+            curl -sL https://sentry.io/get-cli/ | bash
+          fi
+          sentry-cli --version
+
+      - name: Upload dSYM to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: scripts/upload-sentry-dsym.sh .build/release/VoxFlow.app .build/release/VoxFlow.app.dSYM
 
       - name: Verify release assets
         run: |

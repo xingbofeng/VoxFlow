@@ -14,11 +14,11 @@ enum RecordingSubtitleBurnError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .exportFailed(let reason):
-            return String(format: L10n.localize("subtitle.error.burn_failed_format", comment: ""), reason)
+            return L10n.format("subtitle.error.burn_failed_format", comment: "", reason)
         case .outputMissing:
             return L10n.localize("subtitle.error.burn_output_missing", comment: "")
         case .invalidSource(let reason):
-            return String(format: L10n.localize("subtitle.error.invalid_source_format", comment: ""), reason)
+            return L10n.format("subtitle.error.invalid_source_format", comment: "", reason)
         }
     }
 }
@@ -117,7 +117,7 @@ final class LiveRecordingSubtitleBurner: RecordingSubtitleBurner {
         } catch {
             try? fileManager.removeItem(at: tempOutputURL)
             throw RecordingSubtitleBurnError.exportFailed(
-                String(format: L10n.localize("subtitle.error.export_subtitled_video_failed_format", comment: ""), error.localizedDescription)
+                L10n.format("subtitle.error.export_subtitled_video_failed_format", comment: "", error.localizedDescription)
             )
         }
 

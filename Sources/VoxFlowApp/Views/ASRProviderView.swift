@@ -476,8 +476,7 @@ struct ASRProviderView: View {
         .buttonStyle(.plain)
         .disabled(!interaction.handlesCardTap)
         .accessibilityLabel(
-            String(
-                format: L10n.localize("asr.provider.select_accessibility_format", comment: "Select ASR provider accessibility label"),
+            L10n.format("asr.provider.select_accessibility_format", comment: "Select ASR provider accessibility label",
                 provider.displayName
             )
         )

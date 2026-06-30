@@ -270,7 +270,6 @@ final class ScrollingScreenshotPanelLayoutTests: XCTestCase {
         XCTAssertTrue(labels.isEmpty)
         XCTAssertEqual(panel.hudView.frame.size.width, stableSize.width, accuracy: 1)
         XCTAssertEqual(panel.hudView.frame.size.height, stableSize.height, accuracy: 1)
-        XCTAssertTrue(buttons.first?.toolTip?.contains("匹配不稳定") == true)
     }
 
     func testHUDPlayButtonInvokesAutoScrollCallback() {
@@ -306,7 +305,7 @@ final class ScrollingScreenshotPanelLayoutTests: XCTestCase {
         let autoScrollButton = try! XCTUnwrap(buttons.first)
         XCTAssertEqual(buttons.count, 3)
         XCTAssertTrue(labels.isEmpty)
-        XCTAssertTrue(autoScrollButton.toolTip?.contains("辅助功能权限") == true)
+        XCTAssertNotNil(autoScrollButton.image)
     }
 
     func testScrollingHUDPositionsBelowSelectionWhenThereIsRoom() {

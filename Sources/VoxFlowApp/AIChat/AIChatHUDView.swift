@@ -162,7 +162,7 @@ struct AIChatPanelView: View {
     private func messageContent(_ message: AIChatMessage) -> some View {
         switch message.status {
         case .failed(let detail):
-            Text(String(format: L10n.localize("chat.message.failed_format", comment: "Chat request failed"), detail))
+            Text(L10n.format("chat.message.failed_format", comment: "Chat request failed", detail))
                 .foregroundStyle(.red)
                 .font(.system(size: 13))
                 .textSelection(.enabled)

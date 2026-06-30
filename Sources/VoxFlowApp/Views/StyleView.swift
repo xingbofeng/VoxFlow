@@ -10,6 +10,12 @@ enum StyleViewLayout {
         + 2
 }
 
+enum StyleConfigurationModalPresentationPolicy {
+    static let showsCloseButton = true
+    static let dismissesOnBackdropTap = true
+    static let dismissesOnEscapeKey = true
+}
+
 struct StyleView: View {
     @ObservedObject var viewModel: StyleViewModel
     @State private var prompt = ""
@@ -17,6 +23,8 @@ struct StyleView: View {
     @State private var showingAppSelector = false
     @State private var showingSmartConfiguration = false
     @State private var smartConfigurationViewModel: SmartConfigurationViewModel
+    @State private var autoMatchSheetDraft: StyleAutoMatchSheetDraft?
+    @State private var outputFormatDraft: StyleOutputFormatSheetDraft?
 
     init(viewModel: StyleViewModel) {
         self.viewModel = viewModel
@@ -40,6 +48,8 @@ struct StyleView: View {
                 smartConfigurationOverlay
                     .zIndex(10)
             }
+
+            styleConfigurationOverlay
         }
         .background(AppTheme.ColorToken.pageBackground)
         .tint(AppTheme.ColorToken.accent)
@@ -49,7 +59,7 @@ struct StyleView: View {
             onDismiss: viewModel.clearFeedback
         )
         .onAppear {
-            viewModel.loadIfNeeded()
+            viewModel.load()
             prompt = viewModel.selectedProfile?.prompt ?? ""
             loadInstalledAppsIfNeeded()
         }
@@ -71,7 +81,12 @@ struct StyleView: View {
 
             SmartConfigurationView(
                 viewModel: smartConfigurationViewModel,
-                onClose: dismissSmartConfiguration
+                onClose: dismissSmartConfiguration,
+                onApplied: { result in
+                    viewModel.refreshAfterSmartConfigurationApplied(primaryStyleID: result.primaryStyleID)
+                    prompt = viewModel.selectedProfile?.prompt ?? prompt
+                    loadInstalledApps(force: true)
+                }
             )
             .frame(width: 760, height: 640)
             .background(AppTheme.ColorToken.pageBackground)
@@ -80,6 +95,60 @@ struct StyleView: View {
             .padding(24)
         }
         .transition(.opacity)
+        .onExitCommand {
+            if SmartConfigurationPresentationPolicy.dismissesOnEscapeKey {
+                dismissSmartConfiguration()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var styleConfigurationOverlay: some View {
+        if autoMatchSheetDraft != nil || outputFormatDraft != nil {
+            GeometryReader { proxy in
+                let modalMaxHeight = max(360, proxy.size.height - 72)
+                ZStack {
+                    Color.black.opacity(0.22)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if StyleConfigurationModalPresentationPolicy.dismissesOnBackdropTap {
+                                dismissStyleConfigurationModal()
+                            }
+                        }
+
+                    styleConfigurationModalContent
+                        .frame(maxHeight: modalMaxHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .shadow(color: .black.opacity(0.18), radius: 28, y: 12)
+                        .padding(24)
+                        .onTapGesture {}
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .zIndex(20)
+                .onExitCommand {
+                    if StyleConfigurationModalPresentationPolicy.dismissesOnEscapeKey {
+                        dismissStyleConfigurationModal()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var styleConfigurationModalContent: some View {
+        if autoMatchSheetDraft != nil {
+            autoMatchSheet
+        } else if let fallbackDraft = outputFormatDraft {
+            StyleOutputFormatSheet(
+                draft: outputFormatSheetBinding(fallback: fallbackDraft),
+                previewInput: StyleOutputFormatPreviewText.sampleInput,
+                onCancel: { outputFormatDraft = nil },
+                onSave: saveOutputFormatSheet
+            )
+        }
     }
 
     private func dismissSmartConfiguration() {
@@ -87,6 +156,11 @@ struct StyleView: View {
             smartConfigurationViewModel.cancel()
         }
         showingSmartConfiguration = false
+    }
+
+    private func dismissStyleConfigurationModal() {
+        autoMatchSheetDraft = nil
+        outputFormatDraft = nil
     }
 
     private var styleList: some View {
@@ -109,7 +183,7 @@ struct StyleView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(profile.name)
                                         .font(.system(size: 14, weight: .semibold))
-                                    if let subtitle = profile.subtitle {
+                                    if let subtitle = profile.outputFormatListSubtitle ?? profile.subtitle {
                                         Text(subtitle)
                                             .font(.system(size: 12))
                                             .foregroundStyle(AppTheme.ColorToken.secondaryText)
@@ -172,6 +246,8 @@ struct StyleView: View {
                 .disabled(viewModel.selectedProfile == nil)
             }
             appRoutingSection
+            outputFormatSummarySection
+            autoMatchSummarySection
             HSplitView {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Markdown", systemImage: "text.alignleft")
@@ -228,6 +304,10 @@ struct StyleView: View {
                 }
                 .buttonStyle(.borderless)
                 Button {
+                    guard viewModel.canLaunchSmartConfiguration else {
+                        viewModel.reportSmartConfigurationConfigurationRequired()
+                        return
+                    }
                     smartConfigurationViewModel = viewModel.makeSmartConfigurationViewModel()
                     showingSmartConfiguration = true
                 } label: {
@@ -255,6 +335,21 @@ struct StyleView: View {
                         ForEach(displayedApplications) { app in
                             VStack(spacing: 6) {
                                 ApplicationIconView(name: app.name, iconPath: app.iconPath, size: 46)
+                                if !app.badges.isEmpty {
+                                    HStack(spacing: 4) {
+                                        ForEach(app.badges, id: \.self) { badge in
+                                            Text(badge.title)
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(badge.color)
+                                                .lineLimit(1)
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(badge.color.opacity(0.12))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                    .frame(width: 64, height: 14)
+                                }
                                 Text(app.name)
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
@@ -278,7 +373,7 @@ struct StyleView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.localize("style.action.manage_apps", comment: ""))
                         .font(.system(size: 20, weight: .semibold))
-                    Text(String(format: L10n.localize("style.app_routing.select_app_for_style", comment: ""), viewModel.selectedProfile?.name ?? L10n.localize("style.view.title", comment: "")))
+                    Text(L10n.format("style.app_routing.select_app_for_style", comment: "", viewModel.selectedProfile?.name ?? L10n.localize("style.view.title", comment: "")))
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
@@ -323,8 +418,335 @@ struct StyleView: View {
             .padding(.vertical, 14)
         }
         .frame(width: 560)
+        .frame(minHeight: 460)
+        .background(AppTheme.ColorToken.pageBackground)
+    }
+
+    private var autoMatchSummarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(StyleAutoMatchSummary.label(for: viewModel))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(L10n.localize("style.automatch.sheet.subtitle", comment: ""))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Toggle(
+                    L10n.localize("style.automatch.global.title", comment: ""),
+                    isOn: Binding(
+                        get: { viewModel.autoMatchSettings.globalEnabled },
+                        set: { viewModel.saveGlobalAutoMatchEnabled($0) }
+                    )
+                )
+                .toggleStyle(.switch)
+                .labelsHidden()
+                Button {
+                    openAutoMatchSheet()
+                } label: {
+                    Label(L10n.localize("style.action.configure_auto_match", comment: ""), systemImage: "wand.and.stars")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .appPanel(cornerRadius: AppTheme.Radius.card)
+    }
+
+    private var outputFormatSummarySection: some View {
+        let format = currentOutputFormat
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "textformat.alt")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                    .frame(width: 26, height: 26)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("style.output_format.card.title", comment: ""))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(format.summaryText)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Button {
+                    openOutputFormatSheet()
+                } label: {
+                    Label(L10n.localize("style.action.configure_output_format", comment: ""), systemImage: "slider.horizontal.3")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .appPanel(cornerRadius: AppTheme.Radius.card)
+    }
+
+    private var autoMatchSheet: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("style.automatch.sheet.title", comment: ""))
+                        .font(.system(size: 20, weight: .semibold))
+                    Text(L10n.localize("style.automatch.sheet.subtitle", comment: ""))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                if StyleConfigurationModalPresentationPolicy.showsCloseButton {
+                    Button {
+                        autoMatchSheetDraft = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    autoMatchDescriptionSection
+                    autoMatchContextRoundsSection
+                }
+                .padding(22)
+            }
+
+            Divider()
+
+            HStack {
+                if viewModel.isGeneratingAutoMatchDescription {
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(.leading, 4)
+                }
+                Spacer()
+                Button(L10n.localize("style.automatch.action.cancel", comment: "")) {
+                    autoMatchSheetDraft = nil
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(.cancelAction)
+                Button(L10n.localize("style.automatch.action.save", comment: "")) {
+                    saveAutoMatchSheet()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
+        }
+        .frame(width: 560)
         .frame(minHeight: 520)
         .background(AppTheme.ColorToken.pageBackground)
+    }
+
+    private var autoMatchDescriptionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L10n.localize("style.automatch.description.title", comment: ""))
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer()
+                Button {
+                    Task { await generateAutoMatchDescription() }
+                } label: {
+                    Label(L10n.localize("style.action.generate_auto_match_description", comment: ""), systemImage: "sparkles")
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.selectedProfile == nil || viewModel.isGeneratingAutoMatchDescription)
+            }
+            TextEditor(text: autoMatchDescriptionBinding)
+                .font(.system(.body))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(AppTheme.ColorToken.panelBackground)
+                .overlay(editorBorder)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+                .frame(minHeight: 76)
+            Text(L10n.localize("style.automatch.description.hint", comment: ""))
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var autoMatchContextRoundsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: autoMatchContextEnabledBinding) {
+                Text(L10n.localize("style.automatch.context.title", comment: ""))
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            Text(L10n.localize("style.automatch.context.description", comment: ""))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 18) {
+                autoMatchSliderField(
+                    title: L10n.localize("style.automatch.context.rounds_title", comment: ""),
+                    suffix: L10n.localize("style.automatch.context.rounds_suffix", comment: ""),
+                    value: autoMatchContextRoundsBinding,
+                    range: 0...5
+                )
+                autoMatchSliderField(
+                    title: L10n.localize("style.automatch.context.ttl_title", comment: ""),
+                    suffix: L10n.localize("style.automatch.context.ttl_suffix", comment: ""),
+                    value: autoMatchContextTTLHoursBinding,
+                    range: 1...24,
+                    step: 1
+                )
+            }
+            .padding(.top, 4)
+            .disabled(!autoMatchContextEnabledBinding.wrappedValue)
+            .opacity(autoMatchContextEnabledBinding.wrappedValue ? 1.0 : 0.6)
+        }
+    }
+
+    private func autoMatchSliderField(
+        title: String,
+        suffix: String,
+        value: Binding<Int>,
+        range: ClosedRange<Int>,
+        step: Double = 1
+    ) -> some View {
+        let doubleValue = Binding<Double>(
+            get: { Double(value.wrappedValue) },
+            set: { value.wrappedValue = min(max(Int($0.rounded()), range.lowerBound), range.upperBound) }
+        )
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                Spacer()
+                Text("\(value.wrappedValue) \(suffix)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
+                            .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            }
+            Slider(
+                value: doubleValue,
+                in: Double(range.lowerBound)...Double(range.upperBound),
+                step: step
+            )
+            .tint(AppTheme.ColorToken.accent)
+        }
+    }
+
+    private func saveAutoMatchSheet() {
+        guard let id = viewModel.selectedProfile?.id,
+              let draft = autoMatchSheetDraft else {
+            autoMatchSheetDraft = nil
+            return
+        }
+        do {
+            try viewModel.updateAutoMatchConfiguration(
+                profileID: id,
+                contextRounds: ContextRoundsSettings(
+                    enabled: draft.contextRoundsEnabled,
+                    maxRounds: draft.contextRounds,
+                    ttlHours: draft.contextTTLHours
+                ),
+                autoMatchDescription: draft.description
+            )
+            autoMatchSheetDraft = nil
+        } catch {
+            viewModel.report(error: error)
+        }
+    }
+
+    private func saveOutputFormatSheet() {
+        guard let id = viewModel.selectedProfile?.id,
+              let draft = outputFormatDraft else {
+            outputFormatDraft = nil
+            return
+        }
+        do {
+            try viewModel.updateOutputFormat(id: id, outputFormat: draft.format)
+            outputFormatDraft = nil
+        } catch {
+            viewModel.report(error: error)
+        }
+    }
+
+    private func generateAutoMatchDescription() async {
+        guard let id = viewModel.selectedProfile?.id else { return }
+        await viewModel.generateAutoMatchDescription(forProfileID: id)
+        if let updated = viewModel.selectedProfile,
+           let description = updated.autoMatchDescription {
+            autoMatchSheetDraft?.description = description
+        }
+    }
+
+    private func openAutoMatchSheet() {
+        outputFormatDraft = nil
+        autoMatchSheetDraft = StyleAutoMatchSheetPresentation.makeDraft(
+            from: viewModel.selectedProfile,
+            settings: viewModel.autoMatchSettings
+        )
+    }
+
+    private func openOutputFormatSheet() {
+        autoMatchSheetDraft = nil
+        outputFormatDraft = StyleOutputFormatSheetDraft(format: currentOutputFormat)
+    }
+
+    private func outputFormatSheetBinding(fallback: StyleOutputFormatSheetDraft) -> Binding<StyleOutputFormatSheetDraft> {
+        Binding(
+            get: { outputFormatDraft ?? fallback },
+            set: { outputFormatDraft = $0 }
+        )
+    }
+
+    private var currentOutputFormat: StyleOutputFormat {
+        if let profile = viewModel.selectedProfile {
+            return profile.outputFormat
+                ?? StyleOutputFormat.builtInDefault(for: profile.id)
+                ?? StyleOutputFormat.systemDefault
+        }
+        return StyleOutputFormat.systemDefault
+    }
+
+    private var autoMatchDescriptionBinding: Binding<String> {
+        Binding(
+            get: { autoMatchSheetDraft?.description ?? "" },
+            set: { autoMatchSheetDraft?.description = $0 }
+        )
+    }
+
+    private var autoMatchContextEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { autoMatchSheetDraft?.contextRoundsEnabled ?? true },
+            set: { autoMatchSheetDraft?.contextRoundsEnabled = $0 }
+        )
+    }
+
+    private var autoMatchContextRoundsBinding: Binding<Int> {
+        Binding(
+            get: { autoMatchSheetDraft?.contextRounds ?? 3 },
+            set: { autoMatchSheetDraft?.contextRounds = $0 }
+        )
+    }
+
+    private var autoMatchContextTTLHoursBinding: Binding<Int> {
+        Binding(
+            get: { autoMatchSheetDraft?.contextTTLHours ?? 6 },
+            set: { autoMatchSheetDraft?.contextTTLHours = $0 }
+        )
     }
 
     private var editorBorder: some View {
@@ -342,43 +764,14 @@ struct StyleView: View {
     }
 
     private var displayedApplications: [StyleApplicationDisplay] {
-        let appsByBundleID = Dictionary(
-            installedApps.compactMap { app -> (String, InstalledApplication)? in
-                guard let bundleID = app.bundleID else { return nil }
-                return (bundleID, app)
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-
-        let explicit = selectedRules.map { rule -> StyleApplicationDisplay in
-            let installedApp = appsByBundleID[rule.bundleID]
-            return StyleApplicationDisplay(
-                bundleID: rule.bundleID,
-                name: installedApp?.name ?? rule.appName,
-                iconPath: installedApp?.iconPath
-            )
-        }
-
-        if !explicit.isEmpty {
-            return explicit
-        }
-
         guard let styleID = viewModel.selectedProfile?.id else { return [] }
-        let existingBundleIDs = Set(viewModel.appStyleRules.map { $0.bundleID.lowercased() })
-        return KnownApplicationRegistry.builtIn().entries
-            .filter { $0.suggestedStyleID == styleID }
-            .filter { !existingBundleIDs.contains($0.bundleID.lowercased()) }
-            .prefix(8)
-            .map { entry in
-                let installedApp = installedApps.first {
-                    $0.bundleID?.caseInsensitiveCompare(entry.bundleID) == .orderedSame
-                }
-                return StyleApplicationDisplay(
-                    bundleID: entry.bundleID,
-                    name: installedApp?.name ?? entry.displayName,
-                    iconPath: installedApp?.iconPath
-                )
-            }
+        return StyleApplicationPresentation.displayedApplications(
+            selectedStyleID: styleID,
+            selectedRules: selectedRules,
+            allRules: viewModel.appStyleRules,
+            installedApps: installedApps,
+            autoMatchSettings: viewModel.autoMatchSettings
+        )
     }
 
     private func select(_ profile: StyleProfileRecord) {
@@ -450,12 +843,182 @@ struct StyleView: View {
     }
 }
 
-private struct StyleApplicationDisplay: Identifiable {
+struct StyleApplicationDisplay: Identifiable {
     let bundleID: String
     let name: String
     let iconPath: String?
+    let source: StyleApplicationDisplaySource
+    let badges: [StyleApplicationDisplayBadge]
 
     var id: String { bundleID }
+}
+
+enum StyleApplicationDisplaySource: Equatable {
+    case manual
+    case aiAutoMatch
+}
+
+enum StyleApplicationDisplayBadge: Equatable, Hashable {
+    case temporary
+
+    var title: String {
+        switch self {
+        case .temporary:
+            return L10n.localize("style.app_routing.source_temporary", comment: "")
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .temporary:
+            return AppTheme.ColorToken.accent
+        }
+    }
+}
+
+enum StyleApplicationPresentation {
+    static func displayedApplications(
+        selectedStyleID: String,
+        selectedRules: [AppStyleRule],
+        allRules: [AppStyleRule],
+        installedApps: [InstalledApplication],
+        autoMatchSettings: StyleAutoMatchSettings = .init(),
+        registry: KnownApplicationRegistry = .builtIn(),
+        limit: Int = 8
+    ) -> [StyleApplicationDisplay] {
+        let appsByBundleID = Dictionary(
+            installedApps.compactMap { app -> (String, InstalledApplication)? in
+                guard let bundleID = normalizedBundleID(app.bundleID) else { return nil }
+                return (bundleID, app)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        let explicit = selectedRules.compactMap { rule -> StyleApplicationDisplay? in
+            guard let bundleID = normalizedBundleID(rule.bundleID) else { return nil }
+            let installedApp = appsByBundleID[bundleID]
+            return StyleApplicationDisplay(
+                bundleID: rule.bundleID,
+                name: installedApp?.name ?? rule.appName,
+                iconPath: installedApp?.iconPath,
+                source: .manual,
+                badges: []
+            )
+        }
+        let explicitBundleIDs = Set(allRules.compactMap { normalizedBundleID($0.bundleID) })
+        let automatic = aiRouteCacheDisplays(
+            selectedStyleID: selectedStyleID,
+            autoMatchSettings: autoMatchSettings,
+            appsByBundleID: appsByBundleID,
+            excludingBundleIDs: explicitBundleIDs
+        )
+        return explicit + automatic
+    }
+
+    private static func aiRouteCacheDisplays(
+        selectedStyleID: String,
+        autoMatchSettings: StyleAutoMatchSettings,
+        appsByBundleID: [String: InstalledApplication],
+        excludingBundleIDs explicitBundleIDs: Set<String>
+    ) -> [StyleApplicationDisplay] {
+        guard autoMatchSettings.globalEnabled else { return [] }
+        return autoMatchSettings.routeCache
+            .sorted { lhs, rhs in
+                lhs.value.lastUsedAt > rhs.value.lastUsedAt
+            }
+            .compactMap { key, entry -> StyleApplicationDisplay? in
+                guard entry.styleID == selectedStyleID,
+                      !entry.isExpired,
+                      let identity = routeCacheIdentity(key),
+                      !explicitBundleIDs.contains(identity.bundleID) else {
+                    return nil
+                }
+                let installedApp = appsByBundleID[identity.bundleID]
+                return StyleApplicationDisplay(
+                    bundleID: identity.bundleID,
+                    name: installedApp?.name ?? identity.displayName,
+                    iconPath: installedApp?.iconPath,
+                    source: .aiAutoMatch,
+                    badges: [.temporary]
+                )
+            }
+    }
+
+    private static func normalizedBundleID(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
+    }
+
+    private static func routeCacheIdentity(_ key: String) -> (bundleID: String, displayName: String)? {
+        if key.hasPrefix("bundle:") {
+            let raw = String(key.dropFirst("bundle:".count))
+            guard let bundleID = normalizedBundleID(raw) else { return nil }
+            return (bundleID, raw)
+        }
+        if key.hasPrefix("app:") {
+            let raw = String(key.dropFirst("app:".count))
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return ("app:\(trimmed.lowercased())", trimmed)
+        }
+        return nil
+    }
+}
+
+/// Sheet-local editable draft of a style's auto-match settings.
+/// Keeps the SwiftUI state independent from repository round-trips until the
+/// user explicitly saves the sheet.
+struct StyleAutoMatchSheetDraft: Identifiable {
+    let id = UUID()
+    var description: String = ""
+    var contextRoundsEnabled: Bool = true
+    var contextRounds: Int = 3
+    var contextTTLHours: Int = 6
+
+    init() {}
+
+    init(from profile: StyleProfileRecord?, settings: StyleAutoMatchSettings) {
+        self.description = profile?.autoMatchDescription ?? ""
+        self.contextRoundsEnabled = settings.contextRounds.enabled
+        self.contextRounds = settings.contextRounds.maxRounds
+        self.contextTTLHours = settings.contextRounds.ttlHours
+    }
+}
+
+enum StyleAutoMatchSheetPresentation {
+    static func makeDraft(
+        from profile: StyleProfileRecord?,
+        settings: StyleAutoMatchSettings
+    ) -> StyleAutoMatchSheetDraft {
+        StyleAutoMatchSheetDraft(from: profile, settings: settings)
+    }
+}
+
+/// Pure presentation helper that turns the ViewModel state into the single
+/// localized summary line shown on the style page (OpenSpec §4.5). Kept as a
+/// standalone enum so it can be unit-tested without instantiating SwiftUI.
+@MainActor
+enum StyleAutoMatchSummary {
+    static func label(for viewModel: StyleViewModel) -> String {
+        let profile = viewModel.selectedProfile
+        let globalEnabled = viewModel.autoMatchSettings.globalEnabled
+        if !globalEnabled {
+            return L10n.localize("style.app_routing.auto_match_summary.global_off", comment: "")
+        }
+        guard let profile else {
+            return L10n.localize("style.app_routing.auto_match_summary.style_excluded", comment: "")
+        }
+        if !profile.allowAutoMatch {
+            return L10n.localize("style.app_routing.auto_match_summary.style_excluded", comment: "")
+        }
+        let trimmedDescription = profile.autoMatchDescription?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedDescription.isEmpty {
+            return L10n.localize("style.app_routing.auto_match_summary.no_description", comment: "")
+        }
+        return L10n.localize("style.app_routing.auto_match_summary.eligible", comment: "")
+    }
 }
 
 private struct MarkdownPromptPreview: View {

@@ -82,17 +82,45 @@ public struct DeterministicTextPipeline: Sendable {
 
     /// Post-LLM processing: runs on accepted LLM output before insertion.
     /// Handles punctuation, spacing, line breaking, and capitalization.
-    public func postLLM(_ text: String, isCodingContext: Bool = false) -> String {
-        postLLMSteps(text, isCodingContext: isCodingContext).last?.output ?? text
+    public func postLLM(
+        _ text: String,
+        isCodingContext: Bool = false,
+        outputFormatPolicy: StyleOutputFormatPolicy? = nil
+    ) -> String {
+        postLLMSteps(
+            text,
+            isCodingContext: isCodingContext,
+            outputFormatPolicy: outputFormatPolicy
+        ).last?.output ?? text
     }
 
-    public func postLLMSteps(_ text: String, isCodingContext: Bool = false) -> [DeterministicProcessorStep] {
+    public func postLLMSteps(
+        _ text: String,
+        isCodingContext: Bool = false,
+        outputFormatPolicy: StyleOutputFormatPolicy? = nil
+    ) -> [DeterministicProcessorStep] {
         let s = effective
-        guard s.enabled else { return [] }
+        guard s.enabled || !(outputFormatPolicy?.isEmpty ?? true) else { return [] }
         var result = text
         var steps: [DeterministicProcessorStep] = []
+        let shouldRunPunctuation: Bool = switch outputFormatPolicy?.punctuation {
+        case .complete, .less:
+            true
+        case .noEnding, nil:
+            s.enabled && s.punctuationOptimization
+        case .preserve:
+            false
+        }
+        let shouldRunAutoCapitalization: Bool = switch outputFormatPolicy?.capitalization {
+        case .normal:
+            !isCodingContext
+        case nil:
+            s.enabled && s.autoCapitalization && !isCodingContext
+        case .relaxed, .preserve:
+            false
+        }
 
-        if !isCodingContext {
+        if s.enabled, !isCodingContext {
             let input = result
             let output = normalizeEscapedLineBreaks(result)
             result = output
@@ -105,7 +133,7 @@ public struct DeterministicTextPipeline: Sendable {
             }
         }
 
-        if s.punctuationOptimization {
+        if shouldRunPunctuation {
             let input = result
             let output = PunctuationOptimizer.process(
                 result,
@@ -150,7 +178,7 @@ public struct DeterministicTextPipeline: Sendable {
             ))
         }
 
-        if s.autoCapitalization, !isCodingContext {
+        if shouldRunAutoCapitalization {
             let input = result
             let output = AutoCapitalizer.process(
                 result,
@@ -159,6 +187,17 @@ public struct DeterministicTextPipeline: Sendable {
             result = output
             steps.append(DeterministicProcessorStep(
                 id: "auto_capitalization",
+                input: input,
+                output: output
+            ))
+        }
+
+        if let outputFormatPolicy, !outputFormatPolicy.isEmpty {
+            let input = result
+            let output = StyleOutputFormatter.process(result, policy: outputFormatPolicy)
+            result = output
+            steps.append(DeterministicProcessorStep(
+                id: "style_output_format",
                 input: input,
                 output: output
             ))

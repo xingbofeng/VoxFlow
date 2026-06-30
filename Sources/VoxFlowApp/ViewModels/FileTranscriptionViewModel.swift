@@ -320,8 +320,7 @@ final class FileTranscriptionViewModel: ObservableObject {
             added.append(job)
         }
         lastError = nil
-        lastActionMessage = String(
-            format: L10n.localize("transcribe.feedback.jobs_added", comment: "Added transcription jobs"),
+        lastActionMessage = L10n.format("transcribe.feedback.jobs_added", comment: "Added transcription jobs",
             added.count
         )
         return added
@@ -481,8 +480,7 @@ final class FileTranscriptionViewModel: ObservableObject {
         }
         lastExport = output
         lastError = nil
-        lastActionMessage = String(
-            format: L10n.localize("transcribe.feedback.exported_format", comment: "Exported format result"),
+        lastActionMessage = L10n.format("transcribe.feedback.exported_format", comment: "Exported format result",
             format.title
         )
         return output
@@ -648,13 +646,11 @@ enum FileTranscriptionError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unsupportedFormat(let format):
-            return String(
-                format: L10n.localize("transcribe.error.unsupported_format", comment: "Unsupported file format"),
+            return L10n.format("transcribe.error.unsupported_format", comment: "Unsupported file format",
                 format
             )
         case .unsupportedRecognitionLanguage(let identifier):
-            return String(
-                format: L10n.localize("transcribe.error.unsupported_language", comment: "Unsupported language for transcription"),
+            return L10n.format("transcribe.error.unsupported_language", comment: "Unsupported language for transcription",
                 identifier
             )
         case .resultUnavailable:

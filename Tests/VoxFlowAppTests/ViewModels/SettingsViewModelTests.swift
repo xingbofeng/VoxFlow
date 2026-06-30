@@ -435,7 +435,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedInputDeviceID, "system-default")
     }
 
-    func testUpdatesPersistAudioShortcutGeneralAndAnalyticsSettings() throws {
+    func testUpdatesPersistAudioShortcutAndGeneralSettings() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let shortcutManager = makeShortcutManager()
         let viewModel = SettingsViewModel(
@@ -449,7 +449,6 @@ final class SettingsViewModelTests: XCTestCase {
         try viewModel.updateShortcut(keyCode: 55, longPressThreshold: 0.8, shortPressBehavior: .none)
         try viewModel.updateAudioOptions(soundFeedback: false, voiceEnhancement: false)
         try viewModel.updatePerformanceOptions(muteWhileRecording: true, performanceOptimization: true)
-        try viewModel.setAnalyticsEnabled(true)
 
         XCTAssertEqual(shortcutManager.shortcutKeyCode, 55)
         XCTAssertEqual(shortcutManager.longPressThreshold, 0.8)
@@ -459,8 +458,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.audioVoiceEnhancementEnabled), #"{"value":false}"#)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.audioMuteWhileRecordingEnabled), #"{"value":true}"#)
         XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.performanceOptimizationEnabled), #"{"value":true}"#)
-        XCTAssertEqual(try environment.settingsRepository.value(forKey: SettingsKey.analyticsEnabled), #"{"value":true}"#)
-        XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（仅当前会话生效，重启后可能丢失）")
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新系统设置（仅当前会话生效，重启后可能丢失）")
     }
 
     func testMiddleMouseRecordingSettingLoadsPersistsAndResets() throws {
@@ -667,7 +665,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.systemOption(.llmTraceDiagnostics))
     }
 
-    func testResetSettingsDisablesLLMTraceDiagnosticsRuntimeState() throws {
+    func testResetSettingsRestoresDefaultEnabledLLMTraceDiagnosticsRuntimeState() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let tempRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("VoiceInputSettingsTests-\(UUID().uuidString)")
@@ -694,7 +692,7 @@ final class SettingsViewModelTests: XCTestCase {
             paths: paths
         )
 
-        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: true)
+        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: false)
         try viewModel.updateShortcut(keyCode: 55, longPressThreshold: 0.8, shortPressBehavior: .none)
         try viewModel.updateActionShortcut(action: .agentCompose, keyCode: nil)
         try viewModel.updateActionShortcut(action: .agentDispatch, keyCode: nil)
@@ -707,14 +705,12 @@ final class SettingsViewModelTests: XCTestCase {
         asrManager.groqModel = "custom-groq-model"
         asrManager.tencentRealtimeEngineModelType = "16k_zh_video"
         asrManager.aliyunDashScopeModel = "custom-aliyun-model"
-        LLMDiagnosticCapture.shared.capture(taskID: "before-reset", trace: diagnosticTrace())
-        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
 
         try viewModel.resetSettings()
         LLMDiagnosticCapture.shared.capture(taskID: "after-reset", trace: diagnosticTrace())
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
-        XCTAssertFalse(viewModel.systemOption(.llmTraceDiagnostics))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.llmTraceDiagnosticsDirectory.path))
+        XCTAssertTrue(viewModel.systemOption(.llmTraceDiagnostics))
         XCTAssertEqual(shortcutManager.shortcutKeyCode, ShortcutManager.defaultShortcutKeyCode)
         XCTAssertEqual(shortcutManager.longPressThreshold, ShortcutManager.defaultLongPressThreshold)
         XCTAssertEqual(shortcutManager.shortPressBehavior, .toggleListening)
@@ -821,9 +817,9 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
-        try viewModel.setAnalyticsEnabled(true)
+        try viewModel.setSystemOption(.crashLogs, enabled: true)
 
-        XCTAssertEqual(viewModel.lastActionMessage, "已更新分析设置（存储状态：损坏，不保证已持久保存）")
+        XCTAssertEqual(viewModel.lastActionMessage, "已更新系统设置（存储状态：损坏，不保证已持久保存）")
     }
 
     func testShortcutKeyCodeTextIsValidatedAndApplied() throws {
@@ -1143,6 +1139,107 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
         XCTAssertFalse(reloaded.systemOption(.hideDockIconWhenWorkbenchCloses))
+    }
+
+    func testCrashLogsDefaultOffAndPersists() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertFalse(viewModel.systemOption(.crashLogs))
+
+        try viewModel.setSystemOption(.crashLogs, enabled: true)
+
+        XCTAssertTrue(viewModel.systemOption(.crashLogs))
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsSystemOption.crashLogs.rawValue),
+            #"{"value":true}"#
+        )
+
+        let reloaded = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        XCTAssertTrue(reloaded.systemOption(.crashLogs))
+    }
+
+    func testLLMTraceDiagnosticsDefaultsOnAndPersistsDisabledChoice() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+
+        XCTAssertTrue(viewModel.systemOption(.llmTraceDiagnostics))
+
+        try viewModel.setSystemOption(.llmTraceDiagnostics, enabled: false)
+
+        XCTAssertFalse(viewModel.systemOption(.llmTraceDiagnostics))
+        XCTAssertEqual(
+            try environment.settingsRepository.value(forKey: SettingsSystemOption.llmTraceDiagnostics.rawValue),
+            #"{"value":false}"#
+        )
+
+        let reloaded = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        XCTAssertFalse(reloaded.systemOption(.llmTraceDiagnostics))
+    }
+
+    func testLatestCrashReportSendRequiresPreparedSummaryConfirmation() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let reportURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SettingsViewModelTests-\(UUID().uuidString).ips")
+        try "Thread 0 Crashed".write(to: reportURL, atomically: true, encoding: .utf8)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: reportURL)
+        }
+        var sentPayloads: [ManualCrashReportPayload] = []
+        let report = SystemCrashReport(
+            url: reportURL,
+            summary: SystemCrashReportSummary(
+                processName: "VoxFlow",
+                identifier: "com.voxflow.app.dev",
+                version: "1.10.1 (19)",
+                dateTime: "2026-06-30 12:23:33.7360 +0800",
+                exceptionType: "EXC_BAD_ACCESS (SIGSEGV)",
+                crashedThreadTopFrames: ["0 objc_opt_respondsToSelector"]
+            )
+        )
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            latestCrashReportProvider: { report },
+            manualCrashReportSender: { payload in
+                sentPayloads.append(payload)
+                return .sent
+            }
+        )
+
+        viewModel.sendLatestCrashReport()
+
+        XCTAssertTrue(sentPayloads.isEmpty)
+        XCTAssertEqual(viewModel.lastActionMessage, "请先查看崩溃报告摘要，确认后再发送")
+        XCTAssertTrue(viewModel.prepareLatestCrashReportSendConfirmation())
+        XCTAssertTrue(viewModel.latestCrashReportSummaryText?.contains("EXC_BAD_ACCESS") == true)
+
+        viewModel.sendLatestCrashReport()
+
+        XCTAssertEqual(sentPayloads.count, 1)
+        XCTAssertEqual(viewModel.lastActionMessage, "已发送最近的系统崩溃报告。你也可以开启崩溃日志，后续闪退会自动上报。")
     }
 
     func testExtendedSystemAndPrivacyOptionsPersist() throws {

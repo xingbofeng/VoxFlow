@@ -1,0 +1,23 @@
+// swift-tools-version: 6.0
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "TextDiffing",
+    platforms: [.iOS(.v16), .macOS(.v14)],
+    products: [
+        .library(name: "TextDiffing", targets: [
+            "TextDiffing"
+        ])
+    ],
+    targets: [
+        .target(
+            name: "TextDiffing",
+            exclude: ["Assets.xcassets"]
+        ),
+        .testTarget(name: "TextDiffingTests", dependencies: [
+            "TextDiffing"
+        ])
+    ]
+)

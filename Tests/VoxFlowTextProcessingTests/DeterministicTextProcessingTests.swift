@@ -566,6 +566,109 @@ final class DeterministicTextPipelineTests: XCTestCase {
             "达到那个十万"
         )
     }
+
+    func testStyleNoEndingOverridesGlobalPunctuationCompletion() {
+        let pipeline = DeterministicTextPipeline(settings: .defaults)
+        let result = pipeline.postLLM(
+            "等会儿我把链接发你",
+            outputFormatPolicy: StyleOutputFormatPolicy(
+                punctuation: .noEnding,
+                capitalization: .relaxed
+            )
+        )
+
+        XCTAssertEqual(result, "等会儿我把链接发你")
+        XCTAssertTrue(
+            pipeline.postLLMSteps(
+                "等会儿我把链接发你",
+                outputFormatPolicy: StyleOutputFormatPolicy(punctuation: .noEnding)
+            ).map(\.id).contains("style_output_format")
+        )
+    }
+
+    func testStyleNoEndingPreservesQuestionAndExclamationMarks() {
+        let pipeline = DeterministicTextPipeline(settings: .defaults)
+
+        XCTAssertEqual(
+            pipeline.postLLM("这个可以吗？", outputFormatPolicy: .init(punctuation: .noEnding)),
+            "这个可以吗？"
+        )
+        XCTAssertEqual(
+            pipeline.postLLM("这个太好了！", outputFormatPolicy: .init(punctuation: .noEnding)),
+            "这个太好了！"
+        )
+    }
+
+    func testStyleNoEndingPreservesProtectedRegions() {
+        XCTAssertEqual(
+            StyleOutputFormatter.process(
+                "看 https://example.com.",
+                policy: .init(punctuation: .noEnding)
+            ),
+            "看 https://example.com."
+        )
+        XCTAssertEqual(
+            StyleOutputFormatter.process(
+                "版本是 2.1.3.",
+                policy: .init(punctuation: .noEnding)
+            ),
+            "版本是 2.1.3"
+        )
+    }
+
+    func testStylePreservePunctuationSkipsGlobalPunctuationOptimization() {
+        let pipeline = DeterministicTextPipeline(settings: .defaults)
+
+        XCTAssertEqual(
+            pipeline.postLLM("今天天气不错", outputFormatPolicy: .init(punctuation: .preserve)),
+            "今天天气不错"
+        )
+    }
+
+    func testStyleRelaxedCapitalizationSkipsAutoCapitalizationWithoutLowercasing() {
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: true
+        )
+        let pipeline = DeterministicTextPipeline(settings: settings)
+
+        XCTAssertEqual(
+            pipeline.postLLM("hello World", outputFormatPolicy: .init(capitalization: .relaxed)),
+            "hello World"
+        )
+    }
+
+    func testStyleCompletePunctuationRunsWhenGlobalPunctuationIsDisabled() {
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DeterministicTextPipeline(settings: settings)
+
+        XCTAssertEqual(
+            pipeline.postLLM("今天天气不错", outputFormatPolicy: .init(punctuation: .complete)),
+            "今天天气不错。"
+        )
+    }
+
+    func testStyleNormalCapitalizationRunsWhenGlobalCapitalizationIsDisabled() {
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true,
+            punctuationOptimization: false,
+            cjkLatinSpacing: false,
+            autoCapitalization: false
+        )
+        let pipeline = DeterministicTextPipeline(settings: settings)
+
+        XCTAssertEqual(
+            pipeline.postLLM("hello world", outputFormatPolicy: .init(capitalization: .normal)),
+            "Hello world"
+        )
+    }
 }
 
 final class DeterministicTextProcessingSettingsTests: XCTestCase {

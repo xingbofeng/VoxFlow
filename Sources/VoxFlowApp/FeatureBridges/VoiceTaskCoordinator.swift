@@ -1204,13 +1204,11 @@ enum CoordinatorError: LocalizedError {
                 L10n.localize("dictation.coordinator.llm_not_configured", comment: "LLM not configured message")
             )
         case .llmCallFailed(let reason):
-            return String(
-                format: L10n.localize("dictation.coordinator.llm_call_failed_format", comment: "LLM call failed with reason"),
+            return L10n.format("dictation.coordinator.llm_call_failed_format", comment: "LLM call failed with reason",
                 reason
             )
         case .workflowAlreadyRunning(let kind):
-            return String(
-                format: L10n.localize("dictation.coordinator.workflow_already_running_format", comment: "Workflow already running message"),
+            return L10n.format("dictation.coordinator.workflow_already_running_format", comment: "Workflow already running message",
                 kind
             )
         }

@@ -273,7 +273,7 @@ final class LLMProviderViewModel: ObservableObject {
             lastConnectionResult = result
             let message = models.isEmpty
                 ? result.message
-                : String(format: L10n.localize("model.llm_provider.refresh_models_count_format", comment: ""), result.message, models.count)
+                : L10n.format("model.llm_provider.refresh_models_count_format", comment: "", result.message, models.count)
             try saveHealth(provider: provider, status: "ok", message: message, latencyMS: result.latencyMS)
             lastError = nil
             lastActionMessage = L10n.localize("model.llm_provider.action_refresh_models_success", comment: "")
@@ -316,7 +316,7 @@ final class LLMProviderViewModel: ObservableObject {
         )
         load()
         lastError = nil
-        lastActionMessage = String(format: L10n.localize("model.llm_provider.action_model_selected_format", comment: ""), selectedModel)
+        lastActionMessage = L10n.format("model.llm_provider.action_model_selected_format", comment: "", selectedModel)
         Self.logger.info("llm_provider_vm_select_model_success providerID=\(providerID) modelLen=\(selectedModel.count)")
     }
 
@@ -468,7 +468,7 @@ enum LLMProviderViewModelError: LocalizedError, Equatable {
             return L10n.localize("model.llm_provider.error_provider_disabled", comment: "")
         case let .requiredFields(fields):
             let separator = L10n.localize("model.llm_provider.required_fields_separator", comment: "")
-            return String(format: L10n.localize("model.llm_provider.error_required_fields_format", comment: ""), fields.joined(separator: separator))
+            return L10n.format("model.llm_provider.error_required_fields_format", comment: "", fields.joined(separator: separator))
         }
     }
 }

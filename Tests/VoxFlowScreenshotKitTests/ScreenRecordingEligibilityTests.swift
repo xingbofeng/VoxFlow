@@ -29,7 +29,6 @@ final class ScreenRecordingEligibilityTests: XCTestCase {
 
         XCTAssertEqual(result, .disabled(reason: .crossDisplay))
         XCTAssertFalse(result.isEligible)
-        XCTAssertEqual(ScreenRecordingDisabledReason.crossDisplay.tooltip, "区域录屏暂不支持跨显示器，请只选择一个屏幕内的区域")
     }
 
     func testTinyRegionIsDisabled() {
@@ -42,7 +41,6 @@ final class ScreenRecordingEligibilityTests: XCTestCase {
 
         XCTAssertEqual(result, .disabled(reason: .tooSmall))
         XCTAssertFalse(result.isEligible)
-        XCTAssertEqual(ScreenRecordingDisabledReason.tooSmall.tooltip, "选区录屏区域太小")
     }
 
     func testExactlyMinimumSizeIsEligible() {

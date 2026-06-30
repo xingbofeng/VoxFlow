@@ -14,11 +14,11 @@ enum AgentDispatchHUDPresentation: Equatable {
         switch self {
         case .idle: return ""
         case .listening: return L10n.localize("hud.title.listening", comment: "")
-        case let .exact(agentName, _): return String(format: L10n.localize("hud.title.exact", comment: ""), agentName)
+        case let .exact(agentName, _): return L10n.format("hud.title.exact", comment: "", agentName)
         case .confirmation: return L10n.localize("hud.title.confirmation", comment: "")
         case .fallbackInput: return L10n.localize("hud.title.fallback_input", comment: "")
         case .clipboardFallback: return L10n.localize("hud.title.clipboard_fallback", comment: "")
-        case let .sent(agentName): return String(format: L10n.localize("hud.title.sent", comment: ""), agentName)
+        case let .sent(agentName): return L10n.format("hud.title.sent", comment: "", agentName)
         case .failure: return L10n.localize("hud.title.failure", comment: "")
         }
     }
@@ -26,8 +26,7 @@ enum AgentDispatchHUDPresentation: Equatable {
     var detail: String {
         switch self {
         case .idle, .sent: return ""
-        case let .listening(agentNames): return String(
-            format: L10n.localize("hud.detail.listening_agents", comment: ""),
+        case let .listening(agentNames): return L10n.format("hud.detail.listening_agents", comment: "",
             agentNames.joined(separator: " · ")
         )
         case let .exact(_, message): return message
@@ -37,8 +36,7 @@ enum AgentDispatchHUDPresentation: Equatable {
         case let .failure(message, retainedText):
             return retainedText.isEmpty
                 ? message
-                : String(
-                    format: L10n.localize("hud.detail.failure_with_retained", comment: ""),
+                : L10n.format("hud.detail.failure_with_retained", comment: "",
                     message,
                     retainedText
                 )

@@ -69,15 +69,6 @@ final class PromptBuilderTests: XCTestCase {
         }
     }
 
-    func testEnergeticStyleKeepsControlledEmojiGuidance() throws {
-        let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.energetic"))
-
-        XCTAssertTrue(style.prompt.contains("Emoji 风格化"))
-        XCTAssertTrue(style.prompt.contains("一般 0–1 个，较长内容 1–2 个"))
-        XCTAssertTrue(style.prompt.contains("严禁重复同一个 Emoji"))
-        XCTAssertTrue(try XCTUnwrap(style.sampleOutput).contains("✨"))
-    }
-
     func testEnglishPromptRequiresReadableTransformationAndStylePriority() throws {
         let style = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.energetic"))
         let result = PromptBuilder().build(style: style)

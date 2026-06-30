@@ -17,8 +17,7 @@ enum AudioCaptureCoordinatorError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .busy(let active, let requested):
-            return String(
-                format: L10n.localize("audio.capture.error.busy", comment: "Audio capture busy error message"),
+            return L10n.format("audio.capture.error.busy", comment: "Audio capture busy error message",
                 active.localizedName,
                 requested.localizedName
             )

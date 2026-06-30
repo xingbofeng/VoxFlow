@@ -238,7 +238,7 @@ struct VoiceCorrectionView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(AppTheme.ColorToken.accent)
-                Text(String(format: L10n.localize("vocabulary.hotwords.provider_budget_format", comment: ""), viewModel.visibleTargetCount))
+                Text(L10n.format("vocabulary.hotwords.provider_budget_format", comment: "", viewModel.visibleTargetCount))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 Spacer()
@@ -616,7 +616,7 @@ private struct LearningCandidateRow: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
-            Text(String(format: L10n.localize("vocabulary.learning.observed_count_format", comment: ""), candidate.observedCount))
+            Text(L10n.format("vocabulary.learning.observed_count_format", comment: "", candidate.observedCount))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
         }
@@ -652,7 +652,7 @@ private struct TextReplacementRuleRow: View {
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
             Spacer()
-            Text(String(format: L10n.localize("correction.target.correction_count_format", comment: ""), rule.appliedCount))
+            Text(L10n.format("correction.target.correction_count_format", comment: "", rule.appliedCount))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             Menu {
@@ -830,7 +830,7 @@ private struct VoiceCorrectionTargetDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(alias.original)
                     .font(.system(size: 13, weight: .medium))
-                Text(String(format: L10n.localize("correction.target.correction_count_format", comment: ""), alias.appliedCount))
+                Text(L10n.format("correction.target.correction_count_format", comment: "", alias.appliedCount))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }

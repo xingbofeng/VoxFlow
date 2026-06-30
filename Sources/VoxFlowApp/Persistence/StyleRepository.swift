@@ -17,6 +17,63 @@ struct StyleProfileRecord: Equatable {
     let isDefault: Bool
     let createdAt: Date
     let updatedAt: Date
+    let outputFormat: StyleOutputFormat?
+
+    /// 是否允许此 style 参与 AI 自动风格路由。内置风格默认开启；用户仍可
+    /// 在自动匹配配置中关闭单个 style。
+    let allowAutoMatch: Bool
+
+    /// 一句话简介，供 AI router 理解此 style 适用场景。由用户编辑或由 AI 生成。
+    /// `allowAutoMatch==true` 且简介非空的 style 才会形成 router 候选项。
+    let autoMatchDescription: String?
+
+    init(
+        id: String,
+        name: String,
+        category: String,
+        subtitle: String?,
+        mode: String,
+        prompt: String,
+        sampleInput: String?,
+        sampleOutput: String?,
+        llmProviderID: String?,
+        model: String?,
+        temperature: Double,
+        enabled: Bool,
+        builtIn: Bool,
+        isDefault: Bool,
+        createdAt: Date,
+        updatedAt: Date,
+        outputFormat: StyleOutputFormat? = nil,
+        allowAutoMatch: Bool = true,
+        autoMatchDescription: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.category = category
+        self.subtitle = subtitle
+        self.mode = mode
+        self.prompt = prompt
+        self.sampleInput = sampleInput
+        self.sampleOutput = sampleOutput
+        self.llmProviderID = llmProviderID
+        self.model = model
+        self.temperature = temperature
+        self.enabled = enabled
+        self.builtIn = builtIn
+        self.isDefault = isDefault
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.outputFormat = outputFormat
+        self.allowAutoMatch = allowAutoMatch
+        self.autoMatchDescription = autoMatchDescription
+    }
+
+    /// `true` 表示此 style 满足 AI router 候选条件：启用、允许自动匹配、
+    /// 且 `autoMatchDescription` 非空。
+    var isEligibleForAutoRouter: Bool {
+        enabled && allowAutoMatch && !(autoMatchDescription?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
 }
 
 protocol StyleRepository {
@@ -29,6 +86,8 @@ protocol StyleRepository {
 final class SQLiteStyleRepository: StyleRepository {
     private let databaseQueue: DatabaseQueue
     private let formatter = ISO8601DateFormatter()
+    private let outputFormatEncoder = JSONEncoder()
+    private let outputFormatDecoder = JSONDecoder()
     /// 兼容历史上写入带毫秒的 ISO8601 时间戳的脏数据；只在读取路径作为 fallback 使用。
     private let legacyFractionalFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -51,9 +110,10 @@ final class SQLiteStyleRepository: StyleRepository {
                 INSERT INTO style_profiles (
                     id, name, category, subtitle, mode, prompt, sample_input,
                     sample_output, llm_provider_id, model, temperature, enabled,
-                    built_in, is_default, created_at, updated_at
+                    built_in, is_default, created_at, updated_at,
+                    output_format_json, allow_auto_match, auto_match_description
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     category = excluded.category,
@@ -68,7 +128,10 @@ final class SQLiteStyleRepository: StyleRepository {
                     enabled = excluded.enabled,
                     built_in = excluded.built_in,
                     is_default = excluded.is_default,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    output_format_json = excluded.output_format_json,
+                    allow_auto_match = excluded.allow_auto_match,
+                    auto_match_description = excluded.auto_match_description
                 """
             )
             try bind(profile, to: statement)
@@ -84,7 +147,8 @@ final class SQLiteStyleRepository: StyleRepository {
                 """
                 SELECT id, name, category, subtitle, mode, prompt, sample_input,
                        sample_output, llm_provider_id, model, temperature, enabled,
-                       built_in, is_default, created_at, updated_at
+                       built_in, is_default, created_at, updated_at,
+                       output_format_json, allow_auto_match, auto_match_description
                 FROM style_profiles
                 WHERE id = ?
                 LIMIT 1
@@ -106,7 +170,8 @@ final class SQLiteStyleRepository: StyleRepository {
                 """
                 SELECT id, name, category, subtitle, mode, prompt, sample_input,
                        sample_output, llm_provider_id, model, temperature, enabled,
-                       built_in, is_default, created_at, updated_at
+                       built_in, is_default, created_at, updated_at,
+                       output_format_json, allow_auto_match, auto_match_description
                 FROM style_profiles
                 WHERE category = ?
                 ORDER BY built_in DESC, name ASC
@@ -121,7 +186,8 @@ final class SQLiteStyleRepository: StyleRepository {
             """
             SELECT id, name, category, subtitle, mode, prompt, sample_input,
                    sample_output, llm_provider_id, model, temperature, enabled,
-                   built_in, is_default, created_at, updated_at
+                   built_in, is_default, created_at, updated_at,
+                   output_format_json, allow_auto_match, auto_match_description
             FROM style_profiles
             ORDER BY built_in DESC, name ASC
             """,
@@ -136,7 +202,8 @@ final class SQLiteStyleRepository: StyleRepository {
                 """
                 SELECT id, name, category, subtitle, mode, prompt, sample_input,
                        sample_output, llm_provider_id, model, temperature, enabled,
-                       built_in, is_default, created_at, updated_at
+                       built_in, is_default, created_at, updated_at,
+                       output_format_json, allow_auto_match, auto_match_description
                 FROM style_profiles
                 WHERE is_default = 1
                 LIMIT 1
@@ -183,6 +250,9 @@ final class SQLiteStyleRepository: StyleRepository {
         try statement.bind(profile.isDefault ? 1 : 0, at: 14)
         try statement.bind(formatter.string(from: profile.createdAt), at: 15)
         try statement.bind(formatter.string(from: profile.updatedAt), at: 16)
+        try statement.bind(outputFormatJSON(effectiveOutputFormat(for: profile)), at: 17)
+        try statement.bind(profile.allowAutoMatch ? 1 : 0, at: 18)
+        try statement.bind(profile.autoMatchDescription, at: 19)
     }
 
     private func row(from statement: SQLiteStatement) throws -> StyleProfileRecord {
@@ -198,6 +268,7 @@ final class SQLiteStyleRepository: StyleRepository {
             throw SQLiteError.stepFailed("Invalid style_profiles row.")
         }
 
+        let builtIn = statement.columnInt(at: 12) != 0
         return StyleProfileRecord(
             id: id,
             name: name,
@@ -211,10 +282,37 @@ final class SQLiteStyleRepository: StyleRepository {
             model: statement.columnString(at: 9),
             temperature: statement.columnDouble(at: 10),
             enabled: statement.columnInt(at: 11) != 0,
-            builtIn: statement.columnInt(at: 12) != 0,
+            builtIn: builtIn,
             isDefault: statement.columnInt(at: 13) != 0,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            outputFormat: outputFormat(from: statement.columnString(at: 16))
+                ?? defaultOutputFormat(for: id, builtIn: builtIn),
+            allowAutoMatch: statement.columnInt(at: 17) != 0,
+            autoMatchDescription: statement.columnString(at: 18)
         )
+    }
+
+    private func outputFormatJSON(_ outputFormat: StyleOutputFormat?) throws -> String? {
+        guard let outputFormat else { return nil }
+        let data = try outputFormatEncoder.encode(outputFormat)
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func effectiveOutputFormat(for profile: StyleProfileRecord) -> StyleOutputFormat? {
+        profile.outputFormat ?? defaultOutputFormat(for: profile.id, builtIn: profile.builtIn)
+    }
+
+    private func defaultOutputFormat(for profileID: String, builtIn: Bool) -> StyleOutputFormat {
+        (builtIn ? StyleOutputFormat.builtInDefault(for: profileID) : nil)
+            ?? StyleOutputFormat.systemDefault
+    }
+
+    private func outputFormat(from json: String?) -> StyleOutputFormat? {
+        guard let json,
+              let data = json.data(using: .utf8) else {
+            return nil
+        }
+        return try? outputFormatDecoder.decode(StyleOutputFormat.self, from: data)
     }
 }

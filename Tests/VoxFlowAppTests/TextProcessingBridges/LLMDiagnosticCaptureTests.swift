@@ -206,11 +206,37 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
         XCTAssertEqual(decoded.voiceCorrection?.appliedEvents, [event])
     }
 
+    func testDiagnosticCaptureKeepsContextRoundsTrace() throws {
+        let directory = temporaryDirectory()
+        let capture = LLMDiagnosticCapture()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let contextRounds = ContextRoundsTrace(
+            enabled: true,
+            requestedRounds: 3,
+            usedRounds: 2,
+            contextHistoryIDs: ["same-app-new", "same-app-old"],
+            excludedReasons: ["expired"],
+            wrapperVersion: "context-rounds-wrapper.v1"
+        )
+
+        capture.configure(enabled: true, directory: directory)
+        capture.capture(
+            taskID: "task",
+            trace: trace(contextRounds: contextRounds),
+            at: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let decoded = try XCTUnwrap(capture.trace(taskID: "task"))
+
+        XCTAssertEqual(decoded.contextRounds, contextRounds)
+    }
+
     private func trace(
         request: String = #"{"messages":[{"content":"prompt"}]}"#,
         response: String = "response",
         contextBoost: ContextBoostTrace? = nil,
-        voiceCorrection: VoiceCorrectionTrace? = nil
+        voiceCorrection: VoiceCorrectionTrace? = nil,
+        contextRounds: ContextRoundsTrace? = nil
     ) -> TextProcessingTrace {
         TextProcessingTrace(
             llm: LLMRefinementTrace(
@@ -228,6 +254,7 @@ final class LLMDiagnosticCaptureTests: XCTestCase {
                 completedAt: Date(timeIntervalSince1970: 1_800_000_000)
             ),
             contextBoost: contextBoost,
+            contextRounds: contextRounds,
             voiceCorrection: voiceCorrection
         )
     }

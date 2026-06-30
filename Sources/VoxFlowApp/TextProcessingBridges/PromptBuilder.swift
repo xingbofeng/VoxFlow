@@ -36,6 +36,7 @@ struct TextRefinementRequest: Equatable {
 
 struct PromptBuildResult: Equatable {
     let systemPrompt: String
+    let requestContext: String?
     let llmProviderID: String?
     let styleID: String?
     let model: String?
@@ -44,6 +45,7 @@ struct PromptBuildResult: Equatable {
 
     init(
         systemPrompt: String,
+        requestContext: String? = nil,
         llmProviderID: String?,
         styleID: String?,
         model: String?,
@@ -51,6 +53,7 @@ struct PromptBuildResult: Equatable {
         promptMetadata: PromptTraceMetadata? = nil
     ) {
         self.systemPrompt = systemPrompt
+        self.requestContext = requestContext
         self.llmProviderID = llmProviderID
         self.styleID = styleID
         self.model = model

@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowPromptKit
 
 struct TextTransformChunk: Equatable, Sendable {
     let index: Int
@@ -50,35 +51,37 @@ struct TextTransformRequest: Equatable, Sendable {
 }
 
 enum TextTransformPromptBuilder {
-    static let translationSystemPrompt = """
-        You are VoxFlow's translation assistant. Translate the user-provided text into Simplified Chinese.
-        If the text is already mostly Simplified Chinese, polish it into natural, accurate Simplified Chinese that is ready to use.
-        Preserve code, commands, URL, paths, variable names, proper nouns, and Markdown structure.
-        Output only the translation. Do not explain or add a title.
-        """
+    private static let renderer = PromptRenderer()
 
-    static let summarySystemPrompt = """
-        You are VoxFlow's summarization assistant. Summarize the user-provided text into concise key points.
-        Preserve key facts, numbers, proper nouns, code identifiers, and action items.
-        Output only the summary content. Do not explain your process.
-        """
+    static var translationSystemPrompt: String {
+        renderer.render(TextTransformPromptCatalog.translation).renderedText
+    }
+
+    static var summarySystemPrompt: String {
+        renderer.render(TextTransformPromptCatalog.summary).renderedText
+    }
 
     static func refinementRequest(for request: TextTransformRequest) -> TextRefinementRequest {
-        TextRefinementRequest(
+        let renderResult = renderResult(for: request.operation)
+        let systemPrompt = request.systemPrompt ?? renderResult.renderedText
+        return TextRefinementRequest(
             text: request.text,
-            systemPrompt: request.systemPrompt ?? systemPrompt(for: request.operation),
+            systemPrompt: systemPrompt,
             model: nil,
             temperature: request.temperature,
-            purpose: .directTask
+            purpose: .directTask,
+            promptMetadata: request.systemPrompt == nil
+                ? PromptTraceMetadata.from(result: renderResult)
+                : nil
         )
     }
 
-    private static func systemPrompt(for operation: TextTransformOperation) -> String {
+    private static func renderResult(for operation: TextTransformOperation) -> PromptRenderResult {
         switch operation {
         case .translation:
-            return translationSystemPrompt
+            return renderer.render(TextTransformPromptCatalog.translation)
         case .summary:
-            return summarySystemPrompt
+            return renderer.render(TextTransformPromptCatalog.summary)
         }
     }
 }

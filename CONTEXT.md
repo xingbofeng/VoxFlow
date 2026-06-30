@@ -65,6 +65,8 @@
 - **ASR Hotword Capability Matrix / ASR 热词能力矩阵**: An explicit per-provider capability type (`ASRHotwordCapability`) defining support mode (`nativeHotword`, `promptContext`, `configuredVocabulary`, `unsupported`), count limits, format limits, and pruning strategy. Only providers with real hotword APIs show the `热词` tag in the UI.
 - **LLM Structured Correction / LLM 结构化纠错**: LLM correction prompts that require a structured JSON output (`polished`, `corrections`, `key_terms`). Supports 7 styles: 元气, 原文, 日常, 正式, 编程, 聊天, 邮件. The `默认`, `元气`, `邮件`, `编程`, `正式` templates are product-finalized; others follow the same structure.
 - **StructuredCorrectionParser**: A Swift port of Light-Whisper's `parse_structured_response`, supporting bare JSON, array wrapper, CDATA, XML `<output>` wrapper, and JSON extraction from explanatory text. Parse failures fall back to raw text without blocking output.
+- **Style Output Format / 风格输出格式**: A style-level fixed enum configuration for punctuation, capitalization, tone, and emoji. It is stored with the style profile, summarized in the Style page, injected into runtime prompts, and enforced by deterministic post-processing.
+- **Global deterministic fallback / 全局确定性回退**: The app-wide deterministic punctuation/capitalization settings used only when no effective style output format field overrides them. Default style resolution counts as an effective style.
 
 ## Module Boundaries
 
@@ -167,3 +169,7 @@ Agent compose output is copy-only (clipboard write). No ⌘V injection, no Enter
 ### ADR-012: Agent Dispatch Uses Registered PTY Sessions
 
 Agent Dispatch sends instructions only to registered Agent sessions through a wrapper-owned input channel. This avoids GUI focus/paste risks and keeps MCP as an optional self-reporting interface rather than the mechanism that controls terminal input.
+
+### ADR-013: Style Output Format Overrides Global Formatting
+
+Style output format controls are runtime rules, not user-editable prompt text. When a style is resolved by manual app rule, AI auto-match, or default style, its output-format fields override global deterministic punctuation and capitalization field-by-field. If no effective style exists, the global deterministic settings preserve existing behavior.

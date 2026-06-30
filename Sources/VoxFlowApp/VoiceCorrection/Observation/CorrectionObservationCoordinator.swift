@@ -130,24 +130,21 @@ struct CorrectionObservationLearningEvent: Equatable, Sendable {
 
     var message: String {
         guard items.count == 1, let item = items.first else {
-            return String(format: L10n.localize("correction.feedback.learning_batch_format", comment: ""), items.count)
+            return L10n.format("correction.feedback.learning_batch_format", comment: "", items.count)
         }
         switch item.lifecycle {
         case .active:
-            return String(
-                format: L10n.localize("correction.feedback.auto_learning_active_format", comment: ""),
+            return L10n.format("correction.feedback.auto_learning_active_format", comment: "",
                 item.original,
                 item.replacement
             )
         case .candidate:
-            return String(
-                format: L10n.localize("correction.feedback.auto_learning_pending_format", comment: ""),
+            return L10n.format("correction.feedback.auto_learning_pending_format", comment: "",
                 item.original,
                 item.replacement
             )
         case .suspended, .retired:
-            return String(
-                format: L10n.localize("correction.feedback.auto_learning_recorded_format", comment: ""),
+            return L10n.format("correction.feedback.auto_learning_recorded_format", comment: "",
                 item.original,
                 item.replacement
             )

@@ -236,7 +236,7 @@ final class NotesViewModel: ObservableObject {
         }
         let now = environment.clock.now
         let title = entry.targetAppName.map {
-            String(format: L10n.localize("notes.note_title.from_app_format", comment: "Note title from app name"), $0)
+            L10n.format("notes.note_title.from_app_format", comment: "Note title from app name", $0)
         } ?? L10n.localize("notes.note_title.recording_fallback", comment: "Fallback note title for history")
         let note = NoteRecord(
             id: UUID().uuidString,

@@ -3,11 +3,13 @@ import SwiftUI
 enum SmartConfigurationPresentationPolicy {
     static let showsCloseButton = true
     static let dismissesOnBackdropTap = true
+    static let dismissesOnEscapeKey = true
 }
 
 struct SmartConfigurationView: View {
     @ObservedObject var viewModel: SmartConfigurationViewModel
     let onClose: () -> Void
+    let onApplied: (SmartConfigurationApplyResult) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,7 +111,7 @@ struct SmartConfigurationView: View {
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
                 .frame(width: 260)
-            Text(String(format: L10n.localize("smart.config.discovered_format", comment: ""), viewModel.totalAppCount))
+            Text(SmartConfigurationText.discoveredAppCount(viewModel.totalAppCount))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
             Spacer()
@@ -149,7 +151,7 @@ struct SmartConfigurationView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)
             if viewModel.totalAppCount > 0 {
-                Text(String(format: L10n.localize("smart.config.discovered_format", comment: ""), viewModel.totalAppCount))
+                Text(SmartConfigurationText.discoveredAppCount(viewModel.totalAppCount))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -174,7 +176,7 @@ struct SmartConfigurationView: View {
                     .foregroundStyle(sourceColor(group.source))
                     .clipShape(Capsule())
                 Spacer()
-                Text(String(format: L10n.localize("smart.config.app_count_format", comment: ""), group.recommendations.count))
+                Text(SmartConfigurationText.groupAppCount(group.recommendations.count))
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
             }
@@ -267,7 +269,8 @@ struct SmartConfigurationView: View {
             case .reviewing:
                 Button(L10n.localize("smart.config.button_apply", comment: "")) {
                     do {
-                        try viewModel.confirm()
+                        let result = try viewModel.confirm()
+                        onApplied(result)
                     } catch {
                         // Error will be reported through viewModel feedback
                     }

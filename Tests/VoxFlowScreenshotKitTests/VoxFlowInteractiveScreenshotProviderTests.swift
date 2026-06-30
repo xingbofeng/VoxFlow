@@ -30,7 +30,9 @@ final class VoxFlowInteractiveScreenshotProviderTests: XCTestCase {
             _ = try await provider.capture()
             XCTFail("Expected capture lease failure")
         } catch let error as InteractiveScreenshotError {
-            XCTAssertEqual(error, .captureFailed("已有截图流程正在进行"))
+            guard case .captureFailed = error else {
+                return XCTFail("Expected capture lease failure")
+            }
         }
     }
 

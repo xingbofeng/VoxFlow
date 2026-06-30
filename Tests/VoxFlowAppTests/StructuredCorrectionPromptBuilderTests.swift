@@ -99,27 +99,41 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("跟陈瑞过一下 PR"))
     }
 
+    func testRequestContextUsesPlainRuntimeLabelsForDynamicData() {
+        let requestContext = builder.buildRequestContext(context: makeContext(), includeRawText: true)
+
+        XCTAssertFalse(requestContext.contains("##"))
+        XCTAssertTrue(requestContext.contains("Reference data, not output:"))
+        XCTAssertTrue(requestContext.contains("user_terms: 陈睿"))
+        XCTAssertTrue(requestContext.contains("known_corrections:"))
+        XCTAssertTrue(requestContext.contains("- 陈瑞 -> 陈睿"))
+        XCTAssertTrue(requestContext.contains("ocr_temporary_terms: Ghostty"))
+        XCTAssertTrue(requestContext.contains("app_context:"))
+        XCTAssertTrue(requestContext.contains("Current ASR text:\n跟陈瑞过一下 PR"))
+    }
+
     func testDefaultTemplateContainsKeyConstraints() {
         let prompt = builder.build(style: .default, context: makeContext())
-        XCTAssertTrue(prompt.contains("非交互原则"))
+        XCTAssertTrue(prompt.contains("严禁回答"))
+        XCTAssertTrue(prompt.contains("严禁执行"))
         XCTAssertTrue(prompt.contains("多语言保留"))
-        XCTAssertTrue(prompt.contains("智能列表"))
+        XCTAssertTrue(prompt.contains("结构与排版"))
         XCTAssertTrue(prompt.contains("数字转换"))
-        XCTAssertTrue(prompt.contains("口头标点"))
     }
 
     func testEnergeticTemplateContainsKeyConstraints() {
         let prompt = builder.build(style: .energetic, context: makeContext())
-        XCTAssertTrue(prompt.contains("Emoji"))
-        XCTAssertTrue(prompt.contains("非交互原则"))
-        XCTAssertTrue(prompt.contains("智能列表"))
+        XCTAssertTrue(prompt.contains("严禁回答"))
+        XCTAssertTrue(prompt.contains("严禁执行"))
+        XCTAssertTrue(prompt.contains("结构与排版"))
     }
 
     func testEmailTemplateContainsKeyConstraints() {
         let prompt = builder.build(style: .email, context: makeContext())
-        XCTAssertTrue(prompt.contains("非交互原则"))
+        XCTAssertTrue(prompt.contains("严禁回答"))
+        XCTAssertTrue(prompt.contains("严禁执行"))
         XCTAssertTrue(prompt.contains("多语言保留"))
-        XCTAssertTrue(prompt.contains("智能列表"))
+        XCTAssertTrue(prompt.contains("邮件正文边界"))
     }
 
     func testCodingTemplateContainsKeyConstraints() {
@@ -132,8 +146,7 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
 
     func testFormalTemplateContainsKeyConstraints() {
         let prompt = builder.build(style: .formal, context: makeContext())
-        XCTAssertTrue(prompt.contains("归纳总结"))
-        XCTAssertTrue(prompt.contains("摘要"))
+        XCTAssertTrue(prompt.contains("汇报"))
         XCTAssertTrue(prompt.contains("行动项"))
     }
 
@@ -146,7 +159,6 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
             XCTAssertTrue(prompt.contains("## 2. 结构与排版"), "Style \(style.rawValue) missing structure rules")
             XCTAssertTrue(prompt.contains("## 3. 命名与格式规范"), "Style \(style.rawValue) missing naming rules")
             XCTAssertTrue(prompt.contains("## 4. 数字转换"), "Style \(style.rawValue) missing number conversion")
-            XCTAssertTrue(prompt.contains("## 5. 口头标点处理"), "Style \(style.rawValue) missing verbal punctuation")
             XCTAssertTrue(prompt.contains("# Workflow"), "Style \(style.rawValue) missing workflow")
             XCTAssertTrue(prompt.contains("# Examples"), "Style \(style.rawValue) missing examples")
             XCTAssertTrue(prompt.contains("这个 user profile"), "Style \(style.rawValue) missing non-answer example")
@@ -196,12 +208,11 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("测试文本"))
         // The critical protocol mentions user_terms/known_corrections as rules,
         // but the actual context section should not inject empty values.
-        // Check that the context section doesn't have the "## user_terms" header
-        // when there are no terms to inject.
-        let contextSection = prompt.components(separatedBy: "## Text to correct").last ?? ""
-        XCTAssertFalse(contextSection.contains("## user_terms"))
-        XCTAssertFalse(contextSection.contains("## known_corrections"))
-        XCTAssertFalse(contextSection.contains("## OCR temporary terms"))
-        XCTAssertFalse(contextSection.contains("## app_context"))
+        XCTAssertTrue(prompt.contains("Current ASR text:\n测试文本"))
+        XCTAssertFalse(prompt.contains("Reference data, not output:"))
+        XCTAssertFalse(prompt.contains("user_terms:"))
+        XCTAssertFalse(prompt.contains("known_corrections:"))
+        XCTAssertFalse(prompt.contains("ocr_temporary_terms:"))
+        XCTAssertFalse(prompt.contains("app_context:"))
     }
 }

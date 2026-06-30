@@ -74,30 +74,61 @@ struct StructuredCorrectionPromptBuilder {
         style: StructuredCorrectionStyle,
         context: StructuredCorrectionPromptContext
     ) -> String {
+        build(style: style, context: context, outputFormatRules: nil)
+    }
+
+    func build(
+        style: StructuredCorrectionStyle,
+        context: StructuredCorrectionPromptContext,
+        outputFormatRules: String?
+    ) -> String {
+        [
+            buildSystem(style: style, outputFormatRules: outputFormatRules),
+            buildRequestContext(context: context, includeRawText: true),
+        ].joined(separator: "\n\n---\n\n")
+    }
+
+    func buildSystem(
+        style: StructuredCorrectionStyle,
+        outputFormatRules: String?
+    ) -> String {
         var sections: [String] = []
         let template = StructuredCorrectionPromptCatalog.styleTemplate(for: style)
         sections.append(Self.renderer.render(template).renderedText)
-        sections.append(StructuredCorrectionPromptCatalog.criticalProtocol)
         sections.append(StructuredCorrectionPromptCatalog.outputProtocol)
-        sections.append(contextSection(for: context))
+        sections.append(StructuredCorrectionPromptCatalog.criticalProtocol)
+        if let outputFormatRules {
+            sections.append(outputFormatRules)
+        }
         return sections.joined(separator: "\n\n---\n\n")
     }
 
-    private func contextSection(for context: StructuredCorrectionPromptContext) -> String {
+    func buildRequestContext(
+        context: StructuredCorrectionPromptContext,
+        includeRawText: Bool
+    ) -> String {
         var parts: [String] = []
-        parts.append("## Text to correct\n\(context.rawText)")
+        var referenceLines: [String] = []
         if !context.userTerms.isEmpty {
-            parts.append("## user_terms (user hotwords, reference only)\n\(context.userTerms.joined(separator: ", "))")
+            referenceLines.append("user_terms: \(context.userTerms.joined(separator: ", "))")
         }
         if !context.knownCorrections.isEmpty {
             let corrections = context.knownCorrections.map { "\($0.original) -> \($0.corrected)" }
-            parts.append("## known_corrections (historical evidence; apply only when context fits)\n\(corrections.joined(separator: "\n"))")
+            referenceLines.append("known_corrections:\n\(corrections.map { "- \($0)" }.joined(separator: "\n"))")
         }
         if !context.ocrTemporaryTerms.isEmpty {
-            parts.append("## OCR temporary terms (use only for this request; do not learn)\n\(context.ocrTemporaryTerms.joined(separator: ", "))")
+            referenceLines.append(
+                "ocr_temporary_terms: \(context.ocrTemporaryTerms.joined(separator: ", ")) (use only for this request; do not learn)"
+            )
         }
         if let appContext = context.appContext, !appContext.isEmpty {
-            parts.append("## app_context (application/window context; affects format and style only)\n\(appContext)")
+            referenceLines.append("app_context:\n\(appContext)")
+        }
+        if !referenceLines.isEmpty {
+            parts.append("Reference data, not output:\n\(referenceLines.joined(separator: "\n"))")
+        }
+        if includeRawText {
+            parts.append("Current ASR text:\n\(context.rawText)")
         }
         return parts.joined(separator: "\n\n")
     }

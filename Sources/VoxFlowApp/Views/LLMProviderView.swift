@@ -292,7 +292,7 @@ private struct LLMProviderEditorSheet: View {
                 )
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(String(format: L10n.localize("model.llm_provider.field_api_key_with_required_mark_format", comment: ""), L10n.localize("model.llm_provider.field_api_key", comment: "")))
+                    Text(L10n.format("model.llm_provider.field_api_key_with_required_mark_format", comment: "", L10n.localize("model.llm_provider.field_api_key", comment: "")))
                         .font(.system(size: 13, weight: .medium))
                     HStack(spacing: 8) {
                         Group {

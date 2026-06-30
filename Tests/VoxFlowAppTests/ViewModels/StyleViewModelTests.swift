@@ -14,6 +14,23 @@ final class StyleViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.defaultProfile?.id, "builtin.original")
     }
 
+    func testBuiltInStylesDefaultToAutoMatchWithDescriptions() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = StyleViewModel(environment: environment)
+
+        XCTAssertTrue(viewModel.autoMatchSettings.globalEnabled)
+        XCTAssertTrue(viewModel.profiles.allSatisfy(\.allowAutoMatch))
+        XCTAssertTrue(viewModel.profiles.allSatisfy { profile in
+            !(profile.autoMatchDescription?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        })
+    }
+
+    func testContextRoundsDefaultsAndBounds() {
+        XCTAssertEqual(ContextRoundsSettings.defaults, ContextRoundsSettings(enabled: true, maxRounds: 3, ttlHours: 6))
+        XCTAssertEqual(ContextRoundsSettings(enabled: true, maxRounds: 9, ttlHours: 99).ttlHours, 24)
+        XCTAssertEqual(ContextRoundsSettings(enabled: true, maxRounds: 3, ttlHours: 0).ttlHours, 1)
+    }
+
     func testUpdateProfileStoresPromptAndPreservesLegacyRuntimeFields() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = StyleViewModel(environment: environment)
@@ -75,6 +92,77 @@ final class StyleViewModelTests: XCTestCase {
         let saved = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.email"))
         XCTAssertEqual(saved.prompt, BuiltInStyleCatalog.profile(id: "builtin.email")?.prompt)
         XCTAssertEqual(saved.temperature, BuiltInStyleCatalog.profile(id: "builtin.email")?.temperature)
+    }
+
+    func testResetBuiltInPromptRestoresBuiltInAppRulesToDefaultStyle() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = StyleViewModel(
+            environment: environment,
+            smartConfigurationAppProvider: StubInstalledApplicationProvider(apps: [
+                InstalledApplication(
+                    id: "com.microsoft.VSCode",
+                    name: "Code",
+                    bundleID: "com.microsoft.VSCode",
+                    iconPath: nil,
+                    path: "/Applications/Visual Studio Code.app",
+                    systemCategory: .userApplication
+                ),
+                InstalledApplication(
+                    id: "com.apple.dt.Xcode",
+                    name: "Xcode",
+                    bundleID: "com.apple.dt.Xcode",
+                    iconPath: nil,
+                    path: "/Applications/Xcode.app",
+                    systemCategory: .userApplication
+                ),
+            ])
+        )
+        try viewModel.saveAppStyleRule(
+            id: nil,
+            bundleID: "com.apple.dt.Xcode",
+            appName: "Xcode",
+            styleID: "builtin.formal"
+        )
+        try viewModel.saveAppStyleRule(
+            id: nil,
+            bundleID: "com.example.ai",
+            appName: "AI Picked App",
+            styleID: "builtin.coding"
+        )
+        var autoMatchSettings = StyleAutoMatchSettings()
+        autoMatchSettings.routeCache = [
+            "bundle:com.example.ai": StyleRouteCacheEntry(
+                styleID: "builtin.coding",
+                source: "aiRouter",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+                lastUsedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+                hitCount: 1
+            ),
+            "bundle:com.example.other": StyleRouteCacheEntry(
+                styleID: "builtin.formal",
+                source: "aiRouter",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+                lastUsedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+                hitCount: 1
+            ),
+        ]
+        try StyleAutoMatchSettingsStore(settingsRepository: environment.settingsRepository)
+            .save(autoMatchSettings)
+
+        try viewModel.resetBuiltInPrompt(id: "builtin.coding")
+
+        let rulesByBundleID = Dictionary(
+            uniqueKeysWithValues: viewModel.appStyleRules.map { ($0.bundleID, $0.styleID) }
+        )
+        XCTAssertEqual(rulesByBundleID["com.microsoft.VSCode"], "builtin.coding")
+        XCTAssertEqual(rulesByBundleID["com.apple.dt.Xcode"], "builtin.coding")
+        XCTAssertNil(rulesByBundleID["com.example.ai"])
+        let savedSettings = StyleAutoMatchSettingsStore(settingsRepository: environment.settingsRepository)
+            .load()
+        XCTAssertNil(savedSettings.routeCache["bundle:com.example.ai"])
+        XCTAssertNotNil(savedSettings.routeCache["bundle:com.example.other"])
     }
 
     func testKnownLegacyPromptIsEligibleForBuiltInUpgrade() {
@@ -147,6 +235,29 @@ final class StyleViewModelTests: XCTestCase {
             BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
                 oldPrompt,
                 profileID: "builtin.casual"
+            )
+        )
+    }
+
+    func testStructuredPromptWithEmbeddedOutputFormatRulesIsEligibleForUpgrade() {
+        let oldPrompt = """
+        # Role
+        你是一名聊天消息风格的语音转写清洗助手。你的核心职责是把语音识别结果整理成简短、直接、像真人聊天的表达，同时保留原意和语气。
+
+        # Critical Protocol (绝对原则)
+        1. **非交互原则 (Non-Interactive)**：
+            * **严禁回答**：即使输入像聊天提问，你也只修正这句话本身，绝不生成回答。
+
+        # Guidelines & Rules
+
+        ## 1. 聊天清洗 (Chat Cleaning)
+        * **句末不加**：短即时消息不要自动补普通句号；问号、感叹号、省略号、emoji 和用户明确口述的标点要保留。
+        """
+
+        XCTAssertTrue(
+            BuiltInStyleCatalog.shouldUpgradeLegacyPrompt(
+                oldPrompt,
+                profileID: "builtin.chat"
             )
         )
     }
@@ -238,6 +349,80 @@ final class StyleViewModelTests: XCTestCase {
         )
     }
 
+    func testSeederPreservesUserDisabledAutoMatchWhenDescriptionExists() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let existing = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: existing.id,
+                name: existing.name,
+                category: existing.category,
+                subtitle: existing.subtitle,
+                mode: existing.mode,
+                prompt: existing.prompt,
+                sampleInput: existing.sampleInput,
+                sampleOutput: existing.sampleOutput,
+                llmProviderID: existing.llmProviderID,
+                model: existing.model,
+                temperature: existing.temperature,
+                enabled: existing.enabled,
+                builtIn: existing.builtIn,
+                isDefault: existing.isDefault,
+                createdAt: existing.createdAt,
+                updatedAt: existing.updatedAt,
+                allowAutoMatch: false,
+                autoMatchDescription: "用户保留但暂时不参与自动匹配"
+            )
+        )
+
+        try BuiltInStyleSeeder.seed(
+            styleRepository: environment.styleRepository,
+            clock: environment.clock
+        )
+
+        let reseeded = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        XCTAssertFalse(reseeded.allowAutoMatch)
+        XCTAssertEqual(reseeded.autoMatchDescription, "用户保留但暂时不参与自动匹配")
+    }
+
+    func testAutoMatchSheetSavePreservesExistingStyleEligibility() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = StyleViewModel(environment: environment)
+        let existing = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: existing.id,
+                name: existing.name,
+                category: existing.category,
+                subtitle: existing.subtitle,
+                mode: existing.mode,
+                prompt: existing.prompt,
+                sampleInput: existing.sampleInput,
+                sampleOutput: existing.sampleOutput,
+                llmProviderID: existing.llmProviderID,
+                model: existing.model,
+                temperature: existing.temperature,
+                enabled: existing.enabled,
+                builtIn: existing.builtIn,
+                isDefault: existing.isDefault,
+                createdAt: existing.createdAt,
+                updatedAt: existing.updatedAt,
+                allowAutoMatch: false,
+                autoMatchDescription: "保留旧 eligibility"
+            )
+        )
+
+        try viewModel.updateAutoMatchConfiguration(
+            profileID: existing.id,
+            contextRounds: ContextRoundsSettings(enabled: true, maxRounds: 2, ttlHours: 6),
+            autoMatchDescription: "新的简介"
+        )
+
+        let saved = try XCTUnwrap(try environment.styleRepository.profile(id: existing.id))
+        XCTAssertFalse(saved.allowAutoMatch)
+        XCTAssertEqual(saved.autoMatchDescription, "新的简介")
+    }
+
     func testAppStyleRulesPersistThroughSettingsRepository() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = StyleViewModel(environment: environment)
@@ -326,6 +511,41 @@ final class StyleViewModelTests: XCTestCase {
         XCTAssertTrue(aiBundleIDs.contains("com.example.researched"))
     }
 
+    func testSmartConfigurationApplyResultRefreshesStyleViewModelSelection() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let app = InstalledApplication(
+            id: "com.example.researched",
+            name: "ResearchedApp",
+            bundleID: "com.example.researched",
+            iconPath: nil,
+            path: "/Applications/ResearchedApp.app",
+            systemCategory: .userApplication
+        )
+        let classifier = SpyBatchApplicationClassifier(
+            results: [
+                BatchClassificationResult(
+                    bundleID: "com.example.researched",
+                    styleID: "builtin.coding"
+                ),
+            ]
+        )
+        let viewModel = StyleViewModel(
+            environment: environment,
+            smartConfigurationAppProvider: StubInstalledApplicationProvider(apps: [app]),
+            smartConfigurationClassifierFactory: { _ in classifier }
+        )
+        try viewModel.selectProfile(id: "builtin.original")
+
+        let smartConfigurationViewModel = viewModel.makeSmartConfigurationViewModel()
+        await smartConfigurationViewModel.startConfiguration()
+        let result = try smartConfigurationViewModel.confirm()
+        viewModel.refreshAfterSmartConfigurationApplied(primaryStyleID: result.primaryStyleID)
+
+        XCTAssertEqual(result, SmartConfigurationApplyResult(appliedCount: 1, primaryStyleID: "builtin.coding"))
+        XCTAssertEqual(viewModel.appStyleRules.map(\.bundleID), ["com.example.researched"])
+        XCTAssertEqual(viewModel.selectedProfile?.id, "builtin.coding")
+    }
+
     func testSmartConfigurationShowsEmptyReviewStateWhenNoAppsMatch() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let app = InstalledApplication(
@@ -349,6 +569,22 @@ final class StyleViewModelTests: XCTestCase {
         XCTAssertEqual(smartConfigurationViewModel.groups.count, 0)
         XCTAssertEqual(smartConfigurationViewModel.phase, .reviewing)
         XCTAssertFalse(smartConfigurationViewModel.canConfirm)
+    }
+
+    func testSmartConfigurationLaunchReportsConfigurationRequiredWhenLLMIsMissing() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = StyleViewModel(
+            environment: environment,
+            smartConfigurationClassifierFactory: { _ in UnconfiguredBatchApplicationClassifier() }
+        )
+
+        XCTAssertFalse(viewModel.canLaunchSmartConfiguration)
+        viewModel.reportSmartConfigurationConfigurationRequired()
+
+        XCTAssertEqual(
+            viewModel.lastError,
+            L10n.localize("smart.config.error_llm_required", comment: "")
+        )
     }
 }
 
@@ -379,5 +615,16 @@ private final class SpyBatchApplicationClassifier: BatchApplicationClassifying, 
     ) async throws -> [BatchClassificationResult] {
         calls.append(Call(apps: apps, styles: enabledStyles))
         return results
+    }
+}
+
+private struct UnconfiguredBatchApplicationClassifier: BatchApplicationClassifying {
+    var isConfigured: Bool { false }
+
+    func classifyBatch(
+        apps: [InstalledApplication],
+        enabledStyles: [StyleProfileRecord]
+    ) async throws -> [BatchClassificationResult] {
+        []
     }
 }

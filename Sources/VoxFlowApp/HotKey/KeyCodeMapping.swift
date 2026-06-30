@@ -56,7 +56,7 @@ enum KeyCodeMapping {
         case 46: return "M"
         default:
             logger.debug("KeyCodeMapping fallback base keyCode=\(keyCode)")
-            return String(format: L10n.localize("hotkey.key.unknown_format", comment: ""), keyCode)
+            return L10n.format("hotkey.key.unknown_format", comment: "", keyCode)
         }
     }
 
