@@ -22,22 +22,34 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
             secretKey: "TENCENTSECRET"
         )
         try manager.saveAliyunDashScopeAPIKey("aliyun-secret")
+        try manager.saveVolcengineCredentials(
+            appID: "1234567890",
+            accessToken: "VOLCSECRET",
+            secretKey: "VOLCSECRETKEY"
+        )
 
         XCTAssertTrue(manager.isGroqConfigured)
         XCTAssertTrue(manager.isTencentCloudConfigured)
         XCTAssertTrue(manager.isAliyunDashScopeConfigured)
+        XCTAssertTrue(manager.isVolcengineConfigured)
         XCTAssertEqual(manager.storedGroqAPIKey(), "groq-secret")
         XCTAssertEqual(manager.storedTencentCloudCredentials().secretKey, "TENCENTSECRET")
         XCTAssertEqual(manager.storedAliyunDashScopeAPIKey(), "aliyun-secret")
+        XCTAssertEqual(manager.storedVolcengineCredentials().accessToken, "VOLCSECRET")
+        XCTAssertEqual(manager.storedVolcengineCredentials().secretKey, "VOLCSECRETKEY")
         XCTAssertEqual(credentials.values[ASRManager.groqAPIKeyAccount], "groq-secret")
         XCTAssertEqual(credentials.values[ASRManager.tencentSecretKeyAccount], "TENCENTSECRET")
         XCTAssertEqual(credentials.values[ASRManager.aliyunDashScopeAPIKeyAccount], "aliyun-secret")
+        XCTAssertEqual(credentials.values[ASRManager.volcengineAccessTokenAccount], "VOLCSECRET")
+        XCTAssertEqual(credentials.values[ASRManager.volcengineSecretKeyAccount], "VOLCSECRETKEY")
 
         let records = try environment.settingsRepository.list()
         let allJSON = records.map(\.valueJSON).joined(separator: "\n")
         XCTAssertFalse(allJSON.contains("groq-secret"))
         XCTAssertFalse(allJSON.contains("TENCENTSECRET"))
         XCTAssertFalse(allJSON.contains("aliyun-secret"))
+        XCTAssertFalse(allJSON.contains("VOLCSECRET"))
+        XCTAssertFalse(allJSON.contains("VOLCSECRETKEY"))
         XCTAssertFalse(defaults.dictionaryRepresentation().values.contains { String(describing: $0).contains("SECRET") })
     }
 
@@ -59,6 +71,11 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
             secretID: "AKIDEXAMPLE",
             secretKey: "TENCENTSECRET"
         )
+        try manager.saveVolcengineCredentials(
+            appID: "1234567890",
+            accessToken: "VOLCSECRET",
+            secretKey: "VOLCSECRETKEY"
+        )
 
         manager = ASRManager(
             defaults: defaults,
@@ -70,8 +87,12 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
         XCTAssertEqual(try manager.aliyunDashScopeConfiguration().apiKey, "aliyun-secret")
         XCTAssertEqual(try manager.aliyunDashScopeConfiguration().vocabularyID, "vocab-123")
         XCTAssertEqual(try manager.tencentCloudConfiguration().secretKey, "TENCENTSECRET")
+        XCTAssertEqual(try manager.volcengineConfiguration().accessToken, "VOLCSECRET")
+        XCTAssertEqual(try manager.volcengineConfiguration().secretKey, "VOLCSECRETKEY")
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.tencentSecretKeyAccount))
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.volcengineAccessTokenAccount))
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.volcengineSecretKeyAccount))
     }
 
     func testLegacySettingsDatabaseCredentialsRemainReadableForMigration() throws {

@@ -207,6 +207,7 @@ extension PaletteCommand {
     static let rootCommands: [PaletteCommand] = [
         .recentAssets,
         .assetHistory,
+        .searchFiles,
         .screenshotOCR,
         .startAgentCompose,
         .startAgentDispatch,
@@ -219,6 +220,8 @@ extension PaletteCommand {
             return L10n.localize("palette.root_item.title.recent_assets", comment: "")
         case .assetHistory:
             return L10n.localize("palette.root_item.title.asset_history", comment: "")
+        case .searchFiles:
+            return L10n.localize("palette.root_item.title.search_files", comment: "")
         case .screenshotOCR:
             return L10n.localize("palette.root_item.title.screenshot_ocr", comment: "")
         case .startAgentCompose:
@@ -236,6 +239,8 @@ extension PaletteCommand {
             return L10n.localize("palette.root_item.subtitle.recent_assets", comment: "")
         case .assetHistory:
             return L10n.localize("palette.root_item.subtitle.asset_history", comment: "")
+        case .searchFiles:
+            return L10n.localize("palette.root_item.subtitle.search_files", comment: "")
         case .screenshotOCR:
             return L10n.localize("palette.root_item.subtitle.screenshot_ocr", comment: "")
         case .startAgentCompose:
@@ -253,6 +258,8 @@ extension PaletteCommand {
             return ["asset", "assets", "recent", "最近", "资产"]
         case .assetHistory:
             return ["history", "asset", "assets", "历史", "资产"]
+        case .searchFiles:
+            return ["f", "search", "search files", "find", "file", "files", "文件", "搜索文件"]
         case .screenshotOCR:
             return ["ocr", "screenshot", "截图", "识别"]
         case .startAgentCompose:
@@ -268,6 +275,8 @@ extension PaletteCommand {
         switch self {
         case .recentAssets, .assetHistory:
             return "tray.full"
+        case .searchFiles:
+            return "doc.text.magnifyingglass"
         case .screenshotOCR:
             return "text.viewfinder"
         case .startAgentCompose:

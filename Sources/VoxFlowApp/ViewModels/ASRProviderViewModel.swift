@@ -11,6 +11,7 @@ import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
+import VoxFlowProviderVolcengine
 import VoxFlowProviderWhisper
 
 enum ASRProviderScope: String, CaseIterable, Identifiable {
@@ -130,6 +131,23 @@ enum AliyunDashScopeASRConfigurationError: LocalizedError {
     }
 }
 
+enum VolcengineASRConfigurationError: LocalizedError {
+    case emptyAppID
+    case emptyAccessToken
+    case emptySecretKey
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyAppID:
+            return "火山云 App ID 不能为空。"
+        case .emptyAccessToken:
+            return "火山云 Access Token 不能为空。"
+        case .emptySecretKey:
+            return "火山云 Secret Key 不能为空。"
+        }
+    }
+}
+
 struct GroqASRModelOption: Identifiable, Equatable {
     let id: String
     let title: String
@@ -149,6 +167,7 @@ final class ASRProviderViewModel: ObservableObject {
     static let storedGroqAPIKeyMask = String(repeating: "•", count: 12)
     static let storedTencentSecretMask = String(repeating: "•", count: 12)
     static let storedAliyunDashScopeAPIKeyMask = String(repeating: "•", count: 12)
+    static let storedVolcengineSecretMask = String(repeating: "•", count: 12)
     static let supportedGroqModels: [GroqASRModelOption] = [
         GroqASRModelOption(id: "whisper-large-v3-turbo", title: "Whisper Large V3 Turbo"),
         GroqASRModelOption(id: "whisper-large-v3", title: "Whisper Large V3"),
@@ -175,6 +194,10 @@ final class ASRProviderViewModel: ObservableObject {
     @Published var aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
     @Published var aliyunDashScopeVocabularyIDInput = ""
     @Published private(set) var isTestingAliyunDashScope = false
+    @Published var volcengineAppIDInput = ""
+    @Published var volcengineAccessTokenInput = ""
+    @Published var volcengineSecretKeyInput = ""
+    @Published private(set) var isTestingVolcengine = false
 
     private let environment: any AppServiceProviding
     private let asrManager: ASRManager
@@ -245,6 +268,10 @@ final class ASRProviderViewModel: ObservableObject {
             : ""
         aliyunDashScopeModelInput = AliyunDashScopeRealtimeASRConfiguration.defaultModel
         aliyunDashScopeVocabularyIDInput = resolvedASRManager.aliyunDashScopeVocabularyID
+        let volcengineCredentials = resolvedASRManager.storedVolcengineCredentials()
+        volcengineAppIDInput = volcengineCredentials.appID
+        volcengineAccessTokenInput = volcengineCredentials.accessToken.isEmpty ? "" : Self.storedVolcengineSecretMask
+        volcengineSecretKeyInput = volcengineCredentials.secretKey.isEmpty ? "" : Self.storedVolcengineSecretMask
         refreshProviders(persistRecords: false)
         // 监听菜单栏等外部途径切换模型后的 UserDefaults 变化
         NotificationCenter.default
@@ -296,6 +323,7 @@ final class ASRProviderViewModel: ObservableObject {
     var hasStoredGroqAPIKey: Bool { asrManager.isGroqConfigured }
     var hasStoredTencentCloudCredentials: Bool { asrManager.isTencentCloudConfigured }
     var hasStoredAliyunDashScopeAPIKey: Bool { asrManager.isAliyunDashScopeConfigured }
+    var hasStoredVolcengineCredentials: Bool { asrManager.isVolcengineConfigured }
     var supportedGroqModels: [GroqASRModelOption] { Self.supportedGroqModels }
 
     func groqAPIKeyForEditing() -> String {
@@ -318,6 +346,10 @@ final class ASRProviderViewModel: ObservableObject {
         !text.isEmpty && text == Self.storedAliyunDashScopeAPIKeyMask
     }
 
+    func isMaskedVolcengineSecret(text: String) -> Bool {
+        !text.isEmpty && text == Self.storedVolcengineSecretMask
+    }
+
     func aliyunDashScopeAPIKeyForEditing() -> String {
         hasStoredAliyunDashScopeAPIKey ? Self.storedAliyunDashScopeAPIKeyMask : ""
     }
@@ -328,6 +360,10 @@ final class ASRProviderViewModel: ObservableObject {
 
     func storedTencentCloudCredentialsForEditing() -> (appID: String, secretID: String, secretKey: String) {
         asrManager.storedTencentCloudCredentials()
+    }
+
+    func storedVolcengineCredentialsForEditing() -> (appID: String, accessToken: String, secretKey: String) {
+        asrManager.storedVolcengineCredentials()
     }
 
     func saveGroqConfiguration() {
@@ -542,6 +578,78 @@ final class ASRProviderViewModel: ObservableObject {
         }
     }
 
+    func saveVolcengineConfiguration() {
+        Self.logger.debug("asr_provider_vm_save_volcengine_start appIDLen=\(volcengineAppIDInput.count) tokenMasked=\(isMaskedVolcengineSecret(text: volcengineAccessTokenInput)) secretKeyMasked=\(isMaskedVolcengineSecret(text: volcengineSecretKeyInput))")
+        do {
+            apply(
+                try configurationService.saveVolcengineConfiguration(
+                    appIDInput: volcengineAppIDInput,
+                    accessTokenInput: volcengineAccessTokenInput,
+                    secretKeyInput: volcengineSecretKeyInput,
+                    secretMask: Self.storedVolcengineSecretMask
+                )
+            )
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已保存火山云配置"
+            Self.logger.info("asr_provider_vm_save_volcengine_success configured=\(hasStoredVolcengineCredentials)")
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_save_volcengine_failed error=\(error.localizedDescription)")
+        }
+    }
+
+    func testVolcengineConnection() async {
+        guard !isTestingVolcengine else {
+            Self.logger.debug("asr_provider_vm_test_volcengine_skipped alreadyTesting=true")
+            return
+        }
+        Self.logger.debug("asr_provider_vm_test_volcengine_start")
+        isTestingVolcengine = true
+        defer { isTestingVolcengine = false }
+        do {
+            apply(
+                try configurationService.saveVolcengineConfiguration(
+                    appIDInput: volcengineAppIDInput,
+                    accessTokenInput: volcengineAccessTokenInput,
+                    secretKeyInput: volcengineSecretKeyInput,
+                    secretMask: Self.storedVolcengineSecretMask
+                )
+            )
+            let result = try await configurationService.testVolcengineConnection()
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = result.message
+            Self.logger.info("asr_provider_vm_test_volcengine_success messageLen=\(result.message.count)")
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_test_volcengine_failed error=\(error.localizedDescription)")
+        }
+    }
+
+    func deleteVolcengineCredentials() {
+        Self.logger.debug("asr_provider_vm_delete_volcengine_credentials_start")
+        do {
+            try configurationService.deleteVolcengineCredentials()
+            volcengineAppIDInput = ""
+            volcengineAccessTokenInput = ""
+            volcengineSecretKeyInput = ""
+            refreshProviders(persistRecords: false)
+            scheduleProviderRecordPersistence()
+            lastError = nil
+            lastActionMessage = "已删除火山云凭据"
+            Self.logger.info("asr_provider_vm_delete_volcengine_credentials_success")
+        } catch {
+            lastActionMessage = nil
+            lastError = error.localizedDescription
+            Self.logger.error("asr_provider_vm_delete_volcengine_credentials_failed error=\(error.localizedDescription)")
+        }
+    }
+
     private func apply(_ state: GroqASRConfigurationInputState) {
         groqAPIKeyInput = state.apiKeyInput
         groqBaseURLInput = state.baseURLInput
@@ -559,6 +667,12 @@ final class ASRProviderViewModel: ObservableObject {
         aliyunDashScopeAPIKeyInput = state.apiKeyInput
         aliyunDashScopeModelInput = state.modelInput
         aliyunDashScopeVocabularyIDInput = state.vocabularyIDInput
+    }
+
+    private func apply(_ state: VolcengineASRConfigurationInputState) {
+        volcengineAppIDInput = state.appIDInput
+        volcengineAccessTokenInput = state.accessTokenInput
+        volcengineSecretKeyInput = state.secretKeyInput
     }
 
     func sherpaVariant(for id: String) -> SherpaASRModelVariant? {
@@ -810,6 +924,7 @@ final class ASRProviderViewModel: ObservableObject {
         case ASRProviderID.groqWhisper: return .groqWhisper
         case ASRProviderID.tencentCloudASR: return .tencentCloud
         case ASRProviderID.qwenCloudASR: return .aliyunDashScope
+        case ASRProviderID.volcengineDoubao: return .volcengineDoubao
         default: return nil
         }
     }

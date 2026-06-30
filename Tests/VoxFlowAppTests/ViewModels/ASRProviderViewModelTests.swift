@@ -315,9 +315,17 @@ final class ASRProviderViewModelTests: XCTestCase {
 
         for provider in viewModel.visibleProviders {
             let links = try XCTUnwrap(provider.externalLinks, "\(provider.displayName) should expose external links")
-            XCTAssertEqual(links.apiKeyTitle, "获取 API 密钥")
+            if provider.id == ASRProviderID.volcengineDoubao {
+                XCTAssertEqual(links.apiKeyTitle, "创建语音应用")
+                XCTAssertEqual(links.apiKeyURL.absoluteString, "https://console.volcengine.com/speech/app?opt=create")
+                XCTAssertEqual(links.modelsTitle, "获取 App ID / Token")
+                XCTAssertEqual(links.modelsURL?.absoluteString, "https://console.volcengine.com/speech/service/10038")
+                XCTAssertEqual(links.guideURL?.absoluteString, "https://console.volcengine.com/speech/new/setting/activate")
+            } else {
+                XCTAssertEqual(links.apiKeyTitle, "获取 API 密钥")
+                XCTAssertNotNil(links.modelsURL ?? links.guideURL)
+            }
             XCTAssertFalse(links.apiKeyURL.absoluteString.isEmpty)
-            XCTAssertNotNil(links.modelsURL ?? links.guideURL)
         }
     }
 
@@ -341,7 +349,6 @@ final class ASRProviderViewModelTests: XCTestCase {
         }
 
         for id in [
-            ASRProviderID.volcengineDoubao,
             ASRProviderID.mistralVoxtral,
             ASRProviderID.assemblyAI,
             ASRProviderID.elevenLabsScribe,
@@ -361,6 +368,11 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertFalse(tencent.isAvailable)
         XCTAssertNil(tencent.engineType)
         XCTAssertEqual(tencent.statusMessage, "需要配置 AppID、SecretId 和 SecretKey")
+
+        let volcengine = try XCTUnwrap(viewModel.providers.first { $0.id == ASRProviderID.volcengineDoubao })
+        XCTAssertFalse(volcengine.isAvailable)
+        XCTAssertNil(volcengine.engineType)
+        XCTAssertEqual(volcengine.statusMessage, "需要配置 App ID、Access Token 和 Secret Key")
     }
 
     func testQwenCloudLinksUseReachableOfficialAliyunDocumentation() throws {

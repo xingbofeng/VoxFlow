@@ -22,7 +22,7 @@ enum RecordingPermissionPolicy {
         case .funASR, .whisper, .qwen3, .senseVoice, .paraformer, .nvidiaNemotron,
              .parakeetStreaming, .omnilingualASR:
             return true
-        case .groqWhisper, .tencentCloud, .aliyunDashScope:
+        case .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return true
             }
         }()

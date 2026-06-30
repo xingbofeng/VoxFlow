@@ -163,6 +163,13 @@ let package = Package(
             path: "Sources/VoxFlowProviders/VoxFlowProviderAliyunDashScope"
         ),
         .target(
+            name: "VoxFlowProviderVolcengine",
+            dependencies: [
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderVolcengine"
+        ),
+        .target(
             name: "VoxFlowTextProcessing",
             path: "Sources/VoxFlowTextProcessing"
         ),
@@ -232,6 +239,7 @@ let package = Package(
                 "VoxFlowProviderAliyunDashScope",
                 "VoxFlowProviderCloudCore",
                 "VoxFlowProviderGroq",
+                "VoxFlowProviderVolcengine",
                 "VoxFlowProviderParaformer",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
@@ -443,6 +451,15 @@ let package = Package(
             path: "Tests/VoxFlowProviders/VoxFlowProviderAliyunDashScopeTests"
         ),
         .testTarget(
+            name: "VoxFlowProviderVolcengineTests",
+            dependencies: [
+                "VoxFlowApp",
+                "VoxFlowProviderCloudCore",
+                "VoxFlowProviderVolcengine"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderVolcengineTests"
+        ),
+        .testTarget(
             name: "VoxFlowProviderSmokeTests",
             dependencies: [
                 "VoxFlowASRCore",
@@ -456,6 +473,7 @@ let package = Package(
                 "VoxFlowProviderCloudCore",
                 "VoxFlowProviderParaformer",
                 "VoxFlowProviderGroq",
+                "VoxFlowProviderVolcengine",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
                 "VoxFlowProviderTencentCloud",
@@ -481,6 +499,7 @@ let package = Package(
                 "VoxFlowProviderCloudCore",
                 "VoxFlowProviderParaformer",
                 "VoxFlowProviderGroq",
+                "VoxFlowProviderVolcengine",
                 "VoxFlowProviderQwen3",
                 "VoxFlowProviderSenseVoice",
                 "VoxFlowProviderTencentCloud",

@@ -12,6 +12,7 @@ import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
+import VoxFlowProviderVolcengine
 import VoxFlowProviderWhisper
 
 enum LocalModelDeletionError: LocalizedError, Equatable {
@@ -76,6 +77,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     static let tencentSecretIDAccount = "asr.tencent.secret-id"
     static let tencentSecretKeyAccount = "asr.tencent.secret-key"
     static let aliyunDashScopeAPIKeyAccount = "asr.aliyun-dashscope.api-key"
+    static let volcengineAppIDAccount = "asr.volcengine.app-id"
+    static let volcengineAccessTokenAccount = "asr.volcengine.access-token"
+    static let volcengineSecretKeyAccount = "asr.volcengine.secret-key"
 
     var funASRPrecision: FunASRPrecision {
         get {
@@ -330,6 +334,51 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    var isVolcengineConfigured: Bool {
+        cloudCredentials.isConfigured(account: Self.volcengineAppIDAccount)
+            && cloudCredentials.isConfigured(account: Self.volcengineAccessTokenAccount)
+            && cloudCredentials.isConfigured(account: Self.volcengineSecretKeyAccount)
+    }
+
+    func storedVolcengineCredentials() -> (appID: String, accessToken: String, secretKey: String) {
+        (
+            cloudCredentials.storedCredential(account: Self.volcengineAppIDAccount),
+            cloudCredentials.storedCredential(account: Self.volcengineAccessTokenAccount),
+            cloudCredentials.storedCredential(account: Self.volcengineSecretKeyAccount)
+        )
+    }
+
+    func saveVolcengineCredentials(appID: String, accessToken: String, secretKey: String) throws {
+        try cloudCredentials.saveCredential(appID, account: Self.volcengineAppIDAccount)
+        try cloudCredentials.saveCredential(accessToken, account: Self.volcengineAccessTokenAccount)
+        try cloudCredentials.saveCredential(secretKey, account: Self.volcengineSecretKeyAccount)
+    }
+
+    func deleteVolcengineCredentials() throws {
+        try cloudCredentials.deleteCredential(account: Self.volcengineAppIDAccount)
+        try cloudCredentials.deleteCredential(account: Self.volcengineAccessTokenAccount)
+        try cloudCredentials.deleteCredential(account: Self.volcengineSecretKeyAccount)
+    }
+
+    func volcengineConfiguration() throws -> VolcengineRealtimeASRConfiguration {
+        let credentials = storedVolcengineCredentials()
+        let configuration = VolcengineRealtimeASRConfiguration(
+            appID: credentials.appID,
+            accessToken: credentials.accessToken,
+            secretKey: credentials.secretKey
+        )
+        guard configuration.isComplete else {
+            throw VolcengineRealtimeASRError.missingCredential
+        }
+        return configuration
+    }
+
+    func testVolcengineConnection() async throws -> ASRProviderHealthResult {
+        try await VolcengineRealtimeASRClient().testConnection(
+            configuration: volcengineConfiguration()
+        )
+    }
+
     var groqConfiguration: CloudASRProviderConfiguration {
         CloudASRProviderConfiguration(
             providerID: ASRProviderID.groqWhisper,
@@ -498,7 +547,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         }
 
         switch engineType {
-        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return
         case .qwen3:
             clearAllQwen3ModelInstallationStates()
@@ -567,7 +616,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     func modelInstallationState(for engineType: ASREngineType) -> ModelInstallationState {
         switch engineType {
-        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return .notInstalled
         case .qwen3:
             return qwen3ModelInstallationState(for: qwen3ModelSize)
@@ -740,6 +789,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return ("tencent-\(tencentRealtimeEngineModelType)", nil)
         case .aliyunDashScope:
             return ("aliyun-dashscope-\(aliyunDashScopeModel)", nil)
+        case .volcengineDoubao:
+            return ("volcengine-\(VolcengineRealtimeASRConfiguration.defaultResourceID)", nil)
         }
     }
 
@@ -798,6 +849,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .aliyunDashScope:
             available = isAliyunDashScopeConfigured
             reason = available ? nil : "Aliyun DashScope key missing"
+        case .volcengineDoubao:
+            available = isVolcengineConfigured
+            reason = available ? nil : "Volcengine credentials incomplete"
         }
         if !available, let reason {
             AppLogger.general.info("ASR engine unavailable: type=\(type.rawValue), reason=\(reason)")
@@ -984,6 +1038,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
                 }
                 AppLogger.general.debug("Aliyun DashScope config check passed=\(self.isAliyunDashScopeConfigured)")
                 return try self.aliyunDashScopeConfiguration()
+            }
+        case .volcengineDoubao:
+            return VolcengineRealtimeASREngine { [weak self] in
+                guard let self else {
+                    AppLogger.general.warning("Volcengine ASR config unavailable while closure executes: manager released")
+                    throw VolcengineRealtimeASRError.missingCredential
+                }
+                AppLogger.general.debug("Volcengine config check passed=\(self.isVolcengineConfigured)")
+                return try self.volcengineConfiguration()
             }
         }
     }
@@ -1532,7 +1595,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 
     private func modelInstallKey(for engineType: ASREngineType) -> ModelInstallKey? {
         switch engineType {
-        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return nil
         case .qwen3:
             return Self.qwen3ModelInstallKey(for: qwen3ModelSize)
@@ -1610,7 +1673,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
 private extension ASREngineType {
     var isLocalModelProvider: Bool {
         switch self {
-        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope:
+        case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return false
         case .funASR, .whisper, .qwen3, .senseVoice, .paraformer,
              .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:

@@ -20,6 +20,8 @@
 - **Selection Action Card / 划词动作卡**: The compact surface opened for selected text that offers first-level actions such as translate, summarize, or send to Agent Dispatch.
 - **Text Result Panel / 文本结果面板**: The reusable panel for showing obtained text and derived results such as translation or summary, regardless of whether the source text came from screenshot OCR, selected text, or another text source.
 - **Workbench window**: The regular macOS application window shown in Dock, `⌘Tab`, and Force Quit while the menu-bar dictation controls remain available.
+- **Main Menu / 主菜单**: The macOS top menu owned by VoxFlow. It provides standard app, edit, window, support, product action, and user-facing troubleshooting entries. It complements the status-bar menu rather than duplicating provider and language quick-switch controls.
+- **Support Menu / 帮助与支持菜单**: A user-facing Main Menu section for help and troubleshooting actions that are safe to expose in all builds. It excludes developer-only cache surgery, destructive data cleanup, secrets, clipboard contents, screenshots, and raw user transcription content.
 - **Notes recording flow**: The notes page flow that starts recording, streams transcription into the editor, finishes, and saves a note.
 - **VoiceTask**: A persistent record tracking a voice operation across its entire lifecycle: recording, transcription, context collection, processing, and output. Created at recording start, persisted at each stage, so partial work survives crashes.
 - **VoiceTask mode**: One of `dictation` (right-Command transcription with optional style correction), `agentCompose` ("任务助手" - context-aware LLM generation from user dictation plus window context), or `agentDispatch` (voice-routed instruction delivery to an Agent session).
@@ -43,6 +45,7 @@
 - **Clipboard Asset / 剪切板资产**: User-copied pasteboard content captured for reuse. VoxFlow's internal pasteboard writes are not Clipboard Assets.
 - **Palette Root Search / 启动台根搜索**: The home-level launcher surface that searches and opens Root Items such as VoxFlow commands and installed macOS applications. It is separate from the recent-assets second level.
 - **Palette Root Item / 启动台根项目**: A stable, searchable item on the Palette home surface. Current kinds are command and application; future extension entries should join through the same ID, activation, icon, and alias contract.
+- **Palette File Search / 启动台文件搜索**: A second-level Palette mode entered from the `Search Files` Root Item for filename-based local file lookup, separate from Palette Root Search and Asset history.
 - **Palette Favorites / 启动台最喜欢**: User-pinned Root Items shown at the top of Palette Root Search. Stored as lightweight UI preference metadata and not the same thing as Asset favorites or screenshot `is_favorited`.
 - **Palette Suggestions / 启动台建议**: Root Items ranked by recent use, usage count, and query selection history. Suggestions exclude items already shown in Favorites.
 - **Palette Root Action Panel / 启动台根动作面板**: The `⌘K` action panel for selected Root Items. V1 actions are open, add favorite, and remove favorite; asset rows continue to use `AssetAction`.
@@ -113,6 +116,7 @@
 | `PaletteRootComposer` | Composes URL/Ask AI/Quicklink root items with existing command/application items into a single ranked list | ASR, audio, pasteboard, network requests |
 | `PaletteQuicklink` / `PaletteQuicklinkCatalog` | Built-in Quicklink model and catalog with aliases, search URL templates, and default ordering | UI layout, network downloads, persistence beyond usage/favorites |
 | `PaletteURLDetector` | Pure URL/裸域名/localhost/IP+port detection and normalization for Palette input | Palette ranking, AppKit, network |
+| `Palette/FileSearch` | Palette File Search models, Spotlight-backed filename lookup, recent-file results, file metadata loading, and file actions | Asset persistence, content indexing, semantic search, ASR, network requests |
 | `AIChatSessionViewModel` / `AIChatServicing` / `OpenAICompatibleChatService` | In-memory multi-turn chat session state, OpenAI-compatible streaming chat requests without correction system prompt, SSE parsing reuse | HUD window lifecycle, voice refinement prompt, agent dispatch |
 | `AIChatHUDView` | SwiftUI message list, Markdown rendering via `MarkdownUI`, streaming stop button, bottom input | Network requests, pasteboard, persistence |
 | `SelectionActionDispatcher` (askAI route) | Routes `.askAI` selection action to `.askAIContext(text:)` route, separate from `.agentContext` | LLM calls, HUD presentation |

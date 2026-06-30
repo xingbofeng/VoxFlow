@@ -1961,28 +1961,64 @@ internal enum L10n {
       internal enum Main {
         /// ===== Menu =====
         internal static let about = L10n.tr("Localizable", "menu.main.about", fallback: "About VoxFlow")
+        /// Actions
+        internal static let actions = L10n.tr("Localizable", "menu.main.actions", fallback: "Actions")
+        /// Agent Compose
+        internal static let agentCompose = L10n.tr("Localizable", "menu.main.agent_compose", fallback: "Agent Compose")
+        /// Agent Dispatch
+        internal static let agentDispatch = L10n.tr("Localizable", "menu.main.agent_dispatch", fallback: "Agent Dispatch")
+        /// Bring All to Front
+        internal static let bringAllToFront = L10n.tr("Localizable", "menu.main.bring_all_to_front", fallback: "Bring All to Front")
+        /// Check Permissions
+        internal static let checkPermissions = L10n.tr("Localizable", "menu.main.check_permissions", fallback: "Check Permissions")
         /// Check for Updates
         internal static let checkUpdates = L10n.tr("Localizable", "menu.main.check_updates", fallback: "Check for Updates")
+        /// Close Window
+        internal static let closeWindow = L10n.tr("Localizable", "menu.main.close_window", fallback: "Close Window")
         /// Copy
         internal static let copy = L10n.tr("Localizable", "menu.main.copy", fallback: "Copy")
         /// Cut
         internal static let cut = L10n.tr("Localizable", "menu.main.cut", fallback: "Cut")
+        /// Diagnostics
+        internal static let diagnostics = L10n.tr("Localizable", "menu.main.diagnostics", fallback: "Diagnostics")
         /// Edit
         internal static let edit = L10n.tr("Localizable", "menu.main.edit", fallback: "Edit")
+        /// GitHub
+        internal static let github = L10n.tr("Localizable", "menu.main.github", fallback: "GitHub")
+        /// Help
+        internal static let help = L10n.tr("Localizable", "menu.main.help", fallback: "Help")
         /// Hide VoxFlow
         internal static let hide = L10n.tr("Localizable", "menu.main.hide", fallback: "Hide VoxFlow")
         /// Hide Others
         internal static let hideOthers = L10n.tr("Localizable", "menu.main.hide_others", fallback: "Hide Others")
+        /// Minimize
+        internal static let minimize = L10n.tr("Localizable", "menu.main.minimize", fallback: "Minimize")
+        /// Open Palette
+        internal static let openPalette = L10n.tr("Localizable", "menu.main.open_palette", fallback: "Open Palette")
+        /// Open Workbench
+        internal static let openWorkbench = L10n.tr("Localizable", "menu.main.open_workbench", fallback: "Open Workbench")
         /// Paste
         internal static let paste = L10n.tr("Localizable", "menu.main.paste", fallback: "Paste")
         /// Quit VoxFlow
         internal static let quit = L10n.tr("Localizable", "menu.main.quit", fallback: "Quit VoxFlow")
         /// Redo
         internal static let redo = L10n.tr("Localizable", "menu.main.redo", fallback: "Redo")
+        /// Screenshot OCR
+        internal static let screenshotOcr = L10n.tr("Localizable", "menu.main.screenshot_ocr", fallback: "Screenshot OCR")
         /// Select All
         internal static let selectAll = L10n.tr("Localizable", "menu.main.select_all", fallback: "Select All")
+        /// Selection Action
+        internal static let selectionAction = L10n.tr("Localizable", "menu.main.selection_action", fallback: "Selection Action")
+        /// Settings...
+        internal static let settings = L10n.tr("Localizable", "menu.main.settings", fallback: "Settings...")
+        /// Start Dictation
+        internal static let startDictation = L10n.tr("Localizable", "menu.main.start_dictation", fallback: "Start Dictation")
         /// Undo
         internal static let undo = L10n.tr("Localizable", "menu.main.undo", fallback: "Undo")
+        /// Window
+        internal static let window = L10n.tr("Localizable", "menu.main.window", fallback: "Window")
+        /// Zoom
+        internal static let zoom = L10n.tr("Localizable", "menu.main.zoom", fallback: "Zoom")
       }
       internal enum ProviderTag {
         /// Accurate

@@ -33,6 +33,7 @@ enum ASRMenuOptions {
             ASRMenuModel(engineType: .groqWhisper, title: "Groq"),
             ASRMenuModel(engineType: .tencentCloud, title: "腾讯云"),
             ASRMenuModel(engineType: .aliyunDashScope, title: "阿里云"),
+            ASRMenuModel(engineType: .volcengineDoubao, title: "火山云"),
             ASRMenuModel(engineType: .funASR, funASRPrecision: .int8, title: "FunASR Nano INT8"),
             ASRMenuModel(engineType: .funASR, funASRPrecision: .fp32, title: "FunASR Nano FP32"),
             ASRMenuModel(engineType: .whisper, whisperVariant: .turbo, title: "Whisper Turbo"),

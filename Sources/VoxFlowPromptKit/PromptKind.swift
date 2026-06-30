@@ -49,6 +49,10 @@ extension PromptVersion {
     /// intentionally upgraded in later tasks.
     public static let v1_0_0 = PromptVersion(major: 1, minor: 0, patch: 0)
 
+    /// Tightens the voice-correction base prompt to ASR cleanup and safety
+    /// boundaries, leaving output-format controls to runtime style settings.
+    public static let v1_0_1 = PromptVersion(major: 1, minor: 0, patch: 1)
+
     /// Output-format aligned structured prompts. Introduced when style-level
     /// punctuation/capitalization controls became runtime rules.
     public static let v1_1_0 = PromptVersion(major: 1, minor: 1, patch: 0)

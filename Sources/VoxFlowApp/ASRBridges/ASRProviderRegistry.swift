@@ -622,6 +622,7 @@ final class ASRProviderRegistry {
         let groqAvailable = asrManager.canSelectEngine(.groqWhisper)
         let tencentAvailable = asrManager.canSelectEngine(.tencentCloud)
         let aliyunAvailable = asrManager.canSelectEngine(.aliyunDashScope)
+        let volcengineAvailable = asrManager.canSelectEngine(.volcengineDoubao)
         let providers = [
             onlineDescriptor(
                 id: ASRProviderID.groqWhisper,
@@ -685,13 +686,20 @@ final class ASRProviderRegistry {
                 providerType: "volcengineDoubao",
                 capabilities: [.streaming, .cloud, .fast, .accurate, .punctuation],
                 tags: ["在线", "实时", "准确", "中文"],
-                statusMessage: "暂未支持",
-                privacySummary: "火山云语音识别接入尚未实现，暂不能选择。",
+                isAvailable: volcengineAvailable,
+                isDefault: selectedID == ASRProviderID.volcengineDoubao,
+                engineType: volcengineAvailable ? .volcengineDoubao : nil,
+                statusMessage: volcengineAvailable
+                    ? "已配置，可用于实时云端听写"
+                    : "需要配置 App ID、Access Token 和 Secret Key",
+                privacySummary: "火山云豆包流式语音识别会把录音流式发送到火山引擎，适合中文实时听写。",
                 links: ASRProviderExternalLinks(
-                    apiKeyURL: URL(string: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey")!,
-                    modelsTitle: nil,
-                    guideTitle: "配置指南",
-                    guideURL: URL(string: "https://www.volcengine.com/docs/82379/1520757")!
+                    apiKeyTitle: "创建语音应用",
+                    apiKeyURL: URL(string: "https://console.volcengine.com/speech/app?opt=create")!,
+                    modelsTitle: "获取 App ID / Token",
+                    modelsURL: URL(string: "https://console.volcengine.com/speech/service/10038")!,
+                    guideTitle: "开通服务",
+                    guideURL: URL(string: "https://console.volcengine.com/speech/new/setting/activate")!
                 )
             ),
             onlineDescriptor(

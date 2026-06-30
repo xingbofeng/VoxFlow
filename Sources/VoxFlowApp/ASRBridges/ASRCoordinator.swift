@@ -74,7 +74,7 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
         switch engineType {
         case .qwen3, .whisper, .senseVoice, .funASR, .paraformer, .nvidiaNemotron,
              .parakeetStreaming, .omnilingualASR, .groqWhisper, .tencentCloud,
-             .aliyunDashScope:
+             .aliyunDashScope, .volcengineDoubao:
             return true
         case .apple:
             return false

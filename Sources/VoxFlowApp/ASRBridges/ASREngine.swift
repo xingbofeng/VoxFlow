@@ -14,6 +14,7 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
     case groqWhisper = "Groq Whisper"
     case tencentCloud = "Tencent Cloud ASR"
     case aliyunDashScope = "Aliyun DashScope ASR"
+    case volcengineDoubao = "Volcengine Doubao ASR"
 
     var displayName: String {
         switch self {
@@ -41,6 +42,8 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
             return "腾讯云"
         case .aliyunDashScope:
             return "阿里云"
+        case .volcengineDoubao:
+            return "火山云"
         }
     }
 }
