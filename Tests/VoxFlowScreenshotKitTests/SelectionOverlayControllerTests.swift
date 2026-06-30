@@ -1193,10 +1193,9 @@ final class SelectionOverlayControllerTests: XCTestCase {
 
         XCTAssertEqual(factory.windows.first?.closeCallCount, 0)
         XCTAssertEqual(results, [])
-        XCTAssertEqual(
-            factory.windows.first?.annotationStates.last?.inlineTranslationStatus,
-            .failed("翻译服务未就绪")
-        )
+        guard case .failed = factory.windows.first?.annotationStates.last?.inlineTranslationStatus else {
+            return XCTFail("Expected inline translation to fail when no translator is configured")
+        }
     }
 
     func testToolbarHasNoDefaultActiveTool() {

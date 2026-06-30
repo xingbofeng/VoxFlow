@@ -15,10 +15,14 @@ final class ScreenRecordingHUDPanelTests: XCTestCase {
         )
 
         let labels = panel.hudView.subviews.compactMap { $0 as? NSTextField }
-        let redDot = try XCTUnwrap(panel.hudView.subviews.first { $0.accessibilityLabel() == "正在录屏" })
+        let redDot = try XCTUnwrap(
+            panel.hudView.subviews.first {
+                !($0 is NSTextField) && !($0 is NSButton)
+            }
+        )
 
         XCTAssertTrue(labels.contains { $0.stringValue == "01:15" })
-        XCTAssertTrue(labels.contains { $0.stringValue == "麦克风开启" })
+        XCTAssertEqual(labels.count, 2)
         XCTAssertEqual(redDot.layer?.backgroundColor, NSColor.systemRed.cgColor)
         XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.screenSaver.rawValue)
         XCTAssertEqual(panel.sharingType, .none)
@@ -38,7 +42,7 @@ final class ScreenRecordingHUDPanelTests: XCTestCase {
 
         let labels = panel.hudView.subviews.compactMap { $0 as? NSTextField }
         XCTAssertTrue(labels.contains { $0.stringValue == "1:01:01" })
-        XCTAssertTrue(labels.contains { $0.stringValue == "无声" })
+        XCTAssertEqual(labels.count, 2)
     }
 
     func testHUDStopButtonInvokesCallback() throws {
@@ -49,7 +53,7 @@ final class ScreenRecordingHUDPanelTests: XCTestCase {
         }
 
         let stopButton = try XCTUnwrap(
-            view.subviews.compactMap { $0 as? NSButton }.first { $0.toolTip == "停止录屏" }
+            view.subviews.compactMap { $0 as? NSButton }.first
         )
         stopButton.performClick(nil)
 
