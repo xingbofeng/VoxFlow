@@ -131,6 +131,7 @@ struct AppRuntime {
     let focusedTextObserver: AccessibilityFocusedTextObserver
     let correctionObservationScheduler: CorrectionObservationScheduler
     let clipboardAssetMonitor: ClipboardAssetMonitor
+    let agentRuntimeService: DefaultAgentRuntimeService
     let agentHelperManager: AgentHelperManager?
     let agentRouterClient: AgentRouterClient?
 
@@ -292,6 +293,15 @@ struct AppRuntime {
         let correctionObservationScheduler = CorrectionObservationScheduler(
             coordinator: correctionObservationCoordinator
         )
+        let runtimeClock = environment.clock
+        let agentRuntimeService = DefaultAgentRuntimeService(
+            detector: CodexRuntimeAvailabilityDetector(clock: runtimeClock),
+            workspaceManager: AgentRuntimeWorkspaceManager(
+                paths: environment.paths,
+                now: { runtimeClock.now }
+            ),
+            client: CodexRuntimeClient(clock: runtimeClock)
+        )
         let voiceTaskCoordinator = VoiceTaskCoordinator(
             taskRepository: VoiceTaskRepository(
                 databaseQueue: environment.container.databaseQueue,
@@ -303,6 +313,10 @@ struct AppRuntime {
             clock: environment.clock,
             contextPipeline: ContextPipeline(),
             agentRefiner: textRuntime.llmRefiner,
+            agentRuntimeService: agentRuntimeService,
+            agentRuntimeSelection: {
+                Self.selectedAgentRuntimeProvider(environment: environment)
+            },
             correctionObservationScheduler: correctionObservationScheduler,
             assetRepository: environment.assetRepository,
             isFocusedTextFieldSecure: {
@@ -353,8 +367,22 @@ struct AppRuntime {
             focusedTextObserver: focusedTextObserver,
             correctionObservationScheduler: correctionObservationScheduler,
             clipboardAssetMonitor: clipboardAssetMonitor,
+            agentRuntimeService: agentRuntimeService,
             agentHelperManager: agentHelperManager,
             agentRouterClient: agentRouterClient
+        )
+    }
+
+    static func selectedAgentRuntimeProvider(
+        environment: AppEnvironment
+    ) -> AgentRuntimeProviderSelection? {
+        let providers = (try? environment.llmProviderRepository.list()) ?? []
+        guard let selected = providers.first(where: { $0.enabled && $0.isCodexRuntimeProvider }) else {
+            return nil
+        }
+        return AgentRuntimeProviderSelection(
+            providerID: AgentProviderRegistry.codex.providerID,
+            model: selected.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : selected.defaultModel
         )
     }
 

@@ -107,6 +107,8 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
     var voiceCorrection: VoiceCorrectionTrace? = nil
     var styleRoute: StyleRouteTrace? = nil
     var deterministic: DeterministicProcessingTrace? = nil
+    var agentAction: AgentActionTrace? = nil
+    var agentDispatch: AgentDispatchTrace? = nil
 
     func safeForPersistence() -> TextProcessingTrace {
         TextProcessingTrace(
@@ -120,8 +122,33 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
             // could contain user-derived text on invalid responses, so it is
             // dropped during persistence.
             styleRoute: styleRoute?.safeForPersistence(),
-            deterministic: deterministic?.safeForPersistence()
+            deterministic: deterministic?.safeForPersistence(),
+            agentAction: agentAction?.safeForPersistence(),
+            agentDispatch: agentDispatch?.safeForPersistence()
         )
+    }
+}
+
+struct AgentDispatchTrace: Equatable, Codable, Sendable {
+    let state: String
+    let title: String
+    let detail: String
+    let agentName: String?
+
+    init(
+        state: String,
+        title: String,
+        detail: String,
+        agentName: String? = nil
+    ) {
+        self.state = state
+        self.title = title
+        self.detail = detail
+        self.agentName = agentName
+    }
+
+    func safeForPersistence() -> AgentDispatchTrace {
+        self
     }
 }
 

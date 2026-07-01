@@ -100,14 +100,14 @@
           <span data-i18n="heroBadgeAgent">Route AI</span>
         </div>
         <div class="hero-actions">
-          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.12.1/VoxFlow-1.12.1-macOS.dmg">
+          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.13.0/VoxFlow-1.13.0-macOS.dmg">
             <span class="download-icon" aria-hidden="true">⌘</span>
             <span>
               <strong data-i18n="download">Download for macOS</strong>
               <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
             </span>
           </a>
-          <span class="release-note" data-i18n="releaseNote">v1.12.1 · Free & open source</span>
+          <span class="release-note" data-i18n="releaseNote">v1.13.0 · Free & open source</span>
         </div>
       </div>
       <div class="hero-stage motion" aria-label="VoxFlow preview">
@@ -244,7 +244,7 @@
     <section class="final-cta shell">
       <img src="assets/optimized/voiceinput-logo.webp" alt="" loading="lazy" decoding="async">
       <h2 data-i18n="ctaTitle">让下一句话、下一张截图、下一次翻译都进入工作台。</h2>
-      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.12.1/VoxFlow-1.12.1-macOS.dmg">
+      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.13.0/VoxFlow-1.13.0-macOS.dmg">
         <span>
           <strong data-i18n="download">下载 macOS App</strong>
           <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
@@ -260,6 +260,13 @@
 
   <script id="voxflow-release-data" type="application/json">
 [
+  {
+    "tag_name": "v1.13.0",
+    "name": "VoxFlow 1.13.0",
+    "body": "# VoxFlow 1.13.0\n\n## 更新摘要\n\n- 新增 Codex Runtime Agent 工作流：语音指令可以直接交给本机 Codex 执行，支持页面总结、文件生成和过程事件回写。\n- 升级 LLM / Agent Provider 设置：Codex Runtime 可检测、选择模型，并可作为文本纠错和 Agent Compose 的执行提供方。\n- 改进工作台资产与任务详情：历史记录、Agent 执行轨迹、诊断导出和 HUD 状态展示更完整。\n- 官网迁移到 `mashangxie.app`，README、官网元数据和应用内更新检测地址同步更新。\n\n## 细节\n\n- 功能：接入 Codex app-server runtime，新增受控工作区、屏幕上下文截图、事件归一化、token 用量和失败原因记录。\n- 功能：Agent Dispatch / Agent Compose 会保留文本处理 trace，任务详情页可展示 LLM 修正、Agent 输出和执行轨迹。\n- 功能：LLM Provider 设置新增 Codex Runtime 检测、模型列表刷新、启用后可作为默认 LLM Provider 的能力。\n- 修复：Agent Dispatch 确认前补齐文本处理流程，避免发给助手的内容绕过纠错和上下文处理。\n- 体验：首页资产列表、历史详情、HUD 浮层和多语言文案更新，便于区分语音、截图、录屏、剪贴板与 Agent 资产。\n- 体验：官网 canonical / OG / 更新检测从 GitHub Pages 切换到 `https://mashangxie.app/`。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.13.0\n- `CFBundleVersion`：24\n- DMG：`VoxFlow-1.13.0-macOS.dmg`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.13.0",
+    "published_at": "2026-07-02T00:00:00Z"
+  },
   {
     "tag_name": "v1.12.1",
     "name": "VoxFlow 1.12.1",

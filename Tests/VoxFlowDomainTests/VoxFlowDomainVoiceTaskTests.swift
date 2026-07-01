@@ -228,4 +228,63 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
         XCTAssertTrue(json.contains(#""outputResultKind":"permissionDenied""#))
         XCTAssertTrue(json.contains(#""errorCode":"permissionDenied""#))
     }
+
+    func testDiagnosticExportIncludesSafeAgentActionSummary() throws {
+        let task = VoiceTask(
+            id: "task-agent-action",
+            mode: .agentCompose,
+            stage: .outputting,
+            status: .completed,
+            finalText: "已完成",
+            trace: """
+            {
+              "agentAction": {
+                "providerID": "codex",
+                "executionMode": "codexRuntime",
+                "status": "completed",
+                "userInstruction": "打开我的私密网页",
+                "screenContext": {
+                  "imagePath": "/Users/me/private/screen.png",
+                  "thumbnailPath": "/Users/me/private/screen.png"
+                },
+                "events": [
+                  {
+                    "id": "event-1",
+                    "kind": "toolRequested",
+                    "title": "调用工具 shell",
+                    "detail": "secret command",
+                    "timestamp": "2026-07-01T00:00:00Z",
+                    "isFailure": false
+                  }
+                ],
+                "resultSummary": "已打开",
+                "model": "gpt-5.5",
+                "tokenUsage": {
+                  "inputTokens": 10,
+                  "outputTokens": 2,
+                  "totalTokens": 12
+                },
+                "startedAt": "2026-07-01T00:00:00Z",
+                "completedAt": "2026-07-01T00:00:01Z"
+              }
+            }
+            """,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_001),
+            completedAt: Date(timeIntervalSince1970: 1_800_000_002)
+        )
+
+        let data = try VoiceTaskDiagnosticExporter().export(task)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+
+        XCTAssertTrue(json.contains(#""providerID":"codex""#))
+        XCTAssertTrue(json.contains(#""executionMode":"codexRuntime""#))
+        XCTAssertTrue(json.contains(#""eventCount":1"#))
+        XCTAssertTrue(json.contains(#""hasScreenImage":true"#))
+        XCTAssertTrue(json.contains(#""totalTokens":12"#))
+        XCTAssertFalse(json.contains("打开我的私密网页"))
+        XCTAssertFalse(json.contains("/Users/me/private/screen.png"))
+        XCTAssertFalse(json.contains("secret command"))
+        XCTAssertFalse(json.contains("resultSummary"))
+    }
 }

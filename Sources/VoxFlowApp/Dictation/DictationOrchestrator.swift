@@ -490,7 +490,8 @@ final class DictationOrchestrator {
                 try agentDispatchHandler?.completeFallbackInput(
                     finalText: rawText,
                     outputResult: outputResult,
-                    appliedCorrectionEvents: []
+                    appliedCorrectionEvents: [],
+                    processingTrace: nil
                 )
                 onAgentDispatchPresentation(.fallbackInput(text: rawText))
             } catch {
@@ -891,7 +892,8 @@ final class DictationOrchestrator {
             try agentDispatchHandler?.completeFallbackInput(
                 finalText: finalText,
                 outputResult: outputResult,
-                appliedCorrectionEvents: processingResult.appliedCorrectionEvents
+                appliedCorrectionEvents: processingResult.appliedCorrectionEvents,
+                processingTrace: processingResult.trace
             )
             onAgentDispatchPresentation(.fallbackInput(text: finalText))
             scheduleCorrectionObservationIfNeeded(

@@ -184,6 +184,63 @@ struct HomeAssetGroup: Equatable, Identifiable {
     let items: [HomeAssetItem]
 }
 
+enum HomeAssetSourceFilter: String, CaseIterable, Equatable {
+    case all
+    case dictation
+    case screenshot
+    case clipboard
+    case agentCompose
+    case agentDispatch
+    case selectionTranslation
+    case selectionSummary
+    case selectionAgent
+
+    var assetSources: Set<AssetSource> {
+        switch self {
+        case .all:
+            return []
+        case .dictation, .agentCompose, .agentDispatch, .selectionTranslation, .selectionSummary, .selectionAgent:
+            return [.dictation]
+        case .screenshot:
+            return [.screenshot]
+        case .clipboard:
+            return [.clipboard]
+        }
+    }
+
+    var requiresDerivedFiltering: Bool {
+        switch self {
+        case .dictation, .agentCompose, .agentDispatch, .selectionTranslation, .selectionSummary, .selectionAgent:
+            return true
+        case .all, .screenshot, .clipboard:
+            return false
+        }
+    }
+
+    func matches(_ item: HomeAssetItem) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .dictation:
+            return item.asset.source == .dictation && item.voiceKind == .dictation
+        case .screenshot:
+            return item.asset.source == .screenshot
+        case .clipboard:
+            return item.asset.source == .clipboard
+        case .agentCompose:
+            return item.voiceKind == .agentCompose
+        case .agentDispatch:
+            return item.voiceKind == .agentDispatch
+        case .selectionTranslation:
+            return item.voiceKind == .selectionTranslation
+        case .selectionSummary:
+            return item.voiceKind == .selectionSummary
+        case .selectionAgent:
+            return item.voiceKind == .selectionAgent
+        }
+    }
+}
+
 struct HomeHistoryDetail: Equatable, Identifiable {
     let id: String
     let rawText: String
@@ -358,6 +415,8 @@ final class HomeDashboardViewModel: ObservableObject {
     @Published private(set) var isReprocessing = false
     @Published private(set) var assetCurrentPage = 1
     @Published private(set) var pageSize: Int
+    @Published private(set) var selectedAssetSourceFilter: HomeAssetSourceFilter = .all
+    @Published private(set) var selectedAssetContentTypeFilter: AssetContentType?
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var lastActionTone = ActionFeedbackTone.success
@@ -426,6 +485,7 @@ final class HomeDashboardViewModel: ObservableObject {
 
     func load() {
         do {
+            try repairMissingVoiceTaskAssets()
             try reloadDashboardAggregate()
             try reloadAssetPage()
             hasLoaded = true
@@ -660,6 +720,22 @@ final class HomeDashboardViewModel: ObservableObject {
         refreshAssetPage()
     }
 
+    func updateAssetContentTypeFilter(_ contentType: AssetContentType?) {
+        guard selectedAssetContentTypeFilter != contentType else { return }
+        selectedAssetContentTypeFilter = contentType
+        assetCurrentPage = 1
+        selectedAssetIDs = []
+        refreshAssetPage()
+    }
+
+    func updateAssetSourceFilter(_ source: HomeAssetSourceFilter) {
+        guard selectedAssetSourceFilter != source else { return }
+        selectedAssetSourceFilter = source
+        assetCurrentPage = 1
+        selectedAssetIDs = []
+        refreshAssetPage()
+    }
+
     // MARK: - Recovery actions
 
     /// Returns the available recovery actions for the selected history detail.
@@ -877,7 +953,8 @@ final class HomeDashboardViewModel: ObservableObject {
         assetSearchGeneration += 1
 
         let generation = assetSearchGeneration
-        let query = assetPageQuery()
+        let sourceFilter = selectedAssetSourceFilter
+        let query = assetPageQuery(fetchAllForDerivedFiltering: sourceFilter.requiresDerivedFiltering)
         let repository = UncheckedSendableBox(environment.assetRepository)
         let pageSize = self.pageSize
         assetSearchTask = Task.detached(priority: .userInitiated) { [weak self, repository] in
@@ -885,17 +962,32 @@ final class HomeDashboardViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 var resolvedPageNumber = query.pageNumber
                 var page = try repository.value.page(query: query.assetQuery)
-                let lastPage = Self.assetPageCount(totalCount: page.totalCount, pageSize: pageSize)
-                if resolvedPageNumber > lastPage {
-                    resolvedPageNumber = lastPage
-                    page = try repository.value.page(
-                        query: query.assetQuery.replacingOffset((resolvedPageNumber - 1) * pageSize)
-                    )
-                }
                 guard !Task.isCancelled else { return }
                 await MainActor.run { [weak self] in
                     guard let self, self.assetSearchGeneration == generation else {
                         return
+                    }
+                    if sourceFilter.requiresDerivedFiltering {
+                        self.applyDerivedFilteredAssetPage(
+                            items: page.items,
+                            sourceFilter: sourceFilter,
+                            requestedPage: resolvedPageNumber,
+                            pageSize: pageSize
+                        )
+                        self.lastError = nil
+                        return
+                    }
+                    let lastPage = Self.assetPageCount(totalCount: page.totalCount, pageSize: pageSize)
+                    if resolvedPageNumber > lastPage {
+                        resolvedPageNumber = lastPage
+                        do {
+                            page = try repository.value.page(
+                                query: query.assetQuery.replacingOffset((resolvedPageNumber - 1) * pageSize)
+                            )
+                        } catch {
+                            self.lastError = error.localizedDescription
+                            return
+                        }
                     }
                     self.assetCurrentPage = resolvedPageNumber
                     self.totalAssetCount = page.totalCount
@@ -995,10 +1087,20 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func reloadAssetPage() throws {
-        let query = assetPageQuery()
+        let sourceFilter = selectedAssetSourceFilter
+        let query = assetPageQuery(fetchAllForDerivedFiltering: sourceFilter.requiresDerivedFiltering)
         var page = try environment.assetRepository.page(
             query: query.assetQuery
         )
+        if sourceFilter.requiresDerivedFiltering {
+            applyDerivedFilteredAssetPage(
+                items: page.items,
+                sourceFilter: sourceFilter,
+                requestedPage: query.pageNumber,
+                pageSize: pageSize
+            )
+            return
+        }
         totalAssetCount = page.totalCount
         let lastPage = totalAssetPages
         if assetCurrentPage > lastPage {
@@ -1011,19 +1113,23 @@ final class HomeDashboardViewModel: ObservableObject {
         assetGroups = makeAssetGroups(items: page.items)
     }
 
-    private func assetPageQuery() -> HomeAssetPageQuery {
+    private func assetPageQuery(fetchAllForDerivedFiltering: Bool = false) -> HomeAssetPageQuery {
         let dateRange = selectedActivityDate.map { day -> (Date, Date?) in
             let start = calendar.startOfDay(for: day)
             return (start, calendar.date(byAdding: .day, value: 1, to: start))
         }
+        let limit = fetchAllForDerivedFiltering ? Self.derivedFilterFetchLimit : pageSize
+        let offset = fetchAllForDerivedFiltering ? 0 : (assetCurrentPage - 1) * pageSize
         return HomeAssetPageQuery(
             pageNumber: assetCurrentPage,
             assetQuery: AssetQuery(
                 searchText: searchText,
+                sources: selectedAssetSourceFilter.assetSources,
+                contentTypes: selectedAssetContentTypeFilter.map { Set([$0]) } ?? [],
                 startDate: dateRange?.0,
                 endDate: dateRange?.1,
-                limit: pageSize,
-                offset: (assetCurrentPage - 1) * pageSize
+                limit: limit,
+                offset: offset
             )
         )
     }
@@ -1066,7 +1172,11 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func makeAssetGroups(items: [AssetItem]) -> [HomeAssetGroup] {
-        let grouped = Dictionary(grouping: items.map(homeAssetItem(for:))) { item in
+        makeAssetGroups(homeItems: items.map(homeAssetItem(for:)))
+    }
+
+    private func makeAssetGroups(homeItems: [HomeAssetItem]) -> [HomeAssetGroup] {
+        let grouped = Dictionary(grouping: homeItems) { item in
             calendar.startOfDay(for: item.createdAt)
         }
         return grouped.keys.sorted(by: >).map { day in
@@ -1079,6 +1189,23 @@ final class HomeDashboardViewModel: ObservableObject {
                 items: items
             )
         }
+    }
+
+    private func applyDerivedFilteredAssetPage(
+        items: [AssetItem],
+        sourceFilter: HomeAssetSourceFilter,
+        requestedPage: Int,
+        pageSize: Int
+    ) {
+        let filteredItems = items
+            .map(homeAssetItem(for:))
+            .filter { sourceFilter.matches($0) }
+        totalAssetCount = filteredItems.count
+        let resolvedPage = min(max(1, requestedPage), Self.assetPageCount(totalCount: filteredItems.count, pageSize: pageSize))
+        assetCurrentPage = resolvedPage
+        let start = min((resolvedPage - 1) * pageSize, filteredItems.count)
+        let end = min(start + pageSize, filteredItems.count)
+        assetGroups = makeAssetGroups(homeItems: Array(filteredItems[start..<end]))
     }
 
     private func homeAssetItem(for asset: AssetItem) -> HomeAssetItem {
@@ -1143,6 +1270,12 @@ final class HomeDashboardViewModel: ObservableObject {
             items.append(contentsOf: page.items)
         }
         return items
+    }
+
+    private func repairMissingVoiceTaskAssets() throws {
+        try environment.databaseQueue.write { connection in
+            try connection.execute(AppDatabase.voiceTaskAssetBackfillSQL)
+        }
     }
 
     private func updateDictationAssetIfAvailable(for entry: DictationHistoryEntry) throws {
@@ -1442,6 +1575,7 @@ final class HomeDashboardViewModel: ObservableObject {
         return String(data: data, encoding: .utf8)
     }
 
+    private static let derivedFilterFetchLimit = 10_000
     private static let dayIDFormatter = ISO8601DateFormatter()
 }
 

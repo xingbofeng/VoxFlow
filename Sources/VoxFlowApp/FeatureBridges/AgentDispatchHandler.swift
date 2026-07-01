@@ -11,7 +11,8 @@ protocol AgentDispatchHandling: AnyObject {
     func completeFallbackInput(
         finalText: String,
         outputResult: OutputResult,
-        appliedCorrectionEvents: [CorrectionEvent]
+        appliedCorrectionEvents: [CorrectionEvent],
+        processingTrace: TextProcessingTrace?
     ) throws
     func confirm(agentID: String, utterance: String, message: String, alias: String?) async
     func cancel()
@@ -110,7 +111,8 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
     func completeFallbackInput(
         finalText: String,
         outputResult: OutputResult,
-        appliedCorrectionEvents: [CorrectionEvent] = []
+        appliedCorrectionEvents: [CorrectionEvent] = [],
+        processingTrace: TextProcessingTrace? = nil
     ) throws {
         AppLogger.dictation.debug("AgentDispatchHandler completeFallbackInput finalLen=\(finalText.count) resultKind=\(outputResult.kind.rawValue)")
         cancelConfirmationTimeout()
@@ -121,7 +123,8 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         try taskCoordinator.completeAgentDispatchFallbackInput(
             finalText: finalText,
             outputResult: outputResult,
-            appliedCorrectionEvents: appliedCorrectionEvents
+            appliedCorrectionEvents: appliedCorrectionEvents,
+            processingTrace: processingTrace
         )
     }
 
@@ -134,17 +137,32 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
         guard let workflowTaskID = activeTaskID else { return }
         AppLogger.dictation.debug("AgentDispatchHandler confirm task=\(workflowTaskID) agent=\(agentID)")
         cancelConfirmationTimeout()
+        let processingResult: TextProcessingResult
+        do {
+            processingResult = try await taskCoordinator.processAgentDispatchMessage(message)
+        } catch is CancellationError {
+            return
+        } catch {
+            AppLogger.dictation.warning("AgentDispatchHandler confirm processing failed: \(error.localizedDescription)")
+            processingResult = TextProcessingResult(rawText: message, finalText: message)
+        }
+        guard activeTaskID == workflowTaskID else { return }
+        let finalMessage = normalizedFinalText(
+            rawText: message,
+            processedText: processingResult.finalText
+        )
         await dispatchCoordinator.confirm(
             agentID: agentID,
             utterance: utterance,
-            message: message,
+            message: finalMessage,
             alias: alias
         )
         guard activeTaskID == workflowTaskID else { return }
         emitCurrentPresentation()
         try? taskCoordinator.completeAgentDispatch(
-            finalText: message,
-            presentation: dispatchCoordinator.presentation
+            finalText: dispatchCoordinator.lastDispatchedMessage ?? finalMessage,
+            presentation: dispatchCoordinator.presentation,
+            processingTrace: processingResult.trace
         )
         if dispatchCoordinator.presentation.isTerminalBeforeFallbackOutput {
             activeTaskID = nil
@@ -206,6 +224,12 @@ final class DefaultAgentDispatchHandler: AgentDispatchHandling {
     private func cancelConfirmationTimeout() {
         confirmationTimeoutTask?.cancel()
         confirmationTimeoutTask = nil
+    }
+
+    private func normalizedFinalText(rawText: String, processedText: String) -> String {
+        processedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? rawText
+            : processedText
     }
 
     private func retainConfirmationWithoutClipboardAndFinish(_ text: String) {

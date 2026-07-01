@@ -4,6 +4,167 @@ import XCTest
 @testable import VoxFlowApp
 
 final class RepositoryBackedLLMRefinerTests: XCTestCase {
+    func testCodexPromptExecArgumentsUseSupportedNonInteractiveFlags() {
+        let arguments = CodexPromptCompletionClient.execArguments(
+            workdir: "/tmp/voxflow-codex",
+            outputPath: "/tmp/voxflow-codex/last-message.txt",
+            model: "gpt-5.5"
+        )
+
+        XCTAssertEqual(arguments.first, "exec")
+        XCTAssertTrue(arguments.contains("--skip-git-repo-check"))
+        XCTAssertTrue(arguments.contains("--ephemeral"))
+        XCTAssertTrue(arguments.contains("--sandbox"))
+        XCTAssertTrue(arguments.contains("read-only"))
+        XCTAssertTrue(arguments.contains("--cd"))
+        XCTAssertTrue(arguments.contains("/tmp/voxflow-codex"))
+        XCTAssertTrue(arguments.contains("--output-last-message"))
+        XCTAssertTrue(arguments.contains("/tmp/voxflow-codex/last-message.txt"))
+        XCTAssertTrue(arguments.contains("--model"))
+        XCTAssertTrue(arguments.contains("gpt-5.5"))
+        XCTAssertEqual(arguments.last, "-")
+        XCTAssertFalse(arguments.contains("--ask-for-approval"))
+    }
+
+    func testCodexRuntimeProviderConfiguresTextCorrectionThroughCLI() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: AgentProviderRegistry.codex.providerID,
+                displayName: "Codex",
+                providerType: AgentProviderRegistry.codex.providerID,
+                baseURL: "local://codex",
+                defaultModel: "gpt-5.5",
+                apiKeyRef: "codex-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: true,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        let codexClient = CapturingCodexPromptClient(response: "修正后文本")
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            codexClient: codexClient
+        )
+
+        XCTAssertTrue(refiner.isConfigured)
+
+        let result = try await refiner.refineWithTrace(
+            TextRefinementRequest(
+                text: "原始文本",
+                systemPrompt: "只返回修正后的文本",
+                model: nil,
+                temperature: nil
+            )
+        )
+
+        XCTAssertEqual(result.text, "修正后文本")
+        XCTAssertEqual(codexClient.requests.first?.model, "gpt-5.5")
+        XCTAssertTrue(codexClient.requests.first?.prompt.contains("原始文本") == true)
+        XCTAssertEqual(refiner.lastTrace?.endpoint, "codex://exec")
+    }
+
+    func testCodexRuntimeProviderKeepsSelectedModelAndReportsUnsupportedFailure() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: AgentProviderRegistry.codex.providerID,
+                displayName: "Codex",
+                providerType: AgentProviderRegistry.codex.providerID,
+                baseURL: "local://codex",
+                defaultModel: "gpt-5.3-codex-spark",
+                apiKeyRef: "codex-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: true,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        let codexClient = FailingCodexPromptClient(
+            error: LLMRefiner.Error.apiError(
+                code: 400,
+                message: "The 'gpt-5.3-codex-spark' model is not supported when using Codex with a ChatGPT account."
+            )
+        )
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            codexClient: codexClient
+        )
+
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "原始文本",
+                    systemPrompt: "只返回修正后的文本",
+                    model: nil,
+                    temperature: nil
+                )
+            )
+            XCTFail("Expected unsupported Codex model to fail without fallback.")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.localizedCaseInsensitiveContains("model is not supported"))
+        }
+
+        XCTAssertEqual(codexClient.requests.map(\.model), ["gpt-5.3-codex-spark"])
+        XCTAssertTrue(refiner.lastTrace?.errorMessage?.localizedCaseInsensitiveContains("model is not supported") == true)
+    }
+
+    func testCodexRuntimeProviderUsesRequestModelWithoutFallback() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: AgentProviderRegistry.codex.providerID,
+                displayName: "Codex",
+                providerType: AgentProviderRegistry.codex.providerID,
+                baseURL: "local://codex",
+                defaultModel: "gpt-5.5",
+                apiKeyRef: "codex-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: true,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        let codexClient = CapturingCodexPromptClient(response: "修正后文本")
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            codexClient: codexClient
+        )
+
+        _ = try await refiner.refineWithTrace(
+            TextRefinementRequest(
+                text: "原始文本",
+                systemPrompt: "只返回修正后的文本",
+                model: "custom-user-model",
+                temperature: nil
+            )
+        )
+
+        XCTAssertEqual(codexClient.requests.map(\.model), ["custom-user-model"])
+    }
+
     func testTextProcessingTraceSafeForPersistenceRedactsPromptResponseAndError() {
         let trace = TextProcessingTrace(
             llm: LLMRefinementTrace(
@@ -624,5 +785,48 @@ private final class CapturingCompletionSession: LLMCompletionSession, @unchecked
                 headerFields: nil
             )!
         )
+    }
+}
+
+private final class CapturingCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
+    struct Request: Equatable {
+        let prompt: String
+        let model: String?
+        let timeoutSeconds: Double
+    }
+
+    let isAvailable: Bool
+    let response: String
+    private(set) var requests: [Request] = []
+
+    init(isAvailable: Bool = true, response: String) {
+        self.isAvailable = isAvailable
+        self.response = response
+    }
+
+    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
+        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
+        return response
+    }
+}
+
+private final class FailingCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
+    struct Request: Equatable {
+        let prompt: String
+        let model: String?
+        let timeoutSeconds: Double
+    }
+
+    let isAvailable = true
+    let error: Error
+    private(set) var requests: [Request] = []
+
+    init(error: Error) {
+        self.error = error
+    }
+
+    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
+        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
+        throw error
     }
 }

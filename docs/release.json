@@ -1,10 +1,10 @@
 {
-  "version": "1.12.1",
-  "tag": "v1.12.1",
-  "assetName": "VoxFlow-1.12.1-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.12.1",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.12.1/VoxFlow-1.12.1-macOS.dmg",
-  "releaseNotes": "新增火山云豆包流式语音识别支持，可配置 App ID、Access Token 和 Secret Key 后用于实时云端听写。",
+  "version": "1.13.0",
+  "tag": "v1.13.0",
+  "assetName": "VoxFlow-1.13.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.13.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.13.0/VoxFlow-1.13.0-macOS.dmg",
+  "releaseNotes": "新增 Codex Runtime Agent 工作流：语音指令可以直接交给本机 Codex 执行，支持页面总结、文件生成和过程事件回写。",
   "draft": false,
   "prerelease": false
 }

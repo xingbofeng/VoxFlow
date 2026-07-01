@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct DictationTarget: Equatable {
+struct DictationTarget: Equatable, Sendable {
     let bundleID: String?
     let appName: String?
     let pid: Int?

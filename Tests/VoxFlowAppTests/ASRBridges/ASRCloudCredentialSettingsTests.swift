@@ -65,6 +65,7 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
             credentialStore: credentials,
             settingsRepository: environment.settingsRepository
         )
+        try manager.saveGroqAPIKey("groq-secret")
         try manager.saveAliyunDashScopeAPIKey("aliyun-secret")
         try manager.saveTencentCloudCredentials(
             appID: "1259220000",
@@ -84,11 +85,13 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
         )
         manager.aliyunDashScopeVocabularyID = "vocab-123"
 
+        XCTAssertEqual(manager.storedGroqAPIKey(), "groq-secret")
         XCTAssertEqual(try manager.aliyunDashScopeConfiguration().apiKey, "aliyun-secret")
         XCTAssertEqual(try manager.aliyunDashScopeConfiguration().vocabularyID, "vocab-123")
         XCTAssertEqual(try manager.tencentCloudConfiguration().secretKey, "TENCENTSECRET")
         XCTAssertEqual(try manager.volcengineConfiguration().accessToken, "VOLCSECRET")
         XCTAssertEqual(try manager.volcengineConfiguration().secretKey, "VOLCSECRETKEY")
+        XCTAssertTrue(credentials.readAccounts.contains(ASRManager.groqAPIKeyAccount))
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.tencentSecretKeyAccount))
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.volcengineAccessTokenAccount))

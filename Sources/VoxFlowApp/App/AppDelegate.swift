@@ -11,6 +11,7 @@ struct AgentDefaultOutputOperation {
         let activatedOriginalTarget: Bool
         let currentTarget: DictationTarget?
         let outputResult: OutputResult
+        let processingTrace: TextProcessingTrace?
     }
 
     let process: (String, DictationTarget?) async -> TextProcessingResult
@@ -36,7 +37,8 @@ struct AgentDefaultOutputOperation {
             finalText: finalText,
             activatedOriginalTarget: activatedOriginalTarget,
             currentTarget: target,
-            outputResult: outputResult
+            outputResult: outputResult,
+            processingTrace: processingResult.trace
         )
     }
 }
@@ -109,7 +111,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (try? self?.appEnvironment.llmProviderRepository.list()) ?? []
         },
         selectedLLMProviderID: { [weak self] in
-            (try? self?.appEnvironment.llmProviderRepository.list().first { $0.enabled && $0.isDefault }?.id) ?? nil
+            (try? self?.appEnvironment.llmProviderRepository.list()
+                .first { LLMProviderAvailability.isUsableProvider($0) && $0.isDefault }?.id) ?? nil
         },
         capabilityModels: { [weak self] kind in
             CapabilityModelViewModel.models(
@@ -263,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.dictationOrchestrator.state ?? .idle
         },
         isAgentComposeConfigured: { [weak self] in
-            self?.llmRefiner.isConfigured ?? false
+            self?.isAgentComposeConfigured() ?? false
         },
         showAgentComposeSetupRequired: { [weak self] in
             self?.hudFeatureController.showTemporaryMessage(
@@ -508,6 +511,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         agentComposeHandler.onStreamingDelta = { [weak self] partialText in
             self?.hudFeatureController.updateStreamingText(partialText)
         }
+        agentComposeHandler.onRuntimeCompleted = { [weak self] taskID in
+            self?.openHistoryDetail(taskID)
+        }
         overlayController.onSelectionActionSelected = { [weak self] action, selectedText in
             self?.handleSelectionActionSelected(action: action, selectedText: selectedText)
         }
@@ -704,11 +710,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try handler?.completeFallbackInput(
                 finalText: result.finalText,
                 outputResult: result.outputResult,
-                appliedCorrectionEvents: []
+                appliedCorrectionEvents: [],
+                processingTrace: result.processingTrace
             )
         } catch {
             AppLogger.general.error("Failed to complete Agent Dispatch default output: \(error.localizedDescription)")
         }
+    }
+
+    private func isAgentComposeConfigured() -> Bool {
+        AgentComposeConfiguration.isConfigured(
+            llmRefinerConfigured: llmRefiner.isConfigured,
+            environment: appEnvironment
+        )
     }
 
     private static func logDescription(for target: DictationTarget?) -> String {
@@ -1045,7 +1059,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try agentDispatchHandler?.completeFallbackInput(
                 finalText: rawText,
                 outputResult: outputResult,
-                appliedCorrectionEvents: []
+                appliedCorrectionEvents: [],
+                processingTrace: nil
             )
         } catch {
             AppLogger.general.error(

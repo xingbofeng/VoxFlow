@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Vision
 import XCTest
 @testable import VoxFlowApp
@@ -61,6 +62,22 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertEqual(request.recognitionLanguages, ["zh-Hans", "zh-Hant", "en-US"])
     }
 
+    func testRuntimeScreenshotSanitizerCropsBlackPaddingFromCapture() throws {
+        let image = try makeImage(width: 240, height: 80) { context in
+            context.setFillColor(NSColor.black.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: 240, height: 80))
+            context.setFillColor(NSColor.white.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: 80, height: 80))
+            context.setFillColor(NSColor.systemBlue.cgColor)
+            context.fill(CGRect(x: 16, y: 24, width: 36, height: 20))
+        }
+
+        let cropped = RuntimeScreenshotImageSanitizer.croppingBlackPadding(from: image)
+
+        XCTAssertEqual(cropped.width, 80)
+        XCTAssertEqual(cropped.height, 80)
+    }
+
     func testScreenshotPermissionCheckDoesNotRequestAccessFromWorkflowPath() throws {
         var repositoryRoot = URL(fileURLWithPath: #filePath)
         for _ in 0..<4 {
@@ -75,6 +92,27 @@ final class ContextPipelineTests: XCTestCase {
 
         XCTAssertFalse(source.contains("CGRequestScreenCaptureAccess"))
         XCTAssertTrue(source.contains("CGPreflightScreenCaptureAccess"))
+    }
+
+    private func makeImage(
+        width: Int,
+        height: Int,
+        draw: (CGContext) -> Void
+    ) throws -> CGImage {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = try XCTUnwrap(
+            CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        )
+        draw(context)
+        return try XCTUnwrap(context.makeImage())
     }
 
     func testScreenshotWindowSelectionPrefersRecordedTargetWindowID() {

@@ -128,6 +128,7 @@ ALLOWED_FOREIGN_TOKENS = {
     "Caps",
     "CapsLock",
     "CLI",
+    "Codex",
     "Command",
     "Control",
     "Dock",

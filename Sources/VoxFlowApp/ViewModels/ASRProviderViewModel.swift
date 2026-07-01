@@ -334,6 +334,13 @@ final class ASRProviderViewModel: ObservableObject {
         asrManager.storedGroqAPIKey()
     }
 
+    func concealGroqAPIKeyInputAfterEditing() {
+        let stored = storedGroqAPIKeyForEditing()
+        if !stored.isEmpty && groqAPIKeyInput == stored {
+            groqAPIKeyInput = Self.storedGroqAPIKeyMask
+        }
+    }
+
     func isMaskedGroqAPIKey(text: String) -> Bool {
         !text.isEmpty && text == Self.storedGroqAPIKeyMask
     }

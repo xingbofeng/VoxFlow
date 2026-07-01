@@ -791,6 +791,87 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.activeTaskID(for: .agentDispatch), nil)
     }
 
+    func testAgentDispatchFallbackInputPersistsProcessingTraceAndDispatchSummary() throws {
+        let coordinator = makeCoordinator()
+        let task = try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.completeAgentDispatch(
+            finalText: "检查一下按钮",
+            presentation: .fallbackInput(text: "检查一下按钮")
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "检查一下按钮",
+            outputResult: .injected,
+            processingTrace: TextProcessingTrace(
+                voiceCorrection: VoiceCorrectionTrace()
+            )
+        )
+
+        let completedTask = try XCTUnwrap(repository.fetch(id: task.id))
+        XCTAssertEqual(completedTask.stage, .outputting)
+        let traceJSON = try XCTUnwrap(completedTask.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.agentDispatch?.state, "fallbackInput")
+        XCTAssertEqual(trace.output?.resultKind, OutputResultKind.inserted.rawValue)
+        XCTAssertNotNil(trace.voiceCorrection)
+    }
+
+    func testAgentDispatchDefaultOutputOverwritesPendingConfirmationTrace() throws {
+        let coordinator = makeCoordinator()
+        let task = try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.completeAgentDispatch(
+            finalText: "检查一下按钮",
+            presentation: .confirmation(
+                utterance: "检查一下按钮",
+                candidates: [
+                    AgentSessionCard(
+                        schemaVersion: 1,
+                        agentID: "codex",
+                        cli: "codex",
+                        command: ["codex"],
+                        cwd: "/tmp",
+                        status: .active,
+                        displayName: "Codex"
+                    ),
+                ]
+            )
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "检查一下按钮",
+            outputResult: .injected,
+            processingTrace: TextProcessingTrace(
+                deterministic: DeterministicProcessingTrace(
+                    enabled: true,
+                    isCodingContext: true,
+                    preLLM: DeterministicProcessingPhaseTrace(
+                        phase: "pre_llm",
+                        enabledProcessors: ["filler_word_filtering"],
+                        inputCharacterCount: 6,
+                        outputCharacterCount: 6,
+                        inputHash: "same",
+                        outputHash: "same"
+                    ),
+                    postLLM: DeterministicProcessingPhaseTrace(
+                        phase: "post_llm",
+                        enabledProcessors: ["style_output_format"],
+                        inputCharacterCount: 6,
+                        outputCharacterCount: 6,
+                        inputHash: "same",
+                        outputHash: "same"
+                    )
+                )
+            )
+        )
+
+        let traceJSON = try XCTUnwrap(repository.fetch(id: task.id)?.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.agentDispatch?.state, "fallbackInput")
+        XCTAssertNotEqual(trace.agentDispatch?.state, "confirmation")
+        XCTAssertEqual(trace.output?.resultKind, OutputResultKind.inserted.rawValue)
+        XCTAssertNotNil(trace.deterministic)
+    }
+
     func testCompletedAgentDispatchWritesVoiceAsset() throws {
         let assetRepository = CapturingVoiceTaskAssetRepository()
         let coordinator = makeCoordinator(assetRepository: assetRepository)
@@ -966,6 +1047,75 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
 
         XCTAssertTrue(clipboard.copiedTexts.isEmpty)
         XCTAssertNotNil(taskCoordinator.activeTaskID(for: .agentDispatch))
+    }
+
+    func testAgentDispatchHandlerConfirmProcessesSelectedMessageBeforeSending() async throws {
+        let processingTrace = TextProcessingTrace(
+            deterministic: DeterministicProcessingTrace(
+                enabled: true,
+                isCodingContext: true,
+                preLLM: DeterministicProcessingPhaseTrace(
+                    phase: "preLLM",
+                    enabledProcessors: ["test"],
+                    changedProcessorIDs: ["test"],
+                    inputCharacterCount: 7,
+                    outputCharacterCount: 11,
+                    inputHash: "raw",
+                    outputHash: "final"
+                ),
+                postLLM: DeterministicProcessingPhaseTrace(
+                    phase: "postLLM",
+                    enabledProcessors: [],
+                    inputCharacterCount: 11,
+                    outputCharacterCount: 11,
+                    inputHash: "final",
+                    outputHash: "final"
+                )
+            )
+        )
+        let pipeline = CoordinatorStubTextPipeline(
+            result: TextProcessingResult(
+                rawText: "帮我分析一下。",
+                finalText: "帮我分析 token。",
+                trace: processingTrace
+            )
+        )
+        let taskCoordinator = makeCoordinator(pipeline: pipeline)
+        let router = HandlerAmbiguousAgentRouter()
+        let handler = DefaultAgentDispatchHandler(
+            taskCoordinator: taskCoordinator,
+            dispatchCoordinator: AgentDispatchCoordinator(router: router),
+            clipboardService: HandlerClipboardService(),
+            confirmationTimeoutNanoseconds: 10_000_000_000
+        )
+
+        try handler.start(
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            asrMetadata: VoiceTaskASRMetadata(
+                providerID: "test-asr",
+                modelID: "test-model",
+                language: "zh-CN"
+            )
+        )
+        await drainVoiceTaskMainActorTasks()
+        let presentation = try await handler.finish(rawTranscript: "帮我分析一下。")
+        XCTAssertTrue(presentation.isConfirmationForTest)
+
+        await handler.confirm(
+            agentID: "codex",
+            utterance: "帮我分析一下。",
+            message: "帮我分析一下。",
+            alias: nil as String?
+        )
+
+        XCTAssertEqual(router.sentRequests.last?.message, "帮我分析 token。")
+        let task = try XCTUnwrap(repository.listRecent(mode: .agentDispatch, limit: 1).first)
+        XCTAssertEqual(task.finalText, "帮我分析 token。")
+        XCTAssertEqual(task.stage, .outputting)
+        let trace = try XCTUnwrap(task.trace?.data(using: .utf8))
+        let decodedTrace = try JSONDecoder().decode(TextProcessingTrace.self, from: trace)
+        XCTAssertEqual(decodedTrace.deterministic?.preLLM.changedProcessorIDs, ["test"])
+        XCTAssertEqual(decodedTrace.agentDispatch?.state, "sent")
     }
 
     func testAgentDispatchHandlerConfirmationTimeoutRetainsTextWithoutClipboard() async throws {
@@ -1646,6 +1796,7 @@ private final class HandlerAmbiguousAgentRouter: AgentRouting, @unchecked Sendab
         status: .active,
         displayName: "Codex"
     )
+    private(set) var sentRequests: [AgentDispatchRequest] = []
 
     func listAgents() async throws -> [AgentSessionCard] {
         [agent]
@@ -1655,7 +1806,9 @@ private final class HandlerAmbiguousAgentRouter: AgentRouting, @unchecked Sendab
         .ambiguous(candidates: [agent.agentID])
     }
 
-    func send(_ request: AgentDispatchRequest) async throws {}
+    func send(_ request: AgentDispatchRequest) async throws {
+        sentRequests.append(request)
+    }
 
     func learnAlias(_ alias: String, agentID: String, userConfirmed: Bool) async throws {}
 }

@@ -268,6 +268,34 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).first?.sourceTitle, "任务助手")
     }
 
+    func testLoadRepairsMissingAgentComposeAssetFromCompletedVoiceTask() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        try insertVoiceTask(
+            id: "runtime-agent-task",
+            mode: "agentCompose",
+            status: "completed",
+            text: "帮我打开 Google",
+            createdAt: now,
+            into: container.databaseQueue
+        )
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        let item = try XCTUnwrap(viewModel.assetGroups.flatMap(\.items).first)
+        XCTAssertEqual(item.id, "dictation-runtime-agent-task")
+        XCTAssertEqual(item.sourceTitle, "任务助手")
+        XCTAssertEqual(item.previewText, "帮我打开 Google")
+        XCTAssertEqual(try environment.assetRepository.asset(id: "dictation-runtime-agent-task")?.text, "帮我打开 Google")
+
+        viewModel.selectAssetItem(id: "dictation-runtime-agent-task")
+        XCTAssertEqual(viewModel.selectedDetail?.id, "runtime-agent-task")
+        XCTAssertNil(viewModel.selectedAssetDetail)
+    }
+
     func testSelectingAgentDispatchAssetOpensRichTaskDetailInsteadOfAssetPreview() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
         let clock = MutableHomeClock(now: now)
@@ -449,6 +477,116 @@ final class HomeDashboardViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.totalAssetCount, 1)
         XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["screenshot"])
+    }
+
+    func testContentTypeFilterNarrowsHomeAssetsAndResetsPageState() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.assetRepository.save(homeAsset(
+            id: "voice",
+            source: .dictation,
+            contentType: .text,
+            title: "语音识别内容",
+            text: "语音识别内容",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "screenshot",
+            source: .screenshot,
+            contentType: .image,
+            title: "Image (1200x800)",
+            text: "截图里的错误提示",
+            imagePath: "/tmp/screenshot.png",
+            createdAt: makeDate(year: 2026, month: 6, day: 9, hour: 9)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "clipboard-link",
+            source: .clipboard,
+            contentType: .link,
+            title: "https://example.com",
+            text: "https://example.com",
+            url: "https://example.com",
+            createdAt: makeDate(year: 2026, month: 6, day: 6, hour: 9)
+        ))
+        let viewModel = HomeDashboardViewModel(
+            environment: environment,
+            calendar: testCalendar,
+            historyPageSize: 1
+        )
+        viewModel.load()
+        viewModel.nextAssetPage()
+        viewModel.toggleAssetSelection(id: "voice")
+
+        viewModel.updateAssetContentTypeFilter(.image)
+
+        XCTAssertEqual(viewModel.selectedAssetContentTypeFilter, .image)
+        XCTAssertEqual(viewModel.assetCurrentPage, 1)
+        XCTAssertEqual(viewModel.selectedAssetIDs, [])
+        XCTAssertEqual(viewModel.totalAssetCount, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["screenshot"])
+    }
+
+    func testSourceFilterNarrowsHomeAssetsByClipboardAndTaskAssistant() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "agent-task",
+                mode: .agentCompose,
+                stage: .outputting,
+                status: .completed,
+                rawTranscript: "帮我回复今晚可以",
+                finalText: "可以，今晚发给你。",
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-voice-task",
+            source: .dictation,
+            contentType: .text,
+            title: "普通语音",
+            text: "普通语音",
+            createdAt: now
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-agent-task",
+            source: .dictation,
+            contentType: .text,
+            title: "帮我回复今晚可以",
+            text: "帮我回复今晚可以",
+            createdAt: now.addingTimeInterval(-60)
+        ))
+        try environment.assetRepository.save(homeAsset(
+            id: "clip-text",
+            source: .clipboard,
+            contentType: .text,
+            title: "剪贴板内容",
+            text: "剪贴板内容",
+            createdAt: now.addingTimeInterval(-120)
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.updateAssetSourceFilter(.clipboard)
+
+        XCTAssertEqual(viewModel.selectedAssetSourceFilter, .clipboard)
+        XCTAssertEqual(viewModel.totalAssetCount, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["clip-text"])
+
+        viewModel.updateAssetSourceFilter(.agentCompose)
+
+        XCTAssertEqual(viewModel.selectedAssetSourceFilter, .agentCompose)
+        XCTAssertEqual(viewModel.totalAssetCount, 1)
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.id), ["dictation-agent-task"])
+        XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).map(\.sourceTitle), ["任务助手"])
     }
 
     func testLoadBuildsContributionActivity() throws {

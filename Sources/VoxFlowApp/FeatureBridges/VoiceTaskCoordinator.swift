@@ -34,6 +34,8 @@ final class VoiceTaskCoordinator {
     private let clock: any AppClock
     private let contextPipeline: (any ContextCollecting)?
     private let agentRefiner: (any PromptAwareTextRefining)?
+    private let agentRuntimeService: (any AgentRuntimeServing)?
+    private let agentRuntimeSelection: @MainActor () -> AgentRuntimeProviderSelection?
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
     private let assetRepository: (any AssetRepository)?
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
@@ -93,6 +95,8 @@ final class VoiceTaskCoordinator {
         clock: any AppClock = SystemClock(),
         contextPipeline: (any ContextCollecting)? = nil,
         agentRefiner: (any PromptAwareTextRefining)? = nil,
+        agentRuntimeService: (any AgentRuntimeServing)? = nil,
+        agentRuntimeSelection: @escaping @MainActor () -> AgentRuntimeProviderSelection? = { nil },
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
         assetRepository: (any AssetRepository)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false }
@@ -104,6 +108,8 @@ final class VoiceTaskCoordinator {
         self.clock = clock
         self.contextPipeline = contextPipeline
         self.agentRefiner = agentRefiner
+        self.agentRuntimeService = agentRuntimeService
+        self.agentRuntimeSelection = agentRuntimeSelection
         self.correctionObservationScheduler = correctionObservationScheduler
         self.assetRepository = assetRepository
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
@@ -172,7 +178,8 @@ final class VoiceTaskCoordinator {
 
     func completeAgentDispatch(
         finalText: String,
-        presentation: AgentDispatchHUDPresentation
+        presentation: AgentDispatchHUDPresentation,
+        processingTrace: TextProcessingTrace? = nil
     ) throws {
         guard var task = try task(for: .agentDispatch) else {
             throw CoordinatorError.noActiveTask
@@ -187,10 +194,18 @@ final class VoiceTaskCoordinator {
         try taskRepository.updateFinalText(id: taskID, finalText: finalText)
         task.finalText = finalText
         try taskRepository.updateOutputResult(id: taskID, outputResult: encoded)
+        try persistAgentDispatchTrace(
+            taskID: taskID,
+            presentation: presentation,
+            processingTrace: processingTrace
+        )
 
         switch presentation {
         case .sent, .clipboardFallback:
             let completedAt = clock.now
+            task.stage = .outputting
+            task.updatedAt = completedAt
+            try taskRepository.updateStage(task)
             try taskRepository.complete(
                 id: taskID,
                 status: .completed,
@@ -198,6 +213,7 @@ final class VoiceTaskCoordinator {
                 completedAt: completedAt
             )
             task.status = .completed
+            task.updatedAt = completedAt
             task.completedAt = completedAt
             task.outputResult = encoded
             taskRuntime.clearWorkflow(for: task)
@@ -229,10 +245,43 @@ final class VoiceTaskCoordinator {
         }
     }
 
+    func processAgentDispatchMessage(_ text: String) async throws -> TextProcessingResult {
+        guard var task = try task(for: .agentDispatch) else {
+            throw CoordinatorError.noActiveTask
+        }
+        let taskID = task.id
+
+        task.stage = .processing
+        task.updatedAt = clock.now
+        try taskRepository.updateStage(task)
+        taskRuntime.updatePersistedTask(task)
+
+        let originalTarget = taskTarget(task)
+        let correctionContext = CorrectionContext(
+            mode: .dictation,
+            providerID: task.asrMetadata?.providerID ?? "unknown",
+            modelID: task.asrMetadata?.modelID,
+            language: task.asrMetadata?.language,
+            bundleIdentifier: originalTarget?.bundleID,
+            isFinalTranscript: true,
+            isSecureField: isFocusedTextFieldSecure()
+        )
+        let processingResult = await textPipeline.process(
+            text,
+            target: originalTarget,
+            correctionContext: correctionContext
+        )
+        guard isActiveWorkflow(kind: .agentDispatch, taskID: taskID) else {
+            throw CancellationError()
+        }
+        return processingResult
+    }
+
     func completeAgentDispatchFallbackInput(
         finalText: String,
         outputResult: OutputResult,
-        appliedCorrectionEvents: [CorrectionEvent] = []
+        appliedCorrectionEvents: [CorrectionEvent] = [],
+        processingTrace: TextProcessingTrace? = nil
     ) throws {
         guard var task = try task(for: .agentDispatch) else {
             throw CoordinatorError.noActiveTask
@@ -241,6 +290,11 @@ final class VoiceTaskCoordinator {
         let encoded = String(
             data: try JSONEncoder().encode(outputResult.snapshot),
             encoding: .utf8
+        )
+        try persistAgentDispatchDefaultOutputTrace(
+            taskID: taskID,
+            processingTrace: processingTrace,
+            outputResult: outputResult
         )
 
         if outputResult.kind == .cancelled {
@@ -254,6 +308,9 @@ final class VoiceTaskCoordinator {
 
         let status = terminalStatus(for: outputResult)
         let completedAt = clock.now
+        task.stage = .outputting
+        task.updatedAt = completedAt
+        try taskRepository.updateStage(task)
         try taskRepository.complete(
             id: taskID,
             status: status,
@@ -358,6 +415,11 @@ final class VoiceTaskCoordinator {
         let encoded = String(
             data: try JSONEncoder().encode(outputResult.snapshot),
             encoding: .utf8
+        )
+        try? persistTextProcessingTrace(
+            taskID: taskID,
+            processingTrace: processingResult.trace,
+            outputResult: outputResult
         )
         try taskRepository.updateOutputResult(id: taskID, outputResult: encoded ?? "")
 
@@ -474,7 +536,9 @@ final class VoiceTaskCoordinator {
     /// LLM failure returns an actionable error.
     func processAgentComposeAndDeliver(
         context: ContextSnapshot?,
-        stylePrompt: String?
+        stylePrompt: String?,
+        onAgentRuntimeStage: (@MainActor (AgentComposeHUDStage) -> Void)? = nil,
+        onAgentRuntimeCompleted: (@MainActor (String) -> Void)? = nil
     ) async throws -> OutputResult {
         guard var task = try task(for: .agentCompose) else {
             throw CoordinatorError.noActiveTask
@@ -483,14 +547,6 @@ final class VoiceTaskCoordinator {
             throw CoordinatorError.invalidMode
         }
         let taskID = task.id
-
-        // Check LLM availability
-        guard let agentRefiner else {
-            throw CoordinatorError.llmNotConfigured
-        }
-        guard agentRefiner.isConfigured else {
-            throw CoordinatorError.llmNotConfigured
-        }
 
         // Persist context snapshot
         if let context {
@@ -514,6 +570,25 @@ final class VoiceTaskCoordinator {
         taskRuntime.updatePersistedTask(task)
 
         let rawText = task.rawTranscript ?? ""
+
+        if let runtimeResult = try await processAgentRuntimeIfAvailable(
+            task: task,
+            rawText: rawText,
+            context: context,
+            onAgentRuntimeStage: onAgentRuntimeStage,
+            onAgentRuntimeCompleted: onAgentRuntimeCompleted
+        ) {
+            return runtimeResult
+        }
+
+        // Check LLM availability after runtime fallback. Non-Codex providers
+        // keep the existing "帮我说" path.
+        guard let agentRefiner else {
+            throw CoordinatorError.llmNotConfigured
+        }
+        guard agentRefiner.isConfigured else {
+            throw CoordinatorError.llmNotConfigured
+        }
 
         // Build agent prompt
         let builder = AgentPromptBuilder()
@@ -814,6 +889,117 @@ final class VoiceTaskCoordinator {
 
     // MARK: - Private
 
+    private func processAgentRuntimeIfAvailable(
+        task: VoiceTask,
+        rawText: String,
+        context: ContextSnapshot?,
+        onAgentRuntimeStage: (@MainActor (AgentComposeHUDStage) -> Void)?,
+        onAgentRuntimeCompleted: (@MainActor (String) -> Void)?
+    ) async throws -> OutputResult? {
+        guard let agentRuntimeService else { return nil }
+        guard let selection = agentRuntimeSelection(),
+              selection.usesCodexRuntime else {
+            return nil
+        }
+        let availability = await agentRuntimeService.availability(forceRefresh: false)
+        guard availability.isAvailable else {
+            AppLogger.general.info(
+                "agent_runtime_unavailable provider=\(selection.providerID) reason=\(availability.status.reason ?? "-") fallback=textOnly"
+            )
+            let now = clock.now
+            let fallbackTrace = AgentActionTrace(
+                providerID: selection.providerID,
+                executionMode: .codexTextFallback,
+                status: .completed,
+                userInstruction: rawText,
+                screenContext: screenContextSnapshot(context: context, target: taskTarget(task)),
+                events: [
+                    AgentActionEvent(
+                        kind: .warning,
+                        title: "Runtime 不可用",
+                        detail: availability.status.reason,
+                        timestamp: now,
+                        elapsedMS: 0
+                    )
+                ],
+                resultSummary: "已退回文本模式",
+                model: selection.model,
+                startedAt: now,
+                completedAt: now
+            )
+            try? persistAgentActionTrace(taskID: task.id, trace: fallbackTrace)
+            return nil
+        }
+
+        let taskID = task.id
+        onAgentRuntimeStage?(.runtimeProcessing(summary: runtimeHUDSummary(from: rawText)))
+        do {
+            let serviceResult = try await agentRuntimeService.runIfAvailable(
+                taskID: taskID,
+                instruction: rawText,
+                context: context,
+                target: taskTarget(task),
+                model: selection.model,
+                onEvent: { event in
+                    let stage = CodexEventNormalizer().hudStage(after: event)
+                    Task { @MainActor in
+                        onAgentRuntimeStage?(stage)
+                    }
+                }
+            )
+            switch serviceResult {
+            case .unavailable:
+                return nil
+            case let .completed(result):
+                guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
+                    return .cancelled
+                }
+                try persistAgentActionTrace(taskID: taskID, trace: result.trace)
+                var updatedTask = task
+                let finalText = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !finalText.isEmpty {
+                    try taskRepository.updateFinalText(id: taskID, finalText: finalText)
+                    updatedTask.finalText = finalText
+                }
+                if let context, !context.warnings.isEmpty {
+                    updatedTask.warnings.append(contentsOf: context.warnings)
+                    try? taskRepository.updateWarnings(id: taskID, warnings: updatedTask.warnings)
+                }
+                let completedAt = clock.now
+                updatedTask.stage = .outputting
+                updatedTask.status = .completed
+                updatedTask.completedAt = completedAt
+                try taskRepository.updateStage(updatedTask)
+                try taskRepository.complete(
+                    id: taskID,
+                    status: .completed,
+                    outputResult: nil,
+                    completedAt: completedAt
+                )
+                taskRuntime.clearCurrentTaskIfMatching(updatedTask)
+                taskRuntime.clearWorkflow(for: updatedTask)
+                saveAgentRuntimeVoiceAssetIfNeeded(
+                    task: updatedTask,
+                    rawText: rawText,
+                    completedAt: completedAt
+                )
+                onAgentRuntimeStage?(.runtimeCompleted(summary: finalText))
+                onAgentRuntimeCompleted?(taskID)
+                AppLogger.general.info("voice_workflow_completed kind=agentCompose taskID=\(taskID) status=completed output=agentRuntime")
+                return .cancelled
+            }
+        } catch AgentRuntimeClientError.failed(let trace) {
+            try? persistAgentActionTrace(taskID: taskID, trace: trace)
+            onAgentRuntimeStage?(.runtimeFailed(summary: trace.failureReason))
+            throw CoordinatorError.llmCallFailed(trace.failureReason ?? "Codex runtime failed.")
+        } catch AgentRuntimeError.cancelled {
+            return .cancelled
+        } catch {
+            onAgentRuntimeStage?(.runtimeFailed(summary: error.localizedDescription))
+            throw error
+        }
+    }
+
     private func taskTarget(_ task: VoiceTask) -> DictationTarget? {
         guard task.targetAppBundleID != nil || task.targetAppName != nil else {
             return nil
@@ -824,6 +1010,21 @@ final class VoiceTaskCoordinator {
             pid: task.targetAppPID,
             windowID: task.targetWindowID,
             windowTitle: task.targetWindowTitle
+        )
+    }
+
+    private func screenContextSnapshot(
+        context: ContextSnapshot?,
+        target: DictationTarget?
+    ) -> ScreenContextSnapshot? {
+        guard context != nil || target != nil else { return nil }
+        return ScreenContextSnapshot(
+            thumbnailPath: nil,
+            imagePath: nil,
+            appName: context?.targetAppName ?? target?.appName,
+            bundleID: context?.targetAppBundleID ?? target?.bundleID,
+            windowTitle: context?.windowTitle ?? target?.windowTitle,
+            capturedAt: clock.now
         )
     }
 
@@ -856,6 +1057,21 @@ final class VoiceTaskCoordinator {
         completedAt: Date
     ) {
         if case .cancelled = outputResult { return }
+        let transcript = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !transcript.isEmpty else { return }
+        saveRawVoiceTextAssetIfNeeded(
+            task: task,
+            rawText: rawText,
+            captureReason: .dictationCompleted,
+            completedAt: completedAt
+        )
+    }
+
+    private func saveAgentRuntimeVoiceAssetIfNeeded(
+        task: VoiceTask,
+        rawText: String,
+        completedAt: Date
+    ) {
         let transcript = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !transcript.isEmpty else { return }
         saveRawVoiceTextAssetIfNeeded(
@@ -966,6 +1182,20 @@ final class VoiceTaskCoordinator {
         return String(collapsed.prefix(80))
     }
 
+    private func runtimeHUDSummary(from text: String, limit: Int = 32) -> String {
+        let trimmed = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "。.!！?？"))
+        if trimmed.range(of: "ppt", options: [.caseInsensitive, .diacriticInsensitive]) != nil {
+            return L10n.localize("hud.agent_compose.runtime_task_ppt", comment: "Runtime doing PPT")
+        }
+        guard !trimmed.isEmpty else {
+            return L10n.localize("hud.agent_compose.runtime_operating_detail", comment: "Runtime operating detail")
+        }
+        let summary = trimmed.count > limit ? String(trimmed.prefix(limit)) + "..." : trimmed
+        return L10n.format("hud.agent_compose.runtime_task_format", comment: "Runtime task summary", summary)
+    }
+
     private func terminalStatus(for result: OutputResult) -> VoiceTaskStatus {
         switch result {
         case .injected, .copied:
@@ -989,13 +1219,95 @@ final class VoiceTaskCoordinator {
     }
 
     private func persistAgentTrace(taskID: String, trace: LLMRefinementTrace) throws {
-        let processingTrace = TextProcessingTrace(llm: trace)
+        let processingTrace = TextProcessingTrace(
+            llm: trace,
+            agentAction: existingAgentActionTrace(taskID: taskID),
+            agentDispatch: existingAgentDispatchTrace(taskID: taskID)
+        )
         LLMDiagnosticCapture.shared.capture(taskID: taskID, trace: processingTrace)
         let data = try JSONEncoder().encode(processingTrace.safeForPersistence())
         guard let json = String(data: data, encoding: .utf8) else {
             return
         }
         try taskRepository.updateTrace(id: taskID, trace: json)
+    }
+
+    private func persistTextProcessingTrace(
+        taskID: String,
+        processingTrace: TextProcessingTrace?,
+        outputResult: OutputResult
+    ) throws {
+        guard var processingTrace else {
+            return
+        }
+        processingTrace.output = OutputDeliveryTrace(resultKind: outputResult.kind.rawValue)
+        if processingTrace.agentAction == nil {
+            processingTrace.agentAction = existingAgentActionTrace(taskID: taskID)
+        }
+        if processingTrace.agentDispatch == nil {
+            processingTrace.agentDispatch = existingAgentDispatchTrace(taskID: taskID)
+        }
+        try persistProcessingTrace(taskID: taskID, trace: processingTrace)
+    }
+
+    private func persistAgentDispatchTrace(
+        taskID: String,
+        presentation: AgentDispatchHUDPresentation,
+        processingTrace: TextProcessingTrace? = nil
+    ) throws {
+        var trace = processingTrace ?? existingProcessingTrace(taskID: taskID) ?? TextProcessingTrace()
+        if trace.agentAction == nil {
+            trace.agentAction = existingAgentActionTrace(taskID: taskID)
+        }
+        trace.agentDispatch = AgentDispatchTrace(presentation: presentation)
+        try persistProcessingTrace(taskID: taskID, trace: trace)
+    }
+
+    private func persistAgentDispatchDefaultOutputTrace(
+        taskID: String,
+        processingTrace: TextProcessingTrace?,
+        outputResult: OutputResult
+    ) throws {
+        var trace = processingTrace ?? existingProcessingTrace(taskID: taskID) ?? TextProcessingTrace()
+        trace.output = OutputDeliveryTrace(resultKind: outputResult.kind.rawValue)
+        trace.agentDispatch = AgentDispatchTrace(
+            state: "fallbackInput",
+            title: L10n.localize("home.detail.dispatch.default_output", comment: "Dispatch default output"),
+            detail: L10n.localize("home.detail.dispatch.default_output_detail", comment: "Default output detail")
+        )
+        try persistProcessingTrace(taskID: taskID, trace: trace)
+    }
+
+    private func persistProcessingTrace(taskID: String, trace: TextProcessingTrace) throws {
+        LLMDiagnosticCapture.shared.capture(taskID: taskID, trace: trace)
+        let data = try JSONEncoder().encode(trace.safeForPersistence())
+        guard let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        try taskRepository.updateTrace(id: taskID, trace: json)
+    }
+
+    private func existingProcessingTrace(taskID: String) -> TextProcessingTrace? {
+        guard let task = try? taskRepository.fetch(id: taskID),
+              let traceJSON = task.trace,
+              let data = traceJSON.data(using: .utf8),
+              let trace = try? JSONDecoder().decode(TextProcessingTrace.self, from: data) else {
+            return nil
+        }
+        return trace
+    }
+
+    private func existingAgentActionTrace(taskID: String) -> AgentActionTrace? {
+        existingProcessingTrace(taskID: taskID)?.agentAction
+    }
+
+    private func existingAgentDispatchTrace(taskID: String) -> AgentDispatchTrace? {
+        existingProcessingTrace(taskID: taskID)?.agentDispatch
+    }
+
+    private func persistAgentActionTrace(taskID: String, trace: AgentActionTrace) throws {
+        let processingTrace = TextProcessingTrace(agentAction: trace)
+        try persistProcessingTrace(taskID: taskID, trace: processingTrace)
     }
 
     private enum ContextCollectionAwaitResult: Sendable {
@@ -1028,6 +1340,29 @@ private struct AgentDispatchTaskSnapshot: Encodable {
         }
         title = presentation.title
         detail = presentation.detail
+    }
+}
+
+private extension AgentDispatchTrace {
+    init(presentation: AgentDispatchHUDPresentation) {
+        switch presentation {
+        case .idle:
+            self.init(state: "idle", title: presentation.title, detail: presentation.detail)
+        case .listening:
+            self.init(state: "listening", title: presentation.title, detail: presentation.detail)
+        case let .exact(agentName, message):
+            self.init(state: "exact", title: presentation.title, detail: message, agentName: agentName)
+        case .confirmation:
+            self.init(state: "confirmation", title: presentation.title, detail: presentation.detail)
+        case .fallbackInput:
+            self.init(state: "fallbackInput", title: presentation.title, detail: presentation.detail)
+        case .clipboardFallback:
+            self.init(state: "clipboardFallback", title: presentation.title, detail: presentation.detail)
+        case let .sent(agentName):
+            self.init(state: "sent", title: presentation.title, detail: presentation.detail, agentName: agentName)
+        case .failure:
+            self.init(state: "failure", title: presentation.title, detail: presentation.detail)
+        }
     }
 }
 

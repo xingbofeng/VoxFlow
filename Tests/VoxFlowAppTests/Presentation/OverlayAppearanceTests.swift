@@ -367,6 +367,16 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
     }
 
+    func testAgentRuntimeHUDRestoresTaskSummaryAfterTechnicalStreamingOutput() {
+        let controller = OverlayWindowController()
+        controller.updateAgentComposeStatus(.runtimeProcessing(summary: "正在做 PPT"))
+
+        controller.updateStreamingText("% Total    % Received % Xferd  Average Speed   Time")
+        controller.updateAgentComposeStatus(.runtimeProcessing())
+
+        XCTAssertEqual(controller.currentText, "正在做 PPT")
+    }
+
     func testSelectionActionCardUsesExistingHUDWithFourActions() throws {
         let controller = OverlayWindowController()
 

@@ -1096,6 +1096,29 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertNil(agentHandler.startedASRMetadata?.sessionID)
     }
 
+    func testEscapeDuringAgentComposeRecordingCancelsHandler() throws {
+        let engine = FakeASREngine()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository(),
+            agentComposeHandler: agentHandler
+        )
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentCompose)
+
+        XCTAssertFalse(orchestrator.handleEscapeKey())
+
+        XCTAssertTrue(agentHandler.didCancel)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     func testAgentComposeCancelledResultDoesNotEmitCompletionResult() async throws {
         let engine = FakeASREngine()
         let agentHandler = FakeAgentComposeHandler(result: .cancelled)
@@ -1822,6 +1845,7 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
     private(set) var didCancel = false
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
     var onStreamingDelta: ((String) -> Void)?
+    var onRuntimeCompleted: ((String) -> Void)?
     var lastFailedTaskID: String?
 
     init(result: OutputResult) {
@@ -1863,7 +1887,8 @@ private final class FakeAgentDispatchHandler: AgentDispatchHandling {
     private(set) var completedFallback: (
         finalText: String,
         outputResult: OutputResult,
-        appliedCorrectionEvents: [CorrectionEvent]
+        appliedCorrectionEvents: [CorrectionEvent],
+        processingTrace: TextProcessingTrace?
     )?
     private(set) var didBeginDefaultOutput = false
     var emitsPresentationOnFinish = true
@@ -1893,9 +1918,10 @@ private final class FakeAgentDispatchHandler: AgentDispatchHandling {
     func completeFallbackInput(
         finalText: String,
         outputResult: OutputResult,
-        appliedCorrectionEvents: [CorrectionEvent]
+        appliedCorrectionEvents: [CorrectionEvent],
+        processingTrace: TextProcessingTrace?
     ) throws {
-        completedFallback = (finalText, outputResult, appliedCorrectionEvents)
+        completedFallback = (finalText, outputResult, appliedCorrectionEvents, processingTrace)
     }
 
     func beginDefaultOutput() {

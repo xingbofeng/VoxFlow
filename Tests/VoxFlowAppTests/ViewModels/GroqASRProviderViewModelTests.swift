@@ -93,6 +93,59 @@ final class GroqASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.storedGroqAPIKeyForEditing(), "external-secret")
     }
 
+    func testHidingUnsavedGroqAPIKeyKeepsDraftInput() throws {
+        let defaults = UserDefaults(suiteName: "test.GroqProviderHideUnsaved.\(UUID().uuidString)")!
+        let credentials = GroqViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+        viewModel.groqAPIKeyInput = "draft-secret"
+
+        viewModel.concealGroqAPIKeyInputAfterEditing()
+
+        XCTAssertEqual(viewModel.groqAPIKeyInput, "draft-secret")
+    }
+
+    func testHidingRevealedStoredGroqAPIKeyRestoresMask() throws {
+        let defaults = UserDefaults(suiteName: "test.GroqProviderHideStored.\(UUID().uuidString)")!
+        let credentials = GroqViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
+        try manager.saveGroqAPIKey("stored-secret")
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+        viewModel.groqAPIKeyInput = "stored-secret"
+
+        viewModel.concealGroqAPIKeyInputAfterEditing()
+
+        XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
+    }
+
     func testGroqModelOptionsAreLimitedToWhisperModels() throws {
         XCTAssertEqual(
             ASRProviderViewModel.supportedGroqModels.map(\.id),

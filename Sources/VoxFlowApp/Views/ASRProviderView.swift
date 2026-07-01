@@ -276,7 +276,7 @@ struct ASRProviderView: View {
                 .textFieldStyle(.roundedBorder)
                 Button {
                     if showGroqAPIKey {
-                        viewModel.groqAPIKeyInput = viewModel.groqAPIKeyForEditing()
+                        viewModel.concealGroqAPIKeyInputAfterEditing()
                         showGroqAPIKey = false
                     } else {
                         if viewModel.isMaskedGroqAPIKey(text: viewModel.groqAPIKeyInput) {

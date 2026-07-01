@@ -68,6 +68,34 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
         XCTAssertTrue(service.isConfigured)
     }
 
+    func testIsConfiguredTrueWhenOnlyCodexRuntimeProviderExists() {
+        let service = OpenAICompatibleChatService(
+            providerRepository: FakeLLMProviderRepository([makeCodexProvider()]),
+            credentialStore: FakeCredentialStore(key: nil),
+            codexClient: FakeCodexPromptClient(response: "ok")
+        )
+
+        XCTAssertTrue(service.isConfigured)
+    }
+
+    func testStreamResponseUsesCodexCLIForCodexProvider() async throws {
+        let codexClient = FakeCodexPromptClient(response: "Codex answer")
+        let service = OpenAICompatibleChatService(
+            providerRepository: FakeLLMProviderRepository([makeCodexProvider()]),
+            credentialStore: FakeCredentialStore(key: nil),
+            codexClient: codexClient
+        )
+
+        var collected: [String] = []
+        for try await text in service.streamResponse(messages: [AIChatMessage(role: .user, content: "hi")]) {
+            collected.append(text)
+        }
+
+        XCTAssertEqual(collected, ["Codex answer"])
+        XCTAssertEqual(codexClient.requests.first?.model, "gpt-5.5")
+        XCTAssertTrue(codexClient.requests.first?.prompt.contains("hi") == true)
+    }
+
     // MARK: - Streaming
 
     func testStreamResponseYieldsAccumulatedText() async throws {
@@ -147,6 +175,26 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
             updatedAt: Date()
         )
     }
+
+    private func makeCodexProvider() -> LLMProviderRecord {
+        LLMProviderRecord(
+            id: AgentProviderRegistry.codex.providerID,
+            displayName: "Codex",
+            providerType: AgentProviderRegistry.codex.providerID,
+            baseURL: "local://codex",
+            defaultModel: "gpt-5.5",
+            apiKeyRef: "codex-local-runtime",
+            temperature: 0,
+            timeoutSeconds: 120,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
 }
 
 // MARK: - Fakes
@@ -194,5 +242,27 @@ private final class FakeLLMCompletionSession: LLMCompletionSession, @unchecked S
             httpVersion: nil,
             headerFields: nil
         )!
+    }
+}
+
+private final class FakeCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
+    struct Request: Equatable {
+        let prompt: String
+        let model: String?
+        let timeoutSeconds: Double
+    }
+
+    let isAvailable: Bool
+    let response: String
+    private(set) var requests: [Request] = []
+
+    init(isAvailable: Bool = true, response: String) {
+        self.isAvailable = isAvailable
+        self.response = response
+    }
+
+    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
+        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
+        return response
     }
 }

@@ -32,6 +32,49 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertFalse(runtime.environment.storageHealth.isPersistent)
     }
 
+    func testAgentComposeIsConfiguredWhenCodexRuntimeProviderIsEnabled() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.llmProviderRepository.save(Self.codexProvider(enabled: true))
+
+        let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
+
+        XCTAssertEqual(selection?.providerID, AgentProviderRegistry.codex.providerID)
+        XCTAssertEqual(selection?.model, "gpt-5.5")
+        XCTAssertTrue(
+            AgentComposeConfiguration.isConfigured(
+                llmRefinerConfigured: false,
+                environment: environment
+            )
+        )
+    }
+
+    func testAgentRuntimeSelectionUsesEnabledCodexEvenWhenTextLLMIsDefault() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.llmProviderRepository.save(Self.textProvider(isDefault: true))
+        try environment.llmProviderRepository.save(Self.codexProvider(enabled: true, isDefault: false))
+
+        let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
+
+        XCTAssertEqual(selection?.providerID, AgentProviderRegistry.codex.providerID)
+        XCTAssertEqual(selection?.model, "gpt-5.5")
+    }
+
+    func testAgentComposeIsNotConfiguredWhenCodexRuntimeProviderIsDisabledAndLLMIsMissing() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.llmProviderRepository.save(Self.codexProvider(enabled: false))
+
+        XCTAssertNil(AppRuntime.selectedAgentRuntimeProvider(environment: environment))
+        XCTAssertFalse(
+            AgentComposeConfiguration.isConfigured(
+                llmRefinerConfigured: false,
+                environment: environment
+            )
+        )
+    }
+
     func testFallbackRuntimeKeepsASRCredentialsInPersistentStoreAcrossRelaunches() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AppRuntimeCredentialFallback-\(UUID().uuidString)", isDirectory: true)
@@ -165,6 +208,48 @@ final class AppRuntimeTests: XCTestCase {
             domain: "AppRuntimeTests",
             code: 2,
             userInfo: [NSLocalizedDescriptionKey: "Could not locate Package.swift."]
+        )
+    }
+
+    private static func textProvider(isDefault: Bool) -> LLMProviderRecord {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        return LLMProviderRecord(
+            id: "openai",
+            displayName: "OpenAI",
+            providerType: "openaiCompatible",
+            baseURL: "https://api.example.com",
+            defaultModel: "gpt-4.1",
+            apiKeyRef: "openai-key",
+            temperature: 0.7,
+            timeoutSeconds: 60,
+            enabled: true,
+            isDefault: isDefault,
+            lastHealthStatus: "ok",
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: now,
+            updatedAt: now
+        )
+    }
+
+    private static func codexProvider(enabled: Bool, isDefault: Bool = true) -> LLMProviderRecord {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        return LLMProviderRecord(
+            id: AgentProviderRegistry.codex.providerID,
+            displayName: "Codex",
+            providerType: AgentProviderRegistry.codex.providerID,
+            baseURL: "local://codex",
+            defaultModel: "gpt-5.5",
+            apiKeyRef: "codex-local-runtime",
+            temperature: 0.7,
+            timeoutSeconds: 60,
+            enabled: enabled,
+            isDefault: isDefault,
+            lastHealthStatus: "ok",
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: now,
+            updatedAt: now
         )
     }
 }

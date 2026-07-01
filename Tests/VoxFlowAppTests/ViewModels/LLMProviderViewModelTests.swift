@@ -454,6 +454,143 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已选择全局模型 model-b")
     }
 
+    func testCodexRuntimeDetectionRefreshesRuntimeModelList() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let detector = StubCodexRuntimeDetector(
+            availability: AgentRuntimeAvailability(
+                providerID: "codex",
+                status: .available,
+                detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
+                cliPath: "/tmp/codex",
+                cliVersion: "codex-cli test"
+            )
+        )
+        let modelLister = StubCodexModelListProvider(models: ["gpt-5.5", "gpt-5.4"])
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: detector,
+            codexModelListProvider: modelLister
+        )
+
+        await viewModel.detectCodexRuntime(forceRefresh: true)
+
+        XCTAssertEqual(viewModel.codexModelIDs, ["gpt-5.5", "gpt-5.4"])
+        XCTAssertEqual(modelLister.lastCLIPath, "/tmp/codex")
+        XCTAssertEqual(viewModel.lastActionMessage, "本机 Codex 运行时可用")
+    }
+
+    func testCodexModelsDoNotUseStaticFallbackWhenUndetectedAndUnconfigured() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: StubCodexRuntimeDetector(availability: .availableForTests()),
+            codexModelListProvider: StubCodexModelListProvider(models: [])
+        )
+
+        XCTAssertEqual(viewModel.codexModelIDs, [])
+        XCTAssertEqual(viewModel.codexSelectedModel, "")
+    }
+
+    func testCodexRuntimeDetectionKeepsConfiguredModelEvenWhenNotInDetectedList() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: AgentProviderRegistry.codex.providerID,
+                displayName: "Codex",
+                providerType: AgentProviderRegistry.codex.providerID,
+                baseURL: "local://codex",
+                defaultModel: "gpt-5.3-codex-spark",
+                apiKeyRef: "codex-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: true,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: StubCodexRuntimeDetector(availability: .availableForTests()),
+            codexModelListProvider: StubCodexModelListProvider(models: ["gpt-5.5"])
+        )
+
+        await viewModel.detectCodexRuntime(forceRefresh: true)
+
+        XCTAssertEqual(viewModel.codexSelectedModel, "gpt-5.3-codex-spark")
+        XCTAssertEqual(viewModel.codexModelIDs, ["gpt-5.5", "gpt-5.3-codex-spark"])
+        XCTAssertEqual(try environment.llmProviderRepository.provider(id: AgentProviderRegistry.codex.providerID)?.defaultModel, "gpt-5.3-codex-spark")
+    }
+
+    func testCodexRuntimeDetectionDoesNotPersistProviderBeforeEnablement() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: StubCodexRuntimeDetector(availability: .availableForTests()),
+            codexModelListProvider: StubCodexModelListProvider(models: ["gpt-5.4"])
+        )
+
+        await viewModel.detectCodexRuntime(forceRefresh: true)
+
+        XCTAssertEqual(viewModel.codexModelIDs, ["gpt-5.4"])
+        XCTAssertNil(viewModel.codexProvider)
+        XCTAssertEqual(try environment.llmProviderRepository.list(), [])
+    }
+
+    func testCodexRuntimeEnablePersistsSelectedRuntimeModel() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: StubCodexRuntimeDetector(availability: .availableForTests()),
+            codexModelListProvider: StubCodexModelListProvider(models: ["gpt-5.4"])
+        )
+        await viewModel.detectCodexRuntime(forceRefresh: true)
+
+        viewModel.setCodexEnabled(true)
+
+        let provider = try XCTUnwrap(viewModel.codexProvider)
+        XCTAssertEqual(provider.defaultModel, "gpt-5.4")
+        XCTAssertTrue(provider.enabled)
+        XCTAssertTrue(provider.isDefault)
+    }
+
+    func testCodexRuntimeEnableCanBecomeDefaultLLMProvider() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            codexRuntimeDetector: StubCodexRuntimeDetector(availability: .availableForTests()),
+            codexModelListProvider: StubCodexModelListProvider(models: ["gpt-5.4"])
+        )
+        try viewModel.saveProvider(
+            id: "text-provider",
+            displayName: "Text Provider",
+            baseURL: "https://api.example.com",
+            model: "model-a",
+            apiKey: "secret",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: true
+        )
+        await viewModel.detectCodexRuntime(forceRefresh: true)
+
+        viewModel.setCodexEnabled(true)
+
+        XCTAssertEqual(viewModel.providers.first(where: \.isDefault)?.id, AgentProviderRegistry.codex.providerID)
+        XCTAssertTrue(try XCTUnwrap(viewModel.codexProvider).isDefault)
+    }
+
     func testSetDefaultProviderMovesDefaultFlag() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())
@@ -541,6 +678,48 @@ private final class StubProviderClient: LLMProviderConnecting, @unchecked Sendab
         timeoutSeconds: Double
     ) async throws -> [String] {
         models
+    }
+}
+
+private final class StubCodexRuntimeDetector: AgentRuntimeAvailabilityDetecting, @unchecked Sendable {
+    let availability: AgentRuntimeAvailability
+
+    init(availability: AgentRuntimeAvailability) {
+        self.availability = availability
+    }
+
+    func cachedOrDetect(forceRefresh: Bool) async -> AgentRuntimeAvailability {
+        availability
+    }
+}
+
+@MainActor
+private final class StubCodexModelListProvider: AgentRuntimeModelListing, @unchecked Sendable {
+    let models: [String]
+    private(set) var lastCLIPath: String?
+
+    init(models: [String]) {
+        self.models = models
+    }
+
+    nonisolated func listModels(cliPath: String) async -> [String] {
+        await MainActor.run {
+            lastCLIPath = cliPath
+            return models
+        }
+    }
+}
+
+private extension AgentRuntimeAvailability {
+    static func availableForTests() -> AgentRuntimeAvailability {
+        AgentRuntimeAvailability(
+            providerID: "codex",
+            status: .available,
+            detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
+            cliPath: "/tmp/codex",
+            cliVersion: "codex-cli test"
+        )
     }
 }
 

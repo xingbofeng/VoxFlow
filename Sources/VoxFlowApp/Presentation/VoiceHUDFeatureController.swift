@@ -11,6 +11,7 @@ protocol HUDOverlayControlling: AnyObject {
     func show()
     func showWithoutReset()
     func dismissAfterDefaultHUDTimeout()
+    func dismissAfterHUDTimeout(duration: TimeInterval)
     func dismiss()
     func updateTranscription(_ text: String, isRefining: Bool)
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage)
@@ -145,7 +146,9 @@ final class VoiceHUDFeatureController {
         case let .agentComposeStage(stage):
             overlay.updateAgentComposeStatus(stage)
             overlay.showWithoutReset()
-            if stage.shouldDismissAfterDefaultHUDTimeout {
+            if let duration = stage.customDismissDuration {
+                overlay.dismissAfterHUDTimeout(duration: duration)
+            } else if stage.shouldDismissAfterDefaultHUDTimeout {
                 overlay.dismissAfterDefaultHUDTimeout()
             }
         case let .agentDispatch(presentation):
@@ -479,11 +482,24 @@ final class VoiceHUDFeatureController {
 extension OverlayWindowController: HUDOverlayControlling {}
 
 private extension AgentComposeHUDStage {
+    var customDismissDuration: TimeInterval? {
+        switch self {
+        case .runtimeCompleted:
+            return 1.5
+        case .runtimeFailed:
+            return 3.0
+        case .readingWindow, .transcribing, .generating, .runtimeProcessing, .runtimeOperating,
+             .runtimeWaitingForPermission, .copied, .inserted, .contextUnavailable:
+            return nil
+        }
+    }
+
     var shouldDismissAfterDefaultHUDTimeout: Bool {
         switch self {
         case .copied, .inserted, .contextUnavailable:
             return true
-        case .readingWindow, .transcribing, .generating:
+        case .readingWindow, .transcribing, .generating, .runtimeProcessing, .runtimeOperating,
+             .runtimeWaitingForPermission, .runtimeCompleted, .runtimeFailed:
             return false
         }
     }

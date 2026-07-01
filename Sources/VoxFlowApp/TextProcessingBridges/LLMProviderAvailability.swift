@@ -11,6 +11,19 @@ enum LLMProviderAvailability {
 }
 
 extension LLMProviderRecord {
+    var isCodexLLMProvider: Bool {
+        id.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame ||
+            providerType.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame
+    }
+
+    var isCodexRuntimeProvider: Bool {
+        isCodexLLMProvider
+    }
+
+    var isOpenAICompatibleProvider: Bool {
+        !isCodexLLMProvider
+    }
+
     var hasRequiredLLMConfiguration: Bool {
         !baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !defaultModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

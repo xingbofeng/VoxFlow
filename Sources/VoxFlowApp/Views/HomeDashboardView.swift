@@ -1,4 +1,5 @@
 import AppKit
+import MarkdownUI
 import SwiftUI
 import VoxFlowVoiceCorrection
 
@@ -66,6 +67,29 @@ private struct HomeAssetSection: View {
                     )
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 280)
+
+                    Picker(L10n.localize("home.assets.source_filter", comment: "Asset source filter"), selection: Binding(
+                        get: { viewModel.selectedAssetSourceFilter },
+                        set: { viewModel.updateAssetSourceFilter($0) }
+                    )) {
+                        ForEach(HomeAssetSourceFilter.allCases, id: \.self) { sourceFilter in
+                            Text(assetSourceFilterTitle(sourceFilter)).tag(sourceFilter)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 130)
+
+                    Picker(L10n.localize("home.assets.type_filter", comment: "Asset type filter"), selection: Binding(
+                        get: { viewModel.selectedAssetContentTypeFilter },
+                        set: { viewModel.updateAssetContentTypeFilter($0) }
+                    )) {
+                        Text(L10n.localize("home.assets.type_filter_all", comment: "All asset types")).tag(AssetContentType?.none)
+                        ForEach(AssetContentType.allCases, id: \.self) { contentType in
+                            Text(assetContentTypeTitle(contentType)).tag(Optional(contentType))
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 110)
                 }
 
                 HStack(alignment: .center, spacing: 10) {
@@ -175,6 +199,44 @@ private struct HomeAssetSection: View {
                 .disabled(!viewModel.canGoToNextAssetPage)
         }
         .font(.system(size: 12, weight: .medium))
+    }
+
+    private func assetSourceFilterTitle(_ sourceFilter: HomeAssetSourceFilter) -> String {
+        switch sourceFilter {
+        case .all:
+            return L10n.localize("home.assets.source_filter_all", comment: "All asset sources")
+        case .dictation:
+            return L10n.localize("home.source.dictation", comment: "Dictation source")
+        case .screenshot:
+            return L10n.localize("home.source.screenshot", comment: "Screenshot source")
+        case .clipboard:
+            return L10n.localize("home.source.clipboard", comment: "Clipboard source")
+        case .agentCompose:
+            return L10n.localize("home.source.agent_compose", comment: "Agent compose source")
+        case .agentDispatch:
+            return L10n.localize("navigation.route.vibe_coding", comment: "")
+        case .selectionTranslation:
+            return L10n.localize("home.source.selection_translation", comment: "Selection translation source")
+        case .selectionSummary:
+            return L10n.localize("home.source.selection_summary", comment: "Selection summary source")
+        case .selectionAgent:
+            return L10n.localize("home.source.selection_agent", comment: "Selection agent source")
+        }
+    }
+
+    private func assetContentTypeTitle(_ contentType: AssetContentType) -> String {
+        switch contentType {
+        case .text:
+            return L10n.localize("home.content_type.text", comment: "Text content type")
+        case .image:
+            return L10n.localize("home.content_type.image", comment: "Image content type")
+        case .file:
+            return L10n.localize("home.content_type.file", comment: "File content type")
+        case .link:
+            return L10n.localize("home.content_type.link", comment: "Link content type")
+        case .color:
+            return L10n.localize("home.content_type.color", comment: "Color content type")
+        }
     }
 
     /// antd 表格风格分页槽位：`nil` 表示省略号 "…"，非 nil 表示可点击的页号。
@@ -680,7 +742,11 @@ struct HomeDetailOverlay: View {
     private var modalContent: some View {
         switch detail {
         case .voice(let voiceDetail):
-            HomeHistoryDetailModal(viewModel: viewModel, detail: voiceDetail)
+            if HomeHistoryDetailPresentation.usesAgentActionSummaryDetail(for: voiceDetail) {
+                AgentActionSummaryDetailModal(viewModel: viewModel, detail: voiceDetail)
+            } else {
+                HomeHistoryDetailModal(viewModel: viewModel, detail: voiceDetail)
+            }
         case .asset(let assetDetail):
             HomeAssetDetailModal(viewModel: viewModel, detail: assetDetail)
         }
@@ -726,6 +792,349 @@ enum HomeHistoryDetailLayout {
     static let requestJSONMaxHeight: CGFloat = 220
 }
 
+private enum AgentActionSummaryDetailLayout {
+    static let modalWidth: CGFloat = 760
+    static let modalMinHeight: CGFloat = 420
+    static let modalMaxHeight: CGFloat = 760
+}
+
+private struct AgentActionSummaryDetailModal: View {
+    @ObservedObject var viewModel: HomeDashboardViewModel
+    let detail: HomeHistoryDetail
+
+    private var actionTrace: AgentActionTrace? {
+        detail.trace?.agentAction
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                voiceCommandSection
+                screenContextSection
+                resultSection
+                metadataFooter
+                actionLogSection
+            }
+            .padding(28)
+        }
+        .frame(width: AgentActionSummaryDetailLayout.modalWidth)
+        .frame(
+            minHeight: AgentActionSummaryDetailLayout.modalMinHeight,
+            maxHeight: AgentActionSummaryDetailLayout.modalMaxHeight
+        )
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.accent)
+                .frame(width: 46, height: 46)
+                .background(AppTheme.ColorToken.accentSoft)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.localize("home.agent_action_detail.title", comment: "Agent action detail title"))
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Text(L10n.localize("home.agent_action_detail.subtitle", comment: "Agent action detail subtitle"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+
+            Spacer(minLength: 16)
+
+            Button {
+                viewModel.copySelectedTaskDiagnostic()
+            } label: {
+                Label(L10n.localize("home.detail.action.copy_diagnostic", comment: "Copy diagnostic"), systemImage: "stethoscope")
+                    .frame(height: 32)
+            }
+            .buttonStyle(.bordered)
+
+            if !detail.finalText.isEmpty {
+                Button {
+                    viewModel.copyDetailText()
+                } label: {
+                    Label(L10n.localize("home.detail.action.copy_result", comment: "Copy result"), systemImage: "doc.on.doc")
+                        .frame(height: 32)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button {
+                viewModel.clearSelectedHomeDetail()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            .background(AppTheme.ColorToken.controlBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .accessibilityLabel(L10n.localize("common.close", comment: "Close"))
+        }
+    }
+
+    private var voiceCommandSection: some View {
+        detailSection(titleKey: "home.agent_action_detail.voice_command") {
+            Text(HomeHistoryDetailPresentation.agentActionInstructionText(for: detail))
+                .font(.system(size: 14))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                .lineSpacing(4)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var screenContextSection: some View {
+        if let screenContext = actionTrace?.screenContext,
+           screenContext.imagePath != nil || screenContext.appName != nil || screenContext.windowTitle != nil {
+            detailSection(titleKey: "home.agent_action_detail.screen_context") {
+                AgentActionSummaryScreenContextView(context: screenContext)
+            }
+        }
+    }
+
+    private var resultSection: some View {
+        detailSection(titleKey: "home.agent_action_detail.result") {
+            Markdown(HomeHistoryDetailPresentation.agentActionResultText(for: detail))
+                .markdownTextStyle(\.text) {
+                    FontSize(14)
+                }
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+            .background(AppTheme.ColorToken.accentSoft.opacity(0.55))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppTheme.ColorToken.accent.opacity(0.28), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    private var metadataFooter: some View {
+        HStack(spacing: 14) {
+            AgentActionSummaryMetaText(
+                title: L10n.localize("home.detail.agent_action.model", comment: "Agent action model"),
+                value: actionTrace?.model ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+            )
+            footerSeparator
+            AgentActionSummaryMetaText(
+                title: L10n.localize("home.agent_action_detail.input_tokens", comment: "Agent input tokens"),
+                value: tokenText(actionTrace?.tokenUsage?.inputTokens)
+            )
+            footerSeparator
+            AgentActionSummaryMetaText(
+                title: L10n.localize("home.agent_action_detail.output_tokens", comment: "Agent output tokens"),
+                value: tokenText(actionTrace?.tokenUsage?.outputTokens)
+            )
+            footerSeparator
+            AgentActionSummaryMetaText(
+                title: L10n.localize("home.detail.meta.duration", comment: "Processing duration"),
+                value: HomeHistoryDetailPresentation.durationText(milliseconds: actionDurationMS)
+            )
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+        .font(.system(size: 12))
+        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+    }
+
+    @ViewBuilder
+    private var actionLogSection: some View {
+        if let actionTrace, !actionTrace.events.isEmpty {
+            AgentActionEventsDisclosure(events: HomeHistoryDetailPresentation.visibleAgentActionEvents(actionTrace.events))
+        }
+    }
+
+    private var footerSeparator: some View {
+        Rectangle()
+            .fill(AppTheme.ColorToken.subtleStroke)
+            .frame(width: 1, height: 14)
+    }
+
+    private var actionDurationMS: Int? {
+        guard let actionTrace else { return nil }
+        return HomeHistoryDetailPresentation.actionDurationMS(actionTrace)
+    }
+
+    private func tokenText(_ value: Int?) -> String {
+        value.map(String.init) ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+    }
+
+    private func detailSection<Content: View>(
+        titleKey: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.localize(titleKey, comment: "Agent action detail section title"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AgentActionSummaryMetaText: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        Text("\(title) \(value)")
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+}
+
+private struct AgentActionSummaryScreenContextView: View {
+    let context: ScreenContextSnapshot
+    @State private var isPreviewPresented = false
+
+    private var presentation: HomeHistoryDetailPresentation.AgentActionScreenContextPresentation {
+        HomeHistoryDetailPresentation.agentActionScreenContextPresentation(for: context)
+    }
+
+    private var imageFilePath: String? {
+        context.thumbnailPath ?? context.imagePath
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            if let imageFilePath,
+               let image = RuntimeScreenshotImageSanitizer.displayImage(contentsOfFile: imageFilePath) {
+                Button {
+                    isPreviewPresented = true
+                } label: {
+                    ZStack(alignment: .bottomTrailing) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .interpolation(.medium)
+                            .scaledToFit()
+                            .frame(width: 220, height: 124)
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.accent)
+                            .frame(width: 24, height: 24)
+                            .background(.thinMaterial, in: Circle())
+                            .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                            .padding(8)
+                    }
+                    .frame(width: 220, height: 124)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.localize("home.agent_action_detail.screen_context_preview", comment: "Preview screen context"))
+                .sheet(isPresented: $isPreviewPresented) {
+                    AgentActionScreenContextPreview(imageFilePath: imageFilePath)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(presentation.sourceApp)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let windowTitle = presentation.windowTitle {
+                    Text(windowTitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
+                Text(presentation.sourceName)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .clipShape(Capsule())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.52))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct AgentActionScreenContextPreview: View {
+    let imageFilePath: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text(L10n.localize("home.agent_action_detail.screen_context_preview", comment: "Preview screen context"))
+                    .font(.system(size: 16, weight: .semibold))
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .background(AppTheme.ColorToken.controlBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityLabel(L10n.localize("common.close", comment: "Close"))
+            }
+
+            if let image = RuntimeScreenshotImageSanitizer.displayImage(contentsOfFile: imageFilePath) {
+                GeometryReader { proxy in
+                    Image(nsImage: image)
+                        .resizable()
+                        .interpolation(.medium)
+                        .scaledToFit()
+                        .frame(
+                            width: proxy.size.width,
+                            height: proxy.size.height,
+                            alignment: .center
+                        )
+                }
+                .frame(width: 860, height: 580)
+                .background(AppTheme.ColorToken.panelBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                )
+            }
+        }
+        .padding(18)
+        .frame(width: 900, height: 680)
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+}
+
 private struct HomeHistoryDetailModal: View {
     @ObservedObject var viewModel: HomeDashboardViewModel
     let detail: HomeHistoryDetail
@@ -750,9 +1159,6 @@ private struct HomeHistoryDetailModal: View {
                 .padding(.bottom, 12)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if detail.taskMode == .agentDispatch {
-                        dispatchSection
-                    }
                     transcriptionInfoSection
                     pipelineTimelineSection
                     warningsSection
@@ -1162,6 +1568,14 @@ private struct HomeHistoryDetailModal: View {
             }
         case .context:
             contextStepDetail
+        case .agentAction:
+            if let actionTrace = detail.trace?.agentAction {
+                agentActionStepDetail(actionTrace)
+            } else {
+                Text(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
         case .llm:
             if let llmTrace = detail.trace?.llm {
                 llmStepDetail(llmTrace)
@@ -1174,7 +1588,81 @@ private struct HomeHistoryDetailModal: View {
             Text(L10n.localize("home.detail.diagnostic.executed_no_detail", comment: "Executed no detail"))
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        case .dispatch:
+            if let dispatch = HomeHistoryDetailPresentation.agentDispatchPresentation(for: detail) {
+                agentDispatchStepDetail(dispatch)
+            } else {
+                Text(L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
         }
+    }
+
+    private func agentDispatchStepDetail(
+        _ presentation: HomeHistoryDetailPresentation.AgentDispatchPresentation
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DetailMetaItem(
+                title: L10n.localize("home.detail.dispatch.title", comment: "Dispatch result"),
+                value: presentation.title
+            )
+            if let agentName = presentation.agentName, !agentName.isEmpty {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.dispatch.agent", comment: "Dispatch agent"),
+                    value: agentName
+                )
+            }
+            Text(presentation.detail)
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func agentActionStepDetail(_ trace: AgentActionTrace) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let summary = trace.resultSummary, !summary.isEmpty {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.agent_action.summary", comment: "Agent action summary"),
+                    value: summary
+                )
+            }
+            LazyVGrid(
+                columns: [
+                    GridItem(.adaptive(minimum: 180), spacing: 10, alignment: .top)
+                ],
+                alignment: .leading,
+                spacing: 10
+            ) {
+                DetailMetaItem(title: L10n.localize("home.detail.diagnostic.summary.provider", comment: "Provider"), value: trace.providerID)
+                DetailMetaItem(title: L10n.localize("home.detail.agent_action.model", comment: "Agent action model"), value: trace.model ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded"))
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.meta.duration", comment: "Processing duration"),
+                    value: HomeHistoryDetailPresentation.durationText(
+                        milliseconds: HomeHistoryDetailPresentation.actionDurationMS(trace)
+                    )
+                )
+            }
+            if let usage = trace.tokenUsage {
+                Text(L10n.format(
+                    "home.detail.agent_action.tokens_format",
+                    comment: "Agent action token usage",
+                    usage.inputTokens.map(String.init) ?? "-",
+                    usage.outputTokens.map(String.init) ?? "-"
+                ))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            if let screenContext = trace.screenContext,
+               screenContext.imagePath != nil || screenContext.appName != nil || screenContext.windowTitle != nil {
+                AgentActionScreenContextBlock(context: screenContext)
+            }
+            if !trace.events.isEmpty {
+                AgentActionEventsDisclosure(events: HomeHistoryDetailPresentation.visibleAgentActionEvents(trace.events))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -1428,6 +1916,9 @@ private struct HomeHistoryDetailModal: View {
     }
 
     private var requestDiagnosticSummary: String {
+        if let actionTrace = detail.trace?.agentAction {
+            return actionTrace.userInstruction
+        }
         guard let llmTrace = detail.trace?.llm else {
             return L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step")
         }
@@ -1439,6 +1930,16 @@ private struct HomeHistoryDetailModal: View {
     }
 
     private var responseDiagnosticSummary: String {
+        if let actionTrace = detail.trace?.agentAction {
+            let eventLines = actionTrace.events.map { event in
+                [
+                    event.title,
+                    event.detail
+                ].compactMap { $0 }.joined(separator: "：")
+            }
+            return ([actionTrace.resultSummary].compactMap { $0 } + eventLines)
+                .joined(separator: "\n")
+        }
         guard let llmTrace = detail.trace?.llm else {
             return HomeHistoryDetailPresentation.pipelineStatusText(for: detail)
         }
@@ -1446,23 +1947,6 @@ private struct HomeHistoryDetailModal: View {
             responseText: llmTrace.responseText,
             errorMessage: llmTrace.errorMessage
         )
-    }
-
-    // MARK: - Dispatch section (for agentDispatch mode)
-
-    @ViewBuilder
-    private var dispatchSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(L10n.localize("home.detail.dispatch.title", comment: "Dispatch result title"), systemImage: "paperplane")
-                .font(.system(size: 16, weight: .semibold))
-            Text(detail.outputResultRaw ?? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded"))
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                .textSelection(.enabled)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .historyDetailPanel()
     }
 
     // MARK: - LLM trace metadata helper
@@ -2275,6 +2759,110 @@ private struct DiagnosticRow: View {
                 .truncationMode(.middle)
             Spacer(minLength: 0)
         }
+    }
+}
+
+private struct AgentActionEventsDisclosure: View {
+    let events: [AgentActionEvent]
+    @State private var isExpanded = HomeHistoryDetailPresentation.agentActionEventsExpandedByDefault
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(events) { event in
+                    HStack(alignment: .top, spacing: 8) {
+                        Circle()
+                            .fill(event.isFailure ? Color.orange : AppTheme.ColorToken.accent)
+                            .frame(width: 7, height: 7)
+                            .padding(.top, 5)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                            if let detail = event.detail, !detail.isEmpty {
+                                Text(detail)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                    .lineLimit(3)
+                                    .truncationMode(.tail)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            Label(
+                L10n.localize("home.detail.agent_action.events", comment: "Agent action events"),
+                systemImage: "list.bullet.rectangle"
+            )
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .padding(12)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct AgentActionScreenContextBlock: View {
+    let context: ScreenContextSnapshot
+
+    private var presentation: HomeHistoryDetailPresentation.AgentActionScreenContextPresentation {
+        HomeHistoryDetailPresentation.agentActionScreenContextPresentation(for: context)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(
+                L10n.localize("home.detail.context.title", comment: "OCR context title"),
+                systemImage: "rectangle.inset.filled.and.person.filled"
+            )
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+
+            if let imagePath = context.thumbnailPath ?? context.imagePath,
+               let image = RuntimeScreenshotImageSanitizer.displayImage(contentsOfFile: imagePath) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+                    )
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.context.source_app", comment: "Context source app"),
+                    value: presentation.sourceApp
+                )
+                if let windowTitle = presentation.windowTitle {
+                    DetailMetaItem(
+                        title: L10n.localize("home.detail.meta.window_title", comment: "Window title"),
+                        value: windowTitle
+                    )
+                }
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.context.source", comment: "Context source"),
+                    value: presentation.sourceName
+                )
+            }
+        }
+        .padding(12)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

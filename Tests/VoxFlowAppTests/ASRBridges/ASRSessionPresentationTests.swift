@@ -181,6 +181,7 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
         case show
         case showWithoutReset
         case dismissAfterDefaultHUDTimeout
+        case dismissAfterHUDTimeout(duration: TimeInterval)
         case dismiss
         case updateTranscription(text: String, isRefining: Bool)
         case updateAgentComposeStatus(AgentComposeHUDStage)
@@ -206,6 +207,10 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
 
     func dismissAfterDefaultHUDTimeout() {
         events.append(.dismissAfterDefaultHUDTimeout)
+    }
+
+    func dismissAfterHUDTimeout(duration: TimeInterval) {
+        events.append(.dismissAfterHUDTimeout(duration: duration))
     }
 
     func dismiss() {

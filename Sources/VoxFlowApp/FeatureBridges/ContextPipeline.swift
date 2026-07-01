@@ -791,13 +791,106 @@ struct SystemScreenshotProvider: ScreenshotProviding {
         configuration.ignoreShadowsSingleWindow = true
 
         do {
-            return try await SCScreenshotManager.captureImage(
+            let image = try await SCScreenshotManager.captureImage(
                 contentFilter: filter,
                 configuration: configuration
             )
+            return RuntimeScreenshotImageSanitizer.croppingBlackPadding(from: image)
         } catch {
             return nil
         }
+    }
+}
+
+enum RuntimeScreenshotImageSanitizer {
+    static func displayImage(contentsOfFile path: String) -> NSImage? {
+        guard let image = NSImage(contentsOfFile: path),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return NSImage(contentsOfFile: path)
+        }
+        let cropped = croppingBlackPadding(from: cgImage)
+        return NSImage(
+            cgImage: cropped,
+            size: NSSize(width: cropped.width, height: cropped.height)
+        )
+    }
+
+    static func croppingBlackPadding(from image: CGImage) -> CGImage {
+        guard let cropRect = blackPaddingCropRect(for: image),
+              cropRect.width > 0,
+              cropRect.height > 0,
+              Int(cropRect.width) < image.width || Int(cropRect.height) < image.height,
+              let cropped = image.cropping(to: cropRect) else {
+            return image
+        }
+        return cropped
+    }
+
+    private static func blackPaddingCropRect(for image: CGImage) -> CGRect? {
+        let width = image.width
+        let height = image.height
+        guard width > 1, height > 1 else { return nil }
+
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let columnThreshold = max(1, Int(Double(height) * 0.01))
+        let rowThreshold = max(1, Int(Double(width) * 0.01))
+
+        func isVisiblePixel(x: Int, y: Int) -> Bool {
+            let offset = y * bytesPerRow + x * bytesPerPixel
+            let red = pixels[offset]
+            let green = pixels[offset + 1]
+            let blue = pixels[offset + 2]
+            let alpha = pixels[offset + 3]
+            guard alpha > 8 else { return false }
+            return red > 8 || green > 8 || blue > 8
+        }
+
+        func columnHasContent(_ x: Int) -> Bool {
+            var count = 0
+            for y in 0..<height where isVisiblePixel(x: x, y: y) {
+                count += 1
+                if count >= columnThreshold { return true }
+            }
+            return false
+        }
+
+        func rowHasContent(_ y: Int) -> Bool {
+            var count = 0
+            for x in 0..<width where isVisiblePixel(x: x, y: y) {
+                count += 1
+                if count >= rowThreshold { return true }
+            }
+            return false
+        }
+
+        guard let left = (0..<width).first(where: columnHasContent),
+              let right = stride(from: width - 1, through: 0, by: -1).first(where: columnHasContent),
+              let top = (0..<height).first(where: rowHasContent),
+              let bottom = stride(from: height - 1, through: 0, by: -1).first(where: rowHasContent) else {
+            return nil
+        }
+
+        let cropWidth = right - left + 1
+        let cropHeight = bottom - top + 1
+        guard cropWidth >= 40, cropHeight >= 40 else {
+            return nil
+        }
+        return CGRect(x: left, y: top, width: cropWidth, height: cropHeight)
     }
 }
 

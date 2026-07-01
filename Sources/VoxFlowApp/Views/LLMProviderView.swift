@@ -39,7 +39,9 @@ struct LLMProviderView: View {
                 .help(L10n.localize("model.llm_provider.add_service_help", comment: ""))
             }
 
-            if viewModel.providers.isEmpty {
+            codexSettingsCard
+
+            if regularProviders.isEmpty {
                 Text(L10n.localize("model.llm_provider.empty_state", comment: ""))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 180)
@@ -47,7 +49,7 @@ struct LLMProviderView: View {
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
             } else {
                 LazyVStack(spacing: AppTheme.Spacing.grid) {
-                    ForEach(viewModel.providers, id: \.id) { provider in
+                    ForEach(regularProviders, id: \.id) { provider in
                         providerRow(provider)
                     }
                 }
@@ -66,6 +68,9 @@ struct LLMProviderView: View {
         )
         .onAppear {
             viewModel.loadIfNeeded()
+            Task {
+                await viewModel.detectCodexRuntime(forceRefresh: false)
+            }
         }
         .sheet(item: $editorRequest) { request in
             LLMProviderEditorSheet(
@@ -74,6 +79,142 @@ struct LLMProviderView: View {
             )
             .frame(width: 560, height: 540)
         }
+    }
+
+    private var regularProviders: [LLMProviderRecord] {
+        viewModel.providers.filter {
+            $0.id.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) != .orderedSame &&
+                $0.providerType.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) != .orderedSame
+        }
+    }
+
+    private var codexSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme.ColorToken.accentSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(L10n.localize("model.llm_provider.codex.title", comment: "Codex provider title"))
+                        .font(.system(size: 18, weight: .semibold))
+                    Text(L10n.localize("model.llm_provider.codex.subtitle", comment: "Codex provider subtitle"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                Toggle(
+                    viewModel.codexEnabled
+                        ? L10n.localize("model.llm_provider.codex.enabled_short", comment: "Codex enabled short")
+                        : L10n.localize("model.llm_provider.codex.disabled_short", comment: "Codex disabled short"),
+                    isOn: Binding(
+                        get: { viewModel.codexEnabled },
+                        set: { viewModel.setCodexEnabled($0) }
+                    )
+                )
+                .toggleStyle(.switch)
+                .controlSize(.large)
+            }
+
+            HStack(spacing: 10) {
+                codexAvailabilityPill
+                Spacer()
+                Button {
+                    Task { await viewModel.detectCodexRuntime(forceRefresh: true) }
+                } label: {
+                    Label(
+                        L10n.localize("model.llm_provider.codex.detect", comment: "Detect Codex"),
+                        systemImage: "checkmark.seal"
+                    )
+                    .frame(height: 32)
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.isCheckingCodexRuntime)
+            }
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text(L10n.localize("model.llm_provider.codex.model_section", comment: "Codex model section"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 160), spacing: 10)],
+                    alignment: .leading,
+                    spacing: 10
+                ) {
+                    ForEach(viewModel.codexModelIDs, id: \.self) { model in
+                        codexModelButton(model)
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(viewModel.codexEnabled ? AppTheme.ColorToken.selectionBackground.opacity(0.72) : AppTheme.ColorToken.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    viewModel.codexEnabled ? AppTheme.ColorToken.accent.opacity(0.5) : AppTheme.ColorToken.panelStroke,
+                    lineWidth: viewModel.codexEnabled ? 1.5 : AppTheme.Border.panelLineWidth
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var codexAvailabilityPill: some View {
+        let availability = viewModel.codexRuntimeAvailability
+        let available = availability?.isAvailable == true
+        let text: String
+        if viewModel.isCheckingCodexRuntime {
+            text = L10n.localize("model.llm_provider.codex.detecting", comment: "Detecting Codex")
+        } else if available {
+            text = L10n.format(
+                "model.llm_provider.codex.available_format",
+                comment: "Codex available",
+                availability?.cliVersion ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
+            )
+        } else {
+            text = availability?.status.reason ?? L10n.localize("model.llm_provider.codex.not_checked", comment: "Codex not checked")
+        }
+        return HStack(spacing: 7) {
+            Image(systemName: available ? "checkmark.circle" : "exclamationmark.circle")
+            Text(text)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(available ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .background((available ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText).opacity(0.10))
+        .clipShape(Capsule())
+    }
+
+    private func codexModelButton(_ model: String) -> some View {
+        let selected = viewModel.codexSelectedModel == model
+        return Button {
+            viewModel.selectCodexModel(model)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: selected ? "checkmark" : "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(model)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(selected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.primaryText)
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(selected ? AppTheme.ColorToken.accentSoft : AppTheme.ColorToken.controlBackground.opacity(0.78))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(selected ? AppTheme.ColorToken.accent.opacity(0.45) : AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func providerRow(_ provider: LLMProviderRecord) -> some View {

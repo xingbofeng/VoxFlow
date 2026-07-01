@@ -15,8 +15,8 @@ struct PagesReleaseMetadataClient: ReleaseMetadataClient {
     private let session: URLSession
 
     init(
-        endpointURL: URL = URL(string: "https://xingbofeng.github.io/VoxFlow/release.json")!,
-        fallbackScriptURL: URL = URL(string: "https://xingbofeng.github.io/VoxFlow/script.js")!,
+        endpointURL: URL = URL(string: "https://mashangxie.app/release.json")!,
+        fallbackScriptURL: URL = URL(string: "https://mashangxie.app/script.js")!,
         session: URLSession = .shared
     ) {
         self.endpointURL = endpointURL

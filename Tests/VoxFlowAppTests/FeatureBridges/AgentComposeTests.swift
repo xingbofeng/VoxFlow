@@ -57,7 +57,7 @@ final class AgentComposeTests: XCTestCase {
             outputService: outputService,
             agentRefiner: refiner
         )
-        try coordinator.startTask(mode: .agentCompose, target: nil)
+        _ = try coordinator.startTask(mode: .agentCompose, target: nil)
         try coordinator.recordRawTranscript("compose something")
 
         let result = try await coordinator.processAgentComposeAndDeliver(
@@ -67,6 +67,225 @@ final class AgentComposeTests: XCTestCase {
 
         XCTAssertEqual(outputService.lastMode, .agentCompose)
         XCTAssertEqual(result, .copied)
+    }
+
+    func testCodexRuntimeProviderCompletesWithoutDeliveringTextOutput() async throws {
+        let assetRepository = AgentComposeCapturingAssetRepository()
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let runtimeService = AgentComposeRuntimeServiceStub(
+            availability: .available(),
+            result: .successSummary("Opened Google")
+        )
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRuntimeService: runtimeService,
+            assetRepository: assetRepository,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+            }
+        )
+        let task = try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("打开 Google")
+
+        let result = try await coordinator.processAgentComposeAndDeliver(
+            context: nil,
+            stylePrompt: nil
+        )
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertNil(outputService.lastText)
+        XCTAssertEqual(runtimeService.lastInstruction, "打开 Google")
+        let fetched = try XCTUnwrap(repository.fetch(id: task.id))
+        XCTAssertEqual(fetched.status, .completed)
+        XCTAssertEqual(fetched.finalText, "Opened Google")
+        let traceJSON = try XCTUnwrap(fetched.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.agentAction?.providerID, "codex")
+        XCTAssertEqual(trace.agentAction?.status, .completed)
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.id, "dictation-\(task.id)")
+        XCTAssertEqual(asset.text, "打开 Google")
+        XCTAssertEqual(asset.rawText, "打开 Google")
+        XCTAssertEqual(asset.source, .dictation)
+    }
+
+    func testDefaultHandlerOpensDetailAfterCodexRuntimeCompletion() async throws {
+        let runtimeService = AgentComposeRuntimeServiceStub(
+            availability: .available(),
+            result: .successSummary("Opened Google")
+        )
+        let coordinator = makeCoordinator(
+            agentRuntimeService: runtimeService,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+            }
+        )
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        var openedTaskID: String?
+        handler.onRuntimeCompleted = { openedTaskID = $0 }
+        try handler.start(target: nil)
+        let taskID = try XCTUnwrap(coordinator.activeTaskID(for: .agentCompose))
+
+        let result = try await handler.finish(rawTranscript: "打开 Google")
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(openedTaskID, taskID)
+    }
+
+    func testCodexRuntimeUnavailableFallsBackToTextProvider() async throws {
+        let refiner = AgentComposeStubRefiner(
+            result: "Fallback generated text",
+            trace: LLMRefinementTrace(
+                providerID: "codex",
+                providerName: "Codex",
+                endpoint: "local://codex",
+                model: "gpt-5.5",
+                temperature: 0,
+                timeoutSeconds: 60,
+                requestBodyJSON: "{}",
+                responseText: "Fallback generated text",
+                statusCode: 200
+            )
+        )
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let runtimeService = AgentComposeRuntimeServiceStub(
+            availability: .unavailable(reason: "missing runtime"),
+            result: nil
+        )
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner,
+            agentRuntimeService: runtimeService,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+            }
+        )
+        let task = try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("帮我写一句话")
+
+        let result = try await coordinator.processAgentComposeAndDeliver(
+            context: nil,
+            stylePrompt: nil
+        )
+
+        XCTAssertEqual(result, .copied)
+        XCTAssertEqual(outputService.lastText, "Fallback generated text")
+        XCTAssertNil(runtimeService.lastInstruction)
+        let fetched = try XCTUnwrap(repository.fetch(id: task.id))
+        let traceJSON = try XCTUnwrap(fetched.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.agentAction?.executionMode, .codexTextFallback)
+        XCTAssertEqual(trace.agentAction?.resultSummary, "已退回文本模式")
+        XCTAssertNotNil(trace.llm)
+    }
+
+    func testCodexRuntimeFailureDoesNotFallbackToTextProvider() async throws {
+        let refiner = AgentComposeStubRefiner(result: "Should not be used")
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let runtimeService = AgentComposeRuntimeServiceStub(
+            availability: .available(),
+            result: nil,
+            error: AgentRuntimeClientError.failed(
+                AgentActionTrace(
+                    providerID: "codex",
+                    executionMode: .codexRuntime,
+                    status: .failed,
+                    userInstruction: "打开 Google",
+                    events: [
+                        AgentActionEvent(
+                            kind: .error,
+                            title: "任务失败",
+                            detail: "runtime failed",
+                            timestamp: Date(timeIntervalSince1970: 1_800_000_001),
+                            isFailure: true
+                        )
+                    ],
+                    startedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                    completedAt: Date(timeIntervalSince1970: 1_800_000_001),
+                    failureReason: "runtime failed"
+                )
+            )
+        )
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner,
+            agentRuntimeService: runtimeService,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+            }
+        )
+        let task = try coordinator.startTask(mode: .agentCompose, target: nil)
+        try coordinator.recordRawTranscript("打开 Google")
+
+        do {
+            _ = try await coordinator.processAgentComposeAndDeliver(
+                context: nil,
+                stylePrompt: nil
+            )
+            XCTFail("Expected runtime failure")
+        } catch {
+            XCTAssertEqual(outputService.lastText, nil)
+        }
+
+        let fetched = try XCTUnwrap(repository.fetch(id: task.id))
+        let traceJSON = try XCTUnwrap(fetched.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        XCTAssertEqual(trace.agentAction?.status, .failed)
+        XCTAssertEqual(trace.agentAction?.failureReason, "runtime failed")
+    }
+
+    func testDefaultHandlerRecordsLastFailedTaskIDAfterRuntimeFailure() async throws {
+        let runtimeService = AgentComposeRuntimeServiceStub(
+            availability: .available(),
+            result: nil,
+            error: AgentRuntimeClientError.failed(
+                AgentActionTrace(
+                    providerID: "codex",
+                    executionMode: .codexRuntime,
+                    status: .failed,
+                    userInstruction: "打开 Google",
+                    events: [
+                        AgentActionEvent(
+                            kind: .error,
+                            title: "任务失败",
+                            detail: "runtime failed",
+                            timestamp: Date(timeIntervalSince1970: 1_800_000_001),
+                            isFailure: true
+                        )
+                    ],
+                    startedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                    completedAt: Date(timeIntervalSince1970: 1_800_000_001),
+                    failureReason: "runtime failed"
+                )
+            )
+        )
+        let coordinator = makeCoordinator(
+            agentRuntimeService: runtimeService,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+            }
+        )
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        try handler.start(target: nil)
+        let taskID = try XCTUnwrap(coordinator.activeTaskID(for: .agentCompose))
+
+        do {
+            _ = try await handler.finish(rawTranscript: "打开 Google")
+            XCTFail("Expected runtime failure")
+        } catch {
+            handler.fail(error)
+        }
+
+        XCTAssertEqual(handler.lastFailedTaskID, taskID)
+        let fetched = try XCTUnwrap(repository.fetch(id: taskID))
+        XCTAssertEqual(fetched.status, .failed)
     }
 
     // MARK: - testAgentComposeNeverSimulatesEnter
@@ -369,7 +588,10 @@ final class AgentComposeTests: XCTestCase {
         ),
         outputService: AgentComposeStubOutputService = AgentComposeStubOutputService(result: .copied),
         agentRefiner: (any PromptAwareTextRefining)? = nil,
-        contextPipeline: (any ContextCollecting)? = nil
+        contextPipeline: (any ContextCollecting)? = nil,
+        agentRuntimeService: (any AgentRuntimeServing)? = nil,
+        assetRepository: (any AssetRepository)? = nil,
+        agentRuntimeSelection: @escaping @MainActor () -> AgentRuntimeProviderSelection? = { nil }
     ) -> VoiceTaskCoordinator {
         VoiceTaskCoordinator(
             taskRepository: repository,
@@ -378,22 +600,29 @@ final class AgentComposeTests: XCTestCase {
             targetProvider: AgentComposeStubTargetProvider(),
             clock: clock,
             contextPipeline: contextPipeline,
-            agentRefiner: agentRefiner
+            agentRefiner: agentRefiner,
+            agentRuntimeService: agentRuntimeService,
+            agentRuntimeSelection: agentRuntimeSelection,
+            assetRepository: assetRepository
         )
     }
 }
 
 // MARK: - Test Doubles
 
-private final class AgentComposeStubRefiner: PromptAwareTextRefining, @unchecked Sendable {
+private final class AgentComposeStubRefiner: PromptAwareTextRefining, RefinementTraceProviding, @unchecked Sendable {
     let result: String?
     let error: Error?
+    let trace: LLMRefinementTrace?
     var configured = true
     var lastRequest: TextRefinementRequest?
+    var lastTrace: LLMRefinementTrace?
 
-    init(result: String? = nil, error: Error? = nil) {
+    init(result: String? = nil, error: Error? = nil, trace: LLMRefinementTrace? = nil) {
         self.result = result
         self.error = error
+        self.trace = trace
+        self.lastTrace = nil
     }
 
     var isEnabled: Bool { true }
@@ -401,13 +630,19 @@ private final class AgentComposeStubRefiner: PromptAwareTextRefining, @unchecked
 
     func refine(_ text: String) async throws -> String {
         if let error { throw error }
+        lastTrace = trace
         return result ?? text
     }
 
     func refine(_ request: TextRefinementRequest) async throws -> String {
         lastRequest = request
         if let error { throw error }
+        lastTrace = trace
         return result ?? request.text
+    }
+
+    func clearLastTrace() {
+        lastTrace = nil
     }
 }
 
@@ -499,6 +734,117 @@ private final class AgentComposeStubOutputService: OutputService {
 @MainActor
 private final class AgentComposeStubTargetProvider: DictationTargetProviding {
     func currentTarget() -> DictationTarget? { nil }
+}
+
+private final class AgentComposeRuntimeServiceStub: AgentRuntimeServing, @unchecked Sendable {
+    let storedAvailability: AgentRuntimeAvailability
+    let result: AgentRuntimeServiceResult?
+    let error: Error?
+    private(set) var lastInstruction: String?
+
+    init(
+        availability: AgentRuntimeAvailability,
+        result: AgentRuntimeServiceResult?,
+        error: Error? = nil
+    ) {
+        self.storedAvailability = availability
+        self.result = result
+        self.error = error
+    }
+
+    func availability(forceRefresh: Bool) async -> AgentRuntimeAvailability {
+        storedAvailability
+    }
+
+    func runIfAvailable(
+        taskID: String,
+        instruction: String,
+        context: ContextSnapshot?,
+        target: DictationTarget?,
+        model: String?,
+        onEvent: @escaping @Sendable (AgentActionEvent) -> Void
+    ) async throws -> AgentRuntimeServiceResult {
+        lastInstruction = instruction
+        onEvent(AgentActionEvent(
+            kind: .turnStarted,
+            title: "开始处理",
+            timestamp: Date(timeIntervalSince1970: 1_800_000_001)
+        ))
+        if let error {
+            throw error
+        }
+        return result ?? .unavailable(storedAvailability)
+    }
+}
+
+private final class AgentComposeCapturingAssetRepository: AssetRepository {
+    private(set) var savedItems: [AssetItem] = []
+
+    func save(_ item: AssetItem) throws {
+        savedItems.append(item)
+    }
+
+    func asset(id: String) throws -> AssetItem? {
+        savedItems.first { $0.id == id && $0.deletedAt == nil }
+    }
+
+    func page(query: AssetQuery) throws -> AssetPage {
+        AssetPage(items: savedItems, totalCount: savedItems.count)
+    }
+
+    func softDelete(id: String, deletedAt: Date) throws {}
+}
+
+private extension AgentRuntimeAvailability {
+    static func available() -> AgentRuntimeAvailability {
+        AgentRuntimeAvailability(
+            providerID: "codex",
+            status: .available,
+            detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
+            cliPath: "/tmp/codex",
+            cliVersion: "codex-cli test"
+        )
+    }
+
+    static func unavailable(reason: String) -> AgentRuntimeAvailability {
+        AgentRuntimeAvailability(
+            providerID: "codex",
+            status: .unavailable(reason: reason),
+            detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
+            cliPath: nil,
+            cliVersion: nil
+        )
+    }
+}
+
+private extension AgentRuntimeServiceResult {
+    static func successSummary(_ summary: String) -> AgentRuntimeServiceResult {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        return .completed(AgentRuntimeResult(
+            summary: summary,
+            status: .completed,
+            trace: AgentActionTrace(
+                providerID: "codex",
+                executionMode: .codexRuntime,
+                status: .completed,
+                userInstruction: "打开 Google",
+                events: [
+                    AgentActionEvent(
+                        kind: .turnCompleted,
+                        title: "任务完成",
+                        timestamp: now,
+                        elapsedMS: 1200
+                    )
+                ],
+                resultSummary: summary,
+                model: "gpt-5.5",
+                startedAt: now,
+                completedAt: now.addingTimeInterval(1.2)
+            )
+        ))
+    }
 }
 
 private final class AgentComposeTestClock: AppClock, @unchecked Sendable {

@@ -145,6 +145,7 @@ final class OverlayWindowController: NSWindowController {
     private var localAgentCandidateKeyMonitor: Any?
     private var agentCandidateKeyEventTap: CFMachPort?
     private var agentCandidateKeyEventTapSource: CFRunLoopSource?
+    private var agentRuntimeTaskSummary: String?
 
     var onAgentCandidateSelected: ((String, String) -> Void)?
     var onAgentDefaultOutputSelected: ((String) -> Void)?
@@ -1255,11 +1256,15 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func dismissAfterDefaultHUDTimeout() {
+        dismissAfterHUDTimeout(duration: 10.0)
+    }
+
+    func dismissAfterHUDTimeout(duration: TimeInterval) {
         temporaryMessageTask?.cancel()
         let generation = presentationGeneration
-        logger.debug("overlay_schedule_timeout_dismiss generation=\(generation)")
+        logger.debug("overlay_schedule_timeout_dismiss generation=\(generation) duration=\(duration)")
         temporaryMessageTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
             guard !Task.isCancelled,
                   let self,
                   self.presentationGeneration == generation else {
@@ -1557,6 +1562,7 @@ final class OverlayWindowController: NSWindowController {
         hideAgentConfirmationPresentation()
         switch stage {
         case .readingWindow:
+            agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_title", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_detail", comment: "")
@@ -1566,6 +1572,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .transcribing:
+            agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.transcribing", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.transcribing_detail", comment: "")
@@ -1575,9 +1582,51 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .generating:
+            agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.generating", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.generating_detail", comment: "")
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case let .runtimeProcessing(summary):
+            if let taskSummary = Self.normalizedRuntimeSummary(summary) {
+                agentRuntimeTaskSummary = taskSummary
+            }
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_processing", comment: "")
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = Self.runtimeDetailText(
+                summary,
+                fallbackKey: "hud.agent_compose.runtime_processing_detail",
+                cachedSummary: agentRuntimeTaskSummary
+            )
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case let .runtimeOperating(summary):
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_operating", comment: "")
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = Self.runtimeDetailText(
+                summary,
+                fallbackKey: "hud.agent_compose.runtime_operating_detail",
+                cachedSummary: agentRuntimeTaskSummary
+            )
+            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = false
+            refiningSpinner.startAnimation(nil)
+        case let .runtimeWaitingForPermission(summary):
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_waiting_permission", comment: "")
+            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+            textLabel.stringValue = Self.runtimeDetailText(
+                summary,
+                fallbackKey: "hud.agent_compose.runtime_waiting_permission_detail"
+            )
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
@@ -1597,6 +1646,30 @@ final class OverlayWindowController: NSWindowController {
             textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
+        case let .runtimeCompleted(summary):
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_completed", comment: "")
+            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            textLabel.stringValue = Self.runtimeDetailText(
+                summary,
+                fallbackKey: "hud.agent_compose.runtime_completed_detail"
+            )
+            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = true
+            refiningSpinner.stopAnimation(nil)
+        case let .runtimeFailed(summary):
+            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_failed", comment: "")
+            statusLabel.textColor = NSColor.systemRed
+            textLabel.stringValue = Self.runtimeDetailText(
+                summary,
+                fallbackKey: "hud.agent_compose.runtime_failed_detail"
+            )
+            textLabel.textColor = NSColor(red: 0.560, green: 0.110, blue: 0.110, alpha: 1.0)
+            waveformView.stopAnimation()
+            waveformView.isHidden = true
+            refiningSpinner.isHidden = true
+            refiningSpinner.stopAnimation(nil)
         case .contextUnavailable:
             statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
             statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
@@ -1605,6 +1678,28 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         }
+    }
+
+    private static func runtimeDetailText(
+        _ summary: String?,
+        fallbackKey: String,
+        cachedSummary: String? = nil
+    ) -> String {
+        if let trimmed = normalizedRuntimeSummary(summary) {
+            return trimmed
+        }
+        if let cached = normalizedRuntimeSummary(cachedSummary) {
+            return cached
+        }
+        return L10n.localize(fallbackKey, comment: "")
+    }
+
+    private static func normalizedRuntimeSummary(_ summary: String?) -> String? {
+        let trimmed = summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty, !trimmed.looksLikeRuntimeTechnicalOutput else {
+            return nil
+        }
+        return trimmed
     }
 
     func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation) {
@@ -1688,9 +1783,35 @@ enum AgentComposeHUDStage: Equatable {
     case readingWindow
     case transcribing
     case generating
+    case runtimeProcessing(summary: String? = nil)
+    case runtimeOperating(summary: String? = nil)
+    case runtimeWaitingForPermission(summary: String? = nil)
+    case runtimeCompleted(summary: String? = nil)
+    case runtimeFailed(summary: String? = nil)
     case copied
     case inserted
     case contextUnavailable
+}
+
+private extension String {
+    var looksLikeRuntimeTechnicalOutput: Bool {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = trimmed.lowercased()
+        return trimmed.hasPrefix("{") ||
+            trimmed.hasPrefix("[") ||
+            trimmed.hasPrefix("/") ||
+            trimmed.hasPrefix("~") ||
+            trimmed.hasPrefix("file://") ||
+            trimmed.hasPrefix("```") ||
+            lowercased.hasPrefix("% total") ||
+            lowercased.contains("% received") ||
+            (lowercased.contains("average speed") && lowercased.contains("time")) ||
+            lowercased.contains("/users/") ||
+            lowercased.contains("/applications/") ||
+            lowercased.contains("application support/") ||
+            lowercased.contains("\"codexerrorinfo\"") ||
+            lowercased.contains("\"message\"")
+    }
 }
 
 // MARK: - Overlay NSPanel

@@ -24,6 +24,7 @@ public struct VoiceTaskDiagnosticSnapshot: Codable, Equatable, Sendable {
     public let failure: FailureSummary?
     public let asrMetadata: VoiceTaskASRMetadata?
     public let warningCodes: [String]
+    public let agentAction: AgentActionDiagnosticSummary?
     public let createdAt: Date
     public let updatedAt: Date
     public let completedAt: Date?
@@ -42,6 +43,7 @@ public struct VoiceTaskDiagnosticSnapshot: Codable, Equatable, Sendable {
         failure = Self.failureSummary(from: task.failureJson)
         asrMetadata = task.asrMetadata
         warningCodes = task.warnings
+        agentAction = Self.agentActionSummary(from: task.trace)
         createdAt = task.createdAt
         updatedAt = task.updatedAt
         completedAt = task.completedAt
@@ -59,6 +61,19 @@ public struct VoiceTaskDiagnosticSnapshot: Codable, Equatable, Sendable {
         }
     }
 
+    public struct AgentActionDiagnosticSummary: Codable, Equatable, Sendable {
+        public let providerID: String?
+        public let executionMode: String?
+        public let status: String?
+        public let model: String?
+        public let inputTokens: Int?
+        public let outputTokens: Int?
+        public let totalTokens: Int?
+        public let eventCount: Int
+        public let hasScreenImage: Bool
+        public let failureReason: String?
+    }
+
     private static func outputResultKind(from rawValue: String?) -> OutputResultKind? {
         OutputResultKind.decodePersisted(from: rawValue)
     }
@@ -70,5 +85,30 @@ public struct VoiceTaskDiagnosticSnapshot: Codable, Equatable, Sendable {
             return nil
         }
         return FailureSummary(failure: failure)
+    }
+
+    private static func agentActionSummary(from rawValue: String?) -> AgentActionDiagnosticSummary? {
+        guard let rawValue,
+              let data = rawValue.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let action = root["agentAction"] as? [String: Any] else {
+            return nil
+        }
+        let tokenUsage = action["tokenUsage"] as? [String: Any]
+        let events = action["events"] as? [Any]
+        let screenContext = action["screenContext"] as? [String: Any]
+        let imagePath = screenContext?["imagePath"] as? String
+        return AgentActionDiagnosticSummary(
+            providerID: action["providerID"] as? String,
+            executionMode: action["executionMode"] as? String,
+            status: action["status"] as? String,
+            model: action["model"] as? String,
+            inputTokens: tokenUsage?["inputTokens"] as? Int,
+            outputTokens: tokenUsage?["outputTokens"] as? Int,
+            totalTokens: tokenUsage?["totalTokens"] as? Int,
+            eventCount: events?.count ?? 0,
+            hasScreenImage: imagePath?.isEmpty == false,
+            failureReason: action["failureReason"] as? String
+        )
     }
 }

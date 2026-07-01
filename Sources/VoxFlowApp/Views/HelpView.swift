@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum HelpExternalLinks {
-    static let projectHomepage = "https://xingbofeng.github.io/VoxFlow/"
+    static let projectHomepage = "https://mashangxie.app/"
     static let githubRepository = "https://github.com/xingbofeng/VoxFlow"
     static let latestRelease = "https://github.com/xingbofeng/VoxFlow/releases/latest"
     static let issues = "https://github.com/xingbofeng/VoxFlow/issues"

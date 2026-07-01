@@ -5,6 +5,22 @@ import VoxFlowPromptKit
 
 enum HomeHistoryDetailPresentation {
     static let missingTraceMessage = L10n.localize("home.detail.trace.missing_dictation", comment: "Missing dictation trace message")
+    static let agentActionVisibleEventLimit = 24
+    static let agentActionEventsExpandedByDefault = false
+
+    struct AgentActionScreenContextPresentation: Equatable {
+        let sourceApp: String
+        let windowTitle: String?
+        let sourceName: String
+        let hasImage: Bool
+    }
+
+    struct AgentDispatchPresentation: Equatable {
+        let title: String
+        let detail: String
+        let agentName: String?
+        let state: String
+    }
 
     static func missingTraceMessage(for taskMode: VoiceTaskMode?) -> String {
         if taskMode == .agentDispatch {
@@ -154,6 +170,74 @@ enum HomeHistoryDetailPresentation {
     static func contextBoostHotwordsText(_ hotwords: [String]) -> String {
         guard !hotwords.isEmpty else { return L10n.localize("home.detail.context.no_hotwords", comment: "No hotwords extracted") }
         return hotwords.joined(separator: "、")
+    }
+
+    static func agentActionScreenContextPresentation(
+        for context: ScreenContextSnapshot
+    ) -> AgentActionScreenContextPresentation {
+        AgentActionScreenContextPresentation(
+            sourceApp: context.appName ?? context.bundleID ?? L10n.localize("home.detail.context.unknown_app", comment: "Unknown app"),
+            windowTitle: context.windowTitle?.isEmpty == false ? context.windowTitle : nil,
+            sourceName: context.imagePath == nil
+                ? L10n.localize("home.detail.context.source_current_window_ocr", comment: "Current window OCR source")
+                : L10n.localize("home.detail.context.source_screenshot_ocr", comment: "Screenshot OCR source"),
+            hasImage: context.imagePath != nil
+        )
+    }
+
+    static func visibleAgentActionEvents(_ events: [AgentActionEvent]) -> [AgentActionEvent] {
+        Array(events.prefix(agentActionVisibleEventLimit))
+    }
+
+    static func agentDispatchPresentation(for detail: HomeHistoryDetail) -> AgentDispatchPresentation? {
+        if let trace = detail.trace?.agentDispatch {
+            return AgentDispatchPresentation(
+                title: agentDispatchTitle(state: trace.state, fallbackTitle: trace.title),
+                detail: agentDispatchDetail(for: trace),
+                agentName: trace.agentName,
+                state: trace.state
+            )
+        }
+        guard detail.taskMode == .agentDispatch,
+              let raw = detail.outputResultRaw,
+              let data = raw.data(using: .utf8),
+              let snapshot = try? JSONDecoder().decode(AgentDispatchPersistedSnapshot.self, from: data) else {
+            return nil
+        }
+        return AgentDispatchPresentation(
+            title: agentDispatchTitle(state: snapshot.state, fallbackTitle: snapshot.title),
+            detail: snapshot.detail.isEmpty
+                ? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded")
+                : snapshot.detail,
+            agentName: nil,
+            state: snapshot.state
+        )
+    }
+
+    static func usesAgentActionSummaryDetail(for detail: HomeHistoryDetail) -> Bool {
+        guard detail.taskMode == .agentCompose,
+              detail.trace?.agentAction?.executionMode == .codexRuntime else {
+            return false
+        }
+        return true
+    }
+
+    static func agentActionInstructionText(for detail: HomeHistoryDetail) -> String {
+        if let instruction = detail.trace?.agentAction?.userInstruction.trimmingCharacters(in: .whitespacesAndNewlines),
+           !instruction.isEmpty {
+            return instruction
+        }
+        let rawText = detail.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return rawText.isEmpty ? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded") : rawText
+    }
+
+    static func agentActionResultText(for detail: HomeHistoryDetail) -> String {
+        if let summary = detail.trace?.agentAction?.resultSummary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summary.isEmpty {
+            return summary
+        }
+        let finalText = detail.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return finalText.isEmpty ? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded") : finalText
     }
 
     static func contextBoostFailureReasonText(_ reason: String) -> String {
@@ -323,6 +407,10 @@ enum HomeHistoryDetailPresentation {
             sections.append(llmSummary(llm))
         }
 
+        if let action = detail.trace?.agentAction {
+            sections.append(agentActionSummary(action))
+        }
+
         if sections.count == 1, detail.trace == nil {
             sections.append(L10n.localize("home.detail.diagnostic.no_trace", comment: "No trace for step"))
         }
@@ -423,6 +511,62 @@ enum HomeHistoryDetailPresentation {
             }
         }
         return rows.joined(separator: "\n")
+    }
+
+    private static func agentActionSummary(_ action: AgentActionTrace) -> String {
+        var rows = [sectionTitle("home.detail.agent_action.summary")]
+        rows.append(line("home.detail.diagnostic.summary.provider", action.providerID))
+        if let model = action.model {
+            rows.append(line("home.detail.agent_action.model", model))
+        }
+        rows.append(line("home.detail.diagnostic.summary.response", action.status.rawValue))
+        rows.append(line("home.detail.diagnostic.summary.duration", durationText(milliseconds: actionDurationMS(action))))
+        if let tokenUsage = action.tokenUsage {
+            rows.append(line(
+                "home.detail.agent_action.events",
+                L10n.format(
+                    "home.detail.agent_action.tokens_format",
+                    comment: "Agent action token usage",
+                    tokenUsage.inputTokens.map(String.init) ?? "-",
+                    tokenUsage.outputTokens.map(String.init) ?? "-"
+                )
+            ))
+        }
+        return rows.joined(separator: "\n")
+    }
+
+    private static func agentDispatchTitle(state: String, fallbackTitle: String) -> String {
+        switch state {
+        case "sent":
+            return L10n.localize("home.detail.dispatch.sent", comment: "Dispatch sent")
+        case "fallbackInput":
+            return L10n.localize("home.detail.dispatch.default_output", comment: "Dispatch default output")
+        case "failure":
+            return L10n.localize("home.detail.dispatch.failed", comment: "Dispatch failed")
+        case "confirmation":
+            return L10n.localize("home.detail.dispatch.awaiting_choice", comment: "Dispatch awaiting choice")
+        case "exact":
+            return L10n.localize("home.detail.dispatch.exact_match", comment: "Dispatch exact match")
+        case "clipboardFallback":
+            return L10n.localize("home.detail.dispatch.clipboard_fallback", comment: "Dispatch clipboard fallback")
+        default:
+            return fallbackTitle.isEmpty
+                ? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded")
+                : fallbackTitle
+        }
+    }
+
+    private static func agentDispatchDetail(for trace: AgentDispatchTrace) -> String {
+        if trace.state == "sent", let agentName = trace.agentName, !agentName.isEmpty {
+            return L10n.format("home.detail.dispatch.sent_to_format", comment: "Dispatch sent to agent", agentName)
+        }
+        if trace.state == "fallbackInput" {
+            return L10n.localize("home.detail.dispatch.default_output_detail", comment: "Default output detail")
+        }
+        let detail = trace.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return detail.isEmpty
+            ? L10n.localize("home.detail.dispatch.empty", comment: "No dispatch result recorded")
+            : detail
     }
 
     private static func styleSelectionSourceText(_ source: String?) -> String {
@@ -527,8 +671,10 @@ enum HomeHistoryDetailPresentation {
         case textReplacement
         case styleRoute
         case context
+        case agentAction
         case llm
         case output
+        case dispatch
 
         var title: String {
             switch self {
@@ -542,10 +688,14 @@ enum HomeHistoryDetailPresentation {
                 return L10n.localize("home.detail.pipeline.step.style_route", comment: "Style route step title")
             case .context:
                 return L10n.localize("home.detail.pipeline.step.context", comment: "Context step title")
+            case .agentAction:
+                return L10n.localize("home.detail.pipeline.step.agent_action", comment: "Agent action step title")
             case .llm:
                 return L10n.localize("home.detail.pipeline.step.llm", comment: "LLM step title")
             case .output:
                 return L10n.localize("home.detail.pipeline.step.output", comment: "Output step title")
+            case .dispatch:
+                return L10n.localize("home.detail.pipeline.step.dispatch", comment: "Dispatch step title")
             }
         }
 
@@ -556,21 +706,26 @@ enum HomeHistoryDetailPresentation {
             case .textReplacement: return "arrow.left.arrow.right"
             case .styleRoute: return "shuffle"
             case .context: return "text.viewfinder"
+            case .agentAction: return "terminal"
             case .llm: return "sparkles"
             case .output: return "checkmark.circle"
+            case .dispatch: return "paperplane"
             }
         }
 
         /// Whether this step is applicable to the given task mode.
-        /// Agent compose/dispatch don't go through deterministic processing
-        /// or text replacement — those steps are hidden rather than shown
-        /// as "skipped" to avoid clutter.
+        /// Agent compose keeps its runtime/action-focused flow; agent dispatch
+        /// can still use the ordinary text pipe when the user selects default output.
         func isApplicable(for taskMode: VoiceTaskMode?) -> Bool {
             switch self {
             case .deterministic, .textReplacement:
-                return taskMode == nil || taskMode == .dictation
+                return taskMode == nil || taskMode == .dictation || taskMode == .agentDispatch
             case .styleRoute:
-                return taskMode == nil || taskMode == .dictation
+                return taskMode == nil || taskMode == .dictation || taskMode == .agentDispatch
+            case .agentAction:
+                return taskMode == .agentCompose
+            case .dispatch:
+                return taskMode == .agentDispatch
             case .asr, .context, .llm, .output:
                 return true
             }
@@ -652,18 +807,48 @@ enum HomeHistoryDetailPresentation {
             if context.failureReason != nil { return .failed }
             if context.appliedToLLMPrompt { return .hit }
             return (context.hotwords.isEmpty && detail.contextPreview == nil) ? .missed : .executed
+        case .agentAction:
+            guard let action = detail.trace?.agentAction else { return .skipped }
+            switch action.status {
+            case .completed:
+                return .success
+            case .failed, .cancelled:
+                return .failed
+            case .pending, .running, .waitingForPermission:
+                return .executed
+            }
         case .llm:
             guard let llm = detail.trace?.llm else { return .skipped }
             return llm.succeeded ? .success : .failed
         case .output:
             // Output always completed if we have final text.
             return .success
+        case .dispatch:
+            guard let dispatch = agentDispatchPresentation(for: detail) else { return .skipped }
+            switch dispatch.state {
+            case "sent":
+                return .success
+            case "failure":
+                return .failed
+            case "fallbackInput":
+                return .skipped
+            case "exact", "confirmation", "clipboardFallback":
+                return .executed
+            default:
+                return .skipped
+            }
         }
     }
 
     /// Returns the overall pipeline status text shown next to the timeline
     /// header. Example: "成功 · 4.1 秒 · 200" or "本地处理完成".
     static func pipelineStatusText(for detail: HomeHistoryDetail) -> String {
+        if let action = detail.trace?.agentAction {
+            let status = action.status == .completed
+                ? L10n.localize("home.detail.status.success", comment: "Success status")
+                : L10n.localize("home.detail.status.failed", comment: "Failed status")
+            return "\(status) · \(durationText(milliseconds: actionDurationMS(action)))"
+        }
         if let llm = detail.trace?.llm {
             let duration = durationText(milliseconds: llm.durationMS)
             let code = llm.statusCode.map { "\($0)" } ?? L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded")
@@ -680,6 +865,9 @@ enum HomeHistoryDetailPresentation {
 
     /// The color used for the pipeline status pill.
     static func pipelineStatusColor(for detail: HomeHistoryDetail) -> Color {
+        if let action = detail.trace?.agentAction {
+            return action.status == .completed ? AppTheme.ColorToken.accent : Color.orange
+        }
         if let llm = detail.trace?.llm {
             return llm.succeeded ? AppTheme.ColorToken.accent : Color.orange
         }
@@ -687,6 +875,11 @@ enum HomeHistoryDetailPresentation {
             return Color.orange
         }
         return AppTheme.ColorToken.accent
+    }
+
+    static func actionDurationMS(_ action: AgentActionTrace) -> Int? {
+        guard let completedAt = action.completedAt else { return nil }
+        return max(0, Int(completedAt.timeIntervalSince(action.startedAt) * 1_000))
     }
 
     /// Diff status text shown in the result comparison section.
@@ -735,4 +928,10 @@ enum HomeHistoryDetailPresentation {
         let truncatedFinal = final.count > maxLen ? String(final.prefix(maxLen)) + "…" : final
         return "\(truncatedRaw) → \(truncatedFinal)"
     }
+}
+
+private struct AgentDispatchPersistedSnapshot: Decodable {
+    let state: String
+    let title: String
+    let detail: String
 }

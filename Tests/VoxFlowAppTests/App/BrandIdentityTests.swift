@@ -319,8 +319,8 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(runBody.contains("lsregister"), "run target should delegate LS cleanup to prelaunch-cleanup")
     }
 
-    func testHelpLinksUseRenamedRepositoryAndPagesAddress() {
-        XCTAssertEqual(HelpExternalLinks.projectHomepage, "https://xingbofeng.github.io/VoxFlow/")
+    func testHelpLinksUseRenamedRepositoryAndHomepageAddress() {
+        XCTAssertEqual(HelpExternalLinks.projectHomepage, "https://mashangxie.app/")
         XCTAssertEqual(HelpExternalLinks.githubRepository, "https://github.com/xingbofeng/VoxFlow")
         XCTAssertEqual(HelpExternalLinks.latestRelease, "https://github.com/xingbofeng/VoxFlow/releases/latest")
     }
@@ -336,10 +336,12 @@ final class BrandIdentityTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(index.contains("<title>VoxFlow"))
+        XCTAssertTrue(index.contains("<title>VoxFlow 码上写 - 语音、OCR 和本地 Agent 工作流都进工作台</title>"))
+        XCTAssertTrue(index.contains("https://mashangxie.app/"))
         XCTAssertTrue(index.contains("https://github.com/xingbofeng/VoxFlow"))
         XCTAssertFalse(index.contains("github.com/xingbofeng/VoiceInput"))
         XCTAssertTrue(readme.contains("VoxFlow"))
+        XCTAssertTrue(readme.contains("https://mashangxie.app/"))
     }
 
     func testCIKeepsFastChecksAndReleaseWorkflowVerifiesVoxFlowArtifacts() throws {

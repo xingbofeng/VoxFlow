@@ -242,6 +242,136 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertEqual(llmStep?.status, .success)
     }
 
+    func testPipelineStepsWithAgentActionTraceShowsExecutedAction() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let trace = TextProcessingTrace(
+            agentAction: AgentActionTrace(
+                providerID: "codex",
+                executionMode: .codexRuntime,
+                status: .completed,
+                userInstruction: "打开 Google",
+                events: [
+                    AgentActionEvent(
+                        kind: .turnCompleted,
+                        title: "任务完成",
+                        timestamp: now
+                    )
+                ],
+                resultSummary: "Opened Google",
+                model: "gpt-5.5",
+                startedAt: now,
+                completedAt: now.addingTimeInterval(1.5)
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: .agentCompose)
+
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+        let actionStep = steps.first { $0.kind == .agentAction }
+
+        XCTAssertEqual(actionStep?.status, .success)
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.pipelineStatusText(for: detail),
+            "成功 · 1.5 秒"
+        )
+    }
+
+    func testAgentActionScreenContextPresentationShowsImageAndWindowMetadata() {
+        let context = ScreenContextSnapshot(
+            thumbnailPath: "/tmp/screen.png",
+            imagePath: "/tmp/screen.png",
+            appName: "Google Chrome",
+            bundleID: "com.google.Chrome",
+            windowTitle: "GitHub Search",
+            capturedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let presentation = HomeHistoryDetailPresentation.agentActionScreenContextPresentation(for: context)
+
+        XCTAssertEqual(presentation.sourceApp, "Google Chrome")
+        XCTAssertEqual(presentation.windowTitle, "GitHub Search")
+        XCTAssertEqual(presentation.sourceName, "截图识别文字")
+        XCTAssertTrue(presentation.hasImage)
+    }
+
+    func testAgentActionScreenContextPresentationFallsBackToBundleAndWindowOCRSource() {
+        let context = ScreenContextSnapshot(
+            thumbnailPath: nil,
+            imagePath: nil,
+            appName: nil,
+            bundleID: "com.openai.codex",
+            windowTitle: "",
+            capturedAt: nil
+        )
+
+        let presentation = HomeHistoryDetailPresentation.agentActionScreenContextPresentation(for: context)
+
+        XCTAssertEqual(presentation.sourceApp, "com.openai.codex")
+        XCTAssertNil(presentation.windowTitle)
+        XCTAssertEqual(presentation.sourceName, "当前窗口识别文字")
+        XCTAssertFalse(presentation.hasImage)
+    }
+
+    func testAgentActionEventsAreCollapsedAndLimitedByDefault() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let events = (0..<30).map { index in
+            AgentActionEvent(
+                id: "event-\(index)",
+                kind: .toolResolved,
+                title: "事件 \(index)",
+                timestamp: now
+            )
+        }
+
+        let visibleEvents = HomeHistoryDetailPresentation.visibleAgentActionEvents(events)
+
+        XCTAssertFalse(HomeHistoryDetailPresentation.agentActionEventsExpandedByDefault)
+        XCTAssertEqual(visibleEvents.count, 24)
+        XCTAssertEqual(visibleEvents.first?.id, "event-0")
+        XCTAssertEqual(visibleEvents.last?.id, "event-23")
+    }
+
+    func testCodexRuntimeAgentComposeUsesSummaryDetail() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let trace = TextProcessingTrace(
+            agentAction: AgentActionTrace(
+                providerID: "codex",
+                executionMode: .codexRuntime,
+                status: .completed,
+                userInstruction: "打开 Google",
+                events: [],
+                resultSummary: "Opened Google",
+                model: "gpt-5.5",
+                startedAt: now,
+                completedAt: now.addingTimeInterval(1)
+            )
+        )
+        let detail = makeDetail(rawText: "原始语音", finalText: "完成摘要", trace: trace, taskMode: .agentCompose)
+
+        XCTAssertTrue(HomeHistoryDetailPresentation.usesAgentActionSummaryDetail(for: detail))
+        XCTAssertEqual(HomeHistoryDetailPresentation.agentActionInstructionText(for: detail), "打开 Google")
+        XCTAssertEqual(HomeHistoryDetailPresentation.agentActionResultText(for: detail), "Opened Google")
+    }
+
+    func testTextFallbackAgentComposeKeepsOriginalDetail() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let trace = TextProcessingTrace(
+            agentAction: AgentActionTrace(
+                providerID: "codex",
+                executionMode: .codexTextFallback,
+                status: .completed,
+                userInstruction: "润色这句话",
+                events: [],
+                resultSummary: "润色完成",
+                model: "spark",
+                startedAt: now,
+                completedAt: now.addingTimeInterval(1)
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: .agentCompose)
+
+        XCTAssertFalse(HomeHistoryDetailPresentation.usesAgentActionSummaryDetail(for: detail))
+    }
+
     func testPipelineStepsWithFailedLLMShowsFailed() {
         let trace = TextProcessingTrace(
             llm: LLMRefinementTrace(
@@ -330,6 +460,53 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertNotNil(steps.first { $0.kind == .context })
         XCTAssertNotNil(steps.first { $0.kind == .llm })
         XCTAssertNotNil(steps.first { $0.kind == .output })
+    }
+
+    func testAgentDispatchDefaultOutputShowsOrdinaryPipeAndDispatchStep() {
+        let trace = TextProcessingTrace(
+            voiceCorrection: VoiceCorrectionTrace(),
+            agentDispatch: AgentDispatchTrace(
+                state: "fallbackInput",
+                title: "默认输出",
+                detail: "检查一下按钮"
+            )
+        )
+        let detail = makeDetail(trace: trace, taskMode: .agentDispatch)
+
+        let steps = HomeHistoryDetailPresentation.pipelineSteps(for: detail)
+
+        XCTAssertNotNil(steps.first { $0.kind == .deterministic })
+        XCTAssertNotNil(steps.first { $0.kind == .textReplacement })
+        XCTAssertNotNil(steps.first { $0.kind == .styleRoute })
+        XCTAssertEqual(steps.last?.kind, .dispatch)
+        XCTAssertEqual(steps.first { $0.kind == .dispatch }?.status, .skipped)
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.agentDispatchPresentation(for: detail)?.title,
+            "默认输出"
+        )
+    }
+
+    func testAgentDispatchSentShowsDispatchSuccess() {
+        let detail = makeDetail(
+            trace: TextProcessingTrace(
+                agentDispatch: AgentDispatchTrace(
+                    state: "sent",
+                    title: "已发送",
+                    detail: "",
+                    agentName: "Codex"
+                )
+            ),
+            taskMode: .agentDispatch
+        )
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.pipelineSteps(for: detail).first { $0.kind == .dispatch }?.status,
+            .success
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.agentDispatchPresentation(for: detail)?.detail,
+            "已发送给 Codex。"
+        )
     }
 
     func testPipelineStepsWithContextBoostShowsContextHit() {

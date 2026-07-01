@@ -4,6 +4,7 @@ import Foundation
 protocol AgentComposeHandling: AnyObject {
     var onStageChange: ((AgentComposeHUDStage) -> Void)? { get set }
     var onStreamingDelta: ((String) -> Void)? { get set }
+    var onRuntimeCompleted: ((String) -> Void)? { get set }
     var lastFailedTaskID: String? { get }
     func start(target: DictationTarget?) throws
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws
@@ -22,6 +23,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
     var onStreamingDelta: ((String) -> Void)?
+    var onRuntimeCompleted: ((String) -> Void)?
     private(set) var lastFailedTaskID: String?
 
     init(
@@ -87,7 +89,14 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
         let result = try await coordinator.processAgentComposeAndDeliver(
             context: context,
-            stylePrompt: stylePrompt
+            stylePrompt: stylePrompt,
+            onAgentRuntimeStage: { [weak self] stage in
+                self?.emitStage(stage, taskID: taskID, requireActiveWorkflow: false)
+            },
+            onAgentRuntimeCompleted: { [weak self] completedTaskID in
+                guard self?.activeTaskID == completedTaskID else { return }
+                self?.onRuntimeCompleted?(completedTaskID)
+            }
         )
 
         // Check for context warnings and notify HUD

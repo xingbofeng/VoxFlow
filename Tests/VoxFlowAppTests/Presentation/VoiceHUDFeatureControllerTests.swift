@@ -61,6 +61,29 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
+    func testRuntimeAgentComposeStagesUseExpectedDismissPolicy() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.render(.agentComposeStage(.runtimeProcessing()))
+        controller.render(.agentComposeStage(.runtimeWaitingForPermission()))
+        controller.render(.agentComposeStage(.runtimeCompleted()))
+        controller.render(.agentComposeStage(.runtimeFailed()))
+
+        XCTAssertEqual(overlay.events, [
+            .updateAgentComposeStatus(.runtimeProcessing()),
+            .showWithoutReset,
+            .updateAgentComposeStatus(.runtimeWaitingForPermission()),
+            .showWithoutReset,
+            .updateAgentComposeStatus(.runtimeCompleted()),
+            .showWithoutReset,
+            .dismissAfterHUDTimeout(duration: 1.5),
+            .updateAgentComposeStatus(.runtimeFailed()),
+            .showWithoutReset,
+            .dismissAfterHUDTimeout(duration: 3.0),
+        ])
+    }
+
     func testStreamingTranscriptionAndAudioLevelRenderThroughSnapshots() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -312,6 +335,7 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
         case show
         case showWithoutReset
         case dismissAfterDefaultHUDTimeout
+        case dismissAfterHUDTimeout(duration: TimeInterval)
         case dismiss
         case updateTranscription(text: String, isRefining: Bool)
         case updateAgentComposeStatus(AgentComposeHUDStage)
@@ -339,6 +363,10 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
 
     func dismissAfterDefaultHUDTimeout() {
         events.append(.dismissAfterDefaultHUDTimeout)
+    }
+
+    func dismissAfterHUDTimeout(duration: TimeInterval) {
+        events.append(.dismissAfterHUDTimeout(duration: duration))
     }
 
     func dismiss() {

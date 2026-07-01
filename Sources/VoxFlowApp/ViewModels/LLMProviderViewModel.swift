@@ -12,21 +12,50 @@ final class LLMProviderViewModel: ObservableObject {
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var testingProviderID: String?
     @Published private(set) var isTestingDraftConnection = false
+    @Published private(set) var codexRuntimeAvailability: AgentRuntimeAvailability?
+    @Published private(set) var isCheckingCodexRuntime = false
 
     private let environment: any AppServiceProviding
     private let client: any LLMProviderConnecting
+    private let codexRuntimeDetector: any AgentRuntimeAvailabilityDetecting
+    private let codexModelListProvider: any AgentRuntimeModelListing
     private var hasLoaded = false
 
     var defaultProvider: LLMProviderRecord? {
         providers.first(where: \.isDefault)
     }
 
+    var codexProvider: LLMProviderRecord? {
+        providers.first {
+            $0.id.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame ||
+                $0.providerType.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame
+        }
+    }
+
+    var codexEnabled: Bool {
+        codexProvider?.enabled ?? false
+    }
+
+    var codexSelectedModel: String {
+        codexProvider?.defaultModel ?? codexModelIDs.first ?? ""
+    }
+
+    var codexModelIDs: [String] {
+        let detected = modelIDsByProviderID[AgentProviderRegistry.codex.providerID] ?? []
+        let configured = codexProvider?.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Self.uniqueModelIDs(detected + [configured].compactMap { $0?.isEmpty == false ? $0 : nil })
+    }
+
     init(
         environment: any AppServiceProviding,
-        client: any LLMProviderConnecting = OpenAICompatibleClient()
+        client: any LLMProviderConnecting = OpenAICompatibleClient(),
+        codexRuntimeDetector: (any AgentRuntimeAvailabilityDetecting)? = nil,
+        codexModelListProvider: (any AgentRuntimeModelListing)? = nil
     ) {
         self.environment = environment
         self.client = client
+        self.codexRuntimeDetector = codexRuntimeDetector ?? CodexRuntimeAvailabilityDetector(clock: environment.clock)
+        self.codexModelListProvider = codexModelListProvider ?? CodexRuntimeModelListProvider()
         Self.logger.debug("llm_provider_vm_init")
         load()
     }
@@ -44,6 +73,60 @@ final class LLMProviderViewModel: ObservableObject {
         }
     }
 
+    func detectCodexRuntime(forceRefresh: Bool = true) async {
+        Self.logger.debug("llm_provider_vm_detect_codex_runtime_start force=\(forceRefresh)")
+        isCheckingCodexRuntime = true
+        defer { isCheckingCodexRuntime = false }
+        let availability = await codexRuntimeDetector.cachedOrDetect(forceRefresh: forceRefresh)
+        codexRuntimeAvailability = availability
+        if availability.isAvailable {
+            if let cliPath = availability.cliPath {
+                let models = await codexModelListProvider.listModels(cliPath: cliPath)
+                if !models.isEmpty {
+                    modelIDsByProviderID[AgentProviderRegistry.codex.providerID] = models
+                }
+            }
+            lastError = nil
+            lastActionMessage = L10n.localize("model.llm_provider.codex.detect_available", comment: "Codex detect available")
+        } else {
+            lastError = availability.status.reason
+        }
+        Self.logger.info("llm_provider_vm_detect_codex_runtime_done available=\(availability.isAvailable)")
+    }
+
+    func setCodexEnabled(_ enabled: Bool) {
+        Self.logger.debug("llm_provider_vm_set_codex_enabled enabled=\(enabled)")
+        do {
+            let selectedModel = codexSelectedModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            if enabled, selectedModel.isEmpty {
+                throw LLMProviderViewModelError.modelRequired
+            }
+            let provider = try codexProviderForSaving(enabled: enabled, model: selectedModel)
+            try environment.llmProviderRepository.save(provider)
+            load()
+            lastError = nil
+            lastActionMessage = enabled
+                ? L10n.localize("model.llm_provider.codex.enabled", comment: "Codex enabled")
+                : L10n.localize("model.llm_provider.codex.disabled", comment: "Codex disabled")
+        } catch {
+            report(error: error)
+        }
+    }
+
+    func selectCodexModel(_ model: String) {
+        let normalized = SingleLineTextInput.normalized(model)
+        guard !normalized.isEmpty else { return }
+        do {
+            let provider = try codexProviderForSaving(enabled: codexEnabled, model: normalized)
+            try environment.llmProviderRepository.save(provider)
+            load()
+            lastError = nil
+            lastActionMessage = L10n.format("model.llm_provider.action_model_selected_format", comment: "", normalized)
+        } catch {
+            report(error: error)
+        }
+    }
+
     func loadIfNeeded() {
         guard !hasLoaded else {
             Self.logger.debug("llm_provider_vm_load_if_needed_skip")
@@ -51,6 +134,15 @@ final class LLMProviderViewModel: ObservableObject {
         }
         Self.logger.debug("llm_provider_vm_load_if_needed_execute")
         load()
+    }
+
+    private static func uniqueModelIDs(_ models: [String]) -> [String] {
+        var merged: [String] = []
+        for model in models {
+            guard !merged.contains(model) else { continue }
+            merged.append(model)
+        }
+        return merged
     }
 
     func saveProvider(
@@ -220,6 +312,10 @@ final class LLMProviderViewModel: ObservableObject {
 
     func testConnection(id: String) async {
         Self.logger.debug("llm_provider_vm_test_connection_start id=\(id)")
+        if id.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame {
+            await detectCodexRuntime(forceRefresh: true)
+            return
+        }
         testingProviderID = id
         lastError = nil
         lastActionMessage = nil
@@ -412,6 +508,29 @@ final class LLMProviderViewModel: ObservableObject {
             return provider
         }
         throw LLMProviderViewModelError.providerNotFound
+    }
+
+    private func codexProviderForSaving(enabled: Bool, model: String) throws -> LLMProviderRecord {
+        let existing = try environment.llmProviderRepository.provider(id: AgentProviderRegistry.codex.providerID)
+            ?? codexProvider
+        let now = environment.clock.now
+        return LLMProviderRecord(
+            id: AgentProviderRegistry.codex.providerID,
+            displayName: L10n.localize("model.llm_provider.codex.title", comment: "Codex provider title"),
+            providerType: AgentProviderRegistry.codex.providerID,
+            baseURL: "local://codex",
+            defaultModel: model,
+            apiKeyRef: "codex-local-runtime",
+            temperature: 0,
+            timeoutSeconds: 120,
+            enabled: enabled,
+            isDefault: enabled,
+            lastHealthStatus: codexRuntimeAvailability?.isAvailable == true ? "ok" : existing?.lastHealthStatus,
+            lastHealthMessage: codexRuntimeAvailability?.status.reason ?? existing?.lastHealthMessage,
+            lastLatencyMS: existing?.lastLatencyMS,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now
+        )
     }
 
     private func resolvedAPIKey(providerID: String?, text: String) throws -> String {
