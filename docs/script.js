@@ -7,6 +7,11 @@ const release = {
 const releaseDownloadURL =
   `https://github.com/xingbofeng/VoxFlow/releases/download/${release.tag}/${release.assetName}`;
 
+const siteURL = "https://mashangxie.app/";
+const releaseNotesURL = "https://api.github.com/repos/xingbofeng/VoxFlow/releases?per_page=3";
+const wechatSdkURL = "https://res.wx.qq.com/open/js/jweixin-1.6.0.js";
+const assetURL = (path) => new URL(path, siteURL).toString();
+const defaultLanguage = "zh";
 const storageKey = "voxflow-docs-language";
 const validLanguages = ["en", "zh", "zh-Hant", "ja", "ko"];
 const languageNames = {
@@ -30,13 +35,14 @@ const copy = {
     metaDescription: "VoxFlow brings voice input, screenshot OCR, clipboard history, and local agent routing into one macOS workspace.",
     ogTitle: "VoxFlow - Voice, OCR, and local agent workflows in one workspace",
     ogDescription: "A macOS workspace for voice input, screenshot OCR, translation, asset history, and local AI assistant routing.",
-    ogImage: "https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-en.png",
+    ogImage: assetURL("assets/voxflow-hero-workbench-promo-en.png"),
     heroImage: "assets/voxflow-hero-workbench-promo-en.png",
     heroAlt: "VoxFlow workspace preview for voice input, screenshot OCR, translation, and asset history",
     brand: "VoxFlow",
     navFeatures: "Features",
     navWorkflow: "Workflow",
     navGuide: "Guide",
+    navChangelog: "Updates",
     navShortcuts: "Shortcuts",
     eyebrow: "macOS input workspace",
     headline: "Speak, capture, translate, and keep the result.",
@@ -82,6 +88,14 @@ const copy = {
     guideStep3Copy: "Use ⌥Space to view recent assets, search history, copy content, or run actions.",
     guideStep4Title: "Process screenshots and selections",
     guideStep4Copy: "Open the result panel from Screenshot OCR or selection actions, then translate, summarize, read aloud, or send to an assistant.",
+    changelogLabel: "Updates",
+    changelogTitle: "Recent releases, pulled from GitHub.",
+    changelogCopy: "The landing page stays in sync with the repository releases, with a compact summary of what changed.",
+    changelogLoading: "Loading release notes...",
+    changelogEmpty: "No release notes are available yet.",
+    changelogFallbackSummary: "See the GitHub release for the complete changelog and download details.",
+    changelogLatest: "Latest",
+    changelogViewRelease: "View release",
     shortcutsLabel: "Shortcuts",
     shortcutsTitle: "Remember these first.",
     shortcutLauncher: "Open the workspace launcher on Recent Assets.",
@@ -106,13 +120,14 @@ const copy = {
     metaDescription: "码上写 VoxFlow 把语音输入、截图 OCR、剪贴板历史和本地 Agent 调度收进同一个 macOS 工作台。",
     ogTitle: "码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台",
     ogDescription: "把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。",
-    ogImage: "https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-zh.png",
+    ogImage: assetURL("assets/voxflow-hero-workbench-promo-zh.png"),
     heroImage: "assets/voxflow-hero-workbench-promo-zh.png",
     heroAlt: "码上写 VoxFlow 语音、截图 OCR、翻译和历史资产工作台预览",
     brand: "码上写 <small>VoxFlow</small>",
     navFeatures: "功能",
     navWorkflow: "工作流",
     navGuide: "使用文档",
+    navChangelog: "更新",
     navShortcuts: "快捷键",
     eyebrow: "macOS 输入工作台",
     headline: "说出来、截下来、翻译好，全部沉淀成资产。",
@@ -158,6 +173,14 @@ const copy = {
     guideStep3Copy: "用 ⌥Space 查看最近资产、搜索历史、复制内容或执行动作。",
     guideStep4Title: "处理截图和选中文本",
     guideStep4Copy: "用截图 OCR 或划词动作打开结果面板，再翻译、总结、朗读或发送给任务助手。",
+    changelogLabel: "更新日志",
+    changelogTitle: "从 GitHub 自动同步最近版本。",
+    changelogCopy: "落地页会读取仓库 Release，压缩展示每个版本最重要的变化。",
+    changelogLoading: "正在加载更新日志...",
+    changelogEmpty: "暂时还没有可展示的更新日志。",
+    changelogFallbackSummary: "前往 GitHub Release 查看完整更新内容和下载信息。",
+    changelogLatest: "最新",
+    changelogViewRelease: "查看版本",
     shortcutsLabel: "快捷键",
     shortcutsTitle: "不用记很多，只要先记住这几组。",
     shortcutLauncher: "打开工作台启动台，默认进入最近资产。",
@@ -182,13 +205,14 @@ const copy = {
     metaDescription: "碼上寫 VoxFlow 把語音輸入、截圖 OCR、剪貼簿歷史和本地 Agent 調度收進同一個 macOS 工作台。",
     ogTitle: "碼上寫 VoxFlow - 語音、OCR 和本地 Agent 工作流都進工作台",
     ogDescription: "把語音輸入、截圖 OCR、翻譯摘要、剪貼簿和 AI 助手調度收進同一個 macOS 工作台。",
-    ogImage: "https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-zh.png",
+    ogImage: assetURL("assets/voxflow-hero-workbench-promo-zh.png"),
     heroImage: "assets/voxflow-hero-workbench-promo-zh.png",
     heroAlt: "碼上寫 VoxFlow 語音、截圖 OCR、翻譯和歷史資產工作台預覽",
     brand: "碼上寫 <small>VoxFlow</small>",
     navFeatures: "功能",
     navWorkflow: "工作流",
     navGuide: "使用文件",
+    navChangelog: "更新",
     navShortcuts: "快捷鍵",
     eyebrow: "macOS 輸入工作台",
     headline: "說出來、截下來、翻譯好，全部沉澱成資產。",
@@ -234,6 +258,14 @@ const copy = {
     guideStep3Copy: "用 ⌥Space 查看最近資產、搜尋歷史、複製內容或執行動作。",
     guideStep4Title: "處理截圖和選中文本",
     guideStep4Copy: "用截圖 OCR 或劃詞動作打開結果面板，再翻譯、摘要、朗讀或送給任務助手。",
+    changelogLabel: "更新日誌",
+    changelogTitle: "從 GitHub 自動同步最近版本。",
+    changelogCopy: "落地頁會讀取倉庫 Release，精簡展示每個版本最重要的變化。",
+    changelogLoading: "正在載入更新日誌...",
+    changelogEmpty: "暫時還沒有可展示的更新日誌。",
+    changelogFallbackSummary: "前往 GitHub Release 查看完整更新內容和下載資訊。",
+    changelogLatest: "最新",
+    changelogViewRelease: "查看版本",
     shortcutsLabel: "快捷鍵",
     shortcutsTitle: "不用記很多，先記住這幾組就夠了。",
     shortcutLauncher: "打開工作台啟動台，預設進入最近資產。",
@@ -258,13 +290,14 @@ const copy = {
     metaDescription: "VoxFlow は音声入力、スクリーンショット OCR、クリップボード履歴、ローカル Agent 連携を 1 つの macOS ワークスペースにまとめます。",
     ogTitle: "VoxFlow - 音声入力、OCR、ローカル Agent ワークフローを 1 つのワークスペースへ",
     ogDescription: "音声入力、スクリーンショット OCR、翻訳、履歴、ローカル AI アシスタント連携のための macOS ワークスペース。",
-    ogImage: "https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-en.png",
+    ogImage: assetURL("assets/voxflow-hero-workbench-promo-en.png"),
     heroImage: "assets/voxflow-hero-workbench-promo-en.png",
     heroAlt: "VoxFlow workspace preview for voice input, screenshot OCR, translation, and asset history",
     brand: "VoxFlow",
     navFeatures: "機能",
     navWorkflow: "ワークフロー",
     navGuide: "ガイド",
+    navChangelog: "更新",
     navShortcuts: "ショートカット",
     eyebrow: "macOS 入力ワークスペース",
     headline: "話す、切り取る、翻訳する。結果はそのまま残せる。",
@@ -310,6 +343,14 @@ const copy = {
     guideStep3Copy: "⌥Space で最近の資産、履歴検索、コピー、各種アクションにアクセスできます。",
     guideStep4Title: "スクリーンショットと選択テキストを処理",
     guideStep4Copy: "スクリーンショット OCR や選択アクションから結果パネルを開き、翻訳、要約、読み上げ、アシスタント送信を行います。",
+    changelogLabel: "更新履歴",
+    changelogTitle: "GitHub から最新リリースを同期。",
+    changelogCopy: "リポジトリの Release を読み込み、各バージョンの主な変更を短く表示します。",
+    changelogLoading: "更新履歴を読み込んでいます...",
+    changelogEmpty: "表示できる更新履歴はまだありません。",
+    changelogFallbackSummary: "完全な変更内容とダウンロード情報は GitHub Release で確認できます。",
+    changelogLatest: "最新",
+    changelogViewRelease: "Release を見る",
     shortcutsLabel: "ショートカット",
     shortcutsTitle: "まずはこのあたりを覚えれば十分です。",
     shortcutLauncher: "Recent Assets を起点にワークスペースランチャーを開く。",
@@ -334,13 +375,14 @@ const copy = {
     metaDescription: "VoxFlow는 음성 입력, 스크린샷 OCR, 클립보드 기록, 로컬 Agent 라우팅을 하나의 macOS 워크스페이스로 묶습니다.",
     ogTitle: "VoxFlow - 음성 입력, OCR, 로컬 Agent 워크플로를 하나의 워크스페이스로",
     ogDescription: "음성 입력, 스크린샷 OCR, 번역, 기록, 로컬 AI 도우미 라우팅을 위한 macOS 워크스페이스.",
-    ogImage: "https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-en.png",
+    ogImage: assetURL("assets/voxflow-hero-workbench-promo-en.png"),
     heroImage: "assets/voxflow-hero-workbench-promo-en.png",
     heroAlt: "VoxFlow workspace preview for voice input, screenshot OCR, translation, and asset history",
     brand: "VoxFlow",
     navFeatures: "기능",
     navWorkflow: "워크플로",
     navGuide: "가이드",
+    navChangelog: "업데이트",
     navShortcuts: "단축키",
     eyebrow: "macOS 입력 워크스페이스",
     headline: "말하고, 캡처하고, 번역한 다음 그대로 남겨두세요.",
@@ -386,6 +428,14 @@ const copy = {
     guideStep3Copy: "⌥Space로 최근 자산, 기록 검색, 복사, 각종 작업에 접근할 수 있습니다.",
     guideStep4Title: "스크린샷과 선택 텍스트 처리",
     guideStep4Copy: "스크린샷 OCR이나 선택 작업에서 결과 패널을 열고, 번역, 요약, 읽어주기, 도우미 전송을 진행합니다.",
+    changelogLabel: "업데이트",
+    changelogTitle: "GitHub에서 최근 릴리스를 동기화합니다.",
+    changelogCopy: "저장소 Release를 읽어 각 버전의 핵심 변경 사항을 간단히 보여줍니다.",
+    changelogLoading: "업데이트 로그를 불러오는 중...",
+    changelogEmpty: "아직 표시할 업데이트 로그가 없습니다.",
+    changelogFallbackSummary: "전체 변경 사항과 다운로드 정보는 GitHub Release에서 확인할 수 있습니다.",
+    changelogLatest: "최신",
+    changelogViewRelease: "Release 보기",
     shortcutsLabel: "단축키",
     shortcutsTitle: "우선 이것들만 기억하면 됩니다.",
     shortcutLauncher: "Recent Assets에서 시작하는 워크스페이스 런처 열기.",
@@ -413,16 +463,37 @@ const languageSwitchLabel = languageSwitcher?.querySelector("[data-language-swit
 const languageMenu = languageSwitcher?.querySelector("[data-language-menu]");
 const languageOptions = [...document.querySelectorAll("[data-language-option]")];
 const heroPreview = document.querySelector("[data-hero-preview]");
+const changelogList = document.querySelector("[data-changelog-list]");
+let currentLanguage = "en";
+let changelogReleases = [];
+let changelogHasLoaded = false;
+let wechatSdkPromise = null;
+let wechatShareReady = false;
+
+function readEmbeddedChangelogReleases() {
+  const dataElement = document.getElementById("voxflow-release-data");
+  if (dataElement?.textContent?.trim()) {
+    try {
+      const value = JSON.parse(dataElement.textContent);
+      if (Array.isArray(value)) return value;
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(window.VOXFLOW_RELEASES)) return window.VOXFLOW_RELEASES;
+  return [];
+}
+
+const embeddedChangelogReleases = readEmbeddedChangelogReleases();
 
 function parseLanguage(raw) {
-  return validLanguages.includes(raw) ? raw : "en";
+  return validLanguages.includes(raw) ? raw : defaultLanguage;
 }
 
 function getInitialLanguage() {
   const params = new URLSearchParams(window.location.search);
-  const fromQuery = parseLanguage(params.get("lang"));
-  if (params.has("lang")) return fromQuery;
-  return parseLanguage(window.localStorage.getItem(storageKey));
+  if (params.has("lang")) return parseLanguage(params.get("lang"));
+  return defaultLanguage;
 }
 
 function writeLanguageToURL(language, { replace = false } = {}) {
@@ -438,9 +509,249 @@ function writeLanguageToURL(language, { replace = false } = {}) {
   }
 }
 
-function setMeta(selector, value) {
+function setMeta(selector, value, attribute = "content") {
   const element = document.querySelector(selector);
-  if (element) element.setAttribute("content", value);
+  if (element) element.setAttribute(attribute, value);
+}
+
+function selectedCopy() {
+  return copy[currentLanguage] || copy.en;
+}
+
+function isWeChatBrowser() {
+  return /MicroMessenger/i.test(window.navigator.userAgent || "");
+}
+
+function currentWechatSignatureURL() {
+  const signedURL = new URL(window.location.href);
+  signedURL.hash = "";
+  return signedURL.toString();
+}
+
+function currentWechatShareData() {
+  const selected = selectedCopy();
+  return {
+    title: selected.ogTitle,
+    desc: selected.ogDescription,
+    link: siteURL,
+    imgUrl: selected.ogImage
+  };
+}
+
+function loadWechatSdk() {
+  if (window.wx) return Promise.resolve(window.wx);
+  if (wechatSdkPromise) return wechatSdkPromise;
+
+  wechatSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = wechatSdkURL;
+    script.async = true;
+    script.onload = () => window.wx ? resolve(window.wx) : reject(new Error("WeChat SDK missing"));
+    script.onerror = () => reject(new Error("WeChat SDK failed to load"));
+    document.head.append(script);
+  });
+  return wechatSdkPromise;
+}
+
+function applyWechatShareData() {
+  if (!wechatShareReady || !window.wx) return;
+
+  const shareData = currentWechatShareData();
+  if (typeof window.wx.updateAppMessageShareData === "function") {
+    window.wx.updateAppMessageShareData(shareData);
+  }
+  if (typeof window.wx.updateTimelineShareData === "function") {
+    window.wx.updateTimelineShareData({
+      title: shareData.title,
+      link: shareData.link,
+      imgUrl: shareData.imgUrl
+    });
+  }
+  if (typeof window.wx.onMenuShareAppMessage === "function") {
+    window.wx.onMenuShareAppMessage(shareData);
+  }
+  if (typeof window.wx.onMenuShareTimeline === "function") {
+    window.wx.onMenuShareTimeline({
+      title: shareData.title,
+      link: shareData.link,
+      imgUrl: shareData.imgUrl
+    });
+  }
+}
+
+async function configureWechatShare() {
+  if (!isWeChatBrowser() || typeof fetch !== "function") return;
+
+  try {
+    const wx = await loadWechatSdk();
+    const params = new URLSearchParams({ url: currentWechatSignatureURL() });
+    const response = await fetch(`/api/wechat-signature?${params}`, {
+      headers: { Accept: "application/json" }
+    });
+    if (!response.ok) return;
+    const signature = await response.json();
+
+    wx.config({
+      debug: false,
+      appId: signature.appId,
+      timestamp: signature.timestamp,
+      nonceStr: signature.nonceStr,
+      signature: signature.signature,
+      jsApiList: [
+        "updateAppMessageShareData",
+        "updateTimelineShareData",
+        "onMenuShareAppMessage",
+        "onMenuShareTimeline"
+      ]
+    });
+    wx.ready(() => {
+      wechatShareReady = true;
+      applyWechatShareData();
+    });
+    wx.error(() => {
+      wechatShareReady = false;
+    });
+  } catch {
+    wechatShareReady = false;
+  }
+}
+
+function releaseLocale(language) {
+  return languageMeta[language]?.htmlLang || languageMeta.en.htmlLang;
+}
+
+function formatReleaseDate(dateValue) {
+  if (!dateValue) return "";
+  return new Intl.DateTimeFormat(releaseLocale(currentLanguage), {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  }).format(new Date(dateValue));
+}
+
+function cleanReleaseLine(line) {
+  return line
+    .replace(/^[-*]\s+/, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .trim();
+}
+
+function extractReleaseSummary(body) {
+  if (!body) return [];
+  const lines = body.split(/\r?\n/);
+  const summaryStart = lines.findIndex((line) => /^##\s+(更新摘要|Release highlights|Highlights|Summary)/i.test(line.trim()));
+  const scopedLines = summaryStart >= 0
+    ? lines.slice(summaryStart + 1, lines.findIndex((line, index) => index > summaryStart && /^##\s+/.test(line.trim())) > summaryStart
+      ? lines.findIndex((line, index) => index > summaryStart && /^##\s+/.test(line.trim()))
+      : undefined)
+    : lines;
+
+  return scopedLines
+    .filter((line) => /^\s*[-*]\s+/.test(line))
+    .map(cleanReleaseLine)
+    .filter(Boolean)
+    .filter((line) => !/^(CFBundle|DMG|Build|Version|版本号|发布元数据)/i.test(line))
+    .slice(0, 3);
+}
+
+function fallbackRelease() {
+  return {
+    tag_name: release.tag,
+    name: `VoxFlow ${release.version}`,
+    body: "",
+    html_url: `https://github.com/xingbofeng/VoxFlow/releases/tag/${release.tag}`,
+    published_at: ""
+  };
+}
+
+function renderChangelogStatus(message) {
+  if (!changelogList) return;
+  changelogList.innerHTML = "";
+  const card = document.createElement("article");
+  card.className = "changelog-card changelog-status motion is-visible";
+  const label = document.createElement("span");
+  label.textContent = message;
+  card.append(label);
+  changelogList.append(card);
+}
+
+function renderChangelog() {
+  if (!changelogList) return;
+  const text = selectedCopy();
+  const releases = changelogReleases.length > 0 ? changelogReleases : [fallbackRelease()];
+  changelogList.innerHTML = "";
+
+  releases.forEach((item, index) => {
+    const card = document.createElement("article");
+    card.className = "changelog-card motion is-visible";
+
+    const kicker = document.createElement("span");
+    kicker.className = "changelog-kicker";
+    kicker.textContent = index === 0
+      ? `${item.tag_name} · ${text.changelogLatest}`
+      : item.tag_name;
+
+    const title = document.createElement("h3");
+    title.textContent = item.name || item.tag_name;
+
+    const date = document.createElement("time");
+    if (item.published_at) {
+      date.dateTime = item.published_at;
+      date.textContent = formatReleaseDate(item.published_at);
+    }
+
+    const summary = extractReleaseSummary(item.body);
+    const list = document.createElement("ul");
+    (summary.length > 0 ? summary : [text.changelogFallbackSummary]).forEach((line) => {
+      const point = document.createElement("li");
+      point.textContent = line;
+      list.append(point);
+    });
+
+    const link = document.createElement("a");
+    link.className = "changelog-link";
+    link.href = item.html_url || `https://github.com/xingbofeng/VoxFlow/releases/tag/${item.tag_name}`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = text.changelogViewRelease;
+
+    card.append(kicker);
+    if (date.textContent) card.append(date);
+    card.append(title, list, link);
+    changelogList.append(card);
+  });
+}
+
+async function loadChangelog() {
+  if (!changelogList) return;
+  if (embeddedChangelogReleases.length > 0) {
+    changelogReleases = embeddedChangelogReleases;
+    changelogHasLoaded = true;
+    renderChangelog();
+  }
+  if (typeof fetch !== "function") return;
+
+  try {
+    const response = await fetch(releaseNotesURL, {
+      headers: { Accept: "application/vnd.github+json" }
+    });
+    if (!response.ok) throw new Error(`GitHub releases request failed: ${response.status}`);
+    const releases = await response.json();
+    changelogReleases = Array.isArray(releases) ? releases.slice(0, 3) : [];
+    changelogHasLoaded = true;
+    if (changelogReleases.length === 0) {
+      renderChangelogStatus(selectedCopy().changelogEmpty);
+      return;
+    }
+    renderChangelog();
+  } catch {
+    if (embeddedChangelogReleases.length > 0) return;
+    changelogReleases = [fallbackRelease()];
+    changelogHasLoaded = true;
+    renderChangelog();
+  }
 }
 
 function setLanguageSwitcherState(language) {
@@ -489,13 +800,20 @@ function toggleLanguageMenu() {
 function setLanguage(language, { pushState = true, persist = true } = {}) {
   const selected = copy[language] || copy.en;
   const meta = languageMeta[language] || languageMeta.en;
+  currentLanguage = language;
 
   document.documentElement.lang = meta.htmlLang;
   document.title = selected.title;
   setMeta('meta[name="description"]', selected.metaDescription);
+  setMeta('link[rel="canonical"]', siteURL, "href");
+  setMeta('meta[property="og:url"]', siteURL);
   setMeta('meta[property="og:title"]', selected.ogTitle);
   setMeta('meta[property="og:description"]', selected.ogDescription);
   setMeta('meta[property="og:image"]', selected.ogImage);
+  setMeta('meta[name="twitter:title"]', selected.ogTitle);
+  setMeta('meta[name="twitter:description"]', selected.ogDescription);
+  setMeta('meta[name="twitter:image"]', selected.ogImage);
+  applyWechatShareData();
 
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     const value = selected[element.dataset.i18n];
@@ -508,6 +826,11 @@ function setLanguage(language, { pushState = true, persist = true } = {}) {
   }
 
   setLanguageSwitcherState(language);
+  if (changelogHasLoaded) {
+    renderChangelog();
+  } else {
+    renderChangelogStatus(selected.changelogLoading);
+  }
 
   if (persist) {
     window.localStorage.setItem(storageKey, language);
@@ -586,3 +909,5 @@ document.querySelectorAll(".motion").forEach((element) => observer.observe(eleme
 const initialLanguage = getInitialLanguage();
 setLanguage(initialLanguage, { pushState: false, persist: true });
 writeLanguageToURL(initialLanguage, { replace: true });
+loadChangelog();
+configureWechatShare();

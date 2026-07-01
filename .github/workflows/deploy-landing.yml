@@ -1,0 +1,162 @@
+name: Deploy Landing
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - lighthouse
+          - pages
+          - dns
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-landing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Tencent Lighthouse landing page
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'lighthouse'))
+      }}
+    env:
+      LANDING_IMAGE: voxflow-landing:${{ github.sha }}
+      TENCENT_NODE_IMAGE: mirror.ccs.tencentyun.com/library/node:20-alpine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build landing assets
+        run: scripts/build-landing-site.sh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Prepare Lighthouse bundle
+        run: |
+          rm -rf public
+          mkdir -p public
+          cp -R .build/landing-site/. public/
+      - name: Upload bundle to Lighthouse
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.TENCENT_LIGHTHOUSE_HOST }}
+          username: ${{ secrets.TENCENT_LIGHTHOUSE_USER }}
+          key: ${{ secrets.TENCENT_LIGHTHOUSE_SSH_KEY }}
+          source: docker-compose.landing.yml,api/wechat-signature.js,deploy/Caddyfile,deploy/Dockerfile.landing,deploy/landing-server.js,public
+          target: /opt/voxflow-landing
+      - name: Deploy on Lighthouse
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          VOXFLOW_LANDING_IMAGE: ${{ env.LANDING_IMAGE }}
+          TENCENT_NODE_IMAGE: ${{ env.TENCENT_NODE_IMAGE }}
+          WECHAT_APP_ID: ${{ secrets.WECHAT_APP_ID }}
+          WECHAT_APP_SECRET: ${{ secrets.WECHAT_APP_SECRET }}
+        with:
+          host: ${{ secrets.TENCENT_LIGHTHOUSE_HOST }}
+          username: ${{ secrets.TENCENT_LIGHTHOUSE_USER }}
+          key: ${{ secrets.TENCENT_LIGHTHOUSE_SSH_KEY }}
+          envs: VOXFLOW_LANDING_IMAGE,TENCENT_NODE_IMAGE,WECHAT_APP_ID,WECHAT_APP_SECRET
+          script: |
+            set -euo pipefail
+            cd /opt/voxflow-landing
+
+            printf '%s\n' \
+              "VOXFLOW_LANDING_IMAGE=${VOXFLOW_LANDING_IMAGE}" \
+              "WECHAT_APP_ID=${WECHAT_APP_ID}" \
+              "WECHAT_APP_SECRET=${WECHAT_APP_SECRET}" \
+              > .env
+
+            if docker compose version >/dev/null 2>&1; then
+              compose='sudo docker compose'
+            else
+              compose='sudo docker-compose'
+            fi
+
+            sudo docker build \
+              --build-arg "NODE_IMAGE=${TENCENT_NODE_IMAGE}" \
+              --tag "${VOXFLOW_LANDING_IMAGE}" \
+              --tag voxflow-landing:latest \
+              --file deploy/Dockerfile.landing \
+              .
+            ${compose} -f docker-compose.landing.yml up -d --remove-orphans
+            ${compose} -f docker-compose.landing.yml ps
+            ${compose} -f docker-compose.landing.yml exec -T landing wget -qO- http://127.0.0.1:8080/ready
+            if ! sudo grep -q 'mashangxie.app' /opt/babytime/server/deploy/Caddyfile; then
+              cat deploy/Caddyfile | sudo tee -a /opt/babytime/server/deploy/Caddyfile >/dev/null
+            fi
+            sudo docker compose -f /opt/babytime/docker-compose.production.yml restart caddy
+            sudo docker compose -f /opt/babytime/docker-compose.production.yml exec -T caddy caddy validate --config /etc/caddy/Caddyfile
+      - name: Verify Lighthouse HTTPS route
+        run: |
+          curl -fsS --max-time 15 \
+            --resolve "mashangxie.app:443:${TENCENT_LIGHTHOUSE_HOST}" \
+            https://mashangxie.app/ready
+        env:
+          TENCENT_LIGHTHOUSE_HOST: ${{ secrets.TENCENT_LIGHTHOUSE_HOST }}
+
+  pages:
+    name: GitHub Pages redirect
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'pages'))
+      }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload redirect artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-redirect
+      - name: Deploy redirect to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  dns:
+    name: Cloudflare DNS
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'dns') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Upsert apex record for Lighthouse
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: 43.154.203.68
+          CF_RECORD_PROXIED: "false"
+      - name: Upsert www record for Lighthouse
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: www.mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: 43.154.203.68
+          CF_RECORD_PROXIED: "false"

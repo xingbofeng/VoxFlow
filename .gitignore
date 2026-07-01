@@ -18,3 +18,4 @@ openspec/
 .opencode/
 Vendor/sherpa-onnx.xcframework/
 .DS_Store
+.vercel

@@ -1,16 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6fbf8">
-  <meta name="description" content="VoxFlow brings voice input, screenshot OCR, clipboard history, and local agent routing into one macOS workspace.">
+  <meta name="description" content="码上写 VoxFlow 把语音输入、截图 OCR、剪贴板历史和本地 Agent 调度收进同一个 macOS 工作台。">
+  <link rel="canonical" href="https://mashangxie.app/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="VoxFlow - Voice, OCR, and local agent workflows in one workspace">
-  <meta property="og:description" content="A macOS workspace for voice input, screenshot OCR, translation, asset history, and local AI assistant routing.">
-  <meta property="og:image" content="https://xingbofeng.github.io/VoxFlow/assets/voxflow-hero-workbench-promo-en.png">
+  <meta property="og:url" content="https://mashangxie.app/">
+  <meta property="og:site_name" content="码上写 VoxFlow">
+  <meta property="og:title" content="码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台">
+  <meta property="og:description" content="把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。">
+  <meta property="og:image" content="https://mashangxie.app/assets/voxflow-hero-workbench-promo-zh.png">
   <meta name="twitter:card" content="summary_large_image">
-  <title>VoxFlow - Voice, OCR, and local agent workflows in one workspace</title>
+  <meta name="twitter:title" content="码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台">
+  <meta name="twitter:description" content="把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。">
+  <meta name="twitter:image" content="https://mashangxie.app/assets/voxflow-hero-workbench-promo-zh.png">
+  <title>码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台</title>
   <link rel="icon" href="assets/voiceinput-logo.png">
   <link rel="apple-touch-icon" href="assets/voiceinput-logo.png">
   <link rel="stylesheet" href="styles.css?v=20260627-v172-language-menu">
@@ -31,6 +37,7 @@
       <a href="#features" data-i18n="navFeatures">Features</a>
       <a href="#workflow" data-i18n="navWorkflow">Workflow</a>
       <a href="#guide" data-i18n="navGuide">Guide</a>
+      <a href="#changelog" data-i18n="navChangelog">Updates</a>
       <a href="#shortcuts" data-i18n="navShortcuts">Shortcuts</a>
     </nav>
     <div class="nav-actions">
@@ -44,15 +51,15 @@
           aria-expanded="false"
           aria-controls="language-menu"
         >
-          <span data-language-switch-label>English</span>
+          <span data-language-switch-label>简体中文</span>
           <span class="language-switch-caret" aria-hidden="true"></span>
         </button>
         <div class="language-menu" id="language-menu" data-language-menu role="menu" aria-label="Switch language" hidden>
-          <button type="button" class="language-option" role="menuitemradio" data-language-option="en" aria-checked="true">
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="en" aria-checked="false">
             <span>English</span>
             <span class="language-option-indicator" aria-hidden="true"></span>
           </button>
-          <button type="button" class="language-option" role="menuitemradio" data-language-option="zh" aria-checked="false">
+          <button type="button" class="language-option" role="menuitemradio" data-language-option="zh" aria-checked="true">
             <span>简体中文</span>
             <span class="language-option-indicator" aria-hidden="true"></span>
           </button>
@@ -70,7 +77,12 @@
           </button>
         </div>
       </div>
-      <a class="ghost-link" href="https://github.com/xingbofeng/VoxFlow" aria-label="View VoxFlow on GitHub">GitHub</a>
+      <a class="github-link" href="https://github.com/xingbofeng/VoxFlow" aria-label="View VoxFlow on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M12 2C6.48 2 2 6.58 2 12.24c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-1.05-.01-1.9-2.78.62-3.37-1.22-3.37-1.22-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.93.85.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.96c.85 0 1.7.12 2.5.34 1.9-1.32 2.74-1.05 2.74-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.08 10.08 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z"/>
+        </svg>
+        <span>GitHub</span>
+      </a>
     </div>
   </header>
 
@@ -175,6 +187,19 @@
       </ol>
     </section>
 
+    <section id="changelog" class="section changelog shell">
+      <div class="section-heading motion">
+        <p class="eyebrow" data-i18n="changelogLabel">Updates</p>
+        <h2 data-i18n="changelogTitle">Recent releases, pulled from GitHub.</h2>
+        <p class="section-copy" data-i18n="changelogCopy">The landing page stays in sync with the repository releases, with a compact summary of what changed.</p>
+      </div>
+      <div class="changelog-grid" data-changelog-list aria-live="polite">
+        <article class="changelog-card changelog-status motion" data-changelog-status>
+          <span data-i18n="changelogLoading">Loading release notes...</span>
+        </article>
+      </div>
+    </section>
+
     <section id="shortcuts" class="shortcuts shell">
       <div class="section-heading motion">
         <p class="eyebrow" data-i18n="shortcutsLabel">快捷键</p>
@@ -218,6 +243,32 @@
     <span data-i18n="footer">Swift & AppKit · Open source</span>
   </footer>
 
-  <script src="script.js?v=20260627-v172-language-menu"></script>
+  <script id="voxflow-release-data" type="application/json">
+[
+  {
+    "tag_name": "v1.12.1",
+    "name": "VoxFlow 1.12.1",
+    "body": "# VoxFlow 1.12.1\n\n## 更新摘要\n\n- 新增火山云豆包流式语音识别支持，可配置 App ID、Access Token 和 Secret Key 后用于实时云端听写。\n- 新增本地搜索能力，可在命令面板中快速查找本机文件、最近文件和相关操作。\n- 优化云端 ASR 配置入口、权限提示和菜单状态，让在线识别服务的启用状态更清楚。\n\n## 细节\n\n- 功能：接入火山云豆包流式语音识别 2.0，并补齐配置保存、连接测试、菜单选择和 ASR Provider 状态展示。\n- 功能：命令面板新增本地文件搜索、最近文件、文件元数据展示和搜索缓存。\n- 修复：修正火山云服务入口链接和连接测试协议，避免已开通服务仍提示不可用。\n- 体验：更新 README、官网下载元数据和 App 内版本号到 1.12.1。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.12.1\n- `CFBundleVersion`：23\n- DMG：`VoxFlow-1.12.1-macOS.dmg`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.12.1",
+    "published_at": "2026-07-01T02:06:59Z"
+  },
+  {
+    "tag_name": "v1.12.0",
+    "name": "VoxFlow 1.12.0",
+    "body": "# VoxFlow 1.12.0\n\n## 更新摘要\n\n- 新增风格级输出格式控制，可为日常、聊天、邮件、编程等风格分别设置句末标点、大小写、语气和表情倾向；帮助页新增交流群入口，方便查看加入方式。\n- 新增风格自动匹配与同 App 上下文轮次，VoxFlow 可以结合当前应用和最近转写历史，更稳地选择合适风格。\n- 新增文本差异对比视图，首页转写详情可以直接查看识别原文、最终文本以及每一步处理到底改了哪里。\n- 新增默认关闭的崩溃日志能力，支持用户授权后自动上报崩溃，并可手动发送最近的系统崩溃报告。\n\n## 细节\n\n- 功能：增加输出格式弹窗、风格自动匹配配置、路由缓存、Context Rounds、崩溃报告服务和 Sentry dSYM 上传流程。\n- 修复：补齐危险本地化格式化检查，减少格式化参数不匹配导致的 UI 崩溃风险。\n- 体验：README 下载文件名、官网下载元数据和 App 内版本号已同步到 1.12.0；README 增加用户群入口。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.12.0\n- `CFBundleVersion`：22\n- DMG：`VoxFlow-1.12.0-macOS.dmg`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.12.0",
+    "published_at": "2026-06-30T18:05:31Z"
+  },
+  {
+    "tag_name": "v1.11.0",
+    "name": "VoxFlow 1.11.0",
+    "body": "# VoxFlow 1.11.0\n\n## 更新摘要\n\n- 新增确定性文本处理能力，优化数字、空格、标点、填充词和长句整理，未启用 LLM 时也能获得更稳定的转写结果。\n- 优化 AI 编程、截图 OCR、上下文增强和应用风格识别链路，让语音输入在不同目标 App 中更贴近当前场景。\n- 清理历史 Bundle ID 与菜单栏状态项缓存逻辑，修复菜单栏图标在 macOS 状态栏重排后可能消失的问题。\n\n## 细节\n\n- 功能：新增 `VoxFlowPromptKit` 与 `VoxFlowTextProcessing`，拆分提示词构建和确定性文本处理逻辑。\n- 修复：收敛旧 Bundle ID、旧状态栏 autosave 名称和历史测试保护，改用稳定的 `VoxFlowMenuBarItem` 菜单栏身份。\n- 体验：更新设置、首页、历史详情、截图 OCR 与文本插入相关流程，减少误触发和不稳定状态。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.11.0\n- `CFBundleVersion`：21\n- DMG：`VoxFlow-1.11.0-macOS.dmg`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.11.0",
+    "published_at": "2026-06-29T20:55:06Z"
+  }
+]
+  </script>
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+  <script src="script.js?v=20260701-wechat-share-static-sdk"></script>
 </body>
 </html>

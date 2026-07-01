@@ -1,0 +1,4 @@
+mashangxie.app, www.mashangxie.app {
+	encode zstd gzip
+	reverse_proxy voxflow-landing:8080
+}

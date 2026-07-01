@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f6fbf8">
+  <meta http-equiv="refresh" content="0; url=https://mashangxie.app/">
+  <link rel="canonical" href="https://mashangxie.app/">
+  <title>VoxFlow has moved</title>
+  <script>
+    const canonicalHost = "https://mashangxie.app";
+    const legacyProjectPath = "/VoxFlow";
+    const currentPath = window.location.pathname.startsWith(legacyProjectPath)
+      ? window.location.pathname.slice(legacyProjectPath.length)
+      : window.location.pathname;
+    const destination = new URL(currentPath || "/", canonicalHost);
+    destination.search = window.location.search;
+    destination.hash = window.location.hash;
+    window.location.replace(destination.toString());
+  </script>
+</head>
+<body>
+  <p>VoxFlow has moved to <a href="https://mashangxie.app/">mashangxie.app</a>.</p>
+</body>
+</html>
