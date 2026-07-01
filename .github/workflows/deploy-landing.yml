@@ -1,0 +1,221 @@
+name: Deploy Landing
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - vercel
+          - lighthouse
+          - pages
+          - dns-vercel
+          - dns-lighthouse
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-landing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vercel:
+    name: Vercel landing page
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'vercel'))
+      }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      WECHAT_APP_ID: ${{ secrets.WECHAT_APP_ID }}
+      WECHAT_APP_SECRET: ${{ secrets.WECHAT_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vercel CLI
+        run: npm install --global vercel@54.2.0
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Sync Vercel runtime environment
+        run: |
+          vercel env rm WECHAT_APP_ID production --yes --token="${{ secrets.VERCEL_TOKEN }}" || true
+          vercel env rm WECHAT_APP_SECRET production --yes --token="${{ secrets.VERCEL_TOKEN }}" || true
+          printf '%s' "${WECHAT_APP_ID}" | vercel env add WECHAT_APP_ID production --token="${{ secrets.VERCEL_TOKEN }}"
+          printf '%s' "${WECHAT_APP_SECRET}" | vercel env add WECHAT_APP_SECRET production --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Prepare Vercel landing source
+        run: scripts/prepare-vercel-landing.sh
+      - name: Deploy landing site to Vercel
+        run: vercel deploy .build/vercel-landing --prod --archive=tgz --token="${{ secrets.VERCEL_TOKEN }}"
+
+  lighthouse:
+    name: Tencent Lighthouse landing page
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'lighthouse') }}
+    env:
+      LANDING_IMAGE: voxflow-landing:${{ github.sha }}
+      TENCENT_NODE_IMAGE: mirror.ccs.tencentyun.com/library/node:20-alpine
+      TENCENT_CADDY_IMAGE: mirror.ccs.tencentyun.com/library/caddy:2.8-alpine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build landing assets
+        run: scripts/build-landing-site.sh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Prepare Lighthouse bundle
+        run: |
+          rm -rf public
+          mkdir -p public
+          cp -R .build/landing-site/. public/
+      - name: Upload bundle to Lighthouse
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.TENCENT_LIGHTHOUSE_HOST }}
+          username: ${{ secrets.TENCENT_LIGHTHOUSE_USER }}
+          key: ${{ secrets.TENCENT_LIGHTHOUSE_SSH_KEY }}
+          source: docker-compose.landing.yml,api/wechat-signature.js,deploy/Caddyfile,deploy/Dockerfile.landing,deploy/landing-server.js,public
+          target: /opt/voxflow-landing
+      - name: Deploy on Lighthouse
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          VOXFLOW_LANDING_IMAGE: ${{ env.LANDING_IMAGE }}
+          TENCENT_NODE_IMAGE: ${{ env.TENCENT_NODE_IMAGE }}
+          TENCENT_CADDY_IMAGE: ${{ env.TENCENT_CADDY_IMAGE }}
+          WECHAT_APP_ID: ${{ secrets.WECHAT_APP_ID }}
+          WECHAT_APP_SECRET: ${{ secrets.WECHAT_APP_SECRET }}
+        with:
+          host: ${{ secrets.TENCENT_LIGHTHOUSE_HOST }}
+          username: ${{ secrets.TENCENT_LIGHTHOUSE_USER }}
+          key: ${{ secrets.TENCENT_LIGHTHOUSE_SSH_KEY }}
+          envs: VOXFLOW_LANDING_IMAGE,TENCENT_NODE_IMAGE,TENCENT_CADDY_IMAGE,WECHAT_APP_ID,WECHAT_APP_SECRET
+          script: |
+            set -euo pipefail
+            cd /opt/voxflow-landing
+
+            printf '%s\n' \
+              "VOXFLOW_LANDING_IMAGE=${VOXFLOW_LANDING_IMAGE}" \
+              "CADDY_IMAGE=${TENCENT_CADDY_IMAGE}" \
+              "WECHAT_APP_ID=${WECHAT_APP_ID}" \
+              "WECHAT_APP_SECRET=${WECHAT_APP_SECRET}" \
+              > .env
+
+            if docker compose version >/dev/null 2>&1; then
+              compose='sudo docker compose'
+            else
+              compose='sudo docker-compose'
+            fi
+
+            sudo docker build \
+              --build-arg "NODE_IMAGE=${TENCENT_NODE_IMAGE}" \
+              --tag "${VOXFLOW_LANDING_IMAGE}" \
+              --tag voxflow-landing:latest \
+              --file deploy/Dockerfile.landing \
+              .
+            ${compose} -f docker-compose.landing.yml up -d --remove-orphans
+            ${compose} -f docker-compose.landing.yml ps
+            for attempt in $(seq 1 30); do
+              landing_status="$(sudo docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' voxflow-landing 2>/dev/null || true)"
+              if [ "${landing_status}" = "healthy" ]; then
+                break
+              fi
+              sleep 2
+            done
+            if [ "${landing_status}" != "healthy" ]; then
+              sudo docker logs --tail=80 voxflow-landing
+              exit 1
+            fi
+            ${compose} -f docker-compose.landing.yml exec -T landing wget -qO- http://127.0.0.1:8080/ready
+            ${compose} -f docker-compose.landing.yml exec -T caddy caddy validate --config /etc/caddy/Caddyfile
+            curl -fsS --max-time 15 --resolve "mashangxie.app:443:127.0.0.1" https://mashangxie.app/ready
+            curl -fsS --max-time 15 --resolve "www.mashangxie.app:443:127.0.0.1" https://www.mashangxie.app/ready
+
+  pages:
+    name: GitHub Pages redirect
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'pages'))
+      }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload redirect artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-redirect
+      - name: Deploy redirect to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  dns:
+    name: Cloudflare DNS
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'dns-vercel' || inputs.target == 'dns-lighthouse') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Upsert apex record for Vercel
+        if: ${{ inputs.target == 'dns-vercel' }}
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: 76.76.21.21
+          CF_RECORD_PROXIED: "false"
+          CF_RECORD_TTL: "300"
+      - name: Upsert www record for Vercel
+        if: ${{ inputs.target == 'dns-vercel' }}
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: www.mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: 76.76.21.21
+          CF_RECORD_PROXIED: "false"
+          CF_RECORD_TTL: "300"
+      - name: Upsert apex record for Lighthouse
+        if: ${{ inputs.target == 'dns-lighthouse' }}
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: ${{ secrets.TENCENT_LIGHTHOUSE_IP }}
+          CF_RECORD_PROXIED: "false"
+          CF_RECORD_TTL: "300"
+      - name: Upsert www record for Lighthouse
+        if: ${{ inputs.target == 'dns-lighthouse' }}
+        run: scripts/cloudflare-upsert-record.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_RECORD_NAME: www.mashangxie.app
+          CF_RECORD_TYPE: A
+          CF_RECORD_CONTENT: ${{ secrets.TENCENT_LIGHTHOUSE_IP }}
+          CF_RECORD_PROXIED: "false"
+          CF_RECORD_TTL: "300"

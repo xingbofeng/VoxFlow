@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "scripts/build-landing-site.sh",
+  "outputDirectory": ".build/landing-site",
+  "installCommand": null
+}

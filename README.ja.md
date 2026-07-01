@@ -17,7 +17,7 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-10B981?style=flat-square" alt="License: GPL-3.0-or-later"></a>
   </p>
   <p>
-    🌐 <a href="https://xingbofeng.github.io/VoxFlow/">Website</a>
+    🌐 <a href="https://mashangxie.app/">Website</a>
     &nbsp;·&nbsp;
     ⬇️ <a href="https://github.com/xingbofeng/VoxFlow/releases/latest">Download</a>
     &nbsp;·&nbsp;

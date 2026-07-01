@@ -109,7 +109,7 @@ button { font: inherit; }
   gap: 8px;
 }
 .nav-links a,
-.ghost-link,
+.github-link,
 .language-switch {
   min-height: 42px;
   display: inline-flex;
@@ -232,14 +232,20 @@ button { font: inherit; }
   opacity: 1;
   transform: scale(1);
 }
-.ghost-link {
-  padding: 0 16px;
+.github-link {
+  gap: 8px;
+  padding: 0 14px;
   color: var(--accent);
   font-size: 12px;
   font-weight: 820;
 }
+.github-link svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
 .nav-links a:hover,
-.ghost-link:hover,
+.github-link:hover,
 .language-switch:hover {
   border-color: rgba(7,128,106,.24);
   background: #fff;
@@ -389,6 +395,9 @@ html[lang^="zh"] h1 {
   background: linear-gradient(90deg, rgba(7,128,106,.16), rgba(247,185,40,.12));
   filter: blur(28px);
 }
+.hero-stage picture {
+  display: block;
+}
 .hero-stage img {
   display: block;
   width: min(790px, 104%);
@@ -448,6 +457,13 @@ html[lang^="zh"] h1 {
 .section-heading {
   max-width: 760px;
   margin-bottom: 34px;
+}
+.section-copy {
+  max-width: 660px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.68;
 }
 h2 {
   font-size: clamp(40px, 5.2vw, 72px);
@@ -533,6 +549,83 @@ h2 {
   margin-top: 7px;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.changelog {
+  margin-top: 104px;
+}
+.changelog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.changelog-card {
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(247,252,249,.78));
+  box-shadow: 0 16px 48px rgba(8, 69, 54, .075);
+  backdrop-filter: blur(20px);
+}
+.changelog-status {
+  min-height: 148px;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-weight: 760;
+}
+.changelog-card time,
+.changelog-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 840;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.changelog-card h3 {
+  margin: 18px 0 12px;
+  font-size: 24px;
+  line-height: 1.14;
+  letter-spacing: -.035em;
+}
+.changelog-card ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.changelog-card li {
+  position: relative;
+  padding-left: 17px;
+  color: var(--muted);
+  line-height: 1.58;
+}
+.changelog-card li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .68em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  opacity: .72;
+}
+.changelog-link {
+  width: max-content;
+  margin-top: auto;
+  padding-top: 22px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 840;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .shortcuts {
@@ -654,7 +747,7 @@ h2 {
     grid-row: 2;
     justify-content: stretch;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .nav-actions {
     justify-content: end;
@@ -672,7 +765,8 @@ h2 {
   }
   .capabilities,
   .workflow-grid,
-  .shortcut-grid {
+  .shortcut-grid,
+  .changelog-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -696,15 +790,34 @@ h2 {
   }
   .nav-links {
     gap: 6px;
+    display: flex;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar {
+    display: none;
   }
   .nav-links a {
+    flex: 0 0 auto;
     min-height: 34px;
     padding: 0 7px;
     font-size: 11.5px;
     box-shadow: 0 8px 20px rgba(8, 69, 54, .06);
   }
-  .ghost-link {
-    display: none;
+  .github-link {
+    width: 38px;
+    min-height: 38px;
+    padding: 0;
+  }
+  .github-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .language-switch {
     width: 120px;
@@ -800,13 +913,19 @@ h2 {
   .section-heading {
     margin-bottom: 26px;
   }
+  .section-copy {
+    margin-top: 14px;
+    font-size: 16px;
+    line-height: 1.62;
+  }
   h2 {
     font-size: clamp(32px, 8.8vw, 44px);
     line-height: 1.08;
     letter-spacing: -.046em;
   }
   .workflow-grid,
-  .shortcut-grid {
+  .shortcut-grid,
+  .changelog-grid {
     grid-template-columns: 1fr;
   }
   .workflow-card {
@@ -844,6 +963,18 @@ h2 {
     top: 16px;
     width: 30px;
     height: 30px;
+  }
+  .changelog {
+    margin-top: 64px;
+  }
+  .changelog-card {
+    min-height: auto;
+    padding: 21px;
+    border-radius: 20px;
+  }
+  .changelog-card h3 {
+    font-size: 22px;
+    line-height: 1.18;
   }
   .shortcuts {
     min-height: auto;

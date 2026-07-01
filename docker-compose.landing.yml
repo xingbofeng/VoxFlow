@@ -1,0 +1,47 @@
+version: "2.4"
+
+services:
+  landing:
+    image: ${VOXFLOW_LANDING_IMAGE}
+    container_name: voxflow-landing
+    restart: unless-stopped
+    environment:
+      WECHAT_APP_ID: ${WECHAT_APP_ID}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET}
+      PUBLIC_DIR: /app/public
+    volumes:
+      - ./public:/app/public:ro
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ready >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 10
+    networks:
+      - landing
+
+  caddy:
+    image: ${CADDY_IMAGE}
+    container_name: voxflow-landing-caddy
+    restart: unless-stopped
+    depends_on:
+      landing:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - landing
+
+networks:
+  landing:
+
+volumes:
+  caddy-data:
+  caddy-config:

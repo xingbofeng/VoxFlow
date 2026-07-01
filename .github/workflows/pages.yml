@@ -27,11 +27,11 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages artifact
+      - name: Upload Pages redirect artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: docs-redirect
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy redirect to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
