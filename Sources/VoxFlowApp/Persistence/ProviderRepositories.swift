@@ -177,6 +177,14 @@ final class SQLiteASRProviderRepository: ASRProviderRepository {
 final class SQLiteLLMProviderRepository: LLMProviderRepository {
     private let databaseQueue: DatabaseQueue
     private let formatter = ISO8601DateFormatter()
+    private let sqliteDateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
 
     init(databaseQueue: DatabaseQueue) {
         self.databaseQueue = databaseQueue
@@ -287,8 +295,8 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
               let apiKeyRef = statement.columnString(at: 5),
               let createdAtText = statement.columnString(at: 13),
               let updatedAtText = statement.columnString(at: 14),
-              let createdAt = formatter.date(from: createdAtText),
-              let updatedAt = formatter.date(from: updatedAtText) else {
+              let createdAt = date(from: createdAtText),
+              let updatedAt = date(from: updatedAtText) else {
             throw SQLiteError.stepFailed("Invalid llm_providers row.")
         }
 
@@ -309,5 +317,9 @@ final class SQLiteLLMProviderRepository: LLMProviderRepository {
             createdAt: createdAt,
             updatedAt: updatedAt
         )
+    }
+
+    private func date(from text: String) -> Date? {
+        formatter.date(from: text) ?? sqliteDateTimeFormatter.date(from: text)
     }
 }

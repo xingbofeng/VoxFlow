@@ -3,6 +3,30 @@ import XCTest
 
 @MainActor
 final class LLMProviderViewModelTests: XCTestCase {
+    private static func providerRecord(
+        displayName: String,
+        baseURL: String,
+        providerType: String = LLMProviderProviderType.openAICompatible
+    ) -> LLMProviderRecord {
+        LLMProviderRecord(
+            id: UUID().uuidString,
+            displayName: displayName,
+            providerType: providerType,
+            baseURL: baseURL,
+            defaultModel: "model",
+            apiKeyRef: "key",
+            temperature: 0.2,
+            timeoutSeconds: 30,
+            enabled: true,
+            isDefault: false,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+    }
+
     func testNewProviderRequiresNameURLModelAndAPIKey() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())
@@ -26,6 +50,125 @@ final class LLMProviderViewModelTests: XCTestCase {
             )
         }
         XCTAssertEqual(viewModel.providers, [])
+    }
+
+    func testProviderTemplateCatalogIncludesRequestedProvidersAndExcludesUnstableKeylessProviders() throws {
+        let ids = Set(LLMProviderTemplateCatalog.templates.map(\.id))
+
+        XCTAssertTrue(ids.contains("google"))
+        XCTAssertTrue(ids.contains("groq"))
+        XCTAssertTrue(ids.contains("nvidia"))
+        XCTAssertTrue(ids.contains("deepseek"))
+        XCTAssertTrue(ids.contains("ollama-local"))
+        XCTAssertFalse(ids.contains("zhipu"))
+        XCTAssertFalse(ids.contains("kilo"))
+        XCTAssertFalse(ids.contains("pollinations"))
+        XCTAssertFalse(ids.contains("ovh"))
+        XCTAssertFalse(ids.contains("aihorde"))
+
+        let ollama = try XCTUnwrap(LLMProviderTemplateCatalog.template(id: "ollama-local"))
+        XCTAssertFalse(ollama.requiresAPIKey)
+        XCTAssertEqual(ollama.baseURL, "http://localhost:11434/v1")
+        XCTAssertTrue(LLMProviderTemplateCatalog.templates.allSatisfy { $0.defaultModel.isEmpty })
+    }
+
+    func testProviderTemplateCatalogHasIconResourcesForEveryTemplate() throws {
+        for template in LLMProviderTemplateCatalog.templates {
+            let templateID = try XCTUnwrap(
+                LLMProviderTemplateCatalog.templateID(baseURL: template.baseURL),
+                "Missing template lookup for \(template.displayName)"
+            )
+            XCTAssertEqual(templateID, template.id)
+
+            let resourceName = try XCTUnwrap(
+                LLMProviderIconResource.resourceName(templateID: template.id),
+                "Missing icon mapping for \(template.displayName)"
+            )
+            XCTAssertNotNil(
+                VoxFlowAppResourceBundle.url(forResource: resourceName, withExtension: "png"),
+                "Missing icon resource \(resourceName).png"
+            )
+        }
+    }
+
+    func testProviderIconUsesOfficialIconOnlyForKnownProviderURL() {
+        let knownGroq = Self.providerRecord(
+            displayName: "openai/gpt-oss-20b",
+            baseURL: "https://api.groq.com/openai/v1"
+        )
+        let customDeepSeekNamedProvider = Self.providerRecord(
+            displayName: "deepseek-v4-flash-202605",
+            baseURL: "https://tokenhub.tencentmaas.com/v1"
+        )
+
+        XCTAssertEqual(LLMProviderIconResource.resourceName(provider: knownGroq), "LLMProviderGroq")
+        XCTAssertNil(LLMProviderIconResource.resourceName(provider: customDeepSeekNamedProvider))
+    }
+
+    func testLoopbackProviderIconDoesNotTreatEveryLocalV1URLAsOllama() {
+        let ollama = Self.providerRecord(
+            displayName: "Ollama",
+            baseURL: "http://127.0.0.1:11434/v1"
+        )
+        let localFree = Self.providerRecord(
+            displayName: "Free",
+            baseURL: "http://127.0.0.1:31415/v1"
+        )
+
+        XCTAssertEqual(LLMProviderTemplateCatalog.templateID(baseURL: ollama.baseURL), "ollama-local")
+        XCTAssertNil(LLMProviderTemplateCatalog.templateID(baseURL: localFree.baseURL))
+        XCTAssertEqual(LLMProviderIconResource.resourceName(provider: ollama), "LLMProviderOllama")
+        XCTAssertNil(LLMProviderIconResource.resourceName(provider: localFree))
+        XCTAssertTrue(LLMProviderTemplateCatalog.isLoopbackBaseURL(localFree.baseURL))
+    }
+
+    func testLocalOllamaProviderCanBeSavedWithoutAPIKey() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())
+        let template = try XCTUnwrap(LLMProviderTemplateCatalog.template(id: "ollama-local"))
+
+        try viewModel.saveProvider(
+            id: nil,
+            displayName: template.displayName,
+            baseURL: template.baseURL,
+            model: "llama3.2",
+            apiKey: "",
+            temperature: 0.2,
+            timeoutSeconds: template.timeoutSeconds,
+            enabled: true,
+            isDefault: true,
+            requiresAPIKey: template.requiresAPIKey
+        )
+
+        let provider = try XCTUnwrap(viewModel.providers.first)
+        XCTAssertEqual(provider.providerType, LLMProviderProviderType.openAICompatibleNoKey)
+        XCTAssertFalse(provider.requiresAPIKey)
+        XCTAssertEqual(provider.baseURL, "http://localhost:11434/v1")
+        XCTAssertTrue(LLMProviderAvailability.isUsableProvider(provider))
+    }
+
+    func testCustomLoopbackProviderCanBeSavedWithoutAPIKey() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = LLMProviderViewModel(environment: environment, client: StubProviderClient())
+
+        try viewModel.saveProvider(
+            id: nil,
+            displayName: "Free",
+            baseURL: "http://127.0.0.1:31415/v1",
+            model: "auto",
+            apiKey: "",
+            temperature: 0.2,
+            timeoutSeconds: 30,
+            enabled: true,
+            isDefault: true,
+            requiresAPIKey: false
+        )
+
+        let provider = try XCTUnwrap(viewModel.providers.first)
+        XCTAssertEqual(provider.providerType, LLMProviderProviderType.openAICompatibleNoKey)
+        XCTAssertFalse(provider.requiresAPIKey)
+        XCTAssertEqual(provider.baseURL, "http://127.0.0.1:31415/v1")
+        XCTAssertTrue(LLMProviderAvailability.isUsableProvider(provider))
     }
 
     func testEditingProviderCanKeepStoredAPIKey() throws {
@@ -137,6 +280,26 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertEqual(client.lastBaseURL, "https://draft.example.com/v1")
         XCTAssertEqual(client.lastModel, "draft-model")
         XCTAssertEqual(client.lastAPIKey, "draft-secret")
+        XCTAssertEqual(viewModel.lastActionMessage, "连接测试成功")
+    }
+
+    func testDraftConnectionAllowsNoKeyTemplate() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = CapturingProviderClient()
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        await viewModel.testDraftConnection(
+            providerID: nil,
+            displayName: "Ollama 本地",
+            baseURL: "http://localhost:11434/v1",
+            model: "llama3.2",
+            apiKey: "",
+            requiresAPIKey: false
+        )
+
+        XCTAssertEqual(client.lastBaseURL, "http://localhost:11434/v1")
+        XCTAssertEqual(client.lastAPIKey, "")
+        XCTAssertEqual(client.lastModel, "llama3.2")
         XCTAssertEqual(viewModel.lastActionMessage, "连接测试成功")
     }
 
@@ -324,6 +487,98 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.testingProviderID)
     }
 
+    func testAllConnectionsTestsOnlyEnabledConfiguredRegularProviders() async throws {
+        let store = InMemoryProviderCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: store)
+        )
+        let client = RecordingProviderClient()
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+        try viewModel.saveProvider(
+            id: "enabled-a",
+            displayName: "Enabled A",
+            baseURL: "https://api-a.example.com",
+            model: "model-a",
+            apiKey: "secret-a",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: true
+        )
+        try viewModel.saveProvider(
+            id: "enabled-b",
+            displayName: "Enabled B",
+            baseURL: "https://api-b.example.com",
+            model: "models/model-b",
+            apiKey: "secret-b",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: false
+        )
+        try viewModel.saveProvider(
+            id: "disabled",
+            displayName: "Disabled",
+            baseURL: "https://disabled.example.com",
+            model: "model-disabled",
+            apiKey: "secret-disabled",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: false,
+            isDefault: false
+        )
+
+        await viewModel.testAllConnections()
+
+        XCTAssertEqual(client.calls.map(\.model), ["model-a", "model-b"])
+        XCTAssertEqual(viewModel.lastActionMessage, "已成功测试 2 个服务商。")
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertFalse(viewModel.isTestingAllProviders)
+        XCTAssertNil(viewModel.testingProviderID)
+        XCTAssertEqual(try environment.llmProviderRepository.provider(id: "enabled-a")?.lastHealthStatus, "ok")
+        XCTAssertEqual(try environment.llmProviderRepository.provider(id: "enabled-b")?.lastHealthStatus, "ok")
+        XCTAssertNil(try environment.llmProviderRepository.provider(id: "disabled")?.lastHealthStatus)
+    }
+
+    func testAllConnectionsReportsPartialFailures() async throws {
+        let store = InMemoryProviderCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: store)
+        )
+        let client = RecordingProviderClient(failingModels: ["model-b"])
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+        try viewModel.saveProvider(
+            id: "enabled-a",
+            displayName: "Enabled A",
+            baseURL: "https://api-a.example.com",
+            model: "model-a",
+            apiKey: "secret-a",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: true
+        )
+        try viewModel.saveProvider(
+            id: "enabled-b",
+            displayName: "Enabled B",
+            baseURL: "https://api-b.example.com",
+            model: "model-b",
+            apiKey: "secret-b",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: false
+        )
+
+        await viewModel.testAllConnections()
+
+        XCTAssertEqual(client.calls.map(\.model), ["model-a", "model-b"])
+        XCTAssertEqual(viewModel.lastError, "已测试 2 个服务商，其中 1 个失败。")
+        XCTAssertNil(viewModel.lastActionMessage)
+        XCTAssertEqual(try environment.llmProviderRepository.provider(id: "enabled-a")?.lastHealthStatus, "ok")
+        XCTAssertEqual(try environment.llmProviderRepository.provider(id: "enabled-b")?.lastHealthStatus, "error")
+    }
+
     func testDraftConnectionExposesTestingStateUntilRequestCompletes() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let client = BlockingProviderClient()
@@ -375,6 +630,105 @@ final class LLMProviderViewModelTests: XCTestCase {
         let provider = try XCTUnwrap(try environment.llmProviderRepository.provider(id: "provider"))
         XCTAssertEqual(provider.lastLatencyMS, 37)
         XCTAssertEqual(provider.lastHealthStatus, "ok")
+    }
+
+    func testFetchDraftModelsUsesUnsavedFieldsAndAPIKey() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = CapturingModelListClient(models: ["model-a", "model-b", "model-a"])
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        let models = await viewModel.fetchDraftModels(
+            providerID: nil,
+            baseURL: "https://api.example.com/v1",
+            apiKey: "draft-secret"
+        )
+
+        XCTAssertEqual(models, ["model-a", "model-b"])
+        XCTAssertEqual(client.lastBaseURL, "https://api.example.com/v1")
+        XCTAssertEqual(client.lastAPIKey, "draft-secret")
+        XCTAssertFalse(viewModel.isFetchingDraftModels)
+    }
+
+    func testFetchDraftModelsPrefersCuratedCatalogForKnownTemplateProvider() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = CapturingModelListClient(models: ["unexpected-live-model"])
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        let models = await viewModel.fetchDraftModels(
+            providerID: nil,
+            baseURL: "https://integrate.api.nvidia.com/v1",
+            apiKey: "nvidia-secret"
+        )
+
+        XCTAssertEqual(models.first, "deepseek-ai/deepseek-v4-pro")
+        XCTAssertTrue(models.contains("nvidia/nemotron-3-super-120b-a12b"))
+        XCTAssertNil(client.lastBaseURL)
+    }
+
+    func testFetchDraftModelsExposesLoadingStateUntilRequestCompletes() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = BlockingProviderClient()
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        let task = Task {
+            await viewModel.fetchDraftModels(
+                providerID: nil,
+                baseURL: "https://api.example.com/v1",
+                apiKey: "draft-secret"
+            )
+        }
+        await client.waitUntilStarted()
+
+        XCTAssertTrue(viewModel.isFetchingDraftModels)
+
+        await client.complete()
+        _ = await task.value
+        XCTAssertFalse(viewModel.isFetchingDraftModels)
+    }
+
+    func testFetchDraftModelsUsesTemplateFallbackWhenModelsEndpointIsUnsupported() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = StubProviderClient(modelListError: LLMRefiner.Error.httpError(code: 405))
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        let models = await viewModel.fetchDraftModels(
+            providerID: nil,
+            baseURL: "https://api.cloudflare.com/client/v4/accounts/example/ai/v1",
+            apiKey: "cloudflare-token"
+        )
+
+        XCTAssertTrue(models.contains("@cf/openai/gpt-oss-120b"))
+        XCTAssertNil(viewModel.lastError)
+    }
+
+    func testProviderModelIDRemovesGoogleModelsPrefixBeforeSavingAndTesting() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let client = CapturingProviderClient()
+        let viewModel = LLMProviderViewModel(environment: environment, client: client)
+
+        try viewModel.saveProvider(
+            id: "provider",
+            displayName: "Google AI Studio",
+            baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+            model: "models/gemini-2.5-flash",
+            apiKey: "google-secret",
+            temperature: 0.2,
+            timeoutSeconds: 8,
+            enabled: true,
+            isDefault: true
+        )
+
+        XCTAssertEqual(viewModel.providers.first?.defaultModel, "gemini-2.5-flash")
+
+        await viewModel.testDraftConnection(
+            providerID: "provider",
+            displayName: "Google AI Studio",
+            baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+            model: "models/gemini-2.5-flash",
+            apiKey: viewModel.APIKeyForEditing(providerID: "provider")
+        )
+
+        XCTAssertEqual(client.lastModel, "gemini-2.5-flash")
     }
 
     func testDeleteProviderRemovesCredential() throws {
@@ -1105,16 +1459,55 @@ private final class CapturingProviderClient: LLMProviderConnecting, @unchecked S
     }
 }
 
+private final class RecordingProviderClient: LLMProviderConnecting, @unchecked Sendable {
+    struct Call: Equatable {
+        let baseURL: String
+        let apiKey: String
+        let model: String
+    }
+
+    private(set) var calls: [Call] = []
+    private let failingModels: Set<String>
+
+    init(failingModels: Set<String> = []) {
+        self.failingModels = failingModels
+    }
+
+    func testConnection(
+        baseURL: String,
+        apiKey: String,
+        model: String,
+        timeoutSeconds: Double
+    ) async throws -> LLMProviderConnectionResult {
+        calls.append(Call(baseURL: baseURL, apiKey: apiKey, model: model))
+        if failingModels.contains(model) {
+            throw LLMRefiner.Error.httpError(code: 500)
+        }
+        return LLMProviderConnectionResult(message: "OK", latencyMS: 1)
+    }
+
+    func listModels(
+        baseURL: String,
+        apiKey: String,
+        timeoutSeconds: Double
+    ) async throws -> [String] {
+        []
+    }
+}
+
 private final class StubProviderClient: LLMProviderConnecting, @unchecked Sendable {
     var result: Result<LLMProviderConnectionResult, Error>
     var models: [String]
+    var modelListError: Error?
 
     init(
         result: Result<LLMProviderConnectionResult, Error> = .success(LLMProviderConnectionResult(message: "OK", latencyMS: 1)),
-        models: [String] = []
+        models: [String] = [],
+        modelListError: Error? = nil
     ) {
         self.result = result
         self.models = models
+        self.modelListError = modelListError
     }
 
     func testConnection(
@@ -1131,7 +1524,39 @@ private final class StubProviderClient: LLMProviderConnecting, @unchecked Sendab
         apiKey: String,
         timeoutSeconds: Double
     ) async throws -> [String] {
-        models
+        if let modelListError {
+            throw modelListError
+        }
+        return models
+    }
+}
+
+private final class CapturingModelListClient: LLMProviderConnecting, @unchecked Sendable {
+    let models: [String]
+    private(set) var lastBaseURL: String?
+    private(set) var lastAPIKey: String?
+
+    init(models: [String]) {
+        self.models = models
+    }
+
+    func testConnection(
+        baseURL: String,
+        apiKey: String,
+        model: String,
+        timeoutSeconds: Double
+    ) async throws -> LLMProviderConnectionResult {
+        LLMProviderConnectionResult(message: "OK", latencyMS: 1)
+    }
+
+    func listModels(
+        baseURL: String,
+        apiKey: String,
+        timeoutSeconds: Double
+    ) async throws -> [String] {
+        lastBaseURL = baseURL
+        lastAPIKey = apiKey
+        return models
     }
 }
 
@@ -1250,7 +1675,15 @@ private actor BlockingProviderClient: LLMProviderConnecting {
         apiKey: String,
         timeoutSeconds: Double
     ) async throws -> [String] {
-        []
+        started = true
+        for waiter in startWaiters {
+            waiter.resume()
+        }
+        startWaiters.removeAll()
+        await withCheckedContinuation { continuation in
+            completion = continuation
+        }
+        return []
     }
 
     func waitUntilStarted() async {

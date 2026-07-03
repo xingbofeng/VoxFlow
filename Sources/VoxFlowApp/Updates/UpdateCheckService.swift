@@ -45,16 +45,16 @@ final class UpdateCheckService {
             return .throttled
         }
 
-        if mode == .automatic {
-            stateStore.lastAutomaticCheckAt = now()
-            stateStore.lastAutomaticCheckVersion = currentVersion
-        }
-
         let release: RemoteRelease
         do {
             release = try await client.fetchLatestRelease()
         } catch {
             return .failed(.fetchFailed)
+        }
+
+        if mode == .automatic {
+            stateStore.lastAutomaticCheckAt = now()
+            stateStore.lastAutomaticCheckVersion = currentVersion
         }
 
         guard release.isStableCandidate,

@@ -24,11 +24,11 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
         guard let provider = try? configuredProvider() else {
             return false
         }
-        guard let key = try? credentialStore.readCredential(account: provider.apiKeyRef),
-              !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return false
+        if !provider.requiresAPIKey {
+            return true
         }
-        return true
+        let key = (try? credentialStore.readCredential(account: provider.apiKeyRef)) ?? ""
+        return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     func streamResponse(messages: [AIChatMessage]) -> AsyncThrowingStream<String, Error> {
@@ -36,8 +36,8 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
             let task = Task {
                 do {
                     let provider = try configuredProvider()
-                    guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
-                          !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
+                    guard !provider.requiresAPIKey || !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                         AppLogger.network.warning("问 AI 无可用 API Key：provider=\(provider.id)")
                         throw LLMRefiner.Error.notConfigured
                     }
@@ -46,11 +46,12 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
                     var request = URLRequest(url: url)
                     request.httpMethod = "POST"
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    OpenAICompatibleClient.setAuthorizationHeader(apiKey: apiKey, request: &request)
+                    OpenAICompatibleClient.setProviderHeaders(baseURL: provider.baseURL, request: &request)
                     request.timeoutInterval = provider.timeoutSeconds
                     request.httpBody = try Self.makeRequestBody(
                         messages: messages,
-                        model: provider.defaultModel,
+                        model: OpenAICompatibleClient.normalizedModelID(provider.defaultModel),
                         temperature: provider.temperature
                     )
                     AppLogger.network.debug("问 AI 发起流式请求：provider=\(provider.id), model=\(provider.defaultModel)")

@@ -43,6 +43,10 @@ extension LLMProviderRecord {
         !isLocalAgentProvider
     }
 
+    var requiresAPIKey: Bool {
+        providerType != LLMProviderProviderType.openAICompatibleNoKey
+    }
+
     var hasRequiredLLMConfiguration: Bool {
         !baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !defaultModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

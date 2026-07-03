@@ -44,6 +44,32 @@ struct LLMProviderView: View {
                 Spacer()
                 if mode.visibleSections.contains(.regularProviders) {
                     Button {
+                        Task {
+                            await viewModel.testAllConnections()
+                        }
+                    } label: {
+                        Label {
+                            Text(L10n.localize("model.llm_provider.test_all", comment: ""))
+                        } icon: {
+                            if viewModel.isTestingAllProviders {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: LLMProviderActionIcon.testConnection)
+                            }
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .appControlSurface(cornerRadius: AppTheme.Radius.control)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.isTestingAllProviders || viewModel.testingProviderID != nil || testableRegularProviders.isEmpty)
+                    .help(L10n.localize("model.llm_provider.test_all_help", comment: ""))
+
+                    Button {
                         editorRequest = LLMProviderEditorRequest(provider: nil)
                     } label: {
                         Label(L10n.localize("model.llm_provider.add_button", comment: ""), systemImage: "plus")
@@ -60,6 +86,7 @@ struct LLMProviderView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .disabled(viewModel.isTestingAllProviders)
                     .help(L10n.localize("model.llm_provider.add_service_help", comment: ""))
                 }
             }
@@ -90,12 +117,16 @@ struct LLMProviderView: View {
                 provider: request.provider,
                 viewModel: viewModel
             )
-            .frame(width: 560, height: 540)
+            .frame(width: 680, height: 640)
         }
     }
 
     private var regularProviders: [LLMProviderRecord] {
         viewModel.providers.filter { !$0.isLocalAgentProvider }
+    }
+
+    private var testableRegularProviders: [LLMProviderRecord] {
+        regularProviders.filter(LLMProviderAvailability.isUsableProvider)
     }
 
     private var customProviderSection: some View {
@@ -155,12 +186,13 @@ struct LLMProviderView: View {
         let selected = viewModel.isLocalAgentProviderSelected(providerID: descriptor.providerID)
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(AppTheme.ColorToken.accent)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme.ColorToken.accentSoft)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
+                LLMProviderIcon(
+                    resourceName: AgentProviderIconResource.resourceName(providerID: descriptor.providerID),
+                    displayName: descriptor.displayName,
+                    tint: AppTheme.ColorToken.accent,
+                    isDefault: selected,
+                    size: 44
+                )
                 VStack(alignment: .leading, spacing: 5) {
                     Text(descriptor.displayName)
                         .font(.system(size: 18, weight: .semibold))
@@ -276,9 +308,11 @@ struct LLMProviderView: View {
             } label: {
                 HStack(alignment: .top, spacing: 14) {
                     LLMProviderIcon(
+                        provider: provider,
                         displayName: provider.displayName,
                         tint: AppTheme.ColorToken.accent,
-                        isDefault: provider.isDefault
+                        isDefault: provider.isDefault,
+                        usesDisplayNameFallback: false
                     )
                     providerSummary(provider)
                     Spacer(minLength: 0)
@@ -327,7 +361,7 @@ struct LLMProviderView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.testingProviderID != nil)
+                    .disabled(viewModel.testingProviderID != nil || viewModel.isTestingAllProviders)
                     .help(L10n.localize("model.llm_provider.test_connection", comment: ""))
                     Button {
                         viewModel.deleteProvider(id: provider.id)
@@ -413,17 +447,58 @@ struct LLMProviderView: View {
 }
 
 private struct LLMProviderIcon: View {
+    var provider: LLMProviderRecord? = nil
+    var templateID: String? = nil
+    var resourceName: String? = nil
     let displayName: String
     let tint: Color
     let isDefault: Bool
+    var size: CGFloat = 46
+    var usesDisplayNameFallback = true
+
+    private var image: NSImage? {
+        if let resourceName {
+            return LLMProviderIconResource.load(resourceName: resourceName)
+        }
+        if let templateID {
+            return LLMProviderIconResource.load(templateID: templateID)
+        }
+        if let provider {
+            return LLMProviderIconResource.load(provider: provider)
+        }
+        guard usesDisplayNameFallback else { return nil }
+        if let resourceName = LLMProviderIconResource.resourceName(displayName: displayName) {
+            return LLMProviderIconResource.load(resourceName: resourceName)
+        }
+        return nil
+    }
 
     var body: some View {
-        ProviderInitialBadge(
-            text: displayName,
-            tint: tint,
-            background: isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground,
-            size: 46
-        )
+        if let image {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground)
+                .frame(width: size, height: size)
+                .overlay(
+                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                )
+                .overlay {
+                    Image(nsImage: image)
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .foregroundStyle(tint)
+                        .padding(size * 0.23)
+                }
+                .accessibilityHidden(true)
+        } else {
+            ProviderInitialBadge(
+                text: displayName,
+                tint: tint,
+                background: isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground,
+                size: size
+            )
+        }
     }
 }
 
@@ -560,146 +635,386 @@ private struct LLMProviderEditorSheet: View {
     let provider: LLMProviderRecord?
     @ObservedObject var viewModel: LLMProviderViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var displayName: String
     @State private var baseURL: String
     @State private var model: String
     @State private var apiKey = ""
     @State private var isEnabled: Bool
     @State private var showAPIKey = false
+    @State private var suppressAPIKeyModelInvalidation = false
     @State private var validationErrors: [String: String] = [:]
+    @State private var selectedTemplateID = LLMProviderTemplateCatalog.customTemplateID
+    @State private var selectedTemplate: LLMProviderTemplate?
+    @State private var draftModelIDs: [String]
+    @State private var allowsManualModelEntry = false
 
     init(provider: LLMProviderRecord?, viewModel: LLMProviderViewModel) {
         self.provider = provider
         self.viewModel = viewModel
+        let inferredTemplateID = provider
+            .flatMap { LLMProviderTemplateCatalog.templateID(baseURL: $0.baseURL) } ?? LLMProviderTemplateCatalog.customTemplateID
+        let inferredTemplate = LLMProviderTemplateCatalog.template(id: inferredTemplateID)
         _displayName = State(initialValue: provider?.displayName ?? "")
         _baseURL = State(initialValue: provider?.baseURL ?? "")
         _model = State(initialValue: provider?.defaultModel ?? "")
         _apiKey = State(initialValue: viewModel.APIKeyForEditing(providerID: provider?.id))
         _isEnabled = State(initialValue: provider?.enabled ?? true)
+        _selectedTemplateID = State(initialValue: inferredTemplateID)
+        _selectedTemplate = State(initialValue: inferredTemplate)
+        _draftModelIDs = State(initialValue: provider.map { viewModel.modelIDsByProviderID[$0.id] ?? [] } ?? [])
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(provider == nil ? L10n.localize("model.llm_provider.sheet_title_add", comment: "") : L10n.localize("model.llm_provider.sheet_title_edit", comment: ""))
-                    .font(.system(size: 24, weight: .semibold))
-
-                providerField(
-                    title: L10n.localize("model.llm_provider.field_name", comment: ""),
-                    placeholder: L10n.localize("model.llm_provider.field_name_placeholder", comment: ""),
-                    text: $displayName,
-                    error: validationErrors["displayName"]
-                )
-                providerField(
-                    title: L10n.localize("model.llm_provider.field_service_url", comment: ""),
-                    placeholder: "https://api.example.com/v1",
-                    text: $baseURL,
-                    error: validationErrors["baseURL"]
-                )
-                providerField(
-                    title: L10n.localize("model.llm_provider.field_model", comment: ""),
-                    placeholder: L10n.localize("model.llm_provider.field_model_placeholder", comment: ""),
-                    text: $model,
-                    error: validationErrors["model"]
-                )
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(L10n.format("model.llm_provider.field_api_key_with_required_mark_format", comment: "", L10n.localize("model.llm_provider.field_api_key", comment: "")))
-                        .font(.system(size: 13, weight: .medium))
-                    HStack(spacing: 8) {
-                        Group {
-                            if showAPIKey {
-                                TextField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
-                            } else {
-                                SecureField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
-                            }
-                        }
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(1)
-                        Button {
-                            if showAPIKey {
-                                apiKey = viewModel.APIKeyForEditing(providerID: provider?.id)
-                                showAPIKey = false
-                            } else {
-                                if viewModel.isMaskedAPIKey(providerID: provider?.id, text: apiKey) {
-                                    apiKey = viewModel.storedAPIKeyForEditing(providerID: provider?.id)
-                                }
-                                showAPIKey = true
-                            }
-                        } label: {
-                            Image(systemName: showAPIKey ? "eye.slash" : "eye")
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help(showAPIKey ? L10n.localize("model.llm_provider.api_key_hide", comment: "") : L10n.localize("model.llm_provider.api_key_show", comment: ""))
-                    }
-                    if let error = validationErrors["apiKey"] {
-                        fieldError(error)
-                    } else if provider != nil {
-                        Text(L10n.localize("model.llm_provider.keychain_hint", comment: ""))
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    }
+        VStack(spacing: 0) {
+            sheetHeader
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    providerOverview
+                    templatePicker
+                    formDivider
+                    providerField(
+                        title: L10n.localize("model.llm_provider.field_name", comment: ""),
+                        placeholder: L10n.localize("model.llm_provider.field_name_placeholder", comment: ""),
+                        text: $displayName,
+                        error: validationErrors["displayName"]
+                    )
+                    providerField(
+                        title: L10n.localize("model.llm_provider.field_service_url", comment: ""),
+                        placeholder: "https://api.example.com/v1",
+                        text: $baseURL,
+                        error: validationErrors["baseURL"]
+                    )
+                    formDivider
+                    apiKeyField
+                    modelPicker
+                    formDivider
+                    enableRow
                 }
-
-                Toggle(L10n.localize("model.llm_provider.toggle_enable", comment: ""), isOn: $isEnabled)
-                    .toggleStyle(.switch)
-
-                Spacer()
-                HStack(spacing: 10) {
-                    Spacer()
-                    Button {
-                        validate()
-                        guard validationErrors.isEmpty else { return }
-                        Task {
-                            await viewModel.testDraftConnection(
-                                providerID: provider?.id,
-                                displayName: displayName,
-                                baseURL: baseURL,
-                                model: model,
-                                apiKey: apiKey
-                            )
-                        }
-                    } label: {
-                        if viewModel.isTestingDraftConnection {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Text(L10n.localize("model.llm_provider.test", comment: ""))
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(viewModel.isTestingDraftConnection)
-                    Button(L10n.localize("model.llm_provider.save", comment: "")) {
-                        save()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 18)
             }
-            .padding(24)
-
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(16)
-            .help(L10n.localize("model.llm_provider.close", comment: ""))
+            .frame(maxHeight: 462)
+            Divider()
+            actionBar
         }
-        .onChange(of: displayName) { validationErrors["displayName"] = nil }
-        .onChange(of: baseURL) { validationErrors["baseURL"] = nil }
-        .onChange(of: model) { validationErrors["model"] = nil }
-        .onChange(of: apiKey) { validationErrors["apiKey"] = nil }
+        .frame(width: 680, height: 640)
+        .background(AppTheme.ColorToken.panelBackground)
+        .onChange(of: displayName) { _, _ in validationErrors["displayName"] = nil }
+        .onChange(of: baseURL) { _, _ in
+            validationErrors["baseURL"] = nil
+            draftModelIDs = []
+        }
+        .onChange(of: model) { _, _ in validationErrors["model"] = nil }
+        .onChange(of: apiKey) { _, _ in
+            validationErrors["apiKey"] = nil
+            if suppressAPIKeyModelInvalidation {
+                suppressAPIKeyModelInvalidation = false
+                return
+            }
+            draftModelIDs = []
+        }
+        .onChange(of: selectedTemplateID) { _, newValue in applyTemplate(id: newValue) }
         .actionFeedbackOverlay(
             message: viewModel.lastActionMessage,
             error: viewModel.lastError,
             onDismiss: viewModel.clearFeedback
         )
+        .tint(AppTheme.ColorToken.accent)
+    }
+
+    private var requiresAPIKey: Bool {
+        if let selectedTemplate {
+            return selectedTemplate.requiresAPIKey
+        }
+        if LLMProviderTemplateCatalog.isLoopbackBaseURL(baseURL) {
+            return false
+        }
+        return provider?.requiresAPIKey ?? true
+    }
+
+    private var sheetHeader: some View {
+        HStack(spacing: 12) {
+            Text(provider == nil ? L10n.localize("model.llm_provider.sheet_title_add", comment: "") : L10n.localize("model.llm_provider.sheet_title_edit", comment: ""))
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(L10n.localize("model.llm_provider.close", comment: ""))
+        }
+        .padding(.leading, 28)
+        .padding(.trailing, 20)
+        .frame(height: 66)
+    }
+
+    private var activeTemplate: LLMProviderTemplate? {
+        selectedTemplate
+    }
+
+    private var activeTemplateID: String? {
+        if selectedTemplateID != LLMProviderTemplateCatalog.customTemplateID {
+            return selectedTemplateID
+        }
+        return nil
+    }
+
+    private var activeIconResourceName: String? {
+        if let activeTemplateID,
+           let resourceName = LLMProviderIconResource.resourceName(templateID: activeTemplateID) {
+            return resourceName
+        }
+        return nil
+    }
+
+    private var overviewTitle: String {
+        if let selectedTemplate {
+            return selectedTemplate.displayName
+        }
+        return L10n.localize("model.llm_provider.template_custom", comment: "")
+    }
+
+    private var overviewSubtitle: String {
+        if !baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return baseURL
+        }
+        return L10n.localize("model.llm_provider.template_hint", comment: "")
+    }
+
+    private var providerOverview: some View {
+        HStack(spacing: 14) {
+            LLMProviderIcon(
+                resourceName: activeIconResourceName,
+                displayName: overviewTitle,
+                tint: AppTheme.ColorToken.accent,
+                isDefault: true,
+                size: 52,
+                usesDisplayNameFallback: false
+            )
+            VStack(alignment: .leading, spacing: 5) {
+                Text(overviewTitle)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(overviewSubtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 12)
+            if let url = activeTemplate?.apiKeyURL {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label(
+                        activeTemplate?.requiresAPIKey == false
+                            ? L10n.localize("model.llm_provider.open_docs", comment: "")
+                            : L10n.localize("model.llm_provider.get_api_key", comment: ""),
+                        systemImage: "arrow.up.right.square"
+                    )
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(height: 32)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.56))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var templatePicker: some View {
+        formRow(
+            title: L10n.localize("model.llm_provider.template_label", comment: ""),
+            hint: L10n.localize("model.llm_provider.template_hint", comment: "")
+        ) {
+            Picker("", selection: $selectedTemplateID) {
+                Text(L10n.localize("model.llm_provider.template_custom", comment: ""))
+                    .tag(LLMProviderTemplateCatalog.customTemplateID)
+                ForEach(LLMProviderTemplateCatalog.templates) { template in
+                    Text(template.displayName).tag(template.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var modelPicker: some View {
+        formRow(
+            title: L10n.localize("model.llm_provider.field_model", comment: ""),
+            isRequired: true,
+            error: validationErrors["model"],
+            hint: draftModelIDs.isEmpty
+                ? L10n.localize("model.llm_provider.model_list_hint", comment: "")
+                : L10n.format("model.llm_provider.model_list_loaded_format", comment: "", draftModelIDs.count)
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    modelControl
+                        .frame(maxWidth: .infinity)
+
+                    if !draftModelIDs.isEmpty {
+                        Button(
+                            allowsManualModelEntry
+                                ? L10n.localize("model.llm_provider.model_choose_from_list", comment: "")
+                                : L10n.localize("model.llm_provider.model_manual_entry", comment: "")
+                        ) {
+                            allowsManualModelEntry.toggle()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                Button {
+                    Task { await fetchModels() }
+                } label: {
+                    if viewModel.isFetchingDraftModels {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label(L10n.localize("model.llm_provider.fetch_models", comment: ""), systemImage: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.isFetchingDraftModels)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modelControl: some View {
+        if !draftModelIDs.isEmpty && !allowsManualModelEntry {
+            Picker("", selection: $model) {
+                if model.isEmpty {
+                    Text(L10n.localize("model.llm_provider.model_picker_placeholder", comment: ""))
+                        .tag("")
+                }
+                ForEach(draftModelIDs, id: \.self) { modelID in
+                    Text(modelID).tag(modelID)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+        } else {
+            TextField(L10n.localize("model.llm_provider.field_model_placeholder", comment: ""), text: $model.singleLineInput())
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1)
+        }
+    }
+
+    private var apiKeyField: some View {
+        formRow(
+            title: L10n.localize("model.llm_provider.field_api_key", comment: ""),
+            isRequired: requiresAPIKey,
+            error: validationErrors["apiKey"],
+            hint: requiresAPIKey ? L10n.localize("model.llm_provider.keychain_hint", comment: "") : L10n.localize("model.llm_provider.no_api_key_hint", comment: "")
+        ) {
+            HStack(spacing: 8) {
+                Group {
+                    if showAPIKey {
+                        TextField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
+                    } else {
+                        SecureField(L10n.localize("model.llm_provider.field_api_key", comment: ""), text: $apiKey.singleLineInput())
+                    }
+                }
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1)
+                Button {
+                    if showAPIKey {
+                        let maskedKey = viewModel.APIKeyForEditing(providerID: provider?.id)
+                        if !maskedKey.isEmpty {
+                            suppressAPIKeyModelInvalidation = true
+                            apiKey = maskedKey
+                        }
+                        showAPIKey = false
+                    } else {
+                        if viewModel.isMaskedAPIKey(providerID: provider?.id, text: apiKey) {
+                            suppressAPIKeyModelInvalidation = true
+                            apiKey = viewModel.storedAPIKeyForEditing(providerID: provider?.id)
+                        }
+                        showAPIKey = true
+                    }
+                } label: {
+                    Image(systemName: showAPIKey ? "eye.slash" : "eye")
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(showAPIKey ? L10n.localize("model.llm_provider.api_key_hide", comment: "") : L10n.localize("model.llm_provider.api_key_show", comment: ""))
+                if selectedTemplate?.requiresAPIKey == false {
+                    Text(L10n.localize("model.llm_provider.no_api_key_required", comment: ""))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.accent)
+                        .padding(.horizontal, 8)
+                        .frame(height: 22)
+                        .background(AppTheme.ColorToken.selectionBackground)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    private var enableRow: some View {
+        formRow(
+            title: L10n.localize("model.llm_provider.toggle_enable", comment: ""),
+            hint: L10n.localize("model.llm_provider.toggle_enable_hint", comment: "")
+        ) {
+            Toggle("", isOn: $isEnabled)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            Button {
+                validate()
+                guard validationErrors.isEmpty else { return }
+                Task {
+                    await viewModel.testDraftConnection(
+                        providerID: provider?.id,
+                        displayName: displayName,
+                        baseURL: baseURL,
+                        model: model,
+                        apiKey: apiKey,
+                        requiresAPIKey: requiresAPIKey
+                    )
+                }
+            } label: {
+                if viewModel.isTestingDraftConnection {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Text(L10n.localize("model.llm_provider.test", comment: ""))
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isTestingDraftConnection)
+            Button(L10n.localize("model.llm_provider.save", comment: "")) {
+                save()
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 28)
+        .frame(height: 72)
     }
 
     private func providerField(
@@ -708,15 +1023,56 @@ private struct LLMProviderEditorSheet: View {
         text: Binding<String>,
         error: String?
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title + " *")
-                .font(.system(size: 13, weight: .medium))
+        formRow(title: title, isRequired: true, error: error) {
             TextField(placeholder, text: text.singleLineInput())
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1)
-            if let error {
-                fieldError(error)
+        }
+    }
+
+    private var formDivider: some View {
+        Rectangle()
+            .fill(AppTheme.ColorToken.subtleStroke.opacity(0.55))
+            .frame(height: 1)
+            .padding(.leading, 124)
+    }
+
+    private func formRow<Content: View>(
+        title: String,
+        isRequired: Bool = false,
+        error: String? = nil,
+        hint: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(isRequired ? "\(title) *" : title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(width: 110, alignment: .trailing)
+                    .lineLimit(1)
+
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+
+            if let error {
+                fieldAuxiliary { fieldError(error) }
+            } else if let hint, !hint.isEmpty {
+                fieldAuxiliary {
+                    Text(hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+            }
+        }
+    }
+
+    private func fieldAuxiliary<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 14) {
+            Spacer()
+                .frame(width: 110)
+            content()
         }
     }
 
@@ -732,7 +1088,8 @@ private struct LLMProviderEditorSheet: View {
             displayName: displayName,
             baseURL: baseURL,
             model: model,
-            apiKey: apiKey
+            apiKey: apiKey,
+            requiresAPIKey: requiresAPIKey
         )
     }
 
@@ -754,14 +1111,50 @@ private struct LLMProviderEditorSheet: View {
                 model: model,
                 apiKey: apiKey,
                 temperature: provider?.temperature ?? 0.2,
-                timeoutSeconds: provider?.timeoutSeconds ?? 30,
+                timeoutSeconds: provider?.timeoutSeconds ?? selectedTemplate?.timeoutSeconds ?? 30,
                 enabled: isEnabled,
-                isDefault: provider?.isDefault ?? viewModel.providers.isEmpty
+                isDefault: provider?.isDefault ?? viewModel.providers.isEmpty,
+                requiresAPIKey: requiresAPIKey
             )
             dismiss()
         } catch {
             viewModel.report(error: error)
             AppLogger.general.error("Failed to save LLM Provider: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyTemplate(id: String) {
+        guard id != LLMProviderTemplateCatalog.customTemplateID,
+              let template = LLMProviderTemplateCatalog.template(id: id) else {
+            selectedTemplate = nil
+            validationErrors = [:]
+            return
+        }
+        selectedTemplate = template
+        displayName = template.displayName
+        baseURL = template.baseURL
+        model = template.defaultModel
+        if !template.requiresAPIKey {
+            apiKey = ""
+            showAPIKey = false
+        }
+        draftModelIDs = []
+        allowsManualModelEntry = false
+        validationErrors = [:]
+    }
+
+    private func fetchModels() async {
+        let models = await viewModel.fetchDraftModels(
+            providerID: provider?.id,
+            baseURL: baseURL,
+            apiKey: apiKey,
+            requiresAPIKey: requiresAPIKey,
+            timeoutSeconds: provider?.timeoutSeconds ?? selectedTemplate?.timeoutSeconds ?? 30
+        )
+        draftModelIDs = models
+        allowsManualModelEntry = models.isEmpty
+        if !models.isEmpty && !models.contains(model) {
+            model = ""
         }
     }
 }

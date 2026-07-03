@@ -14,6 +14,19 @@ final class AgentRuntimeTests: XCTestCase {
         XCTAssertTrue(providers.allSatisfy { $0.capabilities.contains(.agentRuntime) })
     }
 
+    func testLocalAgentProviderRegistryHasIconResourcesForEveryProvider() throws {
+        for provider in AgentProviderRegistry.enabledRuntimeProviders {
+            let resourceName = try XCTUnwrap(
+                AgentProviderIconResource.resourceName(providerID: provider.providerID),
+                "Missing icon mapping for \(provider.displayName)"
+            )
+            XCTAssertNotNil(
+                VoxFlowAppResourceBundle.url(forResource: resourceName, withExtension: "png"),
+                "Missing icon resource \(resourceName).png"
+            )
+        }
+    }
+
     func testLLMProviderRecordIdentifiesLocalAgentProvidersAndCodexCompatibility() {
         let legacyCodexByType = LLMProviderRecord(
             id: "legacy",

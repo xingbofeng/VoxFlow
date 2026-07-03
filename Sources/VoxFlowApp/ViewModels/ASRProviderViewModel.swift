@@ -257,7 +257,6 @@ final class ASRProviderViewModel: ObservableObject {
         self.qwenReadinessPreparer = qwenReadinessPreparer
         self.fileManager = fileManager
         Self.logger.debug("asr_provider_vm_init")
-        adoptGroqAPIKeyFromLLMProviderIfNeeded()
         syncGroqConfigurationInputsFromManager()
         let tencentCredentials = resolvedASRManager.storedTencentCloudCredentials()
         tencentAppIDInput = tencentCredentials.appID
@@ -747,7 +746,6 @@ final class ASRProviderViewModel: ObservableObject {
 
     func load() {
         Self.logger.debug("asr_provider_vm_load_start")
-        adoptGroqAPIKeyFromLLMProviderIfNeeded()
         syncGroqConfigurationInputsFromManager()
         refreshProviders(persistRecords: true)
         hasLoaded = lastError == nil
@@ -787,36 +785,6 @@ final class ASRProviderViewModel: ObservableObject {
            groqAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             groqAPIKeyInput = Self.storedGroqAPIKeyMask
         }
-    }
-
-    private func adoptGroqAPIKeyFromLLMProviderIfNeeded() {
-        guard !asrManager.isGroqConfigured else { return }
-
-        do {
-            for provider in try environment.llmProviderRepository.list()
-                where Self.isReusableGroqLLMProvider(provider) {
-                let credential = try environment.credentialStore.readCredential(account: provider.apiKeyRef)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                guard !credential.isEmpty else { continue }
-
-                try asrManager.saveGroqAPIKey(credential)
-                Self.logger.info("asr_provider_vm_adopt_groq_llm_key_success providerID=\(provider.id)")
-                return
-            }
-        } catch {
-            Self.logger.warning("asr_provider_vm_adopt_groq_llm_key_failed error=\(error.localizedDescription)")
-        }
-    }
-
-    private static func isReusableGroqLLMProvider(_ provider: LLMProviderRecord) -> Bool {
-        guard provider.enabled,
-              provider.isOpenAICompatibleProvider,
-              provider.hasRequiredLLMConfiguration else {
-            return false
-        }
-        let baseURL = provider.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let host = URLComponents(string: baseURL)?.host?.lowercased()
-        return host == "api.groq.com"
     }
 
     private func scheduleProviderRecordPersistence() {

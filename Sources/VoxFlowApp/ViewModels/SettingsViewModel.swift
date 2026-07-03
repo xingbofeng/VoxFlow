@@ -1524,6 +1524,7 @@ final class SettingsViewModel: ObservableObject {
         for record in records {
             try environment.settingsRepository.deleteValue(forKey: record.key)
         }
+        try resetBuiltInStylePrompts()
         shortcutManager.resetToDefaults()
         asrSettingsResetter?.resetASRSettingsToDefaults()
         exportedDataJSON = nil
@@ -1531,6 +1532,38 @@ final class SettingsViewModel: ObservableObject {
         lastError = nil
         lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.settings_reset", comment: ""))
         Self.logger.info("settings_vm_reset_settings_success deletedSettings=\(records.count)")
+    }
+
+    private func resetBuiltInStylePrompts() throws {
+        let profiles = try environment.styleRepository.list(category: nil)
+        for existing in profiles where existing.builtIn {
+            guard let catalog = BuiltInStyleCatalog.profile(id: existing.id, now: existing.createdAt) else {
+                continue
+            }
+            try environment.styleRepository.save(
+                StyleProfileRecord(
+                    id: existing.id,
+                    name: catalog.name,
+                    category: catalog.category,
+                    subtitle: catalog.subtitle,
+                    mode: catalog.mode,
+                    prompt: catalog.prompt,
+                    sampleInput: catalog.sampleInput,
+                    sampleOutput: catalog.sampleOutput,
+                    llmProviderID: catalog.llmProviderID,
+                    model: catalog.model,
+                    temperature: catalog.temperature,
+                    enabled: existing.enabled,
+                    builtIn: true,
+                    isDefault: existing.isDefault,
+                    createdAt: existing.createdAt,
+                    updatedAt: environment.clock.now,
+                    outputFormat: catalog.outputFormat,
+                    allowAutoMatch: catalog.allowAutoMatch,
+                    autoMatchDescription: catalog.autoMatchDescription
+                )
+            )
+        }
     }
 
     func report(error: Error) {

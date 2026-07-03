@@ -176,15 +176,18 @@ final class UpdateCheckServiceTests: XCTestCase {
     }
 
     func testFailedFetchReturnsFailed() async {
+        let store = UpdateCheckStateStore(defaults: makeDefaults())
         let service = UpdateCheckService(
             currentVersion: "1.6.1",
             client: FailingReleaseClient(),
-            stateStore: UpdateCheckStateStore(defaults: makeDefaults())
+            stateStore: store
         )
 
-        let result = await service.check(mode: .manual)
+        let result = await service.check(mode: .automatic)
 
         XCTAssertEqual(result, .failed(.fetchFailed))
+        XCTAssertNil(store.lastAutomaticCheckAt)
+        XCTAssertNil(store.lastAutomaticCheckVersion)
     }
 
     private func makeService(

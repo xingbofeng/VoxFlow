@@ -121,6 +121,30 @@ final class SQLiteProviderAndStyleRepositoryTests: XCTestCase {
         XCTAssertEqual(llm.apiKeyRef, "provider-openai")
     }
 
+    func testLLMProviderRepositoryReadsSQLiteDatetimeTimestamp() throws {
+        try queue.write { connection in
+            try connection.execute(
+                """
+                INSERT INTO llm_providers (
+                    id, display_name, provider_type, base_url, default_model,
+                    api_key_ref, temperature, timeout_seconds, enabled, is_default,
+                    created_at, updated_at
+                )
+                VALUES (
+                    'sqlite-datetime', 'SQLite datetime', 'openaiCompatible',
+                    'https://api.example.com/v1', 'model-a', 'provider-key',
+                    0.2, 30, 1, 0,
+                    '2026-07-03T06:07:29Z', '2026-07-03 11:03:49'
+                )
+                """
+            )
+        }
+
+        let provider = try XCTUnwrap(try llmProviders.provider(id: "sqlite-datetime"))
+        XCTAssertEqual(provider.id, "sqlite-datetime")
+        XCTAssertEqual(provider.updatedAt.timeIntervalSince1970, 1_783_076_629, accuracy: 1)
+    }
+
     func testTranscriptionJobRepositoryUpdatesProgressAndStatus() throws {
         let job = TranscriptionJobRecord(
             id: "job-1",

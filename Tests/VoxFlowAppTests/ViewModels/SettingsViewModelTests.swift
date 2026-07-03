@@ -510,6 +510,78 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(shortcutManager.middleMouseRecordingEnabled)
     }
 
+    func testResetSettingsRestoresBuiltInStylePromptButKeepsLLMProvidersAndKeys() throws {
+        let store = SettingsTestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: store)
+        )
+        let now = environment.clock.now
+        let provider = LLMProviderRecord(
+            id: "deepseek",
+            displayName: "DeepSeek",
+            providerType: LLMProviderProviderType.openAICompatible,
+            baseURL: "https://api.deepseek.com",
+            defaultModel: "deepseek-v4-flash",
+            apiKeyRef: "llm-provider-deepseek",
+            temperature: 0.2,
+            timeoutSeconds: 30,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: "ok",
+            lastHealthMessage: "healthy",
+            lastLatencyMS: 42,
+            createdAt: now,
+            updatedAt: now
+        )
+        try environment.llmProviderRepository.save(provider)
+        try store.saveCredential("deepseek-secret", account: provider.apiKeyRef)
+
+        let original = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.formal"))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: original.id,
+                name: original.name,
+                category: original.category,
+                subtitle: original.subtitle,
+                mode: original.mode,
+                prompt: "custom built-in prompt",
+                sampleInput: original.sampleInput,
+                sampleOutput: original.sampleOutput,
+                llmProviderID: original.llmProviderID,
+                model: original.model,
+                temperature: original.temperature,
+                enabled: original.enabled,
+                builtIn: original.builtIn,
+                isDefault: original.isDefault,
+                createdAt: original.createdAt,
+                updatedAt: now,
+                outputFormat: original.outputFormat,
+                allowAutoMatch: false,
+                autoMatchDescription: "custom route"
+            )
+        )
+
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider()
+        )
+        try viewModel.resetSettings()
+
+        let savedProvider = try XCTUnwrap(try environment.llmProviderRepository.provider(id: "deepseek"))
+        XCTAssertEqual(savedProvider.defaultModel, "deepseek-v4-flash")
+        XCTAssertEqual(savedProvider.lastHealthStatus, "ok")
+        XCTAssertEqual(try store.readCredential(account: provider.apiKeyRef), "deepseek-secret")
+
+        let resetStyle = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.formal"))
+        let catalogStyle = try XCTUnwrap(BuiltInStyleCatalog.profile(id: "builtin.formal", now: original.createdAt))
+        XCTAssertEqual(resetStyle.prompt, catalogStyle.prompt)
+        XCTAssertEqual(resetStyle.outputFormat, catalogStyle.outputFormat)
+        XCTAssertEqual(resetStyle.allowAutoMatch, catalogStyle.allowAutoMatch)
+        XCTAssertEqual(resetStyle.autoMatchDescription, catalogStyle.autoMatchDescription)
+    }
+
     func testUpdatesDirectSelectionWorkflowShortcuts() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let shortcutManager = makeShortcutManager()
@@ -1383,5 +1455,21 @@ private final class FakeLaunchAtLoginManager: LaunchAtLoginManaging {
             throw errorToThrow
         }
         isEnabled = enabled
+    }
+}
+
+private final class SettingsTestCredentialStore: CredentialStore {
+    private var values: [String: String] = [:]
+
+    func saveCredential(_ value: String, account: String) throws {
+        values[account] = value
+    }
+
+    func readCredential(account: String) throws -> String? {
+        values[account]
+    }
+
+    func deleteCredential(account: String) throws {
+        values.removeValue(forKey: account)
     }
 }

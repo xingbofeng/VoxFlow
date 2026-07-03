@@ -68,6 +68,14 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
         XCTAssertTrue(service.isConfigured)
     }
 
+    func testIsConfiguredTrueForNoKeyOpenAICompatibleProvider() {
+        let service = OpenAICompatibleChatService(
+            providerRepository: FakeLLMProviderRepository([makeNoKeyProvider()]),
+            credentialStore: FakeCredentialStore(key: nil)
+        )
+        XCTAssertTrue(service.isConfigured)
+    }
+
     func testIsConfiguredFalseWhenOnlyCodexRuntimeProviderExists() {
         let service = OpenAICompatibleChatService(
             providerRepository: FakeLLMProviderRepository([makeCodexProvider()]),
@@ -134,6 +142,31 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
         XCTAssertEqual(collected, ["Hello", "Hello World"])
     }
 
+    func testStreamResponseAddsProviderHeadersAndNormalizesModelID() async throws {
+        let session = FakeLLMCompletionSession()
+        session.data = Data("data: [DONE]\n\n".utf8)
+        let service = OpenAICompatibleChatService(
+            providerRepository: FakeLLMProviderRepository([
+                makeProvider(
+                    baseURL: "https://openrouter.ai/api/v1",
+                    defaultModel: "models/openai/gpt-oss-120b:free"
+                ),
+            ]),
+            credentialStore: FakeCredentialStore(key: "sk-test"),
+            session: session
+        )
+
+        for try await _ in service.streamResponse(messages: [AIChatMessage(role: .user, content: "hi")]) {}
+
+        let request = try XCTUnwrap(session.lastRequest)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "HTTP-Referer"), "https://mashangxie.app")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Title"), "VoxFlow")
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
+        )
+        XCTAssertEqual(body["model"] as? String, "openai/gpt-oss-120b:free")
+    }
+
     func testStreamResponseThrowsNotConfiguredWhenNoProvider() async {
         let service = OpenAICompatibleChatService(
             providerRepository: FakeLLMProviderRepository([]),
@@ -171,16 +204,39 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeProvider() -> LLMProviderRecord {
+    private func makeProvider(
+        baseURL: String = "https://api.example.com",
+        defaultModel: String = "gpt-4o"
+    ) -> LLMProviderRecord {
         LLMProviderRecord(
             id: "p1",
             displayName: "Test",
             providerType: "openai",
-            baseURL: "https://api.example.com",
-            defaultModel: "gpt-4o",
+            baseURL: baseURL,
+            defaultModel: defaultModel,
             apiKeyRef: "test-key",
             temperature: 0.7,
             timeoutSeconds: 30,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+
+    private func makeNoKeyProvider() -> LLMProviderRecord {
+        LLMProviderRecord(
+            id: "ollama-local",
+            displayName: "Ollama 本地",
+            providerType: LLMProviderProviderType.openAICompatibleNoKey,
+            baseURL: "http://localhost:11434/v1",
+            defaultModel: "llama3.2",
+            apiKeyRef: "llm-provider-ollama-local",
+            temperature: 0.2,
+            timeoutSeconds: 120,
             enabled: true,
             isDefault: true,
             lastHealthStatus: nil,
@@ -254,12 +310,15 @@ private final class FakeCredentialStore: CredentialStore, @unchecked Sendable {
 private final class FakeLLMCompletionSession: LLMCompletionSession, @unchecked Sendable {
     var data = Data()
     var statusCode = 200
+    private(set) var lastRequest: URLRequest?
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        (data, response())
+        lastRequest = request
+        return (data, response())
     }
 
     func byteStream(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        lastRequest = request
         let data = self.data
         let stream: AsyncThrowingStream<UInt8, Error> = AsyncThrowingStream { continuation in
             for byte in data {

@@ -39,7 +39,7 @@ final class GroqASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
     }
 
-    func testExistingGroqLLMProviderKeyEnablesGroqASRConfiguration() throws {
+    func testExistingGroqLLMProviderKeyDoesNotConfigureGroqASR() throws {
         let suiteName = "test.GroqProviderViewModel.llmReuse.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -83,14 +83,11 @@ final class GroqASRProviderViewModelTests: XCTestCase {
             registry: ASRProviderRegistry(asrManager: manager)
         )
 
-        XCTAssertTrue(viewModel.hasStoredGroqAPIKey)
-        XCTAssertEqual(manager.storedGroqAPIKey(), "shared-groq-secret")
-        XCTAssertEqual(
-            try credentials.readCredential(account: ASRManager.groqAPIKeyAccount),
-            "shared-groq-secret"
-        )
-        XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
-        XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.groqWhisper })?.isAvailable == true)
+        XCTAssertFalse(viewModel.hasStoredGroqAPIKey)
+        XCTAssertEqual(manager.storedGroqAPIKey(), "")
+        XCTAssertNil(try credentials.readCredential(account: ASRManager.groqAPIKeyAccount))
+        XCTAssertEqual(viewModel.groqAPIKeyInput, "")
+        XCTAssertFalse(viewModel.providers.first(where: { $0.id == ASRProviderID.groqWhisper })?.isAvailable == true)
     }
 
     func testExistingGroqCredentialShowsMaskedValueAndSavingMaskPreservesCredential() throws {

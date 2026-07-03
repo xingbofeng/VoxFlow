@@ -99,8 +99,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
             AppLogger.network.warning("Agent provider 不再作为文本补全通道：providerId=\(provider.id)")
             throw LLMRefiner.Error.notConfigured
         }
-        guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
-              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
+        guard !provider.requiresAPIKey || !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             AppLogger.network.warning("LLM provider 无可用 API Key：providerId=\(provider.id)")
             throw LLMRefiner.Error.notConfigured
         }
@@ -110,11 +110,14 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        OpenAICompatibleClient.setAuthorizationHeader(apiKey: apiKey, request: &urlRequest)
+        OpenAICompatibleClient.setProviderHeaders(baseURL: provider.baseURL, request: &urlRequest)
         urlRequest.timeoutInterval = provider.timeoutSeconds
-        let selectedModel = request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            ? request.model!
-            : provider.defaultModel
+        let selectedModel = OpenAICompatibleClient.normalizedModelID(
+            request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? request.model!
+                : provider.defaultModel
+        )
         let selectedTemperature = request.temperature ?? provider.temperature
         let userMessage = Self.userMessage(for: request)
         let body: [String: Any] = [
@@ -217,8 +220,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
                         AppLogger.network.warning("Agent provider 不再作为流式文本补全通道：providerId=\(provider.id)")
                         throw LLMRefiner.Error.notConfigured
                     }
-                    guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
-                          !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
+                    guard !provider.requiresAPIKey || !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                         AppLogger.network.warning("流式 LLM 无可用 API Key：provider=\(provider.id)")
                         throw LLMRefiner.Error.notConfigured
                     }
@@ -227,11 +230,14 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
                     var urlRequest = URLRequest(url: url)
                     urlRequest.httpMethod = "POST"
                     urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    OpenAICompatibleClient.setAuthorizationHeader(apiKey: apiKey, request: &urlRequest)
+                    OpenAICompatibleClient.setProviderHeaders(baseURL: provider.baseURL, request: &urlRequest)
                     urlRequest.timeoutInterval = provider.timeoutSeconds
-                    let selectedModel = request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                        ? request.model!
-                        : provider.defaultModel
+                    let selectedModel = OpenAICompatibleClient.normalizedModelID(
+                        request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                            ? request.model!
+                            : provider.defaultModel
+                    )
                     let selectedTemperature = request.temperature ?? provider.temperature
                     let userMessage = Self.userMessage(for: request)
                     let body: [String: Any] = [
@@ -364,6 +370,9 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
 
     private func isProviderConfigured(_ provider: LLMProviderRecord) -> Bool {
         if provider.isLocalAgentProvider {
+            return provider.enabled && provider.hasRequiredLLMConfiguration
+        }
+        if !provider.requiresAPIKey {
             return provider.enabled && provider.hasRequiredLLMConfiguration
         }
         guard let key = try? credentialStore.readCredential(account: provider.apiKeyRef) else {

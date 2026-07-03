@@ -1,5 +1,43 @@
 import Foundation
 
+private enum FlexibleContent: Decodable {
+    struct Block: Decodable {
+        let type: String?
+        let text: String?
+    }
+
+    case string(String)
+    case blocks([Block])
+    case empty
+
+    var stringValue: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .blocks(let blocks):
+            return blocks.compactMap(\.text).joined()
+        case .empty:
+            return ""
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .empty
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let blocks = try? container.decode([Block].self) {
+            self = .blocks(blocks)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported chat completion content shape"
+            )
+        }
+    }
+}
+
 /// LLM-based text refiner using OpenAI-compatible API.
 /// Conservatively corrects speech recognition errors, especially for CJK-English mixed content.
 final class LLMRefiner: @unchecked Sendable {
@@ -123,7 +161,15 @@ final class LLMRefiner: @unchecked Sendable {
         struct Response: Decodable {
             struct Choice: Decodable {
                 struct Message: Decodable {
-                    let content: String
+                    let content: FlexibleContent?
+                    let reasoning: String?
+                    let reasoningContent: String?
+
+                    enum CodingKeys: String, CodingKey {
+                        case content
+                        case reasoning
+                        case reasoningContent = "reasoning_content"
+                    }
                 }
 
                 let message: Message
@@ -132,8 +178,9 @@ final class LLMRefiner: @unchecked Sendable {
             let choices: [Choice]
         }
 
-        guard let content = try? JSONDecoder().decode(Response.self, from: data)
-            .choices.first?.message.content else {
+        guard let message = try? JSONDecoder().decode(Response.self, from: data)
+            .choices.first?.message,
+              let content = message.content?.stringValue ?? message.reasoningContent ?? message.reasoning else {
             throw Error.invalidResponse
         }
         return content
@@ -168,11 +215,13 @@ final class LLMRefiner: @unchecked Sendable {
         var urlRequest = URLRequest(url: chatURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        OpenAICompatibleClient.setAuthorizationHeader(apiKey: apiKey, request: &urlRequest)
+        OpenAICompatibleClient.setProviderHeaders(baseURL: baseURL, request: &urlRequest)
         urlRequest.timeoutInterval = 15.0
 
+        let normalizedModel = OpenAICompatibleClient.normalizedModelID(selectedModel)
         let body: [String: Any] = [
-            "model": selectedModel,
+            "model": normalizedModel,
             "messages": [
                 ["role": "system", "content": request.systemPrompt],
                 ["role": "user", "content": request.text]
@@ -228,16 +277,17 @@ final class LLMRefiner: @unchecked Sendable {
         var request = URLRequest(url: chatURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        OpenAICompatibleClient.setAuthorizationHeader(apiKey: apiKey, request: &request)
+        OpenAICompatibleClient.setProviderHeaders(baseURL: baseURL, request: &request)
         request.timeoutInterval = 10.0
 
         let body: [String: Any] = [
-            "model": model,
+            "model": OpenAICompatibleClient.normalizedModelID(model),
             "messages": [
-                ["role": "user", "content": "Hello, respond with just the word 'OK'."]
+                ["role": "user", "content": "Reply exactly OK."]
             ],
             "temperature": 0.0,
-            "max_tokens": 10,
+            "max_tokens": 32,
         ]
 
         do {

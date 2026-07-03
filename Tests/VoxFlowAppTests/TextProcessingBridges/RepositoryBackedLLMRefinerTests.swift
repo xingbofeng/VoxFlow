@@ -353,12 +353,52 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertNil(refiner.lastTrace?.safeForPersistence().responseText)
     }
 
+    func testRefineAddsProviderHeadersAndNormalizesModelID() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(
+            isDefault: true,
+            baseURL: "https://openrouter.ai/api/v1",
+            defaultModel: "models/openai/gpt-oss-120b:free"
+        )
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("修正后")
+        )
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.openrouter")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.openrouter")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        _ = try await refiner.refine("原文")
+
+        let request = try XCTUnwrap(session.requests.first)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "HTTP-Referer"), "https://mashangxie.app")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Title"), "VoxFlow")
+        let body = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
+        )
+        XCTAssertEqual(body["model"] as? String, "openai/gpt-oss-120b:free")
+    }
+
     func testRefineRequestBodyIncludesContextBoostTopKInSystemPrompt() async throws {
         let credentials = TestCredentialStore()
         let environment = AppEnvironment(
             container: try DependencyContainer.inMemory(credentialStore: credentials)
         )
-        let provider = makeProvider(isDefault: true)
+        let provider = makeProvider(
+            isDefault: true,
+            baseURL: "https://openrouter.ai/api/v1",
+            defaultModel: "models/openai/gpt-oss-20b:free"
+        )
         try environment.llmProviderRepository.save(provider)
         try credentials.saveCredential("secret", account: provider.apiKeyRef)
         let session = CapturingCompletionSession(
@@ -630,7 +670,11 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         let environment = AppEnvironment(
             container: try DependencyContainer.inMemory(credentialStore: credentials)
         )
-        let provider = makeProvider(isDefault: true)
+        let provider = makeProvider(
+            isDefault: true,
+            baseURL: "https://openrouter.ai/api/v1",
+            defaultModel: "models/openai/gpt-oss-20b:free"
+        )
         try environment.llmProviderRepository.save(provider)
         try credentials.saveCredential("secret", account: provider.apiKeyRef)
         let session = CapturingCompletionSession(
@@ -659,9 +703,12 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         for try await _ in refiner.refineStream(request) {}
 
         let urlRequest = try XCTUnwrap(session.streamRequests.first)
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "HTTP-Referer"), "https://mashangxie.app")
+        XCTAssertEqual(urlRequest.value(forHTTPHeaderField: "X-Title"), "VoxFlow")
         let body = try XCTUnwrap(
             try JSONSerialization.jsonObject(with: XCTUnwrap(urlRequest.httpBody)) as? [String: Any]
         )
+        XCTAssertEqual(body["model"] as? String, "openai/gpt-oss-20b:free")
         let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
         let userContent = try XCTUnwrap(messages.last?["content"] as? String)
         XCTAssertEqual(userContent, request.text)
@@ -843,14 +890,18 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertTrue(refiner.isConfigured)
     }
 
-    private func makeProvider(isDefault: Bool) -> LLMProviderRecord {
+    private func makeProvider(
+        isDefault: Bool,
+        baseURL: String = "https://api.example.com/v1",
+        defaultModel: String = "global-model"
+    ) -> LLMProviderRecord {
         let date = Date(timeIntervalSince1970: 1_800_000_000)
         return LLMProviderRecord(
             id: "global",
             displayName: "OpenAI",
             providerType: "openaiCompatible",
-            baseURL: "https://api.example.com/v1",
-            defaultModel: "global-model",
+            baseURL: baseURL,
+            defaultModel: defaultModel,
             apiKeyRef: "global-key",
             temperature: 0.25,
             timeoutSeconds: 13,

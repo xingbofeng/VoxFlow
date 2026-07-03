@@ -15,7 +15,9 @@ final class LLMProviderViewModel: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var testingProviderID: String?
+    @Published private(set) var isTestingAllProviders = false
     @Published private(set) var isTestingDraftConnection = false
+    @Published private(set) var isFetchingDraftModels = false
     @Published private(set) var codexRuntimeAvailability: AgentRuntimeAvailability?
     @Published private(set) var isCheckingCodexRuntime = false
     @Published private(set) var localAgentAvailabilities: [String: AgentRuntimeAvailability] = [:]
@@ -307,8 +309,9 @@ final class LLMProviderViewModel: ObservableObject {
     private static func uniqueModelIDs(_ models: [String]) -> [String] {
         var merged: [String] = []
         for model in models {
-            guard !merged.contains(model) else { continue }
-            merged.append(model)
+            let normalized = OpenAICompatibleClient.normalizedModelID(model)
+            guard !normalized.isEmpty, !merged.contains(normalized) else { continue }
+            merged.append(normalized)
         }
         return merged
     }
@@ -322,12 +325,15 @@ final class LLMProviderViewModel: ObservableObject {
         temperature: Double,
         timeoutSeconds: Double,
         enabled: Bool,
-        isDefault: Bool
+        isDefault: Bool,
+        requiresAPIKey: Bool = true
     ) throws {
         Self.logger.debug("llm_provider_vm_save_provider_start isNew=\(id == nil) nameLen=\(displayName.count) modelLen=\(model.count) enabled=\(enabled) requestedDefault=\(isDefault)")
         let trimmedName = SingleLineTextInput.normalized(displayName)
         let trimmedURL = SingleLineTextInput.normalized(baseURL)
-        let trimmedModel = SingleLineTextInput.normalized(model)
+        let trimmedModel = OpenAICompatibleClient.normalizedModelID(
+            SingleLineTextInput.normalized(model)
+        )
         let providerID = id ?? UUID().uuidString
         let now = environment.clock.now
         let existing = try environment.llmProviderRepository.provider(id: providerID)
@@ -339,7 +345,7 @@ final class LLMProviderViewModel: ObservableObject {
         if trimmedName.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_name", comment: "")) }
         if trimmedURL.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_base_url", comment: "")) }
         if trimmedModel.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_model", comment: "")) }
-        if trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
+        if requiresAPIKey && trimmedKey.isEmpty && (storedKey?.isEmpty ?? true) { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
         guard missingFields.isEmpty else {
             Self.logger.warning("llm_provider_vm_save_provider_rejected missingFields=\(missingFields.count)")
             throw LLMProviderViewModelError.requiredFields(missingFields)
@@ -354,7 +360,7 @@ final class LLMProviderViewModel: ObservableObject {
         let provider = LLMProviderRecord(
             id: providerID,
             displayName: trimmedName,
-            providerType: "openaiCompatible",
+            providerType: requiresAPIKey ? LLMProviderProviderType.openAICompatible : LLMProviderProviderType.openAICompatibleNoKey,
             baseURL: try OpenAICompatibleClient.normalizedBaseURL(trimmedURL),
             defaultModel: trimmedModel,
             apiKeyRef: keyRef,
@@ -411,13 +417,16 @@ final class LLMProviderViewModel: ObservableObject {
         displayName: String,
         baseURL: String,
         model: String,
-        apiKey: String
+        apiKey: String,
+        requiresAPIKey: Bool = true
     ) -> [String: String] {
         Self.logger.debug("llm_provider_vm_validation_errors_start providerID=\(providerID ?? "nil") nameLen=\(displayName.count) modelLen=\(model.count)")
         var errors: [String: String] = [:]
         let normalizedName = SingleLineTextInput.normalized(displayName)
         let normalizedURL = SingleLineTextInput.normalized(baseURL)
-        let normalizedModel = SingleLineTextInput.normalized(model)
+        let normalizedModel = OpenAICompatibleClient.normalizedModelID(
+            SingleLineTextInput.normalized(model)
+        )
         let normalizedKey = SingleLineTextInput.normalized(apiKey)
 
         if normalizedName.isEmpty {
@@ -430,7 +439,7 @@ final class LLMProviderViewModel: ObservableObject {
             errors["model"] = L10n.localize("model.llm_provider.error_model_required", comment: "")
         }
         let isMasked = isMaskedAPIKey(providerID: providerID, text: normalizedKey)
-        if normalizedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
+        if requiresAPIKey && normalizedKey.isEmpty && !hasStoredAPIKey(providerID: providerID) {
             errors["apiKey"] = L10n.localize("model.llm_provider.error_api_key_required", comment: "")
         } else if !normalizedKey.isEmpty && !isMasked && normalizedKey.count < 8 {
             errors["apiKey"] = L10n.localize("model.llm_provider.error_api_key_too_short", comment: "")
@@ -444,7 +453,8 @@ final class LLMProviderViewModel: ObservableObject {
         displayName: String,
         baseURL: String,
         model: String,
-        apiKey: String
+        apiKey: String,
+        requiresAPIKey: Bool = true
     ) async {
         Self.logger.debug("llm_provider_vm_test_draft_connection_start providerID=\(providerID ?? "nil") nameLen=\(displayName.count) modelLen=\(model.count)")
         isTestingDraftConnection = true
@@ -455,12 +465,14 @@ final class LLMProviderViewModel: ObservableObject {
         do {
             let trimmedName = SingleLineTextInput.normalized(displayName)
             let normalizedURL = try OpenAICompatibleClient.normalizedBaseURL(SingleLineTextInput.normalized(baseURL))
-            let trimmedModel = SingleLineTextInput.normalized(model)
+            let trimmedModel = OpenAICompatibleClient.normalizedModelID(
+                SingleLineTextInput.normalized(model)
+            )
             let resolvedKey = try resolvedAPIKey(providerID: providerID, text: apiKey)
             var missingFields: [String] = []
             if trimmedName.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_name", comment: "")) }
             if trimmedModel.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_model", comment: "")) }
-            if resolvedKey.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
+            if requiresAPIKey && resolvedKey.isEmpty { missingFields.append(L10n.localize("model.llm_provider.validation_field_api_key", comment: "")) }
             guard missingFields.isEmpty else {
                 throw LLMProviderViewModelError.requiredFields(missingFields)
             }
@@ -476,6 +488,67 @@ final class LLMProviderViewModel: ObservableObject {
             Self.logger.info("llm_provider_vm_test_draft_connection_success latencyMS=\(result.latencyMS)")
         } catch {
             report(error: error)
+        }
+    }
+
+    func fetchDraftModels(
+        providerID: String?,
+        baseURL: String,
+        apiKey: String,
+        requiresAPIKey: Bool = true,
+        timeoutSeconds: Double = 30
+    ) async -> [String] {
+        Self.logger.debug("llm_provider_vm_fetch_draft_models_start providerID=\(providerID ?? "nil")")
+        isFetchingDraftModels = true
+        lastError = nil
+        lastActionMessage = nil
+        defer { isFetchingDraftModels = false }
+
+        do {
+            let normalizedURL = try OpenAICompatibleClient.normalizedBaseURL(SingleLineTextInput.normalized(baseURL))
+            let resolvedKey = try resolvedAPIKey(providerID: providerID, text: apiKey)
+            if requiresAPIKey && resolvedKey.isEmpty {
+                throw LLMProviderViewModelError.requiredFields([
+                    L10n.localize("model.llm_provider.validation_field_api_key", comment: "")
+                ])
+            }
+            if LLMProviderTemplateCatalog.shouldPreferCatalog(baseURL: normalizedURL) {
+                let catalogModels = Self.uniqueModelIDs(
+                    LLMProviderTemplateCatalog.catalogModelIDs(baseURL: normalizedURL)
+                )
+                if !catalogModels.isEmpty {
+                    if let providerID {
+                        modelIDsByProviderID[providerID] = catalogModels
+                    }
+                    lastError = nil
+                    lastActionMessage = L10n.localize("model.llm_provider.action_refresh_models_success", comment: "")
+                    Self.logger.info("llm_provider_vm_fetch_draft_models_catalog_success count=\(catalogModels.count)")
+                    return catalogModels
+                }
+            }
+            let models: [String]
+            do {
+                models = try await client.listModels(
+                    baseURL: normalizedURL,
+                    apiKey: resolvedKey,
+                    timeoutSeconds: timeoutSeconds
+                )
+            } catch {
+                let fallbackModels = LLMProviderTemplateCatalog.fallbackModelIDs(baseURL: normalizedURL)
+                guard !fallbackModels.isEmpty else { throw error }
+                models = fallbackModels
+            }
+            let uniqueModels = Self.uniqueModelIDs(models)
+            if let providerID {
+                modelIDsByProviderID[providerID] = uniqueModels
+            }
+            lastError = nil
+            lastActionMessage = L10n.localize("model.llm_provider.action_refresh_models_success", comment: "")
+            Self.logger.info("llm_provider_vm_fetch_draft_models_success count=\(uniqueModels.count)")
+            return uniqueModels
+        } catch {
+            report(error: error)
+            return []
         }
     }
 
@@ -496,15 +569,7 @@ final class LLMProviderViewModel: ObservableObject {
 
         do {
             let provider = try requireProvider(id: id)
-            let apiKey = try environment.credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
-            let result = try await client.testConnection(
-                baseURL: provider.baseURL,
-                apiKey: apiKey,
-                model: provider.defaultModel,
-                timeoutSeconds: provider.timeoutSeconds
-            )
-            lastConnectionResult = result
-            try saveHealth(provider: provider, status: "ok", message: result.message, latencyMS: result.latencyMS)
+            let result = try await performConnectionTest(provider: provider)
             lastError = nil
             lastActionMessage = L10n.localize("model.llm_provider.action_connection_success", comment: "")
             Self.logger.info("llm_provider_vm_test_connection_success id=\(id) latencyMS=\(result.latencyMS)")
@@ -515,6 +580,57 @@ final class LLMProviderViewModel: ObservableObject {
             }
             Self.logger.error("llm_provider_vm_test_connection_failed id=\(id) error=\(error.localizedDescription)")
         }
+    }
+
+    func testAllConnections() async {
+        Self.logger.debug("llm_provider_vm_test_all_connections_start")
+        let providersToTest = providers.filter {
+            !$0.isLocalAgentProvider && LLMProviderAvailability.isUsableProvider($0)
+        }
+        guard !providersToTest.isEmpty else {
+            lastActionMessage = nil
+            lastError = L10n.localize("model.llm_provider.test_all_empty", comment: "")
+            Self.logger.warning("llm_provider_vm_test_all_connections_skipped empty=true")
+            return
+        }
+
+        isTestingAllProviders = true
+        lastError = nil
+        lastActionMessage = nil
+        var failureCount = 0
+        defer {
+            isTestingAllProviders = false
+            testingProviderID = nil
+        }
+
+        for provider in providersToTest {
+            testingProviderID = provider.id
+            do {
+                _ = try await performConnectionTest(provider: provider)
+            } catch {
+                failureCount += 1
+                try? saveHealth(provider: provider, status: "error", message: error.localizedDescription, latencyMS: nil)
+                Self.logger.error("llm_provider_vm_test_all_connection_failed id=\(provider.id) error=\(error.localizedDescription)")
+            }
+        }
+
+        if failureCount == 0 {
+            lastError = nil
+            lastActionMessage = L10n.format(
+                "model.llm_provider.test_all_success_format",
+                comment: "",
+                providersToTest.count
+            )
+        } else {
+            lastActionMessage = nil
+            lastError = L10n.format(
+                "model.llm_provider.test_all_partial_failure_format",
+                comment: "",
+                providersToTest.count,
+                failureCount
+            )
+        }
+        Self.logger.info("llm_provider_vm_test_all_connections_done total=\(providersToTest.count) failures=\(failureCount)")
     }
 
     func refreshModelsAndMeasure(id: String) async {
@@ -532,7 +648,7 @@ final class LLMProviderViewModel: ObservableObject {
             let result = try await client.testConnection(
                 baseURL: provider.baseURL,
                 apiKey: apiKey,
-                model: provider.defaultModel,
+                model: OpenAICompatibleClient.normalizedModelID(provider.defaultModel),
                 timeoutSeconds: provider.timeoutSeconds
             )
             lastConnectionResult = result
@@ -555,7 +671,9 @@ final class LLMProviderViewModel: ObservableObject {
     func selectModel(providerID: String, model: String) throws {
         Self.logger.debug("llm_provider_vm_select_model_start providerID=\(providerID) modelLen=\(model.count)")
         let provider = try requireProvider(id: providerID)
-        let selectedModel = SingleLineTextInput.normalized(model)
+        let selectedModel = OpenAICompatibleClient.normalizedModelID(
+            SingleLineTextInput.normalized(model)
+        )
         guard !selectedModel.isEmpty else {
             Self.logger.warning("llm_provider_vm_select_model_rejected providerID=\(providerID) emptyModel=true")
             throw LLMProviderViewModelError.modelRequired
@@ -888,6 +1006,19 @@ final class LLMProviderViewModel: ObservableObject {
         )
         try environment.llmProviderRepository.save(updated)
         load()
+    }
+
+    private func performConnectionTest(provider: LLMProviderRecord) async throws -> LLMProviderConnectionResult {
+        let apiKey = try environment.credentialStore.readCredential(account: provider.apiKeyRef) ?? ""
+        let result = try await client.testConnection(
+            baseURL: provider.baseURL,
+            apiKey: apiKey,
+            model: OpenAICompatibleClient.normalizedModelID(provider.defaultModel),
+            timeoutSeconds: provider.timeoutSeconds
+        )
+        lastConnectionResult = result
+        try saveHealth(provider: provider, status: "ok", message: result.message, latencyMS: result.latencyMS)
+        return result
     }
 
     private func notifyProviderSelectionDidChange() {
