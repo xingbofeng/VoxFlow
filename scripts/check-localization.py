@@ -179,6 +179,18 @@ ALLOWED_ASCII_VISIBLE_VALUES_IN_CHINESE = {
     "VoxFlow",
 }
 
+ALLOWED_ASCII_VISIBLE_VALUES_BY_KEY_IN_CHINESE = {
+    "settings.task.agent_cli.example_claude": {"vox flow --claude"},
+    "settings.task.agent_cli.example_codebuddy": {"vox flow --codebuddy"},
+    "settings.task.agent_cli.example_codex": {"vox flow codex"},
+    "settings.task.agent_cli.example_opencode": {"vox flow opencode"},
+    "settings.task.agent_cli.example_pi": {"vox flow pi"},
+}
+
+ALLOWED_FOREIGN_TOKENS_BY_KEY = {
+    "settings.task.agent_cli.intro": {"flow"},
+}
+
 ASCII_DATE_FORMAT = re.compile(r"[yMdHhmsaSAZz:/.,\s%-]+")
 
 STRINGS_LINE = re.compile(
@@ -237,12 +249,13 @@ def contains_cjk_or_kana_or_hangul(value: str) -> bool:
     return bool(re.search(r"[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]", value))
 
 
-def foreign_tokens(value: str) -> list[str]:
+def foreign_tokens(value: str, allowed_tokens: set[str] | None = None) -> list[str]:
     tokens = re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", value)
-    return [token for token in tokens if token not in ALLOWED_FOREIGN_TOKENS and not token.startswith("%")]
+    allowed = ALLOWED_FOREIGN_TOKENS if allowed_tokens is None else ALLOWED_FOREIGN_TOKENS | allowed_tokens
+    return [token for token in tokens if token not in allowed and not token.startswith("%")]
 
 
-def untranslated_ascii_visible_value(language: str, value: str) -> bool:
+def untranslated_ascii_visible_value(language: str, key: str, value: str) -> bool:
     if language not in CHINESE_LOCALES:
         return False
     if not re.search(r"[A-Za-z]", value):
@@ -250,6 +263,8 @@ def untranslated_ascii_visible_value(language: str, value: str) -> bool:
     if contains_cjk_or_kana_or_hangul(value):
         return False
     if value in ALLOWED_ASCII_VISIBLE_VALUES_IN_CHINESE:
+        return False
+    if value in ALLOWED_ASCII_VISIBLE_VALUES_BY_KEY_IN_CHINESE.get(key, set()):
         return False
     if ASCII_DATE_FORMAT.fullmatch(value):
         return False
@@ -273,13 +288,13 @@ def quality_errors(language: str, path: Path, entries: dict[str, StringsEntry]) 
                     f"{path}:{entry.line}: suspicious generated copy for '{entry.key}': {entry.value!r}"
                 )
                 break
-        if untranslated_ascii_visible_value(language, value):
+        if untranslated_ascii_visible_value(language, entry.key, value):
             errors.append(
                 f"{path}:{entry.line}: untranslated ASCII copy in Chinese locale for "
                 f"'{entry.key}': {entry.value!r}"
             )
         if language != "en" and contains_cjk_or_kana_or_hangul(value):
-            tokens = foreign_tokens(value)
+            tokens = foreign_tokens(value, ALLOWED_FOREIGN_TOKENS_BY_KEY.get(entry.key))
             if tokens:
                 errors.append(
                     f"{path}:{entry.line}: mixed untranslated token(s) {tokens} in '{entry.key}': {entry.value!r}"

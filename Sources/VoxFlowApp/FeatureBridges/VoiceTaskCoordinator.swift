@@ -264,7 +264,8 @@ final class VoiceTaskCoordinator {
             language: task.asrMetadata?.language,
             bundleIdentifier: originalTarget?.bundleID,
             isFinalTranscript: true,
-            isSecureField: isFocusedTextFieldSecure()
+            isSecureField: isFocusedTextFieldSecure(),
+            appliesDictationRefinementGuard: false
         )
         let processingResult = await textPipeline.process(
             text,
@@ -322,9 +323,10 @@ final class VoiceTaskCoordinator {
         task.completedAt = completedAt
         AppLogger.general.info("voice_workflow_completed kind=agentDispatch taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
-        saveRawVoiceTextAssetIfNeeded(
+        saveVoiceTextAssetIfNeeded(
             task: task,
             rawText: task.rawTranscript ?? finalText,
+            finalText: finalText,
             captureReason: dictationCaptureReason(for: outputResult),
             completedAt: completedAt
         )
@@ -581,12 +583,14 @@ final class VoiceTaskCoordinator {
             return runtimeResult
         }
 
-        // Check LLM availability after runtime fallback. Non-Codex providers
-        // keep the existing "帮我说" path.
+        // Check LLM availability after optional local-agent runtime. When runtime
+        // is skipped, continue on the main Agent Compose prompt + LLM path.
         guard let agentRefiner else {
             throw CoordinatorError.llmNotConfigured
         }
-        guard agentRefiner.isConfigured else {
+        let agentComposeConfigured = (agentRefiner as? AgentComposeConfiguring)?.isAgentComposeConfigured ??
+            agentRefiner.isConfigured
+        guard agentComposeConfigured else {
             throw CoordinatorError.llmNotConfigured
         }
 
@@ -898,10 +902,10 @@ final class VoiceTaskCoordinator {
     ) async throws -> OutputResult? {
         guard let agentRuntimeService else { return nil }
         guard let selection = agentRuntimeSelection(),
-              selection.usesCodexRuntime else {
+              selection.isAgentComposeRuntimeEligible else {
             return nil
         }
-        let availability = await agentRuntimeService.availability(forceRefresh: false)
+        let availability = await agentRuntimeService.availability(forceRefresh: false, providerID: selection.providerID)
         guard availability.isAvailable else {
             AppLogger.general.info(
                 "agent_runtime_unavailable provider=\(selection.providerID) reason=\(availability.status.reason ?? "-") fallback=textOnly"
@@ -909,7 +913,7 @@ final class VoiceTaskCoordinator {
             let now = clock.now
             let fallbackTrace = AgentActionTrace(
                 providerID: selection.providerID,
-                executionMode: .codexTextFallback,
+                executionMode: .textOnly,
                 status: .completed,
                 userInstruction: rawText,
                 screenContext: screenContextSnapshot(context: context, target: taskTarget(task)),
@@ -939,6 +943,7 @@ final class VoiceTaskCoordinator {
                 instruction: rawText,
                 context: context,
                 target: taskTarget(task),
+                providerID: selection.providerID,
                 model: selection.model,
                 onEvent: { event in
                     let stage = CodexEventNormalizer().hudStage(after: event)

@@ -108,6 +108,13 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertEqual(HomeHistoryDetailPresentation.durationText(milliseconds: nil), "未记录")
     }
 
+    func testRefinementGuardProtectedTokenKindsLocalizesCodeIdentifier() {
+        let text = HomeHistoryDetailPresentation.refinementGuardProtectedTokenKindsText(["code_identifier"])
+
+        XCTAssertNotNil(text)
+        XCTAssertFalse(text?.contains("code_identifier") == true)
+    }
+
     func testFullDiagnosticSummaryDoesNotExposeRawPromptJSON() {
         let metadata = PromptTraceMetadata(
             promptKind: .voiceCorrection,
@@ -172,6 +179,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         finalText: String = "测试最终",
         trace: TextProcessingTrace? = nil,
         taskMode: VoiceTaskMode? = nil,
+        taskStatus: VoiceTaskStatus? = nil,
         contextPreview: String? = nil,
         warnings: [String] = []
     ) -> HomeHistoryDetail {
@@ -193,7 +201,7 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             updatedAt: Date(timeIntervalSince1970: 1_700_000_100),
             taskMode: taskMode,
-            taskStatus: nil,
+            taskStatus: taskStatus,
             windowTitle: nil,
             contextPreview: contextPreview,
             outputResultRaw: nil
@@ -275,6 +283,40 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         )
     }
 
+    func testPipelineStatusForRunningAgentActionShowsLiveElapsedTime() {
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let now = startedAt.addingTimeInterval(42.4)
+        let trace = TextProcessingTrace(
+            agentAction: AgentActionTrace(
+                providerID: "codex",
+                executionMode: .codexRuntime,
+                status: .running,
+                userInstruction: "生成一个 HTML",
+                events: [],
+                resultSummary: nil,
+                model: "gpt-5.4-mini",
+                startedAt: startedAt,
+                completedAt: nil
+            )
+        )
+        let detail = makeDetail(
+            rawText: "生成一个 HTML",
+            finalText: "",
+            trace: trace,
+            taskMode: .agentCompose,
+            taskStatus: .inProgress
+        )
+
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.pipelineStatusText(for: detail, now: now),
+            "处理中 · 42.4 秒"
+        )
+        XCTAssertEqual(
+            HomeHistoryDetailPresentation.activeTaskElapsedMS(for: detail, now: now),
+            42_400
+        )
+    }
+
     func testAgentActionScreenContextPresentationShowsImageAndWindowMetadata() {
         let context = ScreenContextSnapshot(
             thumbnailPath: "/tmp/screen.png",
@@ -352,12 +394,42 @@ final class HomeHistoryDetailPresentationTests: XCTestCase {
         XCTAssertEqual(HomeHistoryDetailPresentation.agentActionResultText(for: detail), "Opened Google")
     }
 
+    func testLocalAgentRuntimeAgentComposeShowsSummaryAndArtifacts() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let trace = TextProcessingTrace(
+            agentAction: AgentActionTrace(
+                providerID: "opencode",
+                executionMode: .localAgentRuntime,
+                status: .completed,
+                userInstruction: "做一个 HTML",
+                events: [],
+                resultSummary: "已创建 agent-smoke.html。",
+                model: "kimi-k2",
+                artifacts: [
+                    AgentRuntimeArtifact(
+                        kind: .file,
+                        path: "/tmp/voxflow-agent-smoke/opencode/agent-smoke.html",
+                        summary: "agent-smoke.html",
+                        updatedAt: now
+                    )
+                ],
+                startedAt: now,
+                completedAt: now.addingTimeInterval(1)
+            )
+        )
+        let detail = makeDetail(rawText: "做一个 HTML", finalText: "已创建 agent-smoke.html。", trace: trace, taskMode: .agentCompose)
+
+        XCTAssertTrue(HomeHistoryDetailPresentation.usesAgentActionSummaryDetail(for: detail))
+        XCTAssertEqual(HomeHistoryDetailPresentation.agentActionResultText(for: detail), "已创建 agent-smoke.html。")
+        XCTAssertEqual(HomeHistoryDetailPresentation.agentActionArtifacts(for: detail).map(\.title), ["agent-smoke.html"])
+    }
+
     func testTextFallbackAgentComposeKeepsOriginalDetail() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let trace = TextProcessingTrace(
             agentAction: AgentActionTrace(
                 providerID: "codex",
-                executionMode: .codexTextFallback,
+                executionMode: .textOnly,
                 status: .completed,
                 userInstruction: "润色这句话",
                 events: [],

@@ -6,13 +6,40 @@ import VoxFlowVoiceCorrection
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
-    func testSettingsSectionsExposeVibeCoding() {
-        XCTAssertTrue(SettingsSection.allCases.contains(.vibeCoding))
-        XCTAssertEqual(SettingsSection.vibeCoding.title, "AI 编程")
-        XCTAssertFalse(SettingsSection.allCases.map(\.rawValue).contains("selectionActions"))
+    func testSettingsDestinationsUseGeneralModelsFirstOrderAndStableIDs() {
+        XCTAssertEqual(
+            SettingsDestination.allCases,
+            [.general, .models, .voice, .text, .screenshot, .translation, .agent]
+        )
+        XCTAssertEqual(SettingsDestination.translation.systemImage, "text.cursor")
+        XCTAssertFalse(SettingsDestination.allCases.map(\.rawValue).contains { value in
+            value.localizedCaseInsensitiveContains("new")
+            || value.localizedCaseInsensitiveContains("v2")
+            || value.localizedCaseInsensitiveContains("legacy")
+            || value.localizedCaseInsensitiveContains("redesigned")
+        })
     }
 
-    func testLoadBuildsSettingsSectionsDevicesShortcutAndPermissions() throws {
+    func testSettingsModelTabsDefaultToASROrder() {
+        XCTAssertEqual(SettingsModelTab.allCases, [.asr, .llm, .agent, .translation, .tts])
+    }
+
+    func testSettingsModelTabTitlesDoNotExposeLocalizationKeys() {
+        let titles = SettingsModelTab.allCases.map(\.title)
+
+        XCTAssertEqual(titles, ["ASR", "LLM", "Agent", "翻译", "TTS"])
+        XCTAssertFalse(titles.contains { $0.contains("settings.") })
+    }
+
+    func testSelectionAssistantPageOwnsAllSelectionWorkflows() {
+        XCTAssertEqual(
+            SettingsShortcutGroup.selectionAssistantWorkflowShortcuts,
+            [.selectionAction, .selectionSummarize, .selectionAgent, .selectionAskAI]
+        )
+        XCTAssertFalse(SettingsShortcutGroup.agentWorkflowShortcuts.contains(.selectionAgent))
+    }
+
+    func testLoadBuildsSettingsDestinationDevicesShortcutAndPermissions() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = SettingsViewModel(
             environment: environment,
@@ -21,11 +48,7 @@ final class SettingsViewModelTests: XCTestCase {
             permissionProvider: StubPermissionProvider()
         )
 
-        XCTAssertEqual(
-            SettingsSection.allCases.map(\.title),
-            ["通用", "AI 编程", "系统", "文本处理", "语音识别", "纠错与上下文", "朗读", "翻译", "数据与隐私"]
-        )
-        XCTAssertEqual(viewModel.selectedSection, .general)
+        XCTAssertEqual(viewModel.selectedDestination, .general)
         XCTAssertEqual(viewModel.inputDevices.map(\.name), ["Built-in Mic", "Studio Mic"])
         XCTAssertEqual(viewModel.selectedInputDeviceID, "built-in")
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
@@ -49,6 +72,8 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.storageStatus.isHealthy)
         XCTAssertEqual(viewModel.storageStatus.title, "临时存储模式")
         XCTAssertEqual(viewModel.textInputMode, .automatic)
+        XCTAssertTrue(viewModel.systemOption(.localModelLivePreview))
+        XCTAssertFalse(viewModel.systemOption(.autoReleaseLocalModel))
         XCTAssertEqual(
             viewModel.systemSettingsURL(for: .microphone)?.absoluteString,
             "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"

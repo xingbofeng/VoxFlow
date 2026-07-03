@@ -8,6 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/releases-data.js"
 INDEX = ROOT / "docs/index.html"
+CURRENT_RELEASE = ROOT / "docs/release.json"
+RELEASE_NOTES_DIR = ROOT / ".github/release-notes"
 API_URL = "https://api.github.com/repos/xingbofeng/VoxFlow/releases?per_page=3"
 
 
@@ -44,7 +46,23 @@ def main() -> int:
     with urllib.request.urlopen(request, timeout=20) as response:
         releases = json.load(response)
 
-    payload = [
+    payload = []
+    if CURRENT_RELEASE.exists():
+        current = json.loads(CURRENT_RELEASE.read_text(encoding="utf-8"))
+        tag = current.get("tag", "")
+        version = current.get("version", "")
+        notes_path = RELEASE_NOTES_DIR / f"{tag}.md"
+        payload.append(
+            {
+                "tag_name": tag,
+                "name": f"VoxFlow {version}" if version else tag,
+                "body": notes_path.read_text(encoding="utf-8") if notes_path.exists() else current.get("releaseNotes", ""),
+                "html_url": current.get("releasePageURL", ""),
+                "published_at": current.get("publishedAt", ""),
+            }
+        )
+
+    payload.extend(
         {
             "tag_name": item.get("tag_name", ""),
             "name": item.get("name") or item.get("tag_name", ""),
@@ -53,7 +71,9 @@ def main() -> int:
             "published_at": item.get("published_at", ""),
         }
         for item in releases[:3]
-    ]
+        if item.get("tag_name") not in {release["tag_name"] for release in payload}
+    )
+    payload = payload[:3]
 
     release_json = json.dumps(payload, ensure_ascii=False, indent=2)
     OUTPUT.write_text(

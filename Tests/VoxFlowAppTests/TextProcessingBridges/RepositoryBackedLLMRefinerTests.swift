@@ -4,29 +4,7 @@ import XCTest
 @testable import VoxFlowApp
 
 final class RepositoryBackedLLMRefinerTests: XCTestCase {
-    func testCodexPromptExecArgumentsUseSupportedNonInteractiveFlags() {
-        let arguments = CodexPromptCompletionClient.execArguments(
-            workdir: "/tmp/voxflow-codex",
-            outputPath: "/tmp/voxflow-codex/last-message.txt",
-            model: "gpt-5.5"
-        )
-
-        XCTAssertEqual(arguments.first, "exec")
-        XCTAssertTrue(arguments.contains("--skip-git-repo-check"))
-        XCTAssertTrue(arguments.contains("--ephemeral"))
-        XCTAssertTrue(arguments.contains("--sandbox"))
-        XCTAssertTrue(arguments.contains("read-only"))
-        XCTAssertTrue(arguments.contains("--cd"))
-        XCTAssertTrue(arguments.contains("/tmp/voxflow-codex"))
-        XCTAssertTrue(arguments.contains("--output-last-message"))
-        XCTAssertTrue(arguments.contains("/tmp/voxflow-codex/last-message.txt"))
-        XCTAssertTrue(arguments.contains("--model"))
-        XCTAssertTrue(arguments.contains("gpt-5.5"))
-        XCTAssertEqual(arguments.last, "-")
-        XCTAssertFalse(arguments.contains("--ask-for-approval"))
-    }
-
-    func testCodexRuntimeProviderConfiguresTextCorrectionThroughCLI() async throws {
+    func testCodexRuntimeProviderConfiguresAgentComposeButDoesNotRefineText() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         try environment.llmProviderRepository.save(
@@ -40,7 +18,7 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
                 temperature: 0,
                 timeoutSeconds: 120,
                 enabled: true,
-                isDefault: true,
+                isDefault: false,
                 lastHealthStatus: "ok",
                 lastHealthMessage: nil,
                 lastLatencyMS: nil,
@@ -48,45 +26,52 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
                 updatedAt: now
             )
         )
-        let codexClient = CapturingCodexPromptClient(response: "修正后文本")
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""codex""#
+        )
         let refiner = RepositoryBackedLLMRefiner(
             providerRepository: environment.llmProviderRepository,
             credentialStore: environment.credentialStore,
-            codexClient: codexClient
+            settingsRepository: environment.settingsRepository
         )
 
-        XCTAssertTrue(refiner.isConfigured)
+        XCTAssertFalse(refiner.isConfigured)
+        XCTAssertTrue(refiner.isAgentComposeConfigured)
 
-        let result = try await refiner.refineWithTrace(
-            TextRefinementRequest(
-                text: "原始文本",
-                systemPrompt: "只返回修正后的文本",
-                model: nil,
-                temperature: nil
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "原始文本",
+                    systemPrompt: "只返回修正后的文本",
+                    model: nil,
+                    temperature: nil,
+                    purpose: .agentCompose
+                )
             )
-        )
-
-        XCTAssertEqual(result.text, "修正后文本")
-        XCTAssertEqual(codexClient.requests.first?.model, "gpt-5.5")
-        XCTAssertTrue(codexClient.requests.first?.prompt.contains("原始文本") == true)
-        XCTAssertEqual(refiner.lastTrace?.endpoint, "codex://exec")
+            XCTFail("Agent providers should not back text refinement.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected: agent provider execution is handled by AgentRuntimeService, not refiner text fallback.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
     }
 
-    func testCodexRuntimeProviderKeepsSelectedModelAndReportsUnsupportedFailure() async throws {
+    func testLocalAgentProviderConfiguresAgentComposeButDoesNotRefineText() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         try environment.llmProviderRepository.save(
             LLMProviderRecord(
-                id: AgentProviderRegistry.codex.providerID,
-                displayName: "Codex",
-                providerType: AgentProviderRegistry.codex.providerID,
-                baseURL: "local://codex",
-                defaultModel: "gpt-5.3-codex-spark",
-                apiKeyRef: "codex-local-runtime",
+                id: "opencode",
+                displayName: "opencode",
+                providerType: "opencode",
+                baseURL: "local://opencode",
+                defaultModel: "kimi-k2",
+                apiKeyRef: "opencode-local-runtime",
                 temperature: 0,
                 timeoutSeconds: 120,
                 enabled: true,
-                isDefault: true,
+                isDefault: false,
                 lastHealthStatus: "ok",
                 lastHealthMessage: nil,
                 lastLatencyMS: nil,
@@ -94,16 +79,87 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
                 updatedAt: now
             )
         )
-        let codexClient = FailingCodexPromptClient(
-            error: LLMRefiner.Error.apiError(
-                code: 400,
-                message: "The 'gpt-5.3-codex-spark' model is not supported when using Codex with a ChatGPT account."
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""opencode""#
+        )
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            settingsRepository: environment.settingsRepository
+        )
+
+        XCTAssertFalse(refiner.isConfigured)
+        XCTAssertTrue(refiner.isAgentComposeConfigured)
+
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "原始文本",
+                    systemPrompt: "只返回修正后的文本",
+                    model: nil,
+                    temperature: nil,
+                    purpose: .agentCompose
+                )
+            )
+            XCTFail("Agent providers should not back text refinement.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
+    }
+
+    func testAgentProviderDoesNotFallbackToOpenAIProviderForAgentComposeTextRefinement() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: "opencode",
+                displayName: "opencode",
+                providerType: "opencode",
+                baseURL: "local://opencode",
+                defaultModel: "kimi-k2",
+                apiKeyRef: "opencode-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: false,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""opencode""#
+        )
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: "openai",
+                displayName: "OpenAI-compatible",
+                providerType: "openaiCompatible",
+                baseURL: "https://api.example.com/v1",
+                defaultModel: "fallback",
+                apiKeyRef: "openai-key",
+                temperature: 0.2,
+                timeoutSeconds: 8,
+                enabled: true,
+                isDefault: false,
+                lastHealthStatus: nil,
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
             )
         )
         let refiner = RepositoryBackedLLMRefiner(
             providerRepository: environment.llmProviderRepository,
             credentialStore: environment.credentialStore,
-            codexClient: codexClient
+            settingsRepository: environment.settingsRepository,
+            session: FailingLLMSession()
         )
 
         do {
@@ -112,57 +168,16 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
                     text: "原始文本",
                     systemPrompt: "只返回修正后的文本",
                     model: nil,
-                    temperature: nil
+                    temperature: nil,
+                    purpose: .agentCompose
                 )
             )
-            XCTFail("Expected unsupported Codex model to fail without fallback.")
+            XCTFail("Expected agent provider text refinement to be disabled.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected: no OpenAI-compatible fallback when an agent provider is selected.
         } catch {
-            XCTAssertTrue(error.localizedDescription.localizedCaseInsensitiveContains("model is not supported"))
+            XCTFail("Expected notConfigured, got \(error)")
         }
-
-        XCTAssertEqual(codexClient.requests.map(\.model), ["gpt-5.3-codex-spark"])
-        XCTAssertTrue(refiner.lastTrace?.errorMessage?.localizedCaseInsensitiveContains("model is not supported") == true)
-    }
-
-    func testCodexRuntimeProviderUsesRequestModelWithoutFallback() async throws {
-        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        try environment.llmProviderRepository.save(
-            LLMProviderRecord(
-                id: AgentProviderRegistry.codex.providerID,
-                displayName: "Codex",
-                providerType: AgentProviderRegistry.codex.providerID,
-                baseURL: "local://codex",
-                defaultModel: "gpt-5.5",
-                apiKeyRef: "codex-local-runtime",
-                temperature: 0,
-                timeoutSeconds: 120,
-                enabled: true,
-                isDefault: true,
-                lastHealthStatus: "ok",
-                lastHealthMessage: nil,
-                lastLatencyMS: nil,
-                createdAt: now,
-                updatedAt: now
-            )
-        )
-        let codexClient = CapturingCodexPromptClient(response: "修正后文本")
-        let refiner = RepositoryBackedLLMRefiner(
-            providerRepository: environment.llmProviderRepository,
-            credentialStore: environment.credentialStore,
-            codexClient: codexClient
-        )
-
-        _ = try await refiner.refineWithTrace(
-            TextRefinementRequest(
-                text: "原始文本",
-                systemPrompt: "只返回修正后的文本",
-                model: "custom-user-model",
-                temperature: nil
-            )
-        )
-
-        XCTAssertEqual(codexClient.requests.map(\.model), ["custom-user-model"])
     }
 
     func testTextProcessingTraceSafeForPersistenceRedactsPromptResponseAndError() {
@@ -654,6 +669,146 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertFalse(userContent.contains("待处理原文："))
     }
 
+    func testAgentComposeUsesAgentProviderSelectionWithoutChangingLLMDefault() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let llmProvider = makeProvider(isDefault: true)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let agentProvider = LLMProviderRecord(
+            id: AgentProviderRegistry.codex.providerID,
+            displayName: "Codex",
+            providerType: AgentProviderRegistry.codex.providerID,
+            baseURL: "local://codex",
+            defaultModel: "gpt-5-agent",
+            apiKeyRef: "codex-local-runtime",
+            temperature: 0,
+            timeoutSeconds: 120,
+            enabled: true,
+            isDefault: false,
+            lastHealthStatus: "ok",
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: now,
+            updatedAt: now
+        )
+        try environment.llmProviderRepository.save(llmProvider)
+        try environment.llmProviderRepository.save(agentProvider)
+        try credentials.saveCredential("secret", account: llmProvider.apiKeyRef)
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""codex""#
+        )
+        let session = CapturingCompletionSession(
+            response: Self.completionResponse("普通修正")
+        )
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository,
+            session: session
+        )
+
+        let correction = try await refiner.refineWithTrace(
+            TextRefinementRequest(
+                text: "普通听写",
+                systemPrompt: "只返回修正后的文本",
+                model: nil,
+                temperature: nil
+            )
+        )
+
+        XCTAssertEqual(correction.providerID, "global")
+        XCTAssertEqual(session.requests.count, 1)
+
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "帮我回复消息",
+                    systemPrompt: "生成可直接发送的文本",
+                    model: nil,
+                    temperature: nil,
+                    purpose: .agentCompose
+                )
+            )
+            XCTFail("Agent providers should not back text refinement.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
+    }
+
+    func testAgentProviderDoesNotConfigureOrdinaryLLMRefinement() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try environment.llmProviderRepository.save(
+            LLMProviderRecord(
+                id: AgentProviderRegistry.codex.providerID,
+                displayName: "Codex",
+                providerType: AgentProviderRegistry.codex.providerID,
+                baseURL: "local://codex",
+                defaultModel: "gpt-5-agent",
+                apiKeyRef: "codex-local-runtime",
+                temperature: 0,
+                timeoutSeconds: 120,
+                enabled: true,
+                isDefault: true,
+                lastHealthStatus: "ok",
+                lastHealthMessage: nil,
+                lastLatencyMS: nil,
+                createdAt: now,
+                updatedAt: now
+            )
+        )
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""codex""#
+        )
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            settingsRepository: environment.settingsRepository
+        )
+
+        XCTAssertFalse(refiner.isConfigured)
+        XCTAssertTrue(refiner.isAgentComposeConfigured)
+
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "普通听写",
+                    systemPrompt: "只返回修正后的文本",
+                    model: nil,
+                    temperature: nil
+                )
+            )
+            XCTFail("Agent providers should not back ordinary LLM refinement.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected: ordinary LLM refinement requires a non-Agent provider.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
+
+        do {
+            _ = try await refiner.refineWithTrace(
+                TextRefinementRequest(
+                    text: "帮我回复消息",
+                    systemPrompt: "生成可直接发送的文本",
+                    model: nil,
+                    temperature: nil,
+                    purpose: .agentCompose
+                )
+            )
+            XCTFail("Agent providers should not back text refinement.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
+    }
+
     func testNoEnabledDefaultProviderIsNotConfigured() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.empty")!
@@ -788,45 +943,12 @@ private final class CapturingCompletionSession: LLMCompletionSession, @unchecked
     }
 }
 
-private final class CapturingCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
-    struct Request: Equatable {
-        let prompt: String
-        let model: String?
-        let timeoutSeconds: Double
+private final class FailingLLMSession: LLMCompletionSession, @unchecked Sendable {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        throw LLMRefiner.Error.apiError(code: 599, message: "OpenAI-compatible fallback should not be called")
     }
 
-    let isAvailable: Bool
-    let response: String
-    private(set) var requests: [Request] = []
-
-    init(isAvailable: Bool = true, response: String) {
-        self.isAvailable = isAvailable
-        self.response = response
-    }
-
-    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
-        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
-        return response
-    }
-}
-
-private final class FailingCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
-    struct Request: Equatable {
-        let prompt: String
-        let model: String?
-        let timeoutSeconds: Double
-    }
-
-    let isAvailable = true
-    let error: Error
-    private(set) var requests: [Request] = []
-
-    init(error: Error) {
-        self.error = error
-    }
-
-    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
-        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
-        throw error
+    func byteStream(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        throw LLMRefiner.Error.apiError(code: 599, message: "OpenAI-compatible fallback should not be called")
     }
 }

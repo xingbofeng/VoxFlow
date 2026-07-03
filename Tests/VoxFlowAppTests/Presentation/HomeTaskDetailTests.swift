@@ -4,7 +4,6 @@ import XCTest
 
 @MainActor
 final class HomeTaskDetailTests: XCTestCase {
-
     // MARK: - testFailedTaskWithFinalTextShowsCopyAndRegenerate
 
     func testFailedTaskWithFinalTextShowsCopyAndRegenerate() {

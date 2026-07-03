@@ -46,12 +46,12 @@ enum NavigationRoute: String, CaseIterable, Identifiable {
 struct WorkbenchNavigationCommand: Identifiable, Equatable {
     let id = UUID()
     let route: NavigationRoute
-    let settingsSection: SettingsSection?
+    let settingsDestination: SettingsDestination?
 
     static func settings(tab: SettingsTab) -> WorkbenchNavigationCommand {
         WorkbenchNavigationCommand(
             route: .settings,
-            settingsSection: SettingsSection(settingsTab: tab)
+            settingsDestination: SettingsDestination(settingsTab: tab)
         )
     }
 }
@@ -62,23 +62,21 @@ final class WorkbenchNavigationRouter: ObservableObject {
     private static let logger = AppLogger.general
 
     func showSettings(tab: SettingsTab) {
-        let section = SettingsSection(settingsTab: tab)
+        let destination = SettingsDestination(settingsTab: tab)
         Self.logger.debug(
-            "WorkbenchNavigationRouter showSettings section=\(section.rawValue) tab=\(tab)"
+            "WorkbenchNavigationRouter showSettings destination=\(destination.rawValue) tab=\(tab)"
         )
         command = .settings(tab: tab)
     }
 }
 
-extension SettingsSection {
+extension SettingsDestination {
     init(settingsTab: SettingsTab) {
         switch settingsTab {
-        case .asr:
-            self = .dictationModels
-        case .llm:
-            self = .correctionModels
+        case .asr, .llm:
+            self = .models
         case .shortcut:
-            self = .system
+            self = .voice
         }
     }
 }

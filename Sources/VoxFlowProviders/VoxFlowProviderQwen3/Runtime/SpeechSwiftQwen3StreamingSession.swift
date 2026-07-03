@@ -47,6 +47,10 @@ public struct SpeechSwiftQwen3StreamingSessionFactory: Qwen3StreamingSessionMaki
         self.modelCache = Self.sharedModelCache
     }
 
+    public static func releaseSharedModels() async {
+        await sharedModelCache.removeAll()
+    }
+
     init(
         modelID: String = Self.defaultModelID,
         modelCache: SpeechSwiftQwen3ModelCache
@@ -191,6 +195,14 @@ actor SpeechSwiftQwen3ModelCache {
             loadingTasks[key] = nil
             throw error
         }
+    }
+
+    func removeAll() {
+        for task in loadingTasks.values {
+            task.cancel()
+        }
+        loadingTasks.removeAll(keepingCapacity: false)
+        models.removeAll(keepingCapacity: false)
     }
 }
 

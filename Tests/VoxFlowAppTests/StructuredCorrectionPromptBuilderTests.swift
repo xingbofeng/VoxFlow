@@ -144,6 +144,20 @@ final class StructuredCorrectionPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("反引号"))
     }
 
+    func testCustomStylePromptKeepsOutputAndCriticalProtocol() {
+        let prompt = builder.buildSystem(
+            style: .coding,
+            customStylePrompt: "# Role\n你是自定义编程清洗编辑器。",
+            outputFormatRules: nil
+        )
+
+        XCTAssertTrue(prompt.contains("你是自定义编程清洗编辑器"))
+        XCTAssertTrue(prompt.contains("Output JSON only"))
+        XCTAssertFalse(prompt.contains("你是 Vibe Coding 语音识别文本的清洗编辑器"))
+        XCTAssertTrue(prompt.contains("# Context Usage Rules"))
+        XCTAssertTrue(prompt.contains("Do not inject a user term"))
+    }
+
     func testFormalTemplateContainsKeyConstraints() {
         let prompt = builder.build(style: .formal, context: makeContext())
         XCTAssertTrue(prompt.contains("汇报"))

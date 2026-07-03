@@ -28,6 +28,8 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
 
     private let provider: any ASRProvider
     private let defaultLanguage: ASRLanguageCapability
+    private let deliversPartialTranscripts: @Sendable () -> Bool
+    private let releaseIdleResources: @Sendable () async -> Void
     private let callbacks = ASRCoreBackedCallbackBox()
     private let lifecycleLock = NSLock()
     private let metadataLock = NSLock()
@@ -45,10 +47,14 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
 
     init(
         provider: any ASRProvider,
-        defaultLanguage: ASRLanguageCapability
+        defaultLanguage: ASRLanguageCapability,
+        deliversPartialTranscripts: @escaping @Sendable () -> Bool = { true },
+        releaseIdleResources: @escaping @Sendable () async -> Void = {}
     ) {
         self.provider = provider
         self.defaultLanguage = defaultLanguage
+        self.deliversPartialTranscripts = deliversPartialTranscripts
+        self.releaseIdleResources = releaseIdleResources
     }
 
     func configure(locale: Locale) {
@@ -82,6 +88,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         let language = configuration.0
         let prompt = configuration.1
         let callbacks = callbacks
+        let deliversPartialTranscripts = deliversPartialTranscripts
         metadataLock.withLock {
             runtimeMetadata = ASRRuntimeMetadataSnapshot()
         }
@@ -131,7 +138,11 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
                 for await event in session.events {
                     guard self.isCurrentGeneration(generation) else { break }
                     self.record(event)
-                    await Self.deliver(event, callbacks: callbacks)
+                    await Self.deliver(
+                        event,
+                        callbacks: callbacks,
+                        deliversPartialTranscripts: deliversPartialTranscripts
+                    )
                 }
             } catch is CancellationError {
             } catch {
@@ -210,10 +221,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
             snapshot.frameConsumerTask?.cancel()
             snapshot.eventTask?.cancel()
             callbacks.onTranscription?("", true)
+            let releaseIdleResources = releaseIdleResources
             Task {
                 if let session = try? await snapshot.sessionTask.value {
                     await session.cancel()
                 }
+                await releaseIdleResources()
             }
             return
         }
@@ -260,10 +273,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         snapshot.frameConsumerTask?.cancel()
         snapshot.eventTask?.cancel()
         snapshot.sessionTask?.cancel()
+        let releaseIdleResources = releaseIdleResources
         Task {
             if let session = try? await snapshot.sessionTask?.value {
                 await session.cancel()
             }
+            await releaseIdleResources()
         }
     }
 
@@ -290,10 +305,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         snapshot.frameConsumerTask?.cancel()
         snapshot.eventTask?.cancel()
         snapshot.sessionTask?.cancel()
+        let releaseIdleResources = releaseIdleResources
         Task {
             if let session = try? await snapshot.sessionTask?.value {
                 await session.cancel()
             }
+            await releaseIdleResources()
         }
     }
 
@@ -346,10 +363,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     @MainActor
     private static func deliver(
         _ event: ASREvent,
-        callbacks: ASRCoreBackedCallbackBox
+        callbacks: ASRCoreBackedCallbackBox,
+        deliversPartialTranscripts: @Sendable () -> Bool
     ) {
         switch event {
         case .partial(_, let transcript):
+            guard deliversPartialTranscripts() else { return }
             let text = transcript.stablePrefix + transcript.unstableSuffix
             guard !text.isEmpty else { return }
             callbacks.onTranscription?(text, false)

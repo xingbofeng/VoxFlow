@@ -39,6 +39,9 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
     }
 
     func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
+        if activeTaskID != nil || coordinator.activeTaskID(for: .agentCompose) != nil {
+            throw CoordinatorError.workflowAlreadyRunning(VoiceWorkflowKind.agentCompose.rawValue)
+        }
         self.target = target
         lastFailedTaskID = nil
         AppLogger.dictation.debug("AgentComposeHandler start target=\(target?.bundleID ?? "nil")")
@@ -85,11 +88,9 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
                 taskCoordinator.onStreamingDelta = nil
             }
         }
-        let stylePrompt = try await styleSelector.style(for: target)?.prompt
-
         let result = try await coordinator.processAgentComposeAndDeliver(
             context: context,
-            stylePrompt: stylePrompt,
+            stylePrompt: nil,
             onAgentRuntimeStage: { [weak self] stage in
                 self?.emitStage(stage, taskID: taskID, requireActiveWorkflow: false)
             },
@@ -138,6 +139,9 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
 
     func fail(_ error: Error) {
         AppLogger.dictation.warning("AgentComposeHandler fail \(error.localizedDescription)")
+        if case CoordinatorError.workflowAlreadyRunning = error {
+            return
+        }
         coordinator.cancelContextCollection()
         lastFailedTaskID = coordinator.activeTaskID(for: .agentCompose)
         try? coordinator.recordFailure(

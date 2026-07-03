@@ -257,7 +257,14 @@ enum HotKeyRoutingPolicy {
                 HotKeyRoutingPolicyLogger.log.debug("HotKeyRoutingPolicy decision=finishNotesRecording event=release")
                 return .finishNotesRecording
             }
-            let decision: HotKeyRoutingDecision = activeVoiceAction == action ? .releaseDictation(action) : .ignore
+            let canReleaseDictation: Bool
+            switch dictationState {
+            case .recording, .waitingForFinal:
+                canReleaseDictation = activeVoiceAction == action
+            case .idle, .processing, .injecting, .failed:
+                canReleaseDictation = false
+            }
+            let decision: HotKeyRoutingDecision = canReleaseDictation ? .releaseDictation(action) : .ignore
             HotKeyRoutingPolicyLogger.log.debug(
                 "HotKeyRoutingPolicy decision=\(decision) event=release action=\(actionName) " +
                 "activeVoiceAction=\(String(describing: activeVoiceAction))"

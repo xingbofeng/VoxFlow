@@ -6,46 +6,77 @@ import ApplicationServices
 import VoxFlowVoiceCorrection
 import VoxFlowTextProcessing
 
-enum SettingsSection: String, CaseIterable, Identifiable {
+enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
-    case vibeCoding
-    case system
-    case textProcessing
-    case dictationModels
-    case correctionModels
-    case ttsModels
-    case translationModels
-    case dataPrivacy
+    case models
+    case voice
+    case text
+    case screenshot
+    case translation
+    case agent
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .general: return L10n.localize("settings.section.general", comment: "")
-        case .vibeCoding: return L10n.localize("settings.section.vibe_coding", comment: "")
-        case .system: return L10n.localize("settings.section.system_root", comment: "")
-        case .textProcessing: return L10n.localize("settings.section.text_processing", comment: "")
-        case .dictationModels: return L10n.localize("settings.section.dictation_models", comment: "")
-        case .correctionModels: return L10n.localize("settings.section.correction_models", comment: "")
-        case .ttsModels: return L10n.localize("settings.section.tts_models", comment: "")
-        case .translationModels: return L10n.localize("settings.section.translation_models", comment: "")
-        case .dataPrivacy: return L10n.localize("settings.section.data_privacy", comment: "")
+        case .voice: return L10n.localize("settings.destination.voice", comment: "Settings destination: Voice")
+        case .text: return L10n.localize("settings.destination.text", comment: "Settings destination: Text")
+        case .screenshot: return L10n.localize("settings.destination.screenshot", comment: "Settings destination: Screenshot")
+        case .translation: return L10n.localize("settings.destination.translation", comment: "Settings destination: Translation")
+        case .agent: return L10n.localize("settings.destination.agent", comment: "Settings destination: Agent")
+        case .models: return L10n.localize("settings.destination.models", comment: "Settings destination: Models")
+        case .general: return L10n.localize("settings.destination.general", comment: "Settings destination: General")
         }
     }
 
     var systemImage: String {
         switch self {
-        case .general: return "slider.horizontal.3"
-        case .vibeCoding: return "terminal"
-        case .textProcessing: return "wand.and.stars"
-        case .dictationModels: return "waveform"
-        case .correctionModels: return "sparkles"
-        case .ttsModels: return "speaker.wave.2"
-        case .translationModels: return "globe.asia.australia"
-        case .system: return "macwindow"
-        case .dataPrivacy: return "lock.shield"
+        case .voice: return "waveform"
+        case .text: return "textformat"
+        case .screenshot: return "text.viewfinder"
+        case .translation: return "text.cursor"
+        case .agent: return "terminal"
+        case .models: return "cpu"
+        case .general: return "gearshape"
         }
     }
+
+}
+
+enum SettingsModelTab: String, CaseIterable, Identifiable {
+    case asr
+    case llm
+    case agent
+    case translation
+    case tts
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .asr:
+            return L10n.localize("settings.models.tab.asr", fallback: "ASR", comment: "ASR model tab")
+        case .llm:
+            return L10n.localize("settings.models.tab.llm", fallback: "LLM", comment: "LLM model tab")
+        case .agent:
+            return L10n.localize("settings.models.tab.agent", fallback: "Agent", comment: "Agent model tab")
+        case .translation:
+            return L10n.localize("settings.models.tab.translation", fallback: "翻译", comment: "Translation model tab")
+        case .tts:
+            return L10n.localize("settings.models.tab.tts", fallback: "TTS", comment: "TTS model tab")
+        }
+    }
+}
+
+enum SettingsShortcutGroup {
+    static let selectionAssistantWorkflowShortcuts: [HotKeyWorkflowShortcut] = [
+        .selectionAction,
+        .selectionSummarize,
+        .selectionAgent,
+        .selectionAskAI,
+    ]
+
+    static let agentWorkflowShortcuts: [HotKeyWorkflowShortcut] = []
 }
 
 enum SettingsKey {
@@ -91,7 +122,8 @@ enum SettingsSystemOption: String, CaseIterable, Sendable {
 
     var defaultValue: Bool {
         switch self {
-        case .restoreClipboard, .clipboardImageOCR, .hideDockIconWhenWorkbenchCloses, .llmTraceDiagnostics:
+        case .localModelLivePreview, .restoreClipboard, .clipboardImageOCR,
+             .hideDockIconWhenWorkbenchCloses, .llmTraceDiagnostics:
             return true
         default:
             return false
@@ -268,7 +300,7 @@ enum SystemSettingsPane {
 final class SettingsViewModel: ObservableObject {
     private static let logger = AppLogger.general
 
-    @Published var selectedSection: SettingsSection = .general
+    @Published var selectedDestination: SettingsDestination = .general
     @Published private(set) var inputDevices: [AudioInputDevice] = []
     @Published private(set) var selectedInputDeviceID = ""
     @Published private(set) var shortcutKeyCode: Int64 = ShortcutManager.defaultShortcutKeyCode
@@ -1041,7 +1073,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func copyAgentCLIExamples() {
-        clipboardWriter.copy("vox flow codex\nvox flow --claude\nvox flow --codebuddy")
+        clipboardWriter.copy("vox flow codex\nvox flow opencode\nvox flow --claude\nvox flow --codebuddy\nvox flow pi")
         lastActionMessage = L10n.localize("settings.message.agent_cli_command_copied", comment: "")
     }
 

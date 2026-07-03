@@ -78,6 +78,31 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertTrue(clipboard.copiedTexts.isEmpty)
     }
 
+    func testSuccessfulInsertionRecordsRecentTextOutputForClipboardSuppression() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        var recorded: [(text: String, target: DictationTarget?)] = []
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            recentTextOutputRecorder: { text, target in
+                recorded.append((text, target))
+            }
+        )
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+
+        let result = await service.deliver(
+            text: "你好。 😊",
+            mode: .dictation,
+            target: target,
+            originalTarget: target
+        )
+
+        XCTAssertEqual(result, .injected)
+        XCTAssertEqual(recorded.map(\.text), ["你好。 😊"])
+        XCTAssertEqual(recorded.first?.target, target)
+    }
+
     func testDictationInjectsWhenBothTargetsNil() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
@@ -160,8 +185,8 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertEqual(clipboard.copiedTexts, ["hello"])
     }
 
-    func testAgentComposeInjectionFailureReportsCopyFailureWhenFallbackCopyFails() async {
-        let injector = StubTextInjector(result: .eventCreationFailed)
+    func testAgentComposeCopiesWithoutAttemptingInsertion() async {
+        let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService(succeeds: false)
         let service = DefaultOutputService(
             textInjector: injector,
@@ -175,11 +200,9 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: nil
         )
 
-        XCTAssertEqual(
-            result,
-            .copyFailed(reason: "Failed to create paste event and clipboard write failed")
-        )
+        XCTAssertEqual(result, .copyFailed(reason: "Clipboard write failed"))
         XCTAssertEqual(clipboard.copiedTexts, ["hello"])
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
     }
 
     func testInjectionFailureReportsCopyFailureWhenFallbackCopyFails() async {
@@ -385,7 +408,7 @@ final class OutputServiceTests: XCTestCase {
 
     // MARK: - Agent compose mode
 
-    func testAgentComposeInjectsIntoUnchangedTarget() async {
+    func testAgentComposeCopiesForUnchangedTarget() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -401,9 +424,9 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: target
         )
 
-        XCTAssertEqual(result, .injected)
-        XCTAssertEqual(injector.injectedTexts, ["agent text"])
-        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertEqual(result, .copied)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
     }
 
     func testAgentComposeDoesNotOverwritePasteLastResultStore() async {
@@ -424,11 +447,11 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: nil
         )
 
-        XCTAssertEqual(result, .injected)
+        XCTAssertEqual(result, .copied)
         XCTAssertEqual(lastResultStore.lastResultText, "previous dictation")
     }
 
-    func testAgentComposeFallsBackToClipboardWhenPermissionWouldBeDenied() async {
+    func testAgentComposeDoesNotRequestInsertionWhenPermissionWouldBeDenied() async {
         let injector = StubTextInjector(result: .permissionDenied)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -444,11 +467,12 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: target
         )
 
-        XCTAssertEqual(result, .permissionDenied(reason: "Accessibility permission denied"))
+        XCTAssertEqual(result, .copied)
         XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
     }
 
-    func testAgentComposeCopiesWhenTargetChanges() async {
+    func testAgentComposeCopiesWhenTargetChangesWithoutTargetChangedFailure() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -464,14 +488,12 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: target
         )
 
-        guard case .targetChanged = result else {
-            return XCTFail("Expected targetChanged, got \(result)")
-        }
+        XCTAssertEqual(result, .copied)
         XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
         XCTAssertTrue(injector.injectedTexts.isEmpty)
     }
 
-    func testAgentComposeInjectsWhenNoOriginalTargetWasCaptured() async {
+    func testAgentComposeCopiesWhenNoOriginalTargetWasCaptured() async {
         let injector = StubTextInjector(result: .success)
         let clipboard = StubClipboardService()
         let service = DefaultOutputService(
@@ -485,9 +507,9 @@ final class OutputServiceTests: XCTestCase {
             originalTarget: nil
         )
 
-        XCTAssertEqual(result, .injected)
-        XCTAssertEqual(injector.injectedTexts, ["agent text"])
-        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertEqual(result, .copied)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
     }
 
     // MARK: - In-app text target

@@ -374,7 +374,27 @@ final class OverlayAppearanceTests: XCTestCase {
         controller.updateStreamingText("% Total    % Received % Xferd  Average Speed   Time")
         controller.updateAgentComposeStatus(.runtimeProcessing())
 
-        XCTAssertEqual(controller.currentText, "正在做 PPT")
+        XCTAssertTrue(controller.currentText.hasPrefix("正在做 PPT · "))
+        XCTAssertTrue(controller.currentText.contains("秒"))
+    }
+
+    func testAgentRuntimeHUDShowsElapsedTimerInPrimaryTextWhileProcessing() {
+        let controller = OverlayWindowController()
+
+        controller.updateAgentComposeStatus(.runtimeProcessing(summary: "生成一个 HTML"))
+
+        XCTAssertEqual(controller.currentStatusText, "正在处理...")
+        XCTAssertTrue(controller.currentText.hasPrefix("生成一个 HTML · "))
+        XCTAssertTrue(controller.currentText.contains("秒"))
+    }
+
+    func testAgentRuntimeHUDSizesWindowBeforeFirstPresentation() {
+        let controller = OverlayWindowController()
+
+        controller.updateAgentComposeStatus(.runtimeProcessing(summary: "生成一个 HTML"))
+
+        XCTAssertGreaterThan(controller.window?.frame.width ?? 0, 240)
+        XCTAssertEqual(controller.window?.frame.height, OverlayLayout.minimumCapsuleHeight)
     }
 
     func testSelectionActionCardUsesExistingHUDWithFourActions() throws {

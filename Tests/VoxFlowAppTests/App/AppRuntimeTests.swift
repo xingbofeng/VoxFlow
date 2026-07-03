@@ -36,6 +36,10 @@ final class AppRuntimeTests: XCTestCase {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
         try environment.llmProviderRepository.save(Self.codexProvider(enabled: true))
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""codex""#
+        )
 
         let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
 
@@ -49,7 +53,61 @@ final class AppRuntimeTests: XCTestCase {
         )
     }
 
-    func testAgentRuntimeSelectionUsesEnabledCodexEvenWhenTextLLMIsDefault() throws {
+    func testAgentComposeIsConfiguredWhenTextLLMIsConfigured() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+
+        XCTAssertTrue(
+            AgentComposeConfiguration.isConfigured(
+                llmRefinerConfigured: true,
+                environment: environment
+            )
+        )
+    }
+
+    func testAgentComposeIsConfiguredWhenLocalAgentRuntimeProviderIsEnabled() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.llmProviderRepository.save(Self.localAgentProvider(providerID: "codebuddy", enabled: true))
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""codebuddy""#
+        )
+
+        let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
+
+        XCTAssertEqual(selection?.providerID, "codebuddy")
+        XCTAssertEqual(selection?.model, "deepseek-v4-flash-202605")
+        XCTAssertTrue(
+            AgentComposeConfiguration.isConfigured(
+                llmRefinerConfigured: false,
+                environment: environment
+            )
+        )
+    }
+
+    func testClaudeRuntimeSelectionDoesNotPassConfiguredDisplayModelToCLI() throws {
+        let container = try DependencyContainer.inMemory()
+        let environment = AppEnvironment(container: container)
+        try environment.llmProviderRepository.save(
+            Self.localAgentProvider(
+                providerID: AgentProviderRegistry.claude.providerID,
+                enabled: true,
+                defaultModel: "sonnet"
+            )
+        )
+        try environment.settingsRepository.set(
+            RepositoryBackedLLMRefiner.agentProviderIDSettingsKey,
+            jsonValue: #""claude""#
+        )
+
+        let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
+
+        XCTAssertEqual(selection?.providerID, AgentProviderRegistry.claude.providerID)
+        XCTAssertNil(selection?.model)
+    }
+
+    func testAgentRuntimeSelectionDoesNotUseEnabledAgentWhenTextLLMIsDefault() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)
         try environment.llmProviderRepository.save(Self.textProvider(isDefault: true))
@@ -57,8 +115,7 @@ final class AppRuntimeTests: XCTestCase {
 
         let selection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
 
-        XCTAssertEqual(selection?.providerID, AgentProviderRegistry.codex.providerID)
-        XCTAssertEqual(selection?.model, "gpt-5.5")
+        XCTAssertNil(selection)
     }
 
     func testAgentComposeIsNotConfiguredWhenCodexRuntimeProviderIsDisabledAndLLMIsMissing() throws {
@@ -233,14 +290,25 @@ final class AppRuntimeTests: XCTestCase {
     }
 
     private static func codexProvider(enabled: Bool, isDefault: Bool = true) -> LLMProviderRecord {
+        localAgentProvider(providerID: AgentProviderRegistry.codex.providerID, enabled: enabled, isDefault: isDefault)
+    }
+
+    private static func localAgentProvider(
+        providerID: String,
+        enabled: Bool,
+        isDefault: Bool = true,
+        defaultModel: String? = nil
+    ) -> LLMProviderRecord {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         return LLMProviderRecord(
-            id: AgentProviderRegistry.codex.providerID,
-            displayName: "Codex",
-            providerType: AgentProviderRegistry.codex.providerID,
-            baseURL: "local://codex",
-            defaultModel: "gpt-5.5",
-            apiKeyRef: "codex-local-runtime",
+            id: providerID,
+            displayName: providerID,
+            providerType: providerID,
+            baseURL: "local://\(providerID)",
+            defaultModel: defaultModel ?? (providerID == AgentProviderRegistry.codex.providerID
+                ? "gpt-5.5"
+                : "deepseek-v4-flash-202605"),
+            apiKeyRef: "\(providerID)-local-runtime",
             temperature: 0.7,
             timeoutSeconds: 60,
             enabled: enabled,

@@ -340,6 +340,82 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.assetGroups.flatMap(\.items).first?.sourceTitle, "AI 编程")
     }
 
+    func testSelectingVoiceTaskBackfillsProviderAndStyleMetadataFromTrace() throws {
+        let now = makeDate(year: 2026, month: 7, day: 2, hour: 4)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "codex-dispatch-task",
+                mode: .agentDispatch,
+                stage: .outputting,
+                status: .completed,
+                targetAppBundleID: "com.openai.codex",
+                targetAppName: "Codex",
+                rawTranscript: "你好，你好。",
+                finalText: "你好。 👋",
+                asrMetadata: VoiceTaskASRMetadata(
+                    providerID: "qwen3_asr",
+                    modelID: "qwen3-asr-1.7b-mlx-8bit",
+                    language: "zh-CN",
+                    audioDurationMs: 2_000
+                ),
+                trace: """
+                {
+                  "llm": {
+                    "providerID": "FC76A5E2-189A-4031-B847-B3DA2D118B98",
+                    "providerName": "deepseek-v4-flash-202605",
+                    "endpoint": "https://tokenhub.tencentmaas.com/v1/chat/completions",
+                    "model": "deepseek-v4-flash-202605",
+                    "temperature": 0,
+                    "timeoutSeconds": 30,
+                    "requestBodyJSON": "{}",
+                    "promptMetadata": {
+                      "promptKind": "structuredCorrection",
+                      "promptVersion": "1.2.1",
+                      "renderedPromptHash": "hash",
+                      "styleID": "builtin.coding"
+                    }
+                  },
+                  "styleRoute": {
+                    "candidateStyleIDs": [],
+                    "selectedStyleID": "builtin.coding",
+                    "styleSelectionSource": "manualRule",
+                    "routerVersion": "1.0.0",
+                    "renderedPromptHash": ""
+                  }
+                }
+                """,
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+        try environment.assetRepository.save(homeAsset(
+            id: "dictation-codex-dispatch-task",
+            source: .dictation,
+            contentType: .text,
+            title: "你好，你好。",
+            text: "你好。 👋",
+            createdAt: now
+        ))
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        viewModel.selectAssetItem(id: "dictation-codex-dispatch-task")
+
+        XCTAssertEqual(viewModel.selectedDetail?.language, "zh-CN")
+        XCTAssertEqual(viewModel.selectedDetail?.asrProviderID, "qwen3_asr")
+        XCTAssertEqual(viewModel.selectedDetail?.llmProviderID, "FC76A5E2-189A-4031-B847-B3DA2D118B98")
+        XCTAssertEqual(viewModel.selectedDetail?.styleID, "builtin.coding")
+        XCTAssertEqual(viewModel.selectedDetail?.durationMS, 2_000)
+    }
+
     func testDeletingDictationAssetAlsoDeletesLegacyHistoryRecord() throws {
         let container = try DependencyContainer.inMemory()
         let environment = AppEnvironment(container: container)

@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowVoiceCorrection
 @testable import VoxFlowApp
 
 @MainActor
@@ -108,7 +109,11 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         )
         let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
 
-        let result = await pipeline.process("raw")
+        let result = await pipeline.process(
+            "raw",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "refined text")
     }
@@ -139,6 +144,21 @@ final class TranscriptionMainChainRegressionTests: XCTestCase {
         XCTAssertTrue(
             prompt.contains("Only output the corrected body text"),
             "Conservative prompt must instruct output-only (no explanations)"
+        )
+    }
+
+    private static func dictationContext(
+        appliesDictationRefinementGuard: Bool = true
+    ) -> CorrectionContext {
+        CorrectionContext(
+            mode: .dictation,
+            providerID: "test-provider",
+            modelID: "test-model",
+            language: "en",
+            bundleIdentifier: "com.example.editor",
+            isFinalTranscript: true,
+            isSecureField: false,
+            appliesDictationRefinementGuard: appliesDictationRefinementGuard
         )
     }
 

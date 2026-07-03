@@ -151,18 +151,21 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
     private let clipboardService: any ClipboardSetting
     private let textInputModeProvider: () -> TextInputMode
     private let lastResultStore: (any LastResultStoring)?
+    private let recentTextOutputRecorder: ((String, DictationTarget?) -> Void)?
 
     init(
         textInsertionCoordinator: any TextInsertionCoordinating,
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
         textInputMode: (() -> TextInputMode)? = nil,
-        lastResultStore: (any LastResultStoring)? = nil
+        lastResultStore: (any LastResultStoring)? = nil,
+        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
     ) {
         self.textInsertionCoordinator = textInsertionCoordinator
         self.clipboardService = clipboardService
         self.textInputModeProvider = textInputMode ?? { defaultTextInputMode }
         self.lastResultStore = lastResultStore
+        self.recentTextOutputRecorder = recentTextOutputRecorder
     }
 
     convenience init(
@@ -170,14 +173,16 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
         textInputMode: (() -> TextInputMode)? = nil,
-        lastResultStore: (any LastResultStoring)? = nil
+        lastResultStore: (any LastResultStoring)? = nil,
+        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
     ) {
         self.init(
             textInsertionCoordinator: TextInsertionCoordinator(fastPasteInserter: textInjector),
             clipboardService: clipboardService,
             defaultTextInputMode: defaultTextInputMode,
             textInputMode: textInputMode,
-            lastResultStore: lastResultStore
+            lastResultStore: lastResultStore,
+            recentTextOutputRecorder: recentTextOutputRecorder
         )
     }
 
@@ -203,6 +208,20 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         originalTarget: DictationTarget?,
         textInputMode: TextInputMode
     ) async -> OutputResult {
+        if mode == .agentCompose {
+            let outputResult: OutputResult = clipboardService.setString(text)
+                ? .copied
+                : .copyFailed(reason: "Clipboard write failed")
+            rememberLastResult(text, mode: mode, result: outputResult)
+            return logged(
+                outputResult,
+                mode: mode,
+                textInputMode: textInputMode,
+                originalTarget: originalTarget,
+                currentTarget: target
+            )
+        }
+
         if targetChanged(original: originalTarget, current: target) {
             guard clipboardService.setString(text) else {
                 let result = OutputResult.copyFailed(
@@ -249,6 +268,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                 : .copyFailed(reason: "\(reason) and clipboard write failed")
         }
         rememberLastResult(text, mode: mode, result: outputResult)
+        recordRecentTextOutputIfNeeded(text, result: outputResult, target: target)
         return logged(
             outputResult,
             mode: mode,
@@ -288,6 +308,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             .injectionFailed(reason: reason)
         }
         rememberLastResult(text, mode: mode, result: outputResult)
+        recordRecentTextOutputIfNeeded(text, result: outputResult, target: nil)
         return logged(
             outputResult,
             mode: mode,
@@ -333,6 +354,15 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         guard mode == .dictation else { return }
         guard result != .cancelled else { return }
         lastResultStore?.setLastResultText(text)
+    }
+
+    private func recordRecentTextOutputIfNeeded(
+        _ text: String,
+        result: OutputResult,
+        target: DictationTarget?
+    ) {
+        guard result.kind == .inserted else { return }
+        recentTextOutputRecorder?(text, target)
     }
 
     private func logged(

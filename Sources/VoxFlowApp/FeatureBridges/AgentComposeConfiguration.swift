@@ -6,6 +6,14 @@ enum AgentComposeConfiguration {
         llmRefinerConfigured: Bool,
         environment: AppEnvironment
     ) -> Bool {
-        llmRefinerConfigured || AppRuntime.selectedAgentRuntimeProvider(environment: environment) != nil
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            settingsRepository: environment.settingsRepository
+        )
+        let runtimeSelection = AppRuntime.selectedAgentRuntimeProvider(environment: environment)
+        return llmRefinerConfigured ||
+            refiner.isAgentComposeConfigured ||
+            runtimeSelection?.isAgentComposeRuntimeEligible == true
     }
 }

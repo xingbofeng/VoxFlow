@@ -9,6 +9,7 @@
 - **Bounded timeout**: The 15 second fallback after right Command release that accepts the latest partial result if no final result arrives.
 - **Refinement**: Optional conservative correction through an OpenAI-compatible API.
 - **Text processing pipeline**: The post-ASR path that applies conservative refinement and future glossary/style rules while preserving fallback to raw text.
+- **Refinement guard**: A post-processing safety check for ordinary dictation refinement that rejects LLM outputs which answer, execute, expand, or drop protected spoken tokens instead of conservatively correcting the ASR text.
 - **PromptBuilder**: The pure builder that combines conservative correction rules, selected style guidance, and enabled glossary terms into an LLM system prompt.
 - **App style rule**: A Settings-backed mapping from target app bundle/name to a style profile used during post-ASR refinement.
 - **ASR Provider**: A descriptor and runtime entry for a speech recognition backend, including capabilities, privacy summary, availability, and fallback behavior.

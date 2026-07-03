@@ -10,12 +10,18 @@ final class AgentHelperManagerTests: XCTestCase {
         XCTAssertEqual(AgentHelperManager.healthDecision(processRunning: true, socketReachable: false), .restart)
     }
 
-    func testCLIRegistrationPlanContainsThreeDocumentedCommands() {
+    func testCLIRegistrationPlanContainsDocumentedCommands() {
         let plan = AgentHelperManager.registrationPlan(
             helperURL: URL(fileURLWithPath: "/Applications/VoxFlow.app/Contents/Helpers/voxflow"),
             binDirectory: URL(fileURLWithPath: "/tmp/VoxFlow/bin")
         )
-        XCTAssertEqual(plan.examples, ["vox flow codex", "vox flow --claude", "vox flow --codebuddy"])
+        XCTAssertEqual(plan.examples, [
+            "vox flow codex",
+            "vox flow opencode",
+            "vox flow --claude",
+            "vox flow --codebuddy",
+            "vox flow pi",
+        ])
         XCTAssertEqual(plan.voxflowDestination.lastPathComponent, "voxflow")
         XCTAssertEqual(plan.voxDestination.lastPathComponent, "vox")
     }
@@ -70,8 +76,10 @@ final class AgentHelperManagerTests: XCTestCase {
         ))
         XCTAssertEqual(status.examples, [
             "vox flow codex",
+            "vox flow opencode",
             "vox flow --claude",
             "vox flow --codebuddy",
+            "vox flow pi",
         ])
     }
 

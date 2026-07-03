@@ -16,6 +16,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter(),
         updatePromptStore: UpdatePromptPresentationStore = UpdatePromptPresentationStore(),
         onCheckForUpdates: @escaping () -> Void = {},
+        onDebugTranscriptInjection: @escaping (String, VoiceTaskMode) -> Void = { _, _ in },
         onClose: @escaping () -> Void = {}
     ) {
         let viewModel = WorkbenchViewModel(environment: environment)
@@ -72,7 +73,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             screenshotRecordViewModel: screenshotRecordViewModel,
             navigationRouter: navigationRouter,
             updatePromptStore: updatePromptStore,
-            onCheckForUpdates: onCheckForUpdates
+            onCheckForUpdates: onCheckForUpdates,
+            onDebugTranscriptInjection: onDebugTranscriptInjection
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(

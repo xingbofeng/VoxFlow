@@ -35,7 +35,8 @@ final class AppTextRuntime {
     init(environment: AppEnvironment) {
         llmRefiner = RepositoryBackedLLMRefiner(
             providerRepository: environment.llmProviderRepository,
-            credentialStore: environment.credentialStore
+            credentialStore: environment.credentialStore,
+            settingsRepository: environment.settingsRepository
         )
         let outputConfiguration = SettingsBackedTextOutputConfiguration(
             settingsRepository: environment.settingsRepository
@@ -63,7 +64,14 @@ final class AppTextRuntime {
             textInputMode: {
                 outputConfiguration.textInputMode()
             },
-            lastResultStore: lastResultStore
+            lastResultStore: lastResultStore,
+            recentTextOutputRecorder: { text, target in
+                clipboardGuard.markRecentTextOutput(
+                    text,
+                    sourceAppName: target?.appName,
+                    sourceAppBundleID: target?.bundleID
+                )
+            }
         )
         styleSelector = SettingsBackedStyleSelector(
             styleRepository: environment.styleRepository,
@@ -377,13 +385,32 @@ struct AppRuntime {
         environment: AppEnvironment
     ) -> AgentRuntimeProviderSelection? {
         let providers = (try? environment.llmProviderRepository.list()) ?? []
-        guard let selected = providers.first(where: { $0.enabled && $0.isCodexRuntimeProvider }) else {
+        guard let selectedID = try? RepositoryBackedLLMRefiner.agentProviderID(
+            settingsRepository: environment.settingsRepository
+        ) else {
+            return nil
+        }
+        let selected = providers.first {
+            $0.enabled &&
+                $0.isLocalAgentProvider &&
+                ($0.id.caseInsensitiveCompare(selectedID) == .orderedSame ||
+                 $0.providerType.caseInsensitiveCompare(selectedID) == .orderedSame)
+        }
+        guard let selected else {
             return nil
         }
         return AgentRuntimeProviderSelection(
-            providerID: AgentProviderRegistry.codex.providerID,
-            model: selected.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : selected.defaultModel
+            providerID: selected.providerType,
+            model: agentRuntimeModelArgument(for: selected)
         )
+    }
+
+    private static func agentRuntimeModelArgument(for provider: LLMProviderRecord) -> String? {
+        guard provider.providerType.caseInsensitiveCompare(AgentProviderRegistry.claude.providerID) != .orderedSame else {
+            return nil
+        }
+        let trimmed = provider.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func startHotwordFileSync(environment: AppEnvironment) {

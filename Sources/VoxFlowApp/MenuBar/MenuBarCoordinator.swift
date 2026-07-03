@@ -5,6 +5,7 @@ struct MenuBarActions {
     let selectLanguage: (RecognitionLanguage) -> Void
     let selectASRMenuOption: (ASRMenuModel) -> Void
     let selectLLMProvider: (String) -> Void
+    let selectAgentProvider: (String) -> Void
     let selectCapabilityModel: (CapabilityModelKind, String) -> Void
     let openWorkbench: () -> Void
     let requestSelectionAction: () -> Void
@@ -18,6 +19,7 @@ struct MenuBarActions {
         selectLanguage: { _ in },
         selectASRMenuOption: { _ in },
         selectLLMProvider: { _ in },
+        selectAgentProvider: { _ in },
         selectCapabilityModel: { _, _ in },
         openWorkbench: {},
         requestSelectionAction: {},
@@ -32,6 +34,7 @@ struct MenuBarActions {
         selectLanguage: @escaping (RecognitionLanguage) -> Void,
         selectASRMenuOption: @escaping (ASRMenuModel) -> Void,
         selectLLMProvider: @escaping (String) -> Void = { _ in },
+        selectAgentProvider: @escaping (String) -> Void = { _ in },
         selectCapabilityModel: @escaping (CapabilityModelKind, String) -> Void = { _, _ in },
         openWorkbench: @escaping () -> Void,
         requestSelectionAction: @escaping () -> Void = {},
@@ -44,6 +47,7 @@ struct MenuBarActions {
         self.selectLanguage = selectLanguage
         self.selectASRMenuOption = selectASRMenuOption
         self.selectLLMProvider = selectLLMProvider
+        self.selectAgentProvider = selectAgentProvider
         self.selectCapabilityModel = selectCapabilityModel
         self.openWorkbench = openWorkbench
         self.requestSelectionAction = requestSelectionAction
@@ -62,6 +66,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     private var languageMenuItems: [NSMenuItem] = []
     private var asrEngineMenuItems: [NSMenuItem] = []
     private let llmProviderMenu = NSMenu()
+    private let agentProviderMenu = NSMenu()
     private let ttsModelMenu = NSMenu()
     private let translationModelMenu = NSMenu()
     private var refiningMenuItem: NSMenuItem!
@@ -72,6 +77,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     private let actions: MenuBarActions
     private let llmProviders: () -> [LLMProviderRecord]
     private let selectedLLMProviderID: () -> String?
+    private let selectedAgentProviderID: () -> String?
     private let capabilityModels: (CapabilityModelKind) -> [CapabilityModelDescriptor]
     private let selectedCapabilityModelID: (CapabilityModelKind) -> String
     private let isCapabilityModelEnabled: (CapabilityModelDescriptor) -> Bool
@@ -84,6 +90,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         actions: MenuBarActions,
         llmProviders: @escaping () -> [LLMProviderRecord] = { [] },
         selectedLLMProviderID: @escaping () -> String? = { nil },
+        selectedAgentProviderID: @escaping () -> String? = { nil },
         capabilityModels: @escaping (CapabilityModelKind) -> [CapabilityModelDescriptor] = {
             CapabilityModelCatalog.models(for: $0)
         },
@@ -99,6 +106,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         self.actions = actions
         self.llmProviders = llmProviders
         self.selectedLLMProviderID = selectedLLMProviderID
+        self.selectedAgentProviderID = selectedAgentProviderID
         self.capabilityModels = capabilityModels
         self.selectedCapabilityModelID = selectedCapabilityModelID
         self.isCapabilityModelEnabled = isCapabilityModelEnabled
@@ -115,8 +123,16 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         AppLogger.general.debug("MenuBarCoordinator menuWillOpen")
-        refreshDynamicState()
-        actions.menuWillOpen()
+        if menu === self.menu {
+            actions.menuWillOpen()
+            refreshDynamicState()
+        } else if menu === llmProviderMenu {
+            actions.menuWillOpen()
+            rebuildLLMProviderMenu()
+        } else if menu === agentProviderMenu {
+            actions.menuWillOpen()
+            rebuildAgentProviderMenu()
+        }
     }
 
     func setRefiningStatusVisible(_ isVisible: Bool) {
@@ -134,8 +150,9 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addASREngineMenu()
         addLLMProviderMenu()
-        addCapabilityModelMenu(title: ttsModelTitle, menu: ttsModelMenu, kind: .tts)
+        addAgentProviderMenu()
         addCapabilityModelMenu(title: translationModelTitle, menu: translationModelMenu, kind: .translation)
+        addCapabilityModelMenu(title: ttsModelTitle, menu: ttsModelMenu, kind: .tts)
         menu.addItem(.separator())
         addCommandItems()
     }
@@ -191,12 +208,25 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     private func addLLMProviderMenu() {
         AppLogger.general.debug("MenuBarCoordinator addLLMProviderMenu")
         llmProviderMenu.autoenablesItems = false
+        llmProviderMenu.delegate = self
         rebuildLLMProviderMenu()
 
         let llmParentItem = NSMenuItem()
         llmParentItem.title = L10n.localize("menu.status.llm_service", comment: "LLM service section title")
         llmParentItem.submenu = llmProviderMenu
         menu.addItem(llmParentItem)
+    }
+
+    private func addAgentProviderMenu() {
+        AppLogger.general.debug("MenuBarCoordinator addAgentProviderMenu")
+        agentProviderMenu.autoenablesItems = false
+        agentProviderMenu.delegate = self
+        rebuildAgentProviderMenu()
+
+        let agentParentItem = NSMenuItem()
+        agentParentItem.title = L10n.localize("menu.status.agent_model", comment: "Agent model section title")
+        agentParentItem.submenu = agentProviderMenu
+        menu.addItem(agentParentItem)
     }
 
     private func addCapabilityModelMenu(title: String, menu: NSMenu, kind: CapabilityModelKind) {
@@ -248,7 +278,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         return item
     }
 
-    private func refreshDynamicState(includeASRState: Bool = true) {
+    func refreshDynamicState(includeASRState: Bool = true) {
         AppLogger.general.debug("MenuBarCoordinator refreshDynamicState includeASRState=\(includeASRState)")
         let language = currentLanguage()
         for item in languageMenuItems {
@@ -262,6 +292,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
             }
         }
         rebuildLLMProviderMenu()
+        rebuildAgentProviderMenu()
         rebuildCapabilityModelMenu(ttsModelMenu, kind: .tts)
         rebuildCapabilityModelMenu(translationModelMenu, kind: .translation)
     }
@@ -269,7 +300,7 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
     private func rebuildLLMProviderMenu() {
         AppLogger.general.debug("MenuBarCoordinator rebuildLLMProviderMenu")
         llmProviderMenu.removeAllItems()
-        let providers = llmProviders()
+        let providers = llmProviders().filter(\.isOpenAICompatibleProvider)
         guard !providers.isEmpty else {
             let item = NSMenuItem(
                 title: L10n.localize("menu.status.llm_service_unavailable", comment: "No LLM service item"),
@@ -280,7 +311,6 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
             llmProviderMenu.addItem(item)
             return
         }
-        let selectedID = selectedLLMProviderID()
         for provider in providers {
             let item = NSMenuItem(
                 title: "\(provider.displayName) · \(provider.defaultModel)",
@@ -289,10 +319,55 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
             )
             item.representedObject = provider.id
             item.target = self
-            item.isEnabled = provider.enabled
-            item.state = provider.id == selectedID ? .on : .off
+            item.isEnabled = isLLMProviderMenuItemEnabled(provider)
+            item.state = provider.enabled &&
+                LLMProviderAvailability.isUsableProvider(provider) &&
+                provider.isDefault ? .on : .off
             llmProviderMenu.addItem(item)
         }
+    }
+
+    private func isLLMProviderMenuItemEnabled(_ provider: LLMProviderRecord) -> Bool {
+        LLMProviderAvailability.isUsableProvider(provider)
+    }
+
+    private func rebuildAgentProviderMenu() {
+        AppLogger.general.debug("MenuBarCoordinator rebuildAgentProviderMenu")
+        agentProviderMenu.removeAllItems()
+        let providers = llmProviders().filter(\.isLocalAgentProvider)
+        guard !providers.isEmpty else {
+            let item = NSMenuItem(
+                title: L10n.localize("menu.status.agent_model_unavailable", comment: "No Agent model item"),
+                action: nil,
+                keyEquivalent: ""
+            )
+            item.isEnabled = false
+            agentProviderMenu.addItem(item)
+            return
+        }
+        let selectedID = selectedAgentProviderID()
+        for provider in providers {
+            let item = NSMenuItem(
+                title: "\(provider.localAgentDisplayName) · \(provider.defaultModel)",
+                action: #selector(selectAgentProvider(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = provider.id
+            item.target = self
+            item.isEnabled = isAgentProviderMenuItemEnabled(provider)
+            item.state = provider.enabled &&
+                provider.hasRequiredLLMConfiguration &&
+                (provider.id.caseInsensitiveCompare(selectedID ?? "") == .orderedSame ||
+                 provider.providerType.caseInsensitiveCompare(selectedID ?? "") == .orderedSame)
+                ? .on
+                : .off
+            agentProviderMenu.addItem(item)
+        }
+    }
+
+    private func isAgentProviderMenuItemEnabled(_ provider: LLMProviderRecord) -> Bool {
+        provider.hasRequiredLLMConfiguration &&
+            provider.lastHealthStatus == "ok"
     }
 
     private func rebuildCapabilityModelMenu(_ menu: NSMenu, kind: CapabilityModelKind) {
@@ -338,6 +413,13 @@ final class MenuBarCoordinator: NSObject, NSMenuDelegate {
         guard let providerID = sender.representedObject as? String else { return }
         AppLogger.general.info("MenuBarCoordinator selectLLMProvider id=\(providerID)")
         actions.selectLLMProvider(providerID)
+        refreshDynamicState()
+    }
+
+    @objc private func selectAgentProvider(_ sender: NSMenuItem) {
+        guard let providerID = sender.representedObject as? String else { return }
+        AppLogger.general.info("MenuBarCoordinator selectAgentProvider id=\(providerID)")
+        actions.selectAgentProvider(providerID)
         refreshDynamicState()
     }
 

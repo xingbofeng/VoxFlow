@@ -151,6 +151,97 @@ final class ClipboardAssetMonitorTests: XCTestCase {
     }
 
     @MainActor
+    func testMonitorIgnoresFastPasteReplacementAfterInternalChangeCountIsLost() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        pasteboard.clearContents()
+        pasteboard.setString("original clipboard", forType: .string)
+
+        _ = PasteboardTransaction.begin(
+            on: pasteboard,
+            replacementText: "What's going on now?"
+        )
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: ClipboardInternalWriteGuard()
+        )
+
+        let item = try monitor.processCurrentPasteboard(
+            changeCount: pasteboard.changeCount,
+            now: date("2026-06-23T10:01:00Z")
+        )
+
+        XCTAssertNil(item)
+        XCTAssertTrue(repository.savedItems.isEmpty)
+    }
+
+    @MainActor
+    func testMonitorIgnoresTextEquivalentToRecentVoiceOutputFromSameApp() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        let guarder = ClipboardInternalWriteGuard()
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: guarder,
+            sourceApplicationProvider: {
+                ClipboardSourceApplication(name: "Ghostty", bundleID: "com.mitchellh.ghostty")
+            }
+        )
+
+        guarder.markRecentTextOutput(
+            "你好。 😊",
+            sourceAppName: "Ghostty",
+            sourceAppBundleID: "com.mitchellh.ghostty",
+            now: date("2026-06-23T10:00:00Z")
+        )
+        pasteboard.clearContents()
+        pasteboard.setString("你好！", forType: .string)
+
+        let item = try monitor.processCurrentPasteboard(
+            changeCount: pasteboard.changeCount,
+            now: date("2026-06-23T10:00:02Z")
+        )
+
+        XCTAssertNil(item)
+        XCTAssertTrue(repository.savedItems.isEmpty)
+    }
+
+    @MainActor
+    func testMonitorPersistsRecentVoiceOutputTextAfterSuppressionWindow() throws {
+        let pasteboard = try makePasteboard()
+        let repository = CapturingAssetRepository()
+        let guarder = ClipboardInternalWriteGuard()
+        let monitor = ClipboardAssetMonitor(
+            pasteboard: pasteboard,
+            repository: repository,
+            internalWriteGuard: guarder,
+            sourceApplicationProvider: {
+                ClipboardSourceApplication(name: "Ghostty", bundleID: "com.mitchellh.ghostty")
+            }
+        )
+
+        guarder.markRecentTextOutput(
+            "你好。 😊",
+            sourceAppName: "Ghostty",
+            sourceAppBundleID: "com.mitchellh.ghostty",
+            now: date("2026-06-23T10:00:00Z")
+        )
+        pasteboard.clearContents()
+        pasteboard.setString("你好！", forType: .string)
+
+        let item = try monitor.processCurrentPasteboard(
+            changeCount: pasteboard.changeCount,
+            now: date("2026-06-23T10:00:08Z")
+        )
+
+        XCTAssertEqual(item?.source, .clipboard)
+        XCTAssertEqual(item?.text, "你好！")
+        XCTAssertEqual(repository.savedItems.count, 1)
+    }
+
+    @MainActor
     func testFastPasteInternalWritesDoNotChangeHomeAssetStatistics() throws {
         let pasteboard = try makePasteboard()
         let container = try DependencyContainer.inMemory()

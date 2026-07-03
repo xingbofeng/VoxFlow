@@ -159,6 +159,22 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         XCTAssertEqual(recorder.decisions, [.releaseDictation(.dictation)])
     }
 
+    func testSecondShortPressWhileRecordingReleasesActiveActionEvenWhenPrimaryActionChanges() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .recording
+        recorder.activeVoiceAction = .dictation
+        recorder.primaryVoiceAction = .agentDispatch
+        recorder.shortPressBehavior = .toggleListening
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+        recorder.shortPressHandler?(.dictation)
+
+        XCTAssertEqual(recorder.cancelCount, 1)
+        XCTAssertEqual(recorder.decisions, [.releaseDictation(.dictation)])
+    }
+
     func testShortPressIsIgnoredWhenToggleIsDisabled() {
         let recorder = HotKeyFeatureRecorder()
         recorder.dictationState = .idle
@@ -213,6 +229,32 @@ final class HotKeyFeatureControllerTests: XCTestCase {
 
         XCTAssertEqual(recorder.cancelCount, 1)
         XCTAssertEqual(recorder.decisions, [.releaseDictation(.dictation)])
+    }
+
+    func testReleaseIsIgnoredWhileProcessing() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .processing
+        recorder.activeVoiceAction = .dictation
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.releaseHandler?(.dictation)
+
+        XCTAssertEqual(recorder.cancelCount, 1)
+        XCTAssertTrue(recorder.decisions.isEmpty)
+    }
+
+    func testReleaseIsIgnoredWhileInjecting() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .injecting
+        recorder.activeVoiceAction = .dictation
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.releaseHandler?(.dictation)
+
+        XCTAssertEqual(recorder.cancelCount, 1)
+        XCTAssertTrue(recorder.decisions.isEmpty)
     }
 
     func testShortPressCancelsDelayedPressAndPerformsShortPressDecision() {

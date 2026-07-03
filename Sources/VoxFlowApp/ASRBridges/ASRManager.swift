@@ -52,6 +52,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     private let defaults: UserDefaults
+    private let settingsRepository: (any SettingsRepository)?
     private let modelInstallationRepository: (any ModelInstallationStateStoring)?
     private let qwen3RuntimePreflight: (ModelSize) -> Qwen3RuntimePreflightResult
     private let cloudCredentials: ASRCloudCredentialManager
@@ -73,6 +74,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     static let groqAPIKeyAccount = "asr.groq.api-key"
+    private static let legacyGroqAPIKeyAccounts = ["groq-key"]
     static let tencentAppIDAccount = "asr.tencent.app-id"
     static let tencentSecretIDAccount = "asr.tencent.secret-id"
     static let tencentSecretKeyAccount = "asr.tencent.secret-key"
@@ -181,10 +183,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         modelStoreRoot: URL? = nil
     ) {
         self.defaults = defaults
+        self.settingsRepository = settingsRepository
         self.modelInstallationRepository = modelInstallationRepository ?? Self.defaultModelInstallationRepository(for: defaults)
         cloudCredentials = ASRCloudCredentialManager(
             credentialStore: credentialStore,
-            settingsRepository: settingsRepository
+            settingsRepository: settingsRepository,
+            legacyAccountAliases: [
+                Self.groqAPIKeyAccount: Self.legacyGroqAPIKeyAccounts,
+            ]
         )
         self.qwen3RuntimePreflight = qwen3RuntimePreflight
         self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
@@ -1066,7 +1072,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .qwen3)
         )
     }
 
@@ -1091,7 +1099,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .whisper)
         )
     }
 
@@ -1115,7 +1125,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .funASR)
         )
     }
 
@@ -1135,7 +1147,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .senseVoice)
         )
     }
 
@@ -1155,7 +1169,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .paraformer)
         )
     }
 
@@ -1179,7 +1195,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .nvidiaNemotron)
         )
     }
 
@@ -1199,7 +1217,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .parakeetStreaming)
         )
     }
 
@@ -1219,8 +1239,50 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let descriptor = provider.descriptor
         return ASRCoreBackedASREngine(
             provider: provider,
-            defaultLanguage: descriptor.supportedLanguages[0]
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .omnilingualASR)
         )
+    }
+
+    private func localModelLivePreviewEnabled() -> Bool {
+        storedSystemOption(.localModelLivePreview)
+    }
+
+    private func releaseLocalModelResourcesIfNeeded(for engineType: ASREngineType) -> @Sendable () async -> Void {
+        let autoReleaseEnabled = storedSystemOption(.autoReleaseLocalModel)
+        return {
+            guard autoReleaseEnabled else { return }
+            switch engineType {
+            case .qwen3:
+                await SpeechSwiftQwen3StreamingSessionFactory.releaseSharedModels()
+                AppLogger.general.info("Released idle Qwen3 local model cache")
+            case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao,
+                 .funASR, .whisper, .senseVoice, .paraformer, .nvidiaNemotron,
+                 .parakeetStreaming, .omnilingualASR:
+                AppLogger.general.debug("No shared local model cache to release for \(engineType.rawValue)")
+            }
+        }
+    }
+
+    private func storedSystemOption(_ option: SettingsSystemOption) -> Bool {
+        if let repositoryValue = storedBool(forKey: option.rawValue) {
+            return repositoryValue
+        }
+        return defaults.object(forKey: option.rawValue) as? Bool ?? option.defaultValue
+    }
+
+    private func storedBool(forKey key: String) -> Bool? {
+        struct StoredBool: Decodable {
+            let value: Bool
+        }
+
+        guard let valueJSON = try? settingsRepository?.value(forKey: key),
+              let data = valueJSON.data(using: .utf8),
+              let stored = try? JSONDecoder().decode(StoredBool.self, from: data) else {
+            return nil
+        }
+        return stored.value
     }
 
     private func isQwen3ValidatedModelPath(_ path: String, size: ModelSize) -> Bool {

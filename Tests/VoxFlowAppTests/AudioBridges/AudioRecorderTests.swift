@@ -1,4 +1,5 @@
 import AVFoundation
+import VoxFlowAudio
 import XCTest
 @testable import VoxFlowApp
 
@@ -83,6 +84,23 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(copiedSamples[3], 0.4, accuracy: 0.0001)
     }
 
+    func testCopiedInterleavedStereoBufferCanBeConvertedForCloudASR() throws {
+        let original = try makeInterleavedStereoBuffer(
+            frameCount: 4_800,
+            left: 0.25,
+            right: 0.75
+        )
+
+        let copy = try XCTUnwrap(AudioRecorder.copyBuffer(original))
+        let converter = try PersistentAudioConverter()
+        var output = try converter.convert(copy)
+        output.append(contentsOf: try converter.finish())
+
+        XCTAssertGreaterThan(output.count, 0)
+        let average = output.reduce(Float(0), +) / Float(output.count)
+        XCTAssertEqual(average, 0.5, accuracy: 0.05)
+    }
+
     func testCapturedAudioIsDeliveredThroughInjectedDispatcherAfterCopying() throws {
         let dispatcher = AudioRecorderDispatchProbe()
         let recorder = AudioRecorder(eventDispatcher: dispatcher.makeDispatcher())
@@ -165,6 +183,32 @@ final class AudioRecorderTests: XCTestCase {
         let channel = try XCTUnwrap(buffer.floatChannelData?[0])
         for (index, sample) in samples.enumerated() {
             channel[index] = sample
+        }
+        return buffer
+    }
+
+    private func makeInterleavedStereoBuffer(
+        frameCount: Int,
+        left: Float,
+        right: Float
+    ) throws -> AVAudioPCMBuffer {
+        let format = try XCTUnwrap(AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 2,
+            interleaved: true
+        ))
+        let buffer = try XCTUnwrap(
+            AVAudioPCMBuffer(
+                pcmFormat: format,
+                frameCapacity: AVAudioFrameCount(frameCount)
+            )
+        )
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+        let interleaved = try XCTUnwrap(buffer.floatChannelData?[0])
+        for frameIndex in 0..<frameCount {
+            interleaved[frameIndex * 2] = left
+            interleaved[frameIndex * 2 + 1] = right
         }
         return buffer
     }

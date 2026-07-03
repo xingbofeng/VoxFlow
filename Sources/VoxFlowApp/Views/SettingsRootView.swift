@@ -120,6 +120,7 @@ struct SettingsRootView: View {
     @ObservedObject var llmProviderViewModel: LLMProviderViewModel
     @ObservedObject var asrProviderViewModel: ASRProviderViewModel
     let onCheckForUpdates: () -> Void
+    let onDebugTranscriptInjection: (String, VoiceTaskMode) -> Void
     @StateObject private var ttsCapabilityModelViewModel = CapabilityModelViewModel(kind: .tts)
     @StateObject private var translationCapabilityModelViewModel = CapabilityModelViewModel(kind: .translation)
     @State private var recordingShortcutBinding: ShortcutBinding?
@@ -134,6 +135,11 @@ struct SettingsRootView: View {
     @State private var openDropdown: SettingsDropdown?
     @State private var textProcessingThresholdEditor: TextProcessingThresholdEditor?
     @State private var pendingInterfaceLanguage: AppLanguage?
+    @State private var selectedModelTab: SettingsModelTab = .asr
+    #if DEBUG
+    @State private var debugTranscriptText = L10n.localize("debug.transcript_injection.default_text", comment: "Default debug transcript")
+    @State private var debugTranscriptMode: VoiceTaskMode = .agentCompose
+    #endif
     @AppStorage(RepositoryBackedLLMRefiner.enabledDefaultsKey) private var llmCorrectionEnabled = false
     @AppStorage(ContextBoostSettings.enabledDefaultsKey) private var contextBoostEnabled = ContextBoostSettings.defaultEnabled
 
@@ -143,9 +149,9 @@ struct SettingsRootView: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text(viewModel.selectedSection.pageTitle)
+                    Text(currentPageTitle)
                         .font(.system(size: 30, weight: .bold))
-                    sectionContent
+                    settingsContent
                 }
                 .padding(30)
                 .frame(maxWidth: 1_080, alignment: .topLeading)
@@ -246,6 +252,10 @@ struct SettingsRootView: View {
         .onChange(of: llmProviderViewModel.providers) { _, _ in
             syncTranslationLLMAvailability()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .llmProviderSelectionDidChange)) { _ in
+            llmProviderViewModel.load()
+            syncTranslationLLMAvailability()
+        }
         .onDisappear {
             stopShortcutRecording()
         }
@@ -316,27 +326,15 @@ struct SettingsRootView: View {
         L10n.localize("settings.task.unresolved_behavior_help", comment: "Unresolved behavior help text")
     }
 
+    private var currentPageTitle: String {
+        viewModel.selectedDestination.pageTitle
+    }
+
     private var settingsSidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sidebarGroupTitle(L10n.localize("settings.task.sidebar.group.app", comment: "Sidebar section group title"))
-
-            settingsSidebarButton(.general)
-            settingsSidebarButton(.vibeCoding)
-            settingsSidebarButton(.system)
-            settingsSidebarButton(.textProcessing)
-
-            sidebarGroupTitle(L10n.localize("settings.task.sidebar.group.models", comment: "Sidebar section group title"))
-                .padding(.top, 16)
-
-            settingsSidebarButton(.dictationModels)
-            settingsSidebarButton(.correctionModels)
-            settingsSidebarButton(.ttsModels)
-            settingsSidebarButton(.translationModels)
-
-            sidebarGroupTitle(L10n.localize("settings.task.sidebar.group.data_privacy", comment: "Sidebar section group title"))
-                .padding(.top, 16)
-
-            settingsSidebarButton(.dataPrivacy)
+            ForEach(SettingsDestination.allCases) { destination in
+                settingsSidebarButton(destination)
+            }
             Spacer()
             Text("v\(AppVersionInfo.current().displayText)")
                 .font(.system(size: 12, weight: .medium))
@@ -349,26 +347,27 @@ struct SettingsRootView: View {
     }
 
     @ViewBuilder
-    private var sectionContent: some View {
-        switch viewModel.selectedSection {
+    private var settingsContent: some View {
+        destinationContent
+    }
+
+    @ViewBuilder
+    private var destinationContent: some View {
+        switch viewModel.selectedDestination {
+        case .voice:
+            voiceSettingsPage
+        case .text:
+            textSettingsPage
+        case .screenshot:
+            screenshotSettingsPage
+        case .translation:
+            translationSettingsPage
+        case .agent:
+            agentSettingsPage
+        case .models:
+            modelsSettingsPage
         case .general:
-            generalSection
-        case .vibeCoding:
-            vibeCodingSection
-        case .dictationModels:
-            dictationModelsSection
-        case .correctionModels:
-            correctionModelsSection
-        case .ttsModels:
-            ttsModelsSection
-        case .translationModels:
-            translationModelsSection
-        case .system:
-            systemSection
-        case .textProcessing:
-            textProcessingSection
-        case .dataPrivacy:
-            dataPrivacySection
+            generalSettingsPage
         }
     }
 
@@ -380,69 +379,6 @@ struct SettingsRootView: View {
             tint: AppTheme.ColorToken.accent
         ) {
             ASRProviderView(viewModel: asrProviderViewModel, embedded: true)
-        }
-    }
-
-    private var correctionModelsSection: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SettingsGroupCard(
-                title: L10n.localize("settings.task.correction.title", comment: "Correction section title"),
-                subtitle: L10n.localize("settings.task.correction.subtitle", comment: "Correction section subtitle"),
-                systemImage: "sparkles",
-                tint: .blue
-            ) {
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.correction.llm.title", comment: "Enable AI correction title"),
-                    subtitle: L10n.localize("settings.task.correction.llm.subtitle", comment: "Enable AI correction subtitle"),
-                    systemImage: "sparkles",
-                    tint: .blue,
-                    isOn: $llmCorrectionEnabled
-                )
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.correction.context_boost.title", comment: "Context boost title"),
-                    subtitle: L10n.localize("settings.task.correction.context_boost.subtitle", comment: "Context boost subtitle"),
-                    systemImage: "text.viewfinder",
-                    tint: .indigo,
-                    isOn: $contextBoostEnabled
-                )
-                LLMProviderView(viewModel: llmProviderViewModel, embedded: true)
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.task.easy_word.title", comment: "Easy word correction title"),
-                subtitle: L10n.localize("settings.task.easy_word.subtitle", comment: "Easy word correction subtitle"),
-                systemImage: "text.badge.checkmark",
-                tint: AppTheme.ColorToken.accent
-            ) {
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.easy_word.enable.title", comment: "Enable easy word correction title"),
-                    subtitle: L10n.localize("settings.task.easy_word.enable.subtitle", comment: "Enable easy word correction subtitle"),
-                    systemImage: "checkmark.shield",
-                    tint: AppTheme.ColorToken.accent,
-                    isOn: voiceCorrectionEnabledBinding
-                )
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.easy_word.auto_learning.title", comment: "Auto learning title"),
-                    subtitle: L10n.localize("settings.task.easy_word.auto_learning.subtitle", comment: "Auto learning subtitle"),
-                    systemImage: "sparkle.magnifyingglass",
-                    tint: .orange,
-                    isOn: voiceCorrectionAutoLearningBinding
-                )
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.easy_word.auto_learning_immediate.title", comment: "Auto learning immediate title"),
-                    subtitle: L10n.localize("settings.task.easy_word.auto_learning_immediate.subtitle", comment: "Auto learning immediate subtitle"),
-                    systemImage: "bolt.badge.checkmark",
-                    tint: .green,
-                    isOn: voiceCorrectionAutoLearningImmediateBinding
-                )
-                SettingsToggleRow(
-                    title: L10n.localize("settings.task.easy_word.shadow_mode.title", comment: "Shadow mode title"),
-                    subtitle: L10n.localize("settings.task.easy_word.shadow_mode.subtitle", comment: "Shadow mode subtitle"),
-                    systemImage: "shield.lefthalf.filled",
-                    tint: .orange,
-                    isOn: voiceCorrectionShadowModeBinding
-                )
-            }
         }
     }
 
@@ -468,183 +404,786 @@ struct SettingsRootView: View {
         }
     }
 
-    private var generalSection: some View {
+    private var voiceSettingsPage: some View {
         VStack(alignment: .leading, spacing: 22) {
-            inputLanguageCard
-                .frame(maxWidth: .infinity, alignment: .leading)
+            voiceInputCard
+            voiceShortcutCard
+            voiceAudioCard
+            voiceOutputCard
+            voiceRuntimeCard
+        }
+    }
 
-            SettingsGroupCard(
-                title: L10n.localize("settings.general.shortcuts.title", comment: "Shortcuts card title"),
-                subtitle: L10n.localize("settings.general.shortcuts.subtitle", comment: "Shortcuts card subtitle"),
-                systemImage: "keyboard",
-                tint: .purple
-            ) {
-                VStack(alignment: .leading, spacing: 12) {
-                    shortcutGroupHeader(
-                        title: L10n.localize("settings.general.voice_shortcut.title", comment: "Voice shortcut group title"),
-                        subtitle: L10n.localize("settings.general.voice_shortcut.subtitle", comment: "Voice shortcut group subtitle")
-                    )
+    private var textSettingsPage: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            textActionShortcutCard
+            textProcessingSection
+            textAIBehaviorCard
+            vocabularyBehaviorCard
+        }
+    }
 
-                    actionShortcutRow(
-                        action: .dictation,
-                        title: L10n.localize("settings.general.dictation.title", comment: "Dictation action row title"),
-                        subtitle: L10n.localize("settings.general.dictation.subtitle", comment: "Dictation action row subtitle"),
-                        buttonTitle: L10n.localize("settings.general.dictation.button_title", comment: "Dictation action row button")
-                    )
+    private var screenshotSettingsPage: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            screenshotShortcutCard
+            screenshotBehaviorCard
+        }
+    }
 
-                    Divider()
-                        .padding(.leading, 70)
+    private var translationSettingsPage: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.task.selection.group.title", comment: "Selection shortcuts group title"),
+            subtitle: L10n.localize("settings.task.selection.group.subtitle", comment: "Selection shortcuts group subtitle"),
+            systemImage: "text.cursor",
+            tint: .teal
+        ) {
+            selectionAssistantShortcutRows
+        }
+    }
 
-                    actionShortcutRow(
-                        action: .agentCompose,
-                        title: L10n.localize("settings.general.agent_compose.title", comment: "Agent compose action row title"),
-                        subtitle: L10n.localize("settings.general.agent_compose.subtitle", comment: "Agent compose action row subtitle"),
-                        buttonTitle: L10n.localize("settings.general.agent_compose.button_title", comment: "Agent compose action row button"),
-                        badge: L10n.localize("settings.general.agent_compose.badge", comment: "Agent compose badge text"),
-                        prominentWhenUnbound: true
-                    )
+    private var selectionAssistantShortcutRows: some View {
+        ForEach(SettingsShortcutGroup.selectionAssistantWorkflowShortcuts.indices, id: \.self) { index in
+            if index > 0 {
+                Divider().padding(.leading, 70)
+            }
+            selectionAssistantShortcutRow(SettingsShortcutGroup.selectionAssistantWorkflowShortcuts[index])
+        }
+    }
 
-                    Divider()
-                        .padding(.leading, 70)
+    private func selectionAssistantShortcutRow(_ shortcut: HotKeyWorkflowShortcut) -> some View {
+        let presentation = selectionAssistantShortcutPresentation(for: shortcut)
+        return workflowShortcutRow(
+            shortcut: shortcut,
+            title: presentation.title,
+            subtitle: presentation.subtitle,
+            systemImage: presentation.systemImage,
+            tint: presentation.tint
+        )
+    }
 
-                    SettingsToggleRow(
-                        title: L10n.localize("settings.general.middle_mouse.title", comment: "Middle mouse button recording title"),
-                        subtitle: L10n.localize("settings.general.middle_mouse.subtitle", comment: "Middle mouse button recording subtitle"),
-                        systemImage: "computermouse",
-                        tint: .blue,
-                        isOn: middleMouseRecordingBinding
-                    )
+    private func selectionAssistantShortcutPresentation(
+        for shortcut: HotKeyWorkflowShortcut
+    ) -> (title: String, subtitle: String, systemImage: String, tint: Color) {
+        switch shortcut {
+        case .selectionAction:
+            return (
+                L10n.localize("settings.task.selection.action.title", comment: "Selection action title"),
+                L10n.localize("settings.task.selection.action.subtitle", comment: "Selection action subtitle"),
+                "text.cursor",
+                .teal
+            )
+        case .selectionSummarize:
+            return (
+                L10n.localize("settings.task.selection.summarize.title", comment: "Direct summarize title"),
+                L10n.localize("settings.task.selection.summarize.subtitle", comment: "Direct summarize subtitle"),
+                "text.alignleft",
+                .orange
+            )
+        case .selectionAgent:
+            return (
+                L10n.localize("settings.task.selection.agent.title", comment: "Send to task assistant title"),
+                L10n.localize("settings.task.selection.agent.subtitle", comment: "Send to task assistant subtitle"),
+                "terminal",
+                AppTheme.ColorToken.accent
+            )
+        case .selectionAskAI:
+            return (
+                L10n.localize("settings.task.selection.ask_ai.title", comment: "Ask AI title"),
+                L10n.localize("settings.task.selection.ask_ai.subtitle", comment: "Ask AI subtitle"),
+                "sparkles",
+                .purple
+            )
+        default:
+            return (
+                "",
+                "",
+                "keyboard",
+                AppTheme.ColorToken.secondaryText
+            )
+        }
+    }
 
-                    Divider()
-                        .padding(.leading, 2)
+    private var agentSettingsPage: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            agentShortcutCard
+            workbenchSettingsCard
+            vibeCodingSection
+        }
+    }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 14) {
-                            Text(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode title"))
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(AppTheme.ColorToken.primaryText)
-                            Picker(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode picker label"), selection: shortPressTriggerBinding) {
-                                Text(L10n.localize("settings.general.trigger_mode.hold", comment: "Trigger mode: hold"))
-                                    .tag(false)
-                                Text(L10n.localize("settings.general.trigger_mode.toggle", comment: "Trigger mode: toggle"))
-                                    .tag(true)
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(width: 220)
-                            Spacer(minLength: 0)
-                        }
-                        Text(viewModel.shortcutConflict
-                            ? L10n.localize("settings.general.shortcut_conflict", comment: "Shortcut conflict warning")
-                            : L10n.localize("settings.general.shortcut_help", comment: "Shortcut behavior help"))
-                            .font(.system(size: 12))
-                            .foregroundStyle(viewModel.shortcutConflict ? Color.red : AppTheme.ColorToken.secondaryText)
-                    }
-                    .padding(12)
-                    .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+    private var modelsSettingsPage: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            modelTabBar
+                .frame(maxWidth: 680, alignment: .leading)
 
-                    Divider()
-                        .padding(.leading, 2)
+            switch selectedModelTab {
+            case .asr:
+                dictationModelsSection
+            case .llm:
+                llmModelsSection
+            case .agent:
+                agentModelsSection
+            case .translation:
+                translationModelsSection
+            case .tts:
+                ttsModelsSection
+            }
+        }
+    }
 
-                    shortcutGroupHeader(
-                        title: L10n.localize("settings.task.workflow.group.title", comment: "Workflow shortcuts group title"),
-                        subtitle: L10n.localize("settings.task.workflow.group.subtitle", comment: "Workflow shortcuts group subtitle")
-                    )
-
-                    workflowShortcutRow(
-                        shortcut: .palette,
-                        title: L10n.localize("settings.task.workflow.palette.title", comment: "Command palette workflow title"),
-                        subtitle: L10n.localize("settings.task.workflow.palette.subtitle", comment: "Command palette workflow subtitle"),
-                        systemImage: "rectangle.grid.1x2",
-                        tint: .teal
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .clipboardImageOCR,
-                        title: L10n.localize("settings.task.workflow.clipboard_image.title", comment: "Clipboard image OCR title"),
-                        subtitle: L10n.localize("settings.task.workflow.clipboard_image.subtitle", comment: "Clipboard image OCR subtitle"),
-                        systemImage: "doc.viewfinder",
-                        tint: .indigo
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .screenshotOCR,
-                        title: L10n.localize("settings.task.workflow.screenshot.title", comment: "Screenshot OCR title"),
-                        subtitle: L10n.localize("settings.task.workflow.screenshot.subtitle", comment: "Screenshot OCR subtitle"),
-                        systemImage: "text.viewfinder",
-                        tint: .orange
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    shortcutGroupHeader(
-                        title: L10n.localize("settings.task.selection.group.title", comment: "Selection shortcuts group title"),
-                        subtitle: L10n.localize("settings.task.selection.group.subtitle", comment: "Selection shortcuts group subtitle")
-                    )
-
-                    workflowShortcutRow(
-                        shortcut: .selectionAction,
-                        title: L10n.localize("settings.task.selection.action.title", comment: "Selection action title"),
-                        subtitle: L10n.localize("settings.task.selection.action.subtitle", comment: "Selection action subtitle"),
-                        systemImage: "text.cursor",
-                        tint: .teal
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .selectionTranslate,
-                        title: L10n.localize("settings.task.selection.translate.title", comment: "Direct translate title"),
-                        subtitle: L10n.localize("settings.task.selection.translate.subtitle", comment: "Direct translate subtitle"),
-                        systemImage: "translate",
-                        tint: .teal
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .selectionSummarize,
-                        title: L10n.localize("settings.task.selection.summarize.title", comment: "Direct summarize title"),
-                        subtitle: L10n.localize("settings.task.selection.summarize.subtitle", comment: "Direct summarize subtitle"),
-                        systemImage: "text.alignleft",
-                        tint: .orange
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .selectionAgent,
-                        title: L10n.localize("settings.task.selection.agent.title", comment: "Send to task assistant title"),
-                        subtitle: L10n.localize("settings.task.selection.agent.subtitle", comment: "Send to task assistant subtitle"),
-                        systemImage: "terminal",
-                        tint: AppTheme.ColorToken.accent
-                    )
-
-                    Divider()
-                        .padding(.leading, 70)
-
-                    workflowShortcutRow(
-                        shortcut: .selectionAskAI,
-                        title: L10n.localize("settings.task.selection.ask_ai.title", comment: "Ask AI title"),
-                        subtitle: L10n.localize("settings.task.selection.ask_ai.subtitle", comment: "Ask AI subtitle"),
-                        systemImage: "sparkles",
-                        tint: .purple
-                    )
+    private var modelTabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(SettingsModelTab.allCases) { tab in
+                Button {
+                    selectedModelTab = tab
+                } label: {
+                    Text(tab.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(selectedModelTab == tab ? Color.white : AppTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(selectedModelTab == tab ? AppTheme.ColorToken.accent : Color.clear)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(AppTheme.ColorToken.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.panelStroke)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+    }
+
+    private var generalSettingsPage: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            generalBasicsCard
+            localModelsSection
+            permissionsCard
+            privacyCard
+            appDataCard
+            diagnosticsCard
+            appUpdateCard
+            #if DEBUG
+            debugTranscriptInjectionCard
+            #endif
+        }
+    }
+
+    private var workbenchSettingsCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.workbench.group.title", comment: "Workbench settings group title"),
+            subtitle: L10n.localize("settings.workbench.group.subtitle", comment: "Workbench settings group subtitle"),
+            systemImage: "rectangle.grid.1x2",
+            tint: .teal
+        ) {
+            workflowShortcutRow(
+                shortcut: .palette,
+                title: L10n.localize("settings.task.workflow.palette.title", comment: "Command palette workflow title"),
+                subtitle: L10n.localize("settings.task.workflow.palette.subtitle", comment: "Command palette workflow subtitle"),
+                systemImage: "rectangle.grid.1x2",
+                tint: .teal
+            )
+            systemToggle(
+                .hideDockIconWhenWorkbenchCloses,
+                L10n.localize("settings.appearance.hide_dock_icon.title", comment: ""),
+                L10n.localize("settings.appearance.hide_dock_icon.subtitle", comment: ""),
+                "dock.rectangle",
+                tint: .teal
+            )
+        }
+    }
+
+    private var voiceInputCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.task.input_language.title", comment: "Input and language title"),
+            subtitle: L10n.localize("settings.task.input_language.subtitle", comment: "Input and language subtitle"),
+            systemImage: "mic",
+            tint: .orange
+        ) {
+            VStack(spacing: 12) {
+                inputDeviceRow
+                recognitionLanguageRow
+            }
+        }
+    }
+
+    private var voiceShortcutCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.general.voice_shortcut.title", comment: "Voice shortcut group title"),
+            subtitle: L10n.localize("settings.general.voice_shortcut.subtitle", comment: "Voice shortcut group subtitle"),
+            systemImage: "keyboard",
+            tint: .purple
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                actionShortcutRow(
+                    action: .dictation,
+                    title: L10n.localize("settings.general.dictation.title", comment: "Dictation action row title"),
+                    subtitle: L10n.localize("settings.general.dictation.subtitle", comment: "Dictation action row subtitle"),
+                    buttonTitle: L10n.localize("settings.general.dictation.button_title", comment: "Dictation action row button")
+                )
+
+                Divider().padding(.leading, 70)
+
+                SettingsToggleRow(
+                    title: L10n.localize("settings.general.middle_mouse.title", comment: "Middle mouse button recording title"),
+                    subtitle: L10n.localize("settings.general.middle_mouse.subtitle", comment: "Middle mouse button recording subtitle"),
+                    systemImage: "computermouse",
+                    tint: .blue,
+                    isOn: middleMouseRecordingBinding
+                )
+
+                Divider().padding(.leading, 2)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 14) {
+                        Text(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode title"))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        Picker(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode picker label"), selection: shortPressTriggerBinding) {
+                            Text(L10n.localize("settings.general.trigger_mode.hold", comment: "Trigger mode: hold"))
+                                .tag(false)
+                            Text(L10n.localize("settings.general.trigger_mode.toggle", comment: "Trigger mode: toggle"))
+                                .tag(true)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(width: 220)
+                        Spacer(minLength: 0)
+                    }
+                    Text(viewModel.shortcutConflict
+                        ? L10n.localize("settings.general.shortcut_conflict", comment: "Shortcut conflict warning")
+                        : L10n.localize("settings.general.shortcut_help", comment: "Shortcut behavior help"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(viewModel.shortcutConflict ? Color.red : AppTheme.ColorToken.secondaryText)
+                }
+                .padding(12)
+                .background(AppTheme.ColorToken.panelBackground.opacity(0.65))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            }
+        }
+    }
+
+    private var voiceAudioCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.audio.group_feedback.title", comment: ""),
+            subtitle: L10n.localize("settings.audio.group_feedback.subtitle", comment: ""),
+            systemImage: "speaker.wave.2",
+            tint: .blue
+        ) {
+            SettingsToggleRow(
+                title: L10n.localize("settings.audio.mute_toggle.title", comment: ""),
+                subtitle: L10n.localize("settings.audio.mute_toggle.subtitle", comment: ""),
+                systemImage: "speaker.slash",
+                tint: .blue,
+                isOn: muteBinding
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.audio.feedback_tone.title", comment: ""),
+                subtitle: L10n.localize("settings.audio.feedback_tone.subtitle", comment: ""),
+                systemImage: "bell",
+                tint: .blue,
+                isOn: soundBinding
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.audio.enable_enhancement.title", comment: ""),
+                subtitle: L10n.localize("settings.audio.enable_enhancement.subtitle", comment: ""),
+                systemImage: "waveform.path",
+                tint: .green,
+                isOn: enhancementBinding
+            )
+        }
+    }
+
+    private var voiceOutputCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.output.group_title", comment: ""),
+            subtitle: L10n.localize("settings.output.group_subtitle", comment: ""),
+            systemImage: "textformat",
+            tint: .indigo
+        ) {
+            SettingsTextInputModeRow(
+                selectedMode: normalizedTextInputMode,
+                onSelect: { mode in
+                    perform {
+                        try viewModel.setTextInputMode(mode)
+                    }
+                }
+            )
+        }
+    }
+
+    private var voiceRuntimeCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.system.performance_title", comment: ""),
+            subtitle: L10n.localize("settings.system.performance_subtitle", comment: ""),
+            systemImage: "bolt",
+            tint: .yellow
+        ) {
+            systemToggle(
+                .keepMicrophoneActive,
+                L10n.localize("settings.system.keep_microphone_active.title", comment: ""),
+                L10n.localize("settings.system.keep_microphone_active.subtitle", comment: ""),
+                "bolt",
+                tint: .yellow
+            )
+        }
+    }
+
+    private var textActionShortcutCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.task.selection.group.title", comment: "Selection shortcuts group title"),
+            subtitle: L10n.localize("settings.task.selection.group.subtitle", comment: "Selection shortcuts group subtitle"),
+            systemImage: "text.cursor",
+            tint: .teal
+        ) {
+            workflowShortcutRow(
+                shortcut: .selectionAction,
+                title: L10n.localize("settings.task.selection.action.title", comment: "Selection action title"),
+                subtitle: L10n.localize("settings.task.selection.action.subtitle", comment: "Selection action subtitle"),
+                systemImage: "text.cursor",
+                tint: .teal
+            )
+            Divider().padding(.leading, 70)
+            workflowShortcutRow(
+                shortcut: .selectionSummarize,
+                title: L10n.localize("settings.task.selection.summarize.title", comment: "Direct summarize title"),
+                subtitle: L10n.localize("settings.task.selection.summarize.subtitle", comment: "Direct summarize subtitle"),
+                systemImage: "text.alignleft",
+                tint: .orange
+            )
+            Divider().padding(.leading, 70)
+            workflowShortcutRow(
+                shortcut: .selectionAskAI,
+                title: L10n.localize("settings.task.selection.ask_ai.title", comment: "Ask AI title"),
+                subtitle: L10n.localize("settings.task.selection.ask_ai.subtitle", comment: "Ask AI subtitle"),
+                systemImage: "sparkles",
+                tint: .purple
+            )
+        }
+    }
+
+    private var textAIBehaviorCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.task.correction.title", comment: "Correction section title"),
+            subtitle: L10n.localize("settings.task.correction.subtitle", comment: "Correction section subtitle"),
+            systemImage: "sparkles",
+            tint: .blue
+        ) {
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.correction.llm.title", comment: "Enable AI correction title"),
+                subtitle: L10n.localize("settings.task.correction.llm.subtitle", comment: "Enable AI correction subtitle"),
+                systemImage: "sparkles",
+                tint: .blue,
+                isOn: $llmCorrectionEnabled
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.correction.context_boost.title", comment: "Context boost title"),
+                subtitle: L10n.localize("settings.task.correction.context_boost.subtitle", comment: "Context boost subtitle"),
+                systemImage: "text.viewfinder",
+                tint: .indigo,
+                isOn: $contextBoostEnabled
+            )
+        }
+    }
+
+    private var vocabularyBehaviorCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.task.easy_word.title", comment: "Easy word correction title"),
+            subtitle: L10n.localize("settings.task.easy_word.subtitle", comment: "Easy word correction subtitle"),
+            systemImage: "text.badge.checkmark",
+            tint: AppTheme.ColorToken.accent
+        ) {
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.easy_word.enable.title", comment: "Enable easy word correction title"),
+                subtitle: L10n.localize("settings.task.easy_word.enable.subtitle", comment: "Enable easy word correction subtitle"),
+                systemImage: "checkmark.shield",
+                tint: AppTheme.ColorToken.accent,
+                isOn: voiceCorrectionEnabledBinding
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.easy_word.auto_learning.title", comment: "Auto learning title"),
+                subtitle: L10n.localize("settings.task.easy_word.auto_learning.subtitle", comment: "Auto learning subtitle"),
+                systemImage: "sparkle.magnifyingglass",
+                tint: .orange,
+                isOn: voiceCorrectionAutoLearningBinding
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.easy_word.auto_learning_immediate.title", comment: "Auto learning immediate title"),
+                subtitle: L10n.localize("settings.task.easy_word.auto_learning_immediate.subtitle", comment: "Auto learning immediate subtitle"),
+                systemImage: "bolt.badge.checkmark",
+                tint: .green,
+                isOn: voiceCorrectionAutoLearningImmediateBinding
+            )
+            SettingsToggleRow(
+                title: L10n.localize("settings.task.easy_word.shadow_mode.title", comment: "Shadow mode title"),
+                subtitle: L10n.localize("settings.task.easy_word.shadow_mode.subtitle", comment: "Shadow mode subtitle"),
+                systemImage: "shield.lefthalf.filled",
+                tint: .orange,
+                isOn: voiceCorrectionShadowModeBinding
+            )
+        }
+    }
+
+    private var screenshotShortcutCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.destination.screenshot", comment: "Screenshot settings title"),
+            subtitle: L10n.localize("settings.destination.screenshot.subtitle", comment: "Screenshot settings subtitle"),
+            systemImage: "text.viewfinder",
+            tint: .orange
+        ) {
+            workflowShortcutRow(
+                shortcut: .clipboardImageOCR,
+                title: L10n.localize("settings.task.workflow.clipboard_image.title", comment: "Clipboard image OCR title"),
+                subtitle: L10n.localize("settings.task.workflow.clipboard_image.subtitle", comment: "Clipboard image OCR subtitle"),
+                systemImage: "doc.viewfinder",
+                tint: .indigo
+            )
+            Divider().padding(.leading, 70)
+            workflowShortcutRow(
+                shortcut: .screenshotOCR,
+                title: L10n.localize("settings.task.workflow.screenshot.title", comment: "Screenshot OCR title"),
+                subtitle: L10n.localize("settings.task.workflow.screenshot.subtitle", comment: "Screenshot OCR subtitle"),
+                systemImage: "text.viewfinder",
+                tint: .orange
+            )
+        }
+    }
+
+    private var screenshotBehaviorCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.output.group_title", comment: ""),
+            subtitle: L10n.localize("settings.destination.screenshot.behavior_subtitle", comment: "Screenshot behavior subtitle"),
+            systemImage: "doc.viewfinder",
+            tint: .indigo
+        ) {
+            systemToggle(
+                .clipboardImageOCR,
+                L10n.localize("settings.shortcuts.clipboard_image_ocr.title", comment: ""),
+                L10n.localize("settings.output.clipboard_image_ocr.subtitle", comment: ""),
+                "doc.viewfinder",
+                tint: .indigo
+            )
+        }
+    }
+
+    private var agentShortcutCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.general.agent_compose.title", comment: "Agent compose action row title"),
+            subtitle: L10n.localize("settings.general.agent_compose.subtitle", comment: "Agent compose action row subtitle"),
+            systemImage: "keyboard",
+            tint: AppTheme.ColorToken.accent
+        ) {
+            actionShortcutRow(
+                action: .agentCompose,
+                title: L10n.localize("settings.general.agent_compose.title", comment: "Agent compose action row title"),
+                subtitle: L10n.localize("settings.general.agent_compose.subtitle", comment: "Agent compose action row subtitle"),
+                buttonTitle: L10n.localize("settings.general.agent_compose.button_title", comment: "Agent compose action row button"),
+                badge: L10n.localize("settings.general.agent_compose.badge", comment: "Agent compose badge text"),
+                prominentWhenUnbound: true
+            )
+        }
+    }
+
+    private var llmModelsSection: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.models.llm.title", comment: "LLM model settings title"),
+            subtitle: L10n.localize("settings.models.llm.subtitle", comment: "LLM model settings subtitle"),
+            systemImage: "sparkles",
+            tint: .blue
+        ) {
+            LLMProviderView(viewModel: llmProviderViewModel, mode: .llm, embedded: true)
+        }
+    }
+
+    private var agentModelsSection: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.models.agent.title", comment: "Agent model settings title"),
+            subtitle: L10n.localize("settings.models.agent.subtitle", comment: "Agent model settings subtitle"),
+            systemImage: "terminal",
+            tint: .purple
+        ) {
+            LLMProviderView(viewModel: llmProviderViewModel, mode: .agent, embedded: true)
+        }
+    }
+
+    private var localModelsSection: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.models.local.title", comment: "Local models title"),
+            subtitle: L10n.localize("settings.models.local.subtitle", comment: "Local models subtitle"),
+            systemImage: "internaldrive",
+            tint: .yellow
+        ) {
+            systemToggle(
+                .localModelLivePreview,
+                L10n.localize("settings.system.local_model_live_preview.title", comment: ""),
+                L10n.localize("settings.system.local_model_live_preview.subtitle", comment: ""),
+                "waveform",
+                tint: .yellow
+            )
+            systemToggle(
+                .autoReleaseLocalModel,
+                L10n.localize("settings.system.auto_release_local_model.title", comment: ""),
+                L10n.localize("settings.system.auto_release_local_model.subtitle", comment: ""),
+                "internaldrive",
+                tint: .yellow
+            )
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: "externaldrive.badge.xmark", tint: .orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("settings.data.delete_all_local_models", comment: "Delete all local models"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(viewModel.localModelStorageDescription())
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                Button(L10n.localize("settings.data.delete_all_local_models", comment: "Delete all local models"), role: .destructive) {
+                    showDeleteAllLocalModelsConfirmation = true
+                }
+                .buttonStyle(.bordered)
+            }
+            .settingsRow()
+        }
+    }
+
+    private var generalBasicsCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.general.basics.title", comment: "General basics title"),
+            subtitle: L10n.localize("settings.general.basics.subtitle", comment: "General basics subtitle"),
+            systemImage: "gearshape",
+            tint: .pink
+        ) {
+            interfaceLanguageRow
+            systemToggle(
+                .darkMode,
+                L10n.localize("settings.appearance.dark_mode.title", comment: ""),
+                L10n.localize("settings.appearance.dark_mode.subtitle", comment: ""),
+                "moon",
+                tint: .pink
+            )
+            systemToggle(
+                .launchAtLogin,
+                L10n.localize("settings.appearance.launch_at_login_title", comment: ""),
+                L10n.localize("settings.launch_at_login_description", comment: "Launch at login description"),
+                "power",
+                tint: .pink
+            )
+            systemToggle(
+                .grayMenuBarIcon,
+                L10n.localize("settings.appearance.gray_menu_bar_icon.title", comment: ""),
+                L10n.localize("settings.appearance.gray_menu_bar_icon.subtitle", comment: ""),
+                "paintpalette",
+                tint: .pink
+            )
+            systemToggle(
+                .capsLockIndicator,
+                L10n.localize("settings.appearance.caps_lock_indicator.title", comment: ""),
+                L10n.localize("settings.appearance.caps_lock_indicator.subtitle", comment: ""),
+                "lightbulb",
+                tint: .pink
+            )
+        }
+    }
+
+    private var permissionsCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.permissions.section_title", comment: ""),
+            subtitle: L10n.localize("settings.permissions.section_subtitle", comment: ""),
+            systemImage: "shield",
+            tint: .green
+        ) {
+            permissionRow(
+                title: L10n.localize("settings.permissions.microphone_title", comment: ""),
+                subtitle: L10n.localize("settings.permissions.microphone_subtitle", comment: ""),
+                systemImage: "mic",
+                status: viewModel.microphonePermission.title,
+                granted: viewModel.microphonePermission == .granted,
+                pane: .microphone
+            )
+            permissionRow(
+                title: L10n.localize("settings.permissions.accessibility_title", comment: ""),
+                subtitle: L10n.localize("settings.permissions.accessibility_subtitle", comment: ""),
+                systemImage: "accessibility",
+                status: viewModel.accessibilityGranted
+                    ? L10n.localize("settings.permission_status.granted", comment: "")
+                    : L10n.localize("settings.permission_status.denied", comment: ""),
+                granted: viewModel.accessibilityGranted,
+                pane: .accessibility
+            )
+            permissionRow(
+                title: L10n.localize("settings.permissions.speech_title", comment: ""),
+                subtitle: L10n.localize("settings.permissions.speech_subtitle", comment: ""),
+                systemImage: "waveform",
+                status: viewModel.speechPermission.title,
+                granted: viewModel.speechPermission == .granted,
+                pane: .speech
+            )
+            permissionRow(
+                title: L10n.localize("settings.permissions.screen_recording_title", comment: ""),
+                subtitle: L10n.localize("settings.permissions.screen_recording_subtitle", comment: ""),
+                systemImage: "rectangle.inset.filled.and.person.filled",
+                status: PermissionSummary.statusText(viewModel.screenRecordingGranted),
+                granted: viewModel.screenRecordingGranted,
+                pane: .screenRecording
+            )
+        }
+    }
+
+    private var privacyCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.privacy.group_title", comment: ""),
+            subtitle: L10n.localize("settings.privacy.group_subtitle", comment: ""),
+            systemImage: "chart.bar",
+            tint: .purple
+        ) {
+            ForEach(SettingsPrivacyPresentation.toggleRows) { row in
+                systemToggle(
+                    row.option,
+                    row.title,
+                    row.subtitle,
+                    row.systemImage,
+                    tint: row.option == .crashLogs ? .purple : .orange
+                )
             }
 
-            appUpdateCard
+            Button(L10n.localize("settings.privacy.llm_trace_delete", comment: ""), role: .destructive) {
+                viewModel.clearLLMTraceDiagnostics()
+            }
+            .buttonStyle(.bordered)
+
+            Text(L10n.localize("settings.privacy.llm_trace_notice", comment: ""))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .settingsRow()
+        }
+    }
+
+    private var appDataCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.data.group_title", comment: ""),
+            subtitle: L10n.localize("settings.data.group_subtitle", comment: ""),
+            systemImage: "externaldrive",
+            tint: .orange
+        ) {
+            HStack(spacing: 14) {
+                SettingsRowIcon(
+                    systemImage: viewModel.storageStatus.isHealthy ? "internaldrive" : "exclamationmark.triangle",
+                    tint: viewModel.storageStatus.isHealthy ? .green : .orange
+                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.storageStatus.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(viewModel.storageStatus.message)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Text(viewModel.storageStatus.badgeText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
+                    .clipShape(Capsule())
+            }
+            .settingsRow()
+
+            HStack(spacing: 10) {
+                Button(L10n.localize("settings.data.open_support_folder", comment: "")) { viewModel.openApplicationSupportFolder() }
+                Button(L10n.localize("settings.data.export_data", comment: "")) { perform { _ = try viewModel.exportDataJSON() } }
+                Button(L10n.localize("settings.data.clear_history", comment: ""), role: .destructive) { perform { try viewModel.clearHistory() } }
+                Button(L10n.localize("settings.data.reset_settings", comment: ""), role: .destructive) {
+                    perform { try viewModel.resetSettings() }
+                }
+            }
+            .buttonStyle(.bordered)
+
+            TextEditor(text: $importedJSON)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 100)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(AppTheme.ColorToken.panelStroke)
+                )
+            Button(L10n.localize("settings.data.import_settings", comment: "")) {
+                perform { try viewModel.importSettingsJSON(importedJSON) }
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private var diagnosticsCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.data.crash_report_title", comment: ""),
+            subtitle: L10n.localize("settings.data.crash_report_subtitle", comment: ""),
+            systemImage: "ladybug",
+            tint: .orange
+        ) {
+            let support = SettingsPrivacyPresentation.manualCrashReportSupport
+            HStack(alignment: .center, spacing: 14) {
+                SettingsRowIcon(systemImage: "exclamationmark.bubble", tint: .orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(support.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(support.subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Button(support.viewSummaryButtonTitle) {
+                    viewModel.viewLatestCrashReportSummary()
+                }
+                Button(support.sendLatestButtonTitle) {
+                    showCrashReportSendConfirmation = viewModel.prepareLatestCrashReportSendConfirmation()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .buttonStyle(.bordered)
+            .settingsRow()
+
+            if let summary = viewModel.latestCrashReportSummaryText {
+                Text(summary)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .settingsRow()
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.load()
+                } label: {
+                    Label(L10n.localize("settings.data.refresh", comment: ""), systemImage: "arrow.clockwise")
+                }
+                Button {
+                    viewModel.openApplicationSupportFolder()
+                } label: {
+                    Label(L10n.localize("settings.data.open_folder", comment: ""), systemImage: "folder")
+                }
+            }
+            .buttonStyle(.bordered)
+
+            Text(L10n.localize("settings.storage.diagnostic_privacy_notice", comment: "Diagnostic privacy note"))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .settingsRow()
         }
     }
 
@@ -673,6 +1212,62 @@ struct SettingsRootView: View {
             .settingsRow()
         }
     }
+
+    #if DEBUG
+    private var debugTranscriptInjectionCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("debug.transcript_injection.title", comment: "Debug transcript injection title"),
+            subtitle: L10n.localize("debug.transcript_injection.subtitle", comment: "Debug transcript injection subtitle"),
+            systemImage: "waveform.path.badge.plus",
+            tint: .purple
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField(
+                    L10n.localize("debug.transcript_injection.placeholder", comment: "Debug transcript placeholder"),
+                    text: $debugTranscriptText,
+                    axis: .vertical
+                )
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .lineLimit(2...4)
+                .padding(12)
+                .background(AppTheme.ColorToken.controlBackground.opacity(0.82))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+                HStack(spacing: 12) {
+                    Picker("", selection: $debugTranscriptMode) {
+                        Text(L10n.localize("debug.transcript_injection.mode.dictation", comment: "Dictation debug injection mode"))
+                            .tag(VoiceTaskMode.dictation)
+                        Text(L10n.localize("debug.transcript_injection.mode.agent_compose", comment: "Agent compose debug injection mode"))
+                            .tag(VoiceTaskMode.agentCompose)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 260)
+
+                    Spacer(minLength: 12)
+
+                    Button {
+                        let transcript = debugTranscriptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !transcript.isEmpty else { return }
+                        onDebugTranscriptInjection(transcript, debugTranscriptMode)
+                    } label: {
+                        Label(
+                            L10n.localize("debug.transcript_injection.run", comment: "Run debug transcript injection button"),
+                            systemImage: "play.fill"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(debugTranscriptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .settingsRow()
+        }
+    }
+    #endif
 
     private var vibeCodingSection: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -715,8 +1310,10 @@ struct SettingsRootView: View {
 
                     VStack(alignment: .leading, spacing: 7) {
                         Text(L10n.localize("settings.task.agent_cli.example_codex", comment: "\"vox flow codex\" command example"))
+                        Text(L10n.localize("settings.task.agent_cli.example_opencode", comment: "\"vox flow opencode\" command example"))
                         Text(L10n.localize("settings.task.agent_cli.example_claude", comment: "\"vox flow --claude\" command example"))
                         Text(L10n.localize("settings.task.agent_cli.example_codebuddy", comment: "\"vox flow --codebuddy\" command example"))
+                        Text(L10n.localize("settings.task.agent_cli.example_pi", comment: "\"vox flow pi\" command example"))
                     }
                     .font(.system(size: 13, design: .monospaced))
                     .textSelection(.enabled)
@@ -796,21 +1393,6 @@ struct SettingsRootView: View {
         }
     }
 
-    private var inputLanguageCard: some View {
-        SettingsGroupCard(
-            title: L10n.localize("settings.task.input_language.title", comment: "Input and language title"),
-            subtitle: L10n.localize("settings.task.input_language.subtitle", comment: "Input and language subtitle"),
-            systemImage: "mic",
-            tint: .orange
-        ) {
-            VStack(spacing: 12) {
-                inputDeviceRow
-                recognitionLanguageRow
-                interfaceLanguageRow
-            }
-        }
-    }
-
     private var inputDeviceRow: some View {
         SettingsDropdownSection(
             title: L10n.localize("settings.task.input_device.title", comment: "Input device title"),
@@ -869,148 +1451,6 @@ struct SettingsRootView: View {
                 ) {
                     requestInterfaceLanguageChange(language)
                 }
-            }
-        }
-    }
-
-    private var systemSection: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SettingsGroupCard(
-                title: L10n.localize("settings.audio.group_feedback.title", comment: ""),
-                subtitle: L10n.localize("settings.audio.group_feedback.subtitle", comment: ""),
-                systemImage: "speaker.wave.2",
-                tint: .blue
-            ) {
-                SettingsToggleRow(
-                    title: L10n.localize("settings.audio.mute_toggle.title", comment: ""),
-                    subtitle: L10n.localize("settings.audio.mute_toggle.subtitle", comment: ""),
-                    systemImage: "speaker.slash",
-                    tint: .blue,
-                    isOn: muteBinding
-                )
-                SettingsToggleRow(
-                    title: L10n.localize("settings.audio.feedback_tone.title", comment: ""),
-                    subtitle: L10n.localize("settings.audio.feedback_tone.subtitle", comment: ""),
-                    systemImage: "bell",
-                    tint: .blue,
-                    isOn: soundBinding
-                )
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.audio.voice_enhancement_title", comment: ""),
-                subtitle: L10n.localize("settings.audio.voice_enhancement_subtitle", comment: ""),
-                systemImage: "waveform.path",
-                tint: .green
-            ) {
-                SettingsToggleRow(
-                    title: L10n.localize("settings.audio.enable_enhancement.title", comment: ""),
-                    subtitle: L10n.localize("settings.audio.enable_enhancement.subtitle", comment: ""),
-                    systemImage: "waveform.path",
-                    tint: .green,
-                    isOn: enhancementBinding
-                )
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.system.performance_title", comment: ""),
-                subtitle: L10n.localize("settings.system.performance_subtitle", comment: ""),
-                systemImage: "bolt",
-                tint: .yellow
-            ) {
-                systemToggle(
-                    .keepMicrophoneActive,
-                    L10n.localize("settings.system.keep_microphone_active.title", comment: ""),
-                    L10n.localize("settings.system.keep_microphone_active.subtitle", comment: ""),
-                    "bolt",
-                    tint: .yellow
-                )
-                systemToggle(
-                    .localModelLivePreview,
-                    L10n.localize("settings.system.local_model_live_preview.title", comment: ""),
-                    L10n.localize("settings.system.local_model_live_preview.subtitle", comment: ""),
-                    "waveform",
-                    tint: .yellow
-                )
-                systemToggle(
-                    .autoReleaseLocalModel,
-                    L10n.localize("settings.system.auto_release_local_model.title", comment: ""),
-                    L10n.localize("settings.system.auto_release_local_model.subtitle", comment: ""),
-                    "internaldrive",
-                    tint: .yellow
-                )
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.output.group_title", comment: ""),
-                subtitle: L10n.localize("settings.output.group_subtitle", comment: ""),
-                systemImage: "textformat",
-                tint: .indigo
-            ) {
-                systemToggle(
-                    .avoidClipboard,
-                    L10n.localize("settings.output.avoid_clipboard.title", comment: ""),
-                    L10n.localize("settings.output.avoid_clipboard.subtitle", comment: ""),
-                    "clipboard",
-                    tint: .indigo
-                )
-                systemToggle(
-                    .restoreClipboard,
-                    L10n.localize("settings.output.restore_clipboard.title", comment: ""),
-                    L10n.localize("settings.output.restore_clipboard.subtitle", comment: ""),
-                    "clipboard.fill",
-                    tint: .indigo
-                )
-                systemToggle(
-                    .clipboardImageOCR,
-                    L10n.localize("settings.shortcuts.clipboard_image_ocr.title", comment: ""),
-                    L10n.localize("settings.output.clipboard_image_ocr.subtitle", comment: ""),
-                    "doc.viewfinder",
-                    tint: .indigo
-                )
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.appearance.group_title", comment: ""),
-                subtitle: L10n.localize("settings.appearance.group_subtitle", comment: ""),
-                systemImage: "paintpalette",
-                tint: .pink
-            ) {
-                systemToggle(
-                    .darkMode,
-                    L10n.localize("settings.appearance.dark_mode.title", comment: ""),
-                    L10n.localize("settings.appearance.dark_mode.subtitle", comment: ""),
-                    "moon",
-                    tint: .pink
-                )
-                systemToggle(
-                    .launchAtLogin,
-                    L10n.localize("settings.appearance.launch_at_login_title", comment: ""),
-                    L10n.localize("settings.launch_at_login_description", comment: "Launch at login description"),
-                    "power",
-                    tint: .pink
-                )
-                systemToggle(
-                    .grayMenuBarIcon,
-                    L10n.localize("settings.appearance.gray_menu_bar_icon.title", comment: ""),
-                    L10n.localize("settings.appearance.gray_menu_bar_icon.subtitle", comment: ""),
-                    "paintpalette",
-                    tint: .pink
-                )
-                systemToggle(
-                    .capsLockIndicator,
-                    L10n.localize("settings.appearance.caps_lock_indicator.title", comment: ""),
-                    L10n.localize("settings.appearance.caps_lock_indicator.subtitle", comment: ""),
-                    "lightbulb",
-                    tint: .pink
-                )
-                systemToggle(
-                    .hideDockIconWhenWorkbenchCloses,
-                    L10n.localize("settings.appearance.hide_dock_icon.title", comment: ""),
-                    L10n.localize("settings.appearance.hide_dock_icon.subtitle", comment: ""),
-                    "dock.rectangle",
-                    tint: .pink
-                )
             }
         }
     }
@@ -1303,229 +1743,22 @@ struct SettingsRootView: View {
         )
     }
 
-    private var dataPrivacySection: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SettingsGroupCard(
-                title: L10n.localize("settings.permissions.section_title", comment: ""),
-                subtitle: L10n.localize("settings.permissions.section_subtitle", comment: ""),
-                systemImage: "shield",
-                tint: .green
-            ) {
-                permissionRow(
-                    title: L10n.localize("settings.permissions.microphone_title", comment: ""),
-                    subtitle: L10n.localize("settings.permissions.microphone_subtitle", comment: ""),
-                    systemImage: "mic",
-                    status: viewModel.microphonePermission.title,
-                    granted: viewModel.microphonePermission == .granted,
-                    pane: .microphone
-                )
-                permissionRow(
-                    title: L10n.localize("settings.permissions.accessibility_title", comment: ""),
-                    subtitle: L10n.localize("settings.permissions.accessibility_subtitle", comment: ""),
-                    systemImage: "accessibility",
-                    status: viewModel.accessibilityGranted
-                        ? L10n.localize("settings.permission_status.granted", comment: "")
-                        : L10n.localize("settings.permission_status.denied", comment: ""),
-                    granted: viewModel.accessibilityGranted,
-                    pane: .accessibility
-                )
-                permissionRow(
-                    title: L10n.localize("settings.permissions.speech_title", comment: ""),
-                    subtitle: L10n.localize("settings.permissions.speech_subtitle", comment: ""),
-                    systemImage: "waveform",
-                    status: viewModel.speechPermission.title,
-                    granted: viewModel.speechPermission == .granted,
-                    pane: .speech
-                )
-                permissionRow(
-                    title: L10n.localize("settings.permissions.screen_recording_title", comment: ""),
-                    subtitle: L10n.localize("settings.permissions.screen_recording_subtitle", comment: ""),
-                    systemImage: "rectangle.inset.filled.and.person.filled",
-                    status: PermissionSummary.statusText(viewModel.screenRecordingGranted),
-                    granted: viewModel.screenRecordingGranted,
-                    pane: .screenRecording
-                )
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(L10n.localize("settings.permissions.info_title", comment: ""), systemImage: "info.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(L10n.localize("settings.permissions.info_body", comment: ""))
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.privacy.group_title", comment: ""),
-                subtitle: L10n.localize("settings.privacy.group_subtitle", comment: ""),
-                systemImage: "chart.bar",
-                tint: .purple
-            ) {
-                ForEach(SettingsPrivacyPresentation.toggleRows) { row in
-                    systemToggle(
-                        row.option,
-                        row.title,
-                        row.subtitle,
-                        row.systemImage,
-                        tint: row.option == .crashLogs ? .purple : .orange
-                    )
-                }
-
-                let support = SettingsPrivacyPresentation.manualCrashReportSupport
-                HStack(alignment: .center, spacing: 14) {
-                    SettingsRowIcon(systemImage: "exclamationmark.bubble", tint: .orange)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(support.title)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Text(support.subtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Button(support.viewSummaryButtonTitle) {
-                        viewModel.viewLatestCrashReportSummary()
-                    }
-                    Button(support.sendLatestButtonTitle) {
-                        showCrashReportSendConfirmation = viewModel.prepareLatestCrashReportSendConfirmation()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .buttonStyle(.bordered)
-                .settingsRow()
-
-                if let summary = viewModel.latestCrashReportSummaryText {
-                    Text(summary)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .settingsRow()
-                }
-
-                Button(L10n.localize("settings.privacy.llm_trace_delete", comment: ""), role: .destructive) {
-                    viewModel.clearLLMTraceDiagnostics()
-                }
-                .buttonStyle(.bordered)
-
-                Text(L10n.localize("settings.privacy.llm_trace_notice", comment: ""))
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .settingsRow()
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.data.group_title", comment: ""),
-                subtitle: L10n.localize("settings.data.group_subtitle", comment: ""),
-                systemImage: "externaldrive",
-                tint: .orange
-            ) {
-                HStack(spacing: 14) {
-                    SettingsRowIcon(
-                        systemImage: viewModel.storageStatus.isHealthy ? "internaldrive" : "exclamationmark.triangle",
-                        tint: viewModel.storageStatus.isHealthy ? .green : .orange
-                    )
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(viewModel.storageStatus.title)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Text(viewModel.storageStatus.message)
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Text(viewModel.storageStatus.badgeText)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
-                        .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
-                        .clipShape(Capsule())
-                }
-                .settingsRow()
-
-                HStack(spacing: 10) {
-                    Button(L10n.localize("settings.data.open_support_folder", comment: "")) { viewModel.openApplicationSupportFolder() }
-                    Button(L10n.localize("settings.data.export_data", comment: "")) { perform { _ = try viewModel.exportDataJSON() } }
-                    Button(L10n.localize("settings.data.clear_history", comment: ""), role: .destructive) { perform { try viewModel.clearHistory() } }
-                    Button(L10n.localize("settings.data.delete_all_local_models", comment: ""), role: .destructive) {
-                        showDeleteAllLocalModelsConfirmation = true
-                    }
-                    Button(L10n.localize("settings.data.reset_settings", comment: ""), role: .destructive) {
-                        perform {
-                            try viewModel.resetSettings()
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-
-                TextEditor(text: $importedJSON)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 100)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(AppTheme.ColorToken.panelStroke)
-                    )
-                Button(L10n.localize("settings.data.import_settings", comment: "")) {
-                    perform { try viewModel.importSettingsJSON(importedJSON) }
-                }
-                .buttonStyle(.bordered)
-            }
-
-            SettingsGroupCard(
-                title: L10n.localize("settings.data.crash_report_title", comment: ""),
-                subtitle: L10n.localize("settings.data.crash_report_subtitle", comment: ""),
-                systemImage: "ladybug",
-                tint: .orange
-            ) {
-                HStack(spacing: 10) {
-                    Button {
-                        viewModel.load()
-                    } label: {
-                        Label(L10n.localize("settings.data.refresh", comment: ""), systemImage: "arrow.clockwise")
-                    }
-                    Button {
-                        viewModel.openApplicationSupportFolder()
-                    } label: {
-                        Label(L10n.localize("settings.data.open_folder", comment: ""), systemImage: "folder")
-                    }
-                }
-                .buttonStyle(.bordered)
-
-                Text(
-                    L10n.localize("settings.storage.diagnostic_privacy_notice", comment: "Diagnostic privacy note")
-                )
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .settingsRow()
-            }
-        }
-    }
-
-    private func settingsSidebarButton(_ section: SettingsSection) -> some View {
+    private func settingsSidebarButton(_ destination: SettingsDestination) -> some View {
         Button {
-            viewModel.selectedSection = section
+            viewModel.selectedDestination = destination
         } label: {
             HStack(spacing: 11) {
-                Image(systemName: section.systemImage)
+                Image(systemName: destination.systemImage)
                     .frame(width: 22)
                     .foregroundStyle(
-                        viewModel.selectedSection == section
+                        viewModel.selectedDestination == destination
                             ? AppTheme.ColorToken.accent
                             : AppTheme.ColorToken.sidebarText
                     )
-                Text(section.title)
+                Text(destination.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(
-                        viewModel.selectedSection == section
+                        viewModel.selectedDestination == destination
                             ? AppTheme.ColorToken.primaryText
                             : AppTheme.ColorToken.sidebarText
                     )
@@ -1534,14 +1767,14 @@ struct SettingsRootView: View {
             .padding(.horizontal, 12)
             .frame(height: 44)
             .background(
-                viewModel.selectedSection == section
+                viewModel.selectedDestination == destination
                     ? AppTheme.ColorToken.selectionBackground
                     : Color.clear
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(
-                        viewModel.selectedSection == section
+                        viewModel.selectedDestination == destination
                             ? AppTheme.ColorToken.accent.opacity(0.25)
                             : Color.clear
                     )
@@ -1550,14 +1783,6 @@ struct SettingsRootView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    private func sidebarGroupTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 4)
     }
 
     private var selectedInputDeviceName: String {
@@ -1731,6 +1956,10 @@ struct SettingsRootView: View {
                 set: { value in perform { try viewModel.setSystemOption(option, enabled: value) } }
             )
         )
+    }
+
+    private var normalizedTextInputMode: TextInputMode {
+        viewModel.textInputMode == .simulatedTyping ? .simulatedTyping : .fastPaste
     }
 
     private var shortPressToggleBinding: Binding<Bool> {
@@ -2168,6 +2397,90 @@ private struct SettingsToggleRow: View {
                 .toggleStyle(.switch)
         }
         .settingsRow()
+    }
+}
+
+private struct SettingsTextInputModeRow: View {
+    let selectedMode: TextInputMode
+    let onSelect: (TextInputMode) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            SettingsRowIcon(systemImage: "keyboard", tint: .indigo)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.localize("settings.output.text_input_mode.subtitle", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    modeButton(
+                        mode: .fastPaste,
+                        title: L10n.localize("settings.output.fast_paste.title", comment: ""),
+                        subtitle: L10n.localize("settings.output.fast_paste.subtitle", comment: ""),
+                        systemImage: "doc.on.clipboard"
+                    )
+                    modeButton(
+                        mode: .simulatedTyping,
+                        title: L10n.localize("settings.output.avoid_clipboard.title", comment: ""),
+                        subtitle: L10n.localize("settings.output.avoid_clipboard.subtitle", comment: ""),
+                        systemImage: "keyboard"
+                    )
+                }
+            }
+        }
+        .settingsRow()
+    }
+
+    private func modeButton(
+        mode: TextInputMode,
+        title: String,
+        subtitle: String,
+        systemImage: String
+    ) -> some View {
+        let isSelected = selectedMode == mode
+        return Button {
+            guard !isSelected else { return }
+            onSelect(mode)
+        } label: {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(isSelected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+                    .frame(width: 18, height: 18)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+            .background(
+                isSelected
+                    ? AppTheme.ColorToken.accent.opacity(0.11)
+                    : AppTheme.ColorToken.panelBackground.opacity(0.7)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        isSelected
+                            ? AppTheme.ColorToken.accent.opacity(0.55)
+                            : AppTheme.ColorToken.subtleStroke,
+                        lineWidth: AppTheme.Border.panelLineWidth
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -2859,20 +3172,8 @@ extension View {
     }
 }
 
-private extension SettingsSection {
-    var pageTitle: String {
-        switch self {
-        case .general: return L10n.localize("settings.section.general", comment: "")
-        case .vibeCoding: return L10n.localize("settings.section.vibe_coding", comment: "")
-        case .dictationModels: return L10n.localize("settings.section.dictation_models", comment: "")
-        case .correctionModels: return L10n.localize("settings.section.correction_models", comment: "")
-        case .ttsModels: return L10n.localize("settings.section.tts_models", comment: "")
-        case .translationModels: return L10n.localize("settings.section.translation_models", comment: "")
-        case .system: return L10n.localize("settings.section.system_root", comment: "")
-        case .textProcessing: return L10n.localize("settings.section.text_processing", comment: "")
-        case .dataPrivacy: return L10n.localize("settings.section.data_privacy", comment: "")
-        }
-    }
+private extension SettingsDestination {
+    var pageTitle: String { title }
 }
 
 extension AudioRecorder.PermissionStatus {

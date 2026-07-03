@@ -9,26 +9,20 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
     private let providerRepository: any LLMProviderRepository
     private let credentialStore: any CredentialStore
     private let session: any LLMCompletionSession
-    private let codexClient: any CodexPromptCompleting
 
     init(
         providerRepository: any LLMProviderRepository,
         credentialStore: any CredentialStore,
-        session: any LLMCompletionSession = URLSession.shared,
-        codexClient: any CodexPromptCompleting = CodexPromptCompletionClient()
+        session: any LLMCompletionSession = URLSession.shared
     ) {
         self.providerRepository = providerRepository
         self.credentialStore = credentialStore
         self.session = session
-        self.codexClient = codexClient
     }
 
     var isConfigured: Bool {
         guard let provider = try? configuredProvider() else {
             return false
-        }
-        if provider.isCodexLLMProvider {
-            return codexClient.isAvailable
         }
         guard let key = try? credentialStore.readCredential(account: provider.apiKeyRef),
               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -42,16 +36,6 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
             let task = Task {
                 do {
                     let provider = try configuredProvider()
-                    if provider.isCodexLLMProvider {
-                        let output = try await codexClient.complete(
-                            prompt: Self.codexPrompt(messages: messages),
-                            model: provider.defaultModel,
-                            timeoutSeconds: provider.timeoutSeconds
-                        )
-                        continuation.yield(output)
-                        continuation.finish()
-                        return
-                    }
                     guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
                           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                         AppLogger.network.warning("问 AI 无可用 API Key：provider=\(provider.id)")
@@ -122,21 +106,5 @@ final class OpenAICompatibleChatService: AIChatServicing, @unchecked Sendable {
             throw LLMRefiner.Error.notConfigured
         }
         return provider
-    }
-
-    private static func codexPrompt(messages: [AIChatMessage]) -> String {
-        let transcript = messages.map { message in
-            switch message.role {
-            case .user:
-                return "用户：\(message.content)"
-            case .assistant:
-                return "助手：\(message.content)"
-            }
-        }.joined(separator: "\n\n")
-        return """
-        你是 VoxFlow 的问 AI 文本助手。请根据下面的对话继续回答用户。
-
-        \(transcript)
-        """
     }
 }

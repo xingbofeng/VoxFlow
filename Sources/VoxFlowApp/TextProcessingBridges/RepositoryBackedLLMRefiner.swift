@@ -31,29 +31,30 @@ protocol ActiveLLMProviderIdentifying {
     var activeProviderID: String? { get }
 }
 
-final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAwareTextRefining, TraceablePromptAwareTextRefining, ActiveLLMProviderIdentifying, RefinementTraceProviding, @unchecked Sendable {
+final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, TraceableStreamingPromptAwareTextRefining, TraceablePromptAwareTextRefining, ActiveLLMProviderIdentifying, RefinementTraceProviding, @unchecked Sendable {
     static let enabledDefaultsKey = "LLMRefiner_Enabled"
+    static let agentProviderIDSettingsKey = "agent.compose.provider.id"
 
     private let providerRepository: any LLMProviderRepository
     private let credentialStore: CredentialStore
+    private let settingsRepository: (any SettingsRepository)?
     private let defaults: UserDefaults
     private let session: any LLMCompletionSession
-    private let codexClient: any CodexPromptCompleting
     private(set) var activeProviderID: String?
     private(set) var lastTrace: LLMRefinementTrace?
 
     init(
         providerRepository: any LLMProviderRepository,
         credentialStore: CredentialStore,
+        settingsRepository: (any SettingsRepository)? = nil,
         defaults: UserDefaults = .standard,
-        session: any LLMCompletionSession = URLSession.shared,
-        codexClient: any CodexPromptCompleting = CodexPromptCompletionClient()
+        session: any LLMCompletionSession = URLSession.shared
     ) {
         self.providerRepository = providerRepository
         self.credentialStore = credentialStore
+        self.settingsRepository = settingsRepository
         self.defaults = defaults
         self.session = session
-        self.codexClient = codexClient
     }
 
     var isEnabled: Bool {
@@ -62,16 +63,17 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
     }
 
     var isConfigured: Bool {
-        guard let provider = try? configuredProvider() else {
+        guard let provider = try? configuredProvider(for: .dictationCorrection) else {
             return false
         }
-        if provider.isCodexLLMProvider {
-            return codexClient.isAvailable
-        }
-        guard let key = try? credentialStore.readCredential(account: provider.apiKeyRef) else {
+        return isProviderConfigured(provider)
+    }
+
+    var isAgentComposeConfigured: Bool {
+        guard let provider = try? configuredProvider(for: .agentCompose) else {
             return false
         }
-        return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return isProviderConfigured(provider)
     }
 
     func refine(_ text: String) async throws -> String {
@@ -92,9 +94,10 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
 
     func refineWithTrace(_ request: TextRefinementRequest) async throws -> TextRefinementTraceResult {
         AppLogger.network.debug("RepositoryBackedLLMRefiner 开始纠错：purpose=\(request.purpose), textLen=\(request.text.count)")
-        let provider = try configuredProvider()
-        if provider.isCodexLLMProvider {
-            return try await refineWithCodexTrace(request, provider: provider)
+        let provider = try configuredProvider(for: request.purpose)
+        guard provider.isOpenAICompatibleProvider else {
+            AppLogger.network.warning("Agent provider 不再作为文本补全通道：providerId=\(provider.id)")
+            throw LLMRefiner.Error.notConfigured
         }
         guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
               !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -209,13 +212,10 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
                 let startedAt = Date()
                 do {
                     AppLogger.network.debug("RepositoryBackedLLMRefiner 开始流式纠错：textLen=\(request.text.count)")
-                    let provider = try configuredProvider()
-                    if provider.isCodexLLMProvider {
-                        let result = try await refineWithCodexTrace(request, provider: provider)
-                        continuation.yield(result.text)
-                        traceHandle.complete(result.trace)
-                        continuation.finish()
-                        return
+                    let provider = try configuredProvider(for: request.purpose)
+                    guard provider.isOpenAICompatibleProvider else {
+                        AppLogger.network.warning("Agent provider 不再作为流式文本补全通道：providerId=\(provider.id)")
+                        throw LLMRefiner.Error.notConfigured
                     }
                     guard let apiKey = try credentialStore.readCredential(account: provider.apiKeyRef),
                           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -319,11 +319,16 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         return TextRefinementStreamTraceResult(stream: stream, providerID: nil, trace: traceHandle)
     }
 
-    private func configuredProvider() throws -> LLMProviderRecord {
+    private func configuredProvider(for purpose: TextRefinementPurpose) throws -> LLMProviderRecord {
         let providers = try providerRepository.list()
         AppLogger.network.debug("读取 provider 列表：count=\(providers.count)")
-        let provider = providers.first(where: { $0.enabled && $0.isDefault && Self.isUsableProvider($0) }) ??
-            providers.first(where: { $0.enabled && Self.isUsableProvider($0) })
+        let provider: LLMProviderRecord?
+        if purpose == .agentCompose,
+           let settingsRepository {
+            provider = try configuredAgentProvider(from: providers, settingsRepository: settingsRepository)
+        } else {
+            provider = Self.defaultUsableProvider(from: providers)
+        }
         guard let provider else {
             AppLogger.network.warning("未找到可用 LLM provider（未启用或缺少配置）")
             throw LLMRefiner.Error.notConfigured
@@ -332,67 +337,53 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         return provider
     }
 
-    private static func isUsableProvider(_ provider: LLMProviderRecord) -> Bool {
-        provider.hasRequiredLLMConfiguration
+    private func configuredAgentProvider(
+        from providers: [LLMProviderRecord],
+        settingsRepository: any SettingsRepository
+    ) throws -> LLMProviderRecord? {
+        guard let selectedID = try Self.agentProviderID(settingsRepository: settingsRepository) else {
+            return nil
+        }
+        return providers.first {
+            $0.enabled &&
+                Self.isUsableAgentRuntimeProvider($0) &&
+                ($0.id.caseInsensitiveCompare(selectedID) == .orderedSame ||
+                 $0.providerType.caseInsensitiveCompare(selectedID) == .orderedSame)
+        }
     }
 
-    private func refineWithCodexTrace(
-        _ request: TextRefinementRequest,
-        provider: LLMProviderRecord
-    ) async throws -> TextRefinementTraceResult {
-        let selectedModel = request.model?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            ? request.model!
-            : provider.defaultModel
-        let prompt = Self.codexPrompt(for: request)
-        var trace = LLMRefinementTrace(
-            providerID: provider.id,
-            providerName: provider.displayName,
-            endpoint: "codex://exec",
-            model: selectedModel,
-            temperature: request.temperature ?? provider.temperature,
-            timeoutSeconds: provider.timeoutSeconds,
-            requestBodyJSON: Self.prettyJSONString(from: [
-                "provider": provider.providerType,
-                "model": selectedModel,
-                "prompt": prompt,
-            ]),
-            responseText: nil,
-            statusCode: nil,
-            durationMS: nil,
-            errorMessage: nil,
-            completedAt: nil,
-            promptMetadata: request.promptMetadata
-        )
-        let startedAt = Date()
-        do {
-            let output = try await codexClient.complete(
-                prompt: prompt,
-                model: selectedModel,
-                timeoutSeconds: provider.timeoutSeconds
-            )
-            activeProviderID = provider.id
-            trace = finishedTrace(
-                trace,
-                responseText: output,
-                statusCode: 0,
-                durationMS: Self.durationMS(since: startedAt),
-                errorMessage: nil
-            )
-            lastTrace = trace
-            return TextRefinementTraceResult(
-                text: output.isEmpty ? request.text : output,
-                providerID: provider.id,
-                trace: trace
-            )
-        } catch {
-            trace = finishedTrace(
-                trace,
-                durationMS: Self.durationMS(since: startedAt),
-                errorMessage: error.localizedDescription
-            )
-            lastTrace = trace
-            throw error
+    static func agentProviderID(settingsRepository: any SettingsRepository) throws -> String? {
+        guard let valueJSON = try settingsRepository.value(forKey: agentProviderIDSettingsKey),
+              let data = valueJSON.data(using: .utf8) else {
+            return nil
         }
+        let decoded = try JSONDecoder().decode(String.self, from: data)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return decoded.isEmpty ? nil : decoded
+    }
+
+    private func isProviderConfigured(_ provider: LLMProviderRecord) -> Bool {
+        if provider.isLocalAgentProvider {
+            return provider.enabled && provider.hasRequiredLLMConfiguration
+        }
+        guard let key = try? credentialStore.readCredential(account: provider.apiKeyRef) else {
+            return false
+        }
+        return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private static func isUsableProvider(_ provider: LLMProviderRecord) -> Bool {
+        provider.isOpenAICompatibleProvider && provider.hasRequiredLLMConfiguration
+    }
+
+    private static func defaultUsableProvider(from providers: [LLMProviderRecord]) -> LLMProviderRecord? {
+        providers.first(where: { $0.enabled && $0.isDefault && Self.isUsableProvider($0) }) ??
+            providers.first(where: { $0.enabled && Self.isUsableProvider($0) })
+    }
+
+    private static func isUsableAgentRuntimeProvider(_ provider: LLMProviderRecord) -> Bool {
+        provider.isLocalAgentProvider &&
+            provider.hasRequiredLLMConfiguration
     }
 
     private func finishTrace(
@@ -456,14 +447,6 @@ final class RepositoryBackedLLMRefiner: TextRefining, TraceableStreamingPromptAw
         待处理原文：
         \(request.text)
         """
-    }
-
-    private static func codexPrompt(for request: TextRefinementRequest) -> String {
-        [
-            request.systemPrompt,
-            userMessage(for: request),
-            "只输出最终文本，不要解释，不要使用 Markdown 代码块。"
-        ].joined(separator: "\n\n")
     }
 
 }

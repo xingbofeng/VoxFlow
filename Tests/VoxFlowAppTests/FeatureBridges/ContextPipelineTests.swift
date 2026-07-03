@@ -243,6 +243,40 @@ final class ContextPipelineTests: XCTestCase {
         XCTAssertTrue(snapshot.sources.contains(.accessibilityVisibleText))
     }
 
+    func testSkipsAccessibilityAndScreenshotCollectionForVoxFlowTarget() async {
+        let accessibility = StubAccessibilityProvider(
+            visibleText: "settings debug panel text should not be collected",
+            selectedText: "selected self text",
+            inputAreaText: "input self text"
+        )
+        let screenshot = StubScreenshotProvider(
+            canCapture: true,
+            visualText: "self screenshot text should not be collected"
+        )
+        let pipeline = ContextPipeline(
+            windowInfoProvider: StubWindowInfoProvider(title: "VoxFlow Settings"),
+            accessibilityProvider: accessibility,
+            screenshotProvider: screenshot
+        )
+        let target = DictationTarget(
+            bundleID: ProductBrand.bundleIdentifier,
+            appName: "VoxFlow",
+            pid: Int(ProcessInfo.processInfo.processIdentifier),
+            windowTitle: "VoxFlow Settings"
+        )
+
+        let snapshot = await pipeline.collect(target: target, visionSupported: true)
+
+        XCTAssertEqual(snapshot.windowTitle, "VoxFlow Settings")
+        XCTAssertEqual(snapshot.targetAppBundleID, ProductBrand.bundleIdentifier)
+        XCTAssertTrue(snapshot.sources.contains(.windowMetadata))
+        XCTAssertNil(snapshot.visibleText)
+        XCTAssertNil(snapshot.selectedText)
+        XCTAssertNil(snapshot.inputAreaText)
+        XCTAssertFalse(snapshot.visualContentAvailable)
+        XCTAssertTrue(snapshot.warnings.contains("self_target_context_skipped"))
+    }
+
     // MARK: - testCollectsSelectedText
 
     func testCollectsSelectedText() async {

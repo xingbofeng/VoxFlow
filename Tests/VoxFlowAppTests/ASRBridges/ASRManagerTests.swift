@@ -562,6 +562,36 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertTrue(engine.isAvailable)
     }
 
+    func testQwen3EngineUsesRepositoryBackedLocalModelLivePreviewSetting() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.settingsRepository.set(
+            SettingsSystemOption.localModelLivePreview.rawValue,
+            jsonValue: #"{"value":false}"#
+        )
+        let stateFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("installation-states.json")
+        let repository = FileModelInstallationStateRepository(fileURL: stateFileURL)
+        manager = ASRManager(
+            defaults: defaults,
+            modelInstallationRepository: repository,
+            settingsRepository: environment.settingsRepository,
+            qwen3RuntimePreflight: { _ in .supported }
+        )
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoiceInputTests-\(UUID().uuidString)")
+        try createLoadableQwen3ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: stateFileURL.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+
+        manager.markQwen3ModelReady(at: modelURL.path, size: .size0_6B)
+        let engine = try XCTUnwrap(manager.makeEngine(type: .qwen3) as? ASRCoreBackedASREngine)
+
+        XCTAssertFalse(try localModelLivePreviewDeliveryValue(from: engine))
+    }
+
     func testMakeQwen3EngineIsUnavailableUntilModelStoreLifecycleIsReady() {
         manager.qwen3ModelPath = "/tmp/qwen3-loadable-looking-but-not-ready"
 
@@ -604,6 +634,16 @@ final class ASRManagerTests: XCTestCase {
             )
             XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
+    }
+
+    private func localModelLivePreviewDeliveryValue(from engine: ASRCoreBackedASREngine) throws -> Bool {
+        let mirror = Mirror(reflecting: engine)
+        guard let closure = mirror.children.first(where: { $0.label == "deliversPartialTranscripts" })?.value
+            as? (@Sendable () -> Bool) else {
+            XCTFail("Expected ASRCoreBackedASREngine to expose deliversPartialTranscripts in tests")
+            return true
+        }
+        return closure()
     }
 
     private func createLoadableQwen17MLXModelDirectory(at modelURL: URL) throws {

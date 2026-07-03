@@ -68,32 +68,47 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
         XCTAssertTrue(service.isConfigured)
     }
 
-    func testIsConfiguredTrueWhenOnlyCodexRuntimeProviderExists() {
+    func testIsConfiguredFalseWhenOnlyCodexRuntimeProviderExists() {
         let service = OpenAICompatibleChatService(
             providerRepository: FakeLLMProviderRepository([makeCodexProvider()]),
-            credentialStore: FakeCredentialStore(key: nil),
-            codexClient: FakeCodexPromptClient(response: "ok")
+            credentialStore: FakeCredentialStore(key: nil)
         )
 
-        XCTAssertTrue(service.isConfigured)
+        XCTAssertFalse(service.isConfigured)
     }
 
-    func testStreamResponseUsesCodexCLIForCodexProvider() async throws {
-        let codexClient = FakeCodexPromptClient(response: "Codex answer")
+    func testStreamResponseDoesNotUseCodexCLIForCodexProvider() async throws {
         let service = OpenAICompatibleChatService(
             providerRepository: FakeLLMProviderRepository([makeCodexProvider()]),
-            credentialStore: FakeCredentialStore(key: nil),
-            codexClient: codexClient
+            credentialStore: FakeCredentialStore(key: nil)
         )
 
-        var collected: [String] = []
-        for try await text in service.streamResponse(messages: [AIChatMessage(role: .user, content: "hi")]) {
-            collected.append(text)
+        do {
+            for try await _ in service.streamResponse(messages: [AIChatMessage(role: .user, content: "hi")]) {}
+            XCTFail("Codex is an Agent provider and should not back the Ask AI LLM service.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected: Ask AI only uses configured non-Agent LLM providers.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
         }
 
-        XCTAssertEqual(collected, ["Codex answer"])
-        XCTAssertEqual(codexClient.requests.first?.model, "gpt-5.5")
-        XCTAssertTrue(codexClient.requests.first?.prompt.contains("hi") == true)
+    }
+
+    func testStreamResponseDoesNotUseLocalAgentProviderForAskAI() async throws {
+        let service = OpenAICompatibleChatService(
+            providerRepository: FakeLLMProviderRepository([makeLocalAgentProvider()]),
+            credentialStore: FakeCredentialStore(key: nil)
+        )
+
+        do {
+            for try await _ in service.streamResponse(messages: [AIChatMessage(role: .user, content: "hi")]) {}
+            XCTFail("Local Agent providers should not back the Ask AI LLM service.")
+        } catch LLMRefiner.Error.notConfigured {
+            // Expected: Ask AI only uses configured non-Agent LLM providers.
+        } catch {
+            XCTFail("Expected notConfigured, got \(error)")
+        }
+
     }
 
     // MARK: - Streaming
@@ -195,6 +210,26 @@ final class OpenAICompatibleChatServiceTests: XCTestCase {
             updatedAt: Date()
         )
     }
+
+    private func makeLocalAgentProvider() -> LLMProviderRecord {
+        LLMProviderRecord(
+            id: "opencode",
+            displayName: "opencode",
+            providerType: "opencode",
+            baseURL: "local://opencode",
+            defaultModel: "kimi-k2",
+            apiKeyRef: "opencode-local-runtime",
+            temperature: 0,
+            timeoutSeconds: 120,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
 }
 
 // MARK: - Fakes
@@ -242,27 +277,5 @@ private final class FakeLLMCompletionSession: LLMCompletionSession, @unchecked S
             httpVersion: nil,
             headerFields: nil
         )!
-    }
-}
-
-private final class FakeCodexPromptClient: CodexPromptCompleting, @unchecked Sendable {
-    struct Request: Equatable {
-        let prompt: String
-        let model: String?
-        let timeoutSeconds: Double
-    }
-
-    let isAvailable: Bool
-    let response: String
-    private(set) var requests: [Request] = []
-
-    init(isAvailable: Bool = true, response: String) {
-        self.isAvailable = isAvailable
-        self.response = response
-    }
-
-    func complete(prompt: String, model: String?, timeoutSeconds: Double) async throws -> String {
-        requests.append(Request(prompt: prompt, model: model, timeoutSeconds: timeoutSeconds))
-        return response
     }
 }

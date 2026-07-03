@@ -146,6 +146,10 @@ final class OverlayWindowController: NSWindowController {
     private var agentCandidateKeyEventTap: CFMachPort?
     private var agentCandidateKeyEventTapSource: CFRunLoopSource?
     private var agentRuntimeTaskSummary: String?
+    private var agentRuntimeStartedAt: Date?
+    private var agentRuntimeElapsedTimer: Timer?
+    private var agentRuntimeStatusBaseText: String?
+    private var agentRuntimeDetailBaseText: String?
 
     var onAgentCandidateSelected: ((String, String) -> Void)?
     var onAgentDefaultOutputSelected: ((String) -> Void)?
@@ -664,6 +668,7 @@ final class OverlayWindowController: NSWindowController {
         temporaryMessageTask = nil
         temporaryMessageAction = nil
         isShowingTemporaryMessage = false
+        stopAgentRuntimeElapsedTimer()
         presentationGeneration &+= 1
         overlayClickGestureRecognizer.isEnabled = false
         selectionActionCard.isHidden = true
@@ -1276,7 +1281,11 @@ final class OverlayWindowController: NSWindowController {
 
     private func present(_ window: NSWindow) {
         window.alphaValue = 1.0
-        window.orderFront(nil)
+        if let overlayPanel = window as? OverlayPanel, overlayPanel.suppressesScreenOrdering {
+            window.orderFront(nil)
+        } else {
+            window.orderFrontRegardless()
+        }
         window.displayIfNeeded()
         logger.debug("overlay_presented generation=\(presentationGeneration)")
 
@@ -1463,6 +1472,7 @@ final class OverlayWindowController: NSWindowController {
         }
         logger.debug("overlay_complete_dismiss")
         hideAgentConfirmationPresentation()
+        stopAgentRuntimeElapsedTimer()
         textLabel.stringValue = ""
         statusLabel.stringValue = ""
         temporaryMessageAction = nil
@@ -1554,6 +1564,10 @@ final class OverlayWindowController: NSWindowController {
         textLabel.stringValue
     }
 
+    var currentStatusText: String {
+        statusLabel.stringValue
+    }
+
     // MARK: - Agent Compose Status
 
     /// Updates the overlay for agent compose mode stages.
@@ -1562,6 +1576,7 @@ final class OverlayWindowController: NSWindowController {
         hideAgentConfirmationPresentation()
         switch stage {
         case .readingWindow:
+            stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_title", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
@@ -1572,6 +1587,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .transcribing:
+            stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.transcribing", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
@@ -1582,6 +1598,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .generating:
+            stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.generating", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
@@ -1595,44 +1612,54 @@ final class OverlayWindowController: NSWindowController {
             if let taskSummary = Self.normalizedRuntimeSummary(summary) {
                 agentRuntimeTaskSummary = taskSummary
             }
-            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_processing", comment: "")
+            let statusText = L10n.localize("hud.agent_compose.runtime_processing", comment: "")
+            statusLabel.stringValue = statusText
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = Self.runtimeDetailText(
+            let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_processing_detail",
                 cachedSummary: agentRuntimeTaskSummary
             )
+            textLabel.stringValue = detailText
+            startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case let .runtimeOperating(summary):
-            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_operating", comment: "")
+            let statusText = L10n.localize("hud.agent_compose.runtime_operating", comment: "")
+            statusLabel.stringValue = statusText
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.stringValue = Self.runtimeDetailText(
+            let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_operating_detail",
                 cachedSummary: agentRuntimeTaskSummary
             )
+            textLabel.stringValue = detailText
+            startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case let .runtimeWaitingForPermission(summary):
-            statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_waiting_permission", comment: "")
+            let statusText = L10n.localize("hud.agent_compose.runtime_waiting_permission", comment: "")
+            statusLabel.stringValue = statusText
             statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
-            textLabel.stringValue = Self.runtimeDetailText(
+            let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_waiting_permission_detail"
             )
+            textLabel.stringValue = detailText
+            startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
             textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
             refiningSpinner.startAnimation(nil)
         case .copied:
+            stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.copied", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.copied_detail", comment: "")
@@ -1640,6 +1667,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case .inserted:
+            stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.inserted", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.inserted_detail", comment: "")
@@ -1647,6 +1675,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case let .runtimeCompleted(summary):
+            stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_completed", comment: "")
             statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
             textLabel.stringValue = Self.runtimeDetailText(
@@ -1659,6 +1688,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case let .runtimeFailed(summary):
+            stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_failed", comment: "")
             statusLabel.textColor = NSColor.systemRed
             textLabel.stringValue = Self.runtimeDetailText(
@@ -1671,6 +1701,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case .contextUnavailable:
+            stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
             statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
             textLabel.stringValue = L10n.localize("hud.agent_compose.context_unavailable", comment: "")
@@ -1678,6 +1709,40 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         }
+        let textSize = measuredOverlayTextSize(for: textLabel.stringValue)
+        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
+    }
+
+    private func startAgentRuntimeElapsedTimerIfNeeded(statusText: String, detailText: String) {
+        agentRuntimeStatusBaseText = statusText
+        agentRuntimeDetailBaseText = detailText
+        if agentRuntimeStartedAt == nil {
+            agentRuntimeStartedAt = Date()
+        }
+        updateAgentRuntimeElapsedStatus(now: Date())
+        guard agentRuntimeElapsedTimer == nil else { return }
+        agentRuntimeElapsedTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateAgentRuntimeElapsedStatus(now: Date())
+            }
+        }
+    }
+
+    private func updateAgentRuntimeElapsedStatus(now: Date) {
+        guard let baseText = agentRuntimeStatusBaseText,
+              let detailText = agentRuntimeDetailBaseText,
+              let startedAt = agentRuntimeStartedAt else { return }
+        let elapsedMS = max(0, Int((now.timeIntervalSince(startedAt) * 1_000).rounded()))
+        statusLabel.stringValue = baseText
+        textLabel.stringValue = "\(detailText) · \(HomeHistoryDetailPresentation.durationText(milliseconds: elapsedMS))"
+    }
+
+    private func stopAgentRuntimeElapsedTimer() {
+        agentRuntimeElapsedTimer?.invalidate()
+        agentRuntimeElapsedTimer = nil
+        agentRuntimeStartedAt = nil
+        agentRuntimeStatusBaseText = nil
+        agentRuntimeDetailBaseText = nil
     }
 
     private static func runtimeDetailText(

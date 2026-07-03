@@ -83,8 +83,10 @@ final class AgentHelperManager {
             voxDestination: binDirectory.appendingPathComponent("vox"),
             examples: [
                 "vox flow codex",
+                "vox flow opencode",
                 "vox flow --claude",
                 "vox flow --codebuddy",
+                "vox flow pi",
             ]
         )
     }

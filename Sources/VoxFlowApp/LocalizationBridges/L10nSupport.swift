@@ -29,6 +29,10 @@ extension L10n {
         bundle.localizedString(forKey: key, value: key, table: "Localizable")
     }
 
+    static func localize(_ key: String, fallback: String, comment: String = "") -> String {
+        bundle.localizedString(forKey: key, value: fallback, table: "Localizable")
+    }
+
     static func format(_ key: String, comment: String = "", _ arguments: CVarArg...) -> String {
         String(format: localize(key, comment: comment), locale: locale, arguments: arguments)
     }

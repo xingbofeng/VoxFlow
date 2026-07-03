@@ -39,6 +39,60 @@ final class GroqASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
     }
 
+    func testExistingGroqLLMProviderKeyEnablesGroqASRConfiguration() throws {
+        let suiteName = "test.GroqProviderViewModel.llmReuse.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentials = GroqViewModelCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(
+                credentialStore: credentials,
+                defaults: defaults
+            )
+        )
+        let now = environment.clock.now
+        let provider = LLMProviderRecord(
+            id: "groq-llm",
+            displayName: "openai/gpt-oss-20b",
+            providerType: "openaiCompatible",
+            baseURL: "https://api.groq.com/openai/v1",
+            defaultModel: "openai/gpt-oss-20b",
+            apiKeyRef: "llm-provider-groq-llm",
+            temperature: 0.2,
+            timeoutSeconds: 30,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: now,
+            updatedAt: now
+        )
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("shared-groq-secret", account: provider.apiKeyRef)
+        let manager = ASRManager(
+            defaults: defaults,
+            credentialStore: credentials,
+            settingsRepository: environment.settingsRepository
+        )
+
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+
+        XCTAssertTrue(viewModel.hasStoredGroqAPIKey)
+        XCTAssertEqual(manager.storedGroqAPIKey(), "shared-groq-secret")
+        XCTAssertEqual(
+            try credentials.readCredential(account: ASRManager.groqAPIKeyAccount),
+            "shared-groq-secret"
+        )
+        XCTAssertEqual(viewModel.groqAPIKeyInput, ASRProviderViewModel.storedGroqAPIKeyMask)
+        XCTAssertTrue(viewModel.providers.first(where: { $0.id == ASRProviderID.groqWhisper })?.isAvailable == true)
+    }
+
     func testExistingGroqCredentialShowsMaskedValueAndSavingMaskPreservesCredential() throws {
         let defaults = UserDefaults(suiteName: "test.GroqProviderDelete.\(UUID().uuidString)")!
         let environment = AppEnvironment(container: try DependencyContainer.inMemory(defaults: defaults))

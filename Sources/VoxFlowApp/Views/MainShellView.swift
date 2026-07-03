@@ -18,6 +18,7 @@ struct MainShellView: View {
     @ObservedObject var navigationRouter: WorkbenchNavigationRouter
     @ObservedObject var updatePromptStore: UpdatePromptPresentationStore
     let onCheckForUpdates: () -> Void
+    let onDebugTranscriptInjection: (String, VoiceTaskMode) -> Void
 
     var body: some View {
         ZStack {
@@ -77,8 +78,8 @@ struct MainShellView: View {
             homeViewModel.selectHistoryItem(id: id)
         }
         .onReceive(navigationRouter.$command.compactMap { $0 }) { command in
-            if let settingsSection = command.settingsSection {
-                settingsViewModel.selectedSection = settingsSection
+            if let settingsDestination = command.settingsDestination {
+                settingsViewModel.selectedDestination = settingsDestination
             }
             selectedRoute = command.route
         }
@@ -115,7 +116,8 @@ struct MainShellView: View {
             fileTranscriptionViewModel: fileTranscriptionViewModel,
             notesViewModel: notesViewModel,
             screenshotRecordViewModel: screenshotRecordViewModel,
-            onCheckForUpdates: onCheckForUpdates
+            onCheckForUpdates: onCheckForUpdates,
+            onDebugTranscriptInjection: onDebugTranscriptInjection
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.ColorToken.pageBackground)
@@ -158,6 +160,7 @@ private struct WorkbenchDetailView: View {
     @ObservedObject var notesViewModel: NotesViewModel
     @ObservedObject var screenshotRecordViewModel: ScreenshotRecordViewModel
     let onCheckForUpdates: () -> Void
+    let onDebugTranscriptInjection: (String, VoiceTaskMode) -> Void
 
     var body: some View {
         switch route {
@@ -180,14 +183,15 @@ private struct WorkbenchDetailView: View {
                 viewModel: settingsViewModel,
                 llmProviderViewModel: llmProviderViewModel,
                 asrProviderViewModel: asrProviderViewModel,
-                onCheckForUpdates: onCheckForUpdates
+                onCheckForUpdates: onCheckForUpdates,
+                onDebugTranscriptInjection: onDebugTranscriptInjection
             )
         case .help:
             HelpView(
                 settingsViewModel: settingsViewModel,
                 asrProviderViewModel: asrProviderViewModel,
                 onOpenPermissions: {
-                    settingsViewModel.selectedSection = .dataPrivacy
+                    settingsViewModel.selectedDestination = .general
                     route = .settings
                 },
                 onCheckForUpdates: onCheckForUpdates

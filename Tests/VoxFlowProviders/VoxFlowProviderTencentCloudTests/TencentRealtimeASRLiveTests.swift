@@ -8,9 +8,7 @@ final class TencentRealtimeASRLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["VOICEINPUT_TEST_TENCENT_LIVE"] == "1" else {
             throw XCTSkip("Set VOICEINPUT_TEST_TENCENT_LIVE=1 to run Tencent Cloud realtime ASR live smoke test.")
         }
-        let environment = AppEnvironment(container: try DependencyContainer.live())
-        let manager = ASRManager(settingsRepository: environment.settingsRepository)
-        let configuration = try manager.tencentCloudConfiguration()
+        let configuration = try Self.configuration()
 
         let text = try await Self.transcribe(configuration: configuration)
 
@@ -21,9 +19,7 @@ final class TencentRealtimeASRLiveTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["VOICEINPUT_TEST_TENCENT_LIVE"] == "1" else {
             throw XCTSkip("Set VOICEINPUT_TEST_TENCENT_LIVE=1 to run Tencent Cloud realtime ASR live smoke test.")
         }
-        let environment = AppEnvironment(container: try DependencyContainer.live())
-        let manager = ASRManager(settingsRepository: environment.settingsRepository)
-        let base = try manager.tencentCloudConfiguration()
+        let base = try Self.configuration()
         let configuration = TencentRealtimeASRConfiguration(
             appID: base.appID,
             secretID: base.secretID,
@@ -71,6 +67,23 @@ final class TencentRealtimeASRLiveTests: XCTestCase {
             }
         }
         return finalText.value
+    }
+
+    private static func configuration() throws -> TencentRealtimeASRConfiguration {
+        let environment = ProcessInfo.processInfo.environment
+        if let appID = environment["VOICEINPUT_TEST_TENCENT_APP_ID"],
+           let secretID = environment["VOICEINPUT_TEST_TENCENT_SECRET_ID"],
+           let secretKey = environment["VOICEINPUT_TEST_TENCENT_SECRET_KEY"] {
+            return TencentRealtimeASRConfiguration(
+                appID: appID,
+                secretID: secretID,
+                secretKey: secretKey
+            )
+        }
+
+        let appEnvironment = AppEnvironment(container: try DependencyContainer.live())
+        let manager = ASRManager(settingsRepository: appEnvironment.settingsRepository)
+        return try manager.tencentCloudConfiguration()
     }
 
     private static func repositoryRoot() -> URL {

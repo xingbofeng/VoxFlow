@@ -813,6 +813,7 @@ private struct AgentActionSummaryDetailModal: View {
                 voiceCommandSection
                 screenContextSection
                 resultSection
+                artifactsSection
                 metadataFooter
                 actionLogSection
             }
@@ -927,6 +928,14 @@ private struct AgentActionSummaryDetailModal: View {
         }
     }
 
+    @ViewBuilder
+    private var artifactsSection: some View {
+        let artifacts = HomeHistoryDetailPresentation.agentActionArtifacts(for: detail)
+        detailSection(titleKey: "home.detail.agent_action.artifacts") {
+            AgentActionArtifactsList(artifacts: artifacts)
+        }
+    }
+
     private var metadataFooter: some View {
         HStack(spacing: 14) {
             AgentActionSummaryMetaText(
@@ -944,10 +953,12 @@ private struct AgentActionSummaryDetailModal: View {
                 value: tokenText(actionTrace?.tokenUsage?.outputTokens)
             )
             footerSeparator
-            AgentActionSummaryMetaText(
-                title: L10n.localize("home.detail.meta.duration", comment: "Processing duration"),
-                value: HomeHistoryDetailPresentation.durationText(milliseconds: actionDurationMS)
-            )
+            TimelineView(.periodic(from: Date(), by: 1)) { context in
+                AgentActionSummaryMetaText(
+                    title: L10n.localize("home.detail.meta.duration", comment: "Processing duration"),
+                    value: actionDurationText(now: context.date)
+                )
+            }
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
@@ -971,6 +982,15 @@ private struct AgentActionSummaryDetailModal: View {
     private var actionDurationMS: Int? {
         guard let actionTrace else { return nil }
         return HomeHistoryDetailPresentation.actionDurationMS(actionTrace)
+    }
+
+    private func actionDurationText(now: Date) -> String {
+        if detail.taskStatus == .inProgress {
+            return HomeHistoryDetailPresentation.durationText(
+                milliseconds: HomeHistoryDetailPresentation.activeTaskElapsedMS(for: detail, now: now)
+            )
+        }
+        return HomeHistoryDetailPresentation.durationText(milliseconds: actionDurationMS)
     }
 
     private func tokenText(_ value: Int?) -> String {
@@ -1422,13 +1442,15 @@ private struct HomeHistoryDetailModal: View {
                 )
                 .font(.system(size: 16, weight: .semibold))
                 Spacer()
-                Text(HomeHistoryDetailPresentation.pipelineStatusText(for: detail))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail))
-                    .padding(.horizontal, 10)
-                    .frame(height: 26)
-                    .background(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail).opacity(0.10))
-                    .clipShape(Capsule())
+                TimelineView(.periodic(from: Date(), by: 1)) { context in
+                    Text(HomeHistoryDetailPresentation.pipelineStatusText(for: detail, now: context.date))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail))
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .background(HomeHistoryDetailPresentation.pipelineStatusColor(for: detail).opacity(0.10))
+                        .clipShape(Capsule())
+                }
             }
 
             if steps.isEmpty {
@@ -1658,6 +1680,16 @@ private struct HomeHistoryDetailModal: View {
                screenContext.imagePath != nil || screenContext.appName != nil || screenContext.windowTitle != nil {
                 AgentActionScreenContextBlock(context: screenContext)
             }
+            AgentActionArtifactsList(
+                artifacts: trace.artifacts.map {
+                    HomeHistoryDetailPresentation.AgentActionArtifactPresentation(
+                        id: $0.id,
+                        title: $0.summary?.isEmpty == false ? $0.summary! : URL(fileURLWithPath: $0.path).lastPathComponent,
+                        path: $0.path,
+                        kind: $0.kind
+                    )
+                }
+            )
             if !trace.events.isEmpty {
                 AgentActionEventsDisclosure(events: HomeHistoryDetailPresentation.visibleAgentActionEvents(trace.events))
             }
@@ -1739,6 +1771,9 @@ private struct HomeHistoryDetailModal: View {
     private func llmStepDetail(_ llmTrace: LLMRefinementTrace) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             llmTraceMetadata(llmTrace, taskMode: detail.taskMode)
+            if let guardTrace = detail.trace?.refinementGuard {
+                RefinementGuardTraceBlock(trace: guardTrace)
+            }
         }
     }
 
@@ -2043,6 +2078,77 @@ private struct HomeHistoryDetailModal: View {
         isDiagnosticResponseExpanded = false
         isDiagnosticFullExpanded = false
         learnedEditPair = nil
+    }
+}
+
+private struct RefinementGuardTraceBlock: View {
+    let trace: RefinementGuardTrace
+
+    private var statusColor: Color {
+        switch trace.decision {
+        case .accepted: return AppTheme.ColorToken.accent
+        case .rejected: return Color.orange
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label(
+                    L10n.localize("home.detail.refinement_guard.title", comment: "Refinement guard trace title"),
+                    systemImage: "shield.lefthalf.filled"
+                )
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+                Spacer(minLength: 8)
+                Text(HomeHistoryDetailPresentation.refinementGuardDecisionText(trace.decision))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 9)
+                    .frame(height: 24)
+                    .background(statusColor.opacity(0.10))
+                    .clipShape(Capsule())
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                if let reason = HomeHistoryDetailPresentation.refinementGuardReasonText(trace.reason) {
+                    DetailMetaItem(
+                        title: L10n.localize("home.detail.refinement_guard.reason", comment: "Refinement guard reason label"),
+                        value: reason
+                    )
+                }
+                if let similarity = HomeHistoryDetailPresentation.refinementGuardSimilarityPercent(trace.similarity) {
+                    DetailMetaItem(
+                        title: L10n.localize("home.detail.refinement_guard.similarity", comment: "Refinement guard similarity label"),
+                        value: similarity
+                    )
+                }
+                DetailMetaItem(
+                    title: L10n.localize("home.detail.refinement_guard.baseline", comment: "Refinement guard baseline label"),
+                    value: HomeHistoryDetailPresentation.refinementGuardFallbackText(.preLLMDeterministic) ?? trace.baseline.rawValue
+                )
+                if let fallback = HomeHistoryDetailPresentation.refinementGuardFallbackText(trace.fallback) {
+                    DetailMetaItem(
+                        title: L10n.localize("home.detail.refinement_guard.fallback", comment: "Refinement guard fallback label"),
+                        value: fallback
+                    )
+                }
+                if let tokenKinds = HomeHistoryDetailPresentation.refinementGuardProtectedTokenKindsText(trace.protectedTokenKinds) {
+                    DetailMetaItem(
+                        title: L10n.localize("home.detail.refinement_guard.protected_tokens", comment: "Refinement guard protected tokens label"),
+                        value: tokenKinds
+                    )
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -2807,6 +2913,99 @@ private struct AgentActionEventsDisclosure: View {
                 .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct AgentActionArtifactsList: View {
+    let artifacts: [HomeHistoryDetailPresentation.AgentActionArtifactPresentation]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if artifacts.isEmpty {
+                emptyState
+            } else {
+                ForEach(artifacts) { artifact in
+                    artifactRow(artifact)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var emptyState: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tray")
+                .frame(width: 24, height: 24)
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            Text(L10n.localize("home.detail.agent_action.artifacts_empty", comment: "No agent artifacts recorded"))
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func artifactRow(_ artifact: HomeHistoryDetailPresentation.AgentActionArtifactPresentation) -> some View {
+        let fileURL = URL(fileURLWithPath: artifact.path)
+        let exists = FileManager.default.fileExists(atPath: artifact.path)
+        return HStack(spacing: 10) {
+            Image(systemName: artifact.kind == .directory ? "folder" : "doc")
+                .frame(width: 24, height: 24)
+                .foregroundStyle(AppTheme.ColorToken.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(artifact.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                Text(artifact.path)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                Button {
+                    NSWorkspace.shared.open(fileURL)
+                } label: {
+                    Label(
+                        L10n.localize("palette.root_item.action.open", comment: "Open"),
+                        systemImage: "arrow.up.forward.app"
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                }
+                .disabled(!exists)
+                .help(L10n.localize("palette.root_item.action.open", comment: "Open"))
+
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                } label: {
+                    Label(
+                        L10n.localize("palette.file_action.show_in_finder", comment: "Show in Finder"),
+                        systemImage: "folder"
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                }
+                .disabled(!exists)
+                .help(L10n.localize("palette.file_action.show_in_finder", comment: "Show in Finder"))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(10)
+        .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

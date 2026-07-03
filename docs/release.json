@@ -1,10 +1,11 @@
 {
-  "version": "1.13.0",
-  "tag": "v1.13.0",
-  "assetName": "VoxFlow-1.13.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.13.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.13.0/VoxFlow-1.13.0-macOS.dmg",
-  "releaseNotes": "新增 Codex Runtime Agent 工作流：语音指令可以直接交给本机 Codex 执行，支持页面总结、文件生成和过程事件回写。",
+  "version": "1.14.0",
+  "tag": "v1.14.0",
+  "assetName": "VoxFlow-1.14.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.14.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.14.0/VoxFlow-1.14.0-macOS.dmg",
+  "releaseNotes": "扩展本地 Agent Provider：除了 Codex，现在可以检测并选择 Opencode、Claude Code、CodeBuddy 和 Pi Agent，并为 Agent Compose 选择对应模型。",
+  "publishedAt": "2026-07-03T00:00:00Z",
   "draft": false,
   "prerelease": false
 }

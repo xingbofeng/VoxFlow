@@ -12,13 +12,16 @@ protocol AgentRuntimeClient: Sendable {
 struct CodexRuntimeClient: AgentRuntimeClient {
     private let normalizer: CodexEventNormalizer
     private let clock: any AppClock
+    private let timeoutSeconds: Double
 
     init(
         normalizer: CodexEventNormalizer = CodexEventNormalizer(),
-        clock: any AppClock = SystemClock()
+        clock: any AppClock = SystemClock(),
+        timeoutSeconds: Double = 300
     ) {
         self.normalizer = normalizer
         self.clock = clock
+        self.timeoutSeconds = timeoutSeconds
     }
 
     func run(
@@ -33,7 +36,7 @@ struct CodexRuntimeClient: AgentRuntimeClient {
         var finalSummary = ""
         var capturedTokenUsage: AgentTokenUsage?
 
-        let session = try CodexAppServerSession(cliPath: cliPath).start()
+        let session = try CodexAppServerSession(cliPath: cliPath, timeoutSeconds: timeoutSeconds).start()
         defer { session.stop() }
         try session.send([
             "method": "initialize",
@@ -117,7 +120,7 @@ struct CodexRuntimeClient: AgentRuntimeClient {
                     let error = AgentActionEvent(
                         kind: .error,
                         title: "Codex 执行失败",
-                        detail: "进程退出码 \(exitCode)",
+                        detail: exitCode == -124 ? "Codex runtime timeout after \(Int(timeoutSeconds))s" : "进程退出码 \(exitCode)",
                         timestamp: clock.now,
                         elapsedMS: elapsedMilliseconds(since: startedAt),
                         isFailure: true
@@ -167,11 +170,11 @@ struct CodexRuntimeClient: AgentRuntimeClient {
 
     private func threadStartRequest(for request: AgentRuntimeRequest) -> [String: Any] {
         var params: [String: Any] = [
-            "cwd": request.workspace.rootDirectory.path,
+            "cwd": request.workspace.sessionDirectory.path,
             "approvalPolicy": "on-request",
             "sandbox": "workspace-write",
             "ephemeral": true,
-            "baseInstructions": "你是 VoxFlow 触发的本机 Codex runtime。请根据用户语音指令直接完成可执行动作；如果需要权限，请使用 Codex 自带授权流程。"
+            "baseInstructions": "你是 VoxFlow 触发的本机 Codex runtime。请根据用户语音指令直接完成可执行动作；如果需要权限，请使用 Codex 自带授权流程。不要向用户反问或要求补充说明；需求不完整时基于当前工作区、屏幕上下文和合理默认值完成最小可用结果。"
         ]
         if let model = request.model?.trimmingCharacters(in: .whitespacesAndNewlines), !model.isEmpty {
             params["model"] = model
@@ -202,7 +205,7 @@ struct CodexRuntimeClient: AgentRuntimeClient {
         var params: [String: Any] = [
             "threadId": threadID,
             "input": input,
-            "cwd": request.workspace.rootDirectory.path,
+            "cwd": request.workspace.sessionDirectory.path,
             "approvalPolicy": "on-request"
         ]
         if let model = request.model?.trimmingCharacters(in: .whitespacesAndNewlines), !model.isEmpty {
@@ -219,6 +222,7 @@ struct CodexRuntimeClient: AgentRuntimeClient {
         let imageInputSupported = Self.supportsImageInput(modelID: request.model)
         var sections = [
             "你是 VoxFlow 触发的本机 Codex runtime。请根据用户语音指令直接完成可执行动作；如果需要权限，请使用 Codex 自带授权流程。",
+            "不要向用户反问或要求补充说明。需求不完整时，请基于当前工作区、屏幕上下文和合理默认值完成最小可用结果；只有会删除/覆盖重要文件、提交代码、安装依赖、访问敏感信息或执行破坏性操作时才停止并说明未执行原因。",
             "用户语音指令：\n\(request.instruction)"
         ]
         if let target = request.target {
@@ -434,6 +438,7 @@ private final class CodexExecLineBuffer: @unchecked Sendable {
 
 private final class CodexAppServerSession: @unchecked Sendable {
     let cliPath: String
+    private let timeoutSeconds: Double
     private let process = Process()
     private let stdinPipe = Pipe()
     private let stdoutPipe = Pipe()
@@ -449,8 +454,9 @@ private final class CodexAppServerSession: @unchecked Sendable {
         }
     }
 
-    init(cliPath: String) {
+    init(cliPath: String, timeoutSeconds: Double) {
         self.cliPath = cliPath
+        self.timeoutSeconds = timeoutSeconds
     }
 
     func start() throws -> Self {
@@ -496,6 +502,14 @@ private final class CodexAppServerSession: @unchecked Sendable {
             stderrBuffer.flush()
             continuation?.yield(.terminated(process.terminationStatus))
             continuation?.finish()
+        }
+
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + max(timeoutSeconds, 0.1)) { [weak self] in
+            guard let self, process.isRunning else { return }
+            continuation?.yield(.stderr("Codex runtime timeout after \(Int(timeoutSeconds))s"))
+            continuation?.yield(.terminated(-124))
+            continuation?.finish()
+            stop()
         }
 
         return self

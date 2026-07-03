@@ -83,7 +83,7 @@ struct StructuredCorrectionPromptBuilder {
         outputFormatRules: String?
     ) -> String {
         [
-            buildSystem(style: style, outputFormatRules: outputFormatRules),
+            buildSystem(style: style, customStylePrompt: nil, outputFormatRules: outputFormatRules),
             buildRequestContext(context: context, includeRawText: true),
         ].joined(separator: "\n\n---\n\n")
     }
@@ -92,9 +92,22 @@ struct StructuredCorrectionPromptBuilder {
         style: StructuredCorrectionStyle,
         outputFormatRules: String?
     ) -> String {
+        buildSystem(style: style, customStylePrompt: nil, outputFormatRules: outputFormatRules)
+    }
+
+    func buildSystem(
+        style: StructuredCorrectionStyle,
+        customStylePrompt: String?,
+        outputFormatRules: String?
+    ) -> String {
         var sections: [String] = []
         let template = StructuredCorrectionPromptCatalog.styleTemplate(for: style)
-        sections.append(Self.renderer.render(template).renderedText)
+        if let customStylePrompt,
+           !customStylePrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(customStylePrompt)
+        } else {
+            sections.append(Self.renderer.render(template).renderedText)
+        }
         sections.append(StructuredCorrectionPromptCatalog.outputProtocol)
         sections.append(StructuredCorrectionPromptCatalog.criticalProtocol)
         if let outputFormatRules {

@@ -15,6 +15,13 @@ enum HomeHistoryDetailPresentation {
         let hasImage: Bool
     }
 
+    struct AgentActionArtifactPresentation: Equatable, Identifiable {
+        let id: String
+        let title: String
+        let path: String
+        let kind: AgentRuntimeArtifactKind
+    }
+
     struct AgentDispatchPresentation: Equatable {
         let title: String
         let detail: String
@@ -146,10 +153,101 @@ enum HomeHistoryDetailPresentation {
         }
     }
 
+    /// Localized label for a `RefinementGuardTrace.Decision`.
+    static func refinementGuardDecisionText(_ decision: RefinementGuardTrace.Decision) -> String {
+        switch decision {
+        case .accepted:
+            return L10n.localize("home.detail.refinement_guard.decision.accepted", comment: "Refinement guard accepted")
+        case .rejected:
+            return L10n.localize("home.detail.refinement_guard.decision.rejected", comment: "Refinement guard rejected")
+        }
+    }
+
+    /// Localized, human-readable explanation of a guard rejection reason. The
+    /// reason codes are the stable strings persisted in
+    /// `RefinementGuardTrace.reason`.
+    static func refinementGuardReasonText(_ reason: String?) -> String? {
+        guard let reason, !reason.isEmpty else { return nil }
+        switch reason {
+        case "empty_output":
+            return L10n.localize("home.detail.refinement_guard.reason.empty_output", comment: "Refinement guard reason: empty output")
+        case "explanation_like_output":
+            return L10n.localize("home.detail.refinement_guard.reason.explanation_like_output", comment: "Refinement guard reason: explanation-like output")
+        case "answer_like_output":
+            return L10n.localize("home.detail.refinement_guard.reason.answer_like_output", comment: "Refinement guard reason: answer-like output")
+        case "obvious_expansion":
+            return L10n.localize("home.detail.refinement_guard.reason.obvious_expansion", comment: "Refinement guard reason: obvious expansion")
+        case "protected_token_missing":
+            return L10n.localize("home.detail.refinement_guard.reason.protected_token_missing", comment: "Refinement guard reason: protected token missing")
+        case "normalized_similarity_low":
+            return L10n.localize("home.detail.refinement_guard.reason.normalized_similarity_low", comment: "Refinement guard reason: normalized similarity low")
+        case "too_many_hotwords":
+            return L10n.localize("home.detail.refinement_guard.reason.too_many_hotwords", comment: "Refinement guard reason: too many hotwords")
+        default:
+            return reason
+        }
+    }
+
+    /// Localized label for a `RefinementGuardTrace.Fallback` source.
+    static func refinementGuardFallbackText(_ fallback: RefinementGuardTrace.Fallback?) -> String? {
+        guard let fallback else { return nil }
+        switch fallback {
+        case .preLLMDeterministic:
+            return L10n.localize("home.detail.refinement_guard.fallback.pre_llm_deterministic", comment: "Refinement guard fallback: pre-LLM deterministic text")
+        case .asrRaw:
+            return L10n.localize("home.detail.refinement_guard.fallback.asr_raw", comment: "Refinement guard fallback: ASR raw text")
+        }
+    }
+
+    /// Formats the guard similarity as a localized percent string. Returns nil
+    /// when similarity was not evaluated.
+    static func refinementGuardSimilarityPercent(_ similarity: Double?) -> String? {
+        guard let similarity else { return nil }
+        let percent = Int((similarity * 100).rounded())
+        return L10n.format("home.detail.refinement_guard.similarity_format", comment: "Refinement guard similarity percent", percent)
+    }
+
+    /// Localized label for the protected-token kind summary shown in the
+    /// guard detail. Returns nil when no protected tokens were observed.
+    static func refinementGuardProtectedTokenKindsText(_ kinds: [String]) -> String? {
+        guard !kinds.isEmpty else { return nil }
+        let labels = kinds.map { protectedTokenKindText($0) }
+        return labels.joined(separator: "、")
+    }
+
+    private static func protectedTokenKindText(_ kind: String) -> String {
+        switch kind {
+        case "url":
+            return L10n.localize("home.detail.refinement_guard.token_kind.url", comment: "Refinement guard token kind: URL")
+        case "path":
+            return L10n.localize("home.detail.refinement_guard.token_kind.path", comment: "Refinement guard token kind: path")
+        case "email":
+            return L10n.localize("home.detail.refinement_guard.token_kind.email", comment: "Refinement guard token kind: email")
+        case "version":
+            return L10n.localize("home.detail.refinement_guard.token_kind.version", comment: "Refinement guard token kind: version number")
+        case "numeric":
+            return L10n.localize("home.detail.refinement_guard.token_kind.numeric", comment: "Refinement guard token kind: numeric")
+        case "code_span":
+            return L10n.localize("home.detail.refinement_guard.token_kind.code_span", comment: "Refinement guard token kind: code span")
+        case "code_identifier":
+            return L10n.localize("home.detail.refinement_guard.token_kind.code_identifier", comment: "Refinement guard token kind: code-like identifier")
+        default:
+            return kind
+        }
+    }
+
     static func durationText(milliseconds: Int?) -> String {
         guard let milliseconds else { return L10n.localize("home.detail.meta.not_recorded", comment: "Not recorded") }
         let seconds = Double(max(milliseconds, 0)) / 1_000
         return L10n.format("home.detail.duration_seconds_format", comment: "Duration in seconds", seconds)
+    }
+
+    static func activeTaskElapsedMS(for detail: HomeHistoryDetail, now: Date = Date()) -> Int? {
+        guard detail.taskStatus == .inProgress else { return nil }
+        if let action = detail.trace?.agentAction {
+            return max(0, Int((now.timeIntervalSince(action.startedAt) * 1_000).rounded()))
+        }
+        return max(0, Int((now.timeIntervalSince(detail.createdAt) * 1_000).rounded()))
     }
 
     static func contextBoostStatusText(appliedToPrompt: Bool) -> String {
@@ -216,10 +314,24 @@ enum HomeHistoryDetailPresentation {
 
     static func usesAgentActionSummaryDetail(for detail: HomeHistoryDetail) -> Bool {
         guard detail.taskMode == .agentCompose,
-              detail.trace?.agentAction?.executionMode == .codexRuntime else {
+              let executionMode = detail.trace?.agentAction?.executionMode,
+              executionMode == .codexRuntime || executionMode == .localAgentRuntime else {
             return false
         }
         return true
+    }
+
+    static func agentActionArtifacts(for detail: HomeHistoryDetail) -> [AgentActionArtifactPresentation] {
+        detail.trace?.agentAction?.artifacts.map { artifact in
+            AgentActionArtifactPresentation(
+                id: artifact.id,
+                title: artifact.summary?.isEmpty == false
+                    ? artifact.summary!
+                    : URL(fileURLWithPath: artifact.path).lastPathComponent,
+                path: artifact.path,
+                kind: artifact.kind
+            )
+        } ?? []
     }
 
     static func agentActionInstructionText(for detail: HomeHistoryDetail) -> String {
@@ -532,6 +644,9 @@ enum HomeHistoryDetailPresentation {
                 )
             ))
         }
+        if !action.artifacts.isEmpty {
+            rows.append(line("home.detail.agent_action.artifacts", countText(action.artifacts.count)))
+        }
         return rows.joined(separator: "\n")
     }
 
@@ -842,12 +957,23 @@ enum HomeHistoryDetailPresentation {
 
     /// Returns the overall pipeline status text shown next to the timeline
     /// header. Example: "成功 · 4.1 秒 · 200" or "本地处理完成".
-    static func pipelineStatusText(for detail: HomeHistoryDetail) -> String {
+    static func pipelineStatusText(for detail: HomeHistoryDetail, now: Date = Date()) -> String {
         if let action = detail.trace?.agentAction {
-            let status = action.status == .completed
-                ? L10n.localize("home.detail.status.success", comment: "Success status")
-                : L10n.localize("home.detail.status.failed", comment: "Failed status")
-            return "\(status) · \(durationText(milliseconds: actionDurationMS(action)))"
+            let status: String
+            switch action.status {
+            case .completed:
+                status = L10n.localize("home.detail.status.success", comment: "Success status")
+            case .pending, .running, .waitingForPermission:
+                status = L10n.localize("home.detail.status.processing", comment: "Processing status")
+            case .failed, .cancelled:
+                status = L10n.localize("home.detail.status.failed", comment: "Failed status")
+            }
+            let duration = actionDurationMS(action) ?? activeTaskElapsedMS(for: detail, now: now)
+            return "\(status) · \(durationText(milliseconds: duration))"
+        }
+        if let elapsedMS = activeTaskElapsedMS(for: detail, now: now) {
+            let status = L10n.localize("home.detail.status.processing", comment: "Processing status")
+            return "\(status) · \(durationText(milliseconds: elapsedMS))"
         }
         if let llm = detail.trace?.llm {
             let duration = durationText(milliseconds: llm.durationMS)
@@ -866,7 +992,12 @@ enum HomeHistoryDetailPresentation {
     /// The color used for the pipeline status pill.
     static func pipelineStatusColor(for detail: HomeHistoryDetail) -> Color {
         if let action = detail.trace?.agentAction {
-            return action.status == .completed ? AppTheme.ColorToken.accent : Color.orange
+            switch action.status {
+            case .completed, .pending, .running:
+                return AppTheme.ColorToken.accent
+            case .waitingForPermission, .failed, .cancelled:
+                return Color.orange
+            }
         }
         if let llm = detail.trace?.llm {
             return llm.succeeded ? AppTheme.ColorToken.accent : Color.orange

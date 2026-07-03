@@ -118,6 +118,44 @@ final class ASRCloudCredentialSettingsTests: XCTestCase {
         XCTAssertEqual(manager.storedAliyunDashScopeAPIKey(), "legacy-aliyun-secret")
         XCTAssertTrue(credentials.readAccounts.contains(ASRManager.aliyunDashScopeAPIKeyAccount))
     }
+
+    func testLegacyGroqCredentialAccountRemainsReadable() throws {
+        let suiteName = "test.ASRCloudCredentialSettings.legacyGroq.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentials = CapturingASRCloudCredentialStore()
+        try credentials.saveCredential("legacy-groq-secret", account: "groq-key")
+        let manager = ASRManager(defaults: defaults, credentialStore: credentials)
+
+        XCTAssertTrue(manager.isGroqConfigured)
+        XCTAssertEqual(manager.storedGroqAPIKey(), "legacy-groq-secret")
+
+        let cloudCredentials = ASRCloudCredentialManager(
+            credentialStore: credentials,
+            settingsRepository: nil,
+            legacyAccountAliases: [ASRManager.groqAPIKeyAccount: ["groq-key"]]
+        )
+        XCTAssertEqual(
+            try cloudCredentials.readCredential(account: ASRManager.groqAPIKeyAccount),
+            "legacy-groq-secret"
+        )
+    }
+
+    func testClearingGroqCredentialRemovesLegacyAccountAlias() throws {
+        let suiteName = "test.ASRCloudCredentialSettings.clearLegacyGroq.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentials = CapturingASRCloudCredentialStore()
+        try credentials.saveCredential("legacy-groq-secret", account: "groq-key")
+        let manager = ASRManager(defaults: defaults, credentialStore: credentials)
+
+        try manager.saveGroqAPIKey("")
+
+        XCTAssertFalse(manager.isGroqConfigured)
+        XCTAssertNil(try credentials.readCredential(account: "groq-key"))
+    }
 }
 
 private final class CapturingASRCloudCredentialStore: CredentialStore {

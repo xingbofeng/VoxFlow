@@ -73,6 +73,41 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         engine.cancel()
     }
 
+    func testPartialTranscriptDeliveryCanBeDisabledWithoutDroppingFinalCallback() async throws {
+        let session = CapturingCoreSession()
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session
+        )
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN"),
+            deliversPartialTranscripts: { false }
+        )
+        let final = expectation(description: "final callback")
+        var callbacks: [(String, Bool)] = []
+        engine.onTranscription = { text, isFinal in
+            callbacks.append((text, isFinal))
+            if text == "最终文本", isFinal {
+                final.fulfill()
+            }
+        }
+
+        try engine.start()
+        engine.appendAudioFrame(Self.frame(sequenceNumber: 7))
+        engine.endAudio()
+
+        await fulfillment(of: [final], timeout: 1.0)
+        XCTAssertEqual(callbacks.map(\.0), ["最终文本"])
+        XCTAssertEqual(callbacks.map(\.1), [true])
+    }
+
     func testEndAudioIgnoresLateAudioFramesAfterFinalCallback() async throws {
         let session = CapturingCoreSession()
         let provider = CapturingCoreProvider(
@@ -212,6 +247,33 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(session.acceptedSequenceNumbers(), [7])
+    }
+
+    func testStopReleasesIdleResources() async throws {
+        let session = CapturingCoreSession()
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session
+        )
+        let released = expectation(description: "idle resources released")
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN"),
+            releaseIdleResources: {
+                released.fulfill()
+            }
+        )
+
+        try engine.start()
+        engine.stop()
+
+        await fulfillment(of: [released], timeout: 1.0)
     }
 
     func testStopReleasesProviderSessionAfterFinalEvenWhenEventsRemainOpen() async throws {

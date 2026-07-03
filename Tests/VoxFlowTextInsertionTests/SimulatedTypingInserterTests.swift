@@ -1,4 +1,5 @@
-import VoxFlowTextInsertion
+import CoreGraphics
+@testable import VoxFlowTextInsertion
 import XCTest
 
 @MainActor
@@ -23,6 +24,30 @@ final class SimulatedTypingInserterTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(poster.postedTexts, ["你", "a", "👨‍👩‍👧‍👦"])
+    }
+
+    func testCoreGraphicsPosterPostsSingleUnicodeKeyDownEvent() {
+        var postedEvents: [CGEvent] = []
+        let poster = CoreGraphicsTypingEventPoster(
+            makeKeyDownEvent: {
+                let source = CGEventSource(stateID: .hidSystemState)
+                let keyDown = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: 0,
+                    keyDown: true
+                )
+                keyDown?.flags = []
+                return keyDown
+            },
+            postEvent: { event in
+                postedEvents.append(event)
+            }
+        )
+
+        XCTAssertTrue(poster.post("你"))
+
+        XCTAssertEqual(postedEvents.count, 1)
+        XCTAssertEqual(postedEvents[0].unicodeStringForTesting(), "你")
     }
 
     func testSimulatedTypingRejectsMultilineTextWithoutPostingReturnKey() async {
@@ -107,5 +132,25 @@ private final class CapturingTypingEventPoster: SimulatedTypingEventPosting {
         postedTexts.append(text)
         afterPost()
         return shouldPost
+    }
+}
+
+private extension CGEvent {
+    func unicodeStringForTesting() -> String {
+        var length = 0
+        keyboardGetUnicodeString(
+            maxStringLength: 0,
+            actualStringLength: &length,
+            unicodeString: nil
+        )
+        guard length > 0 else { return "" }
+
+        var buffer = [UniChar](repeating: 0, count: length)
+        keyboardGetUnicodeString(
+            maxStringLength: length,
+            actualStringLength: &length,
+            unicodeString: &buffer
+        )
+        return String(utf16CodeUnits: buffer, count: length)
     }
 }

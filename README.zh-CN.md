@@ -190,7 +190,7 @@ AI Coding 助手控制台面向本地 coding-agent 终端。开启后，你可�
 
 从 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) 下载最新版本：
 
-1. 打开 `VoxFlow-1.13.0-macOS.dmg`
+1. 打开 `VoxFlow-1.14.0-macOS.dmg`
 2. 将 `VoxFlow` 拖入 `Applications` 文件夹
 3. 首次启动时，如果 macOS 提示无法验证，请按住 Control 点击应用，选择“打开”
 

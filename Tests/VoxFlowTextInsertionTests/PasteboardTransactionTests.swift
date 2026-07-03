@@ -53,6 +53,24 @@ final class PasteboardTransactionTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "original clipboard")
     }
 
+    func testReplacementCarriesVoxFlowInternalMarker() throws {
+        let pasteboard = try makePasteboard()
+        pasteboard.clearContents()
+        pasteboard.setString("original clipboard", forType: .string)
+
+        let transaction = PasteboardTransaction.begin(
+            on: pasteboard,
+            replacementText: "voxflow inserted text"
+        )
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "voxflow inserted text")
+        XCTAssertEqual(
+            pasteboard.string(forType: NSPasteboard.PasteboardType("com.voxflow.pasteboard.internal")),
+            "1"
+        )
+        XCTAssertTrue(transaction.isCurrent(on: pasteboard))
+    }
+
     @MainActor
     func testWaiterReturnsWhenPasteboardChangesDuringPolling() async throws {
         let pasteboard = try makePasteboard()

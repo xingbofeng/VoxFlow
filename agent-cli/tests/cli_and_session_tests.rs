@@ -46,12 +46,20 @@ fn vox_symlink_invocation_forwards_documented_flow_commands() {
         ["/usr/local/bin/vox", "codex"]
     );
     assert_eq!(
+        normalize_invocation_args(["vox", "flow", "opencode"]).unwrap(),
+        ["vox", "opencode"]
+    );
+    assert_eq!(
         normalize_invocation_args(["vox", "flow", "--claude", "--resume"]).unwrap(),
         ["vox", "claude", "--resume"]
     );
     assert_eq!(
         normalize_invocation_args(["vox", "flow", "--codebuddy"]).unwrap(),
         ["vox", "codebuddy"]
+    );
+    assert_eq!(
+        normalize_invocation_args(["vox", "flow", "pi"]).unwrap(),
+        ["vox", "pi"]
     );
 }
 

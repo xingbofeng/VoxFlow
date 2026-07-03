@@ -79,6 +79,17 @@ final class ClipboardAssetMonitor {
         guard let candidate = firstSupportedCandidate(in: items) else {
             return nil
         }
+        let sourceApplication = sourceApplicationProvider()
+
+        if let text = candidate.text,
+           internalWriteGuard.shouldIgnoreRecentTextOutput(
+               text,
+               sourceAppName: sourceApplication?.name,
+               sourceAppBundleID: sourceApplication?.bundleID,
+               now: now
+           ) {
+            return nil
+        }
 
         let imagePath = try candidate.imageData.map { data in
             try imageDataWriter?(data, candidate.contentHash)
@@ -88,7 +99,7 @@ final class ClipboardAssetMonitor {
         let asset = try candidate.makeAsset(
             now: now,
             createdAt: existingAsset?.createdAt,
-            sourceApplication: sourceApplicationProvider(),
+            sourceApplication: sourceApplication,
             imagePath: imagePath
         )
         try repository.save(asset)

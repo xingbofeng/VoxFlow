@@ -28,6 +28,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         var selectedLanguage: RecognitionLanguage?
         var selectedASR: ASRMenuModel?
         var selectedLLMProviderID: String?
+        var selectedAgentProviderID: String?
         var selectedCapabilityModel: (CapabilityModelKind, String)?
         var openedWorkbench = false
         var openedSettings = false
@@ -36,6 +37,15 @@ final class MenuBarCoordinatorTests: XCTestCase {
         var selectionActionRequested = false
         var quitRequested = false
         let provider = makeProvider(id: "provider", displayName: "OpenAI", model: "gpt-4.1", enabled: true, isDefault: true)
+        let agentProvider = makeProvider(
+            id: "codex",
+            displayName: "Codex",
+            model: "gpt-5.4-mini",
+            enabled: true,
+            isDefault: false,
+            providerType: "codex",
+            baseURL: "local://codex"
+        )
         let coordinator = MenuBarCoordinator(
             asrOptions: [asrOption],
             currentLanguage: { .simplifiedChinese },
@@ -45,6 +55,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
                 selectLanguage: { selectedLanguage = $0 },
                 selectASRMenuOption: { selectedASR = $0 },
                 selectLLMProvider: { selectedLLMProviderID = $0 },
+                selectAgentProvider: { selectedAgentProviderID = $0 },
                 selectCapabilityModel: { kind, id in selectedCapabilityModel = (kind, id) },
                 openWorkbench: { openedWorkbench = true },
                 requestSelectionAction: { selectionActionRequested = true },
@@ -54,8 +65,9 @@ final class MenuBarCoordinatorTests: XCTestCase {
                 quit: { quitRequested = true },
                 menuWillOpen: {}
             ),
-            llmProviders: { [provider] },
+            llmProviders: { [provider, agentProvider] },
             selectedLLMProviderID: { "provider" },
+            selectedAgentProviderID: { "codex" },
             capabilityModels: { CapabilityModelCatalog.models(for: $0) },
             selectedCapabilityModelID: {
                 $0 == .tts ? CapabilityModelID.systemDefaultTTS : CapabilityModelID.systemDefaultTranslation
@@ -72,6 +84,9 @@ final class MenuBarCoordinatorTests: XCTestCase {
         let llmItem = try XCTUnwrap(
             coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu?.item(withTitle: "OpenAI · gpt-4.1")
         )
+        let agentItem = try XCTUnwrap(
+            coordinator.menu.item(withTitle: menuAgentModelTitle)?.submenu?.item(withTitle: "Codex · gpt-5.4-mini")
+        )
         let ttsItem = try XCTUnwrap(
             coordinator.menu.item(withTitle: menuTTSModelTitle)?.submenu?.item(withTitle: "系统默认")
         )
@@ -79,6 +94,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         sendAction(for: languageItem)
         sendAction(for: asrItem)
         sendAction(for: llmItem)
+        sendAction(for: agentItem)
         sendAction(for: ttsItem)
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuOpenWorkbenchTitle)))
         sendAction(for: try XCTUnwrap(coordinator.menu.item(withTitle: menuSelectionActionTitle)))
@@ -90,6 +106,7 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertEqual(selectedLanguage, .english)
         XCTAssertEqual(selectedASR, asrOption)
         XCTAssertEqual(selectedLLMProviderID, "provider")
+        XCTAssertEqual(selectedAgentProviderID, "codex")
         XCTAssertEqual(selectedCapabilityModel?.0, .tts)
         XCTAssertEqual(selectedCapabilityModel?.1, CapabilityModelID.systemDefaultTTS)
         XCTAssertTrue(openedWorkbench)
@@ -98,6 +115,24 @@ final class MenuBarCoordinatorTests: XCTestCase {
         XCTAssertTrue(openedGitHub)
         XCTAssertTrue(checkedPermissions)
         XCTAssertTrue(quitRequested)
+
+        let modelMenuTitles = coordinator.menu.items.map(\.title)
+        XCTAssertLessThan(
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuAsrModelTitle)),
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuLLMServiceTitle))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuLLMServiceTitle)),
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuAgentModelTitle))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuAgentModelTitle)),
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuTranslationModelTitle))
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuTranslationModelTitle)),
+            try XCTUnwrap(modelMenuTitles.firstIndex(of: menuTTSModelTitle))
+        )
     }
 
     func testCoordinatorBuildsModelSubmenusAndRefreshesLinkedStateWhenMenuOpens() throws {
@@ -149,11 +184,175 @@ final class MenuBarCoordinatorTests: XCTestCase {
         translationMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuTranslationModelTitle)?.submenu)
         let enabledKokoroItem = try XCTUnwrap(ttsMenu.item(withTitle: "Kokoro TTS") as NSMenuItem?)
 
-        XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .off)
-        XCTAssertEqual(llmMenu.item(withTitle: "Disabled · gpt-disabled")?.state, .on)
+        XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .on)
+        XCTAssertEqual(llmMenu.item(withTitle: "Disabled · gpt-disabled")?.state, .off)
         XCTAssertTrue(enabledKokoroItem.isEnabled)
         XCTAssertEqual(ttsMenu.item(withTitle: "Kokoro TTS")?.state, .on)
         XCTAssertNotNil(translationMenu.item(withTitle: "Soniqo MADLAD（\(menuNotDownloadedSuffix)）"))
+    }
+
+    func testCoordinatorRunsMenuWillOpenActionBeforeRefreshingProviderSelection() throws {
+        let primary = makeProvider(id: "primary", displayName: "Primary", model: "gpt-primary", enabled: true, isDefault: true)
+        let secondary = makeProvider(id: "secondary", displayName: "Secondary", model: "gpt-secondary", enabled: true, isDefault: false)
+        let primaryAfterSync = makeProvider(id: "primary", displayName: "Primary", model: "gpt-primary", enabled: true, isDefault: false)
+        let secondaryAfterSync = makeProvider(id: "secondary", displayName: "Secondary", model: "gpt-secondary", enabled: true, isDefault: true)
+        var providers = [primary, secondary]
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { _ in false },
+            actions: MenuBarActions(
+                selectLanguage: { _ in },
+                selectASRMenuOption: { _ in },
+                openWorkbench: {},
+                openSettings: {},
+                openGitHub: {},
+                checkPermissions: {},
+                quit: {},
+                menuWillOpen: {
+                    providers = [primaryAfterSync, secondaryAfterSync]
+                }
+            ),
+            llmProviders: { providers },
+            selectedLLMProviderID: { providers.first(where: \.isDefault)?.id }
+        )
+
+        coordinator.menuWillOpen(coordinator.menu)
+
+        let llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu)
+        XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .off)
+        XCTAssertEqual(llmMenu.item(withTitle: "Secondary · gpt-secondary")?.state, .on)
+    }
+
+    func testCoordinatorRefreshesProviderSelectionWhenLLMSubmenuOpens() throws {
+        let primary = makeProvider(id: "primary", displayName: "Primary", model: "gpt-primary", enabled: true, isDefault: true)
+        let secondary = makeProvider(id: "secondary", displayName: "Secondary", model: "gpt-secondary", enabled: true, isDefault: false)
+        let primaryAfterSync = makeProvider(id: "primary", displayName: "Primary", model: "gpt-primary", enabled: true, isDefault: false)
+        let secondaryAfterSync = makeProvider(id: "secondary", displayName: "Secondary", model: "gpt-secondary", enabled: true, isDefault: true)
+        var providers = [primary, secondary]
+        var menuWillOpenCount = 0
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { _ in false },
+            actions: MenuBarActions(
+                selectLanguage: { _ in },
+                selectASRMenuOption: { _ in },
+                openWorkbench: {},
+                openSettings: {},
+                openGitHub: {},
+                checkPermissions: {},
+                quit: {},
+                menuWillOpen: {
+                    menuWillOpenCount += 1
+                    providers = [primaryAfterSync, secondaryAfterSync]
+                }
+            ),
+            llmProviders: { providers },
+            selectedLLMProviderID: { providers.first(where: \.isDefault)?.id }
+        )
+
+        let llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu)
+
+        coordinator.menuWillOpen(llmMenu)
+
+        XCTAssertEqual(menuWillOpenCount, 1)
+        XCTAssertEqual(llmMenu.item(withTitle: "Primary · gpt-primary")?.state, .off)
+        XCTAssertEqual(llmMenu.item(withTitle: "Secondary · gpt-secondary")?.state, .on)
+    }
+
+    func testLLMAndAgentProviderMenusAreSeparate() throws {
+        let openAI = makeProvider(
+            id: "openai",
+            displayName: "OpenAI",
+            model: "gpt-4.1",
+            enabled: true,
+            isDefault: true
+        )
+        let codex = makeProvider(
+            id: "codex",
+            displayName: "Codex",
+            model: "gpt-5.4-mini",
+            enabled: true,
+            isDefault: false,
+            providerType: "codex",
+            baseURL: "local://codex",
+            lastHealthStatus: "ok"
+        )
+        let claude = makeProvider(
+            id: "claude",
+            displayName: "Claude Code",
+            model: "sonnet",
+            enabled: false,
+            isDefault: false,
+            providerType: "claude",
+            baseURL: "local://claude",
+            lastHealthStatus: nil
+        )
+        let detectedOpenCode = makeProvider(
+            id: "opencode",
+            displayName: "Opencode",
+            model: "opencode/big-pickle",
+            enabled: false,
+            isDefault: false,
+            providerType: "opencode",
+            baseURL: "local://opencode",
+            lastHealthStatus: "ok"
+        )
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { _ in false },
+            actions: .noop,
+            llmProviders: { [openAI, codex, claude, detectedOpenCode] },
+            selectedLLMProviderID: { "openai" },
+            selectedAgentProviderID: { "codex" }
+        )
+
+        let llmMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuLLMServiceTitle)?.submenu)
+        let agentMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuAgentModelTitle)?.submenu)
+
+        XCTAssertNotNil(llmMenu.item(withTitle: "OpenAI · gpt-4.1"))
+        XCTAssertNil(llmMenu.item(withTitle: "Codex · gpt-5.4-mini"))
+        XCTAssertNil(llmMenu.item(withTitle: "Claude Code · sonnet"))
+        XCTAssertNil(agentMenu.item(withTitle: "OpenAI · gpt-4.1"))
+        XCTAssertEqual(agentMenu.item(withTitle: "Codex · gpt-5.4-mini")?.state, .on)
+        XCTAssertEqual(agentMenu.item(withTitle: "Claude Code · sonnet")?.state, .off)
+        XCTAssertFalse(try XCTUnwrap(agentMenu.item(withTitle: "Claude Code · sonnet")).isEnabled)
+        let openCodeItem = try XCTUnwrap(agentMenu.item(withTitle: "Opencode · opencode/big-pickle"))
+        XCTAssertTrue(openCodeItem.isEnabled)
+        XCTAssertEqual(openCodeItem.state, .off)
+    }
+
+    func testAgentProviderMenuDisablesConfiguredProviderWhenHealthIsError() throws {
+        let brokenAgent = makeProvider(
+            id: "opencode",
+            displayName: "opencode",
+            model: "kimi-k2",
+            enabled: true,
+            isDefault: false,
+            providerType: "opencode",
+            baseURL: "local://opencode",
+            lastHealthStatus: "error"
+        )
+        let coordinator = MenuBarCoordinator(
+            asrOptions: [],
+            currentLanguage: { .simplifiedChinese },
+            isASRMenuOptionEnabled: { _ in true },
+            isASRMenuOptionSelected: { _ in false },
+            actions: .noop,
+            llmProviders: { [brokenAgent] },
+            selectedAgentProviderID: { "opencode" }
+        )
+
+        let agentMenu = try XCTUnwrap(coordinator.menu.item(withTitle: menuAgentModelTitle)?.submenu)
+        let item = try XCTUnwrap(agentMenu.item(withTitle: "Opencode · kimi-k2"))
+
+        XCTAssertFalse(item.isEnabled)
+        XCTAssertEqual(item.state, .on)
     }
 
     func testTranslationLLMMenuItemIsDisabledWhenProviderIsUnavailable() throws {
@@ -265,6 +464,10 @@ final class MenuBarCoordinatorTests: XCTestCase {
         L10n.localize("menu.status.llm_service", comment: "")
     }
 
+    private var menuAgentModelTitle: String {
+        L10n.localize("menu.status.agent_model", comment: "")
+    }
+
     private var menuTTSModelTitle: String {
         L10n.localize("menu.status.tts_model", comment: "")
     }
@@ -322,20 +525,23 @@ final class MenuBarCoordinatorTests: XCTestCase {
         displayName: String,
         model: String,
         enabled: Bool,
-        isDefault: Bool
+        isDefault: Bool,
+        providerType: String = "openaiCompatible",
+        baseURL: String = "https://api.example.com/v1",
+        lastHealthStatus: String? = nil
     ) -> LLMProviderRecord {
         LLMProviderRecord(
             id: id,
             displayName: displayName,
-            providerType: "openaiCompatible",
-            baseURL: "https://api.example.com/v1",
+            providerType: providerType,
+            baseURL: baseURL,
             defaultModel: model,
             apiKeyRef: "llm-provider-\(id)",
             temperature: 0.2,
             timeoutSeconds: 30,
             enabled: enabled,
             isDefault: isDefault,
-            lastHealthStatus: nil,
+            lastHealthStatus: lastHealthStatus,
             lastHealthMessage: nil,
             lastLatencyMS: nil,
             createdAt: Date(timeIntervalSince1970: 0),

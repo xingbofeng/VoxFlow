@@ -6,7 +6,9 @@ enum LLMProviderAvailability {
     }
 
     static func isUsableProvider(_ provider: LLMProviderRecord) -> Bool {
-        provider.enabled && provider.hasRequiredLLMConfiguration
+        provider.enabled &&
+            provider.isOpenAICompatibleProvider &&
+            provider.hasRequiredLLMConfiguration
     }
 }
 
@@ -16,12 +18,29 @@ extension LLMProviderRecord {
             providerType.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) == .orderedSame
     }
 
+    var isLocalAgentProvider: Bool {
+        AgentProviderRegistry.localProvider(for: id) != nil ||
+            AgentProviderRegistry.localProvider(for: providerType) != nil ||
+            AgentProviderRegistry.enabledRuntimeProviders.contains {
+                baseURL.caseInsensitiveCompare($0.baseURL) == .orderedSame
+            }
+    }
+
+    var localAgentDisplayName: String {
+        AgentProviderRegistry.localProvider(for: id)?.displayName ??
+            AgentProviderRegistry.localProvider(for: providerType)?.displayName ??
+            AgentProviderRegistry.enabledRuntimeProviders.first {
+                baseURL.caseInsensitiveCompare($0.baseURL) == .orderedSame
+            }?.displayName ??
+            displayName
+    }
+
     var isCodexRuntimeProvider: Bool {
         isCodexLLMProvider
     }
 
     var isOpenAICompatibleProvider: Bool {
-        !isCodexLLMProvider
+        !isLocalAgentProvider
     }
 
     var hasRequiredLLMConfiguration: Bool {

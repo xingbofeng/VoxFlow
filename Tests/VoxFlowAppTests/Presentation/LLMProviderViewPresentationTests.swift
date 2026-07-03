@@ -8,4 +8,9 @@ final class LLMProviderViewPresentationTests: XCTestCase {
         XCTAssertEqual(LLMProviderActionIcon.delete, "trash")
     }
 
+    func testProviderViewModesSeparateLLMAndAgentSections() {
+        XCTAssertEqual(LLMProviderViewMode.llm.visibleSections, [.regularProviders])
+        XCTAssertEqual(LLMProviderViewMode.agent.visibleSections, [.localAgentProviders])
+        XCTAssertEqual(LLMProviderViewMode.combined.visibleSections, [.regularProviders, .localAgentProviders])
+    }
 }

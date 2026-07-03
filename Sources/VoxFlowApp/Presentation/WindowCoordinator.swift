@@ -11,6 +11,7 @@ final class WindowCoordinator {
     private let navigationRouter = WorkbenchNavigationRouter()
     private var mainWindowController: MainWindowController?
     var onCheckForUpdates: () -> Void = {}
+    var onDebugTranscriptInjection: (String, VoiceTaskMode) -> Void = { _, _ in }
 
     init(
         environment: AppEnvironment,
@@ -38,6 +39,9 @@ final class WindowCoordinator {
                 navigationRouter: navigationRouter,
                 updatePromptStore: updatePromptStore,
                 onCheckForUpdates: onCheckForUpdates,
+                onDebugTranscriptInjection: { [weak self] transcript, mode in
+                    self?.onDebugTranscriptInjection(transcript, mode)
+                },
                 onClose: { [weak self] in
                     self?.hideDockAfterWorkbenchCloses()
                 }

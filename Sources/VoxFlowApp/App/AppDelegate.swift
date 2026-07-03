@@ -98,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selectLanguage: { [weak self] language in self?.selectLanguage(language) },
             selectASRMenuOption: { [weak self] option in self?.selectASREngine(option) },
             selectLLMProvider: { [weak self] providerID in self?.selectLLMProvider(providerID) },
+            selectAgentProvider: { [weak self] providerID in self?.selectAgentProvider(providerID) },
             selectCapabilityModel: { [weak self] kind, modelID in self?.selectCapabilityModel(kind: kind, modelID: modelID) },
             openWorkbench: { [weak self] in self?.openWorkbench() },
             requestSelectionAction: { [weak self] in _ = self?.performWorkflowShortcut(.selectionAction) },
@@ -105,7 +106,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             openGitHub: { [weak self] in self?.openGitHub() },
             checkPermissions: { [weak self] in self?.checkPermissions() },
             quit: { [weak self] in self?.quitApp() },
-            menuWillOpen: { [weak self] in self?.refreshStatusItemAppearance() }
+            menuWillOpen: { [weak self] in
+                self?.refreshStatusItemAppearance()
+                self?.refreshConfiguredAgentProviderHealth()
+            }
         ),
         llmProviders: { [weak self] in
             (try? self?.appEnvironment.llmProviderRepository.list()) ?? []
@@ -113,6 +117,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         selectedLLMProviderID: { [weak self] in
             (try? self?.appEnvironment.llmProviderRepository.list()
                 .first { LLMProviderAvailability.isUsableProvider($0) && $0.isDefault }?.id) ?? nil
+        },
+        selectedAgentProviderID: { [weak self] in
+            guard let self else { return nil }
+            return try? RepositoryBackedLLMRefiner.agentProviderID(
+                settingsRepository: self.appEnvironment.settingsRepository
+            )
         },
         capabilityModels: { [weak self] kind in
             CapabilityModelViewModel.models(
@@ -420,6 +430,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowCoordinator.onCheckForUpdates = { [weak self] in
             self?.checkForUpdates(nil)
         }
+        #if DEBUG
+        windowCoordinator.onDebugTranscriptInjection = { [weak self] transcript, mode in
+            Task { @MainActor [weak self] in
+                await self?.runDebugTranscriptInjection(transcript: transcript, mode: mode)
+            }
+        }
+        #endif
         startSelectionTargetTracking()
         logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
@@ -800,6 +817,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func selectAgentProvider(_ providerID: String) {
+        logger.debug("menu_select_agent_provider providerID=\(providerID)")
+        Task { @MainActor [appEnvironment] in
+            let viewModel = LLMProviderViewModel(environment: appEnvironment)
+            await viewModel.setLocalAgentProviderEnabledAfterDetection(providerID: providerID, true)
+        }
+    }
+
+    private func refreshConfiguredAgentProviderHealth() {
+        Task { @MainActor [weak self, appEnvironment] in
+            guard let self else { return }
+            let providers = (try? appEnvironment.llmProviderRepository.list()) ?? []
+            let providerIDs = Set(
+                providers
+                    .filter(\.isLocalAgentProvider)
+                    .compactMap { provider -> String? in
+                        AgentProviderRegistry.localProvider(for: provider.providerType)?.providerID ??
+                            AgentProviderRegistry.localProvider(for: provider.id)?.providerID
+                    }
+            )
+            guard !providerIDs.isEmpty else { return }
+
+            let viewModel = LLMProviderViewModel(environment: appEnvironment)
+            for providerID in providerIDs.sorted() {
+                await viewModel.detectLocalAgentProvider(providerID: providerID, forceRefresh: false)
+            }
+            self.menuBarCoordinator.refreshDynamicState()
+        }
+    }
+
     private func selectCapabilityModel(kind: CapabilityModelKind, modelID: String) {
         logger.debug("menu_select_capability_model kind=\(kind) modelID=\(modelID)")
         CapabilityModelViewModel.setSelectedModelID(modelID, kind: kind)
@@ -818,6 +865,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openWorkbenchFromMainMenu(_ sender: Any?) {
         openWorkbench()
     }
+
+    #if DEBUG
+    private func runDebugTranscriptInjection(
+        transcript: String,
+        mode: VoiceTaskMode
+    ) async {
+        AppLogger.general.info("debug_transcript_injection_started mode=\(mode) len=\(transcript.count)")
+        switch mode {
+        case .dictation:
+            await runDebugDictationTranscriptInjection(transcript)
+        case .agentCompose:
+            await runDebugAgentComposeTranscriptInjection(transcript)
+        case .agentDispatch:
+            AppLogger.general.warning("debug_transcript_injection_ignored unsupported mode=agentDispatch")
+        }
+    }
+
+    private func debugASRMetadata() -> VoiceTaskASRMetadata {
+        VoiceTaskASRMetadata(
+            providerID: "debug-injected",
+            modelID: "manual-transcript",
+            language: LanguageManager.shared.currentLanguage.rawValue,
+            sessionID: UUID().uuidString,
+            audioDurationMs: 0,
+            finalLatencyMs: 0
+        )
+    }
+
+    private func runDebugDictationTranscriptInjection(_ transcript: String) async {
+        let target = runtime?.dictationTargetProvider.currentTarget()
+        do {
+            let task = try voiceTaskCoordinator.startTask(
+                mode: .dictation,
+                target: target,
+                asrMetadata: debugASRMetadata()
+            )
+            try voiceTaskCoordinator.recordRawTranscript(transcript, kind: .dictation)
+            hudFeatureController.processingStarted(transcript)
+            _ = try await voiceTaskCoordinator.processAndDeliver(kind: .dictation)
+            appEnvironment.notifyHistoryDidChange()
+            openHistoryDetail(task.id)
+            AppLogger.general.info("debug_transcript_injection_completed mode=dictation taskID=\(task.id)")
+        } catch {
+            try? voiceTaskCoordinator.recordFailure(
+                stage: "debugTranscriptInjection",
+                code: "debug_transcript_injection_failed",
+                message: error.localizedDescription,
+                recoverable: true,
+                kind: .dictation
+            )
+            appEnvironment.notifyHistoryDidChange()
+            showRecognitionError(error)
+        }
+    }
+
+    private func runDebugAgentComposeTranscriptInjection(_ transcript: String) async {
+        let target = runtime?.dictationTargetProvider.currentTarget()
+        do {
+            try agentComposeHandler.start(target: target, asrMetadata: debugASRMetadata())
+            hudFeatureController.handleAgentComposeStage(.runtimeProcessing(summary: transcript))
+            let result = try await agentComposeHandler.finish(rawTranscript: transcript)
+            appEnvironment.notifyHistoryDidChange()
+            showAgentComposeResult(result)
+            AppLogger.general.info("debug_transcript_injection_completed mode=agentCompose")
+        } catch {
+            agentComposeHandler.fail(error)
+            appEnvironment.notifyHistoryDidChange()
+            showRecognitionError(error)
+        }
+    }
+    #endif
 
     @objc func openSettingsFromMainMenu(_ sender: Any?) {
         openSettings()

@@ -111,20 +111,18 @@ struct TextComparisonPresentation: Equatable, Sendable {
     }
 }
 
-/// Minimal token LCS diff engine.
+/// Minimal token LCS diff engine for the home transcript comparison.
 ///
-/// Tokenization rules (per design.md §"使用 TextDiffing 作为优先 diff 轮子"):
-/// - ASCII letters and digits group into a single token (e.g. `Qwen3`, `42`).
-/// - Each CJK character (Han, Hiragana, Katakana, Hangul) is its own token.
-/// - Each punctuation, symbol, or whitespace character is its own token.
-///
-/// The LCS table is built over the two token arrays, then walked back into
-/// `.equal` / `.inserted` / `.deleted` segments. Adjacent segments of the same
-/// kind are coalesced so the UI does not render a separate chip per character.
+/// Tokenization and the LCS table walk are delegated to the shared
+/// `TokenLCSMatcher` backbone (per design.md §"使用 TextDiffing 作为优先 diff 轮子"
+/// and `add-dictation-refinement-guard` ADR), so the home diff and the
+/// refinement guard always agree on what a token is and how the LCS cell is
+/// walked back. Adjacent segments of the same kind are coalesced so the UI
+/// does not render a separate chip per character.
 struct TokenLCSDiffEngine: TextDiffEngine {
     func segments(between source: String, and processed: String) -> [TextDiffSegment] {
-        let sourceTokens = TokenLCSDiffEngine.tokenize(source)
-        let processedTokens = TokenLCSDiffEngine.tokenize(processed)
+        let sourceTokens = TokenLCSMatcher.tokenize(source)
+        let processedTokens = TokenLCSMatcher.tokenize(processed)
         return TokenLCSDiffEngine.lcs(source: sourceTokens, processed: processedTokens)
     }
 
@@ -149,73 +147,15 @@ struct TokenLCSDiffEngine: TextDiffEngine {
         return result
     }
 
-    // MARK: - Tokenization
-
-    static func tokenize(_ text: String) -> [String] {
-        if text.isEmpty { return [] }
-        var tokens: [String] = []
-        var current = ""
-        for scalar in text.unicodeScalars {
-            if isASCIILetterOrDigit(scalar) {
-                current.unicodeScalars.append(scalar)
-                continue
-            }
-            if !current.isEmpty {
-                tokens.append(current)
-                current = ""
-            }
-            tokens.append(String(scalar))
-        }
-        if !current.isEmpty {
-            tokens.append(current)
-        }
-        return tokens
-    }
-
-    private static func isASCIILetterOrDigit(_ scalar: Unicode.Scalar) -> Bool {
-        // ASCII letters (a-z, A-Z) and digits (0-9) only. We intentionally do
-        // NOT group extended Latin letters (é, ñ) so diacritic-sensitive edits
-        // remain visible; the spec only requires English/digit runs to group.
-        (scalar >= "a" && scalar <= "z") || (scalar >= "A" && scalar <= "Z") || (scalar >= "0" && scalar <= "9")
-    }
-
     // MARK: - LCS
 
     static func lcs(source: [String], processed: [String]) -> [TextDiffSegment] {
-        // Standard dynamic-programming LCS table over the two token arrays.
-        let m = source.count
-        let n = processed.count
-        if m == 0 && n == 0 { return [] }
-        if m == 0 { return [.inserted(processed.joined())] }
-        if n == 0 { return [.deleted(source.joined())] }
-
-        var table = Array(repeating: Array(repeating: 0, count: n + 1), count: m + 1)
-        for i in 1...m {
-            for j in 1...n {
-                if source[i - 1] == processed[j - 1] {
-                    table[i][j] = table[i - 1][j - 1] + 1
-                } else {
-                    table[i][j] = max(table[i - 1][j], table[i][j - 1])
-                }
+        TokenLCSMatcher.lcsSegments(source: source, processed: processed).map { segment in
+            switch segment {
+            case .equal(let text): return .equal(text)
+            case .inserted(let text): return .inserted(text)
+            case .deleted(let text): return .deleted(text)
             }
         }
-
-        var segments: [TextDiffSegment] = []
-        var i = m
-        var j = n
-        while i > 0 || j > 0 {
-            if i > 0 && j > 0 && source[i - 1] == processed[j - 1] {
-                segments.append(.equal(source[i - 1]))
-                i -= 1
-                j -= 1
-            } else if j > 0 && (i == 0 || table[i][j - 1] >= table[i - 1][j]) {
-                segments.append(.inserted(processed[j - 1]))
-                j -= 1
-            } else if i > 0 {
-                segments.append(.deleted(source[i - 1]))
-                i -= 1
-            }
-        }
-        return segments.reversed()
     }
 }

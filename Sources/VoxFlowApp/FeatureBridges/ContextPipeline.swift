@@ -61,6 +61,23 @@ struct ContextPipeline: ContextCollecting {
             }
         }
 
+        guard !Self.isSelfTarget(target) else {
+            warnings.append("self_target_context_skipped")
+            AppLogger.dictation.warning("上下文收集跳过：目标应用是 VoxFlow 自身")
+            return ContextSnapshot(
+                windowTitle: windowTitle,
+                targetAppBundleID: bundleID,
+                targetAppName: appName,
+                visibleText: nil,
+                selectedText: nil,
+                inputAreaText: nil,
+                visualContentAvailable: false,
+                sources: sources,
+                trimmedLength: 0,
+                warnings: warnings
+            )
+        }
+
         // 2. Accessibility collection. Race synchronous AX work against a hard timeout.
         guard let accessibilityResult = await collectAccessibility(pid: target?.pid) else {
             warnings.append("context_collection_timeout")
@@ -221,6 +238,18 @@ struct ContextPipeline: ContextCollecting {
                 gate.resumeOnce(nil, continuation: continuation)
             }
         }
+    }
+
+    private static func isSelfTarget(_ target: DictationTarget?) -> Bool {
+        guard let target else { return false }
+        let currentBundleID = Bundle.main.bundleIdentifier
+        if let bundleID = target.bundleID,
+           bundleID == currentBundleID
+            || bundleID == ProductBrand.bundleIdentifier
+            || bundleID == "\(ProductBrand.bundleIdentifier).dev" {
+            return true
+        }
+        return target.pid == Int(ProcessInfo.processInfo.processIdentifier)
     }
 
     // MARK: - Text processing

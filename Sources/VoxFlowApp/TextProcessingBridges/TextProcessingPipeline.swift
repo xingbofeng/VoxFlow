@@ -35,70 +35,6 @@ struct TextProcessingResult: Equatable, Sendable {
     }
 }
 
-struct ConservativeRefinementGuard: Sendable {
-    enum Decision: Equatable, Sendable {
-        case accept
-        case reject(String)
-    }
-
-    func validate(
-        raw: String,
-        refined: String,
-        temporaryHotwords: [String]
-    ) -> Decision {
-        let rawTrimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        let refinedTrimmed = refined.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !refinedTrimmed.isEmpty else {
-            return .reject("empty")
-        }
-        guard !looksLikeExplanation(refinedTrimmed) else {
-            return .reject("explanation")
-        }
-        guard preservedTokens(in: rawTrimmed).allSatisfy({ refinedTrimmed.contains($0) }) else {
-            return .reject("protected_token_missing")
-        }
-        let introducedHotwords = temporaryHotwords.filter {
-            !rawTrimmed.localizedCaseInsensitiveContains($0)
-                && refinedTrimmed.localizedCaseInsensitiveContains($0)
-        }
-        guard introducedHotwords.count <= 1 else {
-            return .reject("too_many_hotwords")
-        }
-        return .accept
-    }
-
-    private func looksLikeExplanation(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prefixes = [
-            "修改说明", "说明：", "说明:", "以下是", "标题：", "标题:",
-            "我已", "已经帮你", "```", "# "
-        ]
-        return prefixes.contains { trimmed.hasPrefix($0) }
-    }
-
-    private func preservedTokens(in text: String) -> [String] {
-        let patterns = [
-            #"https?://[^\s，。！？、]+"#,
-            #"(?:^|[\s，。])/[A-Za-z0-9._~/%+-]+"#,
-            #"\b\d+(?:\.\d+)*\b"#,
-            #"`[^`]+`"#
-        ]
-        return patterns.flatMap { matches(pattern: $0, in: text) }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
-            .filter { !$0.isEmpty }
-    }
-
-    private func matches(pattern: String, in text: String) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        return regex.matches(in: text, range: range).compactMap { match in
-            guard let swiftRange = Range(match.range, in: text) else { return nil }
-            return String(text[swiftRange])
-        }
-    }
-
-}
-
 struct TextProcessingTrace: Equatable, Codable, Sendable {
     var llm: LLMRefinementTrace? = nil
     var output: OutputDeliveryTrace? = nil
@@ -109,6 +45,12 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
     var deterministic: DeterministicProcessingTrace? = nil
     var agentAction: AgentActionTrace? = nil
     var agentDispatch: AgentDispatchTrace? = nil
+    /// Ordinary-dictation refinement guard trace. `nil` for agent compose /
+    /// dispatch (the guard is scoped to ordinary dictation) and for traces
+    /// persisted before the guard existed. The trace itself is safe to
+    /// persist (decision/reason/similarity/baseline/fallback/token kinds),
+    /// so it round-trips without redaction.
+    var refinementGuard: RefinementGuardTrace? = nil
 
     func safeForPersistence() -> TextProcessingTrace {
         TextProcessingTrace(
@@ -124,7 +66,8 @@ struct TextProcessingTrace: Equatable, Codable, Sendable {
             styleRoute: styleRoute?.safeForPersistence(),
             deterministic: deterministic?.safeForPersistence(),
             agentAction: agentAction?.safeForPersistence(),
-            agentDispatch: agentDispatch?.safeForPersistence()
+            agentDispatch: agentDispatch?.safeForPersistence(),
+            refinementGuard: refinementGuard
         )
     }
 }
@@ -470,6 +413,10 @@ protocol TextRefining: AnyObject, Sendable {
     func refine(_ text: String) async throws -> String
 }
 
+protocol AgentComposeConfiguring: AnyObject, Sendable {
+    var isAgentComposeConfigured: Bool { get }
+}
+
 protocol RefinementTraceProviding: AnyObject {
     var lastTrace: LLMRefinementTrace? { get }
     func clearLastTrace()
@@ -738,6 +685,10 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         onRefinedTextUpdate: @escaping @MainActor (String) -> Void
     ) async -> TextProcessingResult {
         defer { contextBoostCoordinator?.cancel() }
+        guard !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return TextProcessingResult(rawText: rawText, finalText: "")
+        }
+
         var text = rawText
         var warnings: [String] = []
         var llmProviderID: String?
@@ -746,6 +697,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         var contextBoostTrace: ContextBoostTrace?
         var correctionEvents: [CorrectionEvent] = []
         var appliedCorrectionEvents: [CorrectionEvent] = []
+        var refinementGuardTrace: RefinementGuardTrace?
 
         // Deterministic pre-LLM processing: runs on the raw ASR text before
         // prompt rendering. Lightweight cleanup (filler filtering, smart
@@ -855,16 +807,34 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 refinedText = structuredParseResult.text
                 warnings.append(contentsOf: structuredParseResult.warnings)
                 let trimmedRefinedText = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let refinementDecision = ConservativeRefinementGuard().validate(
-                    raw: text,
-                    refined: trimmedRefinedText,
-                    temporaryHotwords: contextSnapshot?.hotwords.map(\.text) ?? []
-                )
-                switch refinementDecision {
-                case .accept:
+                let preLLMDeterministicText = text
+                // The refinement guard is scoped to ordinary dictation. The
+                // orchestrator routes Agent Compose / Agent Dispatch to
+                // dedicated paths; `correctionContext.appliesDictationRefinementGuard`
+                // lets dispatch-payload correction (which reuses the ordinary
+                // pipeline as a building block) explicitly opt out.
+                let guardApplies = correctionContext?.appliesDictationRefinementGuard ?? true
+                if guardApplies {
+                    let guardOutcome = ConservativeRefinementGuard().evaluate(
+                        asrRaw: rawText,
+                        preLLMDeterministic: preLLMDeterministicText,
+                        refined: trimmedRefinedText,
+                        temporaryHotwords: contextSnapshot?.hotwords.map(\.text) ?? []
+                    )
+                    refinementGuardTrace = guardOutcome.trace
+                    switch guardOutcome.decision {
+                    case .accept:
+                        text = trimmedRefinedText
+                    case .reject:
+                        warnings.append("llm_refinement_rejected")
+                        // Hard reject: prefer the pre-LLM deterministic text,
+                        // fall back to the ASR raw text when it is empty.
+                        text = guardOutcome.trace.fallback == .asrRaw
+                            ? rawText
+                            : preLLMDeterministicText
+                    }
+                } else {
                     text = trimmedRefinedText
-                case .reject:
-                    warnings.append("llm_refinement_rejected")
                 }
                 // Deterministic post-LLM processing: runs on the accepted LLM
                 // output before insertion. Handles punctuation normalization,
@@ -884,7 +854,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                     llm: localLLMTrace ?? (refiner as? RefinementTraceProviding)?.lastTrace,
                     contextBoost: contextBoostTrace,
                     contextRounds: contextRoundsOutcome.trace,
-                    styleRoute: styleSelector?.lastRouteTrace
+                    styleRoute: styleSelector?.lastRouteTrace,
+                    refinementGuard: refinementGuardTrace
                 )
             } catch {
                 AppLogger.general.error("LLM refinement failed: \(error.localizedDescription)")
@@ -1308,6 +1279,10 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     ) throws -> PromptBuildResult {
         let enabledStyle = style?.enabled == true ? style : nil
         let structuredStyle = structuredStyle(for: enabledStyle)
+        let customStylePrompt = customStructuredStylePrompt(
+            for: enabledStyle,
+            structuredStyle: structuredStyle
+        )
         let context = StructuredCorrectionPromptContext(
             rawText: rawText,
             userTerms: try structuredUserTerms(limit: 50),
@@ -1317,6 +1292,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         )
         let systemPrompt = builder.buildSystem(
             style: structuredStyle,
+            customStylePrompt: customStylePrompt,
             outputFormatRules: outputFormat?.promptRules
         )
         let requestContext = builder.buildRequestContext(context: context, includeRawText: false)
@@ -1403,6 +1379,20 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         default:
             return .default
         }
+    }
+
+    private func customStructuredStylePrompt(
+        for style: StyleProfileRecord?,
+        structuredStyle: StructuredCorrectionStyle
+    ) -> String? {
+        guard let prompt = style?.prompt.trimmingCharacters(in: .whitespacesAndNewlines),
+              !prompt.isEmpty else {
+            return nil
+        }
+        let template = StructuredCorrectionPromptCatalog.styleTemplate(for: structuredStyle)
+            .body
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return prompt == template ? nil : prompt
     }
 
     private func structuredUserTerms(limit: Int) throws -> [String] {

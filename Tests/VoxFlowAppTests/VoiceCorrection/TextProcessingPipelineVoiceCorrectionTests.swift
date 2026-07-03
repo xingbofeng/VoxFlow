@@ -195,7 +195,8 @@ final class TextProcessingPipelineVoiceCorrectionTests: XCTestCase {
     }
 
     private func makeContext(
-        mode: CorrectionInputMode = .dictation
+        mode: CorrectionInputMode = .dictation,
+        appliesDictationRefinementGuard: Bool = false
     ) -> CorrectionContext {
         CorrectionContext(
             mode: mode,
@@ -204,7 +205,8 @@ final class TextProcessingPipelineVoiceCorrectionTests: XCTestCase {
             language: "en",
             bundleIdentifier: "com.apple.TextEdit",
             isFinalTranscript: true,
-            isSecureField: false
+            isSecureField: false,
+            appliesDictationRefinementGuard: appliesDictationRefinementGuard
         )
     }
 

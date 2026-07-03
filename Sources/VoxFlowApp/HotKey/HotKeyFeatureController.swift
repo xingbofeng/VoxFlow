@@ -188,8 +188,16 @@ final class HotKeyFeatureController {
 
     private func handleRelease(_ action: VoiceAction) {
         Self.logger.debug("hotkey_handle_release action=\(action.logName)")
-        let action = resolvedAction(for: action, notesState: currentNotesState())
+        let notesState = currentNotesState()
+        let dictationState = currentDictationState()
+        let action = activeActionForCurrentVoiceTask()
+            ?? resolvedAction(for: action, notesState: notesState)
         delayedPress.cancel()
+        guard notesState.isRecording || dictationState.isRecordingActive else {
+            Self.logger.debug("hotkey_handle_release ignored state=\(dictationState)")
+            actionStartedOnCurrentPress = nil
+            return
+        }
         guard actionStartedOnCurrentPress == action || activeVoiceAction() == action else {
             Self.logger.debug(
                 "hotkey_handle_release ignored started=\(actionStartedOnCurrentPress?.logName ?? "nil") active=\(activeVoiceAction()?.logName ?? "nil")"
@@ -204,7 +212,8 @@ final class HotKeyFeatureController {
     private func handleShortPress(_ action: VoiceAction) {
         Self.logger.debug("hotkey_handle_short_press action=\(action.logName)")
         let notesState = currentNotesState()
-        let action = resolvedAction(for: action, notesState: notesState)
+        let action = activeActionForCurrentVoiceTask()
+            ?? resolvedAction(for: action, notesState: notesState)
         delayedPress.cancel()
         if actionStartedOnCurrentPress == action {
             Self.logger.debug("hotkey_handle_short_press ignored: action in progress")
@@ -230,6 +239,15 @@ final class HotKeyFeatureController {
         let resolved = primaryVoiceAction()
         Self.logger.debug("hotkey_resolved_action input=\(action.logName) shouldCapture=\(notesState.shouldCaptureHotKey) resolved=\(resolved.logName)")
         return resolved
+    }
+
+    private func activeActionForCurrentVoiceTask() -> VoiceAction? {
+        switch currentDictationState() {
+        case .recording, .waitingForFinal, .processing, .injecting:
+            return activeVoiceAction()
+        case .idle, .failed:
+            return nil
+        }
     }
 
     private func handleWorkflowShortcut(_ shortcut: HotKeyWorkflowShortcut) -> Bool {

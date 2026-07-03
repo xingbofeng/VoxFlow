@@ -4,6 +4,7 @@ public struct PasteboardTransaction {
     public let originalSnapshot: PasteboardSnapshot
     public let replacementChangeCount: Int
     private let markInternalChangeCount: (Int) -> Void
+    private static let internalMarkerType = NSPasteboard.PasteboardType("com.voxflow.pasteboard.internal")
 
     public static func begin(
         on pasteboard: NSPasteboard,
@@ -12,7 +13,9 @@ public struct PasteboardTransaction {
     ) -> PasteboardTransaction {
         let originalSnapshot = PasteboardSnapshot(items: pasteboard.pasteboardItems ?? [])
         pasteboard.clearContents()
+        pasteboard.declareTypes([.string, internalMarkerType], owner: nil)
         pasteboard.setString(replacementText, forType: .string)
+        pasteboard.setString("1", forType: internalMarkerType)
         markInternalChangeCount(pasteboard.changeCount)
         return PasteboardTransaction(
             originalSnapshot: originalSnapshot,

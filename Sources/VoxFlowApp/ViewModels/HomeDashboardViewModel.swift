@@ -1662,21 +1662,23 @@ private extension HomeHistoryDetail {
 
     init(task: VoiceTask) {
         let contextPreview = Self.decodeContextPreview(task.contextJson)
+        let trace = Self.decodeTrace(task.trace)
+        let asrMetadata = task.asrMetadata
         self.init(
             id: task.id,
             rawText: task.rawTranscript ?? "",
             finalText: task.finalText ?? "",
-            language: "",
-            asrProviderID: nil,
-            llmProviderID: nil,
-            styleID: nil,
+            language: asrMetadata?.language ?? "",
+            asrProviderID: asrMetadata?.providerID,
+            llmProviderID: trace?.llm?.providerID,
+            styleID: trace?.llm?.promptMetadata?.styleID ?? trace?.styleRoute?.selectedStyleID,
             appName: task.targetAppName,
             appBundleID: task.targetAppBundleID,
-            durationMS: 0,
+            durationMS: asrMetadata?.audioDurationMs ?? 0,
             charCount: task.finalText?.count ?? 0,
             cpm: 0,
             warnings: task.warnings,
-            trace: Self.decodeTrace(task.trace),
+            trace: trace,
             createdAt: task.createdAt,
             updatedAt: task.updatedAt,
             taskMode: task.mode,

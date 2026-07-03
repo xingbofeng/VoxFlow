@@ -916,6 +916,30 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
         XCTAssertEqual(asset.captureReason, .dictationCompleted)
     }
 
+    func testAgentDispatchFallbackInputWritesCorrectedVoiceAsset() throws {
+        let assetRepository = CapturingVoiceTaskAssetRepository()
+        let coordinator = makeCoordinator(assetRepository: assetRepository)
+        try coordinator.startTask(mode: .agentDispatch, target: nil)
+        try coordinator.recordRawTranscript("你好。", kind: .agentDispatch)
+        try coordinator.completeAgentDispatch(
+            finalText: "你好。",
+            presentation: .fallbackInput(text: "你好。")
+        )
+
+        try coordinator.completeAgentDispatchFallbackInput(
+            finalText: "你好。😊",
+            outputResult: .injected
+        )
+
+        XCTAssertEqual(assetRepository.savedItems.count, 1)
+        let asset = try XCTUnwrap(assetRepository.savedItems.first)
+        XCTAssertEqual(asset.source, .dictation)
+        XCTAssertEqual(asset.contentType, .text)
+        XCTAssertEqual(asset.text, "你好。😊")
+        XCTAssertEqual(asset.rawText, "你好。")
+        XCTAssertEqual(asset.captureReason, .dictationCompleted)
+    }
+
     func testAgentDispatchFallbackInputCompletionDoesNotScheduleBaselineLessObservation() throws {
         let observer = CapturingCorrectionObservationScheduler()
         let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")

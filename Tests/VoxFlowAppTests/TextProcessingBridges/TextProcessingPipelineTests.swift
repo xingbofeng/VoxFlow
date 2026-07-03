@@ -39,10 +39,26 @@ final class TextProcessingPipelineTests: XCTestCase {
         )
         let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
 
-        let result = await pipeline.process("原始文本")
+        let result = await pipeline.process(
+            "原始文本",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "修正文本")
         XCTAssertEqual(result.warnings, [])
+    }
+
+    func testEmptyRecognitionSkipsRefinementPipeline() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("不应该出现"))
+        let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
+
+        let result = await pipeline.process(" \n\t ")
+
+        XCTAssertEqual(result.rawText, " \n\t ")
+        XCTAssertEqual(result.finalText, "")
+        XCTAssertEqual(result.warnings, [])
+        XCTAssertTrue(refiner.requests.isEmpty)
     }
 
     func testPipelineBuildsPromptWithDefaultStyle() async throws {
@@ -75,7 +91,11 @@ final class TextProcessingPipelineTests: XCTestCase {
             promptBuilder: PromptBuilder()
         )
 
-        let result = await pipeline.process("配森")
+        let result = await pipeline.process(
+            "配森",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "Python")
         XCTAssertNil(result.llmProviderID)
@@ -130,7 +150,11 @@ final class TextProcessingPipelineTests: XCTestCase {
         )
         let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
 
-        let result = await pipeline.process("原始文本")
+        let result = await pipeline.process(
+            "原始文本",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "修正文本")
         XCTAssertEqual(result.llmProviderID, "local-provider")
@@ -148,7 +172,11 @@ final class TextProcessingPipelineTests: XCTestCase {
         )
         let pipeline = DefaultTextProcessingPipeline(refiner: refiner)
 
-        let result = await pipeline.process("原始文本")
+        let result = await pipeline.process(
+            "原始文本",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "修正文本")
         XCTAssertEqual(result.llmProviderID, "stream-local-provider")
@@ -199,7 +227,8 @@ final class TextProcessingPipelineTests: XCTestCase {
 
         let result = await pipeline.process(
             "去问三 ASR",
-            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42)
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor", pid: 42),
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
         )
 
         XCTAssertEqual(result.finalText, "Qwen3-ASR")
@@ -254,7 +283,7 @@ final class TextProcessingPipelineTests: XCTestCase {
         let result = await pipeline.process(
             "继续说刚刚那个方案",
             target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
-            correctionContext: Self.dictationContext()
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
         )
 
         let requestText = refiner.requests.first?.text ?? ""
@@ -747,6 +776,71 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(refiner.requests.first?.promptMetadata?.promptVersion, "1.2.1")
     }
 
+    func testStructuredPipelineIncludesEditedStylePromptInSystemPrompt() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let editedPrompt = """
+        # Role
+        你是自定义编程清洗编辑器，请保留技术词并只做保守修正。
+        """
+        try saveDefaultCodingStylePrompt(editedPrompt, in: environment)
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"你好啊。","corrections":[],"key_terms":[]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder()
+        )
+
+        let result = await pipeline.process(
+            "你好",
+            target: DictationTarget(bundleID: "com.openai.codex", appName: "Codex", pid: 42),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertTrue(result.finalText.hasPrefix("你好啊"))
+        XCTAssertFalse(result.warnings.contains("llm_refinement_rejected"))
+        XCTAssertEqual(result.styleID, "builtin.coding")
+        let guardTrace = try XCTUnwrap(result.trace?.refinementGuard)
+        XCTAssertEqual(guardTrace.decision, .accepted)
+        let systemPrompt = try XCTUnwrap(refiner.requests.first?.systemPrompt)
+        XCTAssertTrue(systemPrompt.contains("你是自定义编程清洗编辑器"))
+        XCTAssertFalse(systemPrompt.contains("你是 Vibe Coding 语音识别文本的清洗编辑器"))
+        XCTAssertTrue(systemPrompt.contains("Output JSON only"))
+        XCTAssertTrue(systemPrompt.contains("# Context Usage Rules"))
+    }
+
+    func testStructuredPipelineStillGuardsEditedStylePromptThatKeepsCriticalProtocol() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let casual = try XCTUnwrap(try environment.styleRepository.profile(id: "builtin.casual"))
+        try saveDefaultStylePrompt(
+            casual.prompt + "\n\n# Legacy Note\n保留保护协议。",
+            styleID: "builtin.casual",
+            in: environment
+        )
+        let refiner = PromptAwareStubTextRefiner(
+            result: .success(#"{"polished":"这个 user profile 放在哪里比较合适","corrections":[],"key_terms":[]}"#)
+        )
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            styleRepository: environment.styleRepository,
+            structuredPromptBuilder: StructuredCorrectionPromptBuilder()
+        )
+
+        let result = await pipeline.process(
+            "你好啊。",
+            target: DictationTarget(bundleID: "com.google.Chrome", appName: "Google Chrome", pid: 42),
+            correctionContext: Self.dictationContext()
+        )
+
+        XCTAssertEqual(result.finalText, "你好啊")
+        XCTAssertTrue(result.warnings.contains("llm_refinement_rejected"))
+        XCTAssertEqual(result.styleID, "builtin.casual")
+        let guardTrace = try XCTUnwrap(result.trace?.refinementGuard)
+        XCTAssertEqual(guardTrace.decision, .rejected)
+        XCTAssertEqual(guardTrace.reason, "normalized_similarity_low")
+    }
+
     func testStructuredPipelineFallsBackToCurrentTextWhenModelEchoesPromptContext() async {
         let echoedPromptContext = """
         ## user_terms (user hotwords, reference only)
@@ -1013,7 +1107,8 @@ final class TextProcessingPipelineTests: XCTestCase {
 
     private static func dictationContext(
         isFinalTranscript: Bool = true,
-        isSecureField: Bool = false
+        isSecureField: Bool = false,
+        appliesDictationRefinementGuard: Bool = true
     ) -> CorrectionContext {
         CorrectionContext(
             mode: .dictation,
@@ -1022,7 +1117,8 @@ final class TextProcessingPipelineTests: XCTestCase {
             language: "zh-CN",
             bundleIdentifier: "com.example.editor",
             isFinalTranscript: isFinalTranscript,
-            isSecureField: isSecureField
+            isSecureField: isSecureField,
+            appliesDictationRefinementGuard: appliesDictationRefinementGuard
         )
     }
 
@@ -1315,6 +1411,44 @@ final class TextProcessingPipelineTests: XCTestCase {
         }
     }
 
+    private func saveDefaultCodingStylePrompt(
+        _ prompt: String,
+        in environment: AppEnvironment
+    ) throws {
+        try saveDefaultStylePrompt(prompt, styleID: "builtin.coding", in: environment)
+    }
+
+    private func saveDefaultStylePrompt(
+        _ prompt: String,
+        styleID: String,
+        in environment: AppEnvironment
+    ) throws {
+        let coding = try XCTUnwrap(try environment.styleRepository.profile(id: styleID))
+        try environment.styleRepository.save(
+            StyleProfileRecord(
+                id: coding.id,
+                name: coding.name,
+                category: coding.category,
+                subtitle: coding.subtitle,
+                mode: coding.mode,
+                prompt: prompt,
+                sampleInput: coding.sampleInput,
+                sampleOutput: coding.sampleOutput,
+                llmProviderID: coding.llmProviderID,
+                model: coding.model,
+                temperature: coding.temperature,
+                enabled: coding.enabled,
+                builtIn: coding.builtIn,
+                isDefault: true,
+                createdAt: coding.createdAt,
+                updatedAt: coding.updatedAt,
+                outputFormat: coding.outputFormat,
+                allowAutoMatch: coding.allowAutoMatch,
+                autoMatchDescription: coding.autoMatchDescription
+            )
+        )
+    }
+
     private func temporaryHotword(_ text: String, source: HotwordSource = .ocrShape) -> TemporaryHotword {
         TemporaryHotword(
             text: text,
@@ -1498,7 +1632,11 @@ final class TextProcessingPipelineDeterministicIntegrationTests: XCTestCase {
             deterministicSettingsProvider: { settings }
         )
 
-        let result = await pipeline.process("百分之三十的进度")
+        let result = await pipeline.process(
+            "百分之三十的进度",
+            target: nil,
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
 
         XCTAssertEqual(result.finalText, "进度30%")
         // The refiner should have received the pre-processed text with the
@@ -1618,7 +1756,7 @@ final class TextProcessingPipelineDeterministicIntegrationTests: XCTestCase {
             deterministicSettingsProvider: { settings }
         )
 
-        let result = await pipeline.process("第一点他上夜班哪里")
+        let result = await pipeline.process("第一点他上夜班时需要具体告诉我在哪个位置第二点在 2:00 时他诊断区的车底到底是怎么折叠的")
         let trace = try XCTUnwrap(result.trace?.deterministic)
 
         XCTAssertEqual(
@@ -1750,6 +1888,21 @@ final class TextProcessingPipelineDeterministicIntegrationTests: XCTestCase {
         XCTAssertEqual(trace?.preLLM.outputCharacterCount, "今天测试Hello世界".count)
         XCTAssertFalse(trace?.preLLM.inputHash.contains("嗯今天测试Hello世界") ?? true)
         XCTAssertFalse(trace?.postLLM.outputHash.contains("Hello 世界") ?? true)
+    }
+
+    private static func dictationContext(
+        appliesDictationRefinementGuard: Bool = true
+    ) -> CorrectionContext {
+        CorrectionContext(
+            mode: .dictation,
+            providerID: "test-provider",
+            modelID: "test-model",
+            language: "zh-CN",
+            bundleIdentifier: "com.example.editor",
+            isFinalTranscript: true,
+            isSecureField: false,
+            appliesDictationRefinementGuard: appliesDictationRefinementGuard
+        )
     }
 
     // MARK: - Stubs

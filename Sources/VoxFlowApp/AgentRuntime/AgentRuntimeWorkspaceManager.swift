@@ -9,6 +9,10 @@ struct AgentRuntimeSessionWorkspace: Equatable, Sendable {
     let temporaryDirectory: URL
 }
 
+struct AgentRuntimeArtifactSnapshot: Equatable, Sendable {
+    let modificationDatesByPath: [String: Date]
+}
+
 struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
     static let managedAgentsMarker = "<!-- Managed by VoxFlow Agent Runtime. version: 1 -->"
     static let defaultRetentionCount = 100
@@ -59,6 +63,7 @@ struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
         try createDirectory(screenshotsDirectory)
         try createDirectory(tracesDirectory)
         try createDirectory(temporaryDirectory)
+        try ensureManagedAgentsFile(in: sessionDirectory)
         return AgentRuntimeSessionWorkspace(
             taskID: taskID,
             rootDirectory: rootDirectory,
@@ -72,6 +77,27 @@ struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
     func cleanupSessionTemporaryFiles(_ workspace: AgentRuntimeSessionWorkspace) {
         try? fileManager.removeItem(at: workspace.temporaryDirectory)
         try? createDirectory(workspace.temporaryDirectory)
+    }
+
+    func artifactSnapshot(workspace: AgentRuntimeSessionWorkspace) -> AgentRuntimeArtifactSnapshot {
+        AgentRuntimeArtifactSnapshot(modificationDatesByPath: artifactEntries(workspace: workspace))
+    }
+
+    func artifactsModified(
+        since snapshot: AgentRuntimeArtifactSnapshot,
+        workspace: AgentRuntimeSessionWorkspace,
+        limit: Int = 20
+    ) -> [AgentRuntimeArtifact] {
+        artifactEntries(workspace: workspace)
+            .filter { path, modifiedAt in
+                guard let previous = snapshot.modificationDatesByPath[path] else { return true }
+                return modifiedAt > previous
+            }
+            .sorted { $0.value > $1.value }
+            .prefix(limit)
+            .compactMap { path, modifiedAt in
+                artifact(forPath: path, modifiedAt: modifiedAt)
+            }
     }
 
     func cleanupManagedFiles(
@@ -97,7 +123,11 @@ struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
     }
 
     func ensureManagedAgentsFile() throws {
-        let url = rootDirectory.appendingPathComponent("AGENTS.md", isDirectory: false)
+        try ensureManagedAgentsFile(in: rootDirectory)
+    }
+
+    private func ensureManagedAgentsFile(in directory: URL) throws {
+        let url = directory.appendingPathComponent("AGENTS.md", isDirectory: false)
         let desired = Self.managedAgentsContent
         guard fileManager.fileExists(atPath: url.path) else {
             try desired.write(to: url, atomically: true, encoding: .utf8)
@@ -107,7 +137,7 @@ struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
         if current.hasPrefix(Self.managedAgentsMarker) {
             try desired.write(to: url, atomically: true, encoding: .utf8)
         } else if current != desired {
-            let candidate = rootDirectory.appendingPathComponent("AGENTS.md.new", isDirectory: false)
+            let candidate = directory.appendingPathComponent("AGENTS.md.new", isDirectory: false)
             try desired.write(to: candidate, atomically: true, encoding: .utf8)
         }
     }
@@ -159,5 +189,65 @@ struct AgentRuntimeWorkspaceManager: @unchecked Sendable {
     private func modificationDate(_ url: URL) -> Date {
         (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
             ?? .distantPast
+    }
+
+    private func artifactEntries(workspace: AgentRuntimeSessionWorkspace) -> [String: Date] {
+        guard let enumerator = fileManager.enumerator(
+            at: workspace.sessionDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return [:]
+        }
+        var entries: [String: Date] = [:]
+        for case let url as URL in enumerator {
+            if shouldSkipArtifactPath(url, workspace: workspace) {
+                if isDirectory(url),
+                   normalizedPath(url) != normalizedPath(workspace.temporaryDirectory) {
+                    enumerator.skipDescendants()
+                }
+                continue
+            }
+            entries[url.path] = modificationDate(url)
+        }
+        return entries
+    }
+
+    private func shouldSkipArtifactPath(_ url: URL, workspace: AgentRuntimeSessionWorkspace) -> Bool {
+        let path = normalizedPath(url)
+        if path == normalizedPath(rootDirectory.appendingPathComponent("AGENTS.md")) ||
+            path == normalizedPath(workspace.sessionDirectory.appendingPathComponent("AGENTS.md")) {
+            return true
+        }
+        if path == normalizedPath(workspace.temporaryDirectory) {
+            return true
+        }
+        let excludedDirectories = [
+            normalizedPath(workspace.screenshotsDirectory),
+            normalizedPath(workspace.tracesDirectory),
+            normalizedPath(rootDirectory.appendingPathComponent("screenshots", isDirectory: true)),
+            normalizedPath(rootDirectory.appendingPathComponent("traces", isDirectory: true)),
+            normalizedPath(rootDirectory.appendingPathComponent("tmp", isDirectory: true))
+        ]
+        return excludedDirectories.contains { path == $0 || path.hasPrefix($0 + "/") }
+    }
+
+    private func artifact(forPath path: String, modifiedAt: Date) -> AgentRuntimeArtifact? {
+        let url = URL(fileURLWithPath: path)
+        let kind: AgentRuntimeArtifactKind = isDirectory(url) ? .directory : .file
+        return AgentRuntimeArtifact(
+            kind: kind,
+            path: path,
+            summary: url.lastPathComponent,
+            updatedAt: modifiedAt
+        )
+    }
+
+    private func isDirectory(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+    }
+
+    private func normalizedPath(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().path
     }
 }

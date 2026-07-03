@@ -79,7 +79,7 @@ final class Phase0KnownFailureTests: XCTestCase {
     }
 
     @MainActor
-    func testAgentComposeOutputInjectsWhenTargetUnchanged() async {
+    func testAgentComposeOutputCopiesWhenTargetUnchanged() async {
         let injector = Phase0TextInjector(result: .success)
         let clipboard = Phase0ClipboardService()
         let service = DefaultOutputService(
@@ -95,9 +95,9 @@ final class Phase0KnownFailureTests: XCTestCase {
             originalTarget: target
         )
 
-        XCTAssertEqual(result, .injected)
-        XCTAssertEqual(injector.injectedTexts, ["agent text"])
-        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+        XCTAssertEqual(result, .copied)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["agent text"])
     }
 
     private func makeManager() -> ASRManager {

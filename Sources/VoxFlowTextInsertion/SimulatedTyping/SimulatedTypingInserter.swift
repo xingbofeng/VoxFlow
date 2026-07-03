@@ -8,12 +8,37 @@ public protocol SimulatedTypingEventPosting: AnyObject {
 
 @MainActor
 public final class CoreGraphicsTypingEventPoster: SimulatedTypingEventPosting {
-    public init() {}
+    private let makeKeyDownEvent: () -> CGEvent?
+    private let postEvent: (CGEvent) -> Void
+
+    public convenience init() {
+        self.init(
+            makeKeyDownEvent: {
+                let source = CGEventSource(stateID: .hidSystemState)
+                let keyDown = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: 0,
+                    keyDown: true
+                )
+                keyDown?.flags = []
+                return keyDown
+            },
+            postEvent: { event in
+                event.post(tap: .cghidEventTap)
+            }
+        )
+    }
+
+    init(
+        makeKeyDownEvent: @escaping () -> CGEvent?,
+        postEvent: @escaping (CGEvent) -> Void
+    ) {
+        self.makeKeyDownEvent = makeKeyDownEvent
+        self.postEvent = postEvent
+    }
 
     public func post(_ text: String) -> Bool {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+        guard let keyDown = makeKeyDownEvent() else {
             return false
         }
 
@@ -23,14 +48,9 @@ public final class CoreGraphicsTypingEventPoster: SimulatedTypingEventPosting {
                 stringLength: buffer.count,
                 unicodeString: buffer.baseAddress
             )
-            keyUp.keyboardSetUnicodeString(
-                stringLength: buffer.count,
-                unicodeString: buffer.baseAddress
-            )
         }
 
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        postEvent(keyDown)
         return true
     }
 }

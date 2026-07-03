@@ -52,6 +52,29 @@ final class PersistentAudioConverterTests: XCTestCase {
         XCTAssertEqual(average, 0.5, accuracy: 0.05)
     }
 
+    func testConverterDownmixesInterleavedStereoToMono() throws {
+        let converter = try PersistentAudioConverter()
+        let format = try XCTUnwrap(AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 2,
+            interleaved: true
+        ))
+        let buffer = try Self.interleavedStereoConstantBuffer(
+            format: format,
+            frameCount: 4_800,
+            left: 0.25,
+            right: 0.75
+        )
+
+        var output = try converter.convert(buffer)
+        output.append(contentsOf: try converter.finish())
+
+        XCTAssertGreaterThan(output.count, 0)
+        let average = output.reduce(Float(0), +) / Float(output.count)
+        XCTAssertEqual(average, 0.5, accuracy: 0.05)
+    }
+
     func testChunkedConversionMatchesWholeBufferConversion() throws {
         let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
         let totalFrameCount = 48_000
@@ -157,6 +180,29 @@ final class PersistentAudioConverterTests: XCTestCase {
         for frameIndex in 0..<frameCount {
             leftChannel[frameIndex] = left
             rightChannel[frameIndex] = right
+        }
+        return buffer
+    }
+
+    private static func interleavedStereoConstantBuffer(
+        format: AVAudioFormat,
+        frameCount: Int,
+        left: Float,
+        right: Float
+    ) throws -> AVAudioPCMBuffer {
+        XCTAssertTrue(format.isInterleaved)
+        XCTAssertEqual(format.channelCount, 2)
+        let buffer = try XCTUnwrap(
+            AVAudioPCMBuffer(
+                pcmFormat: format,
+                frameCapacity: AVAudioFrameCount(frameCount)
+            )
+        )
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+        let interleaved = try XCTUnwrap(buffer.floatChannelData?[0])
+        for frameIndex in 0..<frameCount {
+            interleaved[frameIndex * 2] = left
+            interleaved[frameIndex * 2 + 1] = right
         }
         return buffer
     }

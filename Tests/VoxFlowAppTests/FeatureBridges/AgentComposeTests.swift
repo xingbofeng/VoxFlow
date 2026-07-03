@@ -101,6 +101,7 @@ final class AgentComposeTests: XCTestCase {
         let traceJSON = try XCTUnwrap(fetched.trace)
         let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
         XCTAssertEqual(trace.agentAction?.providerID, "codex")
+        XCTAssertEqual(trace.agentAction?.executionMode, .codexRuntime)
         XCTAssertEqual(trace.agentAction?.status, .completed)
         XCTAssertEqual(assetRepository.savedItems.count, 1)
         let asset = try XCTUnwrap(assetRepository.savedItems.first)
@@ -110,15 +111,15 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(asset.source, .dictation)
     }
 
-    func testDefaultHandlerOpensDetailAfterCodexRuntimeCompletion() async throws {
+    func testDefaultHandlerOpensDetailAfterLocalAgentRuntimeCompletion() async throws {
         let runtimeService = AgentComposeRuntimeServiceStub(
-            availability: .available(),
-            result: .successSummary("Opened Google")
+            availability: .available(providerID: "codebuddy"),
+            result: .successSummary("Opened Google", providerID: "codebuddy")
         )
         let coordinator = makeCoordinator(
             agentRuntimeService: runtimeService,
             agentRuntimeSelection: {
-                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+                AgentRuntimeProviderSelection(providerID: "codebuddy", model: "deepseek-v4-flash-202605")
             }
         )
         let handler = DefaultAgentComposeHandler(
@@ -136,14 +137,14 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(openedTaskID, taskID)
     }
 
-    func testCodexRuntimeUnavailableFallsBackToTextProvider() async throws {
+    func testLocalAgentRuntimeUnavailableFallsBackToTextProvider() async throws {
         let refiner = AgentComposeStubRefiner(
             result: "Fallback generated text",
             trace: LLMRefinementTrace(
-                providerID: "codex",
-                providerName: "Codex",
-                endpoint: "local://codex",
-                model: "gpt-5.5",
+                providerID: "codebuddy",
+                providerName: "CodeBuddy",
+                endpoint: "local://codebuddy",
+                model: "deepseek-v4-flash-202605",
                 temperature: 0,
                 timeoutSeconds: 60,
                 requestBodyJSON: "{}",
@@ -153,7 +154,7 @@ final class AgentComposeTests: XCTestCase {
         )
         let outputService = AgentComposeStubOutputService(result: .copied)
         let runtimeService = AgentComposeRuntimeServiceStub(
-            availability: .unavailable(reason: "missing runtime"),
+            availability: .unavailable(reason: "missing runtime", providerID: "codebuddy"),
             result: nil
         )
         let coordinator = makeCoordinator(
@@ -161,7 +162,7 @@ final class AgentComposeTests: XCTestCase {
             agentRefiner: refiner,
             agentRuntimeService: runtimeService,
             agentRuntimeSelection: {
-                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+                AgentRuntimeProviderSelection(providerID: "codebuddy", model: "deepseek-v4-flash-202605")
             }
         )
         let task = try coordinator.startTask(mode: .agentCompose, target: nil)
@@ -178,12 +179,12 @@ final class AgentComposeTests: XCTestCase {
         let fetched = try XCTUnwrap(repository.fetch(id: task.id))
         let traceJSON = try XCTUnwrap(fetched.trace)
         let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
-        XCTAssertEqual(trace.agentAction?.executionMode, .codexTextFallback)
+        XCTAssertEqual(trace.agentAction?.executionMode, .textOnly)
         XCTAssertEqual(trace.agentAction?.resultSummary, "已退回文本模式")
         XCTAssertNotNil(trace.llm)
     }
 
-    func testCodexRuntimeFailureDoesNotFallbackToTextProvider() async throws {
+    func testLocalAgentRuntimeFailureDoesNotFallbackToTextProvider() async throws {
         let refiner = AgentComposeStubRefiner(result: "Should not be used")
         let outputService = AgentComposeStubOutputService(result: .copied)
         let runtimeService = AgentComposeRuntimeServiceStub(
@@ -191,8 +192,8 @@ final class AgentComposeTests: XCTestCase {
             result: nil,
             error: AgentRuntimeClientError.failed(
                 AgentActionTrace(
-                    providerID: "codex",
-                    executionMode: .codexRuntime,
+                    providerID: "codebuddy",
+                    executionMode: .localAgentRuntime,
                     status: .failed,
                     userInstruction: "打开 Google",
                     events: [
@@ -215,7 +216,7 @@ final class AgentComposeTests: XCTestCase {
             agentRefiner: refiner,
             agentRuntimeService: runtimeService,
             agentRuntimeSelection: {
-                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+                AgentRuntimeProviderSelection(providerID: "codebuddy", model: "deepseek-v4-flash-202605")
             }
         )
         let task = try coordinator.startTask(mode: .agentCompose, target: nil)
@@ -244,8 +245,8 @@ final class AgentComposeTests: XCTestCase {
             result: nil,
             error: AgentRuntimeClientError.failed(
                 AgentActionTrace(
-                    providerID: "codex",
-                    executionMode: .codexRuntime,
+                    providerID: "codebuddy",
+                    executionMode: .localAgentRuntime,
                     status: .failed,
                     userInstruction: "打开 Google",
                     events: [
@@ -266,7 +267,7 @@ final class AgentComposeTests: XCTestCase {
         let coordinator = makeCoordinator(
             agentRuntimeService: runtimeService,
             agentRuntimeSelection: {
-                AgentRuntimeProviderSelection(providerID: "codex", model: "gpt-5.5")
+                AgentRuntimeProviderSelection(providerID: "codebuddy", model: "deepseek-v4-flash-202605")
             }
         )
         let handler = DefaultAgentComposeHandler(
@@ -361,6 +362,51 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertNil(try repository.fetch(id: dictation.id)?.rawTranscript)
         XCTAssertEqual(try repository.fetch(id: agentComposeID)?.rawTranscript, "compose only")
         XCTAssertEqual(try repository.fetch(id: agentComposeID)?.finalText, "Generated text")
+    }
+
+    func testDefaultHandlerDoesNotPassDictationCorrectionStyleIntoAgentComposePrompt() async throws {
+        let refiner = AgentComposeStubRefiner(result: "Generated text")
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRefiner: refiner
+        )
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeFixedStyleSelector(
+                prompt: #"{"polished":"只用于听写纠错","corrections":[],"key_terms":[]}"#
+            )
+        )
+
+        try handler.start(target: nil)
+        _ = try await handler.finish(rawTranscript: "生成一个 HTML。")
+
+        let request = try XCTUnwrap(refiner.lastRequest)
+        XCTAssertFalse(request.text.contains("Style guidance:"))
+        XCTAssertFalse(request.text.contains("polished"))
+        XCTAssertTrue(request.text.contains("生成一个 HTML。"))
+    }
+
+    func testDefaultHandlerDoesNotFailActiveTaskWhenStartIsRejectedByRunningWorkflow() throws {
+        let coordinator = makeCoordinator()
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        try handler.start(target: nil)
+        let activeTaskID = try XCTUnwrap(coordinator.activeTaskID(for: .agentCompose))
+
+        do {
+            try handler.start(target: nil)
+            XCTFail("Expected workflowAlreadyRunning")
+        } catch {
+            handler.fail(error)
+        }
+
+        XCTAssertEqual(coordinator.activeTaskID(for: .agentCompose), activeTaskID)
+        let task = try XCTUnwrap(repository.fetch(id: activeTaskID))
+        XCTAssertEqual(task.status, .inProgress)
+        XCTAssertNil(handler.lastFailedTaskID)
     }
 
     func testDefaultHandlerDoesNotReportPreRecordingContextStageOrCopiedStageWhenCopyFails() async throws {
@@ -654,6 +700,37 @@ private final class AgentComposeNilStyleSelector: StyleSelecting {
     }
 }
 
+@MainActor
+private final class AgentComposeFixedStyleSelector: StyleSelecting {
+    let prompt: String
+    var lastRouteTrace: StyleRouteTrace? { nil }
+
+    init(prompt: String) {
+        self.prompt = prompt
+    }
+
+    func style(for target: DictationTarget?) async throws -> StyleProfileRecord? {
+        StyleProfileRecord(
+            id: "test-style",
+            name: "Test Style",
+            category: "test",
+            subtitle: nil,
+            mode: "test",
+            prompt: prompt,
+            sampleInput: nil,
+            sampleOutput: nil,
+            llmProviderID: nil,
+            model: nil,
+            temperature: 0.2,
+            enabled: true,
+            builtIn: false,
+            isDefault: false,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+    }
+}
+
 private enum AgentComposeStubError: Error {
     case networkTimeout
 }
@@ -796,20 +873,20 @@ private final class AgentComposeCapturingAssetRepository: AssetRepository {
 }
 
 private extension AgentRuntimeAvailability {
-    static func available() -> AgentRuntimeAvailability {
+    static func available(providerID: String = "codex") -> AgentRuntimeAvailability {
         AgentRuntimeAvailability(
-            providerID: "codex",
+            providerID: providerID,
             status: .available,
             detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
             expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
-            cliPath: "/tmp/codex",
-            cliVersion: "codex-cli test"
+            cliPath: "/tmp/\(providerID)",
+            cliVersion: "\(providerID) cli test"
         )
     }
 
-    static func unavailable(reason: String) -> AgentRuntimeAvailability {
+    static func unavailable(reason: String, providerID: String = "codex") -> AgentRuntimeAvailability {
         AgentRuntimeAvailability(
-            providerID: "codex",
+            providerID: providerID,
             status: .unavailable(reason: reason),
             detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
             expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
@@ -820,14 +897,20 @@ private extension AgentRuntimeAvailability {
 }
 
 private extension AgentRuntimeServiceResult {
-    static func successSummary(_ summary: String) -> AgentRuntimeServiceResult {
+    static func successSummary(
+        _ summary: String,
+        providerID: String = "codex",
+        executionMode: AgentExecutionMode? = nil
+    ) -> AgentRuntimeServiceResult {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let resolvedExecutionMode = executionMode ??
+            (providerID == "codex" ? .codexRuntime : .localAgentRuntime)
         return .completed(AgentRuntimeResult(
             summary: summary,
             status: .completed,
             trace: AgentActionTrace(
-                providerID: "codex",
-                executionMode: .codexRuntime,
+                providerID: providerID,
+                executionMode: resolvedExecutionMode,
                 status: .completed,
                 userInstruction: "打开 Google",
                 events: [
@@ -839,7 +922,7 @@ private extension AgentRuntimeServiceResult {
                     )
                 ],
                 resultSummary: summary,
-                model: "gpt-5.5",
+                model: providerID == "codex" ? "gpt-5.5" : "deepseek-v4-flash-202605",
                 startedAt: now,
                 completedAt: now.addingTimeInterval(1.2)
             )

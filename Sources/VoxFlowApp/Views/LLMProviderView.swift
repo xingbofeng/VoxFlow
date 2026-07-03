@@ -6,8 +6,31 @@ enum LLMProviderActionIcon {
     static let delete = "trash"
 }
 
+enum LLMProviderViewSection: Equatable {
+    case regularProviders
+    case localAgentProviders
+}
+
+enum LLMProviderViewMode: Equatable {
+    case llm
+    case agent
+    case combined
+
+    var visibleSections: [LLMProviderViewSection] {
+        switch self {
+        case .llm:
+            return [.regularProviders]
+        case .agent:
+            return [.localAgentProviders]
+        case .combined:
+            return [.regularProviders, .localAgentProviders]
+        }
+    }
+}
+
 struct LLMProviderView: View {
     @ObservedObject var viewModel: LLMProviderViewModel
+    var mode: LLMProviderViewMode = .combined
     var embedded = false
     @State private var editorRequest: LLMProviderEditorRequest?
 
@@ -19,40 +42,33 @@ struct LLMProviderView: View {
                         .font(.system(size: 24, weight: .semibold))
                 }
                 Spacer()
-                Button {
-                    editorRequest = LLMProviderEditorRequest(provider: nil)
-                } label: {
-                    Label(L10n.localize("model.llm_provider.add_button", comment: ""), systemImage: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppTheme.ColorToken.accent)
-                        .padding(.horizontal, 14)
-                        .frame(height: 34)
-                        .background(AppTheme.ColorToken.accentSoft)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
-                                .stroke(AppTheme.ColorToken.accent.opacity(0.28))
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
-                        .contentShape(Rectangle())
+                if mode.visibleSections.contains(.regularProviders) {
+                    Button {
+                        editorRequest = LLMProviderEditorRequest(provider: nil)
+                    } label: {
+                        Label(L10n.localize("model.llm_provider.add_button", comment: ""), systemImage: "plus")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.accent)
+                            .padding(.horizontal, 14)
+                            .frame(height: 34)
+                            .background(AppTheme.ColorToken.accentSoft)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                                    .stroke(AppTheme.ColorToken.accent.opacity(0.28))
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n.localize("model.llm_provider.add_service_help", comment: ""))
                 }
-                .buttonStyle(.plain)
-                .help(L10n.localize("model.llm_provider.add_service_help", comment: ""))
             }
 
-            codexSettingsCard
-
-            if regularProviders.isEmpty {
-                Text(L10n.localize("model.llm_provider.empty_state", comment: ""))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    .frame(maxWidth: .infinity, minHeight: 180)
-                    .background(AppTheme.ColorToken.panelBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
-            } else {
-                LazyVStack(spacing: AppTheme.Spacing.grid) {
-                    ForEach(regularProviders, id: \.id) { provider in
-                        providerRow(provider)
-                    }
-                }
+            if mode.visibleSections.contains(.regularProviders) {
+                customProviderSection
+            }
+            if mode.visibleSections.contains(.localAgentProviders) {
+                localAgentProviderSection
             }
 
             Spacer()
@@ -68,9 +84,6 @@ struct LLMProviderView: View {
         )
         .onAppear {
             viewModel.loadIfNeeded()
-            Task {
-                await viewModel.detectCodexRuntime(forceRefresh: false)
-            }
         }
         .sheet(item: $editorRequest) { request in
             LLMProviderEditorSheet(
@@ -82,14 +95,65 @@ struct LLMProviderView: View {
     }
 
     private var regularProviders: [LLMProviderRecord] {
-        viewModel.providers.filter {
-            $0.id.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) != .orderedSame &&
-                $0.providerType.caseInsensitiveCompare(AgentProviderRegistry.codex.providerID) != .orderedSame
+        viewModel.providers.filter { !$0.isLocalAgentProvider }
+    }
+
+    private var customProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            providerSectionHeader(
+                title: L10n.localize("model.llm_provider.custom_section.title", comment: "Custom LLM provider section title"),
+                subtitle: L10n.localize("model.llm_provider.custom_section.subtitle", comment: "Custom LLM provider section subtitle")
+            )
+
+            if regularProviders.isEmpty {
+                Text(L10n.localize("model.llm_provider.empty_state", comment: ""))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                    .background(AppTheme.ColorToken.panelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            } else {
+                LazyVStack(spacing: AppTheme.Spacing.grid) {
+                    ForEach(regularProviders, id: \.id) { provider in
+                        providerRow(provider)
+                    }
+                }
+            }
         }
     }
 
-    private var codexSettingsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var localAgentProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            providerSectionHeader(
+                title: L10n.localize("model.llm_provider.agent_section.title", comment: "Agent LLM provider section title"),
+                subtitle: L10n.localize("model.llm_provider.agent_section.subtitle", comment: "Agent LLM provider section subtitle")
+            )
+            localAgentProviderCards
+        }
+    }
+
+    private var localAgentProviderCards: some View {
+        LazyVStack(spacing: AppTheme.Spacing.grid) {
+            ForEach(AgentProviderRegistry.enabledRuntimeProviders, id: \.providerID) { descriptor in
+                localAgentSettingsCard(descriptor)
+            }
+        }
+    }
+
+    private func providerSectionHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.ColorToken.primaryText)
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func localAgentSettingsCard(_ descriptor: LocalAgentProviderDescriptor) -> some View {
+        let selected = viewModel.isLocalAgentProviderSelected(providerID: descriptor.providerID)
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 19, weight: .semibold))
@@ -98,20 +162,27 @@ struct LLMProviderView: View {
                     .background(AppTheme.ColorToken.accentSoft)
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon, style: .continuous))
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(L10n.localize("model.llm_provider.codex.title", comment: "Codex provider title"))
+                    Text(descriptor.displayName)
                         .font(.system(size: 18, weight: .semibold))
-                    Text(L10n.localize("model.llm_provider.codex.subtitle", comment: "Codex provider subtitle"))
+                    Text(L10n.localize("model.llm_provider.local_agent.subtitle", comment: "Local agent subtitle"))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                 }
                 Spacer()
                 Toggle(
-                    viewModel.codexEnabled
-                        ? L10n.localize("model.llm_provider.codex.enabled_short", comment: "Codex enabled short")
-                        : L10n.localize("model.llm_provider.codex.disabled_short", comment: "Codex disabled short"),
+                    selected
+                        ? L10n.localize("model.llm_provider.local_agent.selected_short", comment: "Local agent selected short")
+                        : L10n.localize("model.llm_provider.local_agent.unselected_short", comment: "Local agent unselected short"),
                     isOn: Binding(
-                        get: { viewModel.codexEnabled },
-                        set: { viewModel.setCodexEnabled($0) }
+                        get: { selected },
+                        set: { newValue in
+                            Task {
+                                await viewModel.setLocalAgentProviderEnabledAfterDetection(
+                                    providerID: descriptor.providerID,
+                                    newValue
+                                )
+                            }
+                        }
                     )
                 )
                 .toggleStyle(.switch)
@@ -119,10 +190,13 @@ struct LLMProviderView: View {
             }
 
             HStack(spacing: 10) {
-                codexAvailabilityPill
+                localAgentAvailabilityPill(descriptor)
+                if selected {
+                    providerBadge(L10n.localize("model.llm_provider.current_use", comment: ""), color: AppTheme.ColorToken.accent)
+                }
                 Spacer()
                 Button {
-                    Task { await viewModel.detectCodexRuntime(forceRefresh: true) }
+                    Task { await viewModel.detectLocalAgentProvider(providerID: descriptor.providerID, forceRefresh: true) }
                 } label: {
                     Label(
                         L10n.localize("model.llm_provider.codex.detect", comment: "Detect Codex"),
@@ -131,41 +205,41 @@ struct LLMProviderView: View {
                     .frame(height: 32)
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.isCheckingCodexRuntime)
+                .disabled(viewModel.checkingLocalAgentProviderIDs.contains(descriptor.providerID))
             }
 
-            VStack(alignment: .leading, spacing: 9) {
-                Text(L10n.localize("model.llm_provider.codex.model_section", comment: "Codex model section"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 160), spacing: 10)],
-                    alignment: .leading,
-                    spacing: 10
-                ) {
-                    ForEach(viewModel.codexModelIDs, id: \.self) { model in
-                        codexModelButton(model)
-                    }
+            if selected {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text(L10n.localize("model.llm_provider.codex.model_section", comment: "Codex model section"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    LocalAgentModelPicker(
+                        selectedModel: viewModel.localAgentSelectedModel(providerID: descriptor.providerID),
+                        models: viewModel.localAgentModelIDs(providerID: descriptor.providerID),
+                        onSelect: { model in
+                            viewModel.selectLocalAgentModel(providerID: descriptor.providerID, model: model)
+                        }
+                    )
                 }
             }
         }
         .padding(18)
-        .background(viewModel.codexEnabled ? AppTheme.ColorToken.selectionBackground.opacity(0.72) : AppTheme.ColorToken.panelBackground)
+        .background(selected ? AppTheme.ColorToken.selectionBackground.opacity(0.72) : AppTheme.ColorToken.panelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
-                    viewModel.codexEnabled ? AppTheme.ColorToken.accent.opacity(0.5) : AppTheme.ColorToken.panelStroke,
-                    lineWidth: viewModel.codexEnabled ? 1.5 : AppTheme.Border.panelLineWidth
+                    selected ? AppTheme.ColorToken.accent.opacity(0.5) : AppTheme.ColorToken.panelStroke,
+                    lineWidth: selected ? 1.5 : AppTheme.Border.panelLineWidth
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private var codexAvailabilityPill: some View {
-        let availability = viewModel.codexRuntimeAvailability
+    private func localAgentAvailabilityPill(_ descriptor: LocalAgentProviderDescriptor) -> some View {
+        let availability = viewModel.localAgentAvailability(providerID: descriptor.providerID)
         let available = availability?.isAvailable == true
         let text: String
-        if viewModel.isCheckingCodexRuntime {
+        if viewModel.checkingLocalAgentProviderIDs.contains(descriptor.providerID) {
             text = L10n.localize("model.llm_provider.codex.detecting", comment: "Detecting Codex")
         } else if available {
             text = L10n.format(
@@ -188,33 +262,6 @@ struct LLMProviderView: View {
         .frame(height: 28)
         .background((available ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText).opacity(0.10))
         .clipShape(Capsule())
-    }
-
-    private func codexModelButton(_ model: String) -> some View {
-        let selected = viewModel.codexSelectedModel == model
-        return Button {
-            viewModel.selectCodexModel(model)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: selected ? "checkmark" : "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
-                Text(model)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(selected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.primaryText)
-            .padding(.horizontal, 12)
-            .frame(height: 38)
-            .background(selected ? AppTheme.ColorToken.accentSoft : AppTheme.ColorToken.controlBackground.opacity(0.78))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(selected ? AppTheme.ColorToken.accent.opacity(0.45) : AppTheme.ColorToken.subtleStroke, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 
     private func providerRow(_ provider: LLMProviderRecord) -> some View {
@@ -377,6 +424,130 @@ private struct LLMProviderIcon: View {
             background: isDefault ? AppTheme.ColorToken.selectionBackground : AppTheme.ColorToken.panelBackground,
             size: 46
         )
+    }
+}
+
+private struct LocalAgentModelPicker: View {
+    let selectedModel: String
+    let models: [String]
+    let onSelect: (String) -> Void
+    @State private var isPresented = false
+    @State private var searchText = ""
+
+    private var normalizedSearchText: String {
+        SingleLineTextInput.normalized(searchText)
+    }
+
+    private var filteredModels: [String] {
+        guard !normalizedSearchText.isEmpty else { return models }
+        return models.filter { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
+    }
+
+    private var canUseSearchText: Bool {
+        !normalizedSearchText.isEmpty &&
+            !models.contains { $0.caseInsensitiveCompare(normalizedSearchText) == .orderedSame }
+    }
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
+                Text(selectedModel.isEmpty ? L10n.localize("model.llm_provider.local_agent.manual_model_placeholder", comment: "") : selectedModel)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(selectedModel.isEmpty ? AppTheme.ColorToken.secondaryText : AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+            .background(AppTheme.ColorToken.controlBackground.opacity(0.82))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            pickerPopover
+        }
+    }
+
+    private var pickerPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                TextField(
+                    L10n.localize("model.llm_provider.local_agent.search_model_placeholder", comment: ""),
+                    text: $searchText.singleLineInput()
+                )
+                .textFieldStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(AppTheme.ColorToken.controlBackground.opacity(0.78))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(filteredModels, id: \.self) { model in
+                        modelRow(model)
+                    }
+                    if canUseSearchText {
+                        modelRow(normalizedSearchText, isCustom: true)
+                    } else if filteredModels.isEmpty {
+                        Text(L10n.localize("model.llm_provider.local_agent.no_matching_models", comment: ""))
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                }
+            }
+            .frame(width: 320, height: 240)
+        }
+        .padding(12)
+        .background(AppTheme.ColorToken.panelBackground)
+    }
+
+    private func modelRow(_ model: String, isCustom: Bool = false) -> some View {
+        let selected = selectedModel.caseInsensitiveCompare(model) == .orderedSame
+        return Button {
+            onSelect(model)
+            isPresented = false
+            searchText = ""
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: selected ? "checkmark" : (isCustom ? "plus.circle" : "sparkles"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(selected ? AppTheme.ColorToken.accent : AppTheme.ColorToken.secondaryText)
+                Text(isCustom ? L10n.format("model.llm_provider.local_agent.use_search_model_format", comment: "", model) : model)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+            .background(selected ? AppTheme.ColorToken.accentSoft : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
