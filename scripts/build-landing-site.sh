@@ -9,6 +9,7 @@ python3 "$root/scripts/update-landing-releases.py"
 rm -rf "$out"
 mkdir -p "$out/assets"
 mkdir -p "$out/assets/optimized"
+touch "$out/.nojekyll"
 
 cp "$root/docs/index.html" "$out/"
 cp "$root/docs/styles.css" "$out/"
