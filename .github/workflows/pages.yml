@@ -24,14 +24,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check release metadata
+        run: make release-check
+
+      - name: Build landing assets
+        run: scripts/build-landing-site.sh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages redirect artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs-redirect
+          path: .build/landing-site
 
-      - name: Deploy redirect to GitHub Pages
+      - name: Deploy landing page to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify GitHub Pages release metadata
+        run: |
+          set -euo pipefail
+          page_url="${{ steps.deployment.outputs.page_url }}"
+          curl -fsS "${page_url%/}/release.json" | python3 -m json.tool >/dev/null
+          curl -fsS "${page_url%/}/script.js" >/dev/null
