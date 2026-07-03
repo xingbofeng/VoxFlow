@@ -63,6 +63,10 @@ struct StyleView: View {
             prompt = viewModel.selectedProfile?.prompt ?? ""
             loadInstalledAppsIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsDidRestoreDefaults)) { _ in
+            viewModel.load()
+            prompt = viewModel.selectedProfile?.prompt ?? ""
+        }
         .sheet(isPresented: $showingAppSelector) {
             appSelectorSheet
         }

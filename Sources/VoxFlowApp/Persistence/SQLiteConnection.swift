@@ -2,6 +2,8 @@ import Foundation
 import SQLite3
 
 final class SQLiteConnection {
+    private static let busyTimeoutMilliseconds: Int32 = 5_000
+
     private var handle: OpaquePointer?
 
     convenience init(url: URL) throws {
@@ -24,6 +26,14 @@ final class SQLiteConnection {
         }
 
         handle = database
+        let busyTimeoutStatus = sqlite3_busy_timeout(database, Self.busyTimeoutMilliseconds)
+        guard busyTimeoutStatus == SQLITE_OK else {
+            let message = String(cString: sqlite3_errmsg(database))
+            sqlite3_close(database)
+            handle = nil
+            AppLogger.database.error("SQLite busy timeout setup failed path=\(path), reason=\(message)")
+            throw SQLiteError.openFailed(message)
+        }
         AppLogger.database.info("SQLite database opened path=\(path)")
     }
 

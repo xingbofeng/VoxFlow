@@ -129,9 +129,16 @@ enum ShortcutEventRouting {
     static func shouldPassThrough(
         appIsActive: Bool,
         appIsFrontmost: Bool,
-        isCapturingShortcut: Bool
+        isCapturingShortcut: Bool,
+        shouldCaptureInActiveApp: Bool = false
     ) -> Bool {
-        isCapturingShortcut || appIsActive || appIsFrontmost
+        if isCapturingShortcut {
+            return true
+        }
+        if shouldCaptureInActiveApp {
+            return false
+        }
+        return appIsActive || appIsFrontmost
     }
 }
 
@@ -272,7 +279,7 @@ final class KeyMonitor: @unchecked Sendable {
 
     @MainActor
     func start() -> Bool {
-        AppLogger.general.debug("KeyMonitor start requested existingTap=\(eventTap != nil)")
+        AppLogger.general.info("KeyMonitor start requested existingTap=\(eventTap != nil)")
         guard eventTap == nil else { return true }
 
         hotKeyStateMachine.reset()
@@ -312,7 +319,7 @@ final class KeyMonitor: @unchecked Sendable {
         self.runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        AppLogger.general.debug("KeyMonitor started")
+        AppLogger.general.info("KeyMonitor started")
         return true
     }
 
@@ -490,16 +497,35 @@ final class KeyMonitor: @unchecked Sendable {
         isPressed: Bool
     ) -> Unmanaged<CGEvent>? {
         let shortcutManager = ShortcutManager.shared
-        let passThrough = MainActor.assumeIsolated {
+        let routingSnapshot = MainActor.assumeIsolated {
             let appBundleID = Bundle.main.bundleIdentifier ?? ProductBrand.bundleIdentifier
             let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-            return ShortcutEventRouting.shouldPassThrough(
-                appIsActive: NSApp.isActive,
-                appIsFrontmost: frontmostBundleID == appBundleID,
-                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing
+            let appIsActive = NSApp.isActive
+            let appIsFrontmost = frontmostBundleID == appBundleID
+            let appIsForeground = appIsActive || appIsFrontmost
+            let shouldCaptureInActiveApp = action == .dictation
+                && NotesCaptureCoordinator.shared.shouldCaptureHotKey(appIsForeground: appIsForeground)
+            let passThrough = ShortcutEventRouting.shouldPassThrough(
+                appIsActive: appIsActive,
+                appIsFrontmost: appIsFrontmost,
+                isCapturingShortcut: ShortcutCaptureState.shared.isCapturing,
+                shouldCaptureInActiveApp: shouldCaptureInActiveApp
+            )
+            return (
+                appIsActive: appIsActive,
+                appIsFrontmost: appIsFrontmost,
+                appIsForeground: appIsForeground,
+                shouldCaptureInActiveApp: shouldCaptureInActiveApp,
+                passThrough: passThrough
             )
         }
-        if passThrough {
+        AppLogger.general.info(
+            "KeyMonitor voice event keyCode=\(keyCode) action=\(Self.logName(for: action)) pressed=\(isPressed) " +
+            "passThrough=\(routingSnapshot.passThrough) appActive=\(routingSnapshot.appIsActive) " +
+            "appFrontmost=\(routingSnapshot.appIsFrontmost) appForeground=\(routingSnapshot.appIsForeground) " +
+            "notesCapture=\(routingSnapshot.shouldCaptureInActiveApp)"
+        )
+        if routingSnapshot.passThrough {
             hotKeyStateMachine.reset()
             return Unmanaged.passUnretained(event)
         }
@@ -578,6 +604,17 @@ final class KeyMonitor: @unchecked Sendable {
         }
 
         return nil
+    }
+
+    private static func logName(for action: VoiceAction) -> String {
+        switch action {
+        case .dictation:
+            return "dictation"
+        case .agentCompose:
+            return "agentCompose"
+        case .agentDispatch:
+            return "agentDispatch"
+        }
     }
 
     private static func isModifierPressed(keyCode: Int64, flags: CGEventFlags) -> Bool {

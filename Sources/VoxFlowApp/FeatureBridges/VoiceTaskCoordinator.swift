@@ -860,7 +860,8 @@ final class VoiceTaskCoordinator {
         recoverable: Bool,
         kind: VoiceWorkflowKind?
     ) throws {
-        guard let task = try task(for: kind) else { return }
+        guard var task = try task(for: kind) else { return }
+        let completedAt = clock.now
         let failure = VoiceTaskFailure(
             stage: stage,
             code: code,
@@ -874,14 +875,19 @@ final class VoiceTaskCoordinator {
         try taskRepository.updateFailure(
             id: task.id,
             failureJson: encoded,
-            status: .failed
+            status: .failed,
+            completedAt: completedAt
         )
+        task.status = .failed
+        task.failureJson = encoded
+        task.updatedAt = completedAt
+        task.completedAt = completedAt
         if kind == .agentCompose {
             cancelContextCollection()
         }
         AppLogger.general.error("voice_workflow_completed kind=\(VoiceWorkflowKind(mode: task.mode).rawValue) taskID=\(task.id) status=failed code=\(code) recoverable=\(recoverable)")
         taskRuntime.clearWorkflow(for: task)
-        saveFailedVoiceAssetIfNeeded(task: task, completedAt: clock.now)
+        saveFailedVoiceAssetIfNeeded(task: task, completedAt: completedAt)
     }
 
     // MARK: - Incomplete task detection (Task 2.10)

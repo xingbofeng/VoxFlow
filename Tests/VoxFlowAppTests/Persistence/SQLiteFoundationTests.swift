@@ -16,6 +16,15 @@ final class SQLiteFoundationTests: XCTestCase {
         XCTAssertFalse(try query.step())
     }
 
+    func testConnectionConfiguresBusyTimeoutForTransientLocks() throws {
+        let connection = try SQLiteConnection.inMemory()
+
+        let statement = try connection.prepare("PRAGMA busy_timeout")
+
+        XCTAssertTrue(try statement.step())
+        XCTAssertEqual(statement.columnInt(at: 0), 5_000)
+    }
+
     func testDatabaseQueueRunsReadAndWriteBlocksAgainstSameConnection() throws {
         let queue = try DatabaseQueue(connection: .inMemory())
 
@@ -292,6 +301,61 @@ final class SQLiteFoundationTests: XCTestCase {
         XCTAssertEqual(asset?.captureReason, .dictationCompleted)
     }
 
+    func testFailedVoiceTaskRepairMigrationCompletesAndImportsAgentTasks() throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        try queue.write { connection in
+            try connection.execute(try AppDatabase.loadBundledSchemaSQL())
+            try connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    applied_at TEXT NOT NULL
+                )
+                """
+            )
+            for id in 1...23 {
+                let statement = try connection.prepare(
+                    """
+                    INSERT INTO schema_migrations (id, name, applied_at)
+                    VALUES (?, ?, ?)
+                    """
+                )
+                try statement.bind(id, at: 1)
+                try statement.bind("migration-\(id)", at: 2)
+                try statement.bind("2026-06-23T00:00:00Z", at: 3)
+                _ = try statement.step()
+            }
+            try insertVoiceTask(
+                connection,
+                id: "failed-agent-task",
+                mode: "agentCompose",
+                status: "failed",
+                rawTranscript: "获取一下我的剪切版",
+                finalText: nil,
+                outputResult: nil,
+                completedAt: nil
+            )
+        }
+
+        try AppDatabase.migrator().migrate(queue)
+
+        let completedAt = try queue.read { connection -> String? in
+            let statement = try connection.prepare("SELECT completed_at FROM voice_tasks WHERE id = ?")
+            try statement.bind("failed-agent-task", at: 1)
+            guard try statement.step() else { return nil }
+            return statement.columnString(at: 0)
+        }
+        XCTAssertEqual(completedAt, "2026-06-24T01:00:00Z")
+
+        let asset = try SQLiteAssetRepository(databaseQueue: queue).asset(id: "dictation-failed-agent-task")
+        XCTAssertEqual(asset?.source, .dictation)
+        XCTAssertEqual(asset?.contentType, .text)
+        XCTAssertEqual(asset?.text, "获取一下我的剪切版")
+        XCTAssertEqual(asset?.rawText, "获取一下我的剪切版")
+        XCTAssertEqual(asset?.captureReason, .dictationCompleted)
+    }
+
     private func tableNames(on connection: SQLiteConnection) throws -> Set<String> {
         let statement = try connection.prepare(
             """
@@ -314,8 +378,9 @@ final class SQLiteFoundationTests: XCTestCase {
         mode: String,
         status: String,
         rawTranscript: String = "什么意思",
-        finalText: String,
-        outputResult: String
+        finalText: String?,
+        outputResult: String?,
+        completedAt: String? = "2026-06-24T01:00:01Z"
     ) throws {
         let statement = try connection.prepare(
             """
@@ -335,7 +400,7 @@ final class SQLiteFoundationTests: XCTestCase {
             VALUES (?, ?, 'processing', ?, ?, ?, ?, '[]',
                 '2026-06-24T01:00:00Z',
                 '2026-06-24T01:00:00Z',
-                '2026-06-24T01:00:01Z'
+                ?
             )
             """
         )
@@ -345,6 +410,7 @@ final class SQLiteFoundationTests: XCTestCase {
         try statement.bind(rawTranscript, at: 4)
         try statement.bind(finalText, at: 5)
         try statement.bind(outputResult, at: 6)
+        try statement.bind(completedAt, at: 7)
         _ = try statement.step()
     }
 

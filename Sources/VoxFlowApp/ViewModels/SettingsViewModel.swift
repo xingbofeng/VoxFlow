@@ -350,6 +350,10 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
 
+    /// 恢复默认设置确认弹窗是否展示（OpenSpec `restore-default-settings`）。
+    /// UI 绑定此 flag 展示两栏边界的确认弹窗；用户取消时清空，确认时执行恢复。
+    @Published private(set) var isRestoreDefaultsConfirmationPresented = false
+
     // MARK: - Deterministic text processing settings (section 3)
     // UI entry point for the deterministic text processing pipeline.
     // Visual design will be added later; these fields expose the state.
@@ -1518,51 +1522,57 @@ final class SettingsViewModel: ObservableObject {
         return value
     }
 
+    /// 恢复默认设置（OpenSpec `restore-default-settings`）。
+    ///
+    /// 委托 `SettingsDefaultRestoreService` 按 allowlist 精确重置受管偏好，保留
+    /// Provider 配置、Keychain 凭证、历史/词汇/自定义风格等用户资产；成功后重新加载
+    /// 设置状态，广播 `.settingsDidRestoreDefaults` 让风格等 UI 刷新，并展示反馈。
+    /// 旧名 `resetSettings()` 保留以兼容既有调用与测试。
     func resetSettings() throws {
-        Self.logger.debug("settings_vm_reset_settings_start")
-        let records = try environment.settingsRepository.list()
-        for record in records {
-            try environment.settingsRepository.deleteValue(forKey: record.key)
-        }
-        try resetBuiltInStylePrompts()
-        shortcutManager.resetToDefaults()
-        asrSettingsResetter?.resetASRSettingsToDefaults()
-        exportedDataJSON = nil
-        load()
-        lastError = nil
-        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.settings_reset", comment: ""))
-        Self.logger.info("settings_vm_reset_settings_success deletedSettings=\(records.count)")
+        try restoreDefaultSettings()
     }
 
-    private func resetBuiltInStylePrompts() throws {
-        let profiles = try environment.styleRepository.list(category: nil)
-        for existing in profiles where existing.builtIn {
-            guard let catalog = BuiltInStyleCatalog.profile(id: existing.id, now: existing.createdAt) else {
-                continue
-            }
-            try environment.styleRepository.save(
-                StyleProfileRecord(
-                    id: existing.id,
-                    name: catalog.name,
-                    category: catalog.category,
-                    subtitle: catalog.subtitle,
-                    mode: catalog.mode,
-                    prompt: catalog.prompt,
-                    sampleInput: catalog.sampleInput,
-                    sampleOutput: catalog.sampleOutput,
-                    llmProviderID: catalog.llmProviderID,
-                    model: catalog.model,
-                    temperature: catalog.temperature,
-                    enabled: existing.enabled,
-                    builtIn: true,
-                    isDefault: existing.isDefault,
-                    createdAt: existing.createdAt,
-                    updatedAt: environment.clock.now,
-                    outputFormat: catalog.outputFormat,
-                    allowAutoMatch: catalog.allowAutoMatch,
-                    autoMatchDescription: catalog.autoMatchDescription
-                )
-            )
+    func restoreDefaultSettings() throws {
+        Self.logger.debug("settings_vm_restore_defaults_start")
+        let service = SettingsDefaultRestoreService(
+            settingsRepository: environment.settingsRepository,
+            styleRepository: environment.styleRepository,
+            shortcutManager: shortcutManager,
+            languageManager: languageManager,
+            asrSettingsResetter: asrSettingsResetter,
+            launchAtLoginManager: launchAtLoginManager,
+            clock: environment.clock
+        )
+        try service.restoreDefaultSettings()
+        exportedDataJSON = nil
+        load()
+        NotificationCenter.default.post(name: .settingsDidRestoreDefaults, object: nil)
+        lastError = nil
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.settings_reset", comment: ""))
+        Self.logger.info("settings_vm_restore_defaults_success")
+    }
+
+    /// 打开「恢复默认设置」确认弹窗。不改动任何数据，仅切换展示状态。
+    func presentRestoreDefaultsConfirmation() {
+        isRestoreDefaultsConfirmationPresented = true
+    }
+
+    /// 用户取消恢复默认设置。清空确认弹窗，所有数据保持不变。
+    func cancelRestoreDefaultsConfirmation() {
+        isRestoreDefaultsConfirmationPresented = false
+    }
+
+    /// 用户在确认弹窗中确认执行恢复默认设置。执行成功展示成功反馈；失败展示错误反馈，
+    /// 且不会声称已成功。无论成败都关闭确认弹窗。
+    func confirmRestoreDefaultsConfirmation() {
+        isRestoreDefaultsConfirmationPresented = false
+        do {
+            try restoreDefaultSettings()
+        } catch {
+            // 先重新加载以反映可能的部分变更，再上报错误；`load()` 会清空 lastError，
+            // 因此 report 必须在 load 之后调用，否则错误反馈会被吞掉。
+            load()
+            report(error: error)
         }
     }
 

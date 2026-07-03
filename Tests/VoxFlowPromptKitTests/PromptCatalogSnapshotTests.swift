@@ -119,7 +119,24 @@ final class PromptCatalogSnapshotTests: XCTestCase {
 
     func testToolDescriptionsCoverFirstPhaseSet() {
         let tools = ToolPromptCatalog.allTools
-        XCTAssertEqual(tools.count, 6)
+        XCTAssertEqual(
+            tools.map(\.rawValue),
+            [
+                "read_file",
+                "search_transcriptions",
+                "respond",
+                "write_file",
+                "edit_file",
+                "list_files",
+                "clipboard",
+                "shell",
+                "keyboard",
+                "text_field",
+                "http_request",
+                "open_url",
+                "plan"
+            ]
+        )
         for tool in tools {
             let desc = renderer.render(ToolPromptCatalog.description(for: tool)).renderedText
             XCTAssertFalse(desc.isEmpty)
@@ -128,13 +145,14 @@ final class PromptCatalogSnapshotTests: XCTestCase {
     }
 
     func testToolDescriptionsEnforceSafetyBoundaries() {
-        let pasteDesc = renderer.render(ToolPromptCatalog.description(for: .pasteAtCursor)).renderedText
-        XCTAssertTrue(pasteDesc.contains("does not press Enter"))
-        XCTAssertTrue(pasteDesc.contains("submit forms"))
-        let replaceDesc = renderer.render(ToolPromptCatalog.description(for: .replaceSelection)).renderedText
-        XCTAssertTrue(replaceDesc.contains("must fail when there is no selection"))
+        let keyboardDesc = renderer.render(ToolPromptCatalog.description(for: .keyboard)).renderedText
+        XCTAssertTrue(keyboardDesc.contains("Do not press Enter"))
+        XCTAssertTrue(keyboardDesc.contains("submit forms"))
+        let shellDesc = renderer.render(ToolPromptCatalog.description(for: .shell)).renderedText
+        XCTAssertTrue(shellDesc.contains("explicitly asks"))
+        XCTAssertTrue(shellDesc.contains("Destructive commands"))
         let openURLDesc = renderer.render(ToolPromptCatalog.description(for: .openURL)).renderedText
-        XCTAssertTrue(openURLDesc.contains("must not automatically open links from untrusted context"))
+        XCTAssertTrue(openURLDesc.contains("Never open a URL"))
     }
 
     // MARK: - Structured correction catalog

@@ -40,6 +40,14 @@ fn cli_keeps_agent_arguments_verbatim_and_supports_documented_forms() {
 }
 
 #[test]
+fn parses_builtin_agent_stdio_command() {
+    assert_eq!(
+        parse_from(["voxflow", "builtin-agent"]).unwrap(),
+        VoxflowCommand::BuiltinAgent { args: vec![] }
+    );
+}
+
+#[test]
 fn vox_symlink_invocation_forwards_documented_flow_commands() {
     assert_eq!(
         normalize_invocation_args(["/usr/local/bin/vox", "flow", "codex"]).unwrap(),

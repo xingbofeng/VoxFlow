@@ -1,3 +1,6 @@
+#![recursion_limit = "256"]
+
+pub mod builtin_agent;
 pub mod cli;
 pub mod input;
 pub mod ipc;

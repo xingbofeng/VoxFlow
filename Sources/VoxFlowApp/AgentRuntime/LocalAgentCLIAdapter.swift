@@ -36,6 +36,21 @@ struct LocalAgentCLIConfiguration: Equatable, Sendable {
 
     static func `default`(for descriptor: LocalAgentProviderDescriptor) -> LocalAgentCLIConfiguration {
         switch descriptor.providerID {
+        case AgentProviderRegistry.voxflowAgent.providerID:
+            return LocalAgentCLIConfiguration(
+                candidateCLIPaths: builtinAgentHelperCandidates(),
+                versionArguments: ["builtin-agent", "--version"],
+                helpChecks: [
+                    LocalAgentCLIHelpCheck(
+                        arguments: ["builtin-agent", "--help"],
+                        requiredFragments: ["builtin-agent", "stdio"]
+                    )
+                ],
+                modelListArguments: nil,
+                fallbackModelIDs: [
+                    "current-default-llm"
+                ]
+            )
         case AgentProviderRegistry.codex.providerID:
             return LocalAgentCLIConfiguration(
                 candidateCLIPaths: [
@@ -107,6 +122,21 @@ struct LocalAgentCLIConfiguration: Equatable, Sendable {
                 candidateCLIPaths: descriptor.executableNames
             )
         }
+    }
+
+    private static func builtinAgentHelperCandidates() -> [String] {
+        var candidates: [String] = []
+        if let executablePath = Bundle.main.executableURL?.path {
+            candidates.append(
+                URL(fileURLWithPath: executablePath)
+                    .deletingLastPathComponent()
+                    .appendingPathComponent("../Helpers/voxflow", isDirectory: false)
+                    .standardizedFileURL
+                    .path
+            )
+        }
+        candidates.append("voxflow")
+        return candidates
     }
 }
 

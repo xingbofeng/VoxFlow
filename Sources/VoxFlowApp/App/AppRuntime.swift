@@ -308,7 +308,16 @@ struct AppRuntime {
                 paths: environment.paths,
                 now: { runtimeClock.now }
             ),
-            client: CodexRuntimeClient(clock: runtimeClock)
+            client: CodexRuntimeClient(clock: runtimeClock),
+            localAgentClients: [
+                AgentProviderRegistry.voxflowAgent.providerID: BuiltinAgentRuntimeClient(
+                    providerRepository: environment.llmProviderRepository,
+                    credentialStore: environment.credentialStore,
+                    outputService: textRuntime.outputService,
+                    historyRepository: environment.historyRepository,
+                    clock: runtimeClock
+                )
+            ]
         )
         let voiceTaskCoordinator = VoiceTaskCoordinator(
             taskRepository: VoiceTaskRepository(
@@ -361,6 +370,7 @@ struct AppRuntime {
                 asrRuntime: asrRuntime,
                 textRuntime: textRuntime,
                 audioCaptureCoordinator: audioCaptureCoordinator,
+                translationCoordinator: appleTranslationCoordinator,
                 updatePromptStore: updatePromptStore
             ),
             updatePromptStore: updatePromptStore,

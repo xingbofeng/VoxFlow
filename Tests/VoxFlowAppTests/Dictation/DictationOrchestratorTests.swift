@@ -937,6 +937,36 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(orchestrator.state, .idle)
     }
 
+    func testAgentComposeFinishFailureDoesNotReportRecognitionError() async throws {
+        let engine = FakeASREngine()
+        let agentHandler = FakeAgentComposeHandler(result: .copied)
+        agentHandler.finishError = DictationOrchestratorTestError.generic
+        let orchestrator = DictationOrchestrator(
+            asrEngineFactory: FakeASREngineFactory(engine: engine),
+            audioRecorder: FakeAudioRecorder(),
+            textPipeline: FakeTextPipeline(
+                result: TextProcessingResult(rawText: "", finalText: "")
+            ),
+            textInjector: FakeTextInjector(),
+            historyRepository: CapturingHistoryRepository(),
+            targetProvider: StaticDictationTargetProvider(target: nil),
+            agentComposeHandler: agentHandler
+        )
+        var errors: [Error] = []
+        var states: [DictationState] = []
+        orchestrator.onError = { errors.append($0) }
+        orchestrator.onStateChange = { states.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .agentCompose)
+        orchestrator.release()
+        engine.emit(text: "获取一下我最近的剪切版", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertTrue(errors.isEmpty)
+        XCTAssertTrue(states.contains(.failed("generic")))
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     func testAgentDispatchFallbackInputDeliversThroughDictationOutput() async throws {
         let engine = FakeASREngine()
         let event = CorrectionEvent(
@@ -1843,6 +1873,7 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
     private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
     private(set) var finishedTranscript: String?
     private(set) var didCancel = false
+    var finishError: Error?
     var onStageChange: ((AgentComposeHUDStage) -> Void)?
     var onStreamingDelta: ((String) -> Void)?
     var onRuntimeCompleted: ((String) -> Void)?
@@ -1867,6 +1898,9 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
 
     func finish(rawTranscript: String) async throws -> OutputResult {
         finishedTranscript = rawTranscript
+        if let finishError {
+            throw finishError
+        }
         return result
     }
 
@@ -2004,5 +2038,16 @@ private final class CapturingSleepClock: AppClock, @unchecked Sendable {
     func sleep(nanoseconds: UInt64) async throws {
         requestedNanoseconds = nanoseconds
         try await Task.sleep(nanoseconds: 10_000_000_000)
+    }
+}
+
+private enum DictationOrchestratorTestError: LocalizedError {
+    case generic
+
+    var errorDescription: String? {
+        switch self {
+        case .generic:
+            return "generic"
+        }
     }
 }

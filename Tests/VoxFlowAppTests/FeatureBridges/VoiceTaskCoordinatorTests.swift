@@ -1318,6 +1318,7 @@ final class VoiceTaskCoordinatorTests: XCTestCase {
 
         let fetched = try repository.fetch(id: task.id)
         XCTAssertEqual(fetched?.status, .failed)
+        XCTAssertNotNil(fetched?.completedAt)
         XCTAssertNotNil(fetched?.failureJson)
 
         let data = fetched!.failureJson!.data(using: .utf8)!

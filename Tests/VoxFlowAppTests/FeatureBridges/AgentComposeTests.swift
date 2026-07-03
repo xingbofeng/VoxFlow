@@ -137,6 +137,83 @@ final class AgentComposeTests: XCTestCase {
         XCTAssertEqual(openedTaskID, taskID)
     }
 
+    func testDebugTranscriptLikeAgentComposeE2ECreatesHTMLArtifactThroughLocalRuntime() async throws {
+        let root = try makeTemporaryDirectory()
+        let cli = root.appendingPathComponent("codebuddy")
+        try """
+        #!/bin/sh
+        prompt="$(cat)"
+        case "$prompt" in
+          *"用户语音指令："*"生成一个 HTML"*)
+            printf '%s' '<!doctype html><html><body><h1>VoxFlow E2E</h1></body></html>' > generated.html
+            printf '{"type":"tool_call","name":"write_html","summary":"created generated.html"}\\n'
+            printf '{"type":"tool_result","name":"write_html","result":"generated.html"}\\n'
+            printf '{"type":"result","result":"已创建 generated.html。"}\\n'
+            exit 0
+            ;;
+        esac
+        echo "unexpected prompt" >&2
+        exit 2
+        """.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let outputService = AgentComposeStubOutputService(result: .copied)
+        let runtimeService = DefaultAgentRuntimeService(
+            detector: StaticAgentRuntimeDetector(availability: .unavailable(reason: "codex unused")),
+            workspaceManager: AgentRuntimeWorkspaceManager(
+                rootDirectory: root.appendingPathComponent("AgentRuntime", isDirectory: true)
+            ),
+            client: AgentComposeFailingRuntimeClient(),
+            localAgentDetectors: [
+                "codebuddy": StaticAgentRuntimeDetector(availability: .available(
+                    providerID: "codebuddy",
+                    cliPath: cli.path
+                ))
+            ],
+            localAgentClients: [
+                "codebuddy": LocalAgentCLIRuntimeClient(descriptor: AgentProviderRegistry.codebuddy)
+            ]
+        )
+        let coordinator = makeCoordinator(
+            outputService: outputService,
+            agentRuntimeService: runtimeService,
+            agentRuntimeSelection: {
+                AgentRuntimeProviderSelection(providerID: "codebuddy", model: nil)
+            }
+        )
+        let handler = DefaultAgentComposeHandler(
+            coordinator: coordinator,
+            styleSelector: AgentComposeNilStyleSelector()
+        )
+        try handler.start(target: nil, asrMetadata: VoiceTaskASRMetadata(
+            providerID: "debug-injected",
+            modelID: "manual-transcript",
+            language: "zh-Hans",
+            sessionID: "debug-e2e",
+            audioDurationMs: 0,
+            finalLatencyMs: 0
+        ))
+        let taskID = try XCTUnwrap(coordinator.activeTaskID(for: .agentCompose))
+
+        let result = try await handler.finish(rawTranscript: "生成一个 HTML")
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertNil(outputService.lastText)
+        let task = try XCTUnwrap(repository.fetch(id: taskID))
+        XCTAssertEqual(task.status, .completed)
+        XCTAssertEqual(task.rawTranscript, "生成一个 HTML")
+        XCTAssertEqual(task.finalText, "已创建 generated.html。")
+        let traceJSON = try XCTUnwrap(task.trace)
+        let trace = try JSONDecoder().decode(TextProcessingTrace.self, from: Data(traceJSON.utf8))
+        let agentAction = try XCTUnwrap(trace.agentAction)
+        XCTAssertEqual(agentAction.providerID, "codebuddy")
+        XCTAssertEqual(agentAction.executionMode, .localAgentRuntime)
+        XCTAssertTrue(agentAction.events.contains { $0.kind == .toolRequested && $0.toolName == "write_html" })
+        XCTAssertTrue(agentAction.events.contains { $0.kind == .toolResolved && $0.toolName == "write_html" })
+        let artifact = try XCTUnwrap(agentAction.artifacts.first { $0.path.hasSuffix("generated.html") })
+        XCTAssertEqual(try String(contentsOfFile: artifact.path, encoding: .utf8), "<!doctype html><html><body><h1>VoxFlow E2E</h1></body></html>")
+    }
+
     func testLocalAgentRuntimeUnavailableFallsBackToTextProvider() async throws {
         let refiner = AgentComposeStubRefiner(
             result: "Fallback generated text",
@@ -854,6 +931,25 @@ private final class AgentComposeRuntimeServiceStub: AgentRuntimeServing, @unchec
     }
 }
 
+private struct StaticAgentRuntimeDetector: AgentRuntimeAvailabilityDetecting {
+    let availability: AgentRuntimeAvailability
+
+    func cachedOrDetect(forceRefresh: Bool) async -> AgentRuntimeAvailability {
+        availability
+    }
+}
+
+private struct AgentComposeFailingRuntimeClient: AgentRuntimeClient {
+    func run(
+        request: AgentRuntimeRequest,
+        cliPath: String,
+        cliVersion: String?,
+        onEvent: @escaping @Sendable (AgentActionEvent) -> Void
+    ) async throws -> AgentRuntimeResult {
+        throw AgentRuntimeError.unavailable("Unexpected Codex runtime client invocation")
+    }
+}
+
 private final class AgentComposeCapturingAssetRepository: AssetRepository {
     private(set) var savedItems: [AssetItem] = []
 
@@ -873,13 +969,13 @@ private final class AgentComposeCapturingAssetRepository: AssetRepository {
 }
 
 private extension AgentRuntimeAvailability {
-    static func available(providerID: String = "codex") -> AgentRuntimeAvailability {
+    static func available(providerID: String = "codex", cliPath: String? = nil) -> AgentRuntimeAvailability {
         AgentRuntimeAvailability(
             providerID: providerID,
             status: .available,
             detectedAt: Date(timeIntervalSince1970: 1_800_000_000),
             expiresAt: Date(timeIntervalSince1970: 1_800_000_060),
-            cliPath: "/tmp/\(providerID)",
+            cliPath: cliPath ?? "/tmp/\(providerID)",
             cliVersion: "\(providerID) cli test"
         )
     }
@@ -938,4 +1034,11 @@ private final class AgentComposeTestClock: AppClock, @unchecked Sendable {
     }
 
     func sleep(nanoseconds: UInt64) async throws {}
+}
+
+private func makeTemporaryDirectory() throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("VoxFlowAgentComposeE2E-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    return url
 }

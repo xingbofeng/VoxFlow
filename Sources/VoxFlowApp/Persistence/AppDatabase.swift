@@ -202,6 +202,67 @@ enum AppDatabase {
                         definition: "TEXT"
                     )
                     try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 23, name: "transcription_segments_and_translation_fields") { connection in
+                    // 文件转写流水线扩展（OpenSpec revamp-file-transcription-and-notes §1）：
+                    // 先为旧 transcription_jobs 幂等补齐新列，再让 bundled schema 创建
+                    // transcription_segments 表与索引。新库由 bundled schema 直接建表。
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "provider_mode",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "segment_count",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "segment_completed",
+                        definition: "INTEGER NOT NULL DEFAULT 0"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "partial_failure_summary",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translated_text",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translation_target_language",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translation_provider",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translation_status",
+                        definition: "TEXT NOT NULL DEFAULT 'none'"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translation_error",
+                        definition: "TEXT"
+                    )
+                    try connection.addColumnIfNeeded(
+                        table: "transcription_jobs",
+                        column: "translation_updated_at",
+                        definition: "TEXT"
+                    )
+                    try applyBundledSchema(on: connection)
+                },
+                DatabaseMigration(id: 24, name: "voice_task_failed_completion_repair") { connection in
+                    try applyBundledSchema(on: connection)
+                    try connection.execute(voiceTaskFailedCompletionRepairSQL)
+                    try connection.execute(voiceTaskAssetBackfillSQL)
                 }
             ],
             clock: clock
@@ -331,6 +392,7 @@ enum AppDatabase {
         SELECT
             id,
             mode,
+            status,
             raw_transcript,
             final_text,
             output_result,
@@ -346,15 +408,27 @@ enum AppDatabase {
             END AS asset_text
         FROM voice_tasks
         WHERE mode IN ('dictation', 'agentCompose', 'agentDispatch')
-          AND status IN ('completed', 'partiallyCompleted')
-          AND final_text IS NOT NULL
-          AND trim(final_text) != ''
-          AND IFNULL(output_result, '') NOT LIKE '%%"kind":"failed"%%'
-          AND IFNULL(output_result, '') NOT LIKE '%%"kind":"cancelled"%%'
+          AND (
+              (
+                  status IN ('completed', 'partiallyCompleted')
+                  AND final_text IS NOT NULL
+                  AND trim(final_text) != ''
+                  AND IFNULL(output_result, '') NOT LIKE '%%"kind":"failed"%%'
+                  AND IFNULL(output_result, '') NOT LIKE '%%"kind":"cancelled"%%'
+              )
+              OR (
+                  status = 'failed'
+                  AND mode IN ('agentCompose', 'agentDispatch')
+                  AND raw_transcript IS NOT NULL
+                  AND trim(raw_transcript) != ''
+              )
+          )
     ),
     normalized_voice_tasks AS (
         SELECT
             id,
+            mode,
+            status,
             raw_transcript,
             output_result,
             target_app_bundle_id,
@@ -407,6 +481,7 @@ enum AppDatabase {
         target_app_bundle_id,
         'dictation-' || id,
         CASE
+            WHEN status = 'failed' AND mode IN ('agentCompose', 'agentDispatch') THEN 'dictationCompleted'
             WHEN IFNULL(output_result, '') LIKE '%%"kind":"inserted"%%' THEN 'dictationCompleted'
             ELSE 'fallbackCopied'
         END,
@@ -423,6 +498,14 @@ enum AppDatabase {
             L10n.localize("db.voice_task.default_title", comment: "")
         )
     }
+
+    static let voiceTaskFailedCompletionRepairSQL = """
+    UPDATE voice_tasks
+    SET completed_at = COALESCE(updated_at, created_at),
+        updated_at = COALESCE(updated_at, created_at)
+    WHERE completed_at IS NULL
+      AND status IN ('failed', 'cancelled');
+    """
 
     static let screenshotRecordAssetBackfillSQL = """
     WITH eligible_screenshots AS (

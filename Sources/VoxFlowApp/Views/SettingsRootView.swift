@@ -244,6 +244,31 @@ struct SettingsRootView: View {
         } message: {
             Text(viewModel.latestCrashReportSummaryText ?? "")
         }
+        .confirmationDialog(
+            L10n.localize("settings.restore_defaults.confirm_title", comment: ""),
+            isPresented: Binding(
+                get: { viewModel.isRestoreDefaultsConfirmationPresented },
+                set: { presented in
+                    if !presented { viewModel.cancelRestoreDefaultsConfirmation() }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(L10n.localize("settings.restore_defaults.confirm_action", comment: ""), role: .destructive) {
+                viewModel.confirmRestoreDefaultsConfirmation()
+            }
+            Button(L10n.localize("settings.task.action.cancel", comment: ""), role: .cancel) {}
+        } message: {
+            Text(
+                L10n.localize("settings.restore_defaults.reset_section_title", comment: "")
+                + "\n"
+                + L10n.localize("settings.restore_defaults.reset_items", comment: "")
+                + "\n\n"
+                + L10n.localize("settings.restore_defaults.preserved_section_title", comment: "")
+                + "\n"
+                + L10n.localize("settings.restore_defaults.preserved_items", comment: "")
+            )
+        }
         .onAppear {
             viewModel.loadIfNeeded()
             llmProviderViewModel.loadIfNeeded()
@@ -569,6 +594,7 @@ struct SettingsRootView: View {
             localModelsSection
             permissionsCard
             privacyCard
+            resetDefaultsCard
             appDataCard
             diagnosticsCard
             appUpdateCard
@@ -1076,52 +1102,134 @@ struct SettingsRootView: View {
             systemImage: "externaldrive",
             tint: .orange
         ) {
-            HStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
                 SettingsRowIcon(
                     systemImage: viewModel.storageStatus.isHealthy ? "internaldrive" : "exclamationmark.triangle",
                     tint: viewModel.storageStatus.isHealthy ? .green : .orange
                 )
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.storageStatus.title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text(viewModel.storageStatus.title)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(AppTheme.ColorToken.primaryText)
+                            .lineLimit(1)
+                        Spacer(minLength: 12)
+                        Text(viewModel.storageStatus.badgeText)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
+                            .padding(.horizontal, 12)
+                            .frame(height: 30)
+                            .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
+                            .clipShape(Capsule())
+                    }
+
                     Text(viewModel.storageStatus.message)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                Text(viewModel.storageStatus.badgeText)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
-                    .clipShape(Capsule())
             }
-            .settingsRow()
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [
+                        AppTheme.ColorToken.controlBackground.opacity(0.82),
+                        AppTheme.ColorToken.panelBackground.opacity(0.96)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            HStack(spacing: 10) {
-                Button(L10n.localize("settings.data.open_support_folder", comment: "")) { viewModel.openApplicationSupportFolder() }
-                Button(L10n.localize("settings.data.export_data", comment: "")) { perform { _ = try viewModel.exportDataJSON() } }
-                Button(L10n.localize("settings.data.clear_history", comment: ""), role: .destructive) { perform { try viewModel.clearHistory() } }
-                Button(L10n.localize("settings.data.reset_settings", comment: ""), role: .destructive) {
-                    perform { try viewModel.resetSettings() }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    Button(L10n.localize("settings.data.open_support_folder", comment: "")) {
+                        viewModel.openApplicationSupportFolder()
+                    }
+                    Button(L10n.localize("settings.data.export_data", comment: "")) {
+                        perform { _ = try viewModel.exportDataJSON() }
+                    }
+                    Button(L10n.localize("settings.data.clear_history", comment: ""), role: .destructive) {
+                        perform { try viewModel.clearHistory() }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+
+                VStack(spacing: 10) {
+                    Button(L10n.localize("settings.data.open_support_folder", comment: "")) {
+                        viewModel.openApplicationSupportFolder()
+                    }
+                    Button(L10n.localize("settings.data.export_data", comment: "")) {
+                        perform { _ = try viewModel.exportDataJSON() }
+                    }
+                    Button(L10n.localize("settings.data.clear_history", comment: ""), role: .destructive) {
+                        perform { try viewModel.clearHistory() }
+                    }
                 }
             }
             .buttonStyle(.bordered)
+            .controlSize(.large)
 
-            TextEditor(text: $importedJSON)
-                .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 100)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(AppTheme.ColorToken.panelStroke)
-                )
-            Button(L10n.localize("settings.data.import_settings", comment: "")) {
-                perform { try viewModel.importSettingsJSON(importedJSON) }
+            VStack(alignment: .leading, spacing: 12) {
+                TextEditor(text: $importedJSON)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 140)
+                    .padding(10)
+                    .background(AppTheme.ColorToken.controlBackground.opacity(0.72))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                HStack {
+                    Spacer()
+                    Button(L10n.localize("settings.data.import_settings", comment: "")) {
+                        perform { try viewModel.importSettingsJSON(importedJSON) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Spacer()
+                }
             }
-            .buttonStyle(.bordered)
+        }
+    }
+
+    private var resetDefaultsCard: some View {
+        SettingsGroupCard(
+            title: L10n.localize("settings.restore_defaults.confirm_title", comment: ""),
+            subtitle: L10n.localize("settings.general.basics.subtitle", comment: ""),
+            systemImage: "arrow.counterclockwise",
+            tint: .orange
+        ) {
+            HStack(spacing: 14) {
+                SettingsRowIcon(systemImage: "gear.badge", tint: .orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("settings.restore_defaults.action", comment: ""))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    Text(
+                        L10n.localize("settings.restore_defaults.reset_section_title", comment: "")
+                        + " "
+                        + L10n.localize("settings.restore_defaults.reset_items", comment: "")
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 12)
+                Button(L10n.localize("settings.restore_defaults.action", comment: ""), role: .destructive) {
+                    viewModel.presentRestoreDefaultsConfirmation()
+                }
+                .buttonStyle(.bordered)
+            }
+            .settingsRow()
         }
     }
 

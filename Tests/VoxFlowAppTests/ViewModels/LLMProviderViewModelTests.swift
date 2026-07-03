@@ -1055,6 +1055,41 @@ final class LLMProviderViewModelTests: XCTestCase {
         XCTAssertTrue(provider.enabled)
     }
 
+    func testVoxFlowAgentProviderCanBeDetectedAndSelectedFromSettings() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let adapter = StubLocalAgentProviderAdapter(
+            availability: .availableForTests(
+                providerID: AgentProviderRegistry.voxflowAgent.providerID,
+                cliPath: "/Applications/VoxFlow.app/Contents/Helpers/voxflow",
+                cliVersion: "voxflow-builtin-agent 0.1.0"
+            ),
+            models: ["current-default-llm"]
+        )
+        let viewModel = LLMProviderViewModel(
+            environment: environment,
+            client: StubProviderClient(),
+            localAgentAdapters: [AgentProviderRegistry.voxflowAgent.providerID: adapter]
+        )
+
+        await viewModel.setLocalAgentProviderEnabledAfterDetection(
+            providerID: AgentProviderRegistry.voxflowAgent.providerID,
+            true
+        )
+
+        let provider = try XCTUnwrap(
+            try environment.llmProviderRepository.provider(id: AgentProviderRegistry.voxflowAgent.providerID)
+        )
+        XCTAssertEqual(provider.displayName, "VoxFlow Agent")
+        XCTAssertEqual(provider.providerType, AgentProviderRegistry.voxflowAgent.providerID)
+        XCTAssertEqual(provider.baseURL, "local://voxflow-agent")
+        XCTAssertEqual(provider.defaultModel, "current-default-llm")
+        XCTAssertTrue(viewModel.isLocalAgentProviderSelected(providerID: AgentProviderRegistry.voxflowAgent.providerID))
+        XCTAssertEqual(
+            try RepositoryBackedLLMRefiner.agentProviderID(settingsRepository: environment.settingsRepository),
+            AgentProviderRegistry.voxflowAgent.providerID
+        )
+    }
+
     func testAlreadyAvailableLocalAgentSelectionDoesNotWaitForDetection() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let now = Date(timeIntervalSince1970: 1_800_000_000)

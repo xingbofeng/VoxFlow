@@ -6,7 +6,9 @@ final class AgentRuntimeTests: XCTestCase {
     func testLocalAgentProviderRegistryExposesSupportedProviders() {
         let providers = AgentProviderRegistry.enabledRuntimeProviders
 
-        XCTAssertEqual(providers.map(\.providerID), ["codex", "opencode", "claude", "codebuddy", "pi"])
+        XCTAssertEqual(providers.map(\.providerID), ["voxflow-agent", "codex", "opencode", "claude", "codebuddy", "pi"])
+        XCTAssertEqual(providers.first?.displayName, "VoxFlow Agent")
+        XCTAssertEqual(providers.first?.baseURL, "local://voxflow-agent")
         XCTAssertEqual(providers.first { $0.providerID == "pi" }?.displayName, "Pi Agent")
         XCTAssertEqual(providers.first { $0.providerID == "opencode" }?.displayName, "Opencode")
         XCTAssertEqual(providers.first { $0.providerID == "opencode" }?.baseURL, "local://opencode")
@@ -195,7 +197,7 @@ final class AgentRuntimeTests: XCTestCase {
         let result = try LocalAgentProcessRunner.run(
             cli.path,
             arguments: [],
-            timeoutSeconds: 0.1
+            timeoutSeconds: 2
         )
         let childPID = try Int32(
             String(contentsOf: childPIDFile, encoding: .utf8)
@@ -607,6 +609,306 @@ final class AgentRuntimeTests: XCTestCase {
         XCTAssertTrue(result.trace.events.count >= 4)
         XCTAssertTrue(result.trace.events.contains { $0.title == "Pi Agent 会话已创建" })
         XCTAssertTrue(result.trace.events.contains { $0.detail == "已创建 index.html。" })
+    }
+
+    func testBuiltinAgentRuntimeClientForwardsToolRequestsToSwiftHost() async throws {
+        let root = try makeTemporaryDirectory()
+        let cli = root.appendingPathComponent("voxflow")
+        let requestFile = root.appendingPathComponent("request.json")
+        let toolResultFile = root.appendingPathComponent("tool-result.json")
+        try """
+        #!/bin/sh
+        if [ "$1" = "builtin-agent" ]; then
+          IFS= read -r request
+          printf '%s' "$request" > "\(requestFile.path)"
+          printf '%s\\n' '{"event":"runStarted"}'
+          printf '%s\\n' '{"event":"toolRequested","toolCall":{"id":"read-1","name":"read_selection_or_input_text","arguments":{}}}'
+          IFS= read -r tool_result
+          printf '%s' "$tool_result" > "\(toolResultFile.path)"
+          printf '%s\\n' '{"event":"toolResolved","toolName":"read_selection_or_input_text","result":{"ok":true,"toolName":"read_selection_or_input_text","result":{"kind":"read"},"error":null}}'
+          printf '%s\\n' '{"event":"turnCompleted","summary":"已读取选区。"}'
+          exit 0
+        fi
+        exit 1
+        """.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.credentialStore.saveCredential("sk-test", account: "provider-key")
+        try environment.llmProviderRepository.save(LLMProviderRecord(
+            id: "text-provider",
+            displayName: "Text Provider",
+            providerType: LLMProviderProviderType.openAICompatible,
+            baseURL: "https://api.example.com",
+            defaultModel: "model-a",
+            apiKeyRef: "provider-key",
+            temperature: 0,
+            timeoutSeconds: 60,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        let workspace = AgentRuntimeSessionWorkspace(
+            taskID: "task-1",
+            rootDirectory: root,
+            sessionDirectory: root,
+            screenshotsDirectory: root,
+            tracesDirectory: root,
+            temporaryDirectory: root
+        )
+        let request = AgentRuntimeRequest(
+            taskID: "task-1",
+            instruction: "读取选区",
+            context: ContextSnapshot(
+                selectedText: "需要被工具读取的选区",
+                sources: [.accessibilitySelectedText],
+                trimmedLength: 10
+            ),
+            target: nil,
+            workspace: workspace,
+            screenContext: nil,
+            model: nil
+        )
+        let client = BuiltinAgentRuntimeClient(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore
+        )
+
+        let result = try await client.run(
+            request: request,
+            cliPath: cli.path,
+            cliVersion: nil,
+            onEvent: { _ in }
+        )
+
+        XCTAssertEqual(result.summary, "已读取选区。")
+        XCTAssertEqual(result.trace.providerID, AgentProviderRegistry.voxflowAgent.providerID)
+        XCTAssertEqual(result.trace.model, "model-a")
+        let requestJSON = try String(contentsOf: requestFile, encoding: .utf8)
+        XCTAssertTrue(requestJSON.contains(#""taskId":"task-1""#))
+        XCTAssertTrue(requestJSON.contains(#""providerId":"text-provider""#))
+        XCTAssertTrue(requestJSON.contains(#""baseUrl":"https:\/\/api.example.com""#))
+        XCTAssertTrue(requestJSON.contains(#""apiKey":"sk-test""#))
+        let toolResultJSON = try String(contentsOf: toolResultFile, encoding: .utf8)
+        XCTAssertTrue(toolResultJSON.contains(#""toolName":"read_selection_or_input_text""#))
+        XCTAssertTrue(toolResultJSON.contains("需要被工具读取的选区"))
+    }
+
+    func testBuiltinAgentRuntimeClientTreatsFinalTextAfterToolFailureAsCompleted() async throws {
+        let root = try makeTemporaryDirectory()
+        let cli = root.appendingPathComponent("voxflow")
+        try """
+        #!/bin/sh
+        if [ "$1" = "builtin-agent" ]; then
+          IFS= read -r request
+          printf '%s\\n' '{"event":"runStarted"}'
+          printf '%s\\n' '{"event":"toolResolved","toolName":"write_file","result":{"ok":false,"toolName":"write_file","result":null,"error":{"code":"file_writes_not_enabled"}}}'
+          printf '%s\\n' '{"event":"modelDelta","text":"这里是可复制的 HTML 内容。"}'
+          printf '%s\\n' '{"event":"turnCompleted","summary":"这里是可复制的 HTML 内容。"}'
+          exit 0
+        fi
+        exit 1
+        """.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.credentialStore.saveCredential("sk-test", account: "provider-key")
+        try environment.llmProviderRepository.save(LLMProviderRecord(
+            id: "text-provider",
+            displayName: "Text Provider",
+            providerType: LLMProviderProviderType.openAICompatible,
+            baseURL: "https://api.example.com",
+            defaultModel: "model-a",
+            apiKeyRef: "provider-key",
+            temperature: 0,
+            timeoutSeconds: 60,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        let workspace = AgentRuntimeSessionWorkspace(
+            taskID: "task-1",
+            rootDirectory: root,
+            sessionDirectory: root,
+            screenshotsDirectory: root,
+            tracesDirectory: root,
+            temporaryDirectory: root
+        )
+        let request = AgentRuntimeRequest(
+            taskID: "task-1",
+            instruction: "生成一个HTML文件",
+            context: ContextSnapshot(inputAreaText: "", trimmedLength: 0),
+            target: nil,
+            workspace: workspace,
+            screenContext: nil,
+            model: nil
+        )
+        let client = BuiltinAgentRuntimeClient(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore
+        )
+
+        let result = try await client.run(
+            request: request,
+            cliPath: cli.path,
+            cliVersion: nil,
+            onEvent: { _ in }
+        )
+
+        XCTAssertEqual(result.status, .completed)
+        XCTAssertEqual(result.summary, "这里是可复制的 HTML 内容。")
+        XCTAssertEqual(result.trace.status, .completed)
+        XCTAssertTrue(result.trace.events.contains { $0.kind == .warning && $0.detail == "file_writes_not_enabled" })
+    }
+
+    func testBuiltinAgentRuntimeClientFailsWhenSidecarExitsWithoutCompletion() async throws {
+        let root = try makeTemporaryDirectory()
+        let cli = root.appendingPathComponent("voxflow")
+        try """
+        #!/bin/sh
+        if [ "$1" = "builtin-agent" ]; then
+          IFS= read -r request
+          printf '%s\\n' '{"event":"runStarted"}'
+          printf '%s\\n' '{"event":"modelDelta","text":"还没真正完成"}'
+          exit 0
+        fi
+        exit 1
+        """.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.credentialStore.saveCredential("sk-test", account: "provider-key")
+        try environment.llmProviderRepository.save(LLMProviderRecord(
+            id: "text-provider",
+            displayName: "Text Provider",
+            providerType: LLMProviderProviderType.openAICompatible,
+            baseURL: "https://api.example.com",
+            defaultModel: "model-a",
+            apiKeyRef: "provider-key",
+            temperature: 0,
+            timeoutSeconds: 60,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        let workspace = AgentRuntimeSessionWorkspace(
+            taskID: "missing-completion-task",
+            rootDirectory: root,
+            sessionDirectory: root,
+            screenshotsDirectory: root,
+            tracesDirectory: root,
+            temporaryDirectory: root
+        )
+        let request = AgentRuntimeRequest(
+            taskID: "missing-completion-task",
+            instruction: "执行一个没有完成事件的任务",
+            context: ContextSnapshot(inputAreaText: "", trimmedLength: 0),
+            target: nil,
+            workspace: workspace,
+            screenContext: nil,
+            model: nil
+        )
+        let client = BuiltinAgentRuntimeClient(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore
+        )
+
+        do {
+            _ = try await client.run(
+                request: request,
+                cliPath: cli.path,
+                cliVersion: nil,
+                onEvent: { _ in }
+            )
+            XCTFail("Expected builtin agent runtime missing completion failure")
+        } catch AgentRuntimeClientError.failed(let trace) {
+            XCTAssertEqual(trace.status, .failed)
+            XCTAssertEqual(trace.failureReason, "builtin_agent_missing_completion")
+        }
+    }
+
+    func testBuiltinAgentRuntimeClientTimesOutSidecarProcess() async throws {
+        let root = try makeTemporaryDirectory()
+        let cli = root.appendingPathComponent("voxflow")
+        try """
+        #!/bin/sh
+        if [ "$1" = "builtin-agent" ]; then
+          IFS= read -r request
+          printf '%s\\n' '{"event":"runStarted"}'
+          sleep 5
+          exit 0
+        fi
+        exit 1
+        """.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        try environment.credentialStore.saveCredential("sk-test", account: "provider-key")
+        try environment.llmProviderRepository.save(LLMProviderRecord(
+            id: "text-provider",
+            displayName: "Text Provider",
+            providerType: LLMProviderProviderType.openAICompatible,
+            baseURL: "https://api.example.com",
+            defaultModel: "model-a",
+            apiKeyRef: "provider-key",
+            temperature: 0,
+            timeoutSeconds: 1,
+            enabled: true,
+            isDefault: true,
+            lastHealthStatus: nil,
+            lastHealthMessage: nil,
+            lastLatencyMS: nil,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        ))
+        let workspace = AgentRuntimeSessionWorkspace(
+            taskID: "timeout-task",
+            rootDirectory: root,
+            sessionDirectory: root,
+            screenshotsDirectory: root,
+            tracesDirectory: root,
+            temporaryDirectory: root
+        )
+        let request = AgentRuntimeRequest(
+            taskID: "timeout-task",
+            instruction: "执行一个会超时的任务",
+            context: ContextSnapshot(inputAreaText: "", trimmedLength: 0),
+            target: nil,
+            workspace: workspace,
+            screenContext: nil,
+            model: nil
+        )
+        let client = BuiltinAgentRuntimeClient(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: environment.credentialStore,
+            timeoutSeconds: 0.1
+        )
+
+        do {
+            _ = try await client.run(
+                request: request,
+                cliPath: cli.path,
+                cliVersion: nil,
+                onEvent: { _ in }
+            )
+            XCTFail("Expected builtin agent runtime timeout")
+        } catch AgentRuntimeClientError.failed(let trace) {
+            XCTAssertEqual(trace.status, .failed)
+            XCTAssertTrue(trace.failureReason?.contains("timeout") == true)
+            XCTAssertTrue(trace.events.contains { $0.title == "VoxFlow Agent 执行超时" })
+        }
     }
 
     func testPiRuntimeArgumentsInheritDefaultTools() {

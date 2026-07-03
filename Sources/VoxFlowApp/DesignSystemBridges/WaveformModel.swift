@@ -10,6 +10,8 @@ struct WaveformModel {
     static let attackRate: CGFloat = 0.40
     static let releaseRate: CGFloat = 0.15
     static let jitterRange: CGFloat = 0.04
+    static let silenceInputThreshold: CGFloat = 0.015
+    static let silenceSettleThreshold: CGFloat = 0.12
 
     static var totalWidth: CGFloat {
         CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * barSpacing
@@ -24,6 +26,12 @@ struct WaveformModel {
         let clampedRMS = max(0, min(1, targetRMS))
         let rate = clampedRMS > smoothedRMS ? Self.attackRate : Self.releaseRate
         smoothedRMS += (clampedRMS - smoothedRMS) * rate
+
+        if clampedRMS <= Self.silenceInputThreshold,
+           smoothedRMS <= Self.silenceSettleThreshold {
+            smoothedRMS = 0
+            return Array(repeating: Self.minBarHeight, count: Self.barCount)
+        }
 
         let amplifiedRMS = min(smoothedRMS * 2.5, 1)
         return Self.weights.map { weight in

@@ -645,6 +645,7 @@ private struct CountingVoiceCorrectionEnvironment: AppServiceProviding {
     var asrProviderRepository: any ASRProviderRepository { wrapped.asrProviderRepository }
     var llmProviderRepository: any LLMProviderRepository { wrapped.llmProviderRepository }
     var transcriptionJobRepository: any TranscriptionJobRepository { wrapped.transcriptionJobRepository }
+    var transcriptionSegmentRepository: any TranscriptionSegmentRepository { wrapped.transcriptionSegmentRepository }
     var noteRepository: any NoteRepository { wrapped.noteRepository }
     var screenshotRecordRepository: any ScreenshotRecordRepository { wrapped.screenshotRecordRepository }
     var mediaRecordRepository: any MediaRecordRepository { wrapped.mediaRecordRepository }

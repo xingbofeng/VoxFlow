@@ -53,8 +53,23 @@ fn run() -> Result<()> {
             Router::new(&home).send_message(&card.agent_id, &message, submit)?;
         }
         VoxflowCommand::Help => println!(
-            "voxflow <agent-command> | run -- <command> | list [--all] | send [--no-enter] <target> <message> | resolve <target> | serve | mcp | hook-session-start <provider>"
+            "voxflow <agent-command> | run -- <command> | list [--all] | send [--no-enter] <target> <message> | resolve <target> | serve | mcp | hook-session-start <provider> | builtin-agent"
         ),
+        VoxflowCommand::BuiltinAgent { args } => {
+            if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+                println!("voxflow builtin-agent stdio");
+            } else if args.iter().any(|arg| arg == "--version") {
+                println!("voxflow-builtin-agent {}", env!("CARGO_PKG_VERSION"));
+            } else {
+                let stdin = std::io::stdin();
+                let stdout = std::io::stdout();
+                let exit_code = voxflow::builtin_agent::run_builtin_agent_stdio(
+                    stdin.lock(),
+                    stdout.lock(),
+                )?;
+                std::process::exit(exit_code);
+            }
+        }
         VoxflowCommand::Resolve { target } => {
             let result = Router::new(&home).resolve_utterance(
                 &format!("{target}，resolve"),

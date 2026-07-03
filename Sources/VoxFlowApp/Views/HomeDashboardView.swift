@@ -324,6 +324,11 @@ private struct HomeAssetRow: View {
                             Text(item.sourceTitle)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(AppTheme.ColorToken.accent)
+                            if let statusTitle = item.statusTitle {
+                                Text(statusTitle)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.orange)
+                            }
                             Text(item.contentTypeTitle)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(AppTheme.ColorToken.secondaryText)

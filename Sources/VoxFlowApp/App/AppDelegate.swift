@@ -385,8 +385,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             currentNotesState: {
                 let notesCoordinator = NotesCaptureCoordinator.shared
+                let appIsForeground = NSApp.isActive
+                    || NSWorkspace.shared.frontmostApplication?.processIdentifier
+                    == NSRunningApplication.current.processIdentifier
                 return HotKeyNotesState(
-                    shouldCaptureHotKey: notesCoordinator.shouldCaptureHotKey(),
+                    shouldCaptureHotKey: notesCoordinator.shouldCaptureHotKey(
+                        appIsForeground: appIsForeground
+                    ),
                     isActive: notesCoordinator.isActive,
                     isRecording: notesCoordinator.isRecording
                 )
@@ -440,6 +445,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startSelectionTargetTracking()
         logger.debug("application_runtime_bootstrapped")
         setupDictationOrchestrator()
+        setupNotesRecordingHUDBridge()
         capsLockRecordingIndicator = CapsLockRecordingIndicator.live()
         recordingFeedbackController = RecordingAudioFeedbackController(
             soundFeedbackEnabled: { [weak self] in self?.isSettingEnabled(SettingsKey.audioSoundFeedbackEnabled, defaultValue: true) ?? true },
@@ -657,6 +663,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.appEnvironment.notifyHistoryDidChange()
         }
         dictationOrchestrator.onError = { [weak self] error in
+            self?.appEnvironment.notifyHistoryDidChange()
             self?.dictationFeatureController.handleRecognitionError(error)
         }
         logger.debug("setup_dictation_orchestrator_completed")
@@ -997,14 +1004,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startNotesRecording() {
         logger.debug("hotkey_start_notes_recording")
+        hudFeatureController.render(.recording(action: nil))
         Task { @MainActor in
             await NotesCaptureCoordinator.shared.startRecording?()
+            if !NotesCaptureCoordinator.shared.isRecording {
+                self.hudFeatureController.render(.hidden)
+            }
         }
     }
 
     private func finishNotesRecording() {
         logger.debug("hotkey_finish_notes_recording")
+        hudFeatureController.render(.waitingForFinal(showIndicator: true))
         NotesCaptureCoordinator.shared.finishRecording?()
+    }
+
+    private func setupNotesRecordingHUDBridge() {
+        NotesCaptureCoordinator.shared.recordingStateDidChange = { [weak self] state in
+            guard let self else { return }
+            switch state {
+            case .idle:
+                self.hudFeatureController.render(.hidden)
+            case .recording:
+                self.hudFeatureController.render(.recording(action: nil))
+            case .finishing:
+                self.hudFeatureController.render(.waitingForFinal(showIndicator: true))
+            }
+        }
+        NotesCaptureCoordinator.shared.transcriptionDidChange = { [weak self] text, isFinal in
+            guard let self,
+                  let snapshot = NotesRecordingHUDPresentation.streamingSnapshot(
+                    text: text,
+                    isFinal: isFinal
+                  ) else { return }
+            self.hudFeatureController.render(snapshot)
+        }
     }
 
     private func currentDictationConfiguration() -> DictationConfiguration {

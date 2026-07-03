@@ -219,11 +219,17 @@ final class VoiceTaskRepositoryTests: XCTestCase {
         )
         let encoded = String(data: try JSONEncoder().encode(failure), encoding: .utf8)!
 
-        try repository.updateFailure(id: "task-fail", failureJson: encoded, status: .failed)
+        try repository.updateFailure(
+            id: "task-fail",
+            failureJson: encoded,
+            status: .failed,
+            completedAt: clock.now
+        )
 
         let fetched = try repository.fetch(id: "task-fail")
         XCTAssertEqual(fetched?.failureJson, encoded)
         XCTAssertEqual(fetched?.status, .failed)
+        XCTAssertEqual(fetched?.completedAt, clock.now)
     }
 
     func testUpdateASRMetadata() throws {

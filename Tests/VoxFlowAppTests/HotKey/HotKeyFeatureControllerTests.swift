@@ -115,6 +115,23 @@ final class HotKeyFeatureControllerTests: XCTestCase {
         XCTAssertEqual(recorder.decisions, [.startNotesRecording])
     }
 
+    func testSecondPressWhileNotesRecordingFinishesRecordingWhenToggleIsEnabled() {
+        let recorder = HotKeyFeatureRecorder()
+        recorder.dictationState = .idle
+        recorder.shortPressBehavior = .toggleListening
+        recorder.notesState = HotKeyNotesState(
+            shouldCaptureHotKey: true,
+            isActive: true,
+            isRecording: true
+        )
+        let controller = recorder.makeController()
+        controller.start()
+
+        recorder.pressHandler?(.dictation)
+
+        XCTAssertEqual(recorder.decisions, [.finishNotesRecording])
+    }
+
     func testAgentComposePressStartsImmediatelyWhenShortPressToggleIsEnabled() {
         let recorder = HotKeyFeatureRecorder()
         recorder.dictationState = .idle

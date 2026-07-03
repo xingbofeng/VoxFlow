@@ -1,7 +1,7 @@
 const release = {
-  version: "1.14.0",
-  tag: "v1.14.0",
-  assetName: "VoxFlow-1.14.0-macOS.dmg"
+  version: "1.15.0",
+  tag: "v1.15.0",
+  assetName: "VoxFlow-1.15.0-macOS.dmg"
 };
 
 const releaseDownloadURL =

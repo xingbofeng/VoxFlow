@@ -36,6 +36,17 @@ final class OverlayLayoutTests: XCTestCase {
         XCTAssertLessThan(visible.count, text.count)
     }
 
+    func testNotesStreamingTextKeepsTailVisibleWithoutEllipsis() {
+        let text = String(repeating: "前", count: 160) + "当前内容"
+        let visible = OverlayLayout.visibleNotesStreamingText(text)
+
+        XCTAssertFalse(visible.hasPrefix("…"))
+        XCTAssertFalse(visible.contains("..."))
+        XCTAssertTrue(visible.hasSuffix("当前内容"))
+        XCTAssertLessThanOrEqual(visible.count, OverlayLayout.maximumVisibleCharacters)
+        XCTAssertLessThan(visible.count, text.count)
+    }
+
     func testOverlayTextNeverAddsTrailingEllipsis() {
         XCTAssertEqual(OverlayLayout.textLineBreakMode, .byCharWrapping)
         XCTAssertFalse(OverlayLayout.truncatesLastVisibleLine)

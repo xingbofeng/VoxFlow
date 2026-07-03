@@ -17,6 +17,9 @@ pub enum VoxflowCommand {
     HookSessionStart {
         provider: String,
     },
+    BuiltinAgent {
+        args: Vec<String>,
+    },
     Help,
 }
 
@@ -104,6 +107,9 @@ where
                 .get(1)
                 .cloned()
                 .ok_or("hook-session-start requires a provider")?,
+        }),
+        "builtin-agent" => Ok(VoxflowCommand::BuiltinAgent {
+            args: values[1..].to_vec(),
         }),
         "help" | "--help" | "-h" => Ok(VoxflowCommand::Help),
         _ => run_command(values),

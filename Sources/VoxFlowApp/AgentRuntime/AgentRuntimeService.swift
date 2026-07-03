@@ -73,8 +73,14 @@ struct DefaultAgentRuntimeService: AgentRuntimeServing {
         self.workspaceManager = workspaceManager
         self.client = client
         self.screenshotProvider = screenshotProvider
-        self.localAgentDetectors = localAgentDetectors ?? Self.defaultLocalAgentDetectors()
-        self.localAgentClients = localAgentClients ?? Self.defaultLocalAgentClients()
+        let defaultDetectors = Self.defaultLocalAgentDetectors()
+        self.localAgentDetectors = localAgentDetectors.map {
+            defaultDetectors.merging($0) { _, override in override }
+        } ?? defaultDetectors
+        let defaultClients = Self.defaultLocalAgentClients()
+        self.localAgentClients = localAgentClients.map {
+            defaultClients.merging($0) { _, override in override }
+        } ?? defaultClients
     }
 
     func availability(forceRefresh: Bool = false) async -> AgentRuntimeAvailability {

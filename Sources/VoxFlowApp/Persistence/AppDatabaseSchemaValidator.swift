@@ -152,6 +152,26 @@ enum AppDatabaseSchemaValidator {
                 "created_at", "updated_at", "last_applied_at",
                 "hit_count", "is_blocklisted", "last_hit_at"
             ]
+        ),
+        ExpectedTable(
+            name: "transcription_jobs",
+            columns: [
+                "id", "source_file_path", "source_file_name", "status", "progress",
+                "raw_text", "final_text", "asr_provider_id", "style_id", "error_message",
+                "duration_ms", "created_at", "updated_at", "completed_at",
+                "provider_mode", "segment_count", "segment_completed", "partial_failure_summary",
+                "translated_text", "translation_target_language", "translation_provider",
+                "translation_status", "translation_error", "translation_updated_at"
+            ]
+        ),
+        ExpectedTable(
+            name: "transcription_segments",
+            columns: [
+                "id", "job_id", "segment_index", "start_ms", "end_ms", "status",
+                "raw_text", "final_text", "prompt_context", "fallback_reason", "retry_count",
+                "provider_id", "provider_mode", "error_message", "duration_ms",
+                "created_at", "updated_at", "completed_at"
+            ]
         )
     ]
 
@@ -169,7 +189,11 @@ enum AppDatabaseSchemaValidator {
         ExpectedIndex(table: "asset_items", name: "idx_asset_items_content_hash"),
         ExpectedIndex(table: "voice_correction_rules", name: "idx_voice_correction_rules_lifecycle"),
         ExpectedIndex(table: "voice_correction_events", name: "idx_voice_correction_events_created_at"),
-        ExpectedIndex(table: "voice_correction_targets", name: "idx_voice_correction_targets_updated_at")
+        ExpectedIndex(table: "voice_correction_targets", name: "idx_voice_correction_targets_updated_at"),
+        ExpectedIndex(table: "transcription_jobs", name: "idx_transcription_jobs_created_at"),
+        ExpectedIndex(table: "transcription_jobs", name: "idx_transcription_jobs_status_created_at"),
+        ExpectedIndex(table: "transcription_segments", name: "idx_transcription_segments_job_index"),
+        ExpectedIndex(table: "transcription_segments", name: "idx_transcription_segments_job_status")
     ]
 }
 

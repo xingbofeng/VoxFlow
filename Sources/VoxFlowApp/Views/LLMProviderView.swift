@@ -28,6 +28,29 @@ enum LLMProviderViewMode: Equatable {
     }
 }
 
+struct LocalAgentProviderCardPresentation: Equatable {
+    let subtitleKey: String
+    let detectButtonKey: String
+    let configurationTitleKey: String
+    let showsBuiltinBadge: Bool
+    let usesDefaultLLMProvider: Bool
+
+    init(descriptor: LocalAgentProviderDescriptor) {
+        let isBuiltin = descriptor.providerID == AgentProviderRegistry.voxflowAgent.providerID
+        subtitleKey = isBuiltin
+            ? "model.llm_provider.builtin_agent.subtitle"
+            : "model.llm_provider.local_agent.subtitle"
+        detectButtonKey = isBuiltin
+            ? "model.llm_provider.builtin_agent.detect"
+            : "model.llm_provider.codex.detect"
+        configurationTitleKey = isBuiltin
+            ? "model.llm_provider.builtin_agent.configuration_title"
+            : "model.llm_provider.codex.model_section"
+        showsBuiltinBadge = isBuiltin
+        usesDefaultLLMProvider = isBuiltin
+    }
+}
+
 struct LLMProviderView: View {
     @ObservedObject var viewModel: LLMProviderViewModel
     var mode: LLMProviderViewMode = .combined
@@ -184,6 +207,7 @@ struct LLMProviderView: View {
 
     private func localAgentSettingsCard(_ descriptor: LocalAgentProviderDescriptor) -> some View {
         let selected = viewModel.isLocalAgentProviderSelected(providerID: descriptor.providerID)
+        let presentation = LocalAgentProviderCardPresentation(descriptor: descriptor)
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 14) {
                 LLMProviderIcon(
@@ -194,11 +218,20 @@ struct LLMProviderView: View {
                     size: 44
                 )
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(descriptor.displayName)
-                        .font(.system(size: 18, weight: .semibold))
-                    Text(L10n.localize("model.llm_provider.local_agent.subtitle", comment: "Local agent subtitle"))
+                    HStack(spacing: 8) {
+                        Text(descriptor.displayName)
+                            .font(.system(size: 18, weight: .semibold))
+                        if presentation.showsBuiltinBadge {
+                            providerBadge(
+                                L10n.localize("model.llm_provider.builtin_agent.badge", comment: "Builtin agent badge"),
+                                color: AppTheme.ColorToken.accent
+                            )
+                        }
+                    }
+                    Text(L10n.localize(presentation.subtitleKey, comment: "Local agent subtitle"))
                         .font(.system(size: 13))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 Toggle(
@@ -231,7 +264,7 @@ struct LLMProviderView: View {
                     Task { await viewModel.detectLocalAgentProvider(providerID: descriptor.providerID, forceRefresh: true) }
                 } label: {
                     Label(
-                        L10n.localize("model.llm_provider.codex.detect", comment: "Detect Codex"),
+                        L10n.localize(presentation.detectButtonKey, comment: "Detect local agent"),
                         systemImage: "checkmark.seal"
                     )
                     .frame(height: 32)
@@ -242,16 +275,32 @@ struct LLMProviderView: View {
 
             if selected {
                 VStack(alignment: .leading, spacing: 9) {
-                    Text(L10n.localize("model.llm_provider.codex.model_section", comment: "Codex model section"))
+                    Text(L10n.localize(presentation.configurationTitleKey, comment: "Local agent configuration section"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppTheme.ColorToken.secondaryText)
-                    LocalAgentModelPicker(
-                        selectedModel: viewModel.localAgentSelectedModel(providerID: descriptor.providerID),
-                        models: viewModel.localAgentModelIDs(providerID: descriptor.providerID),
-                        onSelect: { model in
-                            viewModel.selectLocalAgentModel(providerID: descriptor.providerID, model: model)
+                    if presentation.usesDefaultLLMProvider {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppTheme.ColorToken.accent)
+                            Text(L10n.localize("model.llm_provider.builtin_agent.default_llm_note", comment: "Builtin agent default LLM note"))
+                                .font(.system(size: 13))
+                                .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                    )
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.ColorToken.panelBackground.opacity(0.72))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else {
+                        LocalAgentModelPicker(
+                            selectedModel: viewModel.localAgentSelectedModel(providerID: descriptor.providerID),
+                            models: viewModel.localAgentModelIDs(providerID: descriptor.providerID),
+                            onSelect: { model in
+                                viewModel.selectLocalAgentModel(providerID: descriptor.providerID, model: model)
+                            }
+                        )
+                    }
                 }
             }
         }

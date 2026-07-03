@@ -5,6 +5,7 @@ enum AgentProviderExecutionCapability: String, Codable, Equatable, Hashable, Sen
 }
 
 enum AgentRuntimeKind: String, Codable, Equatable, Sendable {
+    case voxflowAgent
     case codex
     case opencode
     case claude
@@ -371,6 +372,16 @@ enum AgentRuntimeError: LocalizedError, Equatable {
 }
 
 enum AgentProviderRegistry {
+    static let voxflowAgent = LocalAgentProviderDescriptor(
+        providerID: "voxflow-agent",
+        displayName: "VoxFlow Agent",
+        baseURL: "local://voxflow-agent",
+        executableNames: ["voxflow"],
+        capabilities: [.agentRuntime],
+        supportsImageContextByDefault: false,
+        runtimeKind: .voxflowAgent
+    )
+
     static let codex = LocalAgentProviderDescriptor(
         providerID: "codex",
         displayName: "Codex",
@@ -422,6 +433,7 @@ enum AgentProviderRegistry {
     )
 
     static let enabledRuntimeProviders: [LocalAgentProviderDescriptor] = [
+        voxflowAgent,
         codex,
         opencode,
         claude,

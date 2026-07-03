@@ -99,6 +99,17 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         ])
     }
 
+    func testNotesStreamingTextRendersThroughDedicatedOverlayPath() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.render(.notesStreamingText("笔记 partial"))
+
+        XCTAssertEqual(overlay.events, [
+            .updateNotesStreamingText("笔记 partial"),
+        ])
+    }
+
     func testLearningFeedbackShowsUndoableHUDAction() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -341,6 +352,7 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
         case updateAgentComposeStatus(AgentComposeHUDStage)
         case updateAgentDispatch(AgentDispatchHUDPresentation)
         case updateStreamingText(String)
+        case updateNotesStreamingText(String)
         case updateRMS(Float)
         case showTemporaryMessage(
             message: String,
@@ -387,6 +399,10 @@ private final class CapturingHUDOverlay: HUDOverlayControlling {
 
     func updateStreamingText(_ partialText: String) {
         events.append(.updateStreamingText(partialText))
+    }
+
+    func updateNotesStreamingText(_ partialText: String) {
+        events.append(.updateNotesStreamingText(partialText))
     }
 
     func updateRMS(_ rms: Float) {

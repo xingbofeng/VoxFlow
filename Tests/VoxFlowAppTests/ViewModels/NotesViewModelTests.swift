@@ -94,6 +94,30 @@ final class NotesViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "已生成 Markdown 导出内容")
     }
 
+    func testOpenNoteLoadsAndPreviewsSavedNote() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let now = environment.clock.now
+        let note = NoteRecord(
+            id: "saved-note",
+            title: "Saved",
+            bodyMarkdown: "Saved body",
+            sourceType: "fileTranscription",
+            sourceID: "job",
+            tags: ["file-transcription"],
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        try environment.noteRepository.save(note)
+        let viewModel = NotesViewModel(environment: environment)
+
+        viewModel.openNote(id: note.id)
+
+        XCTAssertEqual(viewModel.previewedNote?.id, note.id)
+        XCTAssertEqual(viewModel.selectedNoteID, note.id)
+        XCTAssertEqual(viewModel.detailMode, .reading)
+    }
+
     func testPreviewNoteDoesNotOverwriteCurrentDraft() throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let viewModel = NotesViewModel(environment: environment)
@@ -142,6 +166,45 @@ final class NotesViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedNoteID, viewModel.notes.first?.id)
     }
 
+    func testRecordingAgainUpdatesCurrentQuickCaptureNoteInsteadOfCreatingDuplicate() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let recorder = NotesTranscriberStub()
+        let outputService = CapturingNotesOutputService()
+        let viewModel = NotesViewModel(
+            environment: environment,
+            transcriber: recorder,
+            notesOutputService: outputService
+        )
+
+        await viewModel.startRecording()
+        recorder.emit(text: "第一次记录", isFinal: true)
+        let firstNoteID = try XCTUnwrap(viewModel.selectedNoteID)
+
+        await viewModel.startRecording(replacing: NSRange(location: ("第一次记录" as NSString).length, length: 0))
+        recorder.emit(text: " 继续追加", isFinal: true)
+
+        XCTAssertEqual(viewModel.notes.count, 1)
+        XCTAssertEqual(viewModel.selectedNoteID, firstNoteID)
+        XCTAssertEqual(viewModel.notes.first?.id, firstNoteID)
+        XCTAssertEqual(viewModel.notes.first?.bodyMarkdown, "第一次记录 继续追加")
+    }
+
+    func testRecordingStateChangesBeforeTranscriberStartCompletes() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let recorder = SlowStartingNotesTranscriberStub()
+        let viewModel = NotesViewModel(environment: environment, transcriber: recorder)
+
+        let task = Task {
+            await viewModel.startRecording()
+        }
+        await recorder.waitUntilStartCalled()
+
+        XCTAssertEqual(viewModel.recordingState, .recording)
+
+        recorder.completeStart()
+        await task.value
+    }
+
     func testRecordingFinalOutputFailureKeepsDraftAndDoesNotSaveNote() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let recorder = NotesTranscriberStub()
@@ -187,6 +250,67 @@ final class NotesViewModelTests: XCTestCase {
         XCTAssertEqual(outputService.deliveredTexts, ["开头 新的中英文 content 结尾"])
         XCTAssertEqual(viewModel.draftBodyMarkdown, "开头 新的中英文 content 结尾")
         XCTAssertEqual(viewModel.notes.first?.bodyMarkdown, "开头 新的中英文 content 结尾")
+    }
+
+    func testRecordingMovesEditorSelectionAfterFinalInsertedText() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let recorder = NotesTranscriberStub()
+        let viewModel = NotesViewModel(environment: environment, transcriber: recorder)
+        viewModel.draftBodyMarkdown = "开头 old text 结尾"
+        let selection = (viewModel.draftBodyMarkdown as NSString).range(of: "old text")
+
+        await viewModel.startRecording(replacing: selection)
+        recorder.emit(text: "新的内容", isFinal: false)
+
+        XCTAssertNil(viewModel.editorSelectionRequest)
+
+        recorder.emit(text: "新的中英文 content", isFinal: true)
+
+        XCTAssertEqual(
+            viewModel.editorSelectionRequest?.range,
+            NSRange(location: selection.location + ("新的中英文 content" as NSString).length, length: 0)
+        )
+    }
+
+    func testContinuingDictationAppendsFinalTextToCurrentPreviewedNote() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let recorder = NotesTranscriberStub()
+        let outputService = CapturingNotesOutputService()
+        let now = environment.clock.now
+        try environment.noteRepository.save(
+            NoteRecord(
+                id: "note-1",
+                title: "原笔记",
+                bodyMarkdown: "已有正文",
+                sourceType: "manual",
+                sourceID: nil,
+                tags: ["work"],
+                createdAt: now,
+                updatedAt: now,
+                deletedAt: nil
+            )
+        )
+        let viewModel = NotesViewModel(
+            environment: environment,
+            transcriber: recorder,
+            notesOutputService: outputService
+        )
+        viewModel.load()
+        viewModel.previewNote(id: "note-1")
+        viewModel.enterContinuingDictation()
+
+        await viewModel.startRecording()
+        recorder.emit(text: "追加内容", isFinal: true)
+
+        let updated = try XCTUnwrap(try environment.noteRepository.note(id: "note-1"))
+        XCTAssertEqual(updated.bodyMarkdown, "已有正文\n\n追加内容")
+        XCTAssertEqual(updated.title, "原笔记")
+        XCTAssertEqual(updated.tags, ["work"])
+        XCTAssertEqual(viewModel.previewedNote?.bodyMarkdown, "已有正文\n\n追加内容")
+        XCTAssertEqual(viewModel.detailMode, .reading)
+        XCTAssertNil(viewModel.continuingNoteID)
+        XCTAssertEqual(viewModel.notes.count, 1)
+        XCTAssertEqual(outputService.deliveredTexts, ["已有正文\n\n追加内容"])
     }
 
     func testRecordingClampsInvalidSelectionToEndOfDraft() async throws {
@@ -276,4 +400,38 @@ private enum NotesTranscriberStubError: LocalizedError {
     var errorDescription: String? {
         "没有录音权限"
     }
+}
+
+@MainActor
+private final class SlowStartingNotesTranscriberStub: NotesTranscribing {
+    var onTranscription: ((String, Bool) -> Void)?
+    var onError: ((Error) -> Void)?
+    private var startCalled = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var startContinuation: CheckedContinuation<Void, Never>?
+
+    func start() async throws {
+        startCalled = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation { continuation in
+            startContinuation = continuation
+        }
+    }
+
+    func waitUntilStartCalled() async {
+        if startCalled { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func completeStart() {
+        startContinuation?.resume()
+        startContinuation = nil
+    }
+
+    func finish() {}
+    func cancel() {}
 }

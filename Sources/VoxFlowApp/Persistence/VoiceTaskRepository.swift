@@ -200,20 +200,26 @@ final class VoiceTaskRepository {
         }
     }
 
-    func updateFailure(id: String, failureJson: String, status: VoiceTaskStatus) throws {
+    func updateFailure(
+        id: String,
+        failureJson: String,
+        status: VoiceTaskStatus,
+        completedAt: Date
+    ) throws {
         AppLogger.database.warning("记录任务失败：id=\(id), status=\(status.rawValue)")
         try databaseQueue.write { connection in
             let statement = try connection.prepare(
                 """
                 UPDATE voice_tasks
-                SET failure_json = ?, status = ?, updated_at = ?
+                SET failure_json = ?, status = ?, completed_at = ?, updated_at = ?
                 WHERE id = ?
                 """
             )
             try statement.bind(failureJson, at: 1)
             try statement.bind(status.rawValue, at: 2)
-            try statement.bind(formatter.string(from: clock.now), at: 3)
-            try statement.bind(id, at: 4)
+            try statement.bind(formatter.string(from: completedAt), at: 3)
+            try statement.bind(formatter.string(from: completedAt), at: 4)
+            try statement.bind(id, at: 5)
             _ = try statement.step()
         }
     }

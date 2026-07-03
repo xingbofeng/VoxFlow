@@ -1,11 +1,10 @@
 {
-  "version": "1.14.0",
-  "tag": "v1.14.0",
-  "assetName": "VoxFlow-1.14.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.14.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.14.0/VoxFlow-1.14.0-macOS.dmg",
-  "releaseNotes": "扩展本地 Agent Provider：除了 Codex，现在可以检测并选择 Opencode、Claude Code、CodeBuddy 和 Pi Agent，并为 Agent Compose 选择对应模型。",
-  "publishedAt": "2026-07-03T00:00:00Z",
+  "version": "1.15.0",
+  "tag": "v1.15.0",
+  "assetName": "VoxFlow-1.15.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg",
+  "releaseNotes": "新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。",
   "draft": false,
   "prerelease": false
 }

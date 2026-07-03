@@ -8,6 +8,21 @@ enum NotesRecordingState: Equatable {
     case finishing
 }
 
+/// 笔记详情展示态（OpenSpec revamp-file-transcription-and-notes §5.1）。
+enum NotesDetailMode: Equatable {
+    /// 阅读态：历史笔记默认进入；展示编辑、复制、导出、关闭。
+    case reading
+    /// 编辑态：新建笔记或从阅读态点编辑进入；可修改标题、正文、标签。
+    case editing
+    /// 继续听写态：用户点正文尾部“继续听写”后进入；听写热键补充当前笔记。
+    case continuingDictation
+}
+
+struct NotesEditorSelectionRequest: Equatable {
+    let id: UUID
+    let range: NSRange
+}
+
 @MainActor
 final class NotesViewModel: ObservableObject {
     @Published private(set) var notes: [NoteRecord] = []
@@ -21,6 +36,12 @@ final class NotesViewModel: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastActionMessage: String?
     @Published private(set) var recordingState = NotesRecordingState.idle
+    @Published private(set) var draftEditorFocusRequest = UUID()
+    @Published private(set) var editorSelectionRequest: NotesEditorSelectionRequest?
+    /// 当前详情展示态。决定 Header/Footer 操作和是否可编辑。
+    @Published var detailMode: NotesDetailMode = .reading
+    /// 进入 continuingDictation 时锁定的笔记 ID。听写热键根据该值判断是否补充当前笔记。
+    @Published private(set) var continuingNoteID: String?
 
     private let environment: any AppServiceProviding
     private let transcriber: NotesTranscribing
@@ -60,17 +81,24 @@ final class NotesViewModel: ObservableObject {
     func startRecording(replacing selection: NSRange? = nil) async {
         guard recordingState == .idle else { return }
         lastActionMessage = nil
-        recordingBaseBody = draftBodyMarkdown
-        recordingSelection = Self.clampedSelection(
-            selection ?? NSRange(
-                location: (draftBodyMarkdown as NSString).length,
-                length: 0
-            ),
-            in: draftBodyMarkdown
-        )
+        let baseBody = continuingDictationBaseBody()
+            .map(Self.bodyPreparedForContinuingAppend)
+            ?? draftBodyMarkdown
+        recordingBaseBody = baseBody
+        if detailMode == .continuingDictation {
+            recordingSelection = NSRange(location: (baseBody as NSString).length, length: 0)
+        } else {
+            recordingSelection = Self.clampedSelection(
+                selection ?? NSRange(
+                    location: (baseBody as NSString).length,
+                    length: 0
+                ),
+                in: baseBody
+            )
+        }
+        recordingState = .recording
         do {
             try await transcriber.start()
-            recordingState = .recording
         } catch {
             recordingState = .idle
             report(error: error)
@@ -191,15 +219,68 @@ final class NotesViewModel: ObservableObject {
         draftTitle = note.title
         draftBodyMarkdown = note.bodyMarkdown
         draftTagsText = note.tags.joined(separator: ", ")
+        detailMode = .editing
     }
 
     func previewNote(id: String) {
         guard let note = notes.first(where: { $0.id == id }) else { return }
         previewedNote = note
+        selectedNoteID = note.id
+        // 阅读态展示 previewedNote 内容，不覆盖 draft，避免破坏用户正在编辑的草稿。
+        detailMode = .reading
+        continuingNoteID = nil
+    }
+
+    func openNote(id: String) {
+        load()
+        if notes.contains(where: { $0.id == id }) {
+            previewNote(id: id)
+            return
+        }
+        guard let note = try? environment.noteRepository.note(id: id) else { return }
+        notes.insert(note, at: 0)
+        previewNote(id: id)
     }
 
     func dismissPreview() {
         previewedNote = nil
+        continuingNoteID = nil
+        detailMode = .reading
+    }
+
+    /// 从阅读态进入编辑态：用 previewedNote 内容初始化 draft。
+    func enterEditing() {
+        guard let note = previewedNote else { return }
+        draftTitle = note.title
+        draftBodyMarkdown = note.bodyMarkdown
+        draftTagsText = note.tags.joined(separator: ", ")
+        detailMode = .editing
+    }
+
+    /// 编辑态取消：回滚 draft 到原始笔记内容，回到阅读态。
+    func cancelEditing() {
+        guard let noteID = selectedNoteID,
+              let note = try? environment.noteRepository.note(id: noteID) else {
+            detailMode = .reading
+            return
+        }
+        draftTitle = note.title
+        draftBodyMarkdown = note.bodyMarkdown
+        draftTagsText = note.tags.joined(separator: ", ")
+        detailMode = .reading
+    }
+
+    /// 阅读态点“继续听写”：进入继续听写态，后续听写热键补充当前笔记。
+    func enterContinuingDictation() {
+        guard previewedNote != nil || selectedNoteID != nil else { return }
+        continuingNoteID = selectedNoteID
+        detailMode = .continuingDictation
+    }
+
+    /// 退出继续听写态，回到阅读态。
+    func exitContinuingDictation() {
+        continuingNoteID = nil
+        detailMode = .reading
     }
 
     func saveDraft() throws {
@@ -211,20 +292,32 @@ final class NotesViewModel: ObservableObject {
                 bodyMarkdown: draftBodyMarkdown,
                 tags: tags
             )
+            // 保存后回到阅读态，并刷新预览的笔记内容。
+            if let updated = try? environment.noteRepository.note(id: selectedNoteID) {
+                previewedNote = updated
+            }
+            detailMode = .reading
         } else {
-            _ = try createNote(
+            let note = try createNote(
                 title: draftTitle,
                 bodyMarkdown: draftBodyMarkdown,
                 tags: tags
             )
+            previewedNote = note
+            detailMode = .reading
         }
     }
 
     func newDraft() {
         selectedNoteID = nil
+        previewedNote = nil
         draftTitle = ""
         draftBodyMarkdown = ""
         draftTagsText = ""
+        // 新建草稿默认进入编辑态。
+        detailMode = .editing
+        continuingNoteID = nil
+        draftEditorFocusRequest = UUID()
         lastError = nil
         lastActionMessage = L10n.localize("notes.feedback.created_empty_draft", comment: "Created an empty note draft")
     }
@@ -297,6 +390,11 @@ final class NotesViewModel: ObservableObject {
         lastActionMessage = nil
     }
 
+    func reportCopied() {
+        lastError = nil
+        lastActionMessage = L10n.localize("notes.feedback.copied", comment: "Note content copied")
+    }
+
     func clearFeedback() {
         lastError = nil
         lastActionMessage = nil
@@ -305,10 +403,12 @@ final class NotesViewModel: ObservableObject {
     private func configureTranscriber() {
         transcriber.onTranscription = { [weak self] text, isFinal in
             guard let self else { return }
+            NotesCaptureCoordinator.shared.transcriptionDidChange?(text, isFinal)
+            let update = self.bodyAndSelectionByApplyingRecordingText(text)
             if isFinal {
-                self.deliverFinalRecordingText(self.bodyByApplyingRecordingText(text))
+                self.deliverFinalRecordingText(update.body, selection: update.selection)
             } else {
-                self.draftBodyMarkdown = self.bodyByApplyingRecordingText(text)
+                self.draftBodyMarkdown = update.body
                 self.lastError = nil
             }
         }
@@ -319,7 +419,7 @@ final class NotesViewModel: ObservableObject {
         }
     }
 
-    private func deliverFinalRecordingText(_ text: String) {
+    private func deliverFinalRecordingText(_ text: String, selection: NSRange) {
         let target = InAppTextOutputTarget { [weak self] text in
             self?.draftBodyMarkdown = text
         }
@@ -331,12 +431,14 @@ final class NotesViewModel: ObservableObject {
         guard result.kind == .inserted else {
             recordingState = .idle
             draftBodyMarkdown = text
+            requestEditorSelection(selection)
             lastError = outputFailureMessage(for: result)
             lastActionMessage = nil
             return
         }
 
         lastError = nil
+        requestEditorSelection(selection)
         completeRecordedNote()
     }
 
@@ -345,6 +447,14 @@ final class NotesViewModel: ObservableObject {
         let text = draftBodyMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             lastError = L10n.localize("notes.error.no_content_to_save", comment: "No recognized content to save")
+            return
+        }
+        if let continuingNoteID {
+            completeContinuingDictation(noteID: continuingNoteID, bodyMarkdown: text)
+            return
+        }
+        if let selectedNoteID,
+           completeExistingRecordingNote(noteID: selectedNoteID, bodyMarkdown: text) {
             return
         }
         do {
@@ -362,10 +472,106 @@ final class NotesViewModel: ObservableObject {
         }
     }
 
-    private func bodyByApplyingRecordingText(_ text: String) -> String {
+    private func completeExistingRecordingNote(noteID: String, bodyMarkdown: String) -> Bool {
+        do {
+            guard let existing = try environment.noteRepository.note(id: noteID) else {
+                return false
+            }
+            let updated = NoteRecord(
+                id: existing.id,
+                title: existing.title,
+                bodyMarkdown: bodyMarkdown,
+                sourceType: existing.sourceType,
+                sourceID: existing.sourceID,
+                tags: existing.tags,
+                createdAt: existing.createdAt,
+                updatedAt: environment.clock.now,
+                deletedAt: existing.deletedAt
+            )
+            try environment.noteRepository.save(updated)
+            selectedNoteID = updated.id
+            previewedNote = updated
+            draftTitle = updated.title
+            draftBodyMarkdown = updated.bodyMarkdown
+            draftTagsText = updated.tags.joined(separator: ", ")
+            detailMode = .reading
+            search(searchQuery)
+            previewedNote = updated
+            lastActionMessage = L10n.localize("notes.feedback.saved", comment: "Note saved")
+            return true
+        } catch {
+            report(error: error)
+            return true
+        }
+    }
+
+    private func completeContinuingDictation(noteID: String, bodyMarkdown: String) {
+        do {
+            guard let existing = try environment.noteRepository.note(id: noteID) else {
+                throw NotesViewModelError.noteNotFound
+            }
+            let updated = NoteRecord(
+                id: existing.id,
+                title: existing.title,
+                bodyMarkdown: bodyMarkdown,
+                sourceType: existing.sourceType,
+                sourceID: existing.sourceID,
+                tags: existing.tags,
+                createdAt: existing.createdAt,
+                updatedAt: environment.clock.now,
+                deletedAt: existing.deletedAt
+            )
+            try environment.noteRepository.save(updated)
+            selectedNoteID = updated.id
+            previewedNote = updated
+            draftTitle = updated.title
+            draftBodyMarkdown = updated.bodyMarkdown
+            draftTagsText = updated.tags.joined(separator: ", ")
+            detailMode = .reading
+            continuingNoteID = nil
+            search(searchQuery)
+            previewedNote = updated
+            lastError = nil
+            lastActionMessage = L10n.localize("notes.feedback.saved", comment: "Note saved")
+        } catch {
+            report(error: error)
+        }
+    }
+
+    private func bodyAndSelectionByApplyingRecordingText(_ text: String) -> (body: String, selection: NSRange) {
         let mutableBody = NSMutableString(string: recordingBaseBody)
         mutableBody.replaceCharacters(in: recordingSelection, with: text)
-        return mutableBody as String
+        let selection = NSRange(
+            location: recordingSelection.location + (text as NSString).length,
+            length: 0
+        )
+        return (mutableBody as String, selection)
+    }
+
+    private func requestEditorSelection(_ selection: NSRange) {
+        editorSelectionRequest = NotesEditorSelectionRequest(id: UUID(), range: selection)
+    }
+
+    private func continuingDictationBaseBody() -> String? {
+        guard detailMode == .continuingDictation,
+              let continuingNoteID,
+              let note = try? environment.noteRepository.note(id: continuingNoteID) else {
+            return nil
+        }
+        return note.bodyMarkdown
+    }
+
+    private static func bodyPreparedForContinuingAppend(_ body: String) -> String {
+        guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return ""
+        }
+        if body.hasSuffix("\n\n") {
+            return body
+        }
+        if body.hasSuffix("\n") {
+            return body + "\n"
+        }
+        return body + "\n\n"
     }
 
     private func outputFailureMessage(for result: OutputResult) -> String {

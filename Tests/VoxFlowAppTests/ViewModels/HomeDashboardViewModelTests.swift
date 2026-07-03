@@ -296,6 +296,40 @@ final class HomeDashboardViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.selectedAssetDetail)
     }
 
+    func testLoadShowsFailedAgentComposeTaskAsFailedHomeAsset() throws {
+        let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
+        let clock = MutableHomeClock(now: now)
+        let container = try DependencyContainer.inMemory(clock: clock)
+        let environment = AppEnvironment(container: container)
+        let taskRepository = VoiceTaskRepository(
+            databaseQueue: container.databaseQueue,
+            clock: clock
+        )
+        try taskRepository.create(
+            VoiceTask(
+                id: "failed-agent-task",
+                mode: .agentCompose,
+                stage: .processing,
+                status: .failed,
+                rawTranscript: "获取一下我的简介吧。",
+                finalText: nil,
+                failureJson: #"{"code":"agent_compose_failed","message":"rate limit"}"#,
+                createdAt: now,
+                updatedAt: now,
+                completedAt: now
+            )
+        )
+
+        let viewModel = HomeDashboardViewModel(environment: environment, calendar: testCalendar)
+        viewModel.load()
+
+        let item = try XCTUnwrap(viewModel.assetGroups.flatMap(\.items).first)
+        XCTAssertEqual(item.id, "dictation-failed-agent-task")
+        XCTAssertEqual(item.sourceTitle, "任务助手")
+        XCTAssertEqual(item.statusTitle, "失败")
+        XCTAssertEqual(item.previewText, "获取一下我的简介吧。")
+    }
+
     func testSelectingAgentDispatchAssetOpensRichTaskDetailInsteadOfAssetPreview() throws {
         let now = makeDate(year: 2026, month: 6, day: 9, hour: 10)
         let clock = MutableHomeClock(now: now)
@@ -1647,6 +1681,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             asrProviderRepository: base.asrProviderRepository,
             llmProviderRepository: base.llmProviderRepository,
             transcriptionJobRepository: base.transcriptionJobRepository,
+            transcriptionSegmentRepository: base.transcriptionSegmentRepository,
             noteRepository: base.noteRepository,
             screenshotRecordRepository: base.screenshotRecordRepository,
             mediaRecordRepository: base.mediaRecordRepository,
@@ -1684,6 +1719,7 @@ final class HomeDashboardViewModelTests: XCTestCase {
             asrProviderRepository: base.asrProviderRepository,
             llmProviderRepository: base.llmProviderRepository,
             transcriptionJobRepository: base.transcriptionJobRepository,
+            transcriptionSegmentRepository: base.transcriptionSegmentRepository,
             noteRepository: base.noteRepository,
             screenshotRecordRepository: base.screenshotRecordRepository,
             mediaRecordRepository: base.mediaRecordRepository,

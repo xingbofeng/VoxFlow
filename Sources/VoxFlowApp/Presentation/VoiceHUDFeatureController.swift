@@ -17,6 +17,7 @@ protocol HUDOverlayControlling: AnyObject {
     func updateAgentComposeStatus(_ stage: AgentComposeHUDStage)
     func updateAgentDispatch(_ presentation: AgentDispatchHUDPresentation)
     func updateStreamingText(_ partialText: String)
+    func updateNotesStreamingText(_ partialText: String)
     func updateRMS(_ rms: Float)
     func showTemporaryMessage(
         _ message: String,
@@ -45,6 +46,7 @@ final class VoiceHUDFeatureController {
         case agentDispatch(AgentDispatchHUDPresentation)
         case transcription(text: String, isRefining: Bool)
         case streamingText(String)
+        case notesStreamingText(String)
         case audioLevel(Float)
     }
 
@@ -161,6 +163,8 @@ final class VoiceHUDFeatureController {
             overlay.updateTranscription(text, isRefining: isRefining)
         case let .streamingText(partialText):
             overlay.updateStreamingText(partialText)
+        case let .notesStreamingText(partialText):
+            overlay.updateNotesStreamingText(partialText)
         case let .audioLevel(rms):
             overlay.updateRMS(rms)
         }
@@ -242,6 +246,10 @@ final class VoiceHUDFeatureController {
 
     func updateStreamingText(_ partialText: String) {
         render(.streamingText(partialText))
+    }
+
+    func updateNotesStreamingText(_ partialText: String) {
+        render(.notesStreamingText(partialText))
     }
 
     func updateRMS(_ rms: Float) {
@@ -427,6 +435,8 @@ final class VoiceHUDFeatureController {
             Self.logger.debug("voice_hud_render snapshot=transcription textLen=\(text.count) refining=\(isRefining)")
         case let .streamingText(text):
             Self.logger.debug("voice_hud_render snapshot=streamingText textLen=\(text.count)")
+        case let .notesStreamingText(text):
+            Self.logger.debug("voice_hud_render snapshot=notesStreamingText textLen=\(text.count)")
         case let .audioLevel(rms):
             Self.logger.debug("voice_hud_render snapshot=audioLevel rms=\(rms)")
         }

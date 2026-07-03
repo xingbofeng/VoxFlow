@@ -264,6 +264,17 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    func makeGroqNativeFileTranscriber() -> GroqNativeFileTranscriber {
+        GroqNativeFileTranscriber(
+            makeClient: {
+                GroqCloudASRClient(credentialStore: self.cloudCredentialStore())
+            },
+            configuration: {
+                self.isGroqConfigured ? self.groqConfiguration : nil
+            }
+        )
+    }
+
     var isTencentCloudConfigured: Bool {
         cloudCredentials.isConfigured(account: Self.tencentAppIDAccount)
             && cloudCredentials.isConfigured(account: Self.tencentSecretIDAccount)

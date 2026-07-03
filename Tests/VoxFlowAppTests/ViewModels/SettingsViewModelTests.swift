@@ -724,7 +724,8 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertTrue(exported.contains("hello"))
         XCTAssertEqual(try environment.historyRepository.listRecent(limit: 10), [])
         XCTAssertFalse(FileManager.default.fileExists(atPath: cacheFile.path))
-        XCTAssertNil(try environment.settingsRepository.value(forKey: "custom.setting"))
+        // 恢复默认设置只重置受管偏好；未知 key（如导入的 custom.setting）不在 allowlist，应保留。
+        XCTAssertEqual(try environment.settingsRepository.value(forKey: "custom.setting"), #"{"value":42}"#)
         XCTAssertEqual(viewModel.shortcutKeyCode, 54)
         XCTAssertEqual(viewModel.lastActionMessage, "已重置设置（仅当前会话生效，重启后可能丢失）")
     }
@@ -822,6 +823,113 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(asrManager.groqModel, "whisper-large-v3-turbo")
         XCTAssertEqual(asrManager.tencentRealtimeEngineModelType, "16k_zh")
         XCTAssertEqual(asrManager.aliyunDashScopeModel, "fun-asr-realtime")
+    }
+
+    // MARK: - OpenSpec restore-default-settings: ViewModel 确认与刷新
+
+    func testRestoreDefaultsReloadsVisibleStateAndReportsSuccess() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: FakeLaunchAtLoginManager(isEnabled: false)
+        )
+
+        // 用户改偏非默认值
+        try viewModel.setAgentDispatchEnabled(true)
+        try viewModel.setSystemOption(.darkMode, enabled: true)
+        try viewModel.setVoiceCorrectionEnabled(false)
+        XCTAssertTrue(viewModel.agentDispatchEnabled)
+        XCTAssertTrue(viewModel.systemOption(.darkMode))
+        XCTAssertFalse(viewModel.voiceCorrectionEnabled)
+
+        try viewModel.restoreDefaultSettings()
+
+        // 可见状态重新加载为默认
+        XCTAssertFalse(viewModel.agentDispatchEnabled)
+        XCTAssertFalse(viewModel.systemOption(.darkMode))
+        XCTAssertTrue(viewModel.voiceCorrectionEnabled)
+        // 成功反馈
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertNotNil(viewModel.lastActionMessage)
+        // 确认弹窗未被打开
+        XCTAssertFalse(viewModel.isRestoreDefaultsConfirmationPresented)
+    }
+
+    func testPresentAndCancelRestoreDefaultsConfirmationLeavesDataUnchanged() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: FakeLaunchAtLoginManager(isEnabled: false)
+        )
+
+        try viewModel.setSystemOption(.darkMode, enabled: true)
+        XCTAssertTrue(viewModel.systemOption(.darkMode))
+        viewModel.clearFeedback()
+
+        viewModel.presentRestoreDefaultsConfirmation()
+        XCTAssertTrue(viewModel.isRestoreDefaultsConfirmationPresented)
+
+        // 取消：数据保持不变，弹窗关闭
+        viewModel.cancelRestoreDefaultsConfirmation()
+        XCTAssertFalse(viewModel.isRestoreDefaultsConfirmationPresented)
+        XCTAssertTrue(viewModel.systemOption(.darkMode))
+        // 取消不执行恢复，没有恢复反馈
+        XCTAssertNil(viewModel.lastActionMessage)
+        XCTAssertNil(viewModel.lastError)
+    }
+
+    func testConfirmRestoreDefaultsFailureReportsErrorWithoutClaimingSuccess() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let launchManager = FakeLaunchAtLoginManager(isEnabled: true)
+        launchManager.errorToThrow = FakeLaunchAtLoginError.rejected
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: launchManager
+        )
+
+        try viewModel.setSystemOption(.darkMode, enabled: true)
+        viewModel.presentRestoreDefaultsConfirmation()
+
+        viewModel.confirmRestoreDefaultsConfirmation()
+
+        // 弹窗关闭
+        XCTAssertFalse(viewModel.isRestoreDefaultsConfirmationPresented)
+        // 失败反馈
+        XCTAssertNotNil(viewModel.lastError)
+        XCTAssertNil(viewModel.lastActionMessage)
+    }
+
+    func testRestoreDefaultsPostsNotificationForStyleReload() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = SettingsViewModel(
+            environment: environment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: FakeLaunchAtLoginManager(isEnabled: false)
+        )
+
+        let expectation = XCTestExpectation(description: "settingsDidRestoreDefaults")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .settingsDidRestoreDefaults,
+            object: nil,
+            queue: .main
+        ) { _ in
+            expectation.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        try viewModel.restoreDefaultSettings()
+        wait(for: [expectation], timeout: 2.0)
     }
 
     func testDeleteAllLocalModelsClearsFilesStateAndFallsBackToApple() throws {

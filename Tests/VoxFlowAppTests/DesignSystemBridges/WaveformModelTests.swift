@@ -35,4 +35,23 @@ final class WaveformModelTests: XCTestCase {
         XCTAssertGreaterThan(heights[2], heights[3])
         XCTAssertGreaterThan(heights[3], heights[4])
     }
+
+    func testSilenceSettlesQuicklyToStableMinimumBars() {
+        var model = WaveformModel()
+        _ = model.update(targetRMS: 1.0, jitter: { 0 })
+
+        for _ in 0..<8 {
+            _ = model.update(targetRMS: 0.0, jitter: { WaveformModel.jitterRange })
+        }
+
+        let positiveJitterHeights = model.update(targetRMS: 0.0) { WaveformModel.jitterRange }
+        let negativeJitterHeights = model.update(targetRMS: 0.0) { -WaveformModel.jitterRange }
+
+        XCTAssertEqual(
+            positiveJitterHeights,
+            Array(repeating: WaveformModel.minBarHeight, count: WaveformModel.barCount)
+        )
+        XCTAssertEqual(negativeJitterHeights, positiveJitterHeights)
+        XCTAssertEqual(model.smoothedRMS, 0, accuracy: 0.0001)
+    }
 }

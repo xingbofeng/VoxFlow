@@ -13,6 +13,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         asrRuntime: AppASRRuntime,
         textRuntime: AppTextRuntime,
         audioCaptureCoordinator: AudioCaptureCoordinator,
+        translationCoordinator: AppleTranslationCoordinator,
         navigationRouter: WorkbenchNavigationRouter = WorkbenchNavigationRouter(),
         updatePromptStore: UpdatePromptPresentationStore = UpdatePromptPresentationStore(),
         onCheckForUpdates: @escaping () -> Void = {},
@@ -42,9 +43,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         )
         let fileTranscriptionViewModel = FileTranscriptionViewModel(
             environment: environment,
-            worker: ASRFileTranscriptionWorker(asrManager: asrRuntime.manager),
+            pipeline: VoxFlowFileTranscriptionPipeline(
+                makeSegmentWorker: { locale in
+                    ASRFileTranscriptionWorker(asrManager: asrRuntime.manager, locale: locale)
+                },
+                nativeFileTranscriber: asrRuntime.manager.makeGroqNativeFileTranscriber()
+            ),
             currentASRProviderID: { asrRuntime.manager.effectiveSelectedEngineType.providerID },
-            clipboardWriter: internalClipboardWriter
+            clipboardWriter: internalClipboardWriter,
+            translationCoordinator: translationCoordinator
         )
         let notesViewModel = NotesViewModel(
             environment: environment,
@@ -76,6 +83,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             onCheckForUpdates: onCheckForUpdates,
             onDebugTranscriptInjection: onDebugTranscriptInjection
         )
+        .appleTranslationSessionHost(translationCoordinator)
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1_260, height: 720),

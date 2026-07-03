@@ -183,6 +183,28 @@ final class KeyMonitorTests: XCTestCase {
         )
     }
 
+    func testShortcutEventsAreCapturedWhileActiveAppCaptureIsRequested() {
+        XCTAssertFalse(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: true,
+                appIsFrontmost: true,
+                isCapturingShortcut: false,
+                shouldCaptureInActiveApp: true
+            )
+        )
+    }
+
+    func testShortcutCaptureConfigurationStillPassesThroughDuringActiveAppCapture() {
+        XCTAssertTrue(
+            ShortcutEventRouting.shouldPassThrough(
+                appIsActive: true,
+                appIsFrontmost: true,
+                isCapturingShortcut: true,
+                shouldCaptureInActiveApp: true
+            )
+        )
+    }
+
     func testShortcutEventsAreCapturedWhileAppIsInBackground() {
         XCTAssertFalse(
             ShortcutEventRouting.shouldPassThrough(

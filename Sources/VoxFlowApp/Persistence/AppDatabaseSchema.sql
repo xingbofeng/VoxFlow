@@ -1,4 +1,4 @@
--- VoxFlow SQLite schema snapshot (2026-06-23)
+-- VoxFlow SQLite schema snapshot (2026-07-03)
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
     id INTEGER PRIMARY KEY,
@@ -110,8 +110,58 @@ CREATE TABLE IF NOT EXISTS transcription_jobs (
     duration_ms INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    completed_at TEXT
+    completed_at TEXT,
+    -- 文件转写流水线扩展字段（OpenSpec revamp-file-transcription-and-notes §1）：
+    -- provider_mode 用于区分 nativeFile / segmentedCompatible / notRecommendedForLongFiles。
+    provider_mode TEXT,
+    -- segment_count 是当前任务切分出的总窗口数；运行中段推进时更新。
+    segment_count INTEGER NOT NULL DEFAULT 0,
+    -- segment_completed 是已完成段数，用于 UI 段级进度展示。
+    segment_completed INTEGER NOT NULL DEFAULT 0,
+    -- partial_failure_summary 摘要记录失败段信息，供诊断面板展示。
+    partial_failure_summary TEXT,
+    -- 全文翻译后处理字段（job 级，不覆盖原文）。
+    translated_text TEXT,
+    translation_target_language TEXT,
+    translation_provider TEXT,
+    translation_status TEXT NOT NULL DEFAULT 'none',
+    translation_error TEXT,
+    translation_updated_at TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_transcription_jobs_created_at
+ON transcription_jobs(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transcription_jobs_status_created_at
+ON transcription_jobs(status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS transcription_segments (
+    id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    segment_index INTEGER NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    raw_text TEXT,
+    final_text TEXT,
+    prompt_context TEXT,
+    fallback_reason TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    provider_id TEXT,
+    provider_mode TEXT,
+    error_message TEXT,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT,
+    FOREIGN KEY (job_id) REFERENCES transcription_jobs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_transcription_segments_job_index
+ON transcription_segments(job_id, segment_index);
+
+CREATE INDEX IF NOT EXISTS idx_transcription_segments_job_status
+ON transcription_segments(job_id, status);
 
 CREATE TABLE IF NOT EXISTS notes (
     id TEXT PRIMARY KEY,

@@ -16,6 +16,8 @@ enum OverlayLayout {
     static let cornerRadius: CGFloat = 12
     static let bottomOffset: CGFloat = 40
     static let maximumVisibleCharacters = 48
+    static let streamingTextWidth = minimumTextWidth
+    static let streamingTextHeight: CGFloat = 38
     /// Maximum number of visible text lines; text beyond this scrolls or fades
     static let maxVisibleLines = 2
     static let textLineBreakMode: NSLineBreakMode = .byCharWrapping
@@ -46,6 +48,13 @@ enum OverlayLayout {
             return text
         }
         return "…" + String(text.suffix(maximumVisibleCharacters))
+    }
+
+    static func visibleNotesStreamingText(_ text: String) -> String {
+        guard text.count > maximumVisibleCharacters else {
+            return text
+        }
+        return String(text.suffix(maximumVisibleCharacters))
     }
 
     static func shouldShowTemporaryMessage(_ text: String) -> Bool {

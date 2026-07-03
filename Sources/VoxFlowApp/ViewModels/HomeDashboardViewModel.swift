@@ -95,10 +95,12 @@ struct HomeActivitySummary: Equatable {
 struct HomeAssetItem: Equatable, Identifiable {
     let asset: AssetItem
     let voiceKind: VoiceAssetKind?
+    let taskStatus: VoiceTaskStatus?
 
-    init(asset: AssetItem, voiceKind: VoiceAssetKind? = nil) {
+    init(asset: AssetItem, voiceKind: VoiceAssetKind? = nil, taskStatus: VoiceTaskStatus? = nil) {
         self.asset = asset
         self.voiceKind = voiceKind
+        self.taskStatus = taskStatus
     }
 
     var id: String { asset.id }
@@ -159,6 +161,14 @@ struct HomeAssetItem: Equatable, Identifiable {
             return L10n.localize("home.content_type.link", comment: "Link content type")
         case .color:
             return L10n.localize("home.content_type.color", comment: "Color content type")
+        }
+    }
+    var statusTitle: String? {
+        switch taskStatus {
+        case .failed:
+            return L10n.localize("home.detail.status.failed", comment: "Failed status")
+        case .completed, .partiallyCompleted, .cancelled, .inProgress, .none:
+            return nil
         }
     }
     var systemImage: String {
@@ -1209,22 +1219,27 @@ final class HomeDashboardViewModel: ObservableObject {
     }
 
     private func homeAssetItem(for asset: AssetItem) -> HomeAssetItem {
-        HomeAssetItem(asset: asset, voiceKind: voiceKind(for: asset))
+        let metadata = voiceTaskMetadata(for: asset)
+        return HomeAssetItem(asset: asset, voiceKind: metadata.kind, taskStatus: metadata.status)
     }
 
     private func voiceKind(for asset: AssetItem) -> VoiceAssetKind? {
+        voiceTaskMetadata(for: asset).kind
+    }
+
+    private func voiceTaskMetadata(for asset: AssetItem) -> (kind: VoiceAssetKind?, status: VoiceTaskStatus?) {
         guard asset.source == .dictation,
               let recordID = Self.voiceRecordID(fromAssetID: asset.id) else {
-            return nil
+            return (nil, nil)
         }
         if let entry = try? environment.historyRepository.entry(id: recordID),
            entry.deletedAt == nil {
-            return .dictation
+            return (.dictation, nil)
         }
         guard let task = try? voiceTaskRepository.fetch(id: recordID) else {
-            return voiceKindFromRawVoiceTaskMode(id: recordID)
+            return (voiceKindFromRawVoiceTaskMode(id: recordID), voiceTaskStatusFromRawVoiceTask(id: recordID))
         }
-        return VoiceAssetKind(rawValue: task.mode.rawValue)
+        return (VoiceAssetKind(rawValue: task.mode.rawValue), task.status)
     }
 
     private func voiceKindFromRawVoiceTaskMode(id: String) -> VoiceAssetKind? {
@@ -1241,6 +1256,24 @@ final class HomeDashboardViewModel: ObservableObject {
                 return nil
             }
             return VoiceAssetKind(rawValue: statement.columnString(at: 0))
+        }
+    }
+
+    private func voiceTaskStatusFromRawVoiceTask(id: String) -> VoiceTaskStatus? {
+        try? environment.databaseQueue.read { connection in
+            let statement = try connection.prepare(
+                """
+                SELECT status
+                FROM voice_tasks
+                WHERE id = ? AND status != 'inProgress'
+                """
+            )
+            try statement.bind(id, at: 1)
+            guard try statement.step(),
+                  let rawValue = statement.columnString(at: 0) else {
+                return nil
+            }
+            return VoiceTaskStatus(rawValue: rawValue)
         }
     }
 

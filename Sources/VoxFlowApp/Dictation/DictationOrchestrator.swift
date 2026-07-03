@@ -775,7 +775,7 @@ final class DictationOrchestrator {
                 return
             }
             AppLogger.dictation.error("finishAgentCompose failed: \(error.localizedDescription)")
-            fail(error)
+            fail(error, notifyRecognitionError: false)
         }
     }
 
@@ -819,7 +819,7 @@ final class DictationOrchestrator {
                 return
             }
             AppLogger.dictation.error("finishAgentDispatch failed: \(error.localizedDescription)")
-            fail(error)
+            fail(error, notifyRecognitionError: false)
         }
     }
 
@@ -1158,7 +1158,7 @@ final class DictationOrchestrator {
         }
     }
 
-    private func fail(_ error: Error) {
+    private func fail(_ error: Error, notifyRecognitionError: Bool = true) {
         let localizedMessage = localizeProviderErrorMessage(error.localizedDescription)
         AppLogger.dictation.error("dictation failed mode=\(currentMode.rawValue) state=\(stateLogName(state)) reason=\(error.localizedDescription)")
         finalTimeoutTask?.cancel()
@@ -1184,7 +1184,9 @@ final class DictationOrchestrator {
         currentMode = .dictation
         stateMachine.fail(message: localizedMessage)
         notifyStateChanged()
-        onError(LocalizedDictationError(message: localizedMessage))
+        if notifyRecognitionError {
+            onError(LocalizedDictationError(message: localizedMessage))
+        }
         stateMachine.finish()
         notifyStateChanged()
     }

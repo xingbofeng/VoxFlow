@@ -233,6 +233,10 @@ private final class CapturingASRSessionHUDOverlay: HUDOverlayControlling {
         events.append(.updateStreamingText(partialText))
     }
 
+    func updateNotesStreamingText(_ partialText: String) {
+        events.append(.updateStreamingText(partialText))
+    }
+
     func updateRMS(_ rms: Float) {
         events.append(.updateRMS(rms))
     }

@@ -139,6 +139,23 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         )
     }
 
+    func testEnqueueCanStartFirstJobImmediatelyWhenIdle() async throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let worker = ControllableFileTranscriptionWorker(
+            result: FileTranscriptionResult(text: "auto", durationMS: 1_000, segments: [])
+        )
+        let viewModel = FileTranscriptionViewModel(environment: environment, worker: worker)
+
+        let job = try XCTUnwrap(try viewModel.enqueueFiles(
+            [URL(fileURLWithPath: "/tmp/drop.wav")],
+            startImmediatelyWhenIdle: true
+        ).first)
+        await worker.waitUntilStarted()
+
+        XCTAssertEqual(viewModel.jobs.first(where: { $0.id == job.id })?.status, TranscriptionJobStatus.running.rawValue)
+        worker.finish()
+    }
+
     func testQueueRunsJobAndPersistsProgress() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let worker = StubFileTranscriptionWorker(
@@ -225,12 +242,12 @@ final class FileTranscriptionViewModelTests: XCTestCase {
 
         XCTAssertEqual(Set(viewModel.jobs.map(\.id)), ["queued", "failed", "completed", "running"])
         let restoredRunning = try XCTUnwrap(viewModel.jobs.first { $0.id == "running" })
-        XCTAssertEqual(restoredRunning.status, TranscriptionJobStatus.failed.rawValue)
+        XCTAssertEqual(restoredRunning.status, TranscriptionJobStatus.interrupted.rawValue)
         XCTAssertEqual(restoredRunning.progress, 0)
         XCTAssertNotNil(restoredRunning.errorMessage)
         XCTAssertEqual(
             try environment.transcriptionJobRepository.job(id: "running")?.status,
-            TranscriptionJobStatus.failed.rawValue
+            TranscriptionJobStatus.interrupted.rawValue
         )
     }
 
@@ -375,6 +392,7 @@ final class FileTranscriptionViewModelTests: XCTestCase {
         XCTAssertTrue(md.contains("# story.mp3"))
         XCTAssertTrue(srt.contains("00:00:01,500 --> 00:00:03,000"))
         XCTAssertEqual(note.sourceType, "fileTranscription")
+        XCTAssertEqual(viewModel.lastSavedNoteID, note.id)
         XCTAssertEqual(try environment.noteRepository.list().first?.sourceID, job.id)
     }
 

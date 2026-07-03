@@ -297,6 +297,24 @@ internal enum L10n {
           /// Show Tencent Cloud credentials
           internal static let showCredentials = L10n.tr("Localizable", "asr.provider.tencent.show_credentials", fallback: "Show Tencent Cloud credentials")
         }
+        internal enum Volcengine {
+          /// Access Token
+          internal static let accessToken = L10n.tr("Localizable", "asr.provider.volcengine.access_token", fallback: "Access Token")
+          /// App ID
+          internal static let appId = L10n.tr("Localizable", "asr.provider.volcengine.app_id", fallback: "App ID")
+          /// Volcengine Configuration
+          internal static let configurationTitle = L10n.tr("Localizable", "asr.provider.volcengine.configuration_title", fallback: "Volcengine Configuration")
+          /// Use Doubao streaming ASR 2.0 over WebSocket. Create the speech app at https://console.volcengine.com/speech/app?opt=create, enable the speech service at https://console.volcengine.com/speech/new/setting/activate, then get the App ID, Access Token, and Secret Key from https://console.volcengine.com/speech/service/10038.
+          internal static let description = L10n.tr("Localizable", "asr.provider.volcengine.description", fallback: "Use Doubao streaming ASR 2.0 over WebSocket. Create the speech app at https://console.volcengine.com/speech/app?opt=create, enable the speech service at https://console.volcengine.com/speech/new/setting/activate, then get the App ID, Access Token, and Secret Key from https://console.volcengine.com/speech/service/10038.")
+          /// Hide Volcengine credentials
+          internal static let hideCredentials = L10n.tr("Localizable", "asr.provider.volcengine.hide_credentials", fallback: "Hide Volcengine credentials")
+          /// Audio is sent to Volcengine. The App ID, Access Token, and Secret Key are stored in local credentials and can be shown or hidden with the eye button.
+          internal static let privacyNote = L10n.tr("Localizable", "asr.provider.volcengine.privacy_note", fallback: "Audio is sent to Volcengine. The App ID, Access Token, and Secret Key are stored in local credentials and can be shown or hidden with the eye button.")
+          /// Secret Key
+          internal static let secretKey = L10n.tr("Localizable", "asr.provider.volcengine.secret_key", fallback: "Secret Key")
+          /// Show Volcengine credentials
+          internal static let showCredentials = L10n.tr("Localizable", "asr.provider.volcengine.show_credentials", fallback: "Show Volcengine credentials")
+        }
       }
     }
     internal enum Asset {
@@ -428,6 +446,10 @@ internal enum L10n {
         /// Generating
         internal static let streaming = L10n.tr("Localizable", "chat.status.streaming", fallback: "Generating")
       }
+    }
+    internal enum Common {
+      /// Close
+      internal static let close = L10n.tr("Localizable", "common.close", fallback: "Close")
     }
     internal enum Correction {
       /// No aliases yet
@@ -659,6 +681,26 @@ internal enum L10n {
         internal static let defaultTitle = L10n.tr("Localizable", "db.voice_task.default_title", fallback: "Dictation")
       }
     }
+    internal enum Debug {
+      internal enum TranscriptInjection {
+        /// Generate an HTML file.
+        internal static let defaultText = L10n.tr("Localizable", "debug.transcript_injection.default_text", fallback: "Generate an HTML file.")
+        /// Enter simulated transcript
+        internal static let placeholder = L10n.tr("Localizable", "debug.transcript_injection.placeholder", fallback: "Enter simulated transcript")
+        /// Run
+        internal static let run = L10n.tr("Localizable", "debug.transcript_injection.run", fallback: "Run")
+        /// Only ASR output is replaced; the downstream task pipeline runs for real.
+        internal static let subtitle = L10n.tr("Localizable", "debug.transcript_injection.subtitle", fallback: "Only ASR output is replaced; the downstream task pipeline runs for real.")
+        /// Inject Transcript
+        internal static let title = L10n.tr("Localizable", "debug.transcript_injection.title", fallback: "Inject Transcript")
+        internal enum Mode {
+          /// Agent Compose
+          internal static let agentCompose = L10n.tr("Localizable", "debug.transcript_injection.mode.agent_compose", fallback: "Agent Compose")
+          /// Dictation
+          internal static let dictation = L10n.tr("Localizable", "debug.transcript_injection.mode.dictation", fallback: "Dictation")
+        }
+      }
+    }
     internal enum Dictation {
       internal enum Asset {
         /// Dictation note
@@ -876,6 +918,24 @@ internal enum L10n {
           internal static let wednesday = L10n.tr("Localizable", "home.activity.weekday.wednesday", fallback: "W")
         }
       }
+      internal enum AgentActionDetail {
+        /// Input
+        internal static let inputTokens = L10n.tr("Localizable", "home.agent_action_detail.input_tokens", fallback: "Input")
+        /// Output
+        internal static let outputTokens = L10n.tr("Localizable", "home.agent_action_detail.output_tokens", fallback: "Output")
+        /// Generated Result
+        internal static let result = L10n.tr("Localizable", "home.agent_action_detail.result", fallback: "Generated Result")
+        /// Screen Context
+        internal static let screenContext = L10n.tr("Localizable", "home.agent_action_detail.screen_context", fallback: "Screen Context")
+        /// Preview Screen Context
+        internal static let screenContextPreview = L10n.tr("Localizable", "home.agent_action_detail.screen_context_preview", fallback: "Preview Screen Context")
+        /// Review the voice command, screen context, and result
+        internal static let subtitle = L10n.tr("Localizable", "home.agent_action_detail.subtitle", fallback: "Review the voice command, screen context, and result")
+        /// View Details
+        internal static let title = L10n.tr("Localizable", "home.agent_action_detail.title", fallback: "View Details")
+        /// Voice Command
+        internal static let voiceCommand = L10n.tr("Localizable", "home.agent_action_detail.voice_command", fallback: "Voice Command")
+      }
       internal enum Assets {
         /// Clear Data
         internal static let clearAll = L10n.tr("Localizable", "home.assets.clear_all", fallback: "Clear Data")
@@ -909,8 +969,16 @@ internal enum L10n {
         internal static let searchPlaceholder = L10n.tr("Localizable", "home.assets.search_placeholder", fallback: "Search assets")
         /// Select All
         internal static let selectAll = L10n.tr("Localizable", "home.assets.select_all", fallback: "Select All")
+        /// Source
+        internal static let sourceFilter = L10n.tr("Localizable", "home.assets.source_filter", fallback: "Source")
+        /// All Sources
+        internal static let sourceFilterAll = L10n.tr("Localizable", "home.assets.source_filter_all", fallback: "All Sources")
         /// Assets
         internal static let title = L10n.tr("Localizable", "home.assets.title", fallback: "Assets")
+        /// Type
+        internal static let typeFilter = L10n.tr("Localizable", "home.assets.type_filter", fallback: "Type")
+        /// All Types
+        internal static let typeFilterAll = L10n.tr("Localizable", "home.assets.type_filter_all", fallback: "All Types")
       }
       internal enum ContentType {
         /// Color
@@ -972,6 +1040,22 @@ internal enum L10n {
           internal static let reprocess = L10n.tr("Localizable", "home.detail.action.reprocess", fallback: "Reprocess")
           /// Save
           internal static let save = L10n.tr("Localizable", "home.detail.action.save", fallback: "Save")
+        }
+        internal enum AgentAction {
+          /// Artifacts
+          internal static let artifacts = L10n.tr("Localizable", "home.detail.agent_action.artifacts", fallback: "Artifacts")
+          /// No file or folder artifacts were detected.
+          internal static let artifactsEmpty = L10n.tr("Localizable", "home.detail.agent_action.artifacts_empty", fallback: "No file or folder artifacts were detected.")
+          /// Action log
+          internal static let events = L10n.tr("Localizable", "home.detail.agent_action.events", fallback: "Action log")
+          /// Model
+          internal static let model = L10n.tr("Localizable", "home.detail.agent_action.model", fallback: "Model")
+          /// Action result
+          internal static let summary = L10n.tr("Localizable", "home.detail.agent_action.summary", fallback: "Action result")
+          /// Input %@ · output %@
+          internal static func tokensFormat(_ p1: Any, _ p2: Any) -> String {
+            return L10n.tr("Localizable", "home.detail.agent_action.tokens_format", String(describing: p1), String(describing: p2), fallback: "Input %@ · output %@")
+          }
         }
         internal enum Asr {
           /// Alibaba Cloud ASR
@@ -1308,8 +1392,28 @@ internal enum L10n {
           internal static let unmodified = L10n.tr("Localizable", "home.detail.diff.unmodified", fallback: "Unmodified")
         }
         internal enum Dispatch {
+          /// Target assistant
+          internal static let agent = L10n.tr("Localizable", "home.detail.dispatch.agent", fallback: "Target assistant")
+          /// Awaiting selection
+          internal static let awaitingChoice = L10n.tr("Localizable", "home.detail.dispatch.awaiting_choice", fallback: "Awaiting selection")
+          /// Copied instead
+          internal static let clipboardFallback = L10n.tr("Localizable", "home.detail.dispatch.clipboard_fallback", fallback: "Copied instead")
+          /// Default output
+          internal static let defaultOutput = L10n.tr("Localizable", "home.detail.dispatch.default_output", fallback: "Default output")
+          /// No coding assistant was selected; the text was handled by the normal processing pipeline.
+          internal static let defaultOutputDetail = L10n.tr("Localizable", "home.detail.dispatch.default_output_detail", fallback: "No coding assistant was selected; the text was handled by the normal processing pipeline.")
           /// No dispatch result recorded
           internal static let empty = L10n.tr("Localizable", "home.detail.dispatch.empty", fallback: "No dispatch result recorded")
+          /// Exact match
+          internal static let exactMatch = L10n.tr("Localizable", "home.detail.dispatch.exact_match", fallback: "Exact match")
+          /// Dispatch failed
+          internal static let failed = L10n.tr("Localizable", "home.detail.dispatch.failed", fallback: "Dispatch failed")
+          /// Sent to assistant
+          internal static let sent = L10n.tr("Localizable", "home.detail.dispatch.sent", fallback: "Sent to assistant")
+          /// Sent to %@.
+          internal static func sentToFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "home.detail.dispatch.sent_to_format", String(describing: p1), fallback: "Sent to %@.")
+          }
           /// Dispatch Result
           internal static let title = L10n.tr("Localizable", "home.detail.dispatch.title", fallback: "Dispatch Result")
         }
@@ -1416,6 +1520,8 @@ internal enum L10n {
           internal static let textLength = L10n.tr("Localizable", "home.detail.meta.text_length", fallback: "Text Length")
           /// Updated
           internal static let updatedAt = L10n.tr("Localizable", "home.detail.meta.updated_at", fallback: "Updated")
+          /// Window Title
+          internal static let windowTitle = L10n.tr("Localizable", "home.detail.meta.window_title", fallback: "Window Title")
         }
         internal enum Pipeline {
           /// Inserted
@@ -1441,12 +1547,16 @@ internal enum L10n {
             internal static let success = L10n.tr("Localizable", "home.detail.pipeline.status.success", fallback: "Success")
           }
           internal enum Step {
+            /// Action
+            internal static let agentAction = L10n.tr("Localizable", "home.detail.pipeline.step.agent_action", fallback: "Action")
             /// ASR
             internal static let asr = L10n.tr("Localizable", "home.detail.pipeline.step.asr", fallback: "ASR")
             /// Context
             internal static let context = L10n.tr("Localizable", "home.detail.pipeline.step.context", fallback: "Context")
             /// Local cleanup
             internal static let deterministic = L10n.tr("Localizable", "home.detail.pipeline.step.deterministic", fallback: "Local cleanup")
+            /// Dispatch
+            internal static let dispatch = L10n.tr("Localizable", "home.detail.pipeline.step.dispatch", fallback: "Dispatch")
             /// LLM correction
             internal static let llm = L10n.tr("Localizable", "home.detail.pipeline.step.llm", fallback: "LLM correction")
             /// Output
@@ -1455,6 +1565,68 @@ internal enum L10n {
             internal static let styleRoute = L10n.tr("Localizable", "home.detail.pipeline.step.style_route", fallback: "Style routing")
             /// Text replacement
             internal static let textReplacement = L10n.tr("Localizable", "home.detail.pipeline.step.text_replacement", fallback: "Text replacement")
+          }
+        }
+        internal enum RefinementGuard {
+          /// Baseline
+          internal static let baseline = L10n.tr("Localizable", "home.detail.refinement_guard.baseline", fallback: "Baseline")
+          /// Fallback
+          internal static let fallback = L10n.tr("Localizable", "home.detail.refinement_guard.fallback", fallback: "Fallback")
+          /// Protected tokens
+          internal static let protectedTokens = L10n.tr("Localizable", "home.detail.refinement_guard.protected_tokens", fallback: "Protected tokens")
+          /// Reason
+          internal static let reason = L10n.tr("Localizable", "home.detail.refinement_guard.reason", fallback: "Reason")
+          /// Similarity
+          internal static let similarity = L10n.tr("Localizable", "home.detail.refinement_guard.similarity", fallback: "Similarity")
+          /// %d%%
+          internal static func similarityFormat(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "home.detail.refinement_guard.similarity_format", p1, fallback: "%d%%")
+          }
+          /// Refinement Guard
+          internal static let title = L10n.tr("Localizable", "home.detail.refinement_guard.title", fallback: "Refinement Guard")
+          internal enum Decision {
+            /// Passed
+            internal static let accepted = L10n.tr("Localizable", "home.detail.refinement_guard.decision.accepted", fallback: "Passed")
+            /// Rejected
+            internal static let rejected = L10n.tr("Localizable", "home.detail.refinement_guard.decision.rejected", fallback: "Rejected")
+          }
+          internal enum Fallback {
+            /// Recognition raw text
+            internal static let asrRaw = L10n.tr("Localizable", "home.detail.refinement_guard.fallback.asr_raw", fallback: "Recognition raw text")
+            /// Pre-correction text
+            internal static let preLlmDeterministic = L10n.tr("Localizable", "home.detail.refinement_guard.fallback.pre_llm_deterministic", fallback: "Pre-correction text")
+          }
+          internal enum Reason {
+            /// Output looks like an answer instead of cleaned speech
+            internal static let answerLikeOutput = L10n.tr("Localizable", "home.detail.refinement_guard.reason.answer_like_output", fallback: "Output looks like an answer instead of cleaned speech")
+            /// Empty model output
+            internal static let emptyOutput = L10n.tr("Localizable", "home.detail.refinement_guard.reason.empty_output", fallback: "Empty model output")
+            /// Output looks like an explanation instead of cleaned speech
+            internal static let explanationLikeOutput = L10n.tr("Localizable", "home.detail.refinement_guard.reason.explanation_like_output", fallback: "Output looks like an explanation instead of cleaned speech")
+            /// Output diverges too far from the spoken text
+            internal static let normalizedSimilarityLow = L10n.tr("Localizable", "home.detail.refinement_guard.reason.normalized_similarity_low", fallback: "Output diverges too far from the spoken text")
+            /// Output expands well beyond the spoken text
+            internal static let obviousExpansion = L10n.tr("Localizable", "home.detail.refinement_guard.reason.obvious_expansion", fallback: "Output expands well beyond the spoken text")
+            /// Output dropped a protected token (URL, version, path, email, or code)
+            internal static let protectedTokenMissing = L10n.tr("Localizable", "home.detail.refinement_guard.reason.protected_token_missing", fallback: "Output dropped a protected token (URL, version, path, email, or code)")
+            /// Output injected too many context hotwords
+            internal static let tooManyHotwords = L10n.tr("Localizable", "home.detail.refinement_guard.reason.too_many_hotwords", fallback: "Output injected too many context hotwords")
+          }
+          internal enum TokenKind {
+            /// Code identifier
+            internal static let codeIdentifier = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.code_identifier", fallback: "Code identifier")
+            /// Code span
+            internal static let codeSpan = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.code_span", fallback: "Code span")
+            /// Email
+            internal static let email = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.email", fallback: "Email")
+            /// Number
+            internal static let numeric = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.numeric", fallback: "Number")
+            /// Path
+            internal static let path = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.path", fallback: "Path")
+            /// URL
+            internal static let url = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.url", fallback: "URL")
+            /// Version
+            internal static let version = L10n.tr("Localizable", "home.detail.refinement_guard.token_kind.version", fallback: "Version")
           }
         }
         internal enum RequestJson {
@@ -1472,6 +1644,8 @@ internal enum L10n {
         internal enum Status {
           /// Failed
           internal static let failed = L10n.tr("Localizable", "home.detail.status.failed", fallback: "Failed")
+          /// Processing
+          internal static let processing = L10n.tr("Localizable", "home.detail.status.processing", fallback: "Processing")
           /// Success
           internal static let success = L10n.tr("Localizable", "home.detail.status.success", fallback: "Success")
         }
@@ -1560,8 +1734,8 @@ internal enum L10n {
           internal static let localPostprocessing = L10n.tr("Localizable", "home.detail.trace.local_postprocessing", fallback: "Local post-processing")
           /// This Task Assistant record did not save the model call process, but the raw recognition and generated result are still available. Use Copy Result in the top-right.
           internal static let missingAgentCompose = L10n.tr("Localizable", "home.detail.trace.missing_agent_compose", fallback: "This Task Assistant record did not save the model call process, but the raw recognition and generated result are still available. Use Copy Result in the top-right.")
-          /// This AI Coding record does not call the text correction model; the voice command and generated result are stored separately.
-          internal static let missingAgentDispatch = L10n.tr("Localizable", "home.detail.trace.missing_agent_dispatch", fallback: "This AI Coding record does not call the text correction model; the voice command and generated result are stored separately.")
+          /// This AI Coding record has no complete processing trace; the voice command and dispatch result are still available.
+          internal static let missingAgentDispatch = L10n.tr("Localizable", "home.detail.trace.missing_agent_dispatch", fallback: "This AI Coding record has no complete processing trace; the voice command and dispatch result are still available.")
           /// This record has no model correction trace. Text correction may have been disabled, or the record was created before tracing was available. Click Reprocess in the top-right to inspect model calls, sent content, and returned results.
           internal static let missingDictation = L10n.tr("Localizable", "home.detail.trace.missing_dictation", fallback: "This record has no model correction trace. Text correction may have been disabled, or the record was created before tracing was available. Click Reprocess in the top-right to inspect model calls, sent content, and returned results.")
           /// Content sent to the model
@@ -1622,8 +1796,8 @@ internal enum L10n {
           internal static let llmRefinementCancelled = L10n.tr("Localizable", "home.detail.warning.llm_refinement_cancelled", fallback: "Text correction was cancelled, so the raw recognition text was used directly.")
           /// Model call failed; the raw recognition text was preserved.
           internal static let llmRefinementFailed = L10n.tr("Localizable", "home.detail.warning.llm_refinement_failed", fallback: "Model call failed; the raw recognition text was preserved.")
-          /// The model rewrite did not pass safety checks, so the raw recognition text was preserved.
-          internal static let llmRefinementRejected = L10n.tr("Localizable", "home.detail.warning.llm_refinement_rejected", fallback: "The model rewrite did not pass safety checks, so the raw recognition text was preserved.")
+          /// The model rewrite did not pass safety checks, so a safe fallback text was used.
+          internal static let llmRefinementRejected = L10n.tr("Localizable", "home.detail.warning.llm_refinement_rejected", fallback: "The model rewrite did not pass safety checks, so a safe fallback text was used.")
           /// The model response format was unexpected, so the model text was preserved.
           internal static let llmStructuredParseFailed = L10n.tr("Localizable", "home.detail.warning.llm_structured_parse_failed", fallback: "The model response format was unexpected, so the model text was preserved.")
           /// Prompt context could not be built, so correction continued with the base prompt.
@@ -1765,6 +1939,32 @@ internal enum L10n {
         internal static let readingWindowDetail = L10n.tr("Localizable", "hud.agent_compose.reading_window_detail", fallback: "Reading window context...")
         /// Read Window
         internal static let readingWindowTitle = L10n.tr("Localizable", "hud.agent_compose.reading_window_title", fallback: "Read Window")
+        /// Done
+        internal static let runtimeCompleted = L10n.tr("Localizable", "hud.agent_compose.runtime_completed", fallback: "Done")
+        /// Task completed
+        internal static let runtimeCompletedDetail = L10n.tr("Localizable", "hud.agent_compose.runtime_completed_detail", fallback: "Task completed")
+        /// Failed
+        internal static let runtimeFailed = L10n.tr("Localizable", "hud.agent_compose.runtime_failed", fallback: "Failed")
+        /// Task failed
+        internal static let runtimeFailedDetail = L10n.tr("Localizable", "hud.agent_compose.runtime_failed_detail", fallback: "Task failed")
+        /// Operating...
+        internal static let runtimeOperating = L10n.tr("Localizable", "hud.agent_compose.runtime_operating", fallback: "Operating...")
+        /// Running the current action
+        internal static let runtimeOperatingDetail = L10n.tr("Localizable", "hud.agent_compose.runtime_operating_detail", fallback: "Running the current action")
+        /// Processing...
+        internal static let runtimeProcessing = L10n.tr("Localizable", "hud.agent_compose.runtime_processing", fallback: "Processing...")
+        /// Preparing the task summary
+        internal static let runtimeProcessingDetail = L10n.tr("Localizable", "hud.agent_compose.runtime_processing_detail", fallback: "Preparing the task summary")
+        /// Working on: %@
+        internal static func runtimeTaskFormat(_ p1: Any) -> String {
+          return L10n.tr("Localizable", "hud.agent_compose.runtime_task_format", String(describing: p1), fallback: "Working on: %@")
+        }
+        /// Creating the PPT
+        internal static let runtimeTaskPpt = L10n.tr("Localizable", "hud.agent_compose.runtime_task_ppt", fallback: "Creating the PPT")
+        /// Waiting for approval...
+        internal static let runtimeWaitingPermission = L10n.tr("Localizable", "hud.agent_compose.runtime_waiting_permission", fallback: "Waiting for approval...")
+        /// Click to approve, Esc to exit
+        internal static let runtimeWaitingPermissionDetail = L10n.tr("Localizable", "hud.agent_compose.runtime_waiting_permission_detail", fallback: "Click to approve, Esc to exit")
         /// Transcribing
         internal static let transcribing = L10n.tr("Localizable", "hud.agent_compose.transcribing", fallback: "Transcribing")
         /// Recognizing speech...
@@ -1934,10 +2134,14 @@ internal enum L10n {
           internal static func apiErrorFormat(_ p1: Int, _ p2: Any) -> String {
             return L10n.tr("Localizable", "llm.refiner.error.api_error_format", p1, String(describing: p2), fallback: "LLM API error (%d): %@")
           }
+          /// GitHub Models rejected this model. Use a GitHub token/account with Models access for the selected model, or choose a model available to your account.
+          internal static let githubModelsAccess = L10n.tr("Localizable", "llm.refiner.error.github_models_access", fallback: "GitHub Models rejected this model. Use a GitHub token/account with Models access for the selected model, or choose a model available to your account.")
           /// LLM request failed with HTTP status %d.
           internal static func httpErrorFormat(_ p1: Int) -> String {
             return L10n.tr("Localizable", "llm.refiner.error.http_error_format", p1, fallback: "LLM request failed with HTTP status %d.")
           }
+          /// The Hugging Face token can read metadata but cannot call Inference Providers. Create or edit the token and enable the Inference Providers permission.
+          internal static let huggingfaceInferencePermission = L10n.tr("Localizable", "llm.refiner.error.huggingface_inference_permission", fallback: "The Hugging Face token can read metadata but cannot call Inference Providers. Create or edit the token and enable the Inference Providers permission.")
           /// Unable to build LLM request.
           internal static let invalidRequestBody = L10n.tr("Localizable", "llm.refiner.error.invalid_request_body", fallback: "Unable to build LLM request.")
           /// Invalid response from LLM service.
@@ -1950,6 +2154,8 @@ internal enum L10n {
           }
           /// LLM is not configured.
           internal static let notConfigured = L10n.tr("Localizable", "llm.refiner.error.not_configured", fallback: "LLM is not configured.")
+          /// OpenCode Zen rejected the request because the account balance is insufficient. Add billing credit, then test again.
+          internal static let opencodeBalance = L10n.tr("Localizable", "llm.refiner.error.opencode_balance", fallback: "OpenCode Zen rejected the request because the account balance is insufficient. Add billing credit, then test again.")
         }
       }
       internal enum TextTransform {
@@ -1963,10 +2169,6 @@ internal enum L10n {
         internal static let about = L10n.tr("Localizable", "menu.main.about", fallback: "About VoxFlow")
         /// Actions
         internal static let actions = L10n.tr("Localizable", "menu.main.actions", fallback: "Actions")
-        /// Agent Compose
-        internal static let agentCompose = L10n.tr("Localizable", "menu.main.agent_compose", fallback: "Agent Compose")
-        /// Agent Dispatch
-        internal static let agentDispatch = L10n.tr("Localizable", "menu.main.agent_dispatch", fallback: "Agent Dispatch")
         /// Bring All to Front
         internal static let bringAllToFront = L10n.tr("Localizable", "menu.main.bring_all_to_front", fallback: "Bring All to Front")
         /// Check Permissions
@@ -1985,8 +2187,8 @@ internal enum L10n {
         internal static let edit = L10n.tr("Localizable", "menu.main.edit", fallback: "Edit")
         /// GitHub
         internal static let github = L10n.tr("Localizable", "menu.main.github", fallback: "GitHub")
-        /// Help
-        internal static let help = L10n.tr("Localizable", "menu.main.help", fallback: "Help")
+        /// Support
+        internal static let help = L10n.tr("Localizable", "menu.main.help", fallback: "Support")
         /// Hide VoxFlow
         internal static let hide = L10n.tr("Localizable", "menu.main.hide", fallback: "Hide VoxFlow")
         /// Hide Others
@@ -2013,6 +2215,8 @@ internal enum L10n {
         internal static let settings = L10n.tr("Localizable", "menu.main.settings", fallback: "Settings...")
         /// Start Dictation
         internal static let startDictation = L10n.tr("Localizable", "menu.main.start_dictation", fallback: "Start Dictation")
+        /// Stop Dictation
+        internal static let stopDictation = L10n.tr("Localizable", "menu.main.stop_dictation", fallback: "Stop Dictation")
         /// Undo
         internal static let undo = L10n.tr("Localizable", "menu.main.undo", fallback: "Undo")
         /// Window
@@ -2043,6 +2247,10 @@ internal enum L10n {
         internal static let streaming = L10n.tr("Localizable", "menu.provider_tag.streaming", fallback: "Streaming")
       }
       internal enum Status {
+        /// Agent Model
+        internal static let agentModel = L10n.tr("Localizable", "menu.status.agent_model", fallback: "Agent Model")
+        /// No Agent model configured
+        internal static let agentModelUnavailable = L10n.tr("Localizable", "menu.status.agent_model_unavailable", fallback: "No Agent model configured")
         /// ASR Models
         internal static let asrModel = L10n.tr("Localizable", "menu.status.asr_model", fallback: "ASR Models")
         /// Check Permissions
@@ -2227,8 +2435,14 @@ internal enum L10n {
         internal static func errorRequiredFieldsFormat(_ p1: Any) -> String {
           return L10n.tr("Localizable", "model.llm_provider.error_required_fields_format", String(describing: p1), fallback: "Required fields missing: %@")
         }
+        /// Fetch models
+        internal static let fetchModels = L10n.tr("Localizable", "model.llm_provider.fetch_models", fallback: "Fetch models")
         /// API key
         internal static let fieldApiKey = L10n.tr("Localizable", "model.llm_provider.field_api_key", fallback: "API key")
+        /// API key
+        internal static let fieldApiKeyOptional = L10n.tr("Localizable", "model.llm_provider.field_api_key_optional", fallback: "API key")
+        /// API key *
+        internal static let fieldApiKeyRequired = L10n.tr("Localizable", "model.llm_provider.field_api_key_required", fallback: "API key *")
         /// API key %@
         internal static func fieldApiKeyWithRequiredMarkFormat(_ p1: Any) -> String {
           return L10n.tr("Localizable", "model.llm_provider.field_api_key_with_required_mark_format", String(describing: p1), fallback: "API key %@")
@@ -2243,12 +2457,32 @@ internal enum L10n {
         internal static let fieldNamePlaceholder = L10n.tr("Localizable", "model.llm_provider.field_name_placeholder", fallback: "Provider name")
         /// Service URL
         internal static let fieldServiceUrl = L10n.tr("Localizable", "model.llm_provider.field_service_url", fallback: "Service URL")
+        /// Get API key
+        internal static let getApiKey = L10n.tr("Localizable", "model.llm_provider.get_api_key", fallback: "Get API key")
         /// API keys are stored in Keychain.
         internal static let keychainHint = L10n.tr("Localizable", "model.llm_provider.keychain_hint", fallback: "API keys are stored in Keychain.")
         /// Address
         internal static let labelAddress = L10n.tr("Localizable", "model.llm_provider.label_address", fallback: "Address")
         /// Model
         internal static let labelModel = L10n.tr("Localizable", "model.llm_provider.label_model", fallback: "Model")
+        /// Choose from list
+        internal static let modelChooseFromList = L10n.tr("Localizable", "model.llm_provider.model_choose_from_list", fallback: "Choose from list")
+        /// Fetch the model list after entering the URL and API key.
+        internal static let modelListHint = L10n.tr("Localizable", "model.llm_provider.model_list_hint", fallback: "Fetch the model list after entering the URL and API key.")
+        /// %d models available
+        internal static func modelListLoadedFormat(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "model.llm_provider.model_list_loaded_format", p1, fallback: "%d models available")
+        }
+        /// Enter manually
+        internal static let modelManualEntry = L10n.tr("Localizable", "model.llm_provider.model_manual_entry", fallback: "Enter manually")
+        /// Choose a model
+        internal static let modelPickerPlaceholder = L10n.tr("Localizable", "model.llm_provider.model_picker_placeholder", fallback: "Choose a model")
+        /// This local service can be used without an API key.
+        internal static let noApiKeyHint = L10n.tr("Localizable", "model.llm_provider.no_api_key_hint", fallback: "This local service can be used without an API key.")
+        /// No key required
+        internal static let noApiKeyRequired = L10n.tr("Localizable", "model.llm_provider.no_api_key_required", fallback: "No key required")
+        /// Open docs
+        internal static let openDocs = L10n.tr("Localizable", "model.llm_provider.open_docs", fallback: "Open docs")
         /// %@ (%d models)
         internal static func refreshModelsCountFormat(_ p1: Any, _ p2: Int) -> String {
           return L10n.tr("Localizable", "model.llm_provider.refresh_models_count_format", String(describing: p1), p2, fallback: "%@ (%d models)")
@@ -2265,14 +2499,36 @@ internal enum L10n {
         internal static let statusDisabled = L10n.tr("Localizable", "model.llm_provider.status_disabled", fallback: "Disabled")
         /// Enabled
         internal static let statusEnabled = L10n.tr("Localizable", "model.llm_provider.status_enabled", fallback: "Enabled")
+        /// Custom
+        internal static let templateCustom = L10n.tr("Localizable", "model.llm_provider.template_custom", fallback: "Custom")
+        /// Choose a provider to fill the official URL; Custom keeps your manual settings.
+        internal static let templateHint = L10n.tr("Localizable", "model.llm_provider.template_hint", fallback: "Choose a provider to fill the official URL; Custom keeps your manual settings.")
+        /// Provider
+        internal static let templateLabel = L10n.tr("Localizable", "model.llm_provider.template_label", fallback: "Provider")
         /// Test
         internal static let test = L10n.tr("Localizable", "model.llm_provider.test", fallback: "Test")
+        /// Test all
+        internal static let testAll = L10n.tr("Localizable", "model.llm_provider.test_all", fallback: "Test all")
+        /// No enabled providers are ready to test.
+        internal static let testAllEmpty = L10n.tr("Localizable", "model.llm_provider.test_all_empty", fallback: "No enabled providers are ready to test.")
+        /// Test all enabled model providers
+        internal static let testAllHelp = L10n.tr("Localizable", "model.llm_provider.test_all_help", fallback: "Test all enabled model providers")
+        /// Tested %d providers; %d failed.
+        internal static func testAllPartialFailureFormat(_ p1: Int, _ p2: Int) -> String {
+          return L10n.tr("Localizable", "model.llm_provider.test_all_partial_failure_format", p1, p2, fallback: "Tested %d providers; %d failed.")
+        }
+        /// Tested %d providers successfully.
+        internal static func testAllSuccessFormat(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "model.llm_provider.test_all_success_format", p1, fallback: "Tested %d providers successfully.")
+        }
         /// Test connection
         internal static let testConnection = L10n.tr("Localizable", "model.llm_provider.test_connection", fallback: "Test connection")
         /// LLM Providers
         internal static let title = L10n.tr("Localizable", "model.llm_provider.title", fallback: "LLM Providers")
         /// Enable provider
         internal static let toggleEnable = L10n.tr("Localizable", "model.llm_provider.toggle_enable", fallback: "Enable provider")
+        /// Enabled providers can be used by correction, translation, and AI tasks.
+        internal static let toggleEnableHint = L10n.tr("Localizable", "model.llm_provider.toggle_enable_hint", fallback: "Enabled providers can be used by correction, translation, and AI tasks.")
         /// API key
         internal static let validationFieldApiKey = L10n.tr("Localizable", "model.llm_provider.validation_field_api_key", fallback: "API key")
         /// Base URL
@@ -2281,6 +2537,92 @@ internal enum L10n {
         internal static let validationFieldModel = L10n.tr("Localizable", "model.llm_provider.validation_field_model", fallback: "Model")
         /// Name
         internal static let validationFieldName = L10n.tr("Localizable", "model.llm_provider.validation_field_name", fallback: "Name")
+        internal enum AgentSection {
+          /// Local coding-agent runtimes and model choices used by Agent workflows.
+          internal static let subtitle = L10n.tr("Localizable", "model.llm_provider.agent_section.subtitle", fallback: "Local coding-agent runtimes and model choices used by Agent workflows.")
+          /// Agent models
+          internal static let title = L10n.tr("Localizable", "model.llm_provider.agent_section.title", fallback: "Agent models")
+        }
+        internal enum BuiltinAgent {
+          /// Built in
+          internal static let badge = L10n.tr("Localizable", "model.llm_provider.builtin_agent.badge", fallback: "Built in")
+          /// Model source
+          internal static let configurationTitle = L10n.tr("Localizable", "model.llm_provider.builtin_agent.configuration_title", fallback: "Model source")
+          /// VoxFlow Agent uses the current default LLM provider above for model calls. This card only selects the built-in agent loop and tool host.
+          internal static let defaultLlmNote = L10n.tr("Localizable", "model.llm_provider.builtin_agent.default_llm_note", fallback: "VoxFlow Agent uses the current default LLM provider above for model calls. This card only selects the built-in agent loop and tool host.")
+          /// Check Built-in Agent
+          internal static let detect = L10n.tr("Localizable", "model.llm_provider.builtin_agent.detect", fallback: "Check Built-in Agent")
+          /// Runs VoxFlow's built-in agent loop with Swift-owned tools. Model requests use your current default LLM provider.
+          internal static let subtitle = L10n.tr("Localizable", "model.llm_provider.builtin_agent.subtitle", fallback: "Runs VoxFlow's built-in agent loop with Swift-owned tools. Model requests use your current default LLM provider.")
+        }
+        internal enum Codex {
+          /// Available · %@
+          internal static func availableFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "model.llm_provider.codex.available_format", String(describing: p1), fallback: "Available · %@")
+          }
+          /// Detect
+          internal static let detect = L10n.tr("Localizable", "model.llm_provider.codex.detect", fallback: "Detect")
+          /// Local Codex runtime is available
+          internal static let detectAvailable = L10n.tr("Localizable", "model.llm_provider.codex.detect_available", fallback: "Local Codex runtime is available")
+          /// Detecting...
+          internal static let detecting = L10n.tr("Localizable", "model.llm_provider.codex.detecting", fallback: "Detecting...")
+          /// Local Codex disabled
+          internal static let disabled = L10n.tr("Localizable", "model.llm_provider.codex.disabled", fallback: "Local Codex disabled")
+          /// Disabled
+          internal static let disabledShort = L10n.tr("Localizable", "model.llm_provider.codex.disabled_short", fallback: "Disabled")
+          /// Local Codex enabled
+          internal static let enabled = L10n.tr("Localizable", "model.llm_provider.codex.enabled", fallback: "Local Codex enabled")
+          /// Enabled
+          internal static let enabledShort = L10n.tr("Localizable", "model.llm_provider.codex.enabled_short", fallback: "Enabled")
+          /// Model
+          internal static let modelSection = L10n.tr("Localizable", "model.llm_provider.codex.model_section", fallback: "Model")
+          /// Not checked
+          internal static let notChecked = L10n.tr("Localizable", "model.llm_provider.codex.not_checked", fallback: "Not checked")
+          /// Uses your signed-in Codex CLI / Codex.app. No API key required.
+          internal static let subtitle = L10n.tr("Localizable", "model.llm_provider.codex.subtitle", fallback: "Uses your signed-in Codex CLI / Codex.app. No API key required.")
+          /// Local Codex
+          internal static let title = L10n.tr("Localizable", "model.llm_provider.codex.title", fallback: "Local Codex")
+        }
+        internal enum CustomSection {
+          /// OpenAI-compatible services you configure yourself, used for correction, translation, and general AI tasks.
+          internal static let subtitle = L10n.tr("Localizable", "model.llm_provider.custom_section.subtitle", fallback: "OpenAI-compatible services you configure yourself, used for correction, translation, and general AI tasks.")
+          /// Custom model services
+          internal static let title = L10n.tr("Localizable", "model.llm_provider.custom_section.title", fallback: "Custom model services")
+        }
+        internal enum LocalAgent {
+          /// %@ runtime is available
+          internal static func detectAvailableFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "model.llm_provider.local_agent.detect_available_format", String(describing: p1), fallback: "%@ runtime is available")
+          }
+          /// %@ disabled
+          internal static func disabledFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "model.llm_provider.local_agent.disabled_format", String(describing: p1), fallback: "%@ disabled")
+          }
+          /// %@ enabled
+          internal static func enabledFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "model.llm_provider.local_agent.enabled_format", String(describing: p1), fallback: "%@ enabled")
+          }
+          /// Enter model ID manually
+          internal static let manualModelPlaceholder = L10n.tr("Localizable", "model.llm_provider.local_agent.manual_model_placeholder", fallback: "Enter model ID manually")
+          /// No matching models
+          internal static let noMatchingModels = L10n.tr("Localizable", "model.llm_provider.local_agent.no_matching_models", fallback: "No matching models")
+          /// Search or enter model ID
+          internal static let searchModelPlaceholder = L10n.tr("Localizable", "model.llm_provider.local_agent.search_model_placeholder", fallback: "Search or enter model ID")
+          /// Selected
+          internal static let selectedShort = L10n.tr("Localizable", "model.llm_provider.local_agent.selected_short", fallback: "Selected")
+          /// Set Default
+          internal static let setDefault = L10n.tr("Localizable", "model.llm_provider.local_agent.set_default", fallback: "Set Default")
+          /// Uses your signed-in local coding-agent CLI. Detection checks the CLI only and does not call a model.
+          internal static let subtitle = L10n.tr("Localizable", "model.llm_provider.local_agent.subtitle", fallback: "Uses your signed-in local coding-agent CLI. Detection checks the CLI only and does not call a model.")
+          /// Not selected
+          internal static let unselectedShort = L10n.tr("Localizable", "model.llm_provider.local_agent.unselected_short", fallback: "Not selected")
+          /// Use
+          internal static let useManualModel = L10n.tr("Localizable", "model.llm_provider.local_agent.use_manual_model", fallback: "Use")
+          /// Use "%@"
+          internal static func useSearchModelFormat(_ p1: Any) -> String {
+            return L10n.tr("Localizable", "model.llm_provider.local_agent.use_search_model_format", String(describing: p1), fallback: "Use \"%@\"")
+          }
+        }
       }
     }
     internal enum Navigation {
@@ -2306,6 +2648,46 @@ internal enum L10n {
       }
     }
     internal enum Notes {
+      internal enum Action {
+        /// Cancel
+        internal static let cancelEdit = L10n.tr("Localizable", "notes.action.cancel_edit", fallback: "Cancel")
+        /// Continue dictation
+        internal static let continueDictation = L10n.tr("Localizable", "notes.action.continue_dictation", fallback: "Continue dictation")
+        /// Copy
+        internal static let copy = L10n.tr("Localizable", "notes.action.copy", fallback: "Copy")
+        /// Delete
+        internal static let delete = L10n.tr("Localizable", "notes.action.delete", fallback: "Delete")
+        /// Done
+        internal static let done = L10n.tr("Localizable", "notes.action.done", fallback: "Done")
+        /// Edit
+        internal static let edit = L10n.tr("Localizable", "notes.action.edit", fallback: "Edit")
+        /// Export
+        internal static let export = L10n.tr("Localizable", "notes.action.export", fallback: "Export")
+        /// Finish
+        internal static let finishContinuing = L10n.tr("Localizable", "notes.action.finish_continuing", fallback: "Finish")
+        /// More
+        internal static let more = L10n.tr("Localizable", "notes.action.more", fallback: "More")
+        /// New note
+        internal static let newNote = L10n.tr("Localizable", "notes.action.new_note", fallback: "New note")
+        /// Save
+        internal static let save = L10n.tr("Localizable", "notes.action.save", fallback: "Save")
+      }
+      internal enum Delete {
+        /// Delete note?
+        internal static let confirmTitle = L10n.tr("Localizable", "notes.delete.confirm_title", fallback: "Delete note?")
+      }
+      internal enum Detail {
+        /// Continuing dictation — speak to append.
+        internal static let continuingDictationHint = L10n.tr("Localizable", "notes.detail.continuing_dictation_hint", fallback: "Continuing dictation — speak to append.")
+        /// Continuing dictation
+        internal static let continuingStatus = L10n.tr("Localizable", "notes.detail.continuing_status", fallback: "Continuing dictation")
+        /// Editing
+        internal static let editingStatus = L10n.tr("Localizable", "notes.detail.editing_status", fallback: "Editing")
+        /// Saved
+        internal static let readingStatus = L10n.tr("Localizable", "notes.detail.reading_status", fallback: "Saved")
+        /// Note title
+        internal static let titlePlaceholder = L10n.tr("Localizable", "notes.detail.title_placeholder", fallback: "Note title")
+      }
       internal enum Editor {
         /// ===== Notes =====
         internal static func characterCountFormat(_ p1: Int) -> String {
@@ -2329,6 +2711,8 @@ internal enum L10n {
         internal static let sourceNotFound = L10n.tr("Localizable", "notes.error.source_not_found", fallback: "Source content not found.")
       }
       internal enum Feedback {
+        /// Note content copied.
+        internal static let copied = L10n.tr("Localizable", "notes.feedback.copied", fallback: "Note content copied.")
         /// Created note.
         internal static let created = L10n.tr("Localizable", "notes.feedback.created", fallback: "Created note.")
         /// Created empty draft.
@@ -2356,6 +2740,10 @@ internal enum L10n {
         /// Untitled
         internal static let untitled = L10n.tr("Localizable", "notes.note_title.untitled", fallback: "Untitled")
       }
+      internal enum QuickCapture {
+        /// Hold to speak
+        internal static let holdToSpeakHint = L10n.tr("Localizable", "notes.quick_capture.hold_to_speak_hint", fallback: "Hold to speak")
+      }
       internal enum Recording {
         /// Finish recording
         internal static let finishHelp = L10n.tr("Localizable", "notes.recording.finish_help", fallback: "Finish recording")
@@ -2367,6 +2755,14 @@ internal enum L10n {
         internal static let placeholderRecording = L10n.tr("Localizable", "notes.recording.placeholder_recording", fallback: "Listening...")
         /// Start recording
         internal static let startHelp = L10n.tr("Localizable", "notes.recording.start_help", fallback: "Start recording")
+      }
+      internal enum Source {
+        /// File transcription
+        internal static let fileTranscription = L10n.tr("Localizable", "notes.source.file_transcription", fallback: "File transcription")
+        /// Dictation
+        internal static let history = L10n.tr("Localizable", "notes.source.history", fallback: "Dictation")
+        /// Manual
+        internal static let manual = L10n.tr("Localizable", "notes.source.manual", fallback: "Manual")
       }
       internal enum View {
         /// Close preview
@@ -2456,6 +2852,54 @@ internal enum L10n {
         /// Text
         internal static let text = L10n.tr("Localizable", "palette.content_type.text", fallback: "Text")
       }
+      internal enum FileAction {
+        /// Copy Name
+        internal static let copyName = L10n.tr("Localizable", "palette.file_action.copy_name", fallback: "Copy Name")
+        /// Copy Path
+        internal static let copyPath = L10n.tr("Localizable", "palette.file_action.copy_path", fallback: "Copy Path")
+        /// Open
+        internal static let `open` = L10n.tr("Localizable", "palette.file_action.open", fallback: "Open")
+        /// Quick Look
+        internal static let quickLook = L10n.tr("Localizable", "palette.file_action.quick_look", fallback: "Quick Look")
+        /// Show in Finder
+        internal static let showInFinder = L10n.tr("Localizable", "palette.file_action.show_in_finder", fallback: "Show in Finder")
+      }
+      internal enum Files {
+        /// No files found
+        internal static let empty = L10n.tr("Localizable", "palette.files.empty", fallback: "No files found")
+        internal enum Kind {
+          /// File
+          internal static let file = L10n.tr("Localizable", "palette.files.kind.file", fallback: "File")
+          /// Folder
+          internal static let folder = L10n.tr("Localizable", "palette.files.kind.folder", fallback: "Folder")
+        }
+        internal enum Metadata {
+          /// Created
+          internal static let created = L10n.tr("Localizable", "palette.files.metadata.created", fallback: "Created")
+          /// Kind
+          internal static let kind = L10n.tr("Localizable", "palette.files.metadata.kind", fallback: "Kind")
+          /// Loading details
+          internal static let loading = L10n.tr("Localizable", "palette.files.metadata.loading", fallback: "Loading details")
+          /// Modified
+          internal static let modified = L10n.tr("Localizable", "palette.files.metadata.modified", fallback: "Modified")
+          /// Name
+          internal static let name = L10n.tr("Localizable", "palette.files.metadata.name", fallback: "Name")
+          /// Size
+          internal static let size = L10n.tr("Localizable", "palette.files.metadata.size", fallback: "Size")
+          /// Where
+          internal static let `where` = L10n.tr("Localizable", "palette.files.metadata.where", fallback: "Where")
+        }
+        internal enum Section {
+          /// Partial Results
+          internal static let partial = L10n.tr("Localizable", "palette.files.section.partial", fallback: "Partial Results")
+          /// Recent Files
+          internal static let recent = L10n.tr("Localizable", "palette.files.section.recent", fallback: "Recent Files")
+          /// Results
+          internal static let results = L10n.tr("Localizable", "palette.files.section.results", fallback: "Results")
+          /// Searching
+          internal static let searching = L10n.tr("Localizable", "palette.files.section.searching", fallback: "Searching")
+        }
+      }
       internal enum Filter {
         /// All types
         internal static let all = L10n.tr("Localizable", "palette.filter.all", fallback: "All types")
@@ -2516,6 +2960,8 @@ internal enum L10n {
           internal static let recentAssets = L10n.tr("Localizable", "palette.root_item.subtitle.recent_assets", fallback: "Open recent voice, screenshot, and clipboard assets")
           /// Select and OCR an area
           internal static let screenshotOcr = L10n.tr("Localizable", "palette.root_item.subtitle.screenshot_ocr", fallback: "Select and OCR an area")
+          /// Find local files by name
+          internal static let searchFiles = L10n.tr("Localizable", "palette.root_item.subtitle.search_files", fallback: "Find local files by name")
           /// Hold shortcut and dictate
           internal static let startDictation = L10n.tr("Localizable", "palette.root_item.subtitle.start_dictation", fallback: "Hold shortcut and dictate")
         }
@@ -2534,6 +2980,8 @@ internal enum L10n {
           internal static let recentAssets = L10n.tr("Localizable", "palette.root_item.title.recent_assets", fallback: "Recent Assets")
           /// Screenshot OCR
           internal static let screenshotOcr = L10n.tr("Localizable", "palette.root_item.title.screenshot_ocr", fallback: "Screenshot OCR")
+          /// Search Files
+          internal static let searchFiles = L10n.tr("Localizable", "palette.root_item.title.search_files", fallback: "Search Files")
           /// Start Dictation
           internal static let startDictation = L10n.tr("Localizable", "palette.root_item.title.start_dictation", fallback: "Start Dictation")
           /// Translate
@@ -2551,6 +2999,8 @@ internal enum L10n {
       internal enum Search {
         /// Search assets...
         internal static let assetsPlaceholder = L10n.tr("Localizable", "palette.search.assets_placeholder", fallback: "Search assets...")
+        /// Search files...
+        internal static let filesPlaceholder = L10n.tr("Localizable", "palette.search.files_placeholder", fallback: "Search files...")
         /// Search...
         internal static let filterPlaceholder = L10n.tr("Localizable", "palette.search.filter_placeholder", fallback: "Search...")
         /// ===== Palette =====
@@ -3311,6 +3761,32 @@ internal enum L10n {
         /// Reset settings
         internal static let resetSettings = L10n.tr("Localizable", "settings.data.reset_settings", fallback: "Reset settings")
       }
+      internal enum Destination {
+        /// Smart Workbench
+        internal static let agent = L10n.tr("Localizable", "settings.destination.agent", fallback: "Smart Workbench")
+        /// General
+        internal static let general = L10n.tr("Localizable", "settings.destination.general", fallback: "General")
+        /// Models
+        internal static let models = L10n.tr("Localizable", "settings.destination.models", fallback: "Models")
+        /// Screenshot
+        internal static let screenshot = L10n.tr("Localizable", "settings.destination.screenshot", fallback: "Screenshot")
+        /// Text
+        internal static let text = L10n.tr("Localizable", "settings.destination.text", fallback: "Text")
+        /// Selection Assistant
+        internal static let translation = L10n.tr("Localizable", "settings.destination.translation", fallback: "Selection Assistant")
+        /// Voice
+        internal static let voice = L10n.tr("Localizable", "settings.destination.voice", fallback: "Voice")
+        internal enum Screenshot {
+          /// Configure screenshot and clipboard OCR behavior.
+          internal static let behaviorSubtitle = L10n.tr("Localizable", "settings.destination.screenshot.behavior_subtitle", fallback: "Configure screenshot and clipboard OCR behavior.")
+          /// Configure screenshot, OCR, and screen capture workflows.
+          internal static let subtitle = L10n.tr("Localizable", "settings.destination.screenshot.subtitle", fallback: "Configure screenshot, OCR, and screen capture workflows.")
+        }
+        internal enum Translation {
+          /// Configure selected-text shortcuts and actions.
+          internal static let subtitle = L10n.tr("Localizable", "settings.destination.translation.subtitle", fallback: "Configure selected-text shortcuts and actions.")
+        }
+      }
       internal enum Error {
         /// This shortcut is already in use.
         internal static let duplicateShortcut = L10n.tr("Localizable", "settings.error.duplicate_shortcut", fallback: "This shortcut is already in use.")
@@ -3341,8 +3817,14 @@ internal enum L10n {
           internal static let buttonTitle = L10n.tr("Localizable", "settings.general.agent_compose.button_title", fallback: "Set Shortcut")
           /// Compose text with current window context and voice, write directly to the current input field
           internal static let subtitle = L10n.tr("Localizable", "settings.general.agent_compose.subtitle", fallback: "Compose text with current window context and voice, write directly to the current input field")
-          /// AI Assistant
-          internal static let title = L10n.tr("Localizable", "settings.general.agent_compose.title", fallback: "AI Assistant")
+          /// Summon Agent
+          internal static let title = L10n.tr("Localizable", "settings.general.agent_compose.title", fallback: "Summon Agent")
+        }
+        internal enum Basics {
+          /// Configure appearance, launch, and language behavior.
+          internal static let subtitle = L10n.tr("Localizable", "settings.general.basics.subtitle", fallback: "Configure appearance, launch, and language behavior.")
+          /// Basics
+          internal static let title = L10n.tr("Localizable", "settings.general.basics.title", fallback: "Basics")
         }
         internal enum Dictation {
           /// Modify
@@ -3525,26 +4007,72 @@ internal enum L10n {
           return L10n.tr("Localizable", "settings.message.workflow_shortcut_updated_format", String(describing: p1), fallback: "%@ shortcut updated")
         }
       }
+      internal enum Models {
+        internal enum Agent {
+          /// Configure local Agent runtimes and model choices for Agent Compose.
+          internal static let subtitle = L10n.tr("Localizable", "settings.models.agent.subtitle", fallback: "Configure local Agent runtimes and model choices for Agent Compose.")
+          /// Agent
+          internal static let title = L10n.tr("Localizable", "settings.models.agent.title", fallback: "Agent")
+        }
+        internal enum Llm {
+          /// Configure LLM providers, API keys, and model names.
+          internal static let subtitle = L10n.tr("Localizable", "settings.models.llm.subtitle", fallback: "Configure LLM providers, API keys, and model names.")
+          /// LLM
+          internal static let title = L10n.tr("Localizable", "settings.models.llm.title", fallback: "LLM")
+        }
+        internal enum Local {
+          /// Manage local model behavior and storage.
+          internal static let subtitle = L10n.tr("Localizable", "settings.models.local.subtitle", fallback: "Manage local model behavior and storage.")
+          /// Local Models
+          internal static let title = L10n.tr("Localizable", "settings.models.local.title", fallback: "Local Models")
+        }
+        internal enum Tab {
+          /// Agent
+          internal static let agent = L10n.tr("Localizable", "settings.models.tab.agent", fallback: "Agent")
+          /// ASR
+          internal static let asr = L10n.tr("Localizable", "settings.models.tab.asr", fallback: "ASR")
+          /// LLM
+          internal static let llm = L10n.tr("Localizable", "settings.models.tab.llm", fallback: "LLM")
+          /// Local Models
+          internal static let localModels = L10n.tr("Localizable", "settings.models.tab.local_models", fallback: "Local Models")
+          /// Translation
+          internal static let translation = L10n.tr("Localizable", "settings.models.tab.translation", fallback: "Translation")
+          /// TTS
+          internal static let tts = L10n.tr("Localizable", "settings.models.tab.tts", fallback: "TTS")
+        }
+      }
       internal enum Output {
-        /// Configure output.
-        internal static let groupSubtitle = L10n.tr("Localizable", "settings.output.group_subtitle", fallback: "Configure output.")
-        /// output
-        internal static let groupTitle = L10n.tr("Localizable", "settings.output.group_title", fallback: "output")
+        /// Choose how VoxFlow inserts text.
+        internal static let groupSubtitle = L10n.tr("Localizable", "settings.output.group_subtitle", fallback: "Choose how VoxFlow inserts text.")
+        /// Text insertion
+        internal static let groupTitle = L10n.tr("Localizable", "settings.output.group_title", fallback: "Text insertion")
         internal enum AvoidClipboard {
-          /// Configure output avoid clipboard.
-          internal static let subtitle = L10n.tr("Localizable", "settings.output.avoid_clipboard.subtitle", fallback: "Configure output avoid clipboard.")
-          /// output avoid clipboard
-          internal static let title = L10n.tr("Localizable", "settings.output.avoid_clipboard.title", fallback: "output avoid clipboard")
+          /// Write text by simulating keyboard input and avoid using the system clipboard when possible.
+          internal static let subtitle = L10n.tr("Localizable", "settings.output.avoid_clipboard.subtitle", fallback: "Write text by simulating keyboard input and avoid using the system clipboard when possible.")
+          /// Simulated keyboard input
+          internal static let title = L10n.tr("Localizable", "settings.output.avoid_clipboard.title", fallback: "Simulated keyboard input")
         }
         internal enum ClipboardImageOcr {
           /// Recognize text from clipboard images.
           internal static let subtitle = L10n.tr("Localizable", "settings.output.clipboard_image_ocr.subtitle", fallback: "Recognize text from clipboard images.")
         }
+        internal enum FastPaste {
+          /// Insert by temporarily pasting text. Faster in most apps.
+          internal static let subtitle = L10n.tr("Localizable", "settings.output.fast_paste.subtitle", fallback: "Insert by temporarily pasting text. Faster in most apps.")
+          /// Fast paste
+          internal static let title = L10n.tr("Localizable", "settings.output.fast_paste.title", fallback: "Fast paste")
+        }
         internal enum RestoreClipboard {
-          /// Configure output restore clipboard.
-          internal static let subtitle = L10n.tr("Localizable", "settings.output.restore_clipboard.subtitle", fallback: "Configure output restore clipboard.")
-          /// output restore clipboard
-          internal static let title = L10n.tr("Localizable", "settings.output.restore_clipboard.title", fallback: "output restore clipboard")
+          /// After fast paste, put your previous clipboard content back.
+          internal static let subtitle = L10n.tr("Localizable", "settings.output.restore_clipboard.subtitle", fallback: "After fast paste, put your previous clipboard content back.")
+          /// Restore clipboard after paste
+          internal static let title = L10n.tr("Localizable", "settings.output.restore_clipboard.title", fallback: "Restore clipboard after paste")
+        }
+        internal enum TextInputMode {
+          /// Choose how VoxFlow writes text back into the current input field.
+          internal static let subtitle = L10n.tr("Localizable", "settings.output.text_input_mode.subtitle", fallback: "Choose how VoxFlow writes text back into the current input field.")
+          /// Input method
+          internal static let title = L10n.tr("Localizable", "settings.output.text_input_mode.title", fallback: "Input method")
         }
       }
       internal enum PermissionStatus {
@@ -3613,25 +4141,31 @@ internal enum L10n {
         /// View Summary
         internal static let manualCrashReportViewSummary = L10n.tr("Localizable", "settings.privacy.manual_crash_report_view_summary", fallback: "View Summary")
       }
-      internal enum Section {
-        /// Correction Models
-        internal static let correctionModels = L10n.tr("Localizable", "settings.section.correction_models", fallback: "Correction Models")
-        /// Data & Privacy
-        internal static let dataPrivacy = L10n.tr("Localizable", "settings.section.data_privacy", fallback: "Data & Privacy")
-        /// Dictation Models
-        internal static let dictationModels = L10n.tr("Localizable", "settings.section.dictation_models", fallback: "Dictation Models")
-        /// General
-        internal static let general = L10n.tr("Localizable", "settings.section.general", fallback: "General")
-        /// System
-        internal static let systemRoot = L10n.tr("Localizable", "settings.section.system_root", fallback: "System")
-        /// Text Processing
-        internal static let textProcessing = L10n.tr("Localizable", "settings.section.text_processing", fallback: "Text Processing")
-        /// Translation Models
-        internal static let translationModels = L10n.tr("Localizable", "settings.section.translation_models", fallback: "Translation Models")
-        /// TTS Models
-        internal static let ttsModels = L10n.tr("Localizable", "settings.section.tts_models", fallback: "TTS Models")
-        /// Vibe Coding
-        internal static let vibeCoding = L10n.tr("Localizable", "settings.section.vibe_coding", fallback: "Vibe Coding")
+      internal enum RestoreDefaults {
+        /// Restore Default Settings…
+        internal static let action = L10n.tr("Localizable", "settings.restore_defaults.action", fallback: "Restore Default Settings…")
+        /// Restore Defaults
+        internal static let confirmAction = L10n.tr("Localizable", "settings.restore_defaults.confirm_action", fallback: "Restore Defaults")
+        /// Restore Default Settings
+        internal static let confirmTitle = L10n.tr("Localizable", "settings.restore_defaults.confirm_title", fallback: "Restore Default Settings")
+        /// • API keys and LLM/ASR/Agent provider configurations
+        /// • Provider default selections
+        /// • History, notes, screenshots, and tasks
+        /// • Vocabulary, hotwords, and learning data
+        /// • Custom styles
+        /// • Downloaded models and cache files
+        internal static let preservedItems = L10n.tr("Localizable", "settings.restore_defaults.preserved_items", fallback: "• API keys and LLM/ASR/Agent provider configurations\n• Provider default selections\n• History, notes, screenshots, and tasks\n• Vocabulary, hotwords, and learning data\n• Custom styles\n• Downloaded models and cache files")
+        /// Will not be affected:
+        internal static let preservedSectionTitle = L10n.tr("Localizable", "settings.restore_defaults.preserved_section_title", fallback: "Will not be affected:")
+        /// • User preferences and shortcuts
+        /// • Audio and recognition language preferences
+        /// • Text processing and voice correction behavior
+        /// • Agent behavior preferences
+        /// • Style auto-matching settings
+        /// • Built-in style prompts, enabled state, and default style
+        internal static let resetItems = L10n.tr("Localizable", "settings.restore_defaults.reset_items", fallback: "• User preferences and shortcuts\n• Audio and recognition language preferences\n• Text processing and voice correction behavior\n• Agent behavior preferences\n• Style auto-matching settings\n• Built-in style prompts, enabled state, and default style")
+        /// Will be restored to defaults:
+        internal static let resetSectionTitle = L10n.tr("Localizable", "settings.restore_defaults.reset_section_title", fallback: "Will be restored to defaults:")
       }
       internal enum Shortcuts {
         /// Cancel
@@ -3737,10 +4271,10 @@ internal enum L10n {
           internal static let title = L10n.tr("Localizable", "settings.system.keep_microphone_active.title", fallback: "Keep microphone active")
         }
         internal enum LocalModelLivePreview {
-          /// Show partial results from local models while speaking.
-          internal static let subtitle = L10n.tr("Localizable", "settings.system.local_model_live_preview.subtitle", fallback: "Show partial results from local models while speaking.")
-          /// Local model live preview
-          internal static let title = L10n.tr("Localizable", "settings.system.local_model_live_preview.title", fallback: "Local model live preview")
+          /// Show streaming partial results while speaking with local models.
+          internal static let subtitle = L10n.tr("Localizable", "settings.system.local_model_live_preview.subtitle", fallback: "Show streaming partial results while speaking with local models.")
+          /// Streaming recognition preview
+          internal static let title = L10n.tr("Localizable", "settings.system.local_model_live_preview.title", fallback: "Streaming recognition preview")
         }
       }
       internal enum Task {
@@ -3761,14 +4295,18 @@ internal enum L10n {
           internal static let unregister = L10n.tr("Localizable", "settings.task.action.unregister", fallback: "Unregister")
         }
         internal enum AgentCli {
-          /// Claude Code
-          internal static let exampleClaude = L10n.tr("Localizable", "settings.task.agent_cli.example_claude", fallback: "Claude Code")
-          /// CodeBuddy
-          internal static let exampleCodebuddy = L10n.tr("Localizable", "settings.task.agent_cli.example_codebuddy", fallback: "CodeBuddy")
-          /// Codex
-          internal static let exampleCodex = L10n.tr("Localizable", "settings.task.agent_cli.example_codex", fallback: "Codex")
-          /// Register the bundled vox command so terminal agents can receive dictated prompts.
-          internal static let intro = L10n.tr("Localizable", "settings.task.agent_cli.intro", fallback: "Register the bundled vox command so terminal agents can receive dictated prompts.")
+          /// vox flow --claude
+          internal static let exampleClaude = L10n.tr("Localizable", "settings.task.agent_cli.example_claude", fallback: "vox flow --claude")
+          /// vox flow --codebuddy
+          internal static let exampleCodebuddy = L10n.tr("Localizable", "settings.task.agent_cli.example_codebuddy", fallback: "vox flow --codebuddy")
+          /// vox flow codex
+          internal static let exampleCodex = L10n.tr("Localizable", "settings.task.agent_cli.example_codex", fallback: "vox flow codex")
+          /// vox flow opencode
+          internal static let exampleOpencode = L10n.tr("Localizable", "settings.task.agent_cli.example_opencode", fallback: "vox flow opencode")
+          /// vox flow pi
+          internal static let examplePi = L10n.tr("Localizable", "settings.task.agent_cli.example_pi", fallback: "vox flow pi")
+          /// Register the bundled vox flow command so terminal agents can receive dictated prompts.
+          internal static let intro = L10n.tr("Localizable", "settings.task.agent_cli.intro", fallback: "Register the bundled vox flow command so terminal agents can receive dictated prompts.")
           /// Registered
           internal static let registeredStatus = L10n.tr("Localizable", "settings.task.agent_cli.registered_status", fallback: "Registered")
           /// Registered at %@
@@ -3900,8 +4438,8 @@ internal enum L10n {
           internal enum Agent {
             /// Send selected text to a task assistant.
             internal static let subtitle = L10n.tr("Localizable", "settings.task.selection.agent.subtitle", fallback: "Send selected text to a task assistant.")
-            /// Selection Assistant
-            internal static let title = L10n.tr("Localizable", "settings.task.selection.agent.title", fallback: "Selection Assistant")
+            /// Task Assistant
+            internal static let title = L10n.tr("Localizable", "settings.task.selection.agent.title", fallback: "Task Assistant")
           }
           internal enum AskAi {
             /// Ask AI about selected text.
@@ -4237,6 +4775,14 @@ internal enum L10n {
           internal static let llm = L10n.tr("Localizable", "settings.window.tab.llm", fallback: "LLM")
           /// Shortcut
           internal static let shortcut = L10n.tr("Localizable", "settings.window.tab.shortcut", fallback: "Shortcut")
+        }
+      }
+      internal enum Workbench {
+        internal enum Group {
+          /// Configure the Smart Workbench shortcut and window behavior.
+          internal static let subtitle = L10n.tr("Localizable", "settings.workbench.group.subtitle", fallback: "Configure the Smart Workbench shortcut and window behavior.")
+          /// Workbench
+          internal static let title = L10n.tr("Localizable", "settings.workbench.group.title", fallback: "Workbench")
         }
       }
       internal enum WorkflowName {
@@ -4758,32 +5304,52 @@ internal enum L10n {
       /// File Transcription
       internal static let title = L10n.tr("Localizable", "transcribe.title", fallback: "File Transcription")
       internal enum Action {
+        /// OpenSpec revamp-file-transcription-and-notes §7 — file transcription pipeline + notes detail
+        internal static let browse = L10n.tr("Localizable", "transcribe.action.browse", fallback: "Browse")
         /// ===== Transcribe =====
         internal static let cancel = L10n.tr("Localizable", "transcribe.action.cancel", fallback: "Cancel")
         /// Cancel
         internal static let cancelJob = L10n.tr("Localizable", "transcribe.action.cancel_job", fallback: "Cancel")
         /// Copy
         internal static let copy = L10n.tr("Localizable", "transcribe.action.copy", fallback: "Copy")
+        /// Copy completed
+        internal static let copyCompleted = L10n.tr("Localizable", "transcribe.action.copy_completed", fallback: "Copy completed")
         /// Delete
         internal static let delete = L10n.tr("Localizable", "transcribe.action.delete", fallback: "Delete")
         /// Delete
         internal static let deleteJob = L10n.tr("Localizable", "transcribe.action.delete_job", fallback: "Delete")
+        /// Export
+        internal static let export = L10n.tr("Localizable", "transcribe.action.export", fallback: "Export")
         /// Pause
         internal static let pause = L10n.tr("Localizable", "transcribe.action.pause", fallback: "Pause")
         /// Play
         internal static let play = L10n.tr("Localizable", "transcribe.action.play", fallback: "Play")
         /// Retry
         internal static let retry = L10n.tr("Localizable", "transcribe.action.retry", fallback: "Retry")
+        /// Save as note
+        internal static let saveAsNote = L10n.tr("Localizable", "transcribe.action.save_as_note", fallback: "Save as note")
         /// Select File
         internal static let selectFile = L10n.tr("Localizable", "transcribe.action.select_file", fallback: "Select File")
         /// Start
         internal static let start = L10n.tr("Localizable", "transcribe.action.start", fallback: "Start")
+        /// Translate full text
+        internal static let translateFullText = L10n.tr("Localizable", "transcribe.action.translate_full_text", fallback: "Translate full text")
       }
       internal enum Delete {
         /// This transcription job will be removed.
         internal static let confirmMessage = L10n.tr("Localizable", "transcribe.delete.confirm_message", fallback: "This transcription job will be removed.")
         /// Delete Transcription Job
         internal static let confirmTitle = L10n.tr("Localizable", "transcribe.delete.confirm_title", fallback: "Delete Transcription Job")
+      }
+      internal enum Diagnostic {
+        /// Failed segments: %@
+        internal static func failedSegments(_ p1: Any) -> String {
+          return L10n.tr("Localizable", "transcribe.diagnostic.failed_segments", String(describing: p1), fallback: "Failed segments: %@")
+        }
+        /// 30-second segments · prior context · auto-retry on failure
+        internal static let summary = L10n.tr("Localizable", "transcribe.diagnostic.summary", fallback: "30-second segments · prior context · auto-retry on failure")
+        /// Advanced details
+        internal static let toggle = L10n.tr("Localizable", "transcribe.diagnostic.toggle", fallback: "Advanced details")
       }
       internal enum DropArea {
         /// Drag and drop audio files here.
@@ -4796,8 +5362,12 @@ internal enum L10n {
         internal static let interrupted = L10n.tr("Localizable", "transcribe.error.interrupted", fallback: "Transcription was interrupted.")
         /// Unable to read the audio buffer.
         internal static let invalidAudioBuffer = L10n.tr("Localizable", "transcribe.error.invalid_audio_buffer", fallback: "Unable to read the audio buffer.")
+        /// Some segments failed.
+        internal static let partialFailure = L10n.tr("Localizable", "transcribe.error.partial_failure", fallback: "Some segments failed.")
         /// Transcription result is unavailable.
         internal static let resultUnavailable = L10n.tr("Localizable", "transcribe.error.result_unavailable", fallback: "Transcription result is unavailable.")
+        /// Translation result is unavailable.
+        internal static let translationUnavailable = L10n.tr("Localizable", "transcribe.error.translation_unavailable", fallback: "Translation result is unavailable.")
         /// Unsupported file format: %@.
         internal static func unsupportedFormat(_ p1: Any) -> String {
           return L10n.tr("Localizable", "transcribe.error.unsupported_format", String(describing: p1), fallback: "Unsupported file format: %@.")
@@ -4806,6 +5376,18 @@ internal enum L10n {
         internal static func unsupportedLanguage(_ p1: Any) -> String {
           return L10n.tr("Localizable", "transcribe.error.unsupported_language", String(describing: p1), fallback: "Unsupported recognition language: %@.")
         }
+      }
+      internal enum Export {
+        /// Bilingual Markdown
+        internal static let bilingualMarkdown = L10n.tr("Localizable", "transcribe.export.bilingual_markdown", fallback: "Bilingual Markdown")
+        /// Original
+        internal static let originalSection = L10n.tr("Localizable", "transcribe.export.original_section", fallback: "Original")
+        /// Translated Markdown
+        internal static let translatedMarkdown = L10n.tr("Localizable", "transcribe.export.translated_markdown", fallback: "Translated Markdown")
+        /// Translation
+        internal static let translatedSection = L10n.tr("Localizable", "transcribe.export.translated_section", fallback: "Translation")
+        /// Translated TXT
+        internal static let translatedTxt = L10n.tr("Localizable", "transcribe.export.translated_txt", fallback: "Translated TXT")
       }
       internal enum Feedback {
         /// Transcription completed.
@@ -4822,12 +5404,48 @@ internal enum L10n {
         internal static func jobsAdded(_ p1: Int) -> String {
           return L10n.tr("Localizable", "transcribe.feedback.jobs_added", p1, fallback: "%d transcription jobs added.")
         }
+        /// Transcription partially completed.
+        internal static let partiallyCompleted = L10n.tr("Localizable", "transcribe.feedback.partially_completed", fallback: "Transcription partially completed.")
         /// Saved transcription as note.
         internal static let savedAsNote = L10n.tr("Localizable", "transcribe.feedback.saved_as_note", fallback: "Saved transcription as note.")
+        /// Translation completed.
+        internal static let translationCompleted = L10n.tr("Localizable", "transcribe.feedback.translation_completed", fallback: "Translation completed.")
+        /// Translation failed.
+        internal static let translationFailed = L10n.tr("Localizable", "transcribe.feedback.translation_failed", fallback: "Translation failed.")
       }
       internal enum Header {
         /// Import audio and transcribe to text.
         internal static let subtitle = L10n.tr("Localizable", "transcribe.header.subtitle", fallback: "Import audio and transcribe to text.")
+      }
+      internal enum Metadata {
+        /// segments
+        internal static let segmentsUnit = L10n.tr("Localizable", "transcribe.metadata.segments_unit", fallback: "segments")
+      }
+      internal enum ProviderMode {
+        /// Native file transcription
+        internal static let nativeFile = L10n.tr("Localizable", "transcribe.provider_mode.native_file", fallback: "Native file transcription")
+        /// Not recommended for long files
+        internal static let notRecommended = L10n.tr("Localizable", "transcribe.provider_mode.not_recommended", fallback: "Not recommended for long files")
+        /// Segmented transcription
+        internal static let segmented = L10n.tr("Localizable", "transcribe.provider_mode.segmented", fallback: "Segmented transcription")
+      }
+      internal enum Queue {
+        /// No transcription jobs yet.
+        internal static let empty = L10n.tr("Localizable", "transcribe.queue.empty", fallback: "No transcription jobs yet.")
+        /// Processing segment %d / %d
+        internal static func processingSegment(_ p1: Int, _ p2: Int) -> String {
+          return L10n.tr("Localizable", "transcribe.queue.processing_segment", p1, p2, fallback: "Processing segment %d / %d")
+        }
+        /// Queue
+        internal static let title = L10n.tr("Localizable", "transcribe.queue.title", fallback: "Queue")
+      }
+      internal enum Results {
+        /// No result yet.
+        internal static let empty = L10n.tr("Localizable", "transcribe.results.empty", fallback: "No result yet.")
+        /// Result
+        internal static let title = L10n.tr("Localizable", "transcribe.results.title", fallback: "Result")
+        /// Translation
+        internal static let translationSection = L10n.tr("Localizable", "transcribe.results.translation_section", fallback: "Translation")
       }
       internal enum Status {
         /// Cancelled
@@ -4836,10 +5454,26 @@ internal enum L10n {
         internal static let completed = L10n.tr("Localizable", "transcribe.status.completed", fallback: "Completed")
         /// Failed
         internal static let failed = L10n.tr("Localizable", "transcribe.status.failed", fallback: "Failed")
+        /// Interrupted
+        internal static let interrupted = L10n.tr("Localizable", "transcribe.status.interrupted", fallback: "Interrupted")
+        /// Partially failed
+        internal static let partiallyFailed = L10n.tr("Localizable", "transcribe.status.partially_failed", fallback: "Partially failed")
         /// Running
         internal static let running = L10n.tr("Localizable", "transcribe.status.running", fallback: "Running")
         /// Waiting
         internal static let waiting = L10n.tr("Localizable", "transcribe.status.waiting", fallback: "Waiting")
+      }
+      internal enum StatusBar {
+        /// Idle
+        internal static let idle = L10n.tr("Localizable", "transcribe.status_bar.idle", fallback: "Idle")
+        /// %d jobs
+        internal static func jobsCount(_ p1: Int) -> String {
+          return L10n.tr("Localizable", "transcribe.status_bar.jobs_count", p1, fallback: "%d jobs")
+        }
+        /// Running segment %d / %d
+        internal static func running(_ p1: Int, _ p2: Int) -> String {
+          return L10n.tr("Localizable", "transcribe.status_bar.running", p1, p2, fallback: "Running segment %d / %d")
+        }
       }
     }
     internal enum Transcription {
@@ -4904,8 +5538,8 @@ internal enum L10n {
         internal static let closeAccessibility = L10n.tr("Localizable", "updates.prompt.close_accessibility", fallback: "Close")
         /// Close and remind me later
         internal static let closeHelp = L10n.tr("Localizable", "updates.prompt.close_help", fallback: "Close and remind me later")
-        /// Join the user group for tips, feedback, and new release updates. Open Help → Community support and scan the group QR code.
-        internal static let communityPromo = L10n.tr("Localizable", "updates.prompt.community_promo", fallback: "Join the user group for tips, feedback, and new release updates. Open Help → Community support and scan the group QR code.")
+        /// If you encounter any issues during use, please add WeChat: counterxing, or submit an issue on GitHub and leave your contact information. We will contact you as soon as possible and help you resolve the issue.
+        internal static let communityPromo = L10n.tr("Localizable", "updates.prompt.community_promo", fallback: "If you encounter any issues during use, please add WeChat: counterxing, or submit an issue on GitHub and leave your contact information. We will contact you as soon as possible and help you resolve the issue.")
         /// Current version:
         internal static let currentVersionPrefix = L10n.tr("Localizable", "updates.prompt.current_version_prefix", fallback: "Current version:")
         /// Unable to retrieve latest release right now, please try again later.

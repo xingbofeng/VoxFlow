@@ -169,7 +169,10 @@ private struct WorkbenchDetailView: View {
         case .vibeCoding:
             VibeCodingStatusView(viewModel: settingsViewModel)
         case .fileTranscription:
-            FileTranscriptionView(viewModel: fileTranscriptionViewModel)
+            FileTranscriptionView(viewModel: fileTranscriptionViewModel) { noteID in
+                notesViewModel.openNote(id: noteID)
+                route = .notes
+            }
         case .notes:
             NotesView(viewModel: notesViewModel)
         case .screenshotRecord:

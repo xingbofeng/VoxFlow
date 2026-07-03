@@ -30,6 +30,7 @@ struct DependencyContainer {
     let asrProviderRepository: any ASRProviderRepository
     let llmProviderRepository: any LLMProviderRepository
     let transcriptionJobRepository: any TranscriptionJobRepository
+    let transcriptionSegmentRepository: any TranscriptionSegmentRepository
     let noteRepository: any NoteRepository
     let screenshotRecordRepository: any ScreenshotRecordRepository
     let mediaRecordRepository: any MediaRecordRepository
@@ -130,6 +131,7 @@ struct DependencyContainer {
         let asrProviderRepository = SQLiteASRProviderRepository(databaseQueue: databaseQueue)
         let llmProviderRepository = SQLiteLLMProviderRepository(databaseQueue: databaseQueue)
         let transcriptionJobRepository = SQLiteTranscriptionJobRepository(databaseQueue: databaseQueue)
+        let transcriptionSegmentRepository = SQLiteTranscriptionSegmentRepository(databaseQueue: databaseQueue)
         let noteRepository = SQLiteNoteRepository(databaseQueue: databaseQueue)
         let screenshotRecordRepository = SQLiteScreenshotRecordRepository(databaseQueue: databaseQueue)
         let mediaRecordRepository = SQLiteMediaRecordRepository(
@@ -187,6 +189,7 @@ struct DependencyContainer {
             asrProviderRepository: asrProviderRepository,
             llmProviderRepository: llmProviderRepository,
             transcriptionJobRepository: transcriptionJobRepository,
+            transcriptionSegmentRepository: transcriptionSegmentRepository,
             noteRepository: noteRepository,
             screenshotRecordRepository: screenshotRecordRepository,
             mediaRecordRepository: mediaRecordRepository,

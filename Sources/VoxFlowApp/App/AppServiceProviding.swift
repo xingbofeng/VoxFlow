@@ -13,6 +13,7 @@ protocol AppServiceProviding {
     var asrProviderRepository: any ASRProviderRepository { get }
     var llmProviderRepository: any LLMProviderRepository { get }
     var transcriptionJobRepository: any TranscriptionJobRepository { get }
+    var transcriptionSegmentRepository: any TranscriptionSegmentRepository { get }
     var noteRepository: any NoteRepository { get }
     var screenshotRecordRepository: any ScreenshotRecordRepository { get }
     var mediaRecordRepository: any MediaRecordRepository { get }

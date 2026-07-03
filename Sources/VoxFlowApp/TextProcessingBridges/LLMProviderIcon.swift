@@ -145,6 +145,8 @@ enum LLMProviderIconResource {
 enum AgentProviderIconResource {
     static func resourceName(providerID: String) -> String? {
         switch providerID {
+        case "voxflow-agent":
+            return "LLMProviderAINative"
         case "codex":
             return "AgentProviderCodex"
         case "opencode":

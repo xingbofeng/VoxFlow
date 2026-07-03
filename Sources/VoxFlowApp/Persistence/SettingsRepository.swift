@@ -33,7 +33,7 @@ final class SQLiteSettingsRepository: SettingsRepository {
             )
             try statement.bind(key, at: 1)
             guard try statement.step() else {
-                AppLogger.database.warning("设置不存在：key=\(key)")
+                AppLogger.database.debug("设置不存在，使用默认值：key=\(key)")
                 return nil
             }
             return statement.columnString(at: 0)

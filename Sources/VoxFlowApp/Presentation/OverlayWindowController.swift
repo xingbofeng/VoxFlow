@@ -150,6 +150,7 @@ final class OverlayWindowController: NSWindowController {
     private var agentRuntimeElapsedTimer: Timer?
     private var agentRuntimeStatusBaseText: String?
     private var agentRuntimeDetailBaseText: String?
+    private var windowFrameUpdateCount = 0
 
     var onAgentCandidateSelected: ((String, String) -> Void)?
     var onAgentDefaultOutputSelected: ((String) -> Void)?
@@ -536,8 +537,19 @@ final class OverlayWindowController: NSWindowController {
         let y = screenFrame.minY + OverlayLayout.bottomOffset
 
         let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
+        guard !Self.frame(window.frame, approximatelyEquals: frame) else {
+            return
+        }
         logger.debug("overlay_window_size_update width=\(windowWidth) height=\(windowHeight) textWidth=\(textWidth) textHeight=\(textHeight)")
+        windowFrameUpdateCount += 1
         window.setFrame(frame, display: true, animate: false)
+    }
+
+    private func updateStreamingWindowSize() {
+        updateWindowSize(
+            textWidth: OverlayLayout.streamingTextWidth,
+            textHeight: OverlayLayout.streamingTextHeight
+        )
     }
 
     private func updateWindowFrame(width: CGFloat, height: CGFloat) {
@@ -1230,8 +1242,7 @@ final class OverlayWindowController: NSWindowController {
         overlayClickGestureRecognizer.isEnabled = false
         window.ignoresMouseEvents = true
 
-        // Calculate initial size for empty text
-        updateWindowSize(textWidth: OverlayLayout.minimumTextWidth)
+        updateStreamingWindowSize()
 
         waveformView.isHidden = false
         waveformView.reset()
@@ -1331,9 +1342,12 @@ final class OverlayWindowController: NSWindowController {
         let visibleText = OverlayLayout.visibleTranscriptionText(displayText)
         textLabel.stringValue = visibleText
 
-        let textSize = measuredOverlayTextSize(for: visibleText)
-
-        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
+        if isRefining {
+            let textSize = measuredOverlayTextSize(for: visibleText)
+            updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
+        } else {
+            updateStreamingWindowSize()
+        }
     }
 
     func updateRMS(_ rms: Float) {
@@ -1566,6 +1580,14 @@ final class OverlayWindowController: NSWindowController {
 
     var currentStatusText: String {
         statusLabel.stringValue
+    }
+
+    var entranceAnimationForTesting: CAAnimation? {
+        visualEffectView.layer?.animation(forKey: "voiceinput.entrance")
+    }
+
+    var windowFrameUpdateCountForTesting: Int {
+        windowFrameUpdateCount
     }
 
     // MARK: - Agent Compose Status
@@ -1834,11 +1856,45 @@ final class OverlayWindowController: NSWindowController {
     /// Called during the .generating stage to show partial text to the user.
     func updateStreamingText(_ partialText: String) {
         let displayText = OverlayLayout.visibleTranscriptionText(partialText)
-        textLabel.stringValue = displayText
-        let textSize = measuredOverlayTextSize(for: displayText)
-        updateWindowSize(textWidth: textSize.width, textHeight: textSize.height)
+        let textChanged = textLabel.stringValue != displayText
+        if textChanged {
+            textLabel.stringValue = displayText
+        }
+        updateStreamingWindowSize()
         guard let window else { return }
-        present(window)
+        if window.isVisible {
+            if textChanged {
+                window.displayIfNeeded()
+            }
+        } else {
+            present(window)
+        }
+    }
+
+    func updateNotesStreamingText(_ partialText: String) {
+        let displayText = OverlayLayout.visibleNotesStreamingText(partialText)
+        let textChanged = textLabel.stringValue != displayText
+        if textChanged {
+            textLabel.stringValue = displayText
+        }
+        updateStreamingWindowSize()
+        guard let window else { return }
+        if window.isVisible {
+            if textChanged {
+                window.displayIfNeeded()
+            }
+        } else {
+            present(window)
+        }
+    }
+}
+
+private extension OverlayWindowController {
+    static func frame(_ lhs: NSRect, approximatelyEquals rhs: NSRect) -> Bool {
+        abs(lhs.origin.x - rhs.origin.x) < 0.5
+            && abs(lhs.origin.y - rhs.origin.y) < 0.5
+            && abs(lhs.width - rhs.width) < 0.5
+            && abs(lhs.height - rhs.height) < 0.5
     }
 }
 

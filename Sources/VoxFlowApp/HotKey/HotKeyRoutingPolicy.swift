@@ -237,6 +237,10 @@ enum HotKeyRoutingPolicy {
                 HotKeyRoutingPolicyLogger.log.debug("HotKeyRoutingPolicy decision=ignore event=press action=\(actionName)")
                 return .ignore
             }
+            if action == .dictation, notesState.isActive, notesState.isRecording {
+                HotKeyRoutingPolicyLogger.log.debug("HotKeyRoutingPolicy decision=finishNotesRecording event=press")
+                return .finishNotesRecording
+            }
             if action == .dictation, notesState.shouldCaptureHotKey {
                 HotKeyRoutingPolicyLogger.log.debug("HotKeyRoutingPolicy decision=startNotesRecording event=press")
                 return .startNotesRecording

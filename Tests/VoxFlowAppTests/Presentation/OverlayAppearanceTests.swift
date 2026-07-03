@@ -40,6 +40,73 @@ final class OverlayAppearanceTests: XCTestCase {
         XCTAssertEqual(controller.window?.alphaValue, 1.0)
     }
 
+    func testStreamingTextKeepsHUDFrameStable() throws {
+        let controller = OverlayWindowController()
+        controller.show()
+        let initialFrame = try XCTUnwrap(controller.window?.frame)
+        XCTAssertEqual(initialFrame.width, OverlayLayout.windowWidth(textWidth: OverlayLayout.streamingTextWidth))
+        XCTAssertLessThanOrEqual(initialFrame.width, 430)
+
+        controller.updateStreamingText("短")
+        var currentFrame = try XCTUnwrap(controller.window?.frame)
+        XCTAssertEqual(currentFrame.origin.x, initialFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.origin.y, initialFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.width, initialFrame.width, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.height, initialFrame.height, accuracy: 0.5)
+
+        controller.updateStreamingText("这是一段很长的实时识别文本，会不断增长，也可能被 ASR partial 改短再改长。")
+        currentFrame = try XCTUnwrap(controller.window?.frame)
+        XCTAssertEqual(currentFrame.origin.x, initialFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.origin.y, initialFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.width, initialFrame.width, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.height, initialFrame.height, accuracy: 0.5)
+    }
+
+    func testStreamingTextDoesNotReplayHUDEntranceAnimation() throws {
+        let controller = OverlayWindowController()
+        controller.show()
+        let initialAnimation = try XCTUnwrap(controller.entranceAnimationForTesting)
+
+        controller.updateStreamingText("第一段 partial")
+        let firstStreamingAnimation = try XCTUnwrap(controller.entranceAnimationForTesting)
+        controller.updateStreamingText("第二段 partial")
+        let secondStreamingAnimation = try XCTUnwrap(controller.entranceAnimationForTesting)
+
+        XCTAssertTrue(firstStreamingAnimation === initialAnimation)
+        XCTAssertTrue(secondStreamingAnimation === initialAnimation)
+    }
+
+    func testNotesStreamingTextKeepsHUDFrameStableAndDoesNotShowEllipsis() throws {
+        let controller = OverlayWindowController()
+        controller.show()
+        let initialFrame = try XCTUnwrap(controller.window?.frame)
+        let text = String(repeating: "前", count: 160) + "当前内容"
+
+        controller.updateNotesStreamingText(text)
+
+        let currentFrame = try XCTUnwrap(controller.window?.frame)
+        XCTAssertEqual(currentFrame.origin.x, initialFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.origin.y, initialFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.width, initialFrame.width, accuracy: 0.5)
+        XCTAssertEqual(currentFrame.height, initialFrame.height, accuracy: 0.5)
+        XCTAssertFalse(controller.currentText.hasPrefix("…"))
+        XCTAssertFalse(controller.currentText.contains("..."))
+        XCTAssertTrue(controller.currentText.hasSuffix("当前内容"))
+    }
+
+    func testRepeatedStreamingTextDoesNotReapplySameWindowFrame() {
+        let controller = OverlayWindowController()
+        controller.show()
+        let initialFrameUpdateCount = controller.windowFrameUpdateCountForTesting
+
+        controller.updateStreamingText("同一段 partial")
+        controller.updateStreamingText("同一段 partial")
+        controller.updateNotesStreamingText("同一段 partial")
+        controller.updateNotesStreamingText("同一段 partial")
+
+        XCTAssertEqual(controller.windowFrameUpdateCountForTesting, initialFrameUpdateCount)
+    }
+
     func testTemporaryTimeoutMessageDismissesHUD() async throws {
         let controller = OverlayWindowController()
         controller.showTemporaryMessage("请求超时", duration: 0.01)
