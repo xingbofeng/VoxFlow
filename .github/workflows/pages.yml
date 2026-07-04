@@ -32,21 +32,60 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Check deployed GitHub Pages release metadata
+        id: deployed_pages
+        run: |
+          set -euo pipefail
+          expected_version="$(python3 - <<'PY'
+          import json
+          with open("docs/release.json", "r", encoding="utf-8") as handle:
+              print(json.load(handle)["version"])
+          PY
+          )"
+          expected_download_url="$(python3 - <<'PY'
+          import json
+          with open("docs/release.json", "r", encoding="utf-8") as handle:
+              print(json.load(handle)["downloadURL"])
+          PY
+          )"
+          if curl -fsSL --max-time 20 "https://xingbofeng.github.io/VoxFlow/release.json" -o /tmp/pages-release.json &&
+            python3 - /tmp/pages-release.json "${expected_version}" "${expected_download_url}" <<'PY'
+          import json
+          import sys
+
+          path, expected_version, expected_download_url = sys.argv[1:4]
+          with open(path, "r", encoding="utf-8") as handle:
+              release = json.load(handle)
+          if release.get("version") != expected_version:
+              raise SystemExit(1)
+          if release.get("downloadURL") != expected_download_url:
+              raise SystemExit(1)
+          PY
+          then
+            echo "current=true" >> "${GITHUB_OUTPUT}"
+            echo "GitHub Pages already publishes ${expected_version}"
+          else
+            echo "current=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Configure Pages
+        if: ${{ steps.deployed_pages.outputs.current != 'true' }}
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: ${{ steps.deployed_pages.outputs.current != 'true' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: .build/landing-site
 
       - name: Deploy landing page to GitHub Pages
+        if: ${{ steps.deployed_pages.outputs.current != 'true' }}
         id: deployment
         uses: actions/deploy-pages@v4
 
       - name: Verify GitHub Pages release metadata
         run: |
           set -euo pipefail
-          page_url="${{ steps.deployment.outputs.page_url }}"
+          page_url="${{ steps.deployment.outputs.page_url || 'https://xingbofeng.github.io/VoxFlow/' }}"
           curl -fsS "${page_url%/}/release.json" | python3 -m json.tool >/dev/null
           curl -fsS "${page_url%/}/script.js" >/dev/null
