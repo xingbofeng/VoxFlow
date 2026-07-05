@@ -157,6 +157,10 @@
 "app.learning.undo_success" = "실행 취소 완료.";
 "app.learning.undo_unchanged" = "취소할 변경 사항이 없습니다.";
 "app.output.input_failed" = "입력에 실패했습니다. 다시 시도하세요. 계속 발생하면 권한을 확인하세요.";
+"app.startup.storage_failure.continue_temporary" = "임시로 계속";
+"app.startup.storage_failure.message" = "VoxFlow가 영구 저장소를 열 수 없습니다: %@\n\n이번 세션에서는 임시 저장소로 계속할 수 있지만 새 기록, 자산, 설정은 재시작 후 손실될 수 있습니다.";
+"app.startup.storage_failure.quit" = "종료";
+"app.startup.storage_failure.title" = "저장소를 사용할 수 없음";
 "app.permissions.accessibility_subtitle_format" = "VoxFlow는 전역 단축키를 모니터링하고 실행하려면 접근성 권한이 필요합니다.";
 "app.permissions.accessibility_title" = "접근성";
 "app.permissions.check_title" = "권한 상태";
@@ -983,7 +987,7 @@
 "model.llm_provider.field_name" = "이름";
 "model.llm_provider.field_name_placeholder" = "제공자 이름";
 "model.llm_provider.field_service_url" = "서비스 URL";
-"model.llm_provider.keychain_hint" = "API 키는 키체인에 저장됩니다.";
+"model.llm_provider.keychain_hint" = "API keys are stored in the local credentials file.";
 "model.llm_provider.get_api_key" = "API 키 받기";
 "model.llm_provider.label_address" = "주소";
 "model.llm_provider.label_model" = "모델";

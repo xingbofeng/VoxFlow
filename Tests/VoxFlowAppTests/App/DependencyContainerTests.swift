@@ -81,7 +81,7 @@ final class DependencyContainerTests: XCTestCase {
         )
     }
 
-    func testDefaultCredentialStoreUsesAppLocalApplicationSupportFile() throws {
+    func testDefaultCredentialStoreUsesLocalCredentialsFile() throws {
         let paths = ApplicationSupportPaths(
             applicationSupportDirectory: FileManager.default.temporaryDirectory
                 .appendingPathComponent("DependencyContainerTests-\(UUID().uuidString)", isDirectory: true)
@@ -90,6 +90,12 @@ final class DependencyContainerTests: XCTestCase {
         let credentialStore = DependencyContainer.defaultCredentialStore(paths: paths)
 
         XCTAssertTrue(credentialStore is AppLocalCredentialStore)
+    }
+
+    func testInMemoryContainerKeepsCredentialsInTemporaryLocalStore() throws {
+        let container = try DependencyContainer.inMemory()
+
+        XCTAssertTrue(container.credentialStore is AppLocalCredentialStore)
     }
 
     func testStartupCleanupRemovesStaleScreenRecordingTemporaryFiles() throws {

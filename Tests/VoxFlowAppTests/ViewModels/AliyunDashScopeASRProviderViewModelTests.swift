@@ -61,7 +61,6 @@ final class AliyunDashScopeASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(zhHans.contains("DashScope 实时语音识别 WebSocket"))
         XCTAssertTrue(zhHans.contains("默认使用官方推荐语音识别模型"))
         XCTAssertTrue(zhHans.contains("访问密钥保存在本地凭据文件"))
-        XCTAssertFalse(source.contains("访问密钥保存在系统钥匙串"))
     }
 }
 

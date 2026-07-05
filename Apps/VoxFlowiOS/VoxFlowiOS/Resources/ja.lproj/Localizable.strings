@@ -1,0 +1,100 @@
+/* VoxFlowiOS — 日本語 */
+
+/* Tabs */
+"tab.dictation" = "ディクテーション";
+"tab.diagnostics" = "診断";
+"tab.settings" = "設定";
+
+/* Providers */
+"provider.apple_speech" = "Apple 音声認識";
+"provider.tencent" = "Tencent Cloud リアルタイム ASR";
+"provider.aliyun" = "Aliyun DashScope";
+"provider.volcengine" = "Volcengine リアルタイム ASR";
+"provider.summary.apple_speech" = "システム内蔵のベースライン。音声認識権限が必要です。LiveContainer 環境では制限される場合があります。";
+"provider.summary.tencent" = "Tencent Cloud のリアルタイム ASR。AppID、SecretId、SecretKey が必要です。";
+"provider.summary.aliyun" = "Aliyun DashScope のリアルタイム ASR。API Key が必要です。";
+"provider.summary.volcengine" = "Volcengine のリアルタイム ASR。App ID、Access Token、Secret Key が必要です。";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "ディクテーション";
+"dictation.current_service" = "現在のサービス";
+"dictation.change" = "変更";
+"dictation.language_label" = "言語";
+"dictation.live_text" = "リアルタイム文字";
+"dictation.live_placeholder" = "リアルタイム文字がここに表示されます。";
+"dictation.start" = "開始";
+"dictation.stop" = "停止";
+"dictation.start_again" = "もう一度開始";
+"dictation.requesting_permission" = "マイク権限を要求中…";
+"dictation.transcribing" = "認識中…";
+"dictation.copy" = "コピー";
+"dictation.share" = "共有";
+"dictation.clear" = "クリア";
+"dictation.copied" = "コピーしました";
+"dictation.final_text" = "最終文字";
+
+/* Settings */
+"settings.title" = "設定";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR サービス";
+"settings.provider.apple_speech_hint" = "Apple 音声認識はシステム認識エンジンを使用します。資格情報不要ですが、音声認識権限が必要です。";
+"settings.language_section" = "言語";
+"settings.language" = "認識言語";
+"settings.credentials_section" = "クラウド資格情報";
+"settings.credentials_not_set" = "未設定";
+"settings.credentials_save" = "保存";
+"settings.credentials_clear" = "クリア";
+"settings.credentials_saved_toast" = "保存しました";
+"settings.credentials_warning" = "V1 の資格情報は平文でローカルファイルに保存され、個人テスト用のみです。高権限の本番キーは使用しないでください。";
+"settings.about_section" = "情報";
+"settings.about_version" = "バージョン";
+"settings.about_env" = "実行環境";
+"settings.about_env_simulator" = "iOS シミュレータ";
+"settings.about_env_device" = "iOS 実機";
+"settings.about_env_hint" = "シミュレータ、LiveContainer、実機で診断とプレビュー方法が異なります。";
+
+/* Diagnostics */
+"diagnostics.title" = "診断";
+"diagnostics.providers_section" = "Provider の可用性";
+"diagnostics.env_section" = "実行環境";
+"diagnostics.recorder_section" = "レコーダー";
+"diagnostics.timeline_section" = "タイムライン";
+"diagnostics.timeline_empty" = "イベントはまだありません。";
+"diagnostics.recorder_deactivation_error" = "非アクティブ化エラー";
+"diagnostics.recorder_no_error" = "レコーダーエラーは記録されていません。";
+"diagnostics.env_platform" = "プラットフォーム";
+"diagnostics.env_platform_simulator" = "シミュレータ";
+"diagnostics.env_platform_device" = "実機";
+"diagnostics.env_container" = "コンテナ";
+"diagnostics.env_container_native" = "ネイティブ App";
+"diagnostics.env_container_livecontainer" = "LiveContainer（ゲスト App）";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.availability.ready" = "利用可能";
+"diagnostics.availability.missing_credentials" = "資格情報が不足しています。設定で入力してください。";
+"diagnostics.availability.permission_denied" = "権限が拒否されました。システム設定で有効にしてください。";
+"diagnostics.availability.permission_not_determined" = "権限がまだ要求されていません。";
+"diagnostics.availability.env_limited" = "実行環境により制限されています。";
+
+/* Timeline */
+"timeline.start_requested" = "開始を要求しました";
+"timeline.stop_requested" = "停止を要求しました";
+"timeline.interruption" = "音声割り込みが開始されました";
+"timeline.route_change" = "音声ルート変更——入力デバイスが利用不可";
+"timeline.permission_denied" = "マイク権限が拒否されました";
+"timeline.engine_build_failed" = "Engine のビルド失敗：%@";
+"timeline.final_received" = "最終文字を受信しました";
+"timeline.failed" = "失敗：%@";
+"timeline.copied" = "クリップボードにコピーしました";
+"timeline.credentials_saved" = "%@ の資格情報を保存しました";
+"timeline.credentials_cleared" = "%@ の資格情報をクリアしました";
+
+/* Errors */
+"error.interruption" = "録音がシステムによって中断されました。開始をタップして再試行してください。";
+"error.route_change" = "入力デバイスが切断されました。再接続して再試行してください。";

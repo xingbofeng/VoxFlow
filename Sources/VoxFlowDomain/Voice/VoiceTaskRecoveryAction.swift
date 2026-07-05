@@ -50,7 +50,7 @@ public enum VoiceTaskRecoveryPolicy {
         switch kind {
         case .inserted, .copied, .targetChanged, .permissionDenied:
             return true
-        case .failed, .cancelled:
+        case .failed, .handledExternally, .cancelled:
             return false
         }
     }

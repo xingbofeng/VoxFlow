@@ -1,4 +1,5 @@
 import AVFoundation
+import VoxFlowASRRuntime
 import XCTest
 @testable import VoxFlowApp
 

@@ -10,14 +10,14 @@ extension Notification.Name {
 /// 恢复默认设置服务（OpenSpec `restore-default-settings`）。
 ///
 /// 集中编排 settings repository、风格 repository、快捷键/语言/ASR/开机启动等
-/// 偏好 store，按 allowlist 精确重置「受管偏好」，并保留 Provider 配置、Keychain
-/// 凭证、历史/词汇/自定义风格等用户资产。无 SwiftUI 依赖，便于用 repository fake
+/// 偏好 store，按 allowlist 精确重置「受管偏好」，并保留 Provider 配置、
+/// 凭据、历史/词汇/自定义风格等用户资产。无 SwiftUI 依赖，便于用 repository fake
 /// 或临时 SQLite 做边界测试。
 ///
 /// 设计约束（见 `openspec/changes/restore-default-settings/design.md`）：
 /// - 禁止 blanket 删除 `app_settings` 全表或按前缀删除未知 key；只删除受管 key。
 /// - 内置风格按 `BuiltInStyleCatalog` 当前版本覆盖；自定义风格保留。
-/// - 界面语言、Provider 默认选择、Keychain 凭证不得触碰。
+/// - 界面语言、Provider 默认选择、Provider 凭据不得触碰。
 @MainActor
 final class SettingsDefaultRestoreService {
     private let settingsRepository: any SettingsRepository
@@ -73,7 +73,7 @@ final class SettingsDefaultRestoreService {
         // 3. 识别语言恢复默认（界面语言保留）。
         languageManager.setLanguage(.default)
 
-        // 4. ASR 引擎/模型偏好恢复默认；Provider 凭证由 Keychain 保留。
+        // 4. ASR 引擎/模型偏好恢复默认；Provider 凭据保留。
         asrSettingsResetter?.resetASRSettingsToDefaults()
 
         // 5. 开机启动恢复默认（关闭）。settingsRepository 中的镜像 key 已在 allowlist 中删除。

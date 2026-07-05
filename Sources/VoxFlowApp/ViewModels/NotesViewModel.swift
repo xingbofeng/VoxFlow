@@ -585,6 +585,8 @@ final class NotesViewModel: ObservableObject {
             return L10n.localize("notes.error.output_cancelled", comment: "Recording output cancelled")
         case .copied:
             return L10n.localize("notes.error.output_not_written", comment: "Recording text not written to note")
+        case .handledExternally:
+            return L10n.localize("notes.error.output_not_written", comment: "Recording text not written to note")
         case .injected:
             return L10n.localize("notes.error.output_failed", comment: "Recording output failed")
         }

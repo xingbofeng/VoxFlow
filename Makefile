@@ -15,6 +15,7 @@ VOXFLOW_DEVELOPER_DIR ?= $(HOME)/Applications/Xcode-16.4.0.app/Contents/Develope
 ifneq ($(wildcard $(VOXFLOW_DEVELOPER_DIR)),)
 export DEVELOPER_DIR := $(VOXFLOW_DEVELOPER_DIR)
 endif
+ACTIVE_DEVELOPER_DIR := $(if $(DEVELOPER_DIR),$(DEVELOPER_DIR),$(shell xcode-select -p))
 SWIFT := xcrun swift
 SWIFT_PACKAGE_FLAGS := --scratch-path $(SWIFTPM_BUILD_DIR)
 ARM_RELEASE_BIN_DIR := $(SWIFTPM_BUILD_DIR)/arm64-apple-macosx/release
@@ -67,7 +68,7 @@ export SENTRY_PROJECT
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup gen-l10n lint i18n-check
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check ios-gen-project ios-build-sim ios-build-device ios-run-sim ios-ipa ios-clean
 
 all: build
 
@@ -276,11 +277,15 @@ apply-launch-env:
 	done
 
 prelaunch-cleanup:
-	@echo "🧽 Cleaning stale local app registration..."
+	@echo "🧽 Stopping stale local app processes..."
 	@pkill -x "$(APP_NAME)" 2>/dev/null || true
 	@pkill -x "$(SWIFT_EXECUTABLE)" 2>/dev/null || true
 	@pkill -f "$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve" 2>/dev/null || true
 	@pkill -f "$(CURDIR)/$(DEV_BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve" 2>/dev/null || true
+	@rm -rf ".build/$(APP_NAME).app"
+
+clean-ls-cache:
+	@echo "🧽 Cleaning LaunchServices and status item cache..."
 	@for app in \
 		"$(BUNDLE_DIR)" \
 		"$(DEV_BUNDLE_DIR)" \
@@ -303,6 +308,8 @@ prelaunch-cleanup:
 	done
 	@killall cfprefsd 2>/dev/null || true
 	@killall ControlCenter 2>/dev/null || true
+
+reset-dev-state: prelaunch-cleanup clean-ls-cache
 
 install: build
 	@echo "📥 Installing to $(INSTALL_DIR)..."
@@ -388,3 +395,88 @@ clean:
 
 debug: prepare-runtime
 	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) -c debug -Xswiftc -warnings-as-errors
+
+# ─────────────────────────────────────────────────────────────────────────────
+# iOS LiveContainer V1 预览：Simulator 构建运行 + LiveContainer IPA 打包
+#
+# 详细预览路径、限制和验收说明见 docs/ios-preview.md。
+# ─────────────────────────────────────────────────────────────────────────────
+
+IOS_APP_DIR := Apps/VoxFlowiOS
+IOS_PROJECT := $(IOS_APP_DIR)/VoxFlowiOS.xcodeproj
+IOS_SCHEME := VoxFlowiOS
+IOS_BUNDLE_ID := com.voxflow.ios
+IOS_BUILD_DIR := $(BUILD_DIR)/ios
+IOS_IPA_DIR := dist/ios
+IOS_IPA := $(IOS_IPA_DIR)/VoxFlowiOS.ipa
+IOS_SIMULATOR_NAME ?= iPhone 16 Pro
+IOS_SIMULATOR_OS ?= 18.5
+IOS_DEVICE_CONFIGURATION ?= Release
+# iOS 与 macOS 默认使用同一套 Xcode，避免同一工作区下不同构建目标暗中切换工具链。
+# 如需切换 Xcode，请统一覆盖 VOXFLOW_DEVELOPER_DIR，例如：
+#   make ios-run-sim VOXFLOW_DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+IOS_DEVELOPER_DIR ?= $(ACTIVE_DEVELOPER_DIR)
+
+ios-gen-project:
+	@command -v xcodegen >/dev/null 2>&1 || (echo "xcodegen not found. Run: brew install xcodegen" && exit 1)
+	cd "$(IOS_APP_DIR)" && xcodegen generate 2>&1 | sed 's/^/[xcodegen] /'
+
+# 生成 Xcode 项目（若不存在）后在 iOS Simulator 上构建
+ios-build-sim: ios-gen-project
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild \
+		-project "$(IOS_PROJECT)" \
+		-scheme "$(IOS_SCHEME)" \
+		-configuration Debug \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		build
+
+# 为 LiveContainer IPA 构建设备平台未签名 .app。不要复用 Simulator 产物；
+# 真机/LiveContainer 需要 iphoneos binary，而不是 iphonesimulator binary。
+ios-build-device: ios-gen-project
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@rm -rf "$(IOS_BUILD_DIR)/DerivedData/Build/Products/$(IOS_DEVICE_CONFIGURATION)-iphoneos/$(IOS_SCHEME).app"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild \
+		-project "$(IOS_PROJECT)" \
+		-scheme "$(IOS_SCHEME)" \
+		-configuration "$(IOS_DEVICE_CONFIGURATION)" \
+		-destination "generic/platform=iOS" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		CODE_SIGNING_ALLOWED=NO \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGN_IDENTITY="" \
+		build
+
+# 在默认或指定 Simulator 上安装并启动 App
+ios-run-sim: ios-build-sim
+	@echo "→ 选择 Simulator（$(IOS_SIMULATOR_NAME), OS $(IOS_SIMULATOR_OS)）"
+	$(eval SIMULATOR_UDID := $(shell DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl list devices available -j | python3 -c "import sys,json;d=json.load(sys.stdin);rts=[(r['udid'],r['name']) for os,runtime in d['devices'].items() for r in runtime if r.get('isAvailable')];name='$(IOS_SIMULATOR_NAME)';match=[u for u,n in rts if n==name];print(match[0] if match else (rts[0][0] if rts else ''))"))
+	@test -n "$(SIMULATOR_UDID)" || (echo "未找到可用 Simulator" && exit 1)
+	@echo "→ 启动 Simulator: $(SIMULATOR_UDID)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl bootstatus "$(SIMULATOR_UDID)" -b
+	@APP_PATH=$$(find "$(IOS_BUILD_DIR)/DerivedData/Build/Products/Debug-iphonesimulator" -name "$(IOS_SCHEME).app" -type d | head -1); \
+		test -n "$$APP_PATH" || (echo "未找到构建产物 VoxFlowiOS.app" && exit 1); \
+		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl install "$(SIMULATOR_UDID)" "$$APP_PATH"; \
+		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl launch "$(SIMULATOR_UDID)" "$(IOS_BUNDLE_ID)"; \
+		open -a Simulator
+
+# 打包未签名 IPA 供 LiveContainer 导入。
+# LiveContainer 接受未签名 IPA；本目标不做代码签名、不做 entitlements 处理。
+ios-ipa: ios-build-device
+	@mkdir -p "$(IOS_IPA_DIR)"
+	@rm -f "$(IOS_IPA)"
+	@rm -rf "$(IOS_BUILD_DIR)/Payload"
+	@mkdir -p "$(IOS_BUILD_DIR)/Payload"
+	@APP_PATH=$$(find "$(IOS_BUILD_DIR)/DerivedData/Build/Products/$(IOS_DEVICE_CONFIGURATION)-iphoneos" -name "$(IOS_SCHEME).app" -type d | head -1); \
+		test -n "$$APP_PATH" || (echo "未找到构建产物 VoxFlowiOS.app" && exit 1); \
+		cp -R "$$APP_PATH" "$(IOS_BUILD_DIR)/Payload/"; \
+		cd "$(IOS_BUILD_DIR)" && zip -r -q "$(CURDIR)/$(IOS_IPA)" Payload; \
+		echo "✅ IPA 已生成: $(IOS_IPA)"
+	@echo "→ 将 IPA 导入 LiveContainer：参见 docs/ios-preview.md"
+
+ios-clean:
+	@rm -rf "$(IOS_PROJECT)" "$(IOS_BUILD_DIR)" "$(IOS_IPA_DIR)"
+	@echo "✅ iOS 构建产物已清理"

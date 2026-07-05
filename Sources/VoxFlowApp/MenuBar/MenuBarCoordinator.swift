@@ -1,4 +1,5 @@
 import AppKit
+import VoxFlowASRRuntime
 
 @MainActor
 struct MenuBarActions {

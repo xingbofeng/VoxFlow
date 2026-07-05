@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowASRRuntime
 import VoxFlowModelStore
 import VoxFlowProviderFunASR
 import VoxFlowProviderQwen3
@@ -84,6 +85,15 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertFalse(manager.isQwen3ModelAvailable)
         XCTAssertFalse(manager.canSelectEngine(.qwen3))
         XCTAssertTrue(manager.canSelectEngine(.apple))
+    }
+
+    func testSelectEngineDoesNotPersistUnavailableProvider() {
+        XCTAssertEqual(manager.selectedEngineType, .apple)
+
+        XCTAssertFalse(manager.selectEngine(.qwen3))
+
+        XCTAssertEqual(manager.selectedEngineType, .apple)
+        XCTAssertEqual(defaults.string(forKey: "ASRManager.selectedEngineType"), nil)
     }
 
     func testQwen3LoadablePathIsNotDiscoverableWithoutLifecycleReadyState() throws {
@@ -486,12 +496,11 @@ final class ASRManagerTests: XCTestCase {
         XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
     }
 
-    func testSelectingQwen3WithoutModelKeepsSelectionAndFallsBackAtRuntime() {
+    func testSelectingQwen3WithoutModelKeepsCurrentSelection() {
         XCTAssertFalse(manager.selectEngine(.qwen3))
-        XCTAssertEqual(manager.selectedEngineType, .qwen3)
+        XCTAssertEqual(manager.selectedEngineType, .apple)
         XCTAssertEqual(manager.effectiveSelectedEngineType, .apple)
-        XCTAssertEqual(manager.selectionFallbackNotice?.selectedEngineType, .qwen3)
-        XCTAssertEqual(manager.selectionFallbackNotice?.effectiveEngineType, .apple)
+        XCTAssertNil(manager.selectionFallbackNotice)
     }
 
     func testQwen3DownloadURLsUseConfiguredHuggingFaceModels() {

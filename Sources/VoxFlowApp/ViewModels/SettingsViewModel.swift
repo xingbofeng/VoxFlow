@@ -1525,7 +1525,7 @@ final class SettingsViewModel: ObservableObject {
     /// 恢复默认设置（OpenSpec `restore-default-settings`）。
     ///
     /// 委托 `SettingsDefaultRestoreService` 按 allowlist 精确重置受管偏好，保留
-    /// Provider 配置、Keychain 凭证、历史/词汇/自定义风格等用户资产；成功后重新加载
+    /// Provider 配置、凭据、历史/词汇/自定义风格等用户资产；成功后重新加载
     /// 设置状态，广播 `.settingsDidRestoreDefaults` 让风格等 UI 刷新，并展示反馈。
     /// 旧名 `resetSettings()` 保留以兼容既有调用与测试。
     func resetSettings() throws {

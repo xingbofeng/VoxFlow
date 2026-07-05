@@ -1,0 +1,100 @@
+/* VoxFlowiOS — English */
+
+/* Tabs */
+"tab.dictation" = "Dictation";
+"tab.diagnostics" = "Diagnostics";
+"tab.settings" = "Settings";
+
+/* Providers */
+"provider.apple_speech" = "Apple Speech";
+"provider.tencent" = "Tencent Cloud Realtime ASR";
+"provider.aliyun" = "Aliyun DashScope";
+"provider.volcengine" = "Volcengine Realtime ASR";
+"provider.summary.apple_speech" = "On-device baseline. Requires Speech recognition permission. May be limited inside LiveContainer.";
+"provider.summary.tencent" = "Cloud realtime ASR via Tencent Cloud. Requires AppID, SecretId and SecretKey.";
+"provider.summary.aliyun" = "Cloud realtime ASR via Aliyun DashScope. Requires API Key.";
+"provider.summary.volcengine" = "Cloud realtime ASR via Volcengine. Requires App ID, Access Token and Secret Key.";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "Dictation";
+"dictation.current_service" = "Current service";
+"dictation.change" = "Change";
+"dictation.language_label" = "Language";
+"dictation.live_text" = "Live transcript";
+"dictation.live_placeholder" = "Live transcript will appear here.";
+"dictation.start" = "Start";
+"dictation.stop" = "Stop";
+"dictation.start_again" = "Start again";
+"dictation.requesting_permission" = "Requesting microphone permission…";
+"dictation.transcribing" = "Transcribing…";
+"dictation.copy" = "Copy";
+"dictation.share" = "Share";
+"dictation.clear" = "Clear";
+"dictation.copied" = "Copied";
+"dictation.final_text" = "Final transcript";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR Provider";
+"settings.provider.apple_speech_hint" = "Apple Speech uses the system recognizer. No credentials needed; requires Speech recognition permission.";
+"settings.language_section" = "Language";
+"settings.language" = "Recognition language";
+"settings.credentials_section" = "Cloud credentials";
+"settings.credentials_not_set" = "Not set";
+"settings.credentials_save" = "Save";
+"settings.credentials_clear" = "Clear";
+"settings.credentials_saved_toast" = "Saved";
+"settings.credentials_warning" = "V1 stores credentials in a plaintext local file for personal testing only. Do not use high-privilege production keys.";
+"settings.about_section" = "About";
+"settings.about_version" = "Version";
+"settings.about_env" = "Runtime";
+"settings.about_env_simulator" = "iOS Simulator";
+"settings.about_env_device" = "iOS Device";
+"settings.about_env_hint" = "Diagnostics and preview paths differ between Simulator, LiveContainer and native device.";
+
+/* Diagnostics */
+"diagnostics.title" = "Diagnostics";
+"diagnostics.providers_section" = "Provider availability";
+"diagnostics.env_section" = "Runtime environment";
+"diagnostics.recorder_section" = "Recorder";
+"diagnostics.timeline_section" = "Timeline";
+"diagnostics.timeline_empty" = "No events yet.";
+"diagnostics.recorder_deactivation_error" = "Deactivation error";
+"diagnostics.recorder_no_error" = "No recorder errors recorded.";
+"diagnostics.env_platform" = "Platform";
+"diagnostics.env_platform_simulator" = "Simulator";
+"diagnostics.env_platform_device" = "Device";
+"diagnostics.env_container" = "Container";
+"diagnostics.env_container_native" = "Native app";
+"diagnostics.env_container_livecontainer" = "LiveContainer (guest app)";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.availability.ready" = "Ready";
+"diagnostics.availability.missing_credentials" = "Missing credentials — open Settings to fill in.";
+"diagnostics.availability.permission_denied" = "Permission denied — enable in System Settings.";
+"diagnostics.availability.permission_not_determined" = "Permission not yet requested.";
+"diagnostics.availability.env_limited" = "Limited by runtime environment.";
+
+/* Timeline */
+"timeline.start_requested" = "Start requested";
+"timeline.stop_requested" = "Stop requested";
+"timeline.interruption" = "Audio interruption began";
+"timeline.route_change" = "Audio route changed — input device unavailable";
+"timeline.permission_denied" = "Microphone permission denied";
+"timeline.engine_build_failed" = "Engine build failed: %@";
+"timeline.final_received" = "Final transcript received";
+"timeline.failed" = "Failed: %@";
+"timeline.copied" = "Copied to clipboard";
+"timeline.credentials_saved" = "%@ credentials saved";
+"timeline.credentials_cleared" = "%@ credentials cleared";
+
+/* Errors */
+"error.interruption" = "Recording was interrupted by the system. Tap Start to try again.";
+"error.route_change" = "Audio input device was disconnected. Reconnect and try again.";

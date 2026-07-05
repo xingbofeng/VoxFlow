@@ -154,6 +154,10 @@
 "app.learning.undo_success" = "Undo applied successfully.";
 "app.learning.undo_unchanged" = "No changes to undo.";
 "app.output.input_failed" = "Input failed. Please retry. If this keeps happening, check permissions.";
+"app.startup.storage_failure.continue_temporary" = "Continue Temporarily";
+"app.startup.storage_failure.message" = "VoxFlow could not open its persistent storage: %@\n\nYou can continue with temporary storage for this session, but new history, assets, and settings may be lost after restart.";
+"app.startup.storage_failure.quit" = "Quit";
+"app.startup.storage_failure.title" = "Storage Unavailable";
 "app.permissions.accessibility_subtitle_format" = "VoxFlow needs Accessibility permission to monitor and trigger global shortcuts.";
 "app.permissions.accessibility_title" = "Accessibility access";
 "app.permissions.check_title" = "Permission Status";
@@ -983,7 +987,7 @@
 "model.llm_provider.field_name" = "Name";
 "model.llm_provider.field_name_placeholder" = "Provider name";
 "model.llm_provider.field_service_url" = "Service URL";
-"model.llm_provider.keychain_hint" = "API keys are stored in Keychain.";
+"model.llm_provider.keychain_hint" = "API keys are stored in the local credentials file.";
 "model.llm_provider.get_api_key" = "Get API key";
 "model.llm_provider.label_address" = "Address";
 "model.llm_provider.label_model" = "Model";

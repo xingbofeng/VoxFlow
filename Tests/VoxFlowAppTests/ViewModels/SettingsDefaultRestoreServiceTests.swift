@@ -104,7 +104,7 @@ final class SettingsDefaultRestoreServiceTests: XCTestCase {
         XCTAssertEqual(savedProvider.defaultModel, "deepseek-v4-flash")
         XCTAssertTrue(savedProvider.isDefault)
 
-        // Keychain 凭证保留
+        // Provider 凭据保留
         XCTAssertEqual(try store.readCredential(account: provider.apiKeyRef), "deepseek-secret")
     }
 

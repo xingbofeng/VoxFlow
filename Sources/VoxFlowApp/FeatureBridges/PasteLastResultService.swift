@@ -171,7 +171,7 @@ private extension OutputResult {
         switch self {
         case .injected, .copied:
             return true
-        case .targetChanged, .permissionDenied, .injectionFailed, .copyFailed, .cancelled:
+        case .targetChanged, .permissionDenied, .injectionFailed, .copyFailed, .handledExternally, .cancelled:
             return false
         }
     }

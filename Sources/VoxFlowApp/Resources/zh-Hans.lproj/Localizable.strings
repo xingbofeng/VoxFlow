@@ -154,6 +154,10 @@
 "app.learning.undo_success" = "已撤销。";
 "app.learning.undo_unchanged" = "当前没有可撤销内容。";
 "app.output.input_failed" = "输入失败，请重试。如持续出现，请检查权限。";
+"app.startup.storage_failure.continue_temporary" = "临时继续";
+"app.startup.storage_failure.message" = "VoxFlow 无法打开持久化存储：%@\n\n你可以在本次会话中使用临时存储继续，但新历史、资产和设置可能会在重启后丢失。";
+"app.startup.storage_failure.quit" = "退出";
+"app.startup.storage_failure.title" = "存储不可用";
 "app.permissions.accessibility_subtitle_format" = "码上写需要“辅助功能”权限以便监听和触发全局快捷键。";
 "app.permissions.accessibility_title" = "辅助功能";
 "app.permissions.check_title" = "权限状态";
@@ -983,7 +987,7 @@
 "model.llm_provider.field_name" = "名称";
 "model.llm_provider.field_name_placeholder" = "服务商名称";
 "model.llm_provider.field_service_url" = "服务地址";
-"model.llm_provider.keychain_hint" = "API 密钥会存入钥匙串。";
+"model.llm_provider.keychain_hint" = "API 密钥会存入本地凭据文件。";
 "model.llm_provider.get_api_key" = "获取 API 密钥";
 "model.llm_provider.label_address" = "地址";
 "model.llm_provider.label_model" = "模型";

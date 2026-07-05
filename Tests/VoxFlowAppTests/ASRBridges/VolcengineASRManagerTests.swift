@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowASRRuntime
 import VoxFlowProviderVolcengine
 @testable import VoxFlowApp
 

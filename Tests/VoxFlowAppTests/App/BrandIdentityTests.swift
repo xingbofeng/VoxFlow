@@ -50,13 +50,6 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("$(LSREGISTER)\" -f \"$(BUNDLE_DIR)\""))
     }
 
-    func testKeychainServiceUsesCurrentBundleIDNamespace() throws {
-        let service = try XCTUnwrap(
-            Mirror(reflecting: KeychainCredentialStore()).children.first { $0.label == "service" }?.value as? String
-        )
-        XCTAssertEqual(service, "com.voxflow.app.credentials")
-    }
-
     func testMakefileSupportsNativeDevelopmentAndArm64ReleaseBuilds() throws {
         let makefile = try String(
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
@@ -127,6 +120,7 @@ final class BrandIdentityTests: XCTestCase {
         let buildDevBody = try Self.makeTargetBody("build-dev", in: makefile)
         let runDevBody = try Self.makeTargetBody("run-dev", in: makefile)
         let cleanupBody = try Self.makeTargetBody("prelaunch-cleanup", in: makefile)
+        let cleanLSBody = try Self.makeTargetBody("clean-ls-cache", in: makefile)
 
         XCTAssertTrue(makefile.contains("BUNDLE_DIR := $(BUILD_DIR)/release/$(APP_NAME).app"))
         XCTAssertTrue(makefile.contains("DEV_BUNDLE_DIR := $(BUILD_DIR)/dev/$(APP_NAME).app"))
@@ -137,9 +131,10 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(runDevBody.contains("open -n \"$(CURDIR)/$(DEV_BUNDLE_DIR)\""))
         XCTAssertTrue(runDevBody.contains("$(CURDIR)/$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)"))
         XCTAssertTrue(runDevBody.contains("Expected dev app to launch from $(CURDIR)/$(DEV_BUNDLE_DIR)"))
-        XCTAssertTrue(cleanupBody.contains("\"$(BUNDLE_DIR)\""))
-        XCTAssertTrue(cleanupBody.contains("\"$(DEV_BUNDLE_DIR)\""))
         XCTAssertTrue(cleanupBody.contains("rm -rf \".build/$(APP_NAME).app\""))
+        XCTAssertTrue(cleanLSBody.contains("\"$(BUNDLE_DIR)\""))
+        XCTAssertTrue(cleanLSBody.contains("\"$(DEV_BUNDLE_DIR)\""))
+        XCTAssertTrue(cleanLSBody.contains("rm -rf \".build/$(APP_NAME).app\""))
     }
 
     func testReleaseDMGRequiresExplicitStableSigningIdentity() throws {
@@ -266,29 +261,31 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(makefile.contains("./scripts/bootstrap-sherpa-onnx.sh"))
     }
 
-    func testPrelaunchCleanupClearsCurrentStatusItemDefaultsOnly() throws {
+    func testDevelopmentCleanupSeparatesPrelaunchAndDeepCacheReset() throws {
         let makefile = try String(
             contentsOf: Self.repositoryRoot().appendingPathComponent("Makefile"),
             encoding: .utf8
         )
 
-        let cleanupStart = try XCTUnwrap(
-            makefile.range(of: "\nprelaunch-cleanup:")?.lowerBound
-        )
-        let nextTarget = try XCTUnwrap(
-            makefile[cleanupStart...].range(of: "\n\n")?.lowerBound
-        )
-        let cleanupBody = String(makefile[cleanupStart..<nextTarget])
+        let cleanupBody = try Self.makeTargetBody("prelaunch-cleanup", in: makefile)
+        let cleanLSBody = try Self.makeTargetBody("clean-ls-cache", in: makefile)
+        let resetDevBody = try Self.makeTargetBody("reset-dev-state", in: makefile)
 
-        XCTAssertTrue(cleanupBody.contains("$(LSREGISTER)"), "cleanup should still clear stale local app registration")
-        XCTAssertFalse(cleanupBody.contains("LEGACY_BUNDLE_ID"))
-        XCTAssertFalse(cleanupBody.contains("OBSOLETE_BUNDLE_ID"))
-        XCTAssertFalse(cleanupBody.contains("RENAMED_BUNDLE_ID"))
-        XCTAssertFalse(cleanupBody.contains("REQUESTED_BUNDLE_ID"))
-        XCTAssertTrue(cleanupBody.contains("CURRENT_BUNDLE_ID"))
-        XCTAssertTrue(cleanupBody.contains("DEV_BUNDLE_ID"))
-        XCTAssertTrue(cleanupBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
+        XCTAssertTrue(cleanupBody.contains("pkill -x \"$(APP_NAME)\""))
+        XCTAssertTrue(cleanupBody.contains("pkill -x \"$(SWIFT_EXECUTABLE)\""))
         XCTAssertTrue(cleanupBody.contains("$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve"))
+        XCTAssertFalse(cleanupBody.contains("$(LSREGISTER)"), "prelaunch cleanup should stay lightweight")
+        XCTAssertFalse(cleanupBody.contains("killall cfprefsd"), "prelaunch cleanup should not reset system caches")
+        XCTAssertFalse(cleanupBody.contains("killall ControlCenter"), "prelaunch cleanup should not reset system UI caches")
+
+        XCTAssertTrue(cleanLSBody.contains("$(LSREGISTER)"), "deep cleanup should clear stale local app registration")
+        XCTAssertFalse(cleanLSBody.contains("LEGACY_BUNDLE_ID"))
+        XCTAssertFalse(cleanLSBody.contains("OBSOLETE_BUNDLE_ID"))
+        XCTAssertFalse(cleanLSBody.contains("RENAMED_BUNDLE_ID"))
+        XCTAssertFalse(cleanLSBody.contains("REQUESTED_BUNDLE_ID"))
+        XCTAssertTrue(cleanLSBody.contains("CURRENT_BUNDLE_ID"))
+        XCTAssertTrue(cleanLSBody.contains("DEV_BUNDLE_ID"))
+        XCTAssertTrue(cleanLSBody.contains("/private/tmp/voxflow-dmg-smoke.*/$(APP_NAME).app"))
         XCTAssertFalse(makefile.contains("LEGACY_BUNDLE_ID"))
         XCTAssertFalse(makefile.contains(obsoleteXingbofengBundleIdentifier))
         XCTAssertFalse(makefile.contains("OBSOLETE_BUNDLE_ID"))
@@ -299,14 +296,17 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertFalse(makefile.contains("VoxFlowStatusItemMenuExtra"))
         XCTAssertNil(makefile.range(of: #"VoxFlowStatusItem(?:Visible)?V[0-9]+"#, options: .regularExpression))
         XCTAssertNil(makefile.range(of: #"Item-[0-9]+"#, options: .regularExpression))
-        XCTAssertTrue(cleanupBody.contains("for autosave_name in $(STATUS_ITEM_AUTOSAVE_NAMES)"))
-        XCTAssertTrue(cleanupBody.contains("NSStatusItem Preferred Position $$autosave_name"))
-        XCTAssertTrue(cleanupBody.contains("NSStatusItem VisibleCC $$autosave_name"))
-        XCTAssertTrue(cleanupBody.contains("VoxFlowStatusItemPlacementResetV1"))
-        XCTAssertTrue(cleanupBody.contains("for bundle_id in \"$(CURRENT_BUNDLE_ID)\" \"$(DEV_BUNDLE_ID)\""))
-        XCTAssertTrue(cleanupBody.contains("defaults delete \"$$bundle_id\""))
+        XCTAssertTrue(cleanLSBody.contains("for autosave_name in $(STATUS_ITEM_AUTOSAVE_NAMES)"))
+        XCTAssertTrue(cleanLSBody.contains("NSStatusItem Preferred Position $$autosave_name"))
+        XCTAssertTrue(cleanLSBody.contains("NSStatusItem VisibleCC $$autosave_name"))
+        XCTAssertTrue(cleanLSBody.contains("VoxFlowStatusItemPlacementResetV1"))
+        XCTAssertTrue(cleanLSBody.contains("for bundle_id in \"$(CURRENT_BUNDLE_ID)\" \"$(DEV_BUNDLE_ID)\""))
+        XCTAssertTrue(cleanLSBody.contains("defaults delete \"$$bundle_id\""))
+        XCTAssertTrue(cleanLSBody.contains("killall cfprefsd"))
+        XCTAssertTrue(cleanLSBody.contains("killall ControlCenter"))
+        XCTAssertTrue(resetDevBody.contains("prelaunch-cleanup clean-ls-cache"))
 
-        // run target body itself should NOT contain defaults delete (delegated to prelaunch-cleanup)
+        // run target body itself should NOT contain deep cleanup commands.
         let runStart = try XCTUnwrap(
             makefile.range(of: "\nrun: prelaunch-cleanup build")?.lowerBound
         )
@@ -315,8 +315,8 @@ final class BrandIdentityTests: XCTestCase {
         )
         let runBody = String(makefile[runStart..<runNext])
 
-        XCTAssertFalse(runBody.contains("defaults delete"), "run target should delegate cleanup to prelaunch-cleanup")
-        XCTAssertFalse(runBody.contains("lsregister"), "run target should delegate LS cleanup to prelaunch-cleanup")
+        XCTAssertFalse(runBody.contains("defaults delete"), "run target should delegate deep cleanup")
+        XCTAssertFalse(runBody.contains("lsregister"), "run target should delegate LS cleanup")
     }
 
     func testHelpLinksUseRenamedRepositoryAndHomepageAddress() {

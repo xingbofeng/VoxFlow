@@ -1,0 +1,100 @@
+/* VoxFlowiOS — 한국어 */
+
+/* Tabs */
+"tab.dictation" = "받아쓰기";
+"tab.diagnostics" = "진단";
+"tab.settings" = "설정";
+
+/* Providers */
+"provider.apple_speech" = "Apple 음성 인식";
+"provider.tencent" = "Tencent Cloud 실시간 ASR";
+"provider.aliyun" = "Aliyun DashScope";
+"provider.volcengine" = "Volcengine 실시간 ASR";
+"provider.summary.apple_speech" = "시스템 내장 베이스라인. 음성 인식 권한이 필요합니다. LiveContainer 환경에서는 제한될 수 있습니다.";
+"provider.summary.tencent" = "Tencent Cloud 실시간 ASR. AppID, SecretId, SecretKey가 필요합니다.";
+"provider.summary.aliyun" = "Aliyun DashScope 실시간 ASR. API Key가 필요합니다.";
+"provider.summary.volcengine" = "Volcengine 실시간 ASR. App ID, Access Token, Secret Key가 필요합니다.";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "받아쓰기";
+"dictation.current_service" = "현재 서비스";
+"dictation.change" = "변경";
+"dictation.language_label" = "언어";
+"dictation.live_text" = "실시간 텍스트";
+"dictation.live_placeholder" = "실시간 텍스트가 여기에 표시됩니다.";
+"dictation.start" = "시작";
+"dictation.stop" = "중지";
+"dictation.start_again" = "다시 시작";
+"dictation.requesting_permission" = "마이크 권한 요청 중…";
+"dictation.transcribing" = "인식 중…";
+"dictation.copy" = "복사";
+"dictation.share" = "공유";
+"dictation.clear" = "지우기";
+"dictation.copied" = "복사됨";
+"dictation.final_text" = "최종 텍스트";
+
+/* Settings */
+"settings.title" = "설정";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR 서비스";
+"settings.provider.apple_speech_hint" = "Apple 음성 인식은 시스템 인식기를 사용합니다. 자격 증명이 불필요하지만 음성 인식 권한이 필요합니다.";
+"settings.language_section" = "언어";
+"settings.language" = "인식 언어";
+"settings.credentials_section" = "클라우드 자격 증명";
+"settings.credentials_not_set" = "설정되지 않음";
+"settings.credentials_save" = "저장";
+"settings.credentials_clear" = "지우기";
+"settings.credentials_saved_toast" = "저장됨";
+"settings.credentials_warning" = "V1 자격 증명은 평문 로컬 파일에 저장되며 개인 테스트용으로만 사용됩니다. 고권한 프로덕션 키는 사용하지 마세요.";
+"settings.about_section" = "정보";
+"settings.about_version" = "버전";
+"settings.about_env" = "실행 환경";
+"settings.about_env_simulator" = "iOS 시뮬레이터";
+"settings.about_env_device" = "iOS 실기기";
+"settings.about_env_hint" = "시뮬레이터, LiveContainer, 실기기마다 진단 및 미리보기 경로가 다릅니다.";
+
+/* Diagnostics */
+"diagnostics.title" = "진단";
+"diagnostics.providers_section" = "Provider 가용성";
+"diagnostics.env_section" = "실행 환경";
+"diagnostics.recorder_section" = "레코더";
+"diagnostics.timeline_section" = "타임라인";
+"diagnostics.timeline_empty" = "이벤트가 아직 없습니다.";
+"diagnostics.recorder_deactivation_error" = "비활성화 오류";
+"diagnostics.recorder_no_error" = "레코더 오류가 기록되지 않았습니다.";
+"diagnostics.env_platform" = "플랫폼";
+"diagnostics.env_platform_simulator" = "시뮬레이터";
+"diagnostics.env_platform_device" = "실기기";
+"diagnostics.env_container" = "컨테이너";
+"diagnostics.env_container_native" = "네이티브 App";
+"diagnostics.env_container_livecontainer" = "LiveContainer(게스트 App)";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.availability.ready" = "사용 가능";
+"diagnostics.availability.missing_credentials" = "자격 증명 누락 — 설정에서 입력하세요.";
+"diagnostics.availability.permission_denied" = "권한 거부됨 — 시스템 설정에서 활성화하세요.";
+"diagnostics.availability.permission_not_determined" = "아직 권한이 요청되지 않았습니다.";
+"diagnostics.availability.env_limited" = "실행 환경에 의해 제한됨.";
+
+/* Timeline */
+"timeline.start_requested" = "시작 요청됨";
+"timeline.stop_requested" = "중지 요청됨";
+"timeline.interruption" = "오디오 인터럽트 시작됨";
+"timeline.route_change" = "오디오 경로 변경 — 입력 장치 사용 불가";
+"timeline.permission_denied" = "마이크 권한 거부됨";
+"timeline.engine_build_failed" = "Engine 빌드 실패: %@";
+"timeline.final_received" = "최종 텍스트 수신됨";
+"timeline.failed" = "실패: %@";
+"timeline.copied" = "클립보드에 복사됨";
+"timeline.credentials_saved" = "%@ 자격 증명 저장됨";
+"timeline.credentials_cleared" = "%@ 자격 증명 지워짐";
+
+/* Errors */
+"error.interruption" = "녹음이 시스템에 의해 중단되었습니다. 시작을 탭하여 다시 시도하세요.";
+"error.route_change" = "입력 장치 연결이 끊어졌습니다. 다시 연결하고 시도하세요.";

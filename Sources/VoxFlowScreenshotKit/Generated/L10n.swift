@@ -128,6 +128,22 @@ internal enum ScreenshotL10n {
         /// Permission Status
         internal static let checkTitle = ScreenshotL10n.tr("Localizable", "app.permissions.check_title", fallback: "Permission Status")
       }
+      internal enum Startup {
+        internal enum StorageFailure {
+          /// Continue Temporarily
+          internal static let continueTemporary = ScreenshotL10n.tr("Localizable", "app.startup.storage_failure.continue_temporary", fallback: "Continue Temporarily")
+          /// VoxFlow could not open its persistent storage: %@
+          ///
+          /// You can continue with temporary storage for this session, but new history, assets, and settings may be lost after restart.
+          internal static func message(_ p1: Any) -> String {
+            return ScreenshotL10n.tr("Localizable", "app.startup.storage_failure.message", String(describing: p1), fallback: "VoxFlow could not open its persistent storage: %@\n\nYou can continue with temporary storage for this session, but new history, assets, and settings may be lost after restart.")
+          }
+          /// Quit
+          internal static let quit = ScreenshotL10n.tr("Localizable", "app.startup.storage_failure.quit", fallback: "Quit")
+          /// Storage Unavailable
+          internal static let title = ScreenshotL10n.tr("Localizable", "app.startup.storage_failure.title", fallback: "Storage Unavailable")
+        }
+      }
       internal enum Update {
         /// Local debug mock update used for verifying the update prompt flow.
         internal static let mockReleaseNotes = ScreenshotL10n.tr("Localizable", "app.update.mock_release_notes", fallback: "Local debug mock update used for verifying the update prompt flow.")
@@ -2459,8 +2475,8 @@ internal enum ScreenshotL10n {
         internal static let fieldServiceUrl = ScreenshotL10n.tr("Localizable", "model.llm_provider.field_service_url", fallback: "Service URL")
         /// Get API key
         internal static let getApiKey = ScreenshotL10n.tr("Localizable", "model.llm_provider.get_api_key", fallback: "Get API key")
-        /// API keys are stored in Keychain.
-        internal static let keychainHint = ScreenshotL10n.tr("Localizable", "model.llm_provider.keychain_hint", fallback: "API keys are stored in Keychain.")
+        /// API keys are stored in the local credentials file.
+        internal static let keychainHint = ScreenshotL10n.tr("Localizable", "model.llm_provider.keychain_hint", fallback: "API keys are stored in the local credentials file.")
         /// Address
         internal static let labelAddress = ScreenshotL10n.tr("Localizable", "model.llm_provider.label_address", fallback: "Address")
         /// Model
@@ -2677,16 +2693,22 @@ internal enum ScreenshotL10n {
         internal static let confirmTitle = ScreenshotL10n.tr("Localizable", "notes.delete.confirm_title", fallback: "Delete note?")
       }
       internal enum Detail {
+        /// Continue adding to this note...
+        internal static let continuePrompt = ScreenshotL10n.tr("Localizable", "notes.detail.continue_prompt", fallback: "Continue adding to this note...")
         /// Continuing dictation — speak to append.
         internal static let continuingDictationHint = ScreenshotL10n.tr("Localizable", "notes.detail.continuing_dictation_hint", fallback: "Continuing dictation — speak to append.")
         /// Continuing dictation
         internal static let continuingStatus = ScreenshotL10n.tr("Localizable", "notes.detail.continuing_status", fallback: "Continuing dictation")
         /// Editing
         internal static let editingStatus = ScreenshotL10n.tr("Localizable", "notes.detail.editing_status", fallback: "Editing")
+        /// Manual save
+        internal static let manualSave = ScreenshotL10n.tr("Localizable", "notes.detail.manual_save", fallback: "Manual save")
         /// Saved
         internal static let readingStatus = ScreenshotL10n.tr("Localizable", "notes.detail.reading_status", fallback: "Saved")
         /// Note title
         internal static let titlePlaceholder = ScreenshotL10n.tr("Localizable", "notes.detail.title_placeholder", fallback: "Note title")
+        /// Untagged
+        internal static let untagged = ScreenshotL10n.tr("Localizable", "notes.detail.untagged", fallback: "Untagged")
       }
       internal enum Editor {
         /// ===== Notes =====
@@ -5354,6 +5376,8 @@ internal enum ScreenshotL10n {
       internal enum DropArea {
         /// Drag and drop audio files here.
         internal static let placeholder = ScreenshotL10n.tr("Localizable", "transcribe.drop_area.placeholder", fallback: "Drag and drop audio files here.")
+        /// Supports MP3, WAV, M4A, MOV, MP4
+        internal static let supportedFormats = ScreenshotL10n.tr("Localizable", "transcribe.drop_area.supported_formats", fallback: "Supports MP3, WAV, M4A, MOV, MP4")
       }
       internal enum Error {
         /// Final transcription timed out.
@@ -5368,6 +5392,10 @@ internal enum ScreenshotL10n {
         internal static let resultUnavailable = ScreenshotL10n.tr("Localizable", "transcribe.error.result_unavailable", fallback: "Transcription result is unavailable.")
         /// Translation result is unavailable.
         internal static let translationUnavailable = ScreenshotL10n.tr("Localizable", "transcribe.error.translation_unavailable", fallback: "Translation result is unavailable.")
+        /// Unable to read audio from %@. Please choose a file with an audio track.
+        internal static func unsupportedAudioContainer(_ p1: Any) -> String {
+          return ScreenshotL10n.tr("Localizable", "transcribe.error.unsupported_audio_container", String(describing: p1), fallback: "Unable to read audio from %@. Please choose a file with an audio track.")
+        }
         /// Unsupported file format: %@.
         internal static func unsupportedFormat(_ p1: Any) -> String {
           return ScreenshotL10n.tr("Localizable", "transcribe.error.unsupported_format", String(describing: p1), fallback: "Unsupported file format: %@.")

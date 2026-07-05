@@ -92,7 +92,7 @@ final class AgentComposeTests: XCTestCase {
             stylePrompt: nil
         )
 
-        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(result, .handledExternally)
         XCTAssertNil(outputService.lastText)
         XCTAssertEqual(runtimeService.lastInstruction, "打开 Google")
         let fetched = try XCTUnwrap(repository.fetch(id: task.id))
@@ -133,7 +133,7 @@ final class AgentComposeTests: XCTestCase {
 
         let result = try await handler.finish(rawTranscript: "打开 Google")
 
-        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(result, .handledExternally)
         XCTAssertEqual(openedTaskID, taskID)
     }
 
@@ -197,7 +197,7 @@ final class AgentComposeTests: XCTestCase {
 
         let result = try await handler.finish(rawTranscript: "生成一个 HTML")
 
-        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(result, .handledExternally)
         XCTAssertNil(outputService.lastText)
         let task = try XCTUnwrap(repository.fetch(id: taskID))
         XCTAssertEqual(task.status, .completed)

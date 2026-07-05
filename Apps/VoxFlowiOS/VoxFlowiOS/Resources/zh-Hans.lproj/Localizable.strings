@@ -1,0 +1,100 @@
+/* VoxFlowiOS — 简体中文 */
+
+/* Tabs */
+"tab.dictation" = "听写";
+"tab.diagnostics" = "诊断";
+"tab.settings" = "设置";
+
+/* Providers */
+"provider.apple_speech" = "Apple 语音识别";
+"provider.tencent" = "腾讯云实时 ASR";
+"provider.aliyun" = "阿里云 DashScope";
+"provider.volcengine" = "火山云实时 ASR";
+"provider.summary.apple_speech" = "系统自带 baseline，需要语音识别权限。LiveContainer 环境下可能受限。";
+"provider.summary.tencent" = "腾讯云实时 ASR，需要 AppID、SecretId 和 SecretKey。";
+"provider.summary.aliyun" = "阿里云 DashScope 实时 ASR，需要 API Key。";
+"provider.summary.volcengine" = "火山云实时 ASR，需要 App ID、Access Token 和 Secret Key。";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "听写";
+"dictation.current_service" = "当前服务";
+"dictation.change" = "切换";
+"dictation.language_label" = "语言";
+"dictation.live_text" = "实时文本";
+"dictation.live_placeholder" = "实时文本将显示在这里。";
+"dictation.start" = "开始";
+"dictation.stop" = "停止";
+"dictation.start_again" = "再次开始";
+"dictation.requesting_permission" = "正在请求麦克风权限…";
+"dictation.transcribing" = "识别中…";
+"dictation.copy" = "复制";
+"dictation.share" = "分享";
+"dictation.clear" = "清空";
+"dictation.copied" = "已复制";
+"dictation.final_text" = "最终文本";
+
+/* Settings */
+"settings.title" = "设置";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR 服务";
+"settings.provider.apple_speech_hint" = "Apple 语音识别使用系统识别器，无需凭证，但需要语音识别权限。";
+"settings.language_section" = "语言";
+"settings.language" = "识别语言";
+"settings.credentials_section" = "云服务凭证";
+"settings.credentials_not_set" = "未填写";
+"settings.credentials_save" = "保存";
+"settings.credentials_clear" = "清空";
+"settings.credentials_saved_toast" = "已保存";
+"settings.credentials_warning" = "V1 凭证以明文保存在本地文件，仅用于个人测试 key，请勿使用高权限生产 key。";
+"settings.about_section" = "关于";
+"settings.about_version" = "版本";
+"settings.about_env" = "运行环境";
+"settings.about_env_simulator" = "iOS 模拟器";
+"settings.about_env_device" = "iOS 真机";
+"settings.about_env_hint" = "模拟器、LiveContainer 和真机的诊断和预览路径不同。";
+
+/* Diagnostics */
+"diagnostics.title" = "诊断";
+"diagnostics.providers_section" = "Provider 可用性";
+"diagnostics.env_section" = "运行环境";
+"diagnostics.recorder_section" = "录音器";
+"diagnostics.timeline_section" = "时间线";
+"diagnostics.timeline_empty" = "暂无事件。";
+"diagnostics.recorder_deactivation_error" = "会话停用错误";
+"diagnostics.recorder_no_error" = "录音器暂无错误记录。";
+"diagnostics.env_platform" = "平台";
+"diagnostics.env_platform_simulator" = "模拟器";
+"diagnostics.env_platform_device" = "真机";
+"diagnostics.env_container" = "容器";
+"diagnostics.env_container_native" = "原生 App";
+"diagnostics.env_container_livecontainer" = "LiveContainer（宿主 App）";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.availability.ready" = "可用";
+"diagnostics.availability.missing_credentials" = "缺少凭证，请到设置中填写。";
+"diagnostics.availability.permission_denied" = "权限被拒绝，请在系统设置中授权。";
+"diagnostics.availability.permission_not_determined" = "尚未请求权限。";
+"diagnostics.availability.env_limited" = "受运行环境限制。";
+
+/* Timeline */
+"timeline.start_requested" = "请求开始";
+"timeline.stop_requested" = "请求停止";
+"timeline.interruption" = "音频中断开始";
+"timeline.route_change" = "音频路由变化——输入设备不可用";
+"timeline.permission_denied" = "麦克风权限被拒绝";
+"timeline.engine_build_failed" = "Engine 构建失败：%@";
+"timeline.final_received" = "收到最终文本";
+"timeline.failed" = "失败：%@";
+"timeline.copied" = "已复制到剪贴板";
+"timeline.credentials_saved" = "%@ 凭证已保存";
+"timeline.credentials_cleared" = "%@ 凭证已清空";
+
+/* Errors */
+"error.interruption" = "录音被系统中断，点按开始重试。";
+"error.route_change" = "输入设备已断开，请重新连接后重试。";

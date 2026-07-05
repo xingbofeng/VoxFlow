@@ -41,6 +41,25 @@ UI_TARGETS = {
     "VoxFlowFeatures",
     "VoxFlowDesignSystem",
 }
+# 跨平台共享 Core target，macOS 与 iOS 共用。
+# 禁止依赖 AppKit/UIKit/SwiftUI/剪贴板/Keychain/UserDefaults/LiveContainer。
+SHARED_CORE_TARGETS = {
+    "VoxFlowDomain",
+    "VoxFlowAudio",
+    "VoxFlowASRCore",
+    "VoxFlowASRRuntime",
+    "VoxFlowProviderCloudCore",
+}
+SHARED_CORE_FORBIDDEN_IMPORTS = ("AppKit", "UIKit", "SwiftUI")
+SHARED_CORE_FORBIDDEN_TOKENS = (
+    "NSPasteboard",
+    "UIPasteboard",
+    "LiveContainer",
+    "UserDefaults",
+    "Keychain",
+    "SecItemAdd",
+    "SecItemCopyMatching",
+)
 MODEL_PATH_TOKENS = (
     "ModelStorePaths",
     "modelsDirectory",
@@ -367,6 +386,19 @@ def source_boundary_violations(
 
             if target_name == "VoxFlowAudio" and "UserDefaults" in contents:
                 violations.append(f"{display_path}: Audio target must not access UserDefaults")
+
+            if target_name in SHARED_CORE_TARGETS:
+                forbidden_core_imports = sorted(
+                    module for module in imports if module in SHARED_CORE_FORBIDDEN_IMPORTS
+                )
+                for module in forbidden_core_imports:
+                    violations.append(
+                        f"{display_path}: Shared Core target must not import {module}; keep Core cross-platform"
+                    )
+                if any(token in contents for token in SHARED_CORE_FORBIDDEN_TOKENS):
+                    violations.append(
+                        f"{display_path}: Shared Core target must not access clipboard, Keychain, UserDefaults, or LiveContainer"
+                    )
 
             if target_name == "VoxFlowModelStore" and ("SwiftUI" in imports or "AppKit" in imports):
                 violations.append(f"{display_path}: ModelStore target must not import UI frameworks")

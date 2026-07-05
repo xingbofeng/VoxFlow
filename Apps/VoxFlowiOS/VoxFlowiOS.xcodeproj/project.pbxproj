@@ -1,0 +1,490 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		047CA6DAAD4CDCE650AC6F0F /* iOSASREngineFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2619B87FDD5680A7B84ACE13 /* iOSASREngineFactory.swift */; };
+		053C2FDB0474C510024E92D2 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932102F5AB7B3207B1EE7FA2 /* AppState.swift */; };
+		0D4AD1EA6323B05B8B97B06D /* VoxFlowProviderAliyunDashScope in Frameworks */ = {isa = PBXBuildFile; productRef = 1EAEB156EBFAD49ADE13DA63 /* VoxFlowProviderAliyunDashScope */; };
+		1953A09E3A72C0778B734DF2 /* AppleSpeechASREngineAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC7B7B485BA08949A2DCA714 /* AppleSpeechASREngineAdapter.swift */; };
+		3C90F79EBBAC7F2F325A54C5 /* VoxFlowMobileCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6DE35DE60B647271115B289A /* VoxFlowMobileCore */; };
+		5657215BBC46AE1EC0FDE893 /* iOSAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0860523946E2B11B038A5D /* iOSAudioRecorder.swift */; };
+		5C67D306625278BEBD1249FF /* VoxFlowProviderApple in Frameworks */ = {isa = PBXBuildFile; productRef = 3DE520BDA9C19CE1A6ECEE54 /* VoxFlowProviderApple */; };
+		5EE175FAF14B73A8760DD4D1 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E9ED3E3A4FE609B46E00B1 /* RootTabView.swift */; };
+		5F89922A490B492D6482DF7B /* VoxFlowProviderCloudCore in Frameworks */ = {isa = PBXBuildFile; productRef = E157E774AA505071832805B0 /* VoxFlowProviderCloudCore */; };
+		650AC03957CB824FB2E228DA /* VoxFlowASRRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 06B2E8892999C3093AD2E7F9 /* VoxFlowASRRuntime */; };
+		7338E8D4715FF343FE120E50 /* VoxFlowiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE8015382C663CB569222998 /* VoxFlowiOSApp.swift */; };
+		80C0149258314C25F27ABDC8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D920A39D5D86A6D2FDC7974B /* Assets.xcassets */; };
+		83D1E73ED4D29C76FF9022B3 /* LocalCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4A8DC270A59040611B21AC /* LocalCredentialStore.swift */; };
+		8E7DC53DB76100B6FFA3959E /* VoxFlowProviderTencentCloud in Frameworks */ = {isa = PBXBuildFile; productRef = AD59DDDB680EDDE89B305A71 /* VoxFlowProviderTencentCloud */; };
+		ACA05ED4A02AAD9005197D43 /* VoxFlowProviderVolcengine in Frameworks */ = {isa = PBXBuildFile; productRef = 064F0503EB858CFB4AFA8941 /* VoxFlowProviderVolcengine */; };
+		B66C1751A8EFC7C1252A07CF /* VoxFlowAudio in Frameworks */ = {isa = PBXBuildFile; productRef = DB6CBBD0C5FF2092916DA9DE /* VoxFlowAudio */; };
+		C1A1E327156F28D0192460F4 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 980C1AFA48852D2D3E30FC83 /* SettingsView.swift */; };
+		CCDFDA3357A2971B11ED3EEE /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1AF691C565E82F01C74F1B /* DiagnosticsView.swift */; };
+		D3D20DEF83C7BF1F582384E8 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = E239E4FFB89762988574C78E /* Localizable.strings */; };
+		E28733B43762B1AE752B7B11 /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF355DE166E0B958C53DBC90 /* DictationView.swift */; };
+		F9787650725D898DA5B0EE96 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6317E869E71D4C437A9109 /* L10n.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2619B87FDD5680A7B84ACE13 /* iOSASREngineFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSASREngineFactory.swift; sourceTree = "<group>"; };
+		2F0860523946E2B11B038A5D /* iOSAudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSAudioRecorder.swift; sourceTree = "<group>"; };
+		3A4A8DC270A59040611B21AC /* LocalCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCredentialStore.swift; sourceTree = "<group>"; };
+		74E9F297321FBA612567E57D /* voice-input-method-mac */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "voice-input-method-mac"; path = ../..; sourceTree = SOURCE_ROOT; };
+		751BDE0E60952C0F51A137D4 /* VoxFlowiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoxFlowiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B1AF691C565E82F01C74F1B /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		8A58E8B2BC462FBD3E209059 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		8D53DFE56B9157CAECCD1173 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		932102F5AB7B3207B1EE7FA2 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		980C1AFA48852D2D3E30FC83 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AE8015382C663CB569222998 /* VoxFlowiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoxFlowiOSApp.swift; sourceTree = "<group>"; };
+		AF355DE166E0B958C53DBC90 /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
+		AF6317E869E71D4C437A9109 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		C0E9ED3E3A4FE609B46E00B1 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		CC7B7B485BA08949A2DCA714 /* AppleSpeechASREngineAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechASREngineAdapter.swift; sourceTree = "<group>"; };
+		D6A567B43FD91FBCD9872D06 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		D87E82AAFAF96B13FAD6EB45 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D920A39D5D86A6D2FDC7974B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E2D518D4546CFEABB6C756CC /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7B0E7DBFCB48846E6AFF9C03 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C90F79EBBAC7F2F325A54C5 /* VoxFlowMobileCore in Frameworks */,
+				650AC03957CB824FB2E228DA /* VoxFlowASRRuntime in Frameworks */,
+				B66C1751A8EFC7C1252A07CF /* VoxFlowAudio in Frameworks */,
+				5F89922A490B492D6482DF7B /* VoxFlowProviderCloudCore in Frameworks */,
+				5C67D306625278BEBD1249FF /* VoxFlowProviderApple in Frameworks */,
+				8E7DC53DB76100B6FFA3959E /* VoxFlowProviderTencentCloud in Frameworks */,
+				0D4AD1EA6323B05B8B97B06D /* VoxFlowProviderAliyunDashScope in Frameworks */,
+				ACA05ED4A02AAD9005197D43 /* VoxFlowProviderVolcengine in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		68F72C42026C01B1BE2DD626 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E239E4FFB89762988574C78E /* Localizable.strings */,
+				D920A39D5D86A6D2FDC7974B /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		698C60350ACCA0DC82FDB019 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				751BDE0E60952C0F51A137D4 /* VoxFlowiOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7A6B163866FAA3F2C93B76A9 /* VoxFlowiOS */ = {
+			isa = PBXGroup;
+			children = (
+				68F72C42026C01B1BE2DD626 /* Resources */,
+				AE20ACDC37FA683E2D72BD2F /* Views */,
+				CC7B7B485BA08949A2DCA714 /* AppleSpeechASREngineAdapter.swift */,
+				932102F5AB7B3207B1EE7FA2 /* AppState.swift */,
+				2619B87FDD5680A7B84ACE13 /* iOSASREngineFactory.swift */,
+				2F0860523946E2B11B038A5D /* iOSAudioRecorder.swift */,
+				AF6317E869E71D4C437A9109 /* L10n.swift */,
+				3A4A8DC270A59040611B21AC /* LocalCredentialStore.swift */,
+				AE8015382C663CB569222998 /* VoxFlowiOSApp.swift */,
+			);
+			path = VoxFlowiOS;
+			sourceTree = "<group>";
+		};
+		AE20ACDC37FA683E2D72BD2F /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				7B1AF691C565E82F01C74F1B /* DiagnosticsView.swift */,
+				AF355DE166E0B958C53DBC90 /* DictationView.swift */,
+				C0E9ED3E3A4FE609B46E00B1 /* RootTabView.swift */,
+				980C1AFA48852D2D3E30FC83 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AEC94C9CD2883156F3A44EA1 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				74E9F297321FBA612567E57D /* voice-input-method-mac */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		CD8B2F410FC6195CCA4FCC9C = {
+			isa = PBXGroup;
+			children = (
+				AEC94C9CD2883156F3A44EA1 /* Packages */,
+				7A6B163866FAA3F2C93B76A9 /* VoxFlowiOS */,
+				698C60350ACCA0DC82FDB019 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B1F919B8F50AA54DF34E3605 /* VoxFlowiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B0B368F6D9B782D5FB492C5 /* Build configuration list for PBXNativeTarget "VoxFlowiOS" */;
+			buildPhases = (
+				D43292BBB33A31DCCF7B541B /* Sources */,
+				C17DF86F8A6836C1D5480D86 /* Resources */,
+				7B0E7DBFCB48846E6AFF9C03 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VoxFlowiOS;
+			packageProductDependencies = (
+				6DE35DE60B647271115B289A /* VoxFlowMobileCore */,
+				06B2E8892999C3093AD2E7F9 /* VoxFlowASRRuntime */,
+				DB6CBBD0C5FF2092916DA9DE /* VoxFlowAudio */,
+				E157E774AA505071832805B0 /* VoxFlowProviderCloudCore */,
+				3DE520BDA9C19CE1A6ECEE54 /* VoxFlowProviderApple */,
+				AD59DDDB680EDDE89B305A71 /* VoxFlowProviderTencentCloud */,
+				1EAEB156EBFAD49ADE13DA63 /* VoxFlowProviderAliyunDashScope */,
+				064F0503EB858CFB4AFA8941 /* VoxFlowProviderVolcengine */,
+			);
+			productName = VoxFlowiOS;
+			productReference = 751BDE0E60952C0F51A137D4 /* VoxFlowiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3ED2EC85F75D0C6154CD7217 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					B1F919B8F50AA54DF34E3605 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 77C60BAF32FF51D30CBEF405 /* Build configuration list for PBXProject "VoxFlowiOS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				ja,
+				ko,
+				"zh-Hans",
+				"zh-Hant",
+			);
+			mainGroup = CD8B2F410FC6195CCA4FCC9C;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				3DE1EDF41466A9E17991060F /* XCLocalSwiftPackageReference "../.." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 698C60350ACCA0DC82FDB019 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B1F919B8F50AA54DF34E3605 /* VoxFlowiOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C17DF86F8A6836C1D5480D86 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				80C0149258314C25F27ABDC8 /* Assets.xcassets in Resources */,
+				D3D20DEF83C7BF1F582384E8 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D43292BBB33A31DCCF7B541B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053C2FDB0474C510024E92D2 /* AppState.swift in Sources */,
+				1953A09E3A72C0778B734DF2 /* AppleSpeechASREngineAdapter.swift in Sources */,
+				CCDFDA3357A2971B11ED3EEE /* DiagnosticsView.swift in Sources */,
+				E28733B43762B1AE752B7B11 /* DictationView.swift in Sources */,
+				F9787650725D898DA5B0EE96 /* L10n.swift in Sources */,
+				83D1E73ED4D29C76FF9022B3 /* LocalCredentialStore.swift in Sources */,
+				5EE175FAF14B73A8760DD4D1 /* RootTabView.swift in Sources */,
+				C1A1E327156F28D0192460F4 /* SettingsView.swift in Sources */,
+				7338E8D4715FF343FE120E50 /* VoxFlowiOSApp.swift in Sources */,
+				047CA6DAAD4CDCE650AC6F0F /* iOSASREngineFactory.swift in Sources */,
+				5657215BBC46AE1EC0FDE893 /* iOSAudioRecorder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		E239E4FFB89762988574C78E /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				8D53DFE56B9157CAECCD1173 /* en */,
+				E2D518D4546CFEABB6C756CC /* ja */,
+				D87E82AAFAF96B13FAD6EB45 /* ko */,
+				D6A567B43FD91FBCD9872D06 /* zh-Hans */,
+				8A58E8B2BC462FBD3E209059 /* zh-Hant */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		682302BA6F0D701E730A08DF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = VoxFlowiOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.voxflow.ios;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A6647F52736AD12FB4B77EA5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = VoxFlowiOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.voxflow.ios;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F0C751F7A67D57DFBE6A54E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F4C8910CA883647386D6EC7F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6B0B368F6D9B782D5FB492C5 /* Build configuration list for PBXNativeTarget "VoxFlowiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				682302BA6F0D701E730A08DF /* Debug */,
+				A6647F52736AD12FB4B77EA5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		77C60BAF32FF51D30CBEF405 /* Build configuration list for PBXProject "VoxFlowiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0C751F7A67D57DFBE6A54E1 /* Debug */,
+				F4C8910CA883647386D6EC7F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		3DE1EDF41466A9E17991060F /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		064F0503EB858CFB4AFA8941 /* VoxFlowProviderVolcengine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowProviderVolcengine;
+		};
+		06B2E8892999C3093AD2E7F9 /* VoxFlowASRRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowASRRuntime;
+		};
+		1EAEB156EBFAD49ADE13DA63 /* VoxFlowProviderAliyunDashScope */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowProviderAliyunDashScope;
+		};
+		3DE520BDA9C19CE1A6ECEE54 /* VoxFlowProviderApple */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowProviderApple;
+		};
+		6DE35DE60B647271115B289A /* VoxFlowMobileCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowMobileCore;
+		};
+		AD59DDDB680EDDE89B305A71 /* VoxFlowProviderTencentCloud */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowProviderTencentCloud;
+		};
+		DB6CBBD0C5FF2092916DA9DE /* VoxFlowAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowAudio;
+		};
+		E157E774AA505071832805B0 /* VoxFlowProviderCloudCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoxFlowProviderCloudCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3ED2EC85F75D0C6154CD7217 /* Project object */;
+}

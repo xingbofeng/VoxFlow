@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowASRRuntime
 import VoxFlowProviderCloudCore
 import VoxFlowProviderTencentCloud
 @testable import VoxFlowApp

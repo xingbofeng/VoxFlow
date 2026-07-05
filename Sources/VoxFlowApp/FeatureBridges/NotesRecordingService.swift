@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import Foundation
+import VoxFlowASRRuntime
 import Speech
 
 @MainActor

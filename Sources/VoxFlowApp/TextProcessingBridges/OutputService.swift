@@ -143,6 +143,46 @@ struct SettingsBackedTextOutputConfiguration {
     }
 }
 
+// MARK: - OutputPolicy
+
+enum OutputPolicyCopyReason: Equatable {
+    case agentCompose
+    case targetChanged(String)
+}
+
+enum OutputPolicyAction: Equatable {
+    case copy(reason: OutputPolicyCopyReason)
+    case insert
+}
+
+struct DefaultOutputPolicy {
+    func action(
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?
+    ) -> OutputPolicyAction {
+        if mode == .agentCompose {
+            return .copy(reason: .agentCompose)
+        }
+
+        if DictationTargetChangePolicy.targetChanged(original: originalTarget, current: target) {
+            return .copy(reason: .targetChanged(changeReason(original: originalTarget, current: target)))
+        }
+
+        return .insert
+    }
+
+    private func changeReason(
+        original: DictationTarget?,
+        current: DictationTarget?
+    ) -> String {
+        if original?.bundleID != current?.bundleID {
+            return "Target application changed from \(original?.appName ?? "unknown") to \(current?.appName ?? "unknown")"
+        }
+        return "Target window changed"
+    }
+}
+
 // MARK: - DefaultOutputService
 
 @MainActor
@@ -150,6 +190,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
     private let textInsertionCoordinator: any TextInsertionCoordinating
     private let clipboardService: any ClipboardSetting
     private let textInputModeProvider: () -> TextInputMode
+    private let outputPolicy: DefaultOutputPolicy
     private let lastResultStore: (any LastResultStoring)?
     private let recentTextOutputRecorder: ((String, DictationTarget?) -> Void)?
 
@@ -158,12 +199,14 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
         textInputMode: (() -> TextInputMode)? = nil,
+        outputPolicy: DefaultOutputPolicy = DefaultOutputPolicy(),
         lastResultStore: (any LastResultStoring)? = nil,
         recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
     ) {
         self.textInsertionCoordinator = textInsertionCoordinator
         self.clipboardService = clipboardService
         self.textInputModeProvider = textInputMode ?? { defaultTextInputMode }
+        self.outputPolicy = outputPolicy
         self.lastResultStore = lastResultStore
         self.recentTextOutputRecorder = recentTextOutputRecorder
     }
@@ -173,6 +216,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
         textInputMode: (() -> TextInputMode)? = nil,
+        outputPolicy: DefaultOutputPolicy = DefaultOutputPolicy(),
         lastResultStore: (any LastResultStoring)? = nil,
         recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
     ) {
@@ -181,6 +225,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             clipboardService: clipboardService,
             defaultTextInputMode: defaultTextInputMode,
             textInputMode: textInputMode,
+            outputPolicy: outputPolicy,
             lastResultStore: lastResultStore,
             recentTextOutputRecorder: recentTextOutputRecorder
         )
@@ -208,7 +253,8 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         originalTarget: DictationTarget?,
         textInputMode: TextInputMode
     ) async -> OutputResult {
-        if mode == .agentCompose {
+        switch outputPolicy.action(mode: mode, target: target, originalTarget: originalTarget) {
+        case .copy(reason: .agentCompose):
             let outputResult: OutputResult = clipboardService.setString(text)
                 ? .copied
                 : .copyFailed(reason: "Clipboard write failed")
@@ -220,9 +266,8 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                 originalTarget: originalTarget,
                 currentTarget: target
             )
-        }
 
-        if targetChanged(original: originalTarget, current: target) {
+        case .copy(reason: .targetChanged(let reason)):
             guard clipboardService.setString(text) else {
                 let result = OutputResult.copyFailed(
                     reason: "Target changed and clipboard write failed"
@@ -236,7 +281,6 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                     currentTarget: target
                 )
             }
-            let reason = buildChangeReason(original: originalTarget, current: target)
             let result = OutputResult.targetChanged(reason: reason)
             rememberLastResult(text, mode: mode, result: result)
             return logged(
@@ -246,6 +290,9 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
                 originalTarget: originalTarget,
                 currentTarget: target
             )
+
+        case .insert:
+            break
         }
 
         let result = await textInsertionCoordinator.insert(text, mode: textInputMode)
@@ -329,23 +376,6 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
 
     // MARK: - Private
 
-    private func targetChanged(
-        original: DictationTarget?,
-        current: DictationTarget?
-    ) -> Bool {
-        DictationTargetChangePolicy.targetChanged(original: original, current: current)
-    }
-
-    private func buildChangeReason(
-        original: DictationTarget?,
-        current: DictationTarget?
-    ) -> String {
-        if original?.bundleID != current?.bundleID {
-            return "Target application changed from \(original?.appName ?? "unknown") to \(current?.appName ?? "unknown")"
-        }
-        return "Target window changed"
-    }
-
     private func rememberLastResult(
         _ text: String,
         mode: VoiceTaskMode,
@@ -392,6 +422,8 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             return "injectionFailed"
         case .copyFailed:
             return "copyFailed"
+        case .handledExternally:
+            return "handledExternally"
         case .cancelled:
             return "cancelled"
         }
@@ -399,7 +431,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
 
     private func fallbackReason(for result: OutputResult) -> String {
         switch result {
-        case .injected, .copied, .cancelled:
+        case .injected, .copied, .handledExternally, .cancelled:
             return "none"
         case let .targetChanged(reason),
              let .permissionDenied(reason),

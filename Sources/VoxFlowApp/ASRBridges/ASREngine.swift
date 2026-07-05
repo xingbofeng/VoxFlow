@@ -1,5 +1,6 @@
 import Foundation
 import VoxFlowAudio
+import VoxFlowASRRuntime
 
 enum ASREngineType: String, CaseIterable, Equatable, Hashable {
     case apple = "Apple Speech"
@@ -46,41 +47,6 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
             return "火山云"
         }
     }
-}
-
-protocol ASREngine: AnyObject {
-    /// Must be called on the main thread. Implementations must dispatch callbacks to main queue.
-    var onTranscription: ((String, Bool) -> Void)? { get set }
-    /// Must be called on the main thread. Implementations must dispatch callbacks to main queue.
-    var onError: ((Error) -> Void)? { get set }
-    var isAvailable: Bool { get }
-    func configure(locale: Locale)
-    func start() throws
-    func appendAudioFrame(_ frame: AudioFrame)
-    func endAudio()
-    func stop()
-    func cancel()
-}
-
-protocol ASRTermPromptConfiguring: AnyObject {
-    func configureTermPrompt(_ prompt: String?)
-}
-
-struct ASRRuntimeMetadataSnapshot: Equatable, Sendable {
-    var sessionID: String?
-    var audioDurationMs: Int?
-    var finalLatencyMs: Int?
-    var droppedFrameCount: Int?
-    var errorCode: String?
-}
-
-protocol ASRRuntimeMetadataProviding: AnyObject {
-    var asrRuntimeMetadataSnapshot: ASRRuntimeMetadataSnapshot { get }
-}
-
-enum ASREngineError: LocalizedError {
-    case modelNotLoaded
-    var errorDescription: String? { "语音识别模型未加载。请先在设置中下载模型。" }
 }
 
 protocol ASREngineFactory {

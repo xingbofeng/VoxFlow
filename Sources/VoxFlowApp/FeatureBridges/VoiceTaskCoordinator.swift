@@ -37,7 +37,7 @@ final class VoiceTaskCoordinator {
     private let agentRuntimeService: (any AgentRuntimeServing)?
     private let agentRuntimeSelection: @MainActor () -> AgentRuntimeProviderSelection?
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
-    private let assetRepository: (any AssetRepository)?
+    private let persistenceWriter: DictationPersistenceWriter
     private let isFocusedTextFieldSecure: @MainActor () -> Bool
 
     private let taskRuntime = VoiceTaskRuntimeStore()
@@ -111,7 +111,13 @@ final class VoiceTaskCoordinator {
         self.agentRuntimeService = agentRuntimeService
         self.agentRuntimeSelection = agentRuntimeSelection
         self.correctionObservationScheduler = correctionObservationScheduler
-        self.assetRepository = assetRepository
+        self.persistenceWriter = DictationPersistenceWriter(
+            taskRepository: taskRepository,
+            assetRepository: assetRepository,
+            agentTraceProvider: {
+                (agentRefiner as? RefinementTraceProviding)?.lastTrace
+            }
+        )
         self.isFocusedTextFieldSecure = isFocusedTextFieldSecure
     }
 
@@ -194,7 +200,7 @@ final class VoiceTaskCoordinator {
         try taskRepository.updateFinalText(id: taskID, finalText: finalText)
         task.finalText = finalText
         try taskRepository.updateOutputResult(id: taskID, outputResult: encoded)
-        try persistAgentDispatchTrace(
+        try persistenceWriter.persistAgentDispatchTrace(
             taskID: taskID,
             presentation: presentation,
             processingTrace: processingTrace
@@ -217,10 +223,10 @@ final class VoiceTaskCoordinator {
             task.completedAt = completedAt
             task.outputResult = encoded
             taskRuntime.clearWorkflow(for: task)
-            saveRawVoiceTextAssetIfNeeded(
+            persistenceWriter.saveRawVoiceTextAssetIfNeeded(
                 task: task,
                 rawText: task.rawTranscript ?? finalText,
-                captureReason: agentDispatchCaptureReason(for: presentation),
+                captureReason: persistenceWriter.agentDispatchCaptureReason(for: presentation),
                 completedAt: completedAt
             )
         case .fallbackInput:
@@ -292,7 +298,7 @@ final class VoiceTaskCoordinator {
             data: try JSONEncoder().encode(outputResult.snapshot),
             encoding: .utf8
         )
-        try persistAgentDispatchDefaultOutputTrace(
+        try persistenceWriter.persistAgentDispatchDefaultOutputTrace(
             taskID: taskID,
             processingTrace: processingTrace,
             outputResult: outputResult
@@ -323,11 +329,11 @@ final class VoiceTaskCoordinator {
         task.completedAt = completedAt
         AppLogger.general.info("voice_workflow_completed kind=agentDispatch taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
-        saveVoiceTextAssetIfNeeded(
+        persistenceWriter.saveVoiceTextAsset(
             task: task,
             rawText: task.rawTranscript ?? finalText,
             finalText: finalText,
-            captureReason: dictationCaptureReason(for: outputResult),
+            captureReason: DictationPersistenceWriter.dictationCaptureReason(for: outputResult),
             completedAt: completedAt
         )
     }
@@ -418,7 +424,7 @@ final class VoiceTaskCoordinator {
             data: try JSONEncoder().encode(outputResult.snapshot),
             encoding: .utf8
         )
-        try? persistTextProcessingTrace(
+        try? persistenceWriter.persistTextProcessingTrace(
             taskID: taskID,
             processingTrace: processingResult.trace,
             outputResult: outputResult
@@ -442,7 +448,7 @@ final class VoiceTaskCoordinator {
         AppLogger.general.info("voice_workflow_completed kind=\(workflowKind.rawValue) taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
         if task.mode == .dictation {
-            saveVoiceTextAssetIfNeeded(
+            persistenceWriter.saveVoiceTextAssetIfNeeded(
                 task: task,
                 rawText: rawText,
                 finalText: finalText,
@@ -450,7 +456,7 @@ final class VoiceTaskCoordinator {
                 completedAt: completedAt
             )
         } else {
-            saveAgentComposeVoiceAssetIfNeeded(
+            persistenceWriter.saveAgentComposeVoiceAssetIfNeeded(
                 task: task,
                 rawText: rawText,
                 outputResult: outputResult,
@@ -622,7 +628,7 @@ final class VoiceTaskCoordinator {
                 guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
                     return .cancelled
                 }
-                try persistAgentTrace(taskID: taskID, trace: try await streamResult.trace.value())
+                try persistenceWriter.persistAgentTrace(taskID: taskID, trace: try await streamResult.trace.value())
                 let trimmed = accumulatedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 finalText = trimmed.isEmpty ? rawText : trimmed
             } else if let streamingRefiner = agentRefiner as? any StreamingPromptAwareTextRefining {
@@ -639,7 +645,7 @@ final class VoiceTaskCoordinator {
                 guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
                     return .cancelled
                 }
-                try persistAgentTraceIfAvailable(taskID: taskID)
+                try persistenceWriter.persistAgentTraceIfAvailable(taskID: taskID)
                 let trimmed = accumulatedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 finalText = trimmed.isEmpty ? rawText : trimmed
             } else {
@@ -648,15 +654,15 @@ final class VoiceTaskCoordinator {
                 guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
                     return .cancelled
                 }
-                try persistAgentTraceIfAvailable(taskID: taskID)
+                try persistenceWriter.persistAgentTraceIfAvailable(taskID: taskID)
                 let trimmed = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 finalText = trimmed.isEmpty ? rawText : trimmed
             }
         } catch {
             guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
-                return .cancelled
+                return .handledExternally
             }
-            try? persistAgentTraceIfAvailable(taskID: taskID)
+            try? persistenceWriter.persistAgentTraceIfAvailable(taskID: taskID)
             AppLogger.general.error("Agent compose LLM failed: \(error.localizedDescription)")
             task.warnings.append("agent_llm_failed")
             try? taskRepository.updateWarnings(id: taskID, warnings: task.warnings)
@@ -727,7 +733,7 @@ final class VoiceTaskCoordinator {
         taskRuntime.clearCurrentTaskIfMatching(task)
         AppLogger.general.info("voice_workflow_completed kind=agentCompose taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
         taskRuntime.clearWorkflow(for: task)
-        saveAgentComposeVoiceAssetIfNeeded(
+        persistenceWriter.saveAgentComposeVoiceAssetIfNeeded(
             task: task,
             rawText: rawText,
             outputResult: outputResult,
@@ -887,7 +893,7 @@ final class VoiceTaskCoordinator {
         }
         AppLogger.general.error("voice_workflow_completed kind=\(VoiceWorkflowKind(mode: task.mode).rawValue) taskID=\(task.id) status=failed code=\(code) recoverable=\(recoverable)")
         taskRuntime.clearWorkflow(for: task)
-        saveFailedVoiceAssetIfNeeded(task: task, completedAt: completedAt)
+        persistenceWriter.saveFailedVoiceAssetIfNeeded(task: task, completedAt: completedAt)
     }
 
     // MARK: - Incomplete task detection (Task 2.10)
@@ -937,7 +943,7 @@ final class VoiceTaskCoordinator {
                 startedAt: now,
                 completedAt: now
             )
-            try? persistAgentActionTrace(taskID: task.id, trace: fallbackTrace)
+            try? persistenceWriter.persistAgentActionTrace(taskID: task.id, trace: fallbackTrace)
             return nil
         }
 
@@ -965,7 +971,7 @@ final class VoiceTaskCoordinator {
                 guard isActiveWorkflow(kind: .agentCompose, taskID: taskID) else {
                     return .cancelled
                 }
-                try persistAgentActionTrace(taskID: taskID, trace: result.trace)
+                try persistenceWriter.persistAgentActionTrace(taskID: taskID, trace: result.trace)
                 var updatedTask = task
                 let finalText = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !finalText.isEmpty {
@@ -989,7 +995,7 @@ final class VoiceTaskCoordinator {
                 )
                 taskRuntime.clearCurrentTaskIfMatching(updatedTask)
                 taskRuntime.clearWorkflow(for: updatedTask)
-                saveAgentRuntimeVoiceAssetIfNeeded(
+                persistenceWriter.saveAgentRuntimeVoiceAssetIfNeeded(
                     task: updatedTask,
                     rawText: rawText,
                     completedAt: completedAt
@@ -997,10 +1003,10 @@ final class VoiceTaskCoordinator {
                 onAgentRuntimeStage?(.runtimeCompleted(summary: finalText))
                 onAgentRuntimeCompleted?(taskID)
                 AppLogger.general.info("voice_workflow_completed kind=agentCompose taskID=\(taskID) status=completed output=agentRuntime")
-                return .cancelled
+                return .handledExternally
             }
         } catch AgentRuntimeClientError.failed(let trace) {
-            try? persistAgentActionTrace(taskID: taskID, trace: trace)
+            try? persistenceWriter.persistAgentActionTrace(taskID: taskID, trace: trace)
             onAgentRuntimeStage?(.runtimeFailed(summary: trace.failureReason))
             throw CoordinatorError.llmCallFailed(trace.failureReason ?? "Codex runtime failed.")
         } catch AgentRuntimeError.cancelled {
@@ -1043,156 +1049,6 @@ final class VoiceTaskCoordinator {
         taskRuntime.task(for: kind)
     }
 
-    private func saveVoiceTextAssetIfNeeded(
-        task: VoiceTask,
-        rawText: String,
-        finalText: String,
-        outputResult: OutputResult,
-        completedAt: Date
-    ) {
-        if case .cancelled = outputResult { return }
-        if case .copyFailed = outputResult { return }
-        saveVoiceTextAssetIfNeeded(
-            task: task,
-            rawText: rawText,
-            finalText: finalText,
-            captureReason: dictationCaptureReason(for: outputResult),
-            completedAt: completedAt
-        )
-    }
-
-    private func saveAgentComposeVoiceAssetIfNeeded(
-        task: VoiceTask,
-        rawText: String,
-        outputResult: OutputResult,
-        completedAt: Date
-    ) {
-        if case .cancelled = outputResult { return }
-        let transcript = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !transcript.isEmpty else { return }
-        saveRawVoiceTextAssetIfNeeded(
-            task: task,
-            rawText: rawText,
-            captureReason: .dictationCompleted,
-            completedAt: completedAt
-        )
-    }
-
-    private func saveAgentRuntimeVoiceAssetIfNeeded(
-        task: VoiceTask,
-        rawText: String,
-        completedAt: Date
-    ) {
-        let transcript = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !transcript.isEmpty else { return }
-        saveRawVoiceTextAssetIfNeeded(
-            task: task,
-            rawText: rawText,
-            captureReason: .dictationCompleted,
-            completedAt: completedAt
-        )
-    }
-
-    private func saveRawVoiceTextAssetIfNeeded(
-        task: VoiceTask,
-        rawText: String,
-        captureReason: AssetCaptureReason,
-        completedAt: Date
-    ) {
-        saveVoiceTextAssetIfNeeded(
-            task: task,
-            rawText: rawText,
-            finalText: rawText,
-            captureReason: captureReason,
-            completedAt: completedAt
-        )
-    }
-
-    private func saveFailedVoiceAssetIfNeeded(task: VoiceTask, completedAt: Date) {
-        guard task.mode == .agentCompose || task.mode == .agentDispatch,
-              let rawText = task.rawTranscript,
-              !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
-        }
-        saveVoiceTextAssetIfNeeded(
-            task: task,
-            rawText: rawText,
-            finalText: rawText,
-            captureReason: .dictationCompleted,
-            completedAt: completedAt
-        )
-    }
-
-    private func saveVoiceTextAssetIfNeeded(
-        task: VoiceTask,
-        rawText: String,
-        finalText: String,
-        captureReason: AssetCaptureReason,
-        completedAt: Date
-    ) {
-        let storedText = finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? rawText
-            : finalText
-        guard let assetRepository else { return }
-
-        let asset: AssetItem
-        do {
-            asset = try AssetItem.makeText(
-                id: "dictation-\(task.id)",
-                source: .dictation,
-                title: assetTitle(from: storedText),
-                text: storedText,
-                rawText: rawText,
-                previewText: storedText,
-                contentHash: "dictation-\(task.id)",
-                captureReason: captureReason,
-                sourceAppName: task.targetAppName,
-                sourceAppBundleID: task.targetAppBundleID,
-                createdAt: completedAt,
-                updatedAt: completedAt
-            )
-        } catch {
-            AppLogger.general.error("voice_asset_validation_failed taskID=\(task.id) reason=\(error.localizedDescription)")
-            return
-        }
-        do {
-            try assetRepository.save(asset)
-            AppLogger.general.debug("voice_asset_saved id=\(asset.id) taskID=\(task.id) reason=\(captureReason.rawValue)")
-        } catch {
-            AppLogger.general.error("Failed to save dictation asset: \(error.localizedDescription)")
-        }
-    }
-
-    private func dictationCaptureReason(for outputResult: OutputResult) -> AssetCaptureReason {
-        switch outputResult {
-        case .injected:
-            return .dictationCompleted
-        case .copied, .targetChanged, .permissionDenied, .injectionFailed:
-            return .fallbackCopied
-        case .copyFailed, .cancelled:
-            return .dictationCompleted
-        }
-    }
-
-    private func agentDispatchCaptureReason(
-        for presentation: AgentDispatchHUDPresentation
-    ) -> AssetCaptureReason {
-        if case .clipboardFallback = presentation {
-            return .fallbackCopied
-        }
-        return .dictationCompleted
-    }
-
-    private func assetTitle(from text: String) -> String {
-        let collapsed = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .first?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? text
-        guard collapsed.count > 80 else { return collapsed }
-        return String(collapsed.prefix(80))
-    }
-
     private func runtimeHUDSummary(from text: String, limit: Int = 32) -> String {
         let trimmed = text
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1209,7 +1065,7 @@ final class VoiceTaskCoordinator {
 
     private func terminalStatus(for result: OutputResult) -> VoiceTaskStatus {
         switch result {
-        case .injected, .copied:
+        case .injected, .copied, .handledExternally:
             return .completed
         case .cancelled:
             return .cancelled
@@ -1220,105 +1076,6 @@ final class VoiceTaskCoordinator {
 
     private func isActiveWorkflow(kind: VoiceWorkflowKind, taskID: String) -> Bool {
         taskRuntime.isActiveWorkflow(kind: kind, taskID: taskID)
-    }
-
-    private func persistAgentTraceIfAvailable(taskID: String) throws {
-        guard let trace = (agentRefiner as? RefinementTraceProviding)?.lastTrace else {
-            return
-        }
-        try persistAgentTrace(taskID: taskID, trace: trace)
-    }
-
-    private func persistAgentTrace(taskID: String, trace: LLMRefinementTrace) throws {
-        let processingTrace = TextProcessingTrace(
-            llm: trace,
-            agentAction: existingAgentActionTrace(taskID: taskID),
-            agentDispatch: existingAgentDispatchTrace(taskID: taskID)
-        )
-        LLMDiagnosticCapture.shared.capture(taskID: taskID, trace: processingTrace)
-        let data = try JSONEncoder().encode(processingTrace.safeForPersistence())
-        guard let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-        try taskRepository.updateTrace(id: taskID, trace: json)
-    }
-
-    private func persistTextProcessingTrace(
-        taskID: String,
-        processingTrace: TextProcessingTrace?,
-        outputResult: OutputResult
-    ) throws {
-        guard var processingTrace else {
-            return
-        }
-        processingTrace.output = OutputDeliveryTrace(resultKind: outputResult.kind.rawValue)
-        if processingTrace.agentAction == nil {
-            processingTrace.agentAction = existingAgentActionTrace(taskID: taskID)
-        }
-        if processingTrace.agentDispatch == nil {
-            processingTrace.agentDispatch = existingAgentDispatchTrace(taskID: taskID)
-        }
-        try persistProcessingTrace(taskID: taskID, trace: processingTrace)
-    }
-
-    private func persistAgentDispatchTrace(
-        taskID: String,
-        presentation: AgentDispatchHUDPresentation,
-        processingTrace: TextProcessingTrace? = nil
-    ) throws {
-        var trace = processingTrace ?? existingProcessingTrace(taskID: taskID) ?? TextProcessingTrace()
-        if trace.agentAction == nil {
-            trace.agentAction = existingAgentActionTrace(taskID: taskID)
-        }
-        trace.agentDispatch = AgentDispatchTrace(presentation: presentation)
-        try persistProcessingTrace(taskID: taskID, trace: trace)
-    }
-
-    private func persistAgentDispatchDefaultOutputTrace(
-        taskID: String,
-        processingTrace: TextProcessingTrace?,
-        outputResult: OutputResult
-    ) throws {
-        var trace = processingTrace ?? existingProcessingTrace(taskID: taskID) ?? TextProcessingTrace()
-        trace.output = OutputDeliveryTrace(resultKind: outputResult.kind.rawValue)
-        trace.agentDispatch = AgentDispatchTrace(
-            state: "fallbackInput",
-            title: L10n.localize("home.detail.dispatch.default_output", comment: "Dispatch default output"),
-            detail: L10n.localize("home.detail.dispatch.default_output_detail", comment: "Default output detail")
-        )
-        try persistProcessingTrace(taskID: taskID, trace: trace)
-    }
-
-    private func persistProcessingTrace(taskID: String, trace: TextProcessingTrace) throws {
-        LLMDiagnosticCapture.shared.capture(taskID: taskID, trace: trace)
-        let data = try JSONEncoder().encode(trace.safeForPersistence())
-        guard let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-        try taskRepository.updateTrace(id: taskID, trace: json)
-    }
-
-    private func existingProcessingTrace(taskID: String) -> TextProcessingTrace? {
-        guard let task = try? taskRepository.fetch(id: taskID),
-              let traceJSON = task.trace,
-              let data = traceJSON.data(using: .utf8),
-              let trace = try? JSONDecoder().decode(TextProcessingTrace.self, from: data) else {
-            return nil
-        }
-        return trace
-    }
-
-    private func existingAgentActionTrace(taskID: String) -> AgentActionTrace? {
-        existingProcessingTrace(taskID: taskID)?.agentAction
-    }
-
-    private func existingAgentDispatchTrace(taskID: String) -> AgentDispatchTrace? {
-        existingProcessingTrace(taskID: taskID)?.agentDispatch
-    }
-
-    private func persistAgentActionTrace(taskID: String, trace: AgentActionTrace) throws {
-        let processingTrace = TextProcessingTrace(agentAction: trace)
-        try persistProcessingTrace(taskID: taskID, trace: processingTrace)
     }
 
     private enum ContextCollectionAwaitResult: Sendable {

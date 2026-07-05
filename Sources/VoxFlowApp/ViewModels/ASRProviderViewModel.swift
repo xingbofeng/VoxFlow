@@ -1,4 +1,5 @@
 import Combine
+import VoxFlowASRRuntime
 import Foundation
 import VoxFlowModelStore
 import VoxFlowProviderAliyunDashScope
