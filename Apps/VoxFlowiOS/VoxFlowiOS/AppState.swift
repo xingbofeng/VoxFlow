@@ -1,5 +1,6 @@
 import Foundation
 @preconcurrency import Speech
+import Shared
 import UIKit
 import VoxFlowASRRuntime
 import VoxFlowMobileCore
@@ -94,10 +95,10 @@ struct TimelineEvent: Identifiable, Equatable {
 @MainActor
 final class AppState: ObservableObject {
     @Published var selectedProvider: SelectedProvider {
-        didSet { UserDefaults.standard.set(selectedProvider.rawValue, forKey: Self.providerKey) }
+        didSet { Self.persistProvider(selectedProvider) }
     }
     @Published var selectedLanguage: SelectedLanguage {
-        didSet { UserDefaults.standard.set(selectedLanguage.rawValue, forKey: Self.languageKey) }
+        didSet { Self.persistLanguage(selectedLanguage) }
     }
     @Published var sessionState: MobileDictationState = .idle
     @Published var finalText: String = ""
@@ -105,6 +106,13 @@ final class AppState: ObservableObject {
     @Published var credentialValues: [LocalCredentialStore.Provider: LocalCredentialStore.CredentialValues] = [:]
     @Published var recorderDiagnostic: RecorderDiagnostic = .init()
     @Published var appleSpeechAuthorization: AppleSpeechAuthorizationStatus = .notDetermined
+    @Published var waveformEnergy: [Float] = []
+
+    /// True when the app should present the ClipboardDictationHandoffView.
+    /// Set ONLY by the `mashangxie://dictation/clipboard-start` deep link —
+    /// normal app launches do NOT restore this state (per spec).
+    @Published var clipboardHandoffActive: Bool = false
+    @Published var clipboardHandoffPresentationID = UUID()
 
     let credentialStore = LocalCredentialStore()
 
@@ -115,17 +123,22 @@ final class AppState: ObservableObject {
     private static let languageKey = "VoxFlowiOS.selectedLanguage"
 
     init() {
-        let providerRaw = UserDefaults.standard.string(forKey: Self.providerKey) ?? SelectedProvider.appleSpeech.rawValue
+        let providerRaw = AppGroup.preferences.string(forKey: SharedKeys.provider)
+            ?? UserDefaults.standard.string(forKey: Self.providerKey)
+            ?? SelectedProvider.appleSpeech.rawValue
         let languageRaw = UserDefaults.standard.string(forKey: Self.languageKey) ?? SelectedLanguage.zhCN.rawValue
         self.selectedProvider = SelectedProvider(rawValue: providerRaw) ?? .appleSpeech
         self.selectedLanguage = SelectedLanguage(rawValue: languageRaw) ?? .zhCN
         self.credentialValues = credentialStore.loadAll()
         self.appleSpeechAuthorization = Self.currentAppleSpeechAuthorization()
+        Self.persistProvider(selectedProvider)
+        Self.persistLanguage(selectedLanguage)
+        Self.persistKeyboardDefaults()
     }
 
     // MARK: - Dictation
 
-    /// 当前 live text（来自 partial 或 final），用于 DictationView 展示。
+    /// 当前 live text（来自 partial 或 final），供调试和诊断界面展示。
     var visibleLiveText: String {
         switch sessionState {
         case let .recording(liveText), let .transcribing(liveText):
@@ -138,6 +151,7 @@ final class AppState: ObservableObject {
     }
 
     func startDictation() async {
+        discardCurrentDictationSession()
         appendTimeline(.audio, message: L10n.t("timeline.start_requested"))
         if selectedProvider == .appleSpeech {
             await refreshAppleSpeechAuthorization(requestIfNeeded: true)
@@ -173,6 +187,11 @@ final class AppState: ObservableObject {
                 self?.sessionState = .failed(message: L10n.t("error.route_change"))
             }
         }
+        recorder.onWaveform = { [weak self] energy in
+            Task { @MainActor in
+                self?.waveformEnergy = energy
+            }
+        }
         self.recorder = recorder
 
         let session = MobileDictationSession(engine: engine, recorder: recorder)
@@ -197,15 +216,18 @@ final class AppState: ObservableObject {
     }
 
     func cancelDictation() {
-        session?.cancel()
+        discardCurrentDictationSession()
         finalText = ""
+        sessionState = .idle
         recorderDiagnostic = .init()
+        waveformEnergy = []
     }
 
     func clearResult() {
-        session?.reset()
+        discardCurrentDictationSession()
         finalText = ""
         sessionState = .idle
+        waveformEnergy = []
     }
 
     // MARK: - Clipboard
@@ -216,6 +238,20 @@ final class AppState: ObservableObject {
         UIPasteboard.general.string = text
         appendTimeline(.asr, message: L10n.t("timeline.copied"))
         return true
+    }
+
+    /// Present the ClipboardBridge handoff page. Called by the URL router
+    /// when `mashangxie://dictation/clipboard-start?source=keyboard` is received.
+    func presentClipboardHandoff() {
+        clipboardHandoffPresentationID = UUID()
+        clearResult()
+        clipboardHandoffActive = true
+        ClipboardBridgeEventLog.shared.record(.init(kind: .deepLinkOpened))
+    }
+
+    /// Dismiss the handoff page. Called by the view's onDismiss.
+    func dismissClipboardHandoff() {
+        clipboardHandoffActive = false
     }
 
     // MARK: - Credentials
@@ -238,7 +274,7 @@ final class AppState: ObservableObject {
 
     func isProviderConfigured(_ provider: SelectedProvider) -> Bool {
         guard provider.requiresCredentials, let cred = provider.credentialProvider else { return true }
-        return credentialStore.isComplete(cred)
+        return credentialStore.isEffectivelyComplete(cred)
     }
 
     // MARK: - Diagnostics
@@ -267,7 +303,7 @@ final class AppState: ObservableObject {
             }
         case .tencent, .aliyun, .volcengine:
             guard let cred = provider.credentialProvider else { return .ready }
-            if !credentialStore.isComplete(cred) {
+            if !credentialStore.isEffectivelyComplete(cred) {
                 return .missingCredentials
             }
             return .ready
@@ -275,6 +311,24 @@ final class AppState: ObservableObject {
     }
 
     // MARK: - Private
+
+    private static func persistProvider(_ provider: SelectedProvider) {
+        UserDefaults.standard.set(provider.rawValue, forKey: providerKey)
+        AppGroup.preferences.set(provider.rawValue, forKey: SharedKeys.provider)
+        AppGroup.preferences.synchronize()
+    }
+
+    private static func persistLanguage(_ language: SelectedLanguage) {
+        UserDefaults.standard.set(language.rawValue, forKey: languageKey)
+        AppGroup.preferences.set(language.rawValue, forKey: SharedKeys.language)
+        AppGroup.preferences.synchronize()
+    }
+
+    private static func persistKeyboardDefaults() {
+        AppGroup.preferences.set(LayoutType.qwerty.rawValue, forKey: SharedKeys.keyboardLayout)
+        AppGroup.preferences.set(DefaultKeyboardLayer.letters.rawValue, forKey: SharedKeys.defaultKeyboardLayer)
+        AppGroup.preferences.synchronize()
+    }
 
     private func makeEngine(for provider: SelectedProvider) throws -> ASREngine {
         switch provider {
@@ -304,6 +358,15 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func discardCurrentDictationSession() {
+        let oldSession = session
+        session = nil
+        recorder = nil
+        oldSession?.onChange = nil
+        oldSession?.onPermissionDenied = nil
+        oldSession?.cancel()
+    }
+
     private func appendTimeline(_ category: TimelineEvent.Category, message: String) {
         timelineEvents.append(.init(timestamp: Date(), category: category, message: message))
         if timelineEvents.count > 200 {
@@ -317,13 +380,19 @@ final class AppState: ObservableObject {
 
     private static func requestAppleSpeechAuthorization() async -> AppleSpeechAuthorizationStatus {
         await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
+            requestSpeechAuthorization { status in
                 continuation.resume(returning: mapSpeechAuthorization(status))
             }
         }
     }
 
-    private static func mapSpeechAuthorization(_ status: SFSpeechRecognizerAuthorizationStatus) -> AppleSpeechAuthorizationStatus {
+    private nonisolated static func requestSpeechAuthorization(
+        _ completion: @escaping @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void
+    ) {
+        SFSpeechRecognizer.requestAuthorization(completion)
+    }
+
+    private nonisolated static func mapSpeechAuthorization(_ status: SFSpeechRecognizerAuthorizationStatus) -> AppleSpeechAuthorizationStatus {
         switch status {
         case .authorized:
             return .authorized

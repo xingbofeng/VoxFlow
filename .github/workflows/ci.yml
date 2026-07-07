@@ -34,6 +34,7 @@ jobs:
             echo "rust_agent=true" >> "$GITHUB_OUTPUT"
             echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
             echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
+            echo "ios=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -57,6 +58,12 @@ jobs:
             echo "context_boost_benchmark=false" >> "$GITHUB_OUTPUT"
           fi
 
+          if grep -E '^(Apps/VoxFlowiOS/|Makefile$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check release metadata
         run: make release-check
 
@@ -64,7 +71,7 @@ jobs:
         run: swift --version
 
       - name: Install lint and localization tools
-        run: brew install swiftlint bartycrouch swiftgen
+        run: brew install swiftlint bartycrouch swiftgen xcodegen
 
       - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
@@ -86,6 +93,13 @@ jobs:
 
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
+
+      - name: Cache iOS Rime Ice schemas
+        if: steps.changes.outputs.ios == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .build/ios-rime-ice
+          key: ${{ runner.os }}-ios-rime-ice-${{ hashFiles('Apps/VoxFlowiOS/Scripts/bootstrap-rime-ice-schemas.sh') }}
 
       - name: Run tests
         run: |
@@ -138,6 +152,10 @@ jobs:
 
       - name: Run SwiftLint
         run: make lint
+
+      - name: Run iOS simulator tests
+        if: steps.changes.outputs.ios == 'true'
+        run: make ios-test-sim
 
       - name: Run i18n checks
         run: make i18n-check

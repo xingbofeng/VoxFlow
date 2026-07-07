@@ -33,6 +33,29 @@ final class TencentRealtimeASRClientTests: XCTestCase {
         XCTAssertFalse(signedURL.absoluteString.contains("SECRETEXAMPLE"))
     }
 
+    func testRealtimeURLTrimsCopiedCredentialWhitespace() throws {
+        let signer = TencentRealtimeASRURLSigner(
+            appID: " 1259220000\n",
+            secretID: "\tAKIDEXAMPLE ",
+            secretKey: "\nSECRETEXAMPLE\t",
+            timestamp: 1_673_408_372,
+            expired: 1_673_494_772,
+            nonce: 1_673_408_372,
+            voiceID: "c64385ee-3e5c-4fc5-bbfd-7c71addb35b0",
+            engineModelType: " 16k_zh ",
+            voiceFormat: 1,
+            needVAD: 1
+        )
+
+        let signedURL = try signer.signedURL()
+        let components = try XCTUnwrap(URLComponents(url: signedURL, resolvingAgainstBaseURL: false))
+        let queryItems = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(components.path, "/asr/v2/1259220000")
+        XCTAssertEqual(queryItems["secretid"], "AKIDEXAMPLE")
+        XCTAssertEqual(queryItems["engine_model_type"], "16k_zh")
+    }
+
     func testRealtimeURLPercentEncodesBase64SignatureReservedCharacters() throws {
         let signer = TencentRealtimeASRURLSigner(
             appID: "1259220000",

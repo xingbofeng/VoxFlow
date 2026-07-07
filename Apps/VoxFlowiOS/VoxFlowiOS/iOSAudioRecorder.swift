@@ -19,12 +19,15 @@ import VoxFlowMobileCore
 /// 不影响本次录音数据完整性，仅记录到 `lastDeactivationError` 供诊断页展示。
 final class iOSAudioRecorder: NSObject, MobileAudioRecording, @unchecked Sendable {
     private let lock = NSLock()
+    private let converterLock = NSLock()
     private let engine = AVAudioEngine()
-    private let converter: PersistentAudioConverter
+    private let converter: PersistentAudioConverter?
     private var onFrame: (@Sendable (AudioFrame) -> Void)?
     private var sequenceNumber: UInt64 = 0
     private var startSample: UInt64 = 0
     private var isRunning = false
+    private var isTapInstalled = false
+    private var didFinishConverter = false
 
     /// 中断回调（主线程）。`.began` 时触发，UI/会话层据此推进到 failed 或 idle。
     var onInterruption: (@Sendable () -> Void)?
@@ -32,16 +35,14 @@ final class iOSAudioRecorder: NSObject, MobileAudioRecording, @unchecked Sendabl
     /// 路由变化导致录音终止的回调（主线程）。
     var onRouteChangeEnded: (@Sendable () -> Void)?
 
+    /// 录音能量波形回调。用于 ClipboardBridge 主 App 页面展示真实麦克风音量。
+    var onWaveform: (@Sendable ([Float]) -> Void)?
+
     /// 最近的会话停用错误，用于诊断页展示；nil 表示无错误或停用成功。
     private(set) var lastDeactivationError: String?
 
     override init() {
-        do {
-            converter = try PersistentAudioConverter(targetSampleRate: 16_000)
-        } catch {
-            // 16kHz AVAudioFormat 转换器在 iOS 上必然可创建；失败时退回默认初始化。
-            converter = try! PersistentAudioConverter(targetSampleRate: 16_000)
-        }
+        converter = try? PersistentAudioConverter(targetSampleRate: 16_000)
         super.init()
         let center = NotificationCenter.default
         center.addObserver(
@@ -59,6 +60,7 @@ final class iOSAudioRecorder: NSObject, MobileAudioRecording, @unchecked Sendabl
     }
 
     deinit {
+        stop()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -90,44 +92,63 @@ final class iOSAudioRecorder: NSObject, MobileAudioRecording, @unchecked Sendabl
             sequenceNumber = 0
             startSample = 0
             isRunning = true
+            didFinishConverter = false
         }
 
         engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
             self?.process(buffer: buffer)
         }
+        lock.withLock {
+            isTapInstalled = true
+        }
         try engine.start()
     }
 
     func stop() {
-        lock.withLock {
-            if !isRunning { return }
+        let shouldDeactivateSession = lock.withLock { () -> Bool in
+            let wasRunning = isRunning
             isRunning = false
+            return wasRunning
         }
         if engine.isRunning {
             engine.stop()
         }
-        engine.inputNode.removeTap(onBus: 0)
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            lock.withLock { lastDeactivationError = nil }
-        } catch {
-            // 会话停用失败通常是系统侧暂时性冲突（例如其他 App 正在占用音频），
-            // 不影响本次已采集数据。记录错误供诊断页展示。
-            lock.withLock { lastDeactivationError = error.localizedDescription }
+        let shouldRemoveTap = lock.withLock { isTapInstalled }
+        if shouldRemoveTap {
+            engine.inputNode.removeTap(onBus: 0)
+            lock.withLock {
+                isTapInstalled = false
+            }
+        }
+        finishConverterIfNeeded()
+        if shouldDeactivateSession {
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+                lock.withLock { lastDeactivationError = nil }
+            } catch {
+                // 会话停用失败通常是系统侧暂时性冲突（例如其他 App 正在占用音频），
+                // 不影响本次已采集数据。记录错误供诊断页展示。
+                lock.withLock { lastDeactivationError = error.localizedDescription }
+            }
         }
         lock.withLock {
             onFrame = nil
+            onWaveform = nil
         }
     }
 
     // MARK: - Private
 
     private func process(buffer: AVAudioPCMBuffer) {
-        guard buffer.floatChannelData?[0] != nil else { return }
+        guard buffer.floatChannelData?[0] != nil,
+              let converter
+        else { return }
 
         // 将原始 buffer 喂给 converter，由共享音频层统一转成 16kHz mono Float32。
         let converted: ContiguousArray<Float>
         do {
+            converterLock.lock()
+            defer { converterLock.unlock() }
             converted = try converter.convert(buffer)
         } catch {
             return
@@ -147,6 +168,38 @@ final class iOSAudioRecorder: NSObject, MobileAudioRecording, @unchecked Sendabl
         }
         let callback = lock.withLock { onFrame }
         callback?(frame)
+        let waveformCallback = lock.withLock { onWaveform }
+        waveformCallback?(Self.makeWaveform(from: Array(converted), targetCount: 30))
+    }
+
+    private func finishConverterIfNeeded() {
+        let shouldFinish = lock.withLock { () -> Bool in
+            guard !didFinishConverter else { return false }
+            didFinishConverter = true
+            return true
+        }
+        guard shouldFinish else { return }
+        converterLock.lock()
+        defer { converterLock.unlock() }
+        _ = try? converter?.finish()
+    }
+
+    private static func makeWaveform(from samples: [Float], targetCount: Int) -> [Float] {
+        guard targetCount > 0, !samples.isEmpty else { return [] }
+
+        let bucketSize = max(1, samples.count / targetCount)
+        return (0..<targetCount).map { index in
+            let start = index * bucketSize
+            let end = min(samples.count, start + bucketSize)
+            guard start < end else { return 0 }
+
+            var sumSquares: Float = 0
+            for sample in samples[start..<end] {
+                sumSquares += sample * sample
+            }
+            let rms = sqrt(sumSquares / Float(end - start))
+            return min(1, max(0, rms * 18))
+        }
     }
 
     @objc private func handleInterruption(_ notification: Notification) {

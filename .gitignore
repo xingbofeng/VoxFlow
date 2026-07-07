@@ -11,6 +11,10 @@ xcuserdata/
 .playwright-mcp/
 .codegraph/
 openspec/
+Apps/VoxFlowiOS/Generated/
+Apps/VoxFlowiOS/build/
+Apps/VoxFlowiOS/VoxFlowiOS.xcodeproj/
+Apps/VoxFlowiOS/ChineseInput/Resources/Schemas/
 .workbuddy/
 .claude/
 .codebuddy/

@@ -1,9 +1,73 @@
 /* VoxFlowiOS — 日本語 */
 
 /* Tabs */
+"tab.home" = "ホーム";
 "tab.dictation" = "ディクテーション";
 "tab.diagnostics" = "診断";
+"tab.services" = "サービス";
 "tab.settings" = "設定";
+
+/* Common */
+"common.cancel" = "キャンセル";
+"common.delete" = "削除";
+"common.error" = "エラー";
+"common.ok" = "OK";
+"common.retry" = "再試行";
+
+/* App Home */
+"app.home.title" = "Mashangxie";
+"app.home.brand" = "Mashangxie";
+"app.home.tagline" = "中国語優先の音声キーボード";
+"app.home.active_model" = "現在のモデル";
+"app.home.download_model" = "プロバイダーを選択して開始";
+"app.home.download_model_hint" = "Models タブで音声認識プロバイダーを選択してください。";
+"app.home.provider_status" = "現在の認識サービス";
+"app.home.provider_ready" = "キーボード音声入力の準備ができています。";
+"app.home.last_transcription" = "前回の認識結果";
+"app.home.tap_to_copy" = "タップしてコピー";
+"app.home.copied" = "コピーしました！";
+"app.home.new_dictation" = "音声入力を開始";
+"app.home.keyboard_hint" = "iOS 設定で Mashangxie キーボードを有効にすると、WeChat や任意の入力欄で使えます。";
+
+/* Recording */
+"recording.transcribing" = "認識中…";
+"recording.copied" = "コピーしました！";
+"recording.tap_text_to_copy" = "テキストをタップしてコピー";
+"recording.stop_accessibility" = "録音を停止";
+"recording.retry" = "再試行";
+"recording.failed" = "認識に失敗しました。Provider 設定と権限を確認してください。";
+
+/* Cold start */
+"cold_start.title" = "録音中";
+"cold_start.subtitle" = "iOS のサードパーティキーボードはマイクに直接アクセスできないため、Mashangxie はメイン App で録音します。";
+"cold_start.instruction" = "画面下部を右へスワイプして\n入力欄に戻る";
+"cold_start.listening" = "聞き取り中…";
+
+/* Onboarding */
+"onboarding.get_started" = "始める";
+"onboarding.continue" = "続ける";
+"onboarding.welcome.brand" = "Mashangxie";
+"onboarding.welcome.tagline" = "WeChat や任意の入力欄で使える、中国語優先の音声キーボード";
+"onboarding.mic.title" = "マイク";
+"onboarding.mic.subtitle" = "iOS のサードパーティキーボードは直接録音できません。Mashangxie はメイン App で録音し、結果をキーボードへ戻します。";
+"onboarding.mic.authorized" = "マイクが許可されました";
+"onboarding.mic.later" = "マイク権限はあとで設定から有効にできます。";
+"onboarding.keyboard.title" = "キーボードを追加";
+"onboarding.keyboard.open_settings" = "設定を開く";
+"onboarding.keyboard.auto_detect" = "可能な場合はキーボードの有効化を自動検出します。";
+"onboarding.keyboard.restart_note" = "フルアクセス変更時に Mashangxie が再起動することがあります。これは正常です。";
+"onboarding.keyboard.detected" = "キーボードを検出しました";
+"onboarding.keyboard.step_add" = "iOS のキーボード設定で Mashangxie を追加します。";
+"onboarding.keyboard.step_full_access" = "Provider と App Group 通信のためにフルアクセスを有効にします。";
+"onboarding.keyboard.step_return" = "ここに戻り、WeChat でキーボードを使います。";
+"onboarding.mode.title" = "キーボードを選択";
+"onboarding.mode.subtitle" = "現在は ABC がデフォルトです。Phase 2 の中国語 26 キーと 9 キーも同じシェルを使います。";
+"onboarding.mode.picker" = "デフォルトキーボードページ";
+"onboarding.provider.title" = "認識サービス";
+"onboarding.provider.subtitle" = "デフォルトは Apple 音声認識です。クラウド Provider は設定で構成できます。";
+"onboarding.success.title" = "準備完了！";
+"onboarding.success.subtitle" = "Mashangxie の準備ができました。iOS 設定でキーボードを有効にして、入力欄から音声入力を始められます。";
+"keyboard.space" = "スペース";
 
 /* Providers */
 "provider.apple_speech" = "Apple 音声認識";
@@ -42,6 +106,16 @@
 
 /* Settings */
 "settings.title" = "設定";
+"settings.layout" = "レイアウト";
+"settings.haptic_feedback" = "触覚フィードバック";
+"settings.sounds" = "サウンド";
+"settings.autocorrect" = "自動修正";
+"settings.live_activity" = "Live Activity";
+"settings.live_activity_disabled_hint" = "Dynamic Island とロック画面通知は無効です。";
+"settings.autocorrect_debug_logs" = "自動修正デバッグログ";
+"settings.developer_section" = "開発者";
+"settings.autocorrect_debug_warning" = "警告: ログには入力語と修正内容が含まれます。Debug ビルドのみです。";
+"settings.autocorrect_debug_hint" = "自動修正の判断をデバッグ用に記録します。既定ではオフです。";
 "settings.provider_section" = "Provider";
 "settings.provider" = "ASR サービス";
 "settings.provider.apple_speech_hint" = "Apple 音声認識はシステム認識エンジンを使用します。資格情報不要ですが、音声認識権限が必要です。";
@@ -49,22 +123,100 @@
 "settings.language" = "認識言語";
 "settings.credentials_section" = "クラウド資格情報";
 "settings.credentials_not_set" = "未設定";
+"settings.credentials_configured" = "設定済み";
 "settings.credentials_save" = "保存";
 "settings.credentials_clear" = "クリア";
 "settings.credentials_saved_toast" = "保存しました";
 "settings.credentials_warning" = "V1 の資格情報は平文でローカルファイルに保存され、個人テスト用のみです。高権限の本番キーは使用しないでください。";
+"settings.keyboard_section" = "キーボード";
+"settings.keyboard_phase2_hint" = "中国語 26 キーと 9 キーは Phase 2 で同じ Dictus 風シェルを使用します。";
+"settings.diagnostics_section" = "診断";
+"settings.debug_logs" = "デバッグログ";
+"settings.debug_logs_hint" = "キーボードのコールドスタートと Provider ブリッジイベントを確認します。";
+"settings.export_logs" = "ログを書き出す";
+"settings.export_logs_hint" = "トラブルシューティング用に App Group ログを共有します。";
+"settings.security_note" = "セキュリティメモ";
 "settings.about_section" = "情報";
 "settings.about_version" = "バージョン";
+"settings.github_star" = "GitHub / Star";
+"settings.privacy_policy" = "プライバシーポリシー";
+"settings.licenses" = "オープンソースライセンス";
+"settings.licenses_placeholder" = "オープンソースライセンス通知はリポジトリに含まれています。";
+"settings.diagnostic" = "診断";
 "settings.about_env" = "実行環境";
 "settings.about_env_simulator" = "iOS シミュレータ";
 "settings.about_env_device" = "iOS 実機";
 "settings.about_env_hint" = "シミュレータ、LiveContainer、実機で診断とプレビュー方法が異なります。";
 
+/* Services */
+"services.title" = "サービス";
+"services.current_section" = "現在のサービス";
+"services.providers_section" = "利用可能な Provider";
+"services.downloaded_section" = "選択中";
+"services.available_section" = "利用可能";
+"services.recommended" = "推奨";
+"services.gauge.accuracy" = "精度";
+"services.gauge.speed" = "速度";
+"services.runtime.system" = "システム";
+"services.runtime.cloud" = "クラウド";
+"services.engine.apple_speech" = "Apple 音声認識 — 初回キーボード音声入力のデフォルト baseline Provider です。";
+"services.engine.cloud" = "クラウド ASR — Tencent Cloud、Aliyun DashScope、Volcengine は Mashangxie のリアルタイム ASR ブリッジを再利用します。";
+"services.optimizing" = "準備中…";
+"services.delete_alert_title" = "Provider を削除しますか？";
+"services.delete_alert_message" = "%@ を削除しますか？この Provider は選択済みリストから削除されます。";
+
+/* Model loading */
+"model_loading.ready" = "サービスの準備ができました";
+"model_loading.stay_on_page" = "このページに留まり、App を離れないでください。";
+"model_loading.phase.downloading" = "準備中";
+"model_loading.phase.compiling" = "最適化中";
+"model_loading.phase.loading" = "読み込み中";
+"model_loading.phase.ready" = "準備完了";
+"model_loading.downloading.1" = "サービスを準備しています…";
+"model_loading.downloading.2" = "Provider 設定を確認しています…";
+"model_loading.downloading.3" = "共有状態に接続しています…";
+"model_loading.downloading.4" = "もうすぐです…";
+"model_loading.downloading.5" = "設定を完了しています…";
+"model_loading.compiling.1" = "iPhone 向けに最適化しています…";
+"model_loading.compiling.2" = "オーディオ経路を準備しています…";
+"model_loading.compiling.3" = "キーボードブリッジを確認しています…";
+"model_loading.compiling.4" = "Provider 設定を調整しています…";
+"model_loading.compiling.5" = "セッションをウォームアップしています…";
+"model_loading.compiling.6" = "音声入力経路を構築しています…";
+"model_loading.compiling.7" = "オーディオパイプラインを準備しています…";
+"model_loading.compiling.8" = "共有ストレージを同期しています…";
+"model_loading.compiling.9" = "実行状態をキャッシュしています…";
+"model_loading.compiling.10" = "低遅延入力を準備しています…";
+"model_loading.compiling.11" = "最後の仕上げをしています…";
+"model_loading.compiling.12" = "あと数秒です…";
+"model_loading.loading.1" = "Provider を読み込んでいます…";
+"model_loading.loading.2" = "サービス状態をマッピングしています…";
+"model_loading.loading.3" = "音声入力を準備しています…";
+"model_loading.loading.4" = "オーディオパイプラインを準備しています…";
+"model_loading.loading.5" = "もうすぐ準備できます…";
+
 /* Diagnostics */
 "diagnostics.title" = "診断";
+"diagnostics.app_group_section" = "App Group";
+"diagnostics.app_group_container" = "コンテナ";
+"diagnostics.app_group_read" = "読み取り";
+"diagnostics.app_group_write" = "書き込み";
+"diagnostics.app_group_file_read" = "ファイル読み取り";
+"diagnostics.app_group_file_write" = "ファイル書き込み";
+"diagnostics.app_group_file" = "プローブファイル";
+"diagnostics.app_group_timestamp" = "確認時刻";
+"diagnostics.keyboard_section" = "キーボード共有状態";
+"diagnostics.keyboard_status" = "状態";
+"diagnostics.keyboard_heartbeat" = "ハートビート";
+"diagnostics.keyboard_cold_start" = "コールドスタート";
+"diagnostics.keyboard_pending_transcription" = "保留中の転写";
+"diagnostics.keyboard_last_error" = "最後のエラー";
 "diagnostics.providers_section" = "Provider の可用性";
 "diagnostics.env_section" = "実行環境";
 "diagnostics.recorder_section" = "レコーダー";
+"diagnostics.logs_section" = "ログ";
+"diagnostics.open_debug_logs" = "デバッグログを開く";
+"diagnostics.open_debug_logs_hint" = "App とキーボードが書き込んだ永続ログを読みます。";
 "diagnostics.timeline_section" = "タイムライン";
 "diagnostics.timeline_empty" = "イベントはまだありません。";
 "diagnostics.recorder_deactivation_error" = "非アクティブ化エラー";
@@ -76,11 +228,30 @@
 "diagnostics.env_container_native" = "ネイティブ App";
 "diagnostics.env_container_livecontainer" = "LiveContainer（ゲスト App）";
 "diagnostics.env_locale" = "Locale";
+"diagnostics.env_bundle" = "Bundle";
+"diagnostics.env_url_scheme" = "URL Scheme";
+"diagnostics.ok" = "OK";
+"diagnostics.failed" = "失敗";
+"diagnostics.value_none" = "なし";
+"diagnostics.value_unknown" = "不明";
+"diagnostics.value_yes" = "はい";
+"diagnostics.value_no" = "いいえ";
+"diagnostics.heartbeat_age" = "%d 秒前";
+"diagnostics.pending_transcription_length" = "%d 文字が保留中";
 "diagnostics.availability.ready" = "利用可能";
-"diagnostics.availability.missing_credentials" = "資格情報が不足しています。設定で入力してください。";
+"diagnostics.availability.missing_credentials" = "資格情報が不足しています。サービス画面で入力してください。";
 "diagnostics.availability.permission_denied" = "権限が拒否されました。システム設定で有効にしてください。";
 "diagnostics.availability.permission_not_determined" = "権限がまだ要求されていません。";
 "diagnostics.availability.env_limited" = "実行環境により制限されています。";
+
+/* Diagnostic detail */
+
+/* Debug logs */
+"debug_logs.title" = "デバッグログ";
+"debug_logs.empty" = "ログはありません";
+"debug_logs.empty_hint" = "App またはキーボードから一度ディクテーションを開始してから戻ってください。";
+"debug_logs.copy" = "コピー";
+"debug_logs.clear" = "クリア";
 
 /* Timeline */
 "timeline.start_requested" = "開始を要求しました";
@@ -98,3 +269,60 @@
 /* Errors */
 "error.interruption" = "録音がシステムによって中断されました。開始をタップして再試行してください。";
 "error.route_change" = "入力デバイスが切断されました。再接続して再試行してください。";
+
+/* Bridge mode (diagnostics) */
+"bridge_mode.automatic" = "自動";
+"bridge_mode.clipboard" = "クリップボード";
+"bridge_mode.app_group" = "App Group";
+"bridge.effective.app_group" = "AppGroupBridge";
+"bridge.effective.clipboard" = "ClipboardBridge";
+"bridge.fallback.suite_not_configurable" = "App Group suite を設定できません";
+"bridge.fallback.container_lookup_failed" = "App Group コンテナの検出に失敗";
+"bridge.fallback.entitlement_missing" = "App Group entitlement がありません";
+"bridge.fallback.forced_clipboard" = "クリップボード強制モード";
+"bridge.fallback.forced_app_group" = "AppGroup 強制モード";
+"bridge.fallback.auto_degraded" = "自動モード：クリップボードにダウングレード";
+
+/* Diagnostics: bridge section */
+"diagnostics.bridge_section" = "ディクテーションブリッジ";
+"diagnostics.bridge_mode" = "モード";
+"diagnostics.bridge_effective" = "有効なブリッジ";
+"diagnostics.bridge_app_group" = "App Group";
+"diagnostics.bridge_app_group_available" = "利用可能";
+"diagnostics.bridge_app_group_unavailable" = "利用不可";
+"diagnostics.bridge_fallback_reason" = "フォールバック理由";
+"diagnostics.bridge_last_clipboard_event" = "直近のクリップボードイベント";
+"diagnostics.bridge_event.deep_link_opened" = "ディープリンクを開きました";
+"diagnostics.bridge_event.pasteboard_write_success" = "クリップボード書き込み成功";
+"diagnostics.bridge_event.pasteboard_write_failed" = "クリップボード書き込み失敗";
+"diagnostics.bridge_event.pasteboard_read_success" = "クリップボード読み取り成功";
+"diagnostics.bridge_event.pasteboard_read_empty" = "クリップボードが空です";
+"diagnostics.bridge_event.pasteboard_read_failed" = "クリップボード読み取り失敗";
+"diagnostics.bridge_event.inserted" = "挿入済み";
+"diagnostics.bridge_event.dismissed" = "閉じました";
+
+/* Clipboard dictation handoff page */
+"clipboard_handoff.title" = "ディクテーション";
+"clipboard_handoff.recording_title" = "聞き取り中";
+"clipboard_handoff.subtitle" = "話しかけてください — 結果がクリップボードにコピーされます。";
+"clipboard_handoff.partial_placeholder" = "聞き取り中…";
+"clipboard_handoff.button_complete_and_copy" = "完了してコピー";
+"clipboard_handoff.button_stop_and_recognize" = "停止して認識";
+"clipboard_handoff.button_finalizing" = "コピー中…";
+"clipboard_handoff.status_recognizing" = "認識中…";
+"clipboard_handoff.status_waiting_final" = "クラウドの結果を待機中…";
+"clipboard_handoff.status_fetching_final" = "最終結果を取得中…";
+"clipboard_handoff.copied_title" = "コピー済み";
+"clipboard_handoff.copied_hint" = "元のアプリに戻り、キーボードのプレビューをタップして挿入してください。";
+"clipboard_handoff.swipe_back_hint" = "左へスワイプして元のアプリに戻る";
+"clipboard_handoff.copied_temporary_hint" = "途中結果をコピーしました。元のアプリに戻り、キーボードのプレビューをタップして挿入してください。";
+"clipboard_handoff.empty_title" = "認識結果がありません";
+"clipboard_handoff.empty_hint" = "音声が取得できませんでした。もう一度お試しください。";
+"clipboard_handoff.button_retry" = "もう一度ディクテーション";
+"clipboard_handoff.button_cancel" = "キャンセル";
+"clipboard_handoff.failed_title" = "ディクテーション失敗";
+"clipboard_handoff.permission_denied_hint" = "マイク権限が必要です。iOS 設定 → プライバシー → マイクで有効にしてください。";
+"clipboard_handoff.button_open_settings" = "設定を開く";
+"clipboard_handoff.finalizing_title" = "最後の一文を整理中";
+"clipboard_handoff.permission_requesting" = "マイク権限を要求中…";
+"clipboard_handoff.preparing_title" = "準備中";

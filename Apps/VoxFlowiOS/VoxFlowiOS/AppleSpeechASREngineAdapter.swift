@@ -52,7 +52,7 @@ final class AppleSpeechASREngineAdapter: ASREngine, @unchecked Sendable {
                     self.handleEvent(event)
                 }
             } catch {
-                self.onError?(error)
+                self.emitError(error)
             }
         }
     }
@@ -79,13 +79,25 @@ final class AppleSpeechASREngineAdapter: ASREngine, @unchecked Sendable {
         switch event {
         case let .partial(_, transcript):
             let text = transcript.stablePrefix + transcript.unstableSuffix
-            onTranscription?(text, false)
+            emitTranscription(text, isFinal: false)
         case let .final(_, _, text):
-            onTranscription?(text, true)
+            emitTranscription(text, isFinal: true)
         case let .failure(_, _, error):
-            onError?(ASRCoreFailureError(error))
+            emitError(ASRCoreFailureError(error))
         default:
             break
+        }
+    }
+
+    private func emitTranscription(_ text: String, isFinal: Bool) {
+        Task { @MainActor [weak self] in
+            self?.onTranscription?(text, isFinal)
+        }
+    }
+
+    private func emitError(_ error: Error) {
+        Task { @MainActor [weak self] in
+            self?.onError?(error)
         }
     }
 }

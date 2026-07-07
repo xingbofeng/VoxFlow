@@ -50,9 +50,9 @@ public struct AliyunDashScopeRealtimeASRConfiguration: Equatable, Sendable {
         timeoutSeconds: Double = 30,
         vocabularyID: String? = nil
     ) {
-        self.apiKey = apiKey
-        self.model = model
-        self.endpoint = endpoint
+        self.apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.model = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.endpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         self.timeoutSeconds = timeoutSeconds
         self.vocabularyID = Self.normalizedVocabularyID(vocabularyID)
     }

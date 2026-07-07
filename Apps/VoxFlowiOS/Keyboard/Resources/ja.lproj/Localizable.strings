@@ -1,0 +1,23 @@
+/* Mashangxie Keyboard localizable strings (Japanese). */
+/* Placeholder — replaced in Section 4 with copied Dictus keyboard strings. */
+"keyboard.full_access_required" = "フルアクセスが必要です";
+"keyboard.full_access_message" = "音声入力を使うには「設定 > キーボード > Mashangxie」でフルアクセスを有効にしてください。";
+"keyboard.open_settings" = "設定を開く";
+"keyboard.recording.starting" = "開始中…";
+"keyboard.recording.transcribing" = "認識中…";
+"keyboard.recording.listening" = "聞き取り中…";
+"keyboard.clipboard.reading" = "クリップボードを読み取り中…";
+"keyboard.clipboard.full_access_required" = "フルアクセスを有効にして再試行";
+"keyboard.clipboard.read_failed" = "クリップボードを読めません。タップして再試行";
+"keyboard.clipboard.preview_hint" = "タップで挿入 · 左へスワイプ";
+"keyboard.space" = "スペース";
+"emoji.recents" = "最近使った項目";
+"emoji.no_results" = "結果がありません";
+"emoji.search" = "Emoji を検索";
+"accessibility.nextKeyboard" = "次のキーボード";
+"accessibility.space" = "スペース";
+"accessibility.backspace" = "バックスペース";
+"accessibility.shift" = "Shift";
+"accessibility.moreLetters" = "その他の文字";
+"accessibility.moreNumbers" = "その他の数字";
+"accessibility.moreSymbols" = "その他の記号";

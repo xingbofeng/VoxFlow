@@ -16,7 +16,7 @@ enum iOSASREngineFactory {
         var errorDescription: String? {
             switch self {
             case let .missingCredential(provider):
-                return "\(provider) 凭证不完整，请在设置中填写。"
+                return "\(provider) 凭证不完整，请在服务页填写。"
             case let .unsupportedProvider(provider):
                 return "不支持的 Provider：\(provider)"
             }
@@ -24,8 +24,8 @@ enum iOSASREngineFactory {
     }
 
     static func makeTencentEngine(store: LocalCredentialStore) throws -> ASREngine {
-        let values = store.values(for: .tencent)
-        guard store.isComplete(.tencent) else {
+        let values = store.effectiveValues(for: .tencent)
+        guard store.isEffectivelyComplete(.tencent) else {
             throw FactoryError.missingCredential(provider: "腾讯云")
         }
         let configurationProvider: @Sendable () throws -> TencentRealtimeASRConfiguration = {
@@ -69,8 +69,8 @@ enum iOSASREngineFactory {
     }
 
     static func makeAliyunEngine(store: LocalCredentialStore) throws -> ASREngine {
-        let values = store.values(for: .aliyun)
-        guard store.isComplete(.aliyun) else {
+        let values = store.effectiveValues(for: .aliyun)
+        guard store.isEffectivelyComplete(.aliyun) else {
             throw FactoryError.missingCredential(provider: "阿里云 DashScope")
         }
         let configurationProvider: @Sendable () throws -> AliyunDashScopeRealtimeASRConfiguration = {
@@ -106,8 +106,8 @@ enum iOSASREngineFactory {
     }
 
     static func makeVolcengineEngine(store: LocalCredentialStore) throws -> ASREngine {
-        let values = store.values(for: .volcengine)
-        guard store.isComplete(.volcengine) else {
+        let values = store.effectiveValues(for: .volcengine)
+        guard store.isEffectivelyComplete(.volcengine) else {
             throw FactoryError.missingCredential(provider: "火山云")
         }
         let configurationProvider: @Sendable () throws -> VolcengineRealtimeASRConfiguration = {

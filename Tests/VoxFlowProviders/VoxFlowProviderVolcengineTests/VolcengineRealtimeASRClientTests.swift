@@ -36,6 +36,20 @@ final class VolcengineRealtimeASRClientTests: XCTestCase {
         XCTAssertEqual([UInt8](connection.sentData.last!), [0x11, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
     }
 
+    func testConfigurationTrimsCopiedCredentialAndEndpointWhitespace() throws {
+        let configuration = VolcengineRealtimeASRConfiguration(
+            appID: " app-id\n",
+            accessToken: "\taccess-token ",
+            secretKey: "\nsecret-key\t",
+            endpoint: " \(VolcengineRealtimeASRConfiguration.defaultEndpoint)\n"
+        )
+
+        XCTAssertEqual(configuration.appID, "app-id")
+        XCTAssertEqual(configuration.accessToken, "access-token")
+        XCTAssertEqual(configuration.secretKey, "secret-key")
+        XCTAssertEqual(try configuration.endpointURL().absoluteString, VolcengineRealtimeASRConfiguration.defaultEndpoint)
+    }
+
     func testAudioFrameUsesGzipWithoutJSONSerialization() throws {
         let audio = Data([0x01, 0x02, 0x03, 0x04])
 

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>VoxFlow</string>
+	<string>码上写</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -18,14 +18,27 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.mashangxie.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mashangxie</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>MinimumOSVersion</key>
 	<string>17.0</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>VoxFlow 需要麦克风权限以进行语音听写。</string>
+	<string>码上写需要麦克风权限以进行语音听写。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>VoxFlow 使用系统语音识别作为可选 Provider。</string>
+	<string>码上写使用系统语音识别作为可选 Provider。</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

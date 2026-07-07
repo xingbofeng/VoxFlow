@@ -1,0 +1,5 @@
+framework module RimeKitObjC {
+  umbrella header "RimeKitObjC.h"
+  export *
+  module * { export * }
+}

@@ -1,9 +1,73 @@
 /* VoxFlowiOS — 繁體中文 */
 
 /* Tabs */
+"tab.home" = "首頁";
 "tab.dictation" = "聽寫";
 "tab.diagnostics" = "診斷";
+"tab.services" = "服務";
 "tab.settings" = "設定";
+
+/* Common */
+"common.cancel" = "取消";
+"common.delete" = "刪除";
+"common.error" = "錯誤";
+"common.ok" = "好";
+"common.retry" = "重試";
+
+/* App Home */
+"app.home.title" = "碼上寫";
+"app.home.brand" = "碼上寫";
+"app.home.tagline" = "中文優先的語音鍵盤";
+"app.home.active_model" = "目前模型";
+"app.home.download_model" = "選擇一個服務後開始";
+"app.home.download_model_hint" = "前往模型頁選擇語音辨識服務。";
+"app.home.provider_status" = "目前識別服務";
+"app.home.provider_ready" = "已準備好用於鍵盤聽寫。";
+"app.home.last_transcription" = "上次識別";
+"app.home.tap_to_copy" = "點一下複製";
+"app.home.copied" = "已複製！";
+"app.home.new_dictation" = "開始聽寫";
+"app.home.keyboard_hint" = "在 iOS 設定中啟用碼上寫鍵盤後，就可以在微信或任意輸入框使用。";
+
+/* Recording */
+"recording.transcribing" = "識別中…";
+"recording.copied" = "已複製！";
+"recording.tap_text_to_copy" = "點一下文字複製";
+"recording.stop_accessibility" = "停止錄音";
+"recording.retry" = "重試";
+"recording.failed" = "識別失敗，請檢查 Provider 設定與系統權限。";
+
+/* Cold start */
+"cold_start.title" = "正在錄音";
+"cold_start.subtitle" = "由於 iOS 第三方鍵盤不能直接存取麥克風，碼上寫會在主 App 中完成錄音。";
+"cold_start.instruction" = "從螢幕底部向右滑動\n返回剛才的輸入框";
+"cold_start.listening" = "正在聽…";
+
+/* Onboarding */
+"onboarding.get_started" = "開始使用";
+"onboarding.continue" = "繼續";
+"onboarding.welcome.brand" = "碼上寫";
+"onboarding.welcome.tagline" = "中文優先的語音鍵盤，能在微信和任意輸入框使用";
+"onboarding.mic.title" = "麥克風";
+"onboarding.mic.subtitle" = "iOS 第三方鍵盤不能直接錄音。碼上寫會在主 App 中錄音，再把結果送回鍵盤。";
+"onboarding.mic.authorized" = "麥克風已授權";
+"onboarding.mic.later" = "你也可以稍後在系統設定中開啟麥克風權限。";
+"onboarding.keyboard.title" = "加入鍵盤";
+"onboarding.keyboard.open_settings" = "打開設定";
+"onboarding.keyboard.auto_detect" = "系統允許時會自動偵測鍵盤是否已啟用。";
+"onboarding.keyboard.restart_note" = "開啟完整取用後，碼上寫可能會被系統重新啟動，這是正常現象。";
+"onboarding.keyboard.detected" = "已偵測到鍵盤";
+"onboarding.keyboard.step_add" = "在 iOS 鍵盤設定中加入碼上寫。";
+"onboarding.keyboard.step_full_access" = "開啟完整取用，用於 Provider 和 App Group 通訊。";
+"onboarding.keyboard.step_return" = "回到這裡，然後在微信中使用鍵盤。";
+"onboarding.mode.title" = "選擇鍵盤";
+"onboarding.mode.subtitle" = "目前預設打開 ABC。第二階段的中文 26 鍵和 9 鍵會繼續使用這套外殼。";
+"onboarding.mode.picker" = "預設鍵盤頁";
+"onboarding.provider.title" = "識別服務";
+"onboarding.provider.subtitle" = "預設使用 Apple 語音識別。雲服務 Provider 可以在設定中配置。";
+"onboarding.success.title" = "準備好了！";
+"onboarding.success.subtitle" = "碼上寫已準備好。在 iOS 設定中啟用鍵盤後，就可以從輸入框開始聽寫。";
+"keyboard.space" = "空格";
 
 /* Providers */
 "provider.apple_speech" = "Apple 語音識別";
@@ -42,6 +106,16 @@
 
 /* Settings */
 "settings.title" = "設定";
+"settings.layout" = "佈局";
+"settings.haptic_feedback" = "觸覺回饋";
+"settings.sounds" = "聲音";
+"settings.autocorrect" = "自動修正";
+"settings.live_activity" = "即時活動";
+"settings.live_activity_disabled_hint" = "動態島與鎖定畫面通知已關閉。";
+"settings.autocorrect_debug_logs" = "自動修正除錯日誌";
+"settings.developer_section" = "開發者";
+"settings.autocorrect_debug_warning" = "警告：日誌會包含輸入詞與修正內容，僅限 Debug 建置。";
+"settings.autocorrect_debug_hint" = "記錄自動修正決策用於除錯，預設關閉。";
 "settings.provider_section" = "Provider";
 "settings.provider" = "ASR 服務";
 "settings.provider.apple_speech_hint" = "Apple 語音識別使用系統識別器，無需憑證，但需要語音識別權限。";
@@ -49,22 +123,100 @@
 "settings.language" = "識別語言";
 "settings.credentials_section" = "雲服務憑證";
 "settings.credentials_not_set" = "未填寫";
+"settings.credentials_configured" = "已配置";
 "settings.credentials_save" = "儲存";
 "settings.credentials_clear" = "清空";
 "settings.credentials_saved_toast" = "已儲存";
 "settings.credentials_warning" = "V1 憑證以明文儲存在本地檔案，僅用於個人測試 key，請勿使用高權限生產 key。";
+"settings.keyboard_section" = "鍵盤";
+"settings.keyboard_phase2_hint" = "中文 26 鍵和 9 鍵會在 Phase 2 繼續使用這套 Dictus 風格外殼。";
+"settings.diagnostics_section" = "診斷";
+"settings.debug_logs" = "除錯日誌";
+"settings.debug_logs_hint" = "查看鍵盤冷啟動和 Provider 橋接事件。";
+"settings.export_logs" = "匯出日誌";
+"settings.export_logs_hint" = "分享 App Group 日誌檔案用於排查問題。";
+"settings.security_note" = "安全提示";
 "settings.about_section" = "關於";
 "settings.about_version" = "版本";
+"settings.github_star" = "GitHub / 點 Star";
+"settings.privacy_policy" = "隱私政策";
+"settings.licenses" = "開源授權";
+"settings.licenses_placeholder" = "開源授權說明已隨倉庫提供。";
+"settings.diagnostic" = "診斷";
 "settings.about_env" = "執行環境";
 "settings.about_env_simulator" = "iOS 模擬器";
 "settings.about_env_device" = "iOS 真機";
 "settings.about_env_hint" = "模擬器、LiveContainer 和真機的診斷和預覽路徑不同。";
 
+/* Services */
+"services.title" = "服務";
+"services.current_section" = "目前服務";
+"services.providers_section" = "可用 Provider";
+"services.downloaded_section" = "已選擇";
+"services.available_section" = "可用";
+"services.recommended" = "推薦";
+"services.gauge.accuracy" = "準確度";
+"services.gauge.speed" = "速度";
+"services.runtime.system" = "系統";
+"services.runtime.cloud" = "雲端";
+"services.engine.apple_speech" = "Apple 語音識別——預設 baseline Provider，用於首次安裝後的鍵盤聽寫。";
+"services.engine.cloud" = "雲端 ASR——騰訊雲、阿里雲 DashScope 和火山雲複用碼上寫即時 ASR 橋接層。";
+"services.optimizing" = "正在準備…";
+"services.delete_alert_title" = "刪除 Provider？";
+"services.delete_alert_message" = "刪除 %@？該 Provider 會從已選擇列表中移除。";
+
+/* Model loading */
+"model_loading.ready" = "服務已準備好";
+"model_loading.stay_on_page" = "請停留在此頁面，不要離開 App。";
+"model_loading.phase.downloading" = "準備中";
+"model_loading.phase.compiling" = "最佳化中";
+"model_loading.phase.loading" = "載入中";
+"model_loading.phase.ready" = "已就緒";
+"model_loading.downloading.1" = "正在準備服務…";
+"model_loading.downloading.2" = "正在檢查 Provider 設定…";
+"model_loading.downloading.3" = "正在連接共享狀態…";
+"model_loading.downloading.4" = "馬上就好…";
+"model_loading.downloading.5" = "正在完成設定…";
+"model_loading.compiling.1" = "正在為你的 iPhone 最佳化…";
+"model_loading.compiling.2" = "正在準備音訊路由…";
+"model_loading.compiling.3" = "正在檢查鍵盤橋接…";
+"model_loading.compiling.4" = "正在調整 Provider 設定…";
+"model_loading.compiling.5" = "正在預熱工作階段…";
+"model_loading.compiling.6" = "正在建立聽寫鏈路…";
+"model_loading.compiling.7" = "正在預熱音訊管線…";
+"model_loading.compiling.8" = "正在對齊共享儲存…";
+"model_loading.compiling.9" = "正在快取執行狀態…";
+"model_loading.compiling.10" = "正在準備低延遲輸入…";
+"model_loading.compiling.11" = "正在完成最後一步…";
+"model_loading.compiling.12" = "再等幾秒…";
+"model_loading.loading.1" = "正在載入 Provider…";
+"model_loading.loading.2" = "正在映射服務狀態…";
+"model_loading.loading.3" = "正在準備聽寫…";
+"model_loading.loading.4" = "正在預熱音訊管線…";
+"model_loading.loading.5" = "快好了…";
+
 /* Diagnostics */
 "diagnostics.title" = "診斷";
+"diagnostics.app_group_section" = "App Group";
+"diagnostics.app_group_container" = "容器";
+"diagnostics.app_group_read" = "讀取";
+"diagnostics.app_group_write" = "寫入";
+"diagnostics.app_group_file_read" = "檔案讀取";
+"diagnostics.app_group_file_write" = "檔案寫入";
+"diagnostics.app_group_file" = "探針檔案";
+"diagnostics.app_group_timestamp" = "檢查時間";
+"diagnostics.keyboard_section" = "鍵盤共享狀態";
+"diagnostics.keyboard_status" = "狀態";
+"diagnostics.keyboard_heartbeat" = "心跳";
+"diagnostics.keyboard_cold_start" = "冷啟動";
+"diagnostics.keyboard_pending_transcription" = "待插入轉寫";
+"diagnostics.keyboard_last_error" = "最近錯誤";
 "diagnostics.providers_section" = "Provider 可用性";
 "diagnostics.env_section" = "執行環境";
 "diagnostics.recorder_section" = "錄音器";
+"diagnostics.logs_section" = "日誌";
+"diagnostics.open_debug_logs" = "打開除錯日誌";
+"diagnostics.open_debug_logs_hint" = "讀取 App 和鍵盤寫入的持久日誌。";
 "diagnostics.timeline_section" = "時間線";
 "diagnostics.timeline_empty" = "暫無事件。";
 "diagnostics.recorder_deactivation_error" = "工作階段停用錯誤";
@@ -76,11 +228,30 @@
 "diagnostics.env_container_native" = "原生 App";
 "diagnostics.env_container_livecontainer" = "LiveContainer（宿主 App）";
 "diagnostics.env_locale" = "Locale";
+"diagnostics.env_bundle" = "Bundle";
+"diagnostics.env_url_scheme" = "URL Scheme";
+"diagnostics.ok" = "正常";
+"diagnostics.failed" = "失敗";
+"diagnostics.value_none" = "無";
+"diagnostics.value_unknown" = "未知";
+"diagnostics.value_yes" = "是";
+"diagnostics.value_no" = "否";
+"diagnostics.heartbeat_age" = "%d 秒前";
+"diagnostics.pending_transcription_length" = "還有 %d 個字元待插入";
 "diagnostics.availability.ready" = "可用";
-"diagnostics.availability.missing_credentials" = "缺少憑證，請到設定中填寫。";
+"diagnostics.availability.missing_credentials" = "缺少憑證，請到服務頁填寫。";
 "diagnostics.availability.permission_denied" = "權限被拒絕，請在系統設定中授權。";
 "diagnostics.availability.permission_not_determined" = "尚未請求權限。";
 "diagnostics.availability.env_limited" = "受執行環境限制。";
+
+/* Diagnostic detail */
+
+/* Debug logs */
+"debug_logs.title" = "除錯日誌";
+"debug_logs.empty" = "暫無日誌";
+"debug_logs.empty_hint" = "從 App 或鍵盤發起一次聽寫後，再回到這裡查看。";
+"debug_logs.copy" = "複製";
+"debug_logs.clear" = "清空";
 
 /* Timeline */
 "timeline.start_requested" = "請求開始";
@@ -98,3 +269,60 @@
 /* Errors */
 "error.interruption" = "錄音被系統中斷，點按開始重試。";
 "error.route_change" = "輸入裝置已斷開，請重新連接後重試。";
+
+/* Bridge mode (diagnostics) */
+"bridge_mode.automatic" = "自動";
+"bridge_mode.clipboard" = "剪貼簿";
+"bridge_mode.app_group" = "App Group";
+"bridge.effective.app_group" = "AppGroupBridge";
+"bridge.effective.clipboard" = "ClipboardBridge";
+"bridge.fallback.suite_not_configurable" = "App Group 套件無法設定";
+"bridge.fallback.container_lookup_failed" = "App Group 容器查詢失敗";
+"bridge.fallback.entitlement_missing" = "App Group entitlement 缺失";
+"bridge.fallback.forced_clipboard" = "強制剪貼簿模式";
+"bridge.fallback.forced_app_group" = "強制 AppGroup 模式";
+"bridge.fallback.auto_degraded" = "自動模式：已降級到剪貼簿";
+
+/* Diagnostics: bridge section */
+"diagnostics.bridge_section" = "聽寫橋接";
+"diagnostics.bridge_mode" = "模式";
+"diagnostics.bridge_effective" = "生效橋接";
+"diagnostics.bridge_app_group" = "App Group";
+"diagnostics.bridge_app_group_available" = "可用";
+"diagnostics.bridge_app_group_unavailable" = "不可用";
+"diagnostics.bridge_fallback_reason" = "降級原因";
+"diagnostics.bridge_last_clipboard_event" = "最近剪貼簿事件";
+"diagnostics.bridge_event.deep_link_opened" = "深鏈已開啟";
+"diagnostics.bridge_event.pasteboard_write_success" = "剪貼簿寫入成功";
+"diagnostics.bridge_event.pasteboard_write_failed" = "剪貼簿寫入失敗";
+"diagnostics.bridge_event.pasteboard_read_success" = "剪貼簿讀取成功";
+"diagnostics.bridge_event.pasteboard_read_empty" = "剪貼簿為空";
+"diagnostics.bridge_event.pasteboard_read_failed" = "剪貼簿讀取失敗";
+"diagnostics.bridge_event.inserted" = "已插入";
+"diagnostics.bridge_event.dismissed" = "已關閉";
+
+/* Clipboard dictation handoff page */
+"clipboard_handoff.title" = "聽寫";
+"clipboard_handoff.recording_title" = "正在聽寫";
+"clipboard_handoff.subtitle" = "請開始說話——結果會自動複製到剪貼簿。";
+"clipboard_handoff.partial_placeholder" = "正在聆聽…";
+"clipboard_handoff.button_complete_and_copy" = "完成並複製";
+"clipboard_handoff.button_stop_and_recognize" = "停止並辨識";
+"clipboard_handoff.button_finalizing" = "正在複製…";
+"clipboard_handoff.status_recognizing" = "正在辨識中…";
+"clipboard_handoff.status_waiting_final" = "等待雲端結果…";
+"clipboard_handoff.status_fetching_final" = "正在取得最終結果…";
+"clipboard_handoff.copied_title" = "已複製";
+"clipboard_handoff.copied_hint" = "回到剛才的 App，點鍵盤上的預覽插入。";
+"clipboard_handoff.swipe_back_hint" = "左滑回到剛才的 App";
+"clipboard_handoff.copied_temporary_hint" = "已複製臨時辨識結果。回到剛才的 App，點鍵盤上的預覽插入。";
+"clipboard_handoff.empty_title" = "沒有辨識到內容";
+"clipboard_handoff.empty_hint" = "沒有捕獲到語音，再試一次。";
+"clipboard_handoff.button_retry" = "重新聽寫";
+"clipboard_handoff.button_cancel" = "取消";
+"clipboard_handoff.failed_title" = "聽寫失敗";
+"clipboard_handoff.permission_denied_hint" = "需要麥克風權限。請到 iOS 設定 → 隱私 → 麥克風開啟。";
+"clipboard_handoff.button_open_settings" = "開啟設定";
+"clipboard_handoff.finalizing_title" = "正在整理最後一句";
+"clipboard_handoff.permission_requesting" = "正在請求麥克風權限…";
+"clipboard_handoff.preparing_title" = "準備中";

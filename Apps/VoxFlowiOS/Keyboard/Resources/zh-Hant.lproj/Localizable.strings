@@ -1,0 +1,23 @@
+/* Mashangxie Keyboard localizable strings (Traditional Chinese). */
+/* Placeholder — replaced in Section 4 with copied Dictus keyboard strings. */
+"keyboard.full_access_required" = "需要完整取用";
+"keyboard.full_access_message" = "請在「設定 > 鍵盤 > 碼上寫」中開啟完整取用以使用聽寫。";
+"keyboard.open_settings" = "打開設定";
+"keyboard.recording.starting" = "正在啟動…";
+"keyboard.recording.transcribing" = "識別中…";
+"keyboard.recording.listening" = "聆聽中…";
+"keyboard.clipboard.reading" = "正在讀取剪貼簿…";
+"keyboard.clipboard.full_access_required" = "請開啟完整取用後點此重試";
+"keyboard.clipboard.read_failed" = "未讀到剪貼簿，點此重試";
+"keyboard.clipboard.preview_hint" = "點預覽插入 · 左滑返回";
+"keyboard.space" = "空格";
+"emoji.recents" = "最近使用";
+"emoji.no_results" = "沒有結果";
+"emoji.search" = "搜尋 Emoji";
+"accessibility.nextKeyboard" = "下一個鍵盤";
+"accessibility.space" = "空格";
+"accessibility.backspace" = "退格";
+"accessibility.shift" = "Shift";
+"accessibility.moreLetters" = "更多字母";
+"accessibility.moreNumbers" = "更多數字";
+"accessibility.moreSymbols" = "更多符號";

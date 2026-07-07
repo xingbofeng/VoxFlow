@@ -101,6 +101,18 @@ final class AliyunDashScopeRealtimeASRClientTests: XCTestCase {
         XCTAssertTrue(transport.connection.sentTexts.contains { $0.contains("\"finish-task\"") })
     }
 
+    func testConfigurationTrimsCopiedCredentialAndEndpointWhitespace() throws {
+        let configuration = AliyunDashScopeRealtimeASRConfiguration(
+            apiKey: "  sk-secret\n",
+            model: "\tfun-asr-realtime ",
+            endpoint: "\n\(AliyunDashScopeRealtimeASRConfiguration.defaultEndpoint) "
+        )
+
+        XCTAssertEqual(configuration.apiKey, "sk-secret")
+        XCTAssertEqual(configuration.model, "fun-asr-realtime")
+        XCTAssertEqual(try configuration.endpointURL().absoluteString, AliyunDashScopeRealtimeASRConfiguration.defaultEndpoint)
+    }
+
     func testConnectionSendsRunTaskAndFinishTaskBeforeReportingHealthy() async throws {
         let transport = CapturingAliyunDashScopeWebSocketTransport()
         let client = AliyunDashScopeRealtimeASRClient(
