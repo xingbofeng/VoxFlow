@@ -91,8 +91,10 @@ final class ChineseKeyboardModeSwitchTests: XCTestCase {
 
         bridge.didTriggerKey(KeyDefinition(type: .input(key: "w", alternate: nil)))
 
-        await waitUntil { controller.proxy.text == "w" }
-        XCTAssertEqual(controller.proxy.text, "w")
+        // Rime input() throws → key is re-buffered, not inserted as raw host text.
+        // Host text stays empty.
+        await waitUntil { controller.proxy.text.isEmpty }
+        XCTAssertEqual(controller.proxy.text, "")
         SuggestionState.shared.clear()
     }
 
@@ -210,7 +212,8 @@ final class ChineseKeyboardModeSwitchTests: XCTestCase {
         bridge.didTriggerKey(KeyDefinition(type: .input(key: "g", alternate: nil)))
         bridge.handleChineseInputSessionFailed()
 
-        XCTAssertEqual(controller.proxy.text, "g")
+        // Session failure clears the buffer without inserting raw host text.
+        XCTAssertEqual(controller.proxy.text, "")
         SuggestionState.shared.clear()
     }
 
@@ -321,6 +324,7 @@ private struct SampleChineseInputError: Error {}
 @MainActor
 private final class ThrowingChineseRimeBridge: ChineseRimeBridge {
     var state = ChineseCompositionState()
+    var status: ChineseInputStatus = .idle
 
     func start(hasFullAccess: Bool) async throws {}
 
@@ -340,6 +344,8 @@ private final class ThrowingChineseRimeBridge: ChineseRimeBridge {
         state
     }
 
+    func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] { [] }
+    func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState { state }
     func reset() async {
         state = ChineseCompositionState()
     }
@@ -348,6 +354,7 @@ private final class ThrowingChineseRimeBridge: ChineseRimeBridge {
 @MainActor
 private final class EmptyChineseRimeBridge: ChineseRimeBridge {
     var state = ChineseCompositionState()
+    var status: ChineseInputStatus = .idle
 
     func start(hasFullAccess: Bool) async throws {}
 
@@ -367,6 +374,8 @@ private final class EmptyChineseRimeBridge: ChineseRimeBridge {
         state
     }
 
+    func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] { [] }
+    func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState { state }
     func reset() async {
         state = ChineseCompositionState()
     }
@@ -375,6 +384,7 @@ private final class EmptyChineseRimeBridge: ChineseRimeBridge {
 @MainActor
 private final class ScriptedChineseRimeBridge: ChineseRimeBridge {
     private(set) var state = ChineseCompositionState()
+    var status: ChineseInputStatus = .idle
     private var inputStates: [ChineseCompositionState]
     private var selectedStates: [ChineseCompositionState]
 
@@ -412,6 +422,8 @@ private final class ScriptedChineseRimeBridge: ChineseRimeBridge {
         return state
     }
 
+    func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] { [] }
+    func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState { state }
     func reset() async {
         state = .init()
     }

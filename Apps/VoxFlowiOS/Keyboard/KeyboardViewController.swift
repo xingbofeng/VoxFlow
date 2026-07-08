@@ -68,6 +68,11 @@ class KeyboardViewController: UIInputViewController {
     private var hasAppeared = false
     private var didStartChineseInputSession = false
     private var isStartingChineseInputSession = false
+    /// Max number of times we re-attempt a failed Chinese-engine install from a
+    /// single controller. Bounds the retry so a permanently-failing Rime deploy
+    /// (e.g. missing schema resources) does not thrash on every keystroke.
+    private var chineseInstallRetryCount = 0
+    private let maxChineseInstallRetries = 5
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -139,6 +144,9 @@ class KeyboardViewController: UIInputViewController {
         }
         keyBridge.onChineseInputNeeded = { [weak self, weak keyBridge] in
             guard let self, let keyBridge else { return }
+            // Bounded retry: once we've exhausted retries for a failed Chinese
+            // engine, stop re-triggering install on every buffered keystroke.
+            guard self.chineseInstallRetryCount <= self.maxChineseInstallRetries else { return }
             self.installChineseInputSession(on: keyBridge)
         }
         self.bridge = keyBridge
@@ -303,6 +311,10 @@ class KeyboardViewController: UIInputViewController {
             self.bridge?.updateCapitalization()
         }
 
+        // Pre-warm the Chinese input engine during the keyboard entry animation
+        // so the session is ready before the user types their first keystroke.
+        prewarmChineseInputSession()
+
         // Memory after all viewDidLoad allocations — delta vs entry tells us
         // per-controller allocation cost (UIHostingController + GiellaKeyboardView
         // + SuggestionState + DictusKeyboardBridge + constraints).
@@ -444,6 +456,7 @@ class KeyboardViewController: UIInputViewController {
     private func installChineseInputSession(on keyBridge: DictusKeyboardBridge) {
         guard !didStartChineseInputSession, !isStartingChineseInputSession else { return }
         isStartingChineseInputSession = true
+        keyBridge.setChineseInputStatus(.starting, message: chineseEngineLoadingMessage)
 
         let mode = ChineseKeyboardModeStore.active
         let rimeBridge = NativeChineseRimeBridge(mode: mode)
@@ -455,6 +468,8 @@ class KeyboardViewController: UIInputViewController {
                 try await session.start(hasFullAccess: self?.hasFullAccess ?? false)
                 self?.isStartingChineseInputSession = false
                 self?.didStartChineseInputSession = true
+                self?.chineseInstallRetryCount = 0
+                keyBridge?.setChineseInputStatus(.ready)
                 keyBridge?.handleChineseInputSessionStarted()
                 PersistentLog.log(.diagnosticProbe(
                     component: "KeyboardViewController",
@@ -463,18 +478,50 @@ class KeyboardViewController: UIInputViewController {
                     details: "mode=\(mode.rawValue) hasFullAccess=\(self?.hasFullAccess ?? false)"
                 ))
             } catch {
-                self?.isStartingChineseInputSession = false
                 self?.didStartChineseInputSession = false
-                keyBridge?.handleChineseInputSessionFailed()
-                keyBridge?.chineseInputSession = nil
+                self?.chineseInstallRetryCount += 1
                 PersistentLog.log(.diagnosticProbe(
                     component: "KeyboardViewController",
                     instanceID: self?.controllerID ?? "unknown",
                     action: "chineseInputStartFailed",
-                    details: "\(error)"
+                    details: "attempt=\(self?.chineseInstallRetryCount ?? 0) \(error)"
                 ))
+                let attempt = self?.chineseInstallRetryCount ?? 1
+                let max = self?.maxChineseInstallRetries ?? 5
+                if attempt >= max {
+                    keyBridge?.setChineseInputStatus(.failed, message: self?.chineseEngineFailedMessage)
+                    keyBridge?.handleChineseInputSessionFailed()
+                    keyBridge?.chineseInputSession = nil
+                    self?.isStartingChineseInputSession = false
+                } else {
+                    // Exponential backoff before the next retry, bounded at 4s.
+                    let delayNanos = UInt64(min(4.0, 0.25 * pow(2.0, Double(attempt - 1))) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: delayNanos)
+                    self?.isStartingChineseInputSession = false
+                }
             }
         }
+    }
+
+    /// Visible message while the Chinese engine is deploying.
+    private var chineseEngineLoadingMessage: String {
+        NSLocalizedString("keyboard.chinese_engine.loading", bundle: .main, comment: "")
+    }
+
+    /// Visible message when the Chinese engine fails to deploy; the keyboard
+    /// falls back to direct input.
+    private var chineseEngineFailedMessage: String {
+        NSLocalizedString("keyboard.chinese_engine.failed", bundle: .main, comment: "")
+    }
+
+    /// Kick off Chinese session install during the keyboard entry animation so
+    /// the deploy cost is amortized before the user's first keystroke. Safe to
+    /// call multiple times — the guard in installChineseInputSession prevents
+    /// duplicate installs.
+    private func prewarmChineseInputSession() {
+        guard let keyBridge = bridge,
+              ChineseKeyboardModeStore.active.isChinese else { return }
+        installChineseInputSession(on: keyBridge)
     }
 
     override func viewDidAppear(_ animated: Bool) {

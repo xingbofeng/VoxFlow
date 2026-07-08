@@ -23,7 +23,7 @@ struct SuggestionDisplayPolicy: Equatable {
                 fontSize: 21,
                 minTouchHeight: 48,
                 minItemWidth: 60,
-                expandButtonWidth: 52
+                expandButtonWidth: 76
             )
         default:
             return SuggestionDisplayPolicy(
@@ -52,6 +52,19 @@ struct SuggestionBarView: View {
     let onTap: (Int) -> Void
     var isExpanded: Bool = false
     var onExpand: (() -> Void)? = nil
+    /// Total number of candidates for the current composition. When it exceeds
+    /// the readable strip width, a small count badge is shown on the expand
+    /// button so users know more candidates are reachable. Defaults to the
+    /// visible list length when omitted.
+    var candidateCount: Int? = nil
+
+    private var totalCandidateCount: Int {
+        candidateCount ?? suggestions.count
+    }
+
+    private var showsCandidateCount: Bool {
+        mode == .chineseCandidates && totalCandidateCount > suggestions.count && onExpand != nil
+    }
 
     private var displayPolicy: SuggestionDisplayPolicy {
         SuggestionDisplayPolicy.policy(for: mode)
@@ -127,19 +140,32 @@ struct SuggestionBarView: View {
             Button {
                 onExpand?()
             } label: {
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: displayPolicy.expandButtonWidth, height: displayPolicy.minTouchHeight)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color(.systemBackground).opacity(0.88))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.5)
-                    )
-                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                HStack(spacing: 4) {
+                    if showsCandidateCount {
+                        Text("\(totalCandidateCount)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .frame(minHeight: 20)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.systemGray4).opacity(0.5))
+                            )
+                    }
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: displayPolicy.expandButtonWidth + (showsCandidateCount ? 24 : 0), height: displayPolicy.minTouchHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(.systemBackground).opacity(0.88))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.5)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(onExpand == nil)

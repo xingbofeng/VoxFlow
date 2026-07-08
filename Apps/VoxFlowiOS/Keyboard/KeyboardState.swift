@@ -3,6 +3,7 @@ import Foundation
 import UIKit
 import Combine
 import Shared
+import CryptoKit
 
 /// Observes cross-process state changes from DictusApp via Darwin notifications.
 /// Reads actual data from App Group UserDefaults after each notification.
@@ -768,9 +769,8 @@ class KeyboardState: ObservableObject {
         // UIPasteboard.string can trigger the system permission banner. This is
         // expected behavior — the user just tapped the mic and returned from
         // the main app, so the banner is contextual and not surprising.
-        guard let text = pasteboardStringProvider()?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !text.isEmpty else {
+        guard let text = pasteboardStringProvider(),
+              !text.isEmpty else {
             // Empty / non-text / temporarily denied: keep pending and retry.
             // Don't touch the pasteboard itself.
             ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardReadEmpty))
@@ -788,6 +788,35 @@ class KeyboardState: ObservableObject {
             details: "attempt=\(clipboardReadAttemptCount) reason=\(reason) hasFullAccess=\(hasFullAccessDescription) changeCount=\(changeCount) length=\(text.count)"
         )
         cancelClipboardReadRetry()
+
+        // Verify integrity: match SHA-256 hash and length the main app stored via App Group.
+        let readHash = Data(SHA256.hash(data: Data(text.utf8))).map { String(format: "%02x", $0) }.joined()
+        let expectedHash = AppGroup.defaultsIfAvailable?.string(forKey: SharedKeys.clipboardTextHash)
+        let expectedLength = AppGroup.defaultsIfAvailable?.integer(forKey: SharedKeys.clipboardTextLength) ?? 0
+        let writeChangeCount = AppGroup.defaultsIfAvailable?.integer(forKey: SharedKeys.clipboardWriteChangeCount) ?? 0
+        let hashOK = expectedHash == nil || readHash == expectedHash
+        let lengthOK = expectedLength <= 0 || text.count == expectedLength
+        var extraInfo = ""
+        if text.count > 500 {
+            extraInfo = " preview=\(String(text.prefix(50)).replacingOccurrences(of: "\n", with: " "))..."
+        }
+        if !hashOK || !lengthOK {
+            ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardReadFailed))
+            logProbe(
+                "clipboardPasteboardReadIntegrity",
+                details: "length=\(text.count) expectedLength=\(expectedLength) hashOK=\(hashOK) lengthOK=\(lengthOK) changeCount=\(changeCount) writeChangeCount=\(writeChangeCount)\(extraInfo)"
+            )
+            // Don't trust the text — mark as a read failure so the user gets a
+            // "retry" affordance instead of silently inserting mismatched content.
+            markClipboardReadFailed(.pasteboardUnavailable)
+            return
+        }
+
+        ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardReadSuccess))
+        logProbe(
+            "clipboardPasteboardReadSuccess",
+            details: "attempt=\(clipboardReadAttemptCount) reason=\(reason) hasFullAccess=\(hasFullAccessDescription) changeCount=\(changeCount) length=\(text.count) hashOK=\(hashOK) lengthOK=\(lengthOK)"
+        )
         let updated = PendingClipboardDictation(
             launched: true,
             didAttemptPasteboardRead: true,

@@ -3,6 +3,7 @@ import AVFoundation
 import Combine
 import Speech
 import Shared
+import CryptoKit
 
 /// Independent main-app page that records audio, streams partial transcription
 /// to the user, and copies the final (or fallback partial) result to
@@ -84,14 +85,29 @@ struct ClipboardDictationHandoffView: View {
                   !copiedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return
             }
+            // Record integrity metadata before the write so the keyboard can verify.
+            let preChangeCount = UIPasteboard.general.changeCount
+            let hash = SHA256.hash(data: Data(copiedText.utf8))
+                .compactMap { String(format: "%02x", $0) }.joined()
+            let length = copiedText.count
             UIPasteboard.general.string = copiedText
-            if UIPasteboard.general.string == copiedText {
+            let postChangeCount = UIPasteboard.general.changeCount
+
+            // Verify the write-back: read the pasteboard immediately and check content.
+            if let readBack = UIPasteboard.general.string,
+               readBack == copiedText,
+               postChangeCount > preChangeCount {
                 ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardWriteSuccess))
+                // Share integrity metadata with the keyboard via App Group.
+                let defaults = AppGroup.defaultsIfAvailable
+                defaults?.set(hash, forKey: SharedKeys.clipboardTextHash)
+                defaults?.set(length, forKey: SharedKeys.clipboardTextLength)
+                defaults?.set(postChangeCount, forKey: SharedKeys.clipboardWriteChangeCount)
                 PersistentLog.log(.diagnosticProbe(
                     component: "ClipboardDictationHandoffView",
                     instanceID: "main",
                     action: "pasteboardWriteSuccess",
-                    details: "length=\(copiedText.count)"
+                    details: "length=\(length) hash=\(String(hash.prefix(8))) changeCount=\(postChangeCount)"
                 ))
             } else {
                 ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardWriteFailed))
@@ -99,8 +115,21 @@ struct ClipboardDictationHandoffView: View {
                     component: "ClipboardDictationHandoffView",
                     instanceID: "main",
                     action: "pasteboardWriteFailed",
-                    details: "length=\(copiedText.count)"
+                    details: "wrote=\(copiedText.count) readBack=\(UIPasteboard.general.string?.count ?? -1) changeCount=\(preChangeCount)->\(postChangeCount)"
                 ))
+                // Retry once after 100ms
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    UIPasteboard.general.string = copiedText
+                    let retryChangeCount = UIPasteboard.general.changeCount
+                    let retryRead = UIPasteboard.general.string
+                    if retryRead == copiedText {
+                        ClipboardBridgeEventLog.shared.record(.init(kind: .pasteboardWriteSuccess))
+                        let defaults = AppGroup.defaultsIfAvailable
+                        defaults?.set(hash, forKey: SharedKeys.clipboardTextHash)
+                        defaults?.set(length, forKey: SharedKeys.clipboardTextLength)
+                        defaults?.set(retryChangeCount, forKey: SharedKeys.clipboardWriteChangeCount)
+                    }
+                }
             }
         }
         .onChange(of: state.snapshot.phase) { _, phase in

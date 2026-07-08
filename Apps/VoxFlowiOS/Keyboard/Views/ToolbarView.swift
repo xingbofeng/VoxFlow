@@ -39,6 +39,9 @@ struct ToolbarView: View {
     var onSuggestionTap: ((Int) -> Void)? = nil
     var suggestionsExpanded: Bool = false
     var onSuggestionExpand: (() -> Void)? = nil
+    /// Total Chinese candidate count for the current composition; forwarded to
+    /// the suggestion bar's expand button badge.
+    var candidateCount: Int? = nil
 
     /// Callback when the user cycles the language via the toolbar switcher.
     var onLanguageChanged: ((SupportedLanguage) -> Void)? = nil
@@ -119,7 +122,8 @@ struct ToolbarView: View {
                             mode: suggestionMode,
                             onTap: { index in onSuggestionTap?(index) },
                             isExpanded: suggestionsExpanded,
-                            onExpand: onSuggestionExpand
+                            onExpand: onSuggestionExpand,
+                            candidateCount: candidateCount
                         )
                     }
 

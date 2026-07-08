@@ -95,6 +95,7 @@
 		4C1DE20A269945599A02A76B /* OnboardingPrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6592755DA40052BD1A92C58 /* OnboardingPrimaryButton.swift */; };
 		4D7EF91B55FCF3DFF1CF3157 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C690065B6300187782BF89 /* ToolbarView.swift */; };
 		4E13F06A1AA6F72E9CBB8164 /* DictusKeyboardBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7AE3140A7106EA800474C0 /* DictusKeyboardBridge.swift */; };
+		4FBBC167CE3F733376EA1358 /* ChineseKeyboardCandidateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E9FC0930B6E0E6CF0B42E21 /* ChineseKeyboardCandidateTests.swift */; };
 		5011E85F15BD4D8623DA0BCB /* KeyboardRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278F8F46451E13127A4DCD5F /* KeyboardRootView.swift */; };
 		501CDACAAC07D1379C91D3E4 /* EmojiCategoryBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326067A6B4979C5B9B2B4D51 /* EmojiCategoryBar.swift */; };
 		511AA7E30FE4DDFC4A8D1CD4 /* Audio.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6D3BA5DFACFFF176166B13E /* Audio.swift */; };
@@ -532,6 +533,7 @@
 		4A59694B833853E48F9678B6 /* dictus_ngram.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = dictus_ngram.cpp; sourceTree = "<group>"; };
 		4C1C60C581E7B7B2BFDD4733 /* RecordingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlay.swift; sourceTree = "<group>"; };
 		4E2F21A7D87677BDBE32C6A3 /* KeyboardHeightProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHeightProvider.swift; sourceTree = "<group>"; };
+		4E9FC0930B6E0E6CF0B42E21 /* ChineseKeyboardCandidateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChineseKeyboardCandidateTests.swift; sourceTree = "<group>"; };
 		4FFB8F1DD5DCDE235A7B3284 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		50FD08038EDF36862D45D87F /* InputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputView.swift; sourceTree = "<group>"; };
 		510AB005495299AB2959FF13 /* KeyboardVoiceEntryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardVoiceEntryCoordinator.swift; sourceTree = "<group>"; };
@@ -958,6 +960,7 @@
 		4FAEF7E4BA99EDB3F3CC86E2 /* KeyboardTests */ = {
 			isa = PBXGroup;
 			children = (
+				4E9FC0930B6E0E6CF0B42E21 /* ChineseKeyboardCandidateTests.swift */,
 				67C445A73EF06DE4EF5A9355 /* ChineseKeyboardLayoutTests.swift */,
 				A8BFFE626F060DCEA59515D3 /* ChineseKeyboardModeSwitchTests.swift */,
 				0A4437FA0614D677CDBA1BE6 /* EmojiPickerViewTests.swift */,
@@ -2095,6 +2098,7 @@
 				7F4FF0B16DD45C6CBEDAC40D /* AOSPTrieEngine.swift in Sources */,
 				511AA7E30FE4DDFC4A8D1CD4 /* Audio.swift in Sources */,
 				8622E0C75B71616256AD7EA9 /* ChineseAuxiliaryKeyboardView.swift in Sources */,
+				4FBBC167CE3F733376EA1358 /* ChineseKeyboardCandidateTests.swift in Sources */,
 				C496CE000708DC510D655BB3 /* ChineseKeyboardLayoutTests.swift in Sources */,
 				574DCAB34C4E215454FED970 /* ChineseKeyboardModeSwitchTests.swift in Sources */,
 				4878407C74E4CA1694061B0C /* DeadKeyHandler.swift in Sources */,

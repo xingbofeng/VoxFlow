@@ -510,6 +510,7 @@ private final class FakeChineseRimeBridge: ChineseRimeBridge {
     var deleted: [ChineseCompositionState]
     var selectedIndexes: [Int] = []
     var resetCallCount = 0
+    var status: ChineseInputStatus = .idle
 
     init(
         initial: ChineseCompositionState = .init(),
@@ -556,6 +557,8 @@ private final class FakeChineseRimeBridge: ChineseRimeBridge {
         return state
     }
 
+    func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] { [] }
+    func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState { state }
     func reset() async {
         resetCallCount += 1
         state = .init()

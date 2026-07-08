@@ -6,6 +6,10 @@
 "keyboard.recording.starting" = "開始中…";
 "keyboard.recording.transcribing" = "認識中…";
 "keyboard.recording.listening" = "聞き取り中…";
+"keyboard.chinese_engine.loading" = "中国語エンジンを読み込み中…";
+"keyboard.chinese_engine.failed" = "中国語エンジンの読み込みに失敗しました（直接入力）";
+"keyboard.chinese.candidates.total" = "候補 %d 件";
+"keyboard.chinese.candidates.more" = "もっと";
 "keyboard.clipboard.reading" = "クリップボードを読み取り中…";
 "keyboard.clipboard.full_access_required" = "フルアクセスを有効にして再試行";
 "keyboard.clipboard.read_failed" = "クリップボードを読めません。タップして再試行";

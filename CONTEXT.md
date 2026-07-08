@@ -227,6 +227,17 @@ iOS Simulator 提供两条电脑端预览路径：
 
 详细步骤、限制和真机 LiveContainer 验收路径见 `docs/ios-preview.md`。
 
+### AppGroup 不得作为键盘启动硬依赖
+
+iOS Keyboard Extension 在免费 Apple ID / AltStore / SideStore 签名路径下，App Group entitlement 经常不可用或返回 nil。键盘启动链路必须容忍这种失败：
+
+- `Shared/AppGroup.swift` 区分 `defaults`（强制，用于 AppGroupBridge 正式路径）与 `defaultsIfAvailable`（可失败，用于键盘启动 / ClipboardBridge）。
+- `KeyboardState.defaults` 使用 `AppGroup.defaultsIfAvailable ?? UserDefaults.standard`，确保键盘在 App Group 不可用时仍能渲染和打字。
+- `SharedStatusStore` 和 `BridgeModeStore` 的读写都通过 `defaultsIfAvailable`，写入失败时退化为 standard defaults。
+- AppGroupBridge 路径只在 `BridgeMode=AppGroup` 或 `BridgeMode=Auto + AppGroup available` 时进入。
+- ClipboardBridge 路径完全不依赖 AppGroup — 使用 UIPasteboard + URL deep link + 本地 UserDefaults pending state。
+- 详见 OpenSpec change `add-ios-keyboard-clipboard-fallback`。
+
 ### 后续轨道（不在 V1 范围）
 
 - iOS 系统级键盘 / Keyboard Extension / 任意 App 注入

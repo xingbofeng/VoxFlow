@@ -1,7 +1,11 @@
 .DS_Store
 .build/
+build/
 .swiftpm/
 dist/
+DerivedData/
+*.xcresult/
+*.profraw
 *.xcuserstate
 *.xccheckout
 xcuserdata/

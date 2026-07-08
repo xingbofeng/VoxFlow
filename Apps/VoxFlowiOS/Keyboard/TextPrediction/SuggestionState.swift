@@ -2,6 +2,7 @@
 // Observable state for the suggestion bar UI, bridging TextPredictionEngine to SwiftUI.
 import UIKit
 import Shared
+import ChineseInput
 
 /// The current mode of the suggestion bar.
 ///
@@ -57,6 +58,14 @@ class SuggestionState: ObservableObject {
     @Published var mode: SuggestionMode = .idle
     @Published var currentWord: String = ""
     @Published var chinesePreedit: String = ""
+    /// Typed Chinese candidates preserving Rime metadata (index / label / subtitle /
+    /// comment). Display titles are in `suggestions`; the typed list is used for
+    /// accurate Rime candidate selection and paging.
+    @Published var chineseCandidates: [CandidateSuggestion] = []
+    /// Total candidate count for the active Chinese composition. May exceed
+    /// `chineseCandidates.count` when paging; the UI uses it to show a "more
+    /// candidates" count badge / footer. Nil when not composing.
+    @Published var chineseCandidateTotalCount: Int? = nil
 
     var toolbarSuggestions: [String] {
         if mode == .chineseCandidates, suggestions.isEmpty, !chinesePreedit.isEmpty {
@@ -267,13 +276,17 @@ class SuggestionState: ObservableObject {
         mode = .idle
         currentWord = ""
         chinesePreedit = ""
+        chineseCandidates = []
+        chineseCandidateTotalCount = nil
     }
 
-    func updateChineseComposition(preedit: String, candidates: [String]) {
+    func updateChineseComposition(preedit: String, candidates: [CandidateSuggestion], totalCandidateCount: Int? = nil) {
         suggestionUpdateGeneration += 1
         currentWord = preedit
         chinesePreedit = preedit
-        suggestions = candidates
+        chineseCandidates = candidates
+        suggestions = candidates.map { $0.title }
+        chineseCandidateTotalCount = totalCandidateCount ?? (candidates.isEmpty ? nil : candidates.count)
         mode = candidates.isEmpty && preedit.isEmpty ? .idle : .chineseCandidates
     }
 

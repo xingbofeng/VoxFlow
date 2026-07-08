@@ -1,9 +1,15 @@
 import Foundation
 
+/// Maximum number of candidates the UI will surface for a single composition.
+/// Rime's default page already bounds the list; this is a final guard against a
+/// pathological schema returning thousands of entries and stalling the keyboard.
+public let chineseCandidateWindowSize = 100
+
 @MainActor
 public final class ChineseInputSession {
     public private(set) var state: ChineseInputState
     public private(set) var isStarted = false
+    public private(set) var status: ChineseInputStatus = .idle
     private let bridge: ChineseRimeBridge
 
     public init(
@@ -16,12 +22,21 @@ public final class ChineseInputSession {
             composition: bridge.state,
             voicePolicy: voicePolicy
         )
+        self.status = bridge.status
         self.bridge = bridge
     }
 
     public func start(hasFullAccess: Bool) async throws {
-        try await bridge.start(hasFullAccess: hasFullAccess)
+        status = .starting
+        do {
+            try await bridge.start(hasFullAccess: hasFullAccess)
+        } catch {
+            status = .failed
+            isStarted = false
+            throw error
+        }
         isStarted = true
+        status = .ready
         updateComposition(bridge.state)
     }
 
@@ -67,12 +82,30 @@ public final class ChineseInputSession {
         return .updateComposition(state.composition)
     }
 
+    /// The capped candidate window the UI should render for the current composition.
+    /// The bridge may return more candidates than is safe to lay out at once; this
+    /// keeps the keyboard responsive and matches Rime's own paging model.
+    public var visibleCandidates: [CandidateSuggestion] {
+        Array(state.composition.candidates.prefix(chineseCandidateWindowSize))
+    }
+
     @discardableResult
     public func deleteBackward() async throws -> ChineseInputAction {
         guard state.hasActiveComposition else {
             return .deleteHostText
         }
         let next = try await bridge.deleteBackward()
+        return action(for: next)
+    }
+
+    @discardableResult
+    public func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] {
+        try await bridge.pageCandidates(from: offset, count: count)
+    }
+
+    @discardableResult
+    public func replacePreeditInput(_ replacement: String) async throws -> ChineseInputAction {
+        let next = try await bridge.replacePreeditInput(replacement)
         return action(for: next)
     }
 

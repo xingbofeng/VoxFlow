@@ -11,6 +11,7 @@ public enum NativeChineseRimeBridgeError: Error, Equatable {
 @MainActor
 public final class NativeChineseRimeBridge: ChineseRimeBridge {
     public private(set) var state: ChineseCompositionState
+    public private(set) var status: ChineseInputStatus = .idle
 
     private static let lifecycleLock = NSLock()
     private static var didSetup = false
@@ -44,6 +45,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
     }
 
     public func start(hasFullAccess: Bool) async throws {
+        status = .starting
         let dataDirectories = directories ?? Self.defaultDirectories()
         let plan = RimeSchemaDeploymentPlan(
             directories: dataDirectories,
@@ -83,6 +85,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
         didStart = true
         try selectSchema(for: mode)
         state = readState()
+        status = .ready
     }
 
     public func switchMode(_ mode: ChineseInputMode) async throws -> ChineseCompositionState {
@@ -136,6 +139,33 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
         state = .init()
     }
 
+    public func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] {
+        try ensureStarted()
+        let raw = api.getCandidateWith(Int32(offset), andCount: Int32(count), andSession: session) ?? []
+        return raw.enumerated().map { idx, candidate in
+            CandidateSuggestion(
+                index: offset + idx,
+                label: "\(offset + idx + 1)",
+                text: candidate.text ?? "",
+                title: candidate.text ?? "",
+                isAutocomplete: false,
+                subtitle: candidate.comment
+            )
+        }
+    }
+
+    public func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState {
+        try ensureStarted()
+        // Re-input from scratch: clean the composition and input the replacement
+        // pinyin as a single key sequence.
+        api.cleanComposition(session)
+        for scalar in replacement.unicodeScalars {
+            _ = api.processKeyCode(Int32(scalar.value), modifier: 0, andSession: session)
+        }
+        state = readState()
+        return state
+    }
+
     private func ensureStarted() throws {
         guard didStart, session != 0 else {
             throw NativeChineseRimeBridgeError.sessionUnavailable
@@ -179,7 +209,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
             return .init(commitText: nonEmptyCommit)
         }
 
-        let candidates = (api.getCandidateList(session) ?? []).prefix(10).enumerated().map { offset, candidate in
+        let candidates = (api.getCandidateList(session) ?? []).enumerated().map { offset, candidate in
             CandidateSuggestion(
                 index: offset,
                 label: "\(offset + 1)",

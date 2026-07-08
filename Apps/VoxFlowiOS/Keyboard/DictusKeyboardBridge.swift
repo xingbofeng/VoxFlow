@@ -52,6 +52,16 @@ final class DictusKeyboardBridge: NSObject,
     private var pendingChineseInput = ""
     var onChineseInputNeeded: (() -> Void)?
 
+    /// Mirror of the active Chinese session's lifecycle status so the toolbar
+    /// can show "正在加载中文引擎…" / "中文引擎加载失败" without reaching into the
+    /// session directly. `.failed` makes `handleChineseInput` route straight to
+    /// raw host text so the keyboard stays usable.
+    private(set) var chineseInputStatus: ChineseInputStatus = .idle
+
+    /// Read-only message surfaced in the toolbar for the Chinese engine status.
+    /// Set by the controller via `setChineseInputStatusMessage(_:)`.
+    private(set) var chineseInputStatusMessage: String?
+
     // MARK: - Shift state tracking
 
     /// Timestamp of the last shift tap, used to detect double-tap for caps lock.
@@ -258,9 +268,11 @@ final class DictusKeyboardBridge: NSObject,
 
     func prepareChineseInputSession(_ session: ChineseInputSession) {
         chineseInputSession = session
+        chineseInputStatus = session.status
     }
 
     func handleChineseInputSessionStarted() {
+        chineseInputStatus = chineseInputSession?.status ?? .ready
         guard !pendingChineseInput.isEmpty else { return }
         let buffered = pendingChineseInput
         pendingChineseInput = ""
@@ -268,10 +280,24 @@ final class DictusKeyboardBridge: NSObject,
     }
 
     func handleChineseInputSessionFailed() {
-        guard !pendingChineseInput.isEmpty else { return }
-        let buffered = pendingChineseInput
+        chineseInputStatus = .failed
+        // Clear buffered keys without inserting raw host text — the session
+        // was never alive so these keys cannot be committed. The suggestion bar
+        // already shows a transient hint; the user can retry or switch mode.
         pendingChineseInput = ""
-        insertRawFallback(buffered)
+        suggestionState?.clear()
+    }
+
+    /// Called by the controller when the install task enters a terminal state,
+    /// so the bridge can mirror the status and surface a toolbar message.
+    func setChineseInputStatus(_ status: ChineseInputStatus, message: String? = nil) {
+        chineseInputStatus = status
+        chineseInputStatusMessage = message
+        if status == .failed {
+            // Flush any buffered keys — the engine is not recoverable.
+            pendingChineseInput = ""
+            suggestionState?.clear()
+        }
     }
 
     private func handleChineseNineGridDigit(_ digit: String) {
@@ -282,10 +308,19 @@ final class DictusKeyboardBridge: NSObject,
 
         AudioServicesPlaySystemSound(KeySound.letter)
         bufferChineseInput(digit)
-        let candidates = HamsterT9.pinyinCandidates(for: digit)
-        if !candidates.isEmpty {
-            suggestionState?.suggestions = Array(candidates.prefix(3))
-            suggestionState?.mode = .predictions
+        // The Chinese engine is not ready yet. Show the buffered digit sequence as
+        // a *preview* (preedit), not as live candidates — they are not committed and
+        // tapping them must not imply a selection. Once the session starts, buffered
+        // digits replay into the real Rime session (handleChineseInputSessionStarted).
+        let previewCandidates = HamsterT9.pinyinCandidates(for: pendingChineseInput)
+        suggestionState?.updateChineseComposition(
+            preedit: pendingChineseInput,
+            candidates: []
+        )
+        if !previewCandidates.isEmpty {
+            // Expose the standalone preview as subtle suggestions so the user gets
+            // early feedback, but keep mode as chineseCandidates (preview-only).
+            suggestionState?.suggestions = Array(previewCandidates.prefix(3))
         }
     }
 
@@ -331,8 +366,13 @@ final class DictusKeyboardBridge: NSObject,
                     action: "handleChineseInputFailed",
                     details: "\(error)"
                 ))
-                self.suggestionState?.clear()
-                self.insertRawFallback(text)
+                // Don't insert raw host text — re-buffer so the key is not lost
+                // and wait for the session to become available.
+                self.pendingChineseInput += text.lowercased()
+                self.suggestionState?.updateChineseComposition(
+                    preedit: self.pendingChineseInput,
+                    candidates: []
+                )
             }
         }
     }
@@ -356,7 +396,7 @@ final class DictusKeyboardBridge: NSObject,
         suggestionState?.updateAsync(context: context)
     }
 
-    private func applyChineseInputAction(_ action: ChineseInputAction) {
+    func applyChineseInputAction(_ action: ChineseInputAction) {
         switch action {
         case .none:
             break
@@ -370,9 +410,12 @@ final class DictusKeyboardBridge: NSObject,
             secondToLastInsertedCharacter = nil
             suggestionState?.clear()
         case let .updateComposition(composition):
+            let allCandidates = composition.candidates
+            let total = allCandidates.isEmpty ? nil : allCandidates.count
             suggestionState?.updateChineseComposition(
                 preedit: composition.preedit,
-                candidates: composition.candidates.map(\.title)
+                candidates: allCandidates,
+                totalCandidateCount: total
             )
         }
     }
@@ -477,16 +520,10 @@ final class DictusKeyboardBridge: NSObject,
         if let session = chineseInputSession, session.state.hasActiveComposition {
             Task { [weak self] in
                 guard let self else { return }
-                let action: ChineseInputAction
-                if session.state.composition.candidates.isEmpty {
-                    action = await session.commitBestCandidateOrPreedit()
-                } else {
-                    do {
-                        action = try await session.selectCandidate(at: 0)
-                    } catch {
-                        action = await session.commitBestCandidateOrPreedit()
-                    }
-                }
+                // Single source of truth: commitBestCandidateOrPreedit already
+                // prefers commitText -> first candidate -> preedit, so both the
+                // "candidates present" and "preedit only" cases route here.
+                let action = await session.commitBestCandidateOrPreedit()
                 self.applyChineseInputAction(action)
                 if case .commitText = action {
                     self.suggestionState?.clear()

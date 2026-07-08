@@ -273,10 +273,10 @@ final class KeyboardStateClipboardBridgeTests: XCTestCase {
 
         state.readPasteboardOnceIfPending()
 
-        XCTAssertEqual(state.pendingClipboard.fullText, "late clipboard text")
+        XCTAssertEqual(state.pendingClipboard.fullText, "  late clipboard text  ")
         XCTAssertEqual(
             state.pendingClipboard.previewText,
-            KeyboardState.middleTruncatedPreview("late clipboard text")
+            KeyboardState.middleTruncatedPreview("  late clipboard text  ")
         )
         XCTAssertTrue(state.pendingClipboard.didAttemptPasteboardRead)
     }

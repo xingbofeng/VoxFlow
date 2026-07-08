@@ -107,4 +107,11 @@ public enum SharedKeys {
     public static let pendingClipboardFailureReason = "mashangxie.pendingClipboardFailureReason"
     /// Double: timestamp when pendingClipboardLaunched was set, for staleness checks.
     public static let pendingClipboardTimestamp = "mashangxie.pendingClipboardTimestamp"
+    /// String: SHA-256 hex digest of the text the main app wrote to the pasteboard.
+    /// The keyboard extension reads this to verify pasteboard content integrity.
+    public static let clipboardTextHash = "mashangxie.clipboardTextHash"
+    /// Int: character count the main app wrote (for length alignment check on read).
+    public static let clipboardTextLength = "mashangxie.clipboardTextLength"
+    /// Int: UIPasteboard.changeCount recorded at write time, for tamper detection.
+    public static let clipboardWriteChangeCount = "mashangxie.clipboardWriteChangeCount"
 }

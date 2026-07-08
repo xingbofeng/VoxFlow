@@ -6,6 +6,10 @@
 "keyboard.recording.starting" = "Starting…";
 "keyboard.recording.transcribing" = "Transcribing…";
 "keyboard.recording.listening" = "Listening…";
+"keyboard.chinese_engine.loading" = "Loading Chinese engine…";
+"keyboard.chinese_engine.failed" = "Chinese engine failed — typing directly";
+"keyboard.chinese.candidates.total" = "%d candidates";
+"keyboard.chinese.candidates.more" = "More";
 "keyboard.clipboard.reading" = "Reading clipboard…";
 "keyboard.clipboard.full_access_required" = "Enable Full Access, then tap to retry";
 "keyboard.clipboard.read_failed" = "Could not read clipboard. Tap to retry";
