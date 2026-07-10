@@ -62,6 +62,9 @@ class SuggestionState: ObservableObject {
     /// comment). Display titles are in `suggestions`; the typed list is used for
     /// accurate Rime candidate selection and paging.
     @Published var chineseCandidates: [CandidateSuggestion] = []
+    @Published var chineseHasMoreCandidates = false
+    @Published var chinesePinyinCandidates: [String] = []
+    @Published var chineseSelectedPinyin: String?
     /// Total candidate count for the active Chinese composition. May exceed
     /// `chineseCandidates.count` when paging; the UI uses it to show a "more
     /// candidates" count badge / footer. Nil when not composing.
@@ -277,17 +280,33 @@ class SuggestionState: ObservableObject {
         currentWord = ""
         chinesePreedit = ""
         chineseCandidates = []
+        chineseHasMoreCandidates = false
+        chinesePinyinCandidates = []
+        chineseSelectedPinyin = nil
         chineseCandidateTotalCount = nil
     }
 
-    func updateChineseComposition(preedit: String, candidates: [CandidateSuggestion], totalCandidateCount: Int? = nil) {
+    func updateChineseComposition(_ composition: ChineseCompositionState) {
         suggestionUpdateGeneration += 1
-        currentWord = preedit
-        chinesePreedit = preedit
-        chineseCandidates = candidates
-        suggestions = candidates.map { $0.title }
+        currentWord = composition.preedit
+        chinesePreedit = composition.preedit
+        chineseCandidates = composition.candidates
+        chineseHasMoreCandidates = composition.hasMoreCandidates
+        chinesePinyinCandidates = composition.pinyinCandidates
+        chineseSelectedPinyin = composition.selectedPinyin
+        suggestions = composition.candidates.map(\.title)
+        chineseCandidateTotalCount = composition.candidates.isEmpty ? nil : composition.candidates.count
+        mode = composition.candidates.isEmpty && composition.preedit.isEmpty ? .idle : .chineseCandidates
+    }
+
+    func updateChineseComposition(preedit: String, candidates: [CandidateSuggestion], totalCandidateCount: Int? = nil) {
+        updateChineseComposition(.init(preedit: preedit, candidates: candidates))
         chineseCandidateTotalCount = totalCandidateCount ?? (candidates.isEmpty ? nil : candidates.count)
-        mode = candidates.isEmpty && preedit.isEmpty ? .idle : .chineseCandidates
+    }
+
+    func rimeCandidateIndex(atVisibleIndex visibleIndex: Int) -> Int? {
+        guard chineseCandidates.indices.contains(visibleIndex) else { return nil }
+        return chineseCandidates[visibleIndex].index
     }
 
     /// Updates the prediction engine's language.

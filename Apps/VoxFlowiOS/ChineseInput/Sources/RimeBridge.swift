@@ -3,11 +3,24 @@ import Foundation
 public struct ChineseCompositionState: Equatable {
     public var preedit: String
     public var candidates: [CandidateSuggestion]
+    public var hasMoreCandidates: Bool
+    public var pinyinCandidates: [String]
+    public var selectedPinyin: String?
     public var commitText: String?
 
-    public init(preedit: String = "", candidates: [CandidateSuggestion] = [], commitText: String? = nil) {
+    public init(
+        preedit: String = "",
+        candidates: [CandidateSuggestion] = [],
+        hasMoreCandidates: Bool = false,
+        pinyinCandidates: [String] = [],
+        selectedPinyin: String? = nil,
+        commitText: String? = nil
+    ) {
         self.preedit = preedit
         self.candidates = candidates
+        self.hasMoreCandidates = hasMoreCandidates
+        self.pinyinCandidates = pinyinCandidates
+        self.selectedPinyin = selectedPinyin
         self.commitText = commitText
     }
 }
@@ -37,7 +50,23 @@ public protocol ChineseRimeBridge {
     func deleteBackward() async throws -> ChineseCompositionState
     func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion]
     func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState
+    func loadMoreCandidates(limit: Int) async throws -> ChineseCompositionState
+    func selectPinyinCandidate(_ candidate: String) async throws -> ChineseCompositionState
     func reset() async
+}
+
+public extension ChineseRimeBridge {
+    func loadMoreCandidates(limit: Int) async throws -> ChineseCompositionState {
+        var next = state
+        let page = try await pageCandidates(from: next.candidates.count, count: limit)
+        next.candidates.append(contentsOf: page)
+        next.hasMoreCandidates = page.count == limit
+        return next
+    }
+
+    func selectPinyinCandidate(_ candidate: String) async throws -> ChineseCompositionState {
+        try await replacePreeditInput(candidate)
+    }
 }
 
 public enum ChineseInputCompositionPolicy: Equatable, Sendable {

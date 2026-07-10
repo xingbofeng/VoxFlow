@@ -410,13 +410,7 @@ final class DictusKeyboardBridge: NSObject,
             secondToLastInsertedCharacter = nil
             suggestionState?.clear()
         case let .updateComposition(composition):
-            let allCandidates = composition.candidates
-            let total = allCandidates.isEmpty ? nil : allCandidates.count
-            suggestionState?.updateChineseComposition(
-                preedit: composition.preedit,
-                candidates: allCandidates,
-                totalCandidateCount: total
-            )
+            suggestionState?.updateChineseComposition(composition)
         }
     }
 

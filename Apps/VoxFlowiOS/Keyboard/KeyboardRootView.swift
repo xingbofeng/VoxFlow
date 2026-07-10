@@ -45,19 +45,18 @@ struct KeyboardRootView: View {
         bridge?.chineseInputStatusMessage
     }
 
-    /// Pinyin reading variants for the current composition. In 9-key mode this
-    /// maps from digit sequence to pinyin (e.g. "6464" → ["ming","ning",...]).
-    /// In 26-key mode it shows pinyin completions for the partial preedit.
+    private var toolbarStatusMessage: String? {
+        state.statusMessage ?? chineseEngineStatusMessage
+    }
+
+    private var chineseCandidateCountBar: Int? {
+        suggestionState.chineseCandidateTotalCount
+    }
+
+    /// Rime-derived pinyin readings for the current 9-key composition.
     private var pinyinVariantsForCurrentMode: [String] {
-        let preedit = suggestionState.chinesePreedit.lowercased()
-        guard !preedit.isEmpty else { return [] }
-        switch chineseInputMode {
-        case .chineseNineGrid where preedit.allSatisfy({ $0.isNumber || $0 == "*" || $0 == "#" }),
-             .chineseQwerty where preedit.allSatisfy({ $0.isLetter }):
-            return HamsterT9.completions(startingWith: preedit)
-        default:
-            return []
-        }
+        guard chineseInputMode == .chineseNineGrid else { return [] }
+        return suggestionState.chinesePinyinCandidates
     }
 
     /// Callback when the user cycles language via the toolbar switcher.
@@ -110,185 +109,6 @@ struct KeyboardRootView: View {
                 emojiContent
             } else {
                 defaultToolbarContent
-            }
-        }
-                // Recording overlay fills the full area (toolbar + keyboard space).
-                // The UIKit keyboard is hidden by KeyboardViewController when recording.
-                RecordingOverlay(
-                    dictationStatus: state.dictationStatus,
-                    liveTranscription: state.liveTranscription,
-                    waveformEnergy: state.waveformEnergy,
-                    elapsedSeconds: state.recordingElapsed,
-                    waveformDriver: waveformDriver,
-                    onCancel: { state.requestCancel() },
-                    onStop: { state.requestStop() }
-                )
-            } else if showingChineseCandidates,
-                      suggestionState.mode == .chineseCandidates,
-                      !suggestionState.toolbarSuggestions.isEmpty {
-                VStack(spacing: 0) {
-                    ToolbarView(
-                        hasFullAccess: state.controller?.hasFullAccess ?? false,
-                        dictationStatus: state.dictationStatus,
-                        onMicTap: {
-                            dismissChineseCandidatePanel()
-                            startVoiceDictation()
-                        },
-                        statusMessage: toolbarStatusMessage,
-                        suggestions: suggestionState.toolbarSuggestions,
-                        suggestionMode: suggestionState.mode,
-                        onSuggestionTap: { index in
-                            handleSuggestionTap(index: index)
-                            dismissChineseCandidatePanel()
-                        },
-                        suggestionsExpanded: true,
-                        onSuggestionExpand: {
-                            dismissChineseCandidatePanel()
-                        },
-                        candidateCount: chineseCandidateCountBar,
-                        onLanguageChanged: onLanguageChanged,
-                        chineseInputMode: chineseInputMode,
-                        onChineseModeToggle: { mode in switchChineseInputMode(mode) },
-                        pendingClipboard: state.pendingClipboard,
-                        onPendingInsert: { state.insertPendingTextAndClear() },
-                        onPendingDismiss: { state.dismissPendingAndClear() },
-                        onPendingRetry: { state.retryPendingClipboardRead() }
-                    )
-                    .frame(height: 52)
-
-                    ExpandedChineseCandidatePanel(
-                        suggestions: suggestionState.toolbarSuggestions,
-                        onTap: { index in
-                            handleSuggestionTap(index: index)
-                            dismissChineseCandidatePanel()
-                        },
-                        chineseCandidates: suggestionState.chineseCandidates.isEmpty ? nil : suggestionState.chineseCandidates,
-                        pinyinVariants: pinyinVariantsForCurrentMode,
-                        pinyinHeader: suggestionState.chinesePreedit,
-                        candidateCount: suggestionState.chineseCandidateTotalCount,
-                        onPinyinTap: { variant in
-                            handlePinyinVariantTap(variant)
-                        },
-                        onPageMore: {
-                            handleCandidatePageMore()
-                        }
-                    )
-                }
-            } else if let auxiliaryMode = auxiliaryPanelState.mode {
-                VStack(spacing: 0) {
-                    ToolbarView(
-                        hasFullAccess: state.controller?.hasFullAccess ?? false,
-                        dictationStatus: state.dictationStatus,
-                        onMicTap: {
-                            auxiliaryPanelState.dismiss()
-                            startVoiceDictation()
-                        },
-                        statusMessage: toolbarStatusMessage,
-                        suggestions: [],
-                        suggestionMode: .idle,
-                        onSuggestionTap: { _ in },
-                        onLanguageChanged: onLanguageChanged,
-                        chineseInputMode: chineseInputMode,
-                        onChineseModeToggle: { mode in switchChineseInputMode(mode) },
-                        pendingClipboard: state.pendingClipboard,
-                        onPendingInsert: { state.insertPendingTextAndClear() },
-                        onPendingDismiss: { state.dismissPendingAndClear() },
-                        onPendingRetry: { state.retryPendingClipboardRead() }
-                    )
-                    .frame(height: 52)
-                    ChineseAuxiliaryKeyboardView(
-                        mode: auxiliaryMode,
-                        returnTitle: "返回",
-                        onInsert: { text in
-                            insertAuxiliaryText(text, dismissAfterInsert: auxiliaryMode == .symbols)
-                        },
-                        onDelete: { deleteAuxiliaryText() },
-                        onSpace: { insertAuxiliaryText(" ", dismissAfterInsert: false) },
-                        onSend: { sendAuxiliaryReturn() },
-                        onReturn: { dismissAuxiliaryPanel() }
-                    )
-                }
-            } else if showingEmoji {
-                // GeometryReader measures the actual space available to SwiftUI.
-                // WHY: In keyboard extensions, the hosting controller may not give the
-                // full screen width/height to SwiftUI due to safe area or system insets.
-                // Passing measured dimensions to EmojiPickerView guarantees it fits.
-                GeometryReader { geo in
-                    VStack(spacing: 0) {
-                        // Toolbar stays visible during emoji browsing
-                        ToolbarView(
-                            hasFullAccess: state.controller?.hasFullAccess ?? false,
-                            dictationStatus: state.dictationStatus,
-                            onMicTap: {
-                                showingEmoji = false
-                                startVoiceDictation()
-                            },
-                            statusMessage: toolbarStatusMessage,
-                            suggestions: [],
-                            suggestionMode: .idle,
-                            onSuggestionTap: { _ in },
-                            onLanguageChanged: onLanguageChanged,
-                            chineseInputMode: chineseInputMode,
-                            onChineseModeToggle: { mode in switchChineseInputMode(mode) },
-                            leadingActionTitle: "返回",
-                            onLeadingAction: {
-                                onEmojiDismiss?()
-                            },
-                            pendingClipboard: state.pendingClipboard,
-                            onPendingInsert: { state.insertPendingTextAndClear() },
-                            onPendingDismiss: { state.dismissPendingAndClear() },
-                            onPendingRetry: { state.retryPendingClipboardRead() }
-                        )
-                        .frame(height: 52)
-                        // Emoji picker uses exact measured dimensions
-                        EmojiPickerView(
-                            onEmojiInsert: { emoji in
-                                state.controller?.textDocumentProxy.insertText(emoji)
-                                HapticFeedback.keyTapped()
-                            },
-                            onDelete: {
-                                state.controller?.textDocumentProxy.deleteBackward()
-                                HapticFeedback.keyTapped()
-                            },
-                            onDismiss: {
-                                // Invokes KeyboardViewController.toggleEmojiPicker() via
-                                // [weak self] closure injected at viewDidLoad time.
-                                // Avoids the (controller as? KeyboardViewController) cast
-                                // that used to require a strong controller ref (#134).
-                                onEmojiDismiss?()
-                            },
-                            availableWidth: geo.size.width,
-                            availableHeight: geo.size.height - 52
-                        )
-                    }
-                }
-            } else {
-                // Toolbar only -- the keyboard grid is UIKit, managed by KeyboardViewController
-                ToolbarView(
-                    hasFullAccess: state.controller?.hasFullAccess ?? false,
-                    dictationStatus: state.dictationStatus,
-                    onMicTap: { startVoiceDictation() },
-                    statusMessage: state.statusMessage,
-                    suggestions: suggestionState.toolbarSuggestions,
-                    suggestionMode: suggestionState.mode,
-                    onSuggestionTap: { index in
-                        handleSuggestionTap(index: index)
-                    },
-                    suggestionsExpanded: false,
-                    onSuggestionExpand: {
-                        showChineseCandidatePanel()
-                    },
-                    candidateCount: chineseCandidateCountBar,
-                    onLanguageChanged: onLanguageChanged,
-                    chineseInputMode: chineseInputMode,
-                    onChineseModeToggle: { mode in switchChineseInputMode(mode) },
-                    pendingClipboard: state.pendingClipboard,
-                    onPendingInsert: { state.insertPendingTextAndClear() },
-                    onPendingDismiss: { state.dismissPendingAndClear() },
-                    onPendingRetry: { state.retryPendingClipboardRead() }
-                )
-                // No KeyboardView here -- it's UIKit, added directly by KeyboardViewController
-                // No bottom spacer -- the UIKit keyboard handles its own height
             }
         }
         // Issue #142: force the body to fill its hosting frame top-aligned.
@@ -403,6 +223,166 @@ struct KeyboardRootView: View {
         }
     }
 
+    private var overlayContent: some View {
+        RecordingOverlay(
+            dictationStatus: state.dictationStatus,
+            liveTranscription: state.liveTranscription,
+            waveformEnergy: state.waveformEnergy,
+            elapsedSeconds: state.recordingElapsed,
+            waveformDriver: waveformDriver,
+            onCancel: { state.requestCancel() },
+            onStop: { state.requestStop() }
+        )
+    }
+
+    private var expandedCandidateContent: some View {
+        VStack(spacing: 0) {
+            ToolbarView(
+                hasFullAccess: state.controller?.hasFullAccess ?? false,
+                dictationStatus: state.dictationStatus,
+                onMicTap: {
+                    dismissChineseCandidatePanel()
+                    startVoiceDictation()
+                },
+                statusMessage: toolbarStatusMessage,
+                suggestions: suggestionState.toolbarSuggestions,
+                suggestionMode: suggestionState.mode,
+                onSuggestionTap: { index in
+                    handleSuggestionTap(index: index)
+                    dismissChineseCandidatePanel()
+                },
+                suggestionsExpanded: true,
+                onSuggestionExpand: { dismissChineseCandidatePanel() },
+                candidateCount: chineseCandidateCountBar,
+                onLanguageChanged: onLanguageChanged,
+                chineseInputMode: chineseInputMode,
+                onChineseModeToggle: { mode in switchChineseInputMode(mode) },
+                pendingClipboard: state.pendingClipboard,
+                onPendingInsert: { state.insertPendingTextAndClear() },
+                onPendingDismiss: { state.dismissPendingAndClear() },
+                onPendingRetry: { state.retryPendingClipboardRead() }
+            )
+            .frame(height: 52)
+
+            ExpandedChineseCandidatePanel(
+                candidates: suggestionState.chineseCandidates,
+                onTap: { candidate in
+                    bridge?.handleChineseCandidateTap(index: candidate.index)
+                    HapticFeedback.keyTapped()
+                    dismissChineseCandidatePanel()
+                },
+                pinyinVariants: pinyinVariantsForCurrentMode,
+                pinyinHeader: suggestionState.chinesePreedit,
+                selectedPinyin: suggestionState.chineseSelectedPinyin,
+                onPinyinTap: handlePinyinVariantTap,
+                onPageMore: suggestionState.chineseHasMoreCandidates ? handleCandidatePageMore : nil,
+                candidateCount: suggestionState.chineseCandidateTotalCount
+            )
+        }
+    }
+
+    private func auxiliaryPanelContent(mode: ChineseAuxiliaryPanelMode) -> some View {
+        VStack(spacing: 0) {
+            ToolbarView(
+                hasFullAccess: state.controller?.hasFullAccess ?? false,
+                dictationStatus: state.dictationStatus,
+                onMicTap: {
+                    auxiliaryPanelState.dismiss()
+                    startVoiceDictation()
+                },
+                statusMessage: toolbarStatusMessage,
+                suggestions: [],
+                suggestionMode: .idle,
+                onSuggestionTap: { _ in },
+                onLanguageChanged: onLanguageChanged,
+                chineseInputMode: chineseInputMode,
+                onChineseModeToggle: { newMode in switchChineseInputMode(newMode) },
+                pendingClipboard: state.pendingClipboard,
+                onPendingInsert: { state.insertPendingTextAndClear() },
+                onPendingDismiss: { state.dismissPendingAndClear() },
+                onPendingRetry: { state.retryPendingClipboardRead() }
+            )
+            .frame(height: 52)
+
+            ChineseAuxiliaryKeyboardView(
+                mode: mode,
+                returnTitle: "返回",
+                onInsert: { text in
+                    insertAuxiliaryText(text, dismissAfterInsert: mode == .symbols)
+                },
+                onDelete: deleteAuxiliaryText,
+                onSpace: { insertAuxiliaryText(" ", dismissAfterInsert: false) },
+                onSend: sendAuxiliaryReturn,
+                onReturn: dismissAuxiliaryPanel
+            )
+        }
+    }
+
+    private var emojiContent: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                ToolbarView(
+                    hasFullAccess: state.controller?.hasFullAccess ?? false,
+                    dictationStatus: state.dictationStatus,
+                    onMicTap: {
+                        showingEmoji = false
+                        startVoiceDictation()
+                    },
+                    statusMessage: toolbarStatusMessage,
+                    suggestions: [],
+                    suggestionMode: .idle,
+                    onSuggestionTap: { _ in },
+                    onLanguageChanged: onLanguageChanged,
+                    chineseInputMode: chineseInputMode,
+                    onChineseModeToggle: { mode in switchChineseInputMode(mode) },
+                    leadingActionTitle: "返回",
+                    onLeadingAction: { onEmojiDismiss?() },
+                    pendingClipboard: state.pendingClipboard,
+                    onPendingInsert: { state.insertPendingTextAndClear() },
+                    onPendingDismiss: { state.dismissPendingAndClear() },
+                    onPendingRetry: { state.retryPendingClipboardRead() }
+                )
+                .frame(height: 52)
+
+                EmojiPickerView(
+                    onEmojiInsert: { emoji in
+                        state.controller?.textDocumentProxy.insertText(emoji)
+                        HapticFeedback.keyTapped()
+                    },
+                    onDelete: {
+                        state.controller?.textDocumentProxy.deleteBackward()
+                        HapticFeedback.keyTapped()
+                    },
+                    onDismiss: { onEmojiDismiss?() },
+                    availableWidth: geometry.size.width,
+                    availableHeight: geometry.size.height - 52
+                )
+            }
+        }
+    }
+
+    private var defaultToolbarContent: some View {
+        ToolbarView(
+            hasFullAccess: state.controller?.hasFullAccess ?? false,
+            dictationStatus: state.dictationStatus,
+            onMicTap: { startVoiceDictation() },
+            statusMessage: state.statusMessage,
+            suggestions: suggestionState.toolbarSuggestions,
+            suggestionMode: suggestionState.mode,
+            onSuggestionTap: handleSuggestionTap,
+            suggestionsExpanded: false,
+            onSuggestionExpand: showChineseCandidatePanel,
+            candidateCount: chineseCandidateCountBar,
+            onLanguageChanged: onLanguageChanged,
+            chineseInputMode: chineseInputMode,
+            onChineseModeToggle: { mode in switchChineseInputMode(mode) },
+            pendingClipboard: state.pendingClipboard,
+            onPendingInsert: { state.insertPendingTextAndClear() },
+            onPendingDismiss: { state.dismissPendingAndClear() },
+            onPendingRetry: { state.retryPendingClipboardRead() }
+        )
+    }
+
     private func syncWaveformDriver(forceHidden: Bool = false) {
         waveformDriver.sync(
             presenterID: controllerID,
@@ -514,7 +494,7 @@ struct KeyboardRootView: View {
             guard let session = bridge?.chineseInputSession,
                   session.isStarted else { return }
             do {
-                let action = try await session.replacePreeditInput(variant)
+                let action = try await session.selectPinyinCandidate(variant)
                 bridge?.applyChineseInputAction(action)
             } catch {
                 // If replacement fails, leave the current composition intact.
@@ -527,17 +507,8 @@ struct KeyboardRootView: View {
             guard let session = bridge?.chineseInputSession,
                   session.isStarted else { return }
             do {
-                let offset = suggestionState.chineseCandidates.count
-                let more = try await session.pageCandidates(from: offset, count: 50)
-                guard !more.isEmpty else { return }
-                var all = suggestionState.chineseCandidates
-                all.append(contentsOf: more)
-                let titles = all.map { $0.title }
-                suggestionState.updateChineseComposition(
-                    preedit: suggestionState.chinesePreedit,
-                    candidates: all,
-                    totalCandidateCount: suggestionState.chineseCandidateTotalCount
-                )
+                let action = try await session.loadMoreCandidates()
+                bridge?.applyChineseInputAction(action)
             } catch {
                 // If paging fails, leave the current candidates intact.
             }
@@ -653,16 +624,14 @@ struct KeyboardRootView: View {
 }
 
 private struct ExpandedChineseCandidatePanel: View {
-    let suggestions: [String]
-    let onTap: (Int) -> Void
-    /// Typed Chinese candidates; subtitle (comment/pinyin) is shown below each
-    /// title when non-nil. Nil in non-Chinese or preedit-only mode.
-    var chineseCandidates: [CandidateSuggestion]? = nil
+    let candidates: [CandidateSuggestion]
+    let onTap: (CandidateSuggestion) -> Void
     /// Pinyin/variant readings for the current digit sequence (9-key) or pinyin
     /// completions (26-key). Rendered in the left sidebar column.
     var pinyinVariants: [String] = []
     /// The raw digit sequence or partial pinyin being composed (sidebar header).
     var pinyinHeader: String = ""
+    var selectedPinyin: String? = nil
     /// Tap a pinyin variant to replace the current preedit with that variant.
     var onPinyinTap: ((String) -> Void)? = nil
     /// Request the next page of candidates. Presented as a "更多" button in the
@@ -674,7 +643,7 @@ private struct ExpandedChineseCandidatePanel: View {
     var candidateCount: Int? = nil
 
     private var totalCount: Int {
-        candidateCount ?? suggestions.count
+        candidateCount ?? candidates.count
     }
 
     private let columns = [
@@ -690,7 +659,7 @@ private struct ExpandedChineseCandidatePanel: View {
             }
             VStack(spacing: 0) {
                 ScrollView { candidateGridView }
-                if totalCount > suggestions.count || onPageMore != nil { combinedFooterView }
+                if totalCount > candidates.count || onPageMore != nil { combinedFooterView }
             }
         }
         .background(Color(.systemGray5))
@@ -698,29 +667,27 @@ private struct ExpandedChineseCandidatePanel: View {
 
     private var candidateGridView: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+            ForEach(Array(candidates.enumerated()), id: \.offset) { index, candidate in
                 Button {
-                    onTap(index)
+                    onTap(candidate)
                 } label: {
                     VStack(spacing: 2) {
-                        Text(suggestion)
+                        Text(candidate.title)
                             .font(.system(size: 20, weight: index == 0 ? .semibold : .regular))
                             .foregroundStyle(Color(.label))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
-                        if let c = chineseCandidates, index < c.count {
-                            let subtitle = c[index].subtitle
-                            if let s = subtitle, !s.isEmpty {
-                                Text(s)
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.75)
-                            }
+                        if let subtitle = candidate.subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 11, weight: .regular))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                         }
                     }
                     .padding(.horizontal, 14)
-                    .frame(minWidth: 70, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(index == 0 ? Color(.systemBackground).opacity(0.96) : Color(.systemGray6))
@@ -759,8 +726,9 @@ private struct ExpandedChineseCandidatePanel: View {
                             .padding(.vertical, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(variant == pinyinHeader ? Color(.systemGray4).opacity(0.5) : Color.clear)
+                                    .fill(variant == selectedPinyin ? Color(.systemGray4).opacity(0.5) : Color.clear)
                             )
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -773,7 +741,7 @@ private struct ExpandedChineseCandidatePanel: View {
 
     private var combinedFooterView: some View {
         HStack {
-            if totalCount > suggestions.count {
+            if totalCount > candidates.count {
                 Text(String(format: NSLocalizedString("keyboard.chinese.candidates.total", bundle: .main, comment: ""), totalCount))
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(.secondary)

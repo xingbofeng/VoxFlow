@@ -4,6 +4,7 @@ import Foundation
 /// Rime's default page already bounds the list; this is a final guard against a
 /// pathological schema returning thousands of entries and stalling the keyboard.
 public let chineseCandidateWindowSize = 100
+public let chineseCandidatePageSize = 20
 
 @MainActor
 public final class ChineseInputSession {
@@ -104,8 +105,35 @@ public final class ChineseInputSession {
     }
 
     @discardableResult
+    public func loadMoreCandidates() async throws -> ChineseInputAction {
+        let loadedCount = state.composition.candidates.count
+        guard state.composition.hasMoreCandidates,
+              loadedCount < chineseCandidateWindowSize else {
+            state.composition.hasMoreCandidates = false
+            return .updateComposition(state.composition)
+        }
+
+        let limit = min(chineseCandidatePageSize, chineseCandidateWindowSize - loadedCount)
+        var next = try await bridge.loadMoreCandidates(limit: limit)
+        if next.candidates.count > chineseCandidateWindowSize {
+            next.candidates = Array(next.candidates.prefix(chineseCandidateWindowSize))
+        }
+        if next.candidates.count >= chineseCandidateWindowSize {
+            next.hasMoreCandidates = false
+        }
+        updateComposition(next)
+        return .updateComposition(next)
+    }
+
+    @discardableResult
     public func replacePreeditInput(_ replacement: String) async throws -> ChineseInputAction {
         let next = try await bridge.replacePreeditInput(replacement)
+        return action(for: next)
+    }
+
+    @discardableResult
+    public func selectPinyinCandidate(_ candidate: String) async throws -> ChineseInputAction {
+        let next = try await bridge.selectPinyinCandidate(candidate)
         return action(for: next)
     }
 

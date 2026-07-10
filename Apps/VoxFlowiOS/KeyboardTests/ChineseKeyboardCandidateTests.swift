@@ -40,14 +40,46 @@ final class ChineseKeyboardCandidateTests: XCTestCase {
         let state = SuggestionState.shared
         state.clear()
 
-        let candidates = (1...25).map { CandidateSuggestion(index: $0, label: "\($0)", text: "c\($0)") }
-        state.updateChineseComposition(preedit: "ni", candidates: candidates, totalCandidateCount: 25)
+        let candidates = [
+            CandidateSuggestion(index: 7, label: "8", text: "你", subtitle: "ni"),
+            CandidateSuggestion(index: 23, label: "24", text: "泥", subtitle: "ni"),
+        ]
+        state.updateChineseComposition(.init(
+            preedit: "ni",
+            candidates: candidates,
+            hasMoreCandidates: true,
+            pinyinCandidates: ["ni", "mi"],
+            selectedPinyin: "ni"
+        ))
 
         XCTAssertEqual(state.mode, .chineseCandidates)
-        XCTAssertEqual(state.suggestions.count, 25)
-        XCTAssertEqual(state.chineseCandidateTotalCount, 25)
-        XCTAssertEqual(state.toolbarSuggestions.count, 25)
+        XCTAssertEqual(state.chineseCandidates.map(\.index), [7, 23])
+        XCTAssertEqual(state.rimeCandidateIndex(atVisibleIndex: 1), 23)
+        XCTAssertEqual(state.chineseCandidates[1].subtitle, "ni")
+        XCTAssertTrue(state.chineseHasMoreCandidates)
+        XCTAssertEqual(state.chinesePinyinCandidates, ["ni", "mi"])
+        XCTAssertEqual(state.chineseSelectedPinyin, "ni")
+        XCTAssertEqual(state.toolbarSuggestions, ["你", "泥"])
         state.clear()
+    }
+
+    func testChineseCompositionClearRemovesPreeditPagingAndPinyinState() {
+        let state = SuggestionState.shared
+        state.updateChineseComposition(.init(
+            preedit: "wo",
+            candidates: [CandidateSuggestion(index: 0, label: "1", text: "我")],
+            hasMoreCandidates: true,
+            pinyinCandidates: ["wo", "yo"],
+            selectedPinyin: "wo"
+        ))
+
+        state.clear()
+
+        XCTAssertEqual(state.chinesePreedit, "")
+        XCTAssertTrue(state.chineseCandidates.isEmpty)
+        XCTAssertFalse(state.chineseHasMoreCandidates)
+        XCTAssertTrue(state.chinesePinyinCandidates.isEmpty)
+        XCTAssertNil(state.chineseSelectedPinyin)
     }
 
     // MARK: - Consistent 9-key preview (no inert live-candidate trap)

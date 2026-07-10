@@ -10,7 +10,14 @@ final class ChineseInputTests: XCTestCase {
         let expected = ChineseCompositionState(
             preedit: "ni",
             candidates: [
-                CandidateSuggestion(index: 0, label: "1", text: "你"),
+                CandidateSuggestion(
+                    index: 23,
+                    label: "24",
+                    text: "你",
+                    title: "你",
+                    isAutocomplete: true,
+                    subtitle: "ni"
+                ),
                 CandidateSuggestion(index: 1, label: "2", text: "尼"),
             ]
         )
@@ -26,6 +33,88 @@ final class ChineseInputTests: XCTestCase {
         XCTAssertEqual(action, .updateComposition(expected))
         XCTAssertEqual(session.state.composition.preedit, "ni")
         XCTAssertEqual(session.state.composition.candidates.map(\.text), ["你", "尼"])
+        XCTAssertEqual(session.state.composition.candidates.first?.index, 23)
+        XCTAssertEqual(session.state.composition.candidates.first?.label, "24")
+        XCTAssertEqual(session.state.composition.candidates.first?.title, "你")
+        XCTAssertEqual(session.state.composition.candidates.first?.subtitle, "ni")
+        XCTAssertEqual(session.state.composition.candidates.first?.isAutocomplete, true)
+    }
+
+    func testChineseInputSessionLoadMoreAppendsCandidatesAndPreservesIndexes() async throws {
+        let firstPage = (0..<20).map {
+            CandidateSuggestion(index: $0, label: "\($0 + 1)", text: "候选\($0)")
+        }
+        let secondPage = (20..<40).map {
+            CandidateSuggestion(index: $0, label: "\($0 + 1)", text: "候选\($0)")
+        }
+        let bridge = FakeChineseRimeBridge(
+            initial: .init(preedit: "shi", candidates: firstPage, hasMoreCandidates: true),
+            additionalCandidatePages: [secondPage]
+        )
+        let session = ChineseInputSession(bridge: bridge)
+
+        try await session.start(hasFullAccess: false)
+        let action = try await session.loadMoreCandidates()
+
+        guard case let .updateComposition(composition) = action else {
+            XCTFail("Expected updated composition after loading more candidates")
+            return
+        }
+        XCTAssertEqual(composition.candidates.count, 40)
+        XCTAssertEqual(composition.candidates.map(\.index), Array(0..<40))
+        XCTAssertEqual(bridge.requestedCandidateLimits, [20])
+        XCTAssertTrue(composition.hasMoreCandidates)
+    }
+
+    func testChineseInputSessionCandidateLoadingStopsAtOneHundred() async throws {
+        let firstPage = (0..<95).map {
+            CandidateSuggestion(index: $0, label: "\($0 + 1)", text: "候选\($0)")
+        }
+        let finalPage = (95..<100).map {
+            CandidateSuggestion(index: $0, label: "\($0 + 1)", text: "候选\($0)")
+        }
+        let bridge = FakeChineseRimeBridge(
+            initial: .init(preedit: "shi", candidates: firstPage, hasMoreCandidates: true),
+            additionalCandidatePages: [finalPage]
+        )
+        let session = ChineseInputSession(bridge: bridge)
+
+        try await session.start(hasFullAccess: false)
+        _ = try await session.loadMoreCandidates()
+        let secondAction = try await session.loadMoreCandidates()
+
+        XCTAssertEqual(session.state.composition.candidates.count, 100)
+        XCTAssertFalse(session.state.composition.hasMoreCandidates)
+        XCTAssertEqual(bridge.requestedCandidateLimits, [5])
+        XCTAssertEqual(secondAction, .updateComposition(session.state.composition))
+    }
+
+    func testChineseInputSessionSelectsPinyinCandidateThroughBridge() async throws {
+        let initial = ChineseCompositionState(
+            preedit: "94664",
+            candidates: [CandidateSuggestion(index: 0, label: "1", text: "熊")],
+            pinyinCandidates: ["xiong", "zhong"],
+            selectedPinyin: nil
+        )
+        let selected = ChineseCompositionState(
+            preedit: "zhong",
+            candidates: [CandidateSuggestion(index: 0, label: "1", text: "中")],
+            pinyinCandidates: ["xiong", "zhong"],
+            selectedPinyin: "zhong"
+        )
+        let bridge = FakeChineseRimeBridge(
+            initial: initial,
+            selectedPinyinStates: [selected]
+        )
+        let session = ChineseInputSession(mode: .chineseNineGrid, bridge: bridge)
+
+        try await session.start(hasFullAccess: false)
+        let action = try await session.selectPinyinCandidate("zhong")
+
+        XCTAssertEqual(bridge.selectedPinyinCandidates, ["zhong"])
+        XCTAssertEqual(action, .updateComposition(selected))
+        XCTAssertEqual(session.state.composition.selectedPinyin, "zhong")
+        XCTAssertEqual(session.state.composition.candidates.first?.text, "中")
     }
 
     func testChineseInputSessionReportsStartedOnlyAfterBridgeStarts() async throws {
@@ -471,6 +560,46 @@ final class ChineseInputTests: XCTestCase {
         )
     }
 
+    func testNativeChineseRimeBridgeExposesAndSelectsT9PinyinCandidates() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bridge = NativeChineseRimeBridge(
+            mode: .chineseNineGrid,
+            directories: .init(
+                appGroupRoot: root.appendingPathComponent("AppGroup", isDirectory: true),
+                sandboxRoot: root.appendingPathComponent("Sandbox", isDirectory: true)
+            ),
+            bundle: try schemaResourceBundle()
+        )
+        let session = ChineseInputSession(mode: .chineseNineGrid, bridge: bridge)
+
+        try await session.start(hasFullAccess: false)
+        let initialAction = try await session.input("94664")
+        guard case let .updateComposition(initial) = initialAction else {
+            XCTFail("Expected T9 composition")
+            return
+        }
+        XCTAssertTrue(
+            initial.pinyinCandidates.contains("xiong"),
+            "preedit=\(initial.preedit) pinyinCandidates=\(initial.pinyinCandidates)"
+        )
+        XCTAssertTrue(
+            initial.pinyinCandidates.contains("zhong"),
+            "preedit=\(initial.preedit) pinyinCandidates=\(initial.pinyinCandidates)"
+        )
+
+        let selectedAction = try await session.selectPinyinCandidate("zhong")
+        guard case let .updateComposition(selected) = selectedAction else {
+            XCTFail("Expected composition after selecting pinyin")
+            return
+        }
+        XCTAssertEqual(selected.selectedPinyin, "zhong")
+        XCTAssertTrue(
+            selected.candidates.map(\.text).contains("中"),
+            "zhong candidates: \(selected.candidates.map(\.text))"
+        )
+    }
+
     private func schemaResourceBundle() throws -> Bundle {
         for bundle in Bundle.allBundles + Bundle.allFrameworks {
             let allResourcesExist = RimeSchemaDeploymentPlan.requiredSchemaResourceNames.allSatisfy { name in
@@ -511,17 +640,25 @@ private final class FakeChineseRimeBridge: ChineseRimeBridge {
     var selectedIndexes: [Int] = []
     var resetCallCount = 0
     var status: ChineseInputStatus = .idle
+    var additionalCandidatePages: [[CandidateSuggestion]]
+    var requestedCandidateLimits: [Int] = []
+    var selectedPinyinStates: [ChineseCompositionState]
+    var selectedPinyinCandidates: [String] = []
 
     init(
         initial: ChineseCompositionState = .init(),
         states: [ChineseCompositionState] = [],
         selected: [ChineseCompositionState] = [],
-        deleted: [ChineseCompositionState] = []
+        deleted: [ChineseCompositionState] = [],
+        additionalCandidatePages: [[CandidateSuggestion]] = [],
+        selectedPinyinStates: [ChineseCompositionState] = []
     ) {
         self.state = initial
         self.states = states
         self.selected = selected
         self.deleted = deleted
+        self.additionalCandidatePages = additionalCandidatePages
+        self.selectedPinyinStates = selectedPinyinStates
     }
 
     func start(hasFullAccess: Bool) async throws {}
@@ -559,6 +696,23 @@ private final class FakeChineseRimeBridge: ChineseRimeBridge {
 
     func pageCandidates(from offset: Int, count: Int) async throws -> [CandidateSuggestion] { [] }
     func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState { state }
+    func loadMoreCandidates(limit: Int) async throws -> ChineseCompositionState {
+        requestedCandidateLimits.append(limit)
+        guard !additionalCandidatePages.isEmpty else {
+            state.hasMoreCandidates = false
+            return state
+        }
+        state.candidates.append(contentsOf: additionalCandidatePages.removeFirst().prefix(limit))
+        state.hasMoreCandidates = !additionalCandidatePages.isEmpty || state.candidates.count < 100
+        return state
+    }
+
+    func selectPinyinCandidate(_ candidate: String) async throws -> ChineseCompositionState {
+        selectedPinyinCandidates.append(candidate)
+        guard !selectedPinyinStates.isEmpty else { return state }
+        state = selectedPinyinStates.removeFirst()
+        return state
+    }
     func reset() async {
         resetCallCount += 1
         state = .init()

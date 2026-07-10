@@ -24,6 +24,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
     private var mode: ChineseInputMode
     private var session: RimeSessionId = 0
     private var didStart = false
+    private var selectedPinyinReplacement: (value: String, start: Int, count: Int)?
 
     public init(
         mode: ChineseInputMode = .chineseQwerty,
@@ -136,6 +137,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
             return
         }
         api.cleanComposition(session)
+        selectedPinyinReplacement = nil
         state = .init()
     }
 
@@ -155,14 +157,85 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
     }
 
     public func replacePreeditInput(_ replacement: String) async throws -> ChineseCompositionState {
+        try await selectPinyinCandidate(replacement)
+    }
+
+    public func loadMoreCandidates(limit: Int) async throws -> ChineseCompositionState {
         try ensureStarted()
-        // Re-input from scratch: clean the composition and input the replacement
-        // pinyin as a single key sequence.
-        api.cleanComposition(session)
-        for scalar in replacement.unicodeScalars {
-            _ = api.processKeyCode(Int32(scalar.value), modifier: 0, andSession: session)
+        guard state.hasMoreCandidates, limit > 0 else { return state }
+
+        let offset = state.candidates.count
+        let allowedCount = min(limit, chineseCandidateWindowSize - offset)
+        guard allowedCount > 0 else {
+            state.hasMoreCandidates = false
+            return state
         }
-        state = readState()
+
+        let raw = api.getCandidateWith(
+            Int32(offset),
+            andCount: Int32(allowedCount + 1),
+            andSession: session
+        ) ?? []
+        let page = raw.prefix(allowedCount).enumerated().map { index, candidate in
+            makeCandidate(candidate, index: offset + index)
+        }
+        state.candidates.append(contentsOf: page)
+        state.hasMoreCandidates = state.candidates.count < chineseCandidateWindowSize
+            && raw.count > allowedCount
+        return state
+    }
+
+    public func selectPinyinCandidate(_ candidate: String) async throws -> ChineseCompositionState {
+        try ensureStarted()
+        guard mode == .chineseNineGrid,
+              let candidateDigits = HamsterT9.digitSequence(forPinyin: candidate) else {
+            throw NativeChineseRimeBridgeError.inputRejected(candidate)
+        }
+
+        let rawInput = api.getInput(session) ?? ""
+        var remainingInput = rawInput
+        var start = 0
+        while !remainingInput.isEmpty, !remainingInput.hasPrefix(candidateDigits) {
+            start += remainingInput.first?.utf8.count ?? 0
+            remainingInput.removeFirst()
+        }
+        if remainingInput.isEmpty,
+           start == rawInput.utf8.count,
+           let previous = selectedPinyinReplacement {
+            start = previous.start
+        }
+
+        let replacementCount = candidate.utf8.count
+        let replacedInPlace = api.replaceInputKeys(
+            candidate,
+            withStartPos: Int32(start),
+            andCount: Int32(replacementCount),
+            andSession: session
+        )
+        if !replacedInPlace {
+            guard let replayInput = HamsterT9.replayInput(
+                rawInput: rawInput,
+                replacingDigits: candidateDigits,
+                at: start,
+                with: candidate
+            ) else {
+                throw NativeChineseRimeBridgeError.inputRejected(candidate)
+            }
+            api.cleanComposition(session)
+            var replayHandled = false
+            for scalar in replayInput.unicodeScalars {
+                replayHandled = api.processKeyCode(
+                    Int32(scalar.value),
+                    modifier: 0,
+                    andSession: session
+                ) || replayHandled
+            }
+            guard replayHandled else {
+                throw NativeChineseRimeBridgeError.inputRejected(candidate)
+            }
+        }
+        selectedPinyinReplacement = (candidate, start, replacementCount)
+        state = readState(selectedPinyin: candidate)
         return state
     }
 
@@ -196,7 +269,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
         }
     }
 
-    private func readState() -> ChineseCompositionState {
+    private func readState(selectedPinyin: String? = nil) -> ChineseCompositionState {
         let context = api.getContext(session)
         let status = api.getStatus(session)
         let commitText = api.getCommit(session)
@@ -209,21 +282,40 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
             return .init(commitText: nonEmptyCommit)
         }
 
-        let candidates = (api.getCandidateList(session) ?? []).enumerated().map { offset, candidate in
-            CandidateSuggestion(
-                index: offset,
-                label: "\(offset + 1)",
-                text: candidate.text ?? "",
-                title: candidate.text ?? "",
-                isAutocomplete: offset == 0,
-                subtitle: candidate.comment
-            )
+        let candidateWindow = api.getCandidateWith(
+            0,
+            andCount: Int32(chineseCandidatePageSize + 1),
+            andSession: session
+        ) ?? []
+        let candidates = candidateWindow.prefix(chineseCandidatePageSize).enumerated().map { offset, candidate in
+            makeCandidate(candidate, index: offset, highlightedIndex: 0)
         }
-
+        let preedit = context?.composition?.preedit ?? api.getInput(session) ?? ""
+        let rawInput = api.getInput(session) ?? ""
         return ChineseCompositionState(
-            preedit: context?.composition?.preedit ?? api.getInput(session) ?? "",
+            preedit: preedit,
             candidates: candidates,
+            hasMoreCandidates: candidateWindow.count > chineseCandidatePageSize,
+            pinyinCandidates: mode == .chineseNineGrid
+                ? HamsterT9.pinyinCandidates(preedit: preedit, rawInput: rawInput)
+                : [],
+            selectedPinyin: selectedPinyin ?? selectedPinyinReplacement?.value,
             commitText: nonEmptyCommit
+        )
+    }
+
+    private func makeCandidate(
+        _ candidate: IRimeCandidate,
+        index: Int,
+        highlightedIndex: Int? = nil
+    ) -> CandidateSuggestion {
+        CandidateSuggestion(
+            index: index,
+            label: "\(index + 1)",
+            text: candidate.text ?? "",
+            title: candidate.text ?? "",
+            isAutocomplete: highlightedIndex == index,
+            subtitle: candidate.comment
         )
     }
 
