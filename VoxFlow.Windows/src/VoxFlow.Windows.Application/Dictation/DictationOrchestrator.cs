@@ -332,6 +332,7 @@ public sealed class DictationOrchestrator : IAsyncDisposable
     public async ValueTask CancelAsync(CancellationToken cancellationToken)
     {
         RunContext? context;
+        RunContext? committedOutputContext = null;
         StartReservation? reservation;
 
         await lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -348,7 +349,18 @@ public sealed class DictationOrchestrator : IAsyncDisposable
             }
             else
             {
-                context = DetachActiveAsCancelled();
+                lock (callbackGate)
+                {
+                    if (activeContext?.OutputCommitStarted == true)
+                    {
+                        committedOutputContext = activeContext;
+                        context = null;
+                    }
+                    else
+                    {
+                        context = DetachActiveAsCancelled();
+                    }
+                }
             }
         }
         finally
@@ -358,6 +370,14 @@ public sealed class DictationOrchestrator : IAsyncDisposable
 
         if (reservation is not null)
         {
+            return;
+        }
+
+        if (committedOutputContext is not null)
+        {
+            await committedOutputContext.Completion.Task
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -582,6 +602,7 @@ public sealed class DictationOrchestrator : IAsyncDisposable
                         return;
                     }
 
+                    context.MarkOutputCommitStarted();
                     PublishSafely(new DictationProgressUpdate(stateMachine.Snapshot));
                 }
             }
@@ -1176,6 +1197,7 @@ public sealed class DictationOrchestrator : IAsyncDisposable
         private int audioStartAttempted;
         private int audioStopped;
         private int finishStarted;
+        private int outputCommitStarted;
         private int sessionCancelled;
         private int stopStarted;
         private int cleanupStarted;
@@ -1223,6 +1245,8 @@ public sealed class DictationOrchestrator : IAsyncDisposable
 
         public bool StopStarted => Volatile.Read(ref stopStarted) != 0;
 
+        public bool OutputCommitStarted => Volatile.Read(ref outputCommitStarted) != 0;
+
         public void Subscribe()
         {
             Session.PartialReceived += PartialHandler;
@@ -1245,6 +1269,9 @@ public sealed class DictationOrchestrator : IAsyncDisposable
 
         public bool TryMarkFinishStarted() =>
             Interlocked.CompareExchange(ref finishStarted, 1, 0) == 0;
+
+        public void MarkOutputCommitStarted() =>
+            Interlocked.Exchange(ref outputCommitStarted, 1);
 
         public bool TryMarkSessionCancelled() =>
             Interlocked.CompareExchange(ref sessionCancelled, 1, 0) == 0;

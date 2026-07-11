@@ -232,6 +232,32 @@ public sealed class DictationOrchestratorConcurrencyTests
     }
 
     [Fact]
+    public async Task Cancel_after_output_commit_waits_for_one_coherent_completed_result()
+    {
+        var fixture = new Fixture();
+        fixture.Output.BlockCompletion = true;
+        await fixture.Orchestrator.StartAsync(CancellationToken.None);
+
+        var stopping = fixture.Orchestrator.StopAsync(CancellationToken.None).AsTask();
+        await fixture.Session.FinishCalled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        fixture.Session.EmitFinal("committed output");
+        await fixture.Output.Entered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var cancelling = fixture.Orchestrator.CancelAsync(CancellationToken.None).AsTask();
+        await Task.Delay(50);
+        Assert.False(cancelling.IsCompleted);
+
+        fixture.Output.Complete(new OutputResult(OutputResultKind.Inserted));
+        await Task.WhenAll(cancelling, stopping).WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(DictationPhase.Completed, fixture.Orchestrator.Snapshot.Phase);
+        Assert.Equal(1, fixture.Output.Calls);
+        Assert.Single(fixture.History.Saved);
+
+        await fixture.Orchestrator.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Dispose_cancels_the_active_session_unsubscribes_and_rejects_new_work()
     {
         var fixture = new Fixture();
@@ -476,16 +502,28 @@ public sealed class DictationOrchestratorConcurrencyTests
     private sealed class FakeDictationOutput : IDictationOutput
     {
         private int calls;
+        private readonly TaskCompletionSource<OutputResult> completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         public int Calls => Volatile.Read(ref calls);
 
-        public ValueTask<OutputResult> WriteAsync(
+        public bool BlockCompletion { get; set; }
+
+        public TaskCompletionSource Entered { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask<OutputResult> WriteAsync(
             string text,
             CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref calls);
-            return ValueTask.FromResult(new OutputResult(OutputResultKind.Inserted));
+            Entered.TrySetResult();
+            return BlockCompletion
+                ? await completion.Task.ConfigureAwait(false)
+                : new OutputResult(OutputResultKind.Inserted);
         }
+
+        public void Complete(OutputResult result) => completion.TrySetResult(result);
     }
 
     private sealed class CapturingHistorySink : IDictationHistorySink
