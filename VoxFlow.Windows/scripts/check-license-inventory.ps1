@@ -13,6 +13,8 @@ if ([string]::IsNullOrWhiteSpace($SolutionPath)) {
 if ([string]::IsNullOrWhiteSpace($NoticesPath)) {
     $NoticesPath = Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md"
 }
+$SolutionPath = [System.IO.Path]::GetFullPath($SolutionPath)
+$NoticesPath = [System.IO.Path]::GetFullPath($NoticesPath)
 $RequiredPackageSource = "https://api.nuget.org/v3/index.json"
 $FileLicenseOverrides = @{
     # SourceGear ships the SQLite public-domain blessing as a package file.
@@ -69,7 +71,8 @@ function Invoke-ResolvedPackageReport {
     $escapedSolution = $SolutionPath.Replace('"', '\"')
     $result = Invoke-Dotnet -Arguments "list `"$escapedSolution`" package --include-transitive --format json --output-version 1 --no-restore"
     if ($result.ExitCode -ne 0) {
-        throw "dotnet could not enumerate the restored NuGet graph."
+        $failureOutput = ($result.StandardOutput + [Environment]::NewLine + $result.StandardError).Trim()
+        throw "dotnet could not enumerate the restored NuGet graph (exit $($result.ExitCode)): $failureOutput"
     }
 
     $output = $result.StandardOutput
