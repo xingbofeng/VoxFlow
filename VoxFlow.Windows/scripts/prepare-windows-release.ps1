@@ -51,7 +51,7 @@ Invoke-Checked 'dotnet.exe' @(
     '--configuration', 'Release',
     '-p:Platform=x64',
     '-p:PublishProfile=WindowsX64',
-    '-p:Version=' + $Version,
+    "-p:Version=$Version",
     '--output', $publishRoot
 ) 'Self-contained win-x64 publish'
 
