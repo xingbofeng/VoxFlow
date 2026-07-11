@@ -71,9 +71,8 @@ begin
   deleteuserdata.Left := UninstallProgressForm.StatusLabel.Left;
   deleteuserdata.Top := UninstallProgressForm.StatusLabel.Top + UninstallProgressForm.StatusLabel.Height + ScaleY(16);
   deleteuserdata.Width := UninstallProgressForm.ClientWidth - (deleteuserdata.Left * 2);
-  deleteuserdata.Height := ScaleY(42);
-  deleteuserdata.WordWrap := True;
-  deleteuserdata.Caption := 'Also permanently delete settings, history, logs, and downloaded models from %LOCALAPPDATA%\VoxFlow';
+  deleteuserdata.Height := ScaleY(24);
+  deleteuserdata.Caption := 'Also permanently delete all VoxFlow user data';
   deleteuserdata.Checked := False;
 end;
 
@@ -82,7 +81,7 @@ begin
   if (CurUninstallStep = usUninstall) and deleteuserdata.Checked then
   begin
     if MsgBox(
-      'Deleting VoxFlow user data cannot be undone. Continue?',
+      'This permanently deletes settings, history, logs, and downloaded models from %LOCALAPPDATA%\VoxFlow. Continue?',
       mbConfirmation,
       MB_YESNO) <> IDYES then
       deleteuserdata.Checked := False;
