@@ -1,1 +1,2 @@
-*.patch whitespace=-blank-at-eol
+native/qwen-asr/LICENSE.upstream text eol=lf
+native/qwen-asr/windows-port/patches/*.patch text eol=lf whitespace=-blank-at-eol
