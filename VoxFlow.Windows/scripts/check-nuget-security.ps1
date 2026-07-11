@@ -9,6 +9,7 @@ $windowsRoot = Split-Path $PSScriptRoot -Parent
 if ([string]::IsNullOrWhiteSpace($SolutionPath)) {
     $SolutionPath = Join-Path $windowsRoot "VoxFlow.Windows.sln"
 }
+$SolutionPath = [System.IO.Path]::GetFullPath($SolutionPath)
 $RequiredAuditSource = "https://api.nuget.org/v3/index.json"
 $LegacyTestDeprecationAllowlist = @{
     # xUnit.net v2 packages are test-only and require a coordinated runner
@@ -63,7 +64,8 @@ function Invoke-PackageAudit {
     $escapedSolution = $SolutionPath.Replace('"', '\"')
     $result = Invoke-Dotnet -Arguments "list `"$escapedSolution`" package $AuditSwitch --include-transitive --format json --output-version 1 --no-restore"
     if ($result.ExitCode -ne 0) {
-        throw "dotnet package audit failed for $AuditSwitch."
+        $failureOutput = ($result.StandardOutput + [Environment]::NewLine + $result.StandardError).Trim()
+        throw "dotnet package audit failed for $AuditSwitch with exit code $($result.ExitCode): $failureOutput"
     }
 
     $combinedOutput = $result.StandardOutput + [Environment]::NewLine + $result.StandardError
