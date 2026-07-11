@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\VoxFlow.Windows.Application\VoxFlow.Windows.Application.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Domain\VoxFlow.Windows.Domain.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Infrastructure\VoxFlow.Windows.Infrastructure.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Platform\VoxFlow.Windows.Platform.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Providers.Cloud\VoxFlow.Windows.Providers.Cloud.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Providers.Qwen\VoxFlow.Windows.Providers.Qwen.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json"
+             Link="runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\runtime\ffmpeg\LICENSE.txt"
+             Link="runtime\ffmpeg\LICENSE.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\..\runtime\ffmpeg\LICENSE.txt')" />
+    <Content Include="..\..\runtime\ffmpeg\*.exe;..\..\runtime\ffmpeg\*.dll"
+             Link="runtime\ffmpeg\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="EnsureVerifiedFfmpegRuntimeForPublish" BeforeTargets="Publish">
+    <Error Condition="!Exists('..\..\runtime\ffmpeg\ffmpeg.exe') Or !Exists('..\..\runtime\ffmpeg\ffprobe.exe') Or !Exists('..\..\runtime\ffmpeg\LICENSE.txt')"
+           Text="The verified FFmpeg runtime is not staged. Run scripts/stage-ffmpeg-runtime.ps1 before publishing." />
+  </Target>
+
+  <ItemGroup>
+    <Content Include="..\..\native\qwen-asr\MODEL_PROVENANCE.json"
+             Link="Qwen\MODEL_PROVENANCE.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>VoxFlow</AssemblyName>
+    <RootNamespace>VoxFlow.Windows.App</RootNamespace>
+  </PropertyGroup>
+
+</Project>

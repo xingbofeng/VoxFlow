@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>사이드바 전환</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>홈</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>파일 전사</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>설정</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>파일 전사</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>오디오와 비디오 파일을 재사용 가능한 텍스트로 변환합니다.</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>파일 찾아보기</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>여기에 파일을 놓거나 찾아보기로 가져오세요</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3, WAV, M4A, AAC, MP4, MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>전사 대기열</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>가져온 파일이 여기에 표시됩니다.</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>결과</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>파일을 선택하여 전사 내용을 확인하세요.</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>파일을 가져올 준비가 되었습니다.</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>사용 가능한 음성 인식 서비스를 선택한 뒤 파일을 가져오세요.</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>지원하지 않는 파일 형식입니다.</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>파일을 전사 대기열에 추가했습니다.</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>오디오 및 비디오 파일</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>대기 중</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>전사 중</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>일부 완료</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>중단됨</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>취소됨</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>실패</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>대기 중</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>처리 중</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>실패</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>중단됨</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>취소됨</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4}개 구간 완료</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>구간 {0} · {1}–{2} · {3} · 재시도 {4}회 · 폴백 {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>오류 없음</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>텐센트 클라우드</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>알리바바 클라우드</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>시작</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>계속</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>처음부터 다시 시도</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>복사</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>내보내기</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>전체 번역</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>원본 파일 재생</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>재생 일시 정지</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>원문</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>번역</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>고급 진단</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>전사를 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>전사를 취소했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>전사를 계속합니다.</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>처음부터 전사를 다시 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>전사 작업을 삭제했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>결과를 복사했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>결과를 복사하지 못했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>내보내기 파일을 저장했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>이 결과를 내보내지 못했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>전체 번역을 완료했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>번역에 실패했습니다. 원본 전사는 유지됩니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>원본 파일 재생을 준비하는 중…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>원본 파일 재생을 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>재생을 일시 정지했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>원본 파일을 재생하지 못했습니다. 전사 결과는 변경되지 않았습니다.</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>전사 작업을 삭제할까요?</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>작업과 저장된 구간을 삭제합니다. 원본 파일은 삭제되지 않습니다.</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>전사문（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>전사문（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>자막（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>번역문（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>번역문（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>이중 언어 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>음성 받아쓰기</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>최근 음성 입력과 활동이 여기에 표시됩니다.</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>설정</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>음성 입력, 모델, 텍스트 처리 및 개인정보 보호를 구성합니다.</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>전체 받아쓰기</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>오늘</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>문자 수</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>전체 시간(밀리초)</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>52주 활동</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>받아쓰기 기록</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>받아쓰기 내용 검색</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>텍스트 소스</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>모든 텍스트 소스</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>현재 필터와 일치하는 받아쓰기 기록이 없습니다.</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>선택</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>복사</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>세부 정보</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>선택 항목 삭제</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>기록 지우기</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>이전</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>다음</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>받아쓰기 세부 정보</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>인식된 텍스트</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>최종 텍스트</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>처리 메타데이터</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>인식 언어</value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>받아쓰기 시간</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 처리 시간</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>오디오 프레임(캡처 / 삭제)</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>편집 저장</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>다시 처리</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>민감 정보가 제거된 진단</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>진단 복사</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>준비 중</value></data>
+  <data name="HudListening" xml:space="preserve"><value>듣는 중</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>결과 정리 중</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>문장 다듬는 중</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>입력 중</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>확인이 필요합니다</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>복사됨</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>음성 받아쓰기를 완료하지 못했습니다.</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>관리자 권한 앱에 텍스트를 입력할 수 없습니다. VoxFlow를 관리자 권한으로 다시 시작한 후 다시 시도하세요. 결과가 복사되었습니다.</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>텍스트를 입력할 수 없어 결과를 복사했습니다.</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>입력 대상이 변경되어 결과를 복사했습니다.</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>텍스트를 입력하거나 복사할 수 없습니다. 받아쓰기 기록에서 결과를 복사하세요.</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>인식 언어</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>자동 인식</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>중국어(표준어)</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>영어</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>일본어</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>한국어</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>음성 인식</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>받아쓰기 텍스트 다듬기</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>VoxFlow 열기</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>설정</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub 프로젝트</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>마이크 권한</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>VoxFlow 종료</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>사용 가능한 전사 결과가 준비되면 이 작업을 할 수 있습니다.</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>작업 오류 · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>번역 오류 · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>{0}/{1} 구간 처리 중</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>작업 {0}개</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>없음</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>빈 결과 후 재시도</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>중복 결과 후 재시도</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>서비스 오류 후 재시도</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>원본 파일을 사용할 수 없음</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>지원하지 않는 형식이거나 파일이 손상됨</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>오디오 트랙을 찾을 수 없음</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>미디어 런타임을 사용할 수 없거나 손상됨</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>임시 디스크 공간 부족</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>음성 인식 서비스 처리 실패</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>음성 인식 서비스를 사용할 수 없음</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>음성 인식 서비스 인증 실패</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>음성 인식 서비스 할당량 초과</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>음성 인식 서비스가 오디오 형식을 거부함</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>로컬 음성 모델이 준비되지 않음</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>음성 인식 서비스 네트워크 요청 실패</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>구간 처리 시간 초과</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>전체 번역 실패</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>실행 중인 파일 전사가 없습니다.</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>원본 파일에 접근할 수 있을 때 재생할 수 있습니다.</value></data>
+</root>

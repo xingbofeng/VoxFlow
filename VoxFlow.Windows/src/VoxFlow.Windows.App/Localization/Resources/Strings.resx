@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>Toggle sidebar</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>Home</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>File transcription</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>File transcription</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>Turn audio and video files into reusable text.</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>Browse files</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>Drop files here or browse to import</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3, WAV, M4A, AAC, MP4, MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>Transcription queue</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>Imported files will appear here.</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>Result</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>Select a file to view its transcript.</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>Ready to import files.</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>Select an available speech provider before importing files.</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>This file format is not supported.</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>Files were added to the transcription queue.</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>Audio and video files</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>Waiting</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>Transcribing</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>Waiting</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>Running</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4} segments</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>Segment {0} · {1}–{2} · {3} · retries {4} · fallback {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>No error</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>Start</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>Retry from beginning</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>Export</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>Translate full text</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>Play source</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>Pause playback</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>Original</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>Translation</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>Advanced diagnostics</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>Transcription started.</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>Transcription cancelled.</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>Transcription continued.</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>Transcription restarted from the beginning.</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>Transcription deleted.</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>Result copied.</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>Could not copy the result.</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>Export saved.</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>Could not export this result.</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>Translation completed.</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>Translation failed. The original transcript was kept.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>Preparing source playback…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>Source playback started.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>Source playback paused.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>Could not play this source. The transcription result was not changed.</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>Delete transcription?</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>This removes the task and its saved segments. The source file will not be deleted.</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>Transcript (TXT)</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>Transcript (Markdown)</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>Subtitles (SRT)</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>Translation (TXT)</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>Translation (Markdown)</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>Bilingual Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>Dictation</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>Your recent voice input and activity will appear here.</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>Settings</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>Configure voice input, models, text processing, and privacy.</value></data>
+  <data name="SettingsNavigationGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsNavigationModels" xml:space="preserve"><value>Models</value></data>
+  <data name="SettingsNavigationVoice" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsNavigationText" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsGeneralHeading" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsGeneralSubtitle" xml:space="preserve"><value>Manage appearance, permissions, storage, and local diagnostics.</value></data>
+  <data name="SettingsModelsHeading" xml:space="preserve"><value>Models and providers</value></data>
+  <data name="SettingsModelsSubtitle" xml:space="preserve"><value>Choose a speech recognizer and configure optional text refinement.</value></data>
+  <data name="SettingsModelsAsrTab" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="SettingsModelsLlmTab" xml:space="preserve"><value>Text refinement</value></data>
+  <data name="SettingsVoiceHeading" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsVoiceSubtitle" xml:space="preserve"><value>Configure how dictation starts, listens, and writes text.</value></data>
+  <data name="SettingsVoiceInputHeading" xml:space="preserve"><value>Input</value></data>
+  <data name="SettingsVoiceInputDescription" xml:space="preserve"><value>Select the microphone and recognition language used for the next dictation.</value></data>
+  <data name="SettingsVoiceShortcutHeading" xml:space="preserve"><value>Shortcut</value></data>
+  <data name="SettingsVoiceShortcutDescription" xml:space="preserve"><value>Use Right Ctrl by default, or enable middle-click and choose hold or toggle behavior.</value></data>
+  <data name="SettingsVoiceAudioHeading" xml:space="preserve"><value>Audio</value></data>
+  <data name="SettingsVoiceAudioDescription" xml:space="preserve"><value>Control feedback sounds, playback muting, and speech enhancement.</value></data>
+  <data name="SettingsVoiceOutputHeading" xml:space="preserve"><value>Output</value></data>
+  <data name="SettingsVoiceOutputDescription" xml:space="preserve"><value>Choose fast paste or simulated typing for completed text.</value></data>
+  <data name="SettingsVoiceRuntimeHeading" xml:space="preserve"><value>Runtime</value></data>
+  <data name="SettingsVoiceRuntimeDescription" xml:space="preserve"><value>Keep the microphone ready between dictations when desired.</value></data>
+  <data name="SettingsVoiceShortcutRightControl" xml:space="preserve"><value>Right Ctrl</value></data>
+  <data name="SettingsVoiceDefaultMicrophone" xml:space="preserve"><value>Default microphone</value></data>
+  <data name="SettingsVoiceModeHybrid" xml:space="preserve"><value>Hold or tap to toggle</value></data>
+  <data name="SettingsVoiceModeHold" xml:space="preserve"><value>Hold to dictate</value></data>
+  <data name="SettingsVoiceModeToggle" xml:space="preserve"><value>Press to start or stop</value></data>
+  <data name="SettingsTextHeading" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsTextSubtitle" xml:space="preserve"><value>Apply conservative, predictable cleanup after speech recognition.</value></data>
+  <data name="SettingsActionSave" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsActionTest" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SettingsActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="SettingsOpenAiHeading" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="SettingsOpenAiDescription" xml:space="preserve"><value>Optionally improve completed dictation with conservative streaming text refinement.</value></data>
+  <data name="SettingsCredentialNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsStatusNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsProviderQwen06Description" xml:space="preserve"><value>Smaller local speech model for faster CPU recognition.</value></data>
+  <data name="SettingsProviderQwen17Description" xml:space="preserve"><value>Larger local speech model for higher-quality final results.</value></data>
+  <data name="SettingsProviderTencentDescription" xml:space="preserve"><value>Streaming speech recognition using your Tencent Cloud credentials.</value></data>
+  <data name="SettingsProviderAliyunDescription" xml:space="preserve"><value>Streaming speech recognition using your Alibaba Cloud API key.</value></data>
+  <data name="SettingsProviderVolcengineDescription" xml:space="preserve"><value>Streaming speech recognition using your Volcengine credentials.</value></data>
+  <data name="SettingsGeneralAppearance" xml:space="preserve"><value>Appearance and startup</value></data>
+  <data name="SettingsGeneralDarkTheme" xml:space="preserve"><value>Use dark appearance</value></data>
+  <data name="SettingsGeneralLaunchAtLogin" xml:space="preserve"><value>Launch VoxFlow when I sign in</value></data>
+  <data name="SettingsGeneralPermissions" xml:space="preserve"><value>Windows permissions</value></data>
+  <data name="SettingsGeneralOpenMicrophonePrivacy" xml:space="preserve"><value>Open microphone privacy settings</value></data>
+  <data name="SettingsGeneralData" xml:space="preserve"><value>Local data and diagnostics</value></data>
+  <data name="SettingsGeneralCopyDiagnostics" xml:space="preserve"><value>Copy sanitized diagnostics</value></data>
+  <data name="SettingsGeneralReset" xml:space="preserve"><value>Restore default settings</value></data>
+  <data name="SettingsVoiceDevice" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SettingsVoiceLanguage" xml:space="preserve"><value>Recognition language</value></data>
+  <data name="SettingsVoiceInteraction" xml:space="preserve"><value>Shortcut behavior</value></data>
+  <data name="SettingsVoiceMiddleMouse" xml:space="preserve"><value>Enable middle mouse button</value></data>
+  <data name="SettingsVoiceMutePlayback" xml:space="preserve"><value>Mute playback while recording</value></data>
+  <data name="SettingsVoiceFeedbackSounds" xml:space="preserve"><value>Play start and stop sounds</value></data>
+  <data name="SettingsVoiceEnhancement" xml:space="preserve"><value>Enhance speech before recognition</value></data>
+  <data name="SettingsVoiceQuickPaste" xml:space="preserve"><value>Fast paste</value></data>
+  <data name="SettingsVoiceQuickPasteDescription" xml:space="preserve"><value>Paste completed text and safely restore the clipboard.</value></data>
+  <data name="SettingsVoiceSimulatedTyping" xml:space="preserve"><value>Simulated typing</value></data>
+  <data name="SettingsVoiceSimulatedTypingDescription" xml:space="preserve"><value>Type Unicode text without replacing clipboard contents.</value></data>
+  <data name="SettingsVoiceKeepMicrophoneActive" xml:space="preserve"><value>Keep the microphone ready between dictations</value></data>
+  <data name="SettingsTextMaster" xml:space="preserve"><value>Process recognized text</value></data>
+  <data name="SettingsTextSmartNumbers" xml:space="preserve"><value>Recognize spoken numbers</value></data>
+  <data name="SettingsTextPunctuation" xml:space="preserve"><value>Optimize punctuation</value></data>
+  <data name="SettingsTextLongSentences" xml:space="preserve"><value>Break long sentences</value></data>
+  <data name="SettingsTextFillerWords" xml:space="preserve"><value>Remove common filler words</value></data>
+  <data name="SettingsTextCjkSpacing" xml:space="preserve"><value>Add spacing between CJK and Latin text</value></data>
+  <data name="SettingsTextCapitalization" xml:space="preserve"><value>Capitalize sentence starts</value></data>
+  <data name="SettingsTextWordBreakThreshold" xml:space="preserve"><value>Words before a long-sentence break</value></data>
+  <data name="SettingsTextCjkBreakThreshold" xml:space="preserve"><value>CJK characters before a long-sentence break</value></data>
+  <data name="SettingsTextCjkPunctuationThreshold" xml:space="preserve"><value>CJK characters before punctuation</value></data>
+  <data name="SettingsTextWordPunctuationThreshold" xml:space="preserve"><value>Words before punctuation</value></data>
+  <data name="SettingsActionApply" xml:space="preserve"><value>Apply changes</value></data>
+  <data name="SettingsOpenAiBaseUrl" xml:space="preserve"><value>Official API address</value></data>
+  <data name="SettingsOpenAiModel" xml:space="preserve"><value>Model</value></data>
+  <data name="SettingsOpenAiApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsOpenAiEnabled" xml:space="preserve"><value>Use OpenAI text refinement</value></data>
+  <data name="SettingsResetConfirmationTitle" xml:space="preserve"><value>Restore default settings?</value></data>
+  <data name="SettingsResetConfirmationMessage" xml:space="preserve"><value>This restores general and voice settings. Saved credentials, downloaded models, history, and the current provider selection remain unchanged.</value></data>
+  <data name="SettingsCredentialConfigured" xml:space="preserve"><value>Saved securely</value></data>
+  <data name="SettingsSaveSucceeded" xml:space="preserve"><value>Settings saved.</value></data>
+  <data name="SettingsConnectionSucceeded" xml:space="preserve"><value>Connection succeeded.</value></data>
+  <data name="SettingsConnectionFailed" xml:space="preserve"><value>Connection failed. Review the model and credential, then retry.</value></data>
+  <data name="SettingsDeleteSucceeded" xml:space="preserve"><value>Credential deleted.</value></data>
+  <data name="SettingsDeleteConfirmationTitle" xml:space="preserve"><value>Delete OpenAI credential?</value></data>
+  <data name="SettingsDeleteConfirmationMessage" xml:space="preserve"><value>Text refinement will be disabled. Speech recognition and deterministic text cleanup will continue to work.</value></data>
+  <data name="SettingsStatusConfigured" xml:space="preserve"><value>Configured; test the connection to enable selection</value></data>
+  <data name="SettingsStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsCredentialAppId" xml:space="preserve"><value>App ID</value></data>
+  <data name="SettingsCredentialSecretId" xml:space="preserve"><value>Secret ID</value></data>
+  <data name="SettingsCredentialSecretKey" xml:space="preserve"><value>Secret key</value></data>
+  <data name="SettingsCredentialApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsCredentialAccessToken" xml:space="preserve"><value>Access token</value></data>
+  <data name="SettingsCloudAudioNotice" xml:space="preserve"><value>Audio is sent directly to this cloud provider during dictation.</value></data>
+  <data name="SettingsCloudDeleteConfirmationTitle" xml:space="preserve"><value>Delete cloud credential?</value></data>
+  <data name="SettingsCloudDeleteConfirmationMessage" xml:space="preserve"><value>This provider will become unavailable for new dictation. Other providers and local models are not changed.</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>Total dictations</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>Today</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>Characters</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>Duration (ms)</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>52-week activity</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>Dictation history</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>Search transcripts</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>Text source</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>All text sources</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>No dictation history matches these filters.</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Select</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>Details</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>Delete selected</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>Clear history</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>Previous</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>Next</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>Dictation details</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>Close</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>Recognized text</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>Final text</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>Processing metadata</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>Duration</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM duration</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>Frames (captured / dropped)</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>Save edit</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>Reprocess</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>Sanitized diagnostic</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>Copy diagnostic</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>Preparing</value></data>
+  <data name="HudListening" xml:space="preserve"><value>Listening</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>Finalizing</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>Improving</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>Writing</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>Done</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>Copied</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>Dictation could not be completed.</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>Text could not be inserted into an administrator app. Restart VoxFlow as administrator and try again. The result was copied.</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>Text could not be inserted. The result was copied.</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>The target changed. The result was copied.</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>Text could not be inserted or copied. Copy the result from dictation history.</value></data>
+  <data name="FailureAsrUnavailable" xml:space="preserve"><value>No speech recognizer is ready. Configure a cloud provider or download a local model.</value></data>
+  <data name="FailureMicrophonePermission" xml:space="preserve"><value>Microphone access is unavailable. Review microphone privacy permissions in Windows Settings.</value></data>
+  <data name="FailureCloudProvider" xml:space="preserve"><value>The selected cloud speech provider could not complete this dictation. Review its configuration, then retry.</value></data>
+  <data name="FailureQwenRuntime" xml:space="preserve"><value>The selected Qwen model could not run. Review the model status and retry without changing providers.</value></data>
+  <data name="FailureLlmFallback" xml:space="preserve"><value>Text refinement was unavailable, so VoxFlow kept the original recognized text.</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>Chinese (Mandarin)</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>English</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>Japanese</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>Korean</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>Improve dictated text</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>Open VoxFlow</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>Project on GitHub</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>Microphone permissions</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>Exit VoxFlow</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>This action is available after a usable result is ready.</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>Task error · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>Translation error · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>Processing segment {0} of {1}</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>{0} tasks</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>None</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>Retried after an empty result</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>Retried after a duplicate result</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>Retried after a provider error</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>Source file is unavailable</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>Media format is unsupported or damaged</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>No audio track was found</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>Media runtime is unavailable or damaged</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>Not enough temporary disk space</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>Speech provider failed</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>Speech provider is unavailable</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>Speech provider authentication failed</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>Speech provider quota was exceeded</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>Speech provider rejected the audio format</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>Local speech model is not ready</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>Speech provider network request failed</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>Segment processing timed out</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>Full-text translation failed</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>No file transcription is running.</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>Playback is available while the source file remains accessible.</value></data>
+</root>

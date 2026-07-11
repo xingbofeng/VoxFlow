@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>サイドバーを切り替える</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>ホーム</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>ファイル文字起こし</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>設定</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>ファイル文字起こし</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>音声と動画のファイルを再利用できるテキストに変換します。</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>ファイルを選択</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>ここにファイルをドロップするか、選択して読み込みます</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3、WAV、M4A、AAC、MP4、MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>文字起こしキュー</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>読み込んだファイルはここに表示されます。</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>結果</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>ファイルを選択して文字起こしを表示します。</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>ファイルを読み込む準備ができました。</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>利用可能な音声認識サービスを選択してからファイルを読み込んでください。</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>このファイル形式には対応していません。</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>ファイルを文字起こしキューに追加しました。</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>音声と動画のファイル</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>待機中</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>文字起こし中</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>一部完了</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>中断</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>キャンセル済み</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>待機中</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>処理中</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>中断</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>キャンセル済み</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4} セグメント完了</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>セグメント {0} · {1}–{2} · {3} · 再試行 {4} 回 · フォールバック {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>エラーなし</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>テンセントクラウド</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>アリババクラウド</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>開始</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>続行</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>最初から再試行</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>削除</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>コピー</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>書き出す</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>全文を翻訳</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>元ファイルを再生</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>再生を一時停止</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>原文</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>翻訳</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>詳細診断</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>文字起こしを開始しました。</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>文字起こしをキャンセルしました。</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>文字起こしを再開しました。</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>最初から文字起こしをやり直しました。</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>文字起こしを削除しました。</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>結果をコピーしました。</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>結果をコピーできませんでした。</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>書き出しファイルを保存しました。</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>この結果を書き出せませんでした。</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>全文の翻訳が完了しました。</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>翻訳に失敗しました。元の文字起こしは保持されています。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>元ファイルの再生を準備しています…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>元ファイルの再生を開始しました。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>再生を一時停止しました。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>元ファイルを再生できませんでした。文字起こし結果は変更されていません。</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>文字起こしを削除しますか？</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>タスクと保存済みセグメントを削除します。元のファイルは削除されません。</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>文字起こし（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>文字起こし（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>字幕（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>翻訳（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>翻訳（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>対訳 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>音声入力</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>最近の音声入力とアクティビティがここに表示されます。</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>設定</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>音声入力、モデル、テキスト処理、プライバシーを設定します。</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>音声入力の合計</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>今日</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>文字数</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>合計時間（ミリ秒）</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>52週間のアクティビティ</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>音声入力の履歴</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>入力内容を検索</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>テキストの提供元</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>すべての提供元</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>現在の条件に一致する履歴はありません。</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>選択</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>コピー</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>詳細</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>削除</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>選択項目を削除</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>履歴を消去</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>前へ</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>次へ</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>音声入力の詳細</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>閉じる</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>認識テキスト</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>最終テキスト</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>処理メタデータ</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>認識言語</value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>音声入力時間</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 処理時間</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>音声フレーム（取得 / 破棄）</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>編集を保存</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>再処理</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>機密情報を除いた診断</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>診断をコピー</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>準備中</value></data>
+  <data name="HudListening" xml:space="preserve"><value>聞き取り中</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>結果を確定中</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>文章を整えています</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>入力中</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>確認が必要です</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>コピーしました</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>音声入力を完了できませんでした。</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>管理者権限のアプリにテキストを入力できませんでした。VoxFlow を管理者として再起動してから、もう一度お試しください。結果はコピーされました。</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>テキストを入力できませんでした。結果はコピーされました。</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>入力先が変更されたため、結果をコピーしました。</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>テキストを入力またはコピーできませんでした。音声入力履歴から結果をコピーしてください。</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>認識言語</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>自動認識</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>中国語（標準語）</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>英語</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>日本語</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>韓国語</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>音声認識</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>音声入力テキストを整える</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>VoxFlow を開く</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>設定</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub プロジェクト</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>マイクのアクセス許可</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>VoxFlow を終了</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>利用可能な文字起こし結果が作成されると操作できます。</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>タスクエラー · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>翻訳エラー · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>セグメント {0}/{1} を処理中</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>{0} 件のタスク</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>なし</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>空の結果を受けて再試行</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>重複した結果を受けて再試行</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>サービスエラーを受けて再試行</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>元ファイルを利用できません</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>メディア形式が未対応かファイルが破損しています</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>音声トラックが見つかりません</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>メディア実行環境を利用できないか破損しています</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>一時ディスクの空き容量が不足しています</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>音声認識サービスの処理に失敗しました</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>音声認識サービスを利用できません</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>音声認識サービスの認証に失敗しました</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>音声認識サービスの利用枠を超えました</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>音声認識サービスが音声形式を拒否しました</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>ローカル音声モデルの準備が完了していません</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>音声認識サービスへの通信に失敗しました</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>セグメント処理がタイムアウトしました</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>全文翻訳に失敗しました</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>実行中のファイル文字起こしはありません。</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>元ファイルにアクセスできる場合に再生できます。</value></data>
+</root>

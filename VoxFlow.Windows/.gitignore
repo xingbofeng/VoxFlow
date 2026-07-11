@@ -1,0 +1,27 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+
+# IDE and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local live-test configuration and credentials
+.env.live
+.env.live.*
+!.env.live.example
+
+# Local model downloads and diagnostic output
+models/
+logs/
+*.log
+
+# Verified FFmpeg binaries are staged from the locked archive, never committed.
+runtime/ffmpeg/*.exe
+runtime/ffmpeg/*.dll
+runtime/ffmpeg/LICENSE.txt

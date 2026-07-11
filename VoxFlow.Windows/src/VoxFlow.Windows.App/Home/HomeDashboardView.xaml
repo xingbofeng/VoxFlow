@@ -1,0 +1,348 @@
+<UserControl x:Class="VoxFlow.Windows.App.Home.HomeDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+             xmlns:home="clr-namespace:VoxFlow.Windows.App.Home"
+             HorizontalContentAlignment="Stretch"
+             VerticalContentAlignment="Stretch">
+    <UserControl.Resources>
+        <Style x:Key="HomeSectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource TitleFontSize}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="HomeQuietButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource VoxFlowButtonStyle}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <UniformGrid Columns="4" Margin="0,0,0,18">
+                    <Border Style="{StaticResource VoxFlowCardStyle}" Margin="0,0,9,0">
+                        <StackPanel>
+                            <TextBlock Text="{x:Static l10n:L10n.HomeStatsTotal}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding Statistics.TotalDictations}"
+                                       Margin="0,6,0,0"
+                                       FontSize="{DynamicResource HeadingFontSize}"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource VoxFlowCardStyle}" Margin="3,0,6,0">
+                        <StackPanel>
+                            <TextBlock Text="{x:Static l10n:L10n.HomeStatsToday}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding Statistics.TodayDictations}"
+                                       Margin="0,6,0,0"
+                                       FontSize="{DynamicResource HeadingFontSize}"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource VoxFlowCardStyle}" Margin="6,0,3,0">
+                        <StackPanel>
+                            <TextBlock Text="{x:Static l10n:L10n.HomeStatsCharacters}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding Statistics.TotalCharacters}"
+                                       Margin="0,6,0,0"
+                                       FontSize="{DynamicResource HeadingFontSize}"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource VoxFlowCardStyle}" Margin="9,0,0,0">
+                        <StackPanel>
+                            <TextBlock Text="{x:Static l10n:L10n.HomeStatsDuration}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding Statistics.TotalDurationMilliseconds}"
+                                       Margin="0,6,0,0"
+                                       FontSize="{DynamicResource HeadingFontSize}"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <Border Style="{StaticResource VoxFlowCardStyle}" Margin="0,0,0,18">
+                    <StackPanel>
+                        <TextBlock Text="{x:Static l10n:L10n.HomeActivityTitle}"
+                                   Style="{StaticResource HomeSectionTitleStyle}" />
+                        <ItemsControl ItemsSource="{Binding ActivityWeeks}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type home:HomeActivityWeek}">
+                                    <ItemsControl ItemsSource="{Binding Days}" Margin="0,0,2,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type home:HomeActivityDay}">
+                                                <Border Width="8"
+                                                        Height="8"
+                                                        Margin="0,0,0,2"
+                                                        CornerRadius="2"
+                                                        Background="{DynamicResource AccentBrush}"
+                                                        Opacity="{Binding Opacity}"
+                                                        ToolTip="{Binding Date}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource VoxFlowCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{x:Static l10n:L10n.HistoryTitle}"
+                                   Style="{StaticResource HomeSectionTitleStyle}" />
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{x:Static l10n:L10n.HistorySearchLabel}"
+                                           Margin="0,0,0,5"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="10,8"
+                                         Background="{DynamicResource ControlBackgroundBrush}"
+                                         Foreground="{DynamicResource PrimaryTextBrush}"
+                                         BorderBrush="{DynamicResource PanelBorderBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{x:Static l10n:L10n.HistorySourceLabel}"
+                                           Margin="0,0,0,5"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <ComboBox ItemsSource="{Binding SourceFilterOptions}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{Binding SourceFilter, Mode=TwoWay}"
+                                          Padding="8,6"
+                                          Background="{DynamicResource ControlBackgroundBrush}"
+                                          Foreground="{DynamicResource PrimaryTextBrush}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <TextBlock Text="{x:Static l10n:L10n.HistoryEmpty}"
+                                       Padding="0,18"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding TotalFilteredCount}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding VisibleEntries}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type home:HomeHistoryItem}">
+                                        <Border Margin="0,0,0,8"
+                                                Padding="12"
+                                                CornerRadius="{DynamicResource RowCornerRadius}"
+                                                Background="{DynamicResource ControlBackgroundBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <CheckBox VerticalAlignment="Center"
+                                                          ToolTip="{x:Static l10n:L10n.HistorySelect}"
+                                                          IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                                          Tag="{Binding Id}"
+                                                          Click="OnSelectionClick" />
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="{Binding FinalText}"
+                                                               TextWrapping="Wrap"
+                                                               MaxHeight="44" />
+                                                    <TextBlock Margin="0,5,0,0"
+                                                               Text="{Binding CreatedAtUtc, StringFormat={}{0:g}}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontSize="{DynamicResource CaptionFontSize}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                                    <Button Content="{x:Static l10n:L10n.HistoryCopy}"
+                                                            Tag="{Binding Id}"
+                                                            Style="{StaticResource HomeQuietButtonStyle}"
+                                                            Click="OnCopyClick" />
+                                                    <Button Content="{x:Static l10n:L10n.HistoryDetails}"
+                                                            Tag="{Binding Id}"
+                                                            Style="{StaticResource HomeQuietButtonStyle}"
+                                                            Click="OnDetailsClick" />
+                                                    <Button Content="{x:Static l10n:L10n.HistoryDelete}"
+                                                            Tag="{Binding Id}"
+                                                            Style="{StaticResource HomeQuietButtonStyle}"
+                                                            Click="OnDeleteClick" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="{x:Static l10n:L10n.HistoryDeleteSelected}"
+                                        Style="{StaticResource HomeQuietButtonStyle}"
+                                        Margin="0"
+                                        Click="OnDeleteSelectedClick" />
+                                <Button Content="{x:Static l10n:L10n.HistoryClearAll}"
+                                        Style="{StaticResource HomeQuietButtonStyle}"
+                                        Click="OnClearAllClick" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Content="{x:Static l10n:L10n.HistoryPreviousPage}"
+                                        Style="{StaticResource HomeQuietButtonStyle}"
+                                        Margin="0"
+                                        IsEnabled="{Binding CanGoPrevious}"
+                                        Click="OnPreviousPageClick" />
+                                <TextBlock Margin="12,0"
+                                           VerticalAlignment="Center">
+                                    <Run Text="{Binding CurrentPage}" />
+                                    <Run Text=" / " />
+                                    <Run Text="{Binding TotalPages}" />
+                                </TextBlock>
+                                <Button Content="{x:Static l10n:L10n.HistoryNextPage}"
+                                        Style="{StaticResource HomeQuietButtonStyle}"
+                                        Margin="0"
+                                        IsEnabled="{Binding CanGoNext}"
+                                        Click="OnNextPageClick" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border HorizontalAlignment="Right"
+                Width="430"
+                Margin="18"
+                Padding="18"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource CardCornerRadius}"
+                DataContext="{Binding SelectedDetail}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="{x:Static l10n:L10n.HistoryDetailTitle}"
+                                   FontSize="{DynamicResource TitleFontSize}"
+                                   FontWeight="SemiBold" />
+                        <Button HorizontalAlignment="Right"
+                                Content="{x:Static l10n:L10n.HistoryDetailClose}"
+                                Style="{StaticResource HomeQuietButtonStyle}"
+                                Margin="0"
+                                Click="OnCloseDetailClick" />
+                    </Grid>
+                    <TextBlock Text="{x:Static l10n:L10n.HistoryDetailRawText}"
+                               FontWeight="SemiBold" />
+                    <TextBox Margin="0,6,0,14"
+                             MinHeight="70"
+                             Padding="10"
+                             Text="{Binding RawText}"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True" />
+                    <TextBlock Text="{x:Static l10n:L10n.HistoryDetailFinalText}"
+                               FontWeight="SemiBold" />
+                    <TextBox Margin="0,6,0,10"
+                             MinHeight="70"
+                             Padding="10"
+                             Text="{Binding EditedFinalText, UpdateSourceTrigger=PropertyChanged}"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <Button Content="{x:Static l10n:L10n.HistoryDetailSave}"
+                                Style="{StaticResource VoxFlowButtonStyle}"
+                                Click="OnSaveEditClick" />
+                        <Button Content="{x:Static l10n:L10n.HistoryDetailReprocess}"
+                                Style="{StaticResource HomeQuietButtonStyle}"
+                                Click="OnReprocessClick" />
+                    </StackPanel>
+                    <TextBlock Text="{x:Static l10n:L10n.HistoryDetailMetadata}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Margin="0,6,0,14"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource SecondaryTextBrush}">
+                        <Run Text="ASR: " />
+                        <Run Text="{Binding AsrProvider}" />
+                        <LineBreak />
+                        <Run Text="Qwen: " />
+                        <Run Text="{Binding QwenVariant}" />
+                        <LineBreak />
+                        <Run Text="{x:Static l10n:L10n.HistoryDetailLanguage}" />
+                        <Run Text=": " />
+                        <Run Text="{Binding RecognitionLanguage}" />
+                        <LineBreak />
+                        <Run Text="LLM: " />
+                        <Run Text="{Binding LlmProvider}" />
+                        <LineBreak />
+                        <Run Text="{x:Static l10n:L10n.HistoryDetailDuration}" />
+                        <Run Text=": " />
+                        <Run Text="{Binding DurationMilliseconds}" />
+                        <Run Text=" ms" />
+                        <LineBreak />
+                        <Run Text="{x:Static l10n:L10n.HistoryDetailLlmDuration}" />
+                        <Run Text=": " />
+                        <Run Text="{Binding LlmDurationMilliseconds}" />
+                        <Run Text=" ms" />
+                        <LineBreak />
+                        <Run Text="{x:Static l10n:L10n.HistoryDetailFrames}" />
+                        <Run Text=": " />
+                        <Run Text="{Binding CapturedFrameCount}" />
+                        <Run Text=" / " />
+                        <Run Text="{Binding DroppedFrameCount}" />
+                    </TextBlock>
+                    <TextBlock Text="{x:Static l10n:L10n.HistoryDetailDiagnostic}"
+                               FontWeight="SemiBold" />
+                    <TextBox Margin="0,6,0,8"
+                             MinHeight="80"
+                             Padding="10"
+                             Text="{Binding SanitizedDiagnostic}"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True" />
+                    <Button Content="{x:Static l10n:L10n.HistoryDetailCopyDiagnostic}"
+                            Style="{StaticResource HomeQuietButtonStyle}"
+                            Margin="0"
+                            HorizontalAlignment="Left"
+                            Click="OnCopyDiagnosticClick" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

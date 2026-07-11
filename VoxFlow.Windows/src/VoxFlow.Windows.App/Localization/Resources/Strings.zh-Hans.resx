@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>码上写 · VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>码上写</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>展开或收起侧边栏</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>首页</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>文件转写</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>设置</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>文件转写</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>将音频和视频文件转换为可复用文本。</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>浏览文件</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>拖放文件到这里，或浏览导入</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3、WAV、M4A、AAC、MP4、MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>转写队列</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>导入的文件会显示在这里。</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>结果</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>选择文件以查看转写内容。</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>可以导入文件。</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>请先选择可用的语音识别服务，再导入文件。</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>不支持这种文件格式。</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>文件已加入转写队列。</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>音频和视频文件</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>等待开始</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>正在转写</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>部分完成</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>已中断</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>等待处理</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>处理中</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>已中断</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · 已完成 {3}/{4} 段</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>第 {0} 段 · {1}–{2} · {3} · 重试 {4} 次 · 回退 {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>无错误</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>腾讯云</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>阿里云</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>火山引擎</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>开始</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>取消</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>继续</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>从头重试</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>复制</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>导出</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>全文翻译</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>播放原文件</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>暂停播放</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>原文</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>译文</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>高级诊断</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>已开始转写。</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>已取消转写。</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>已继续转写。</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>已从头重新转写。</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>已删除转写任务。</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>已复制结果。</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>无法复制结果。</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>已保存导出文件。</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>无法导出这个结果。</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>全文翻译已完成。</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>翻译失败，原始转写已保留。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>正在准备播放原文件…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>已开始播放原文件。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>已暂停播放。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>无法播放这个原文件，转写结果未受影响。</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>删除转写任务？</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>这会删除任务及已保存的分段，但不会删除源文件。</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>转写文本（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>转写文本（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>字幕（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>译文（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>译文（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>双语 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>语音听写</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>最近的语音输入和活动会显示在这里。</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>设置</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>配置语音输入、模型、文本处理与隐私。</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>听写总数</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>今日听写</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>文字数量</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>总时长（毫秒）</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>52 周活动</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>听写历史</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>搜索听写内容</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>文本来源</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>全部文本来源</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>腾讯云</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>阿里云</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>火山引擎</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>没有符合当前筛选条件的听写记录。</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>选择</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>复制</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>详情</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>删除所选</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>清空历史</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>上一页</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>下一页</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>听写详情</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>识别原文</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>最终文本</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>处理元数据</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>识别语言</value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>听写时长</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 处理时长</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>音频帧（采集 / 丢弃）</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>保存编辑</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>重新处理</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>脱敏诊断</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>复制诊断</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>正在准备</value></data>
+  <data name="HudListening" xml:space="preserve"><value>正在聆听</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>正在生成结果</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>正在优化</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>正在写入</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>需要处理</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>已复制</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>未能完成本次听写。</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>无法向管理员应用输入文本。请以管理员身份重启 VoxFlow 后重试。结果已复制。</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>无法输入文本，结果已复制。</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>目标窗口已变化，结果已复制。</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>无法输入或复制文本，请从听写历史中复制结果。</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>识别语言</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>自动识别</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>中文（普通话）</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>英语</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>日语</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>韩语</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>语音识别</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>优化听写文本</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>打开码上写</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>设置</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub 项目主页</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>麦克风权限</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>退出码上写</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>获得可用转写结果后才能执行此操作。</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>任务错误 · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>翻译错误 · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>正在处理第 {0}/{1} 段</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>共 {0} 个任务</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>无</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>空结果后重试</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>重复结果后重试</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>服务错误后重试</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>原文件不可用</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>媒体格式不受支持或文件已损坏</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>未找到音轨</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>媒体运行库不可用或已损坏</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>临时磁盘空间不足</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>语音识别服务处理失败</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>语音识别服务不可用</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>语音识别服务鉴权失败</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>语音识别服务额度已用尽</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>语音识别服务不接受此音频格式</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>本地语音模型尚未就绪</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>语音识别服务网络请求失败</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>分段处理超时</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>全文翻译失败</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>当前没有正在运行的文件转写。</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>原文件仍可访问时才能播放。</value></data>
+</root>
