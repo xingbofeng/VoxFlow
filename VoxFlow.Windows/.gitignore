@@ -17,8 +17,8 @@ TestResults/
 !.env.live.example
 
 # Local model downloads and diagnostic output
-models/
-logs/
+/models/
+/logs/
 *.log
 
 # Verified FFmpeg binaries are staged from the locked archive, never committed.
