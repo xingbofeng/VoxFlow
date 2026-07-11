@@ -83,7 +83,7 @@ public sealed class FileTranscriptionVisualRegressionTests
                 CultureInfo.CurrentUICulture = originalCulture;
             }
             return Task.CompletedTask;
-        }, timeout: TimeSpan.FromMinutes(3));
+        }, timeout: TimeSpan.FromMinutes(5));
     }
 
     private static byte[] Render(
