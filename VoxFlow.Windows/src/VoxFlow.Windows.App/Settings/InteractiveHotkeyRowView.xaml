@@ -1,0 +1,178 @@
+<UserControl x:Class="VoxFlow.Windows.App.Settings.InteractiveHotkeyRowView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+             Focusable="True"
+             AutomationProperties.Name="{Binding Title}"
+             AutomationProperties.HelpText="{Binding Description}"
+             PreviewKeyDown="OnPreviewKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="HotkeyBadgeStyle" TargetType="Border">
+            <Setter Property="MinWidth" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="HotkeyBadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- Local style (not BasedOn app theme) so isolated STA tests can load the row. -->
+        <Style x:Key="HotkeyGhostButtonStyle" TargetType="Button">
+            <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+            <Setter Property="FontSize" Value="{DynamicResource BodyFontSize}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="MinWidth" Value="28" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="GhostBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource ControlCornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="GhostBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Border Padding="14,12"
+            Margin="0,0,0,10"
+            CornerRadius="{DynamicResource RowCornerRadius}"
+            Background="{DynamicResource ControlBackgroundBrush}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="{Binding Title}"
+                           FontWeight="SemiBold"
+                           FontSize="14" />
+                <TextBlock Text="{Binding Description}"
+                           Margin="0,4,0,0"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"
+                           FontSize="{DynamicResource CaptionFontSize}" />
+                <TextBlock Text="{Binding ConflictMessage}"
+                           Margin="0,6,0,0"
+                           Foreground="{DynamicResource DestructiveBrush}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding HasConflict, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Text="{Binding ActionFeedback}"
+                           Margin="0,6,0,0"
+                           Foreground="{DynamicResource DestructiveBrush}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+
+            <!-- Idle: key badges + clear + modify -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding ShowsIdleActions, Converter={StaticResource BoolToVisibility}}">
+                <ItemsControl ItemsSource="{Binding BindingTokens}"
+                              VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource HotkeyBadgeStyle}">
+                                <TextBlock Text="{Binding}"
+                                           Style="{StaticResource HotkeyBadgeTextStyle}" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{x:Static l10n:L10n.SettingsHotkeyUnbound}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           Visibility="{Binding ShowsUnboundLabel, Converter={StaticResource BoolToVisibility}}" />
+                <Button Style="{StaticResource HotkeyGhostButtonStyle}"
+                        Margin="4,0,0,0"
+                        ToolTip="{x:Static l10n:L10n.SettingsHotkeyClear}"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SettingsHotkeyClear}"
+                        IsEnabled="{Binding CanClear}"
+                        Click="OnClearClick"
+                        Visibility="{Binding ShowsClearButton, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="&#xE74D;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                </Button>
+                <Button Content="{x:Static l10n:L10n.SettingsHotkeyModify}"
+                        Style="{StaticResource HotkeyGhostButtonStyle}"
+                        Margin="6,0,0,0"
+                        MinWidth="88"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SettingsHotkeyModify}"
+                        IsEnabled="{Binding CanRecord}"
+                        Click="OnRecordClick" />
+            </StackPanel>
+
+            <!-- Recording: status + cancel / restore -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
+                <Border Padding="12,6"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        Background="{DynamicResource PanelBackgroundBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        Margin="0,0,8,0">
+                    <TextBlock Text="{Binding StatusDisplay}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource AccentBrush}" />
+                </Border>
+                <Button Content="{x:Static l10n:L10n.SettingsHotkeyCancel}"
+                        Style="{StaticResource HotkeyGhostButtonStyle}"
+                        MinWidth="72"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SettingsHotkeyCancel}"
+                        IsEnabled="{Binding CanCancel}"
+                        Click="OnCancelClick" />
+                <Button Content="{x:Static l10n:L10n.SettingsHotkeyRestoreDefault}"
+                        Style="{StaticResource HotkeyGhostButtonStyle}"
+                        Margin="6,0,0,0"
+                        MinWidth="88"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SettingsHotkeyRestoreDefault}"
+                        IsEnabled="{Binding CanRestoreDefault}"
+                        Click="OnRestoreDefaultClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

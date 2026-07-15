@@ -1,0 +1,1001 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>Toggle sidebar</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>Home</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>File transcription</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>File transcription</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>Turn audio and video files into reusable text.</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>Browse files</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>Drop files here or browse to import</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3, WAV, M4A, AAC, MP4, MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>Transcription queue</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>Imported files will appear here.</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>Result</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>Select a file to view its transcript.</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>Ready to import files.</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>Select an available speech provider before importing files.</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>This file format is not supported.</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>Files were added to the transcription queue.</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>Audio and video files</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>Waiting</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>Transcribing</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>Waiting</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>Running</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4} segments</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>Segment {0} · {1}–{2} · {3} · retries {4} · fallback {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>No error</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>Start</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>Retry from beginning</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>Export</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>Translate full text</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>Play source</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>Pause playback</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>Original</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>Translation</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>Advanced diagnostics</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>Transcription started.</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>Transcription cancelled.</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>Transcription continued.</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>Transcription restarted from the beginning.</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>Transcription deleted.</value></data>
+  <data name="FileTranscriptionFeedbackDeleteFailed" xml:space="preserve"><value>Could not delete this transcription. Its result was kept.</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>Result copied.</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>Could not copy the result.</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>Export saved.</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>Could not export this result.</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>Translation completed.</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>Translation failed. The original transcript was kept.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>Preparing source playback…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>Source playback started.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>Source playback paused.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>Could not play this source. The transcription result was not changed.</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>Delete transcription?</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>This removes the task and its saved segments. The source file will not be deleted.</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>Transcript (TXT)</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>Transcript (Markdown)</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>Subtitles (SRT)</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>Translation (TXT)</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>Translation (Markdown)</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>Bilingual Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>Home</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>Your recent voice input and activity will appear here.</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>Settings</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>Configure voice input, models, text processing, and privacy.</value></data>
+  <data name="SettingsNavigationGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsNavigationModels" xml:space="preserve"><value>Models</value></data>
+  <data name="SettingsNavigationVoice" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsNavigationText" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsGeneralHeading" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsGeneralSubtitle" xml:space="preserve"><value>Manage appearance, permissions, storage, and local diagnostics.</value></data>
+  <data name="SettingsModelsHeading" xml:space="preserve"><value>Models and providers</value></data>
+  <data name="SettingsModelsSubtitle" xml:space="preserve"><value>Choose a speech recognizer and configure optional text refinement.</value></data>
+  <data name="SettingsModelsAsrTab" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="SettingsModelsLlmTab" xml:space="preserve"><value>Text refinement</value></data>
+  <data name="SettingsModelsAgentTab" xml:space="preserve"><value>Agent</value></data>
+  <data name="SettingsAgentHeading" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="SettingsAgentDescription" xml:space="preserve"><value>Uses the bundled, verified Agent runtime and your default tool-calling provider.</value></data>
+  <data name="SettingsAgentRuntimeLabel" xml:space="preserve"><value>Bundled runtime</value></data>
+  <data name="SettingsAgentRuntimeAvailable" xml:space="preserve"><value>Verified and ready</value></data>
+  <data name="SettingsAgentRuntimeMissing" xml:space="preserve"><value>Bundled runtime is missing</value></data>
+  <data name="SettingsAgentRuntimeInvalid" xml:space="preserve"><value>Runtime manifest is invalid</value></data>
+  <data name="SettingsAgentRuntimeHashMismatch" xml:space="preserve"><value>Runtime integrity check failed</value></data>
+  <data name="SettingsAgentRuntimeDisabled" xml:space="preserve"><value>Agent runtime is unavailable</value></data>
+  <data name="SettingsAgentVersionLabel" xml:space="preserve"><value>Version</value></data>
+  <data name="SettingsAgentHashLabel" xml:space="preserve"><value>Manifest SHA-256</value></data>
+  <data name="SettingsAgentProviderLabel" xml:space="preserve"><value>Default provider</value></data>
+  <data name="SettingsAgentModelLabel" xml:space="preserve"><value>Default model</value></data>
+  <data name="SettingsAgentConnectionHealthLabel" xml:space="preserve"><value>Connection health</value></data>
+  <data name="SettingsAgentToolCallingHealthLabel" xml:space="preserve"><value>Tool-calling health</value></data>
+  <data name="SettingsAgentNotAvailable" xml:space="preserve"><value>Not available</value></data>
+  <data name="SettingsAgentNoDefaultProvider" xml:space="preserve"><value>No enabled default provider</value></data>
+  <data name="AgentQuestionWindowTitle" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="AgentQuestionCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="AgentQuestionContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="SettingsVoiceHeading" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsVoiceSubtitle" xml:space="preserve"><value>Configure how dictation starts, listens, and writes text.</value></data>
+  <data name="SettingsVoiceInputHeading" xml:space="preserve"><value>Input and language</value></data>
+  <data name="SettingsVoiceInputDescription" xml:space="preserve"><value>Configure input device, recognition language, and UI language.</value></data>
+  <data name="SettingsVoiceShortcutHeading" xml:space="preserve"><value>Voice shortcuts</value></data>
+  <data name="SettingsVoiceShortcutDescription" xml:space="preserve"><value>Global entry points for voice input and AI coding.</value></data>
+  <data name="SettingsVoiceAudioHeading" xml:space="preserve"><value>Audio</value></data>
+  <data name="SettingsVoiceAudioDescription" xml:space="preserve"><value>Control feedback sounds, playback muting, and speech enhancement.</value></data>
+  <data name="SettingsVoiceOutputHeading" xml:space="preserve"><value>Output</value></data>
+  <data name="SettingsVoiceOutputDescription" xml:space="preserve"><value>Choose fast paste or simulated typing for completed text.</value></data>
+  <data name="SettingsVoiceRuntimeHeading" xml:space="preserve"><value>Runtime</value></data>
+  <data name="SettingsVoiceRuntimeDescription" xml:space="preserve"><value>Keep the microphone ready between dictations when desired.</value></data>
+  <data name="SettingsVoiceShortcutRightControl" xml:space="preserve"><value>Right Ctrl</value></data>
+  <data name="SettingsVoiceDefaultMicrophone" xml:space="preserve"><value>Default microphone</value></data>
+  <data name="SettingsVoiceModeHybrid" xml:space="preserve"><value>Hold or tap to toggle</value></data>
+  <data name="SettingsVoiceModeHold" xml:space="preserve"><value>Hold to dictate</value></data>
+  <data name="SettingsVoiceModeToggle" xml:space="preserve"><value>Press to start or stop</value></data>
+  <data name="SettingsTextHeading" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsTextSubtitle" xml:space="preserve"><value>Apply conservative, predictable cleanup after speech recognition.</value></data>
+  <data name="SettingsActionSave" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsActionTest" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SettingsActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="SettingsOpenAiHeading" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="SettingsOpenAiDescription" xml:space="preserve"><value>Optionally improve completed dictation with conservative streaming text refinement.</value></data>
+  <data name="SettingsCredentialNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsStatusNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsProviderQwen06Description" xml:space="preserve"><value>Smaller local speech model for faster CPU recognition.</value></data>
+  <data name="SettingsProviderQwen17Description" xml:space="preserve"><value>Larger local speech model for higher-quality final results.</value></data>
+  <data name="SettingsProviderTencentDescription" xml:space="preserve"><value>Streaming speech recognition using your Tencent Cloud credentials.</value></data>
+  <data name="SettingsProviderAliyunDescription" xml:space="preserve"><value>Streaming speech recognition using your Alibaba Cloud API key.</value></data>
+  <data name="SettingsProviderVolcengineDescription" xml:space="preserve"><value>Streaming speech recognition using your Volcengine credentials.</value></data>
+  <data name="SettingsGeneralAppearance" xml:space="preserve"><value>Appearance and startup</value></data>
+  <data name="SettingsGeneralDarkTheme" xml:space="preserve"><value>Use dark appearance</value></data>
+  <data name="SettingsGeneralLaunchAtLogin" xml:space="preserve"><value>Launch VoxFlow when I sign in</value></data>
+  <data name="SettingsGeneralPermissions" xml:space="preserve"><value>Windows permissions</value></data>
+  <data name="SettingsGeneralOpenMicrophonePrivacy" xml:space="preserve"><value>Open microphone privacy settings</value></data>
+  <data name="SettingsGeneralData" xml:space="preserve"><value>Local data and diagnostics</value></data>
+  <data name="SettingsGeneralCopyDiagnostics" xml:space="preserve"><value>Copy sanitized diagnostics</value></data>
+  <data name="SettingsGeneralReset" xml:space="preserve"><value>Restore default settings</value></data>
+  <data name="SettingsDiagnosticsCopying" xml:space="preserve"><value>Preparing sanitized diagnostics…</value></data>
+  <data name="SettingsDiagnosticsCopied" xml:space="preserve"><value>Sanitized diagnostics copied.</value></data>
+  <data name="SettingsDiagnosticsEmpty" xml:space="preserve"><value>No diagnostics have been recorded.</value></data>
+  <data name="SettingsGeneralActionFailed" xml:space="preserve"><value>The action failed. Try again or review Windows permissions.</value></data>
+  <data name="SettingsGeneralActionUnavailable" xml:space="preserve"><value>This setting is unavailable in the current build.</value></data>
+  <data name="SettingsResetting" xml:space="preserve"><value>Restoring default settings…</value></data>
+  <data name="SettingsResetSucceeded" xml:space="preserve"><value>Default general and voice settings restored.</value></data>
+  <data name="DebugTranscriptInjectionTitle" xml:space="preserve"><value>Debug transcript injection</value></data>
+  <data name="DebugTranscriptInjectionSubtitle" xml:space="preserve"><value>Skip microphone and ASR, then run the production correction or Agent downstream chain.</value></data>
+  <data name="DebugTranscriptInjectionRun" xml:space="preserve"><value>Run debug chain</value></data>
+  <data name="DebugTranscriptInjectionDefaultText" xml:space="preserve"><value>Summarize the current window. Do not modify, send, or open anything.</value></data>
+  <data name="DebugTranscriptInjectionPlaceholder" xml:space="preserve"><value>Transcript to inject</value></data>
+  <data name="DebugTranscriptInjectionModeDictation" xml:space="preserve"><value>Dictation correction</value></data>
+  <data name="DebugTranscriptInjectionModeAgentCompose" xml:space="preserve"><value>Agent Compose</value></data>
+  <data name="DebugTranscriptInjectionRunning" xml:space="preserve"><value>Running the production downstream chain…</value></data>
+  <data name="DebugTranscriptInjectionCompleted" xml:space="preserve"><value>Debug chain completed.</value></data>
+  <data name="DebugTranscriptInjectionBusy" xml:space="preserve"><value>Another voice workflow is already running.</value></data>
+  <data name="DebugTranscriptInjectionUnavailable" xml:space="preserve"><value>The selected Debug chain is not available. Check its provider and runtime.</value></data>
+  <data name="DebugTranscriptInjectionFailed" xml:space="preserve"><value>The Debug chain failed safely. Review the HUD and sanitized diagnostics.</value></data>
+  <data name="SettingsVoiceDevice" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SettingsVoiceLanguage" xml:space="preserve"><value>Recognition language</value></data>
+  <data name="SettingsVoiceInteraction" xml:space="preserve"><value>Shortcut behavior</value></data>
+  <data name="SettingsVoiceMiddleMouse" xml:space="preserve"><value>Enable middle mouse button</value></data>
+  <data name="SettingsVoiceMutePlayback" xml:space="preserve"><value>Mute playback while recording</value></data>
+  <data name="SettingsVoiceFeedbackSounds" xml:space="preserve"><value>Play start and stop sounds</value></data>
+  <data name="SettingsVoiceEnhancement" xml:space="preserve"><value>Enhance speech before recognition</value></data>
+  <data name="SettingsVoiceQuickPaste" xml:space="preserve"><value>Fast paste</value></data>
+  <data name="SettingsVoiceQuickPasteDescription" xml:space="preserve"><value>Paste completed text and safely restore the clipboard.</value></data>
+  <data name="SettingsVoiceSimulatedTyping" xml:space="preserve"><value>Simulated typing</value></data>
+  <data name="SettingsVoiceSimulatedTypingDescription" xml:space="preserve"><value>Type Unicode text without replacing clipboard contents.</value></data>
+  <data name="SettingsVoiceKeepMicrophoneActive" xml:space="preserve"><value>Keep the microphone ready between dictations</value></data>
+  <data name="SettingsTextMaster" xml:space="preserve"><value>Enable text processing</value></data>
+  <data name="SettingsTextSmartNumbers" xml:space="preserve"><value>Smart number recognition</value></data>
+  <data name="SettingsTextPunctuation" xml:space="preserve"><value>Punctuation optimization</value></data>
+  <data name="SettingsTextLongSentences" xml:space="preserve"><value>Long sentence splitting</value></data>
+  <data name="SettingsTextFillerWords" xml:space="preserve"><value>Filler word filtering</value></data>
+  <data name="SettingsTextCjkSpacing" xml:space="preserve"><value>CJK / Latin spacing</value></data>
+  <data name="SettingsTextCapitalization" xml:space="preserve"><value>Sentence capitalization</value></data>
+  <data name="SettingsTextWordBreakThreshold" xml:space="preserve"><value>Words before a long-sentence break</value></data>
+  <data name="SettingsTextCjkBreakThreshold" xml:space="preserve"><value>CJK characters before a long-sentence break</value></data>
+  <data name="SettingsTextCjkPunctuationThreshold" xml:space="preserve"><value>CJK characters before punctuation</value></data>
+  <data name="SettingsTextWordPunctuationThreshold" xml:space="preserve"><value>Words before punctuation</value></data>
+  <data name="SettingsActionApply" xml:space="preserve"><value>Apply changes</value></data>
+  <data name="SettingsOpenAiBaseUrl" xml:space="preserve"><value>Official API address</value></data>
+  <data name="SettingsOpenAiModel" xml:space="preserve"><value>Model</value></data>
+  <data name="SettingsOpenAiApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsOpenAiEnabled" xml:space="preserve"><value>Use OpenAI text refinement</value></data>
+  <data name="SettingsResetConfirmationTitle" xml:space="preserve"><value>Restore default settings?</value></data>
+  <data name="SettingsResetConfirmationMessage" xml:space="preserve"><value>This restores general and voice settings. Saved credentials, downloaded models, history, and the current provider selection remain unchanged.</value></data>
+  <data name="SettingsCredentialConfigured" xml:space="preserve"><value>Saved securely</value></data>
+  <data name="SettingsSaveSucceeded" xml:space="preserve"><value>Settings saved.</value></data>
+  <data name="SettingsConnectionSucceeded" xml:space="preserve"><value>Connection succeeded.</value></data>
+  <data name="SettingsConnectionFailed" xml:space="preserve"><value>Connection failed. Review the model and credential, then retry.</value></data>
+  <data name="SettingsOperationSaving" xml:space="preserve"><value>Saving credentials…</value></data>
+  <data name="SettingsOperationTesting" xml:space="preserve"><value>Testing connection…</value></data>
+  <data name="SettingsOperationDeleting" xml:space="preserve"><value>Deleting credentials…</value></data>
+  <data name="SettingsOperationFailed" xml:space="preserve"><value>The operation failed. Check the fields and try again.</value></data>
+  <data name="SettingsDeleteSucceeded" xml:space="preserve"><value>Credential deleted.</value></data>
+  <data name="SettingsDeleteConfirmationTitle" xml:space="preserve"><value>Delete OpenAI credential?</value></data>
+  <data name="SettingsDeleteConfirmationMessage" xml:space="preserve"><value>Text refinement will be disabled. Speech recognition and deterministic text cleanup will continue to work.</value></data>
+  <data name="SettingsStatusConfigured" xml:space="preserve"><value>Configured; test the connection to enable selection</value></data>
+  <data name="SettingsStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsCredentialAppId" xml:space="preserve"><value>App ID</value></data>
+  <data name="SettingsCredentialSecretId" xml:space="preserve"><value>Secret ID</value></data>
+  <data name="SettingsCredentialSecretKey" xml:space="preserve"><value>Secret key</value></data>
+  <data name="SettingsCredentialApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsCredentialAccessToken" xml:space="preserve"><value>Access token</value></data>
+  <data name="SettingsCloudAudioNotice" xml:space="preserve"><value>Audio is sent directly to this cloud provider during dictation.</value></data>
+  <data name="SettingsCloudDeleteConfirmationTitle" xml:space="preserve"><value>Delete cloud credential?</value></data>
+  <data name="SettingsCloudDeleteConfirmationMessage" xml:space="preserve"><value>This provider will become unavailable for new dictation. Other providers and local models are not changed.</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>Total assets</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>Today</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>Dictation</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>Screenshot</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>Input activity</value></data>
+  <data name="HomeActivitySubtitle" xml:space="preserve"><value>Past 52 weeks · Each cell is one day</value></data>
+  <data name="HomeActivityLess" xml:space="preserve"><value>Less</value></data>
+  <data name="HomeActivityMore" xml:space="preserve"><value>More</value></data>
+  <data name="HomeActivityThisWeekFormat" xml:space="preserve"><value>This week: {0} assets</value></data>
+  <data name="HistoryCountFormat" xml:space="preserve"><value>{0:N0} items</value></data>
+  <data name="HistorySelectAll" xml:space="preserve"><value>Select all</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>Assets</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>Search transcripts</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>Asset source</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>All sources</value></data>
+  <data name="HistorySourceDictation" xml:space="preserve"><value>Dictation</value></data>
+  <data name="HistorySourceScreenshot" xml:space="preserve"><value>Screenshot</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>No dictation history matches these filters.</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Select</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>Details</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>Delete selected</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>Clear history</value></data>
+  <data name="HistoryCopySucceeded" xml:space="preserve"><value>Copied to the clipboard.</value></data>
+  <data name="HistoryCopyFailed" xml:space="preserve"><value>Couldn't copy this history item. Try again.</value></data>
+  <data name="HistoryDeleteSucceeded" xml:space="preserve"><value>History deleted.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>Couldn't delete the selected history. Try again.</value></data>
+  <data name="HistorySaveSucceeded" xml:space="preserve"><value>Changes saved.</value></data>
+  <data name="HistorySaveFailed" xml:space="preserve"><value>Couldn't save these changes. Try again.</value></data>
+  <data name="HistoryReprocessSucceeded" xml:space="preserve"><value>Text reprocessed.</value></data>
+  <data name="HistoryReprocessFailed" xml:space="preserve"><value>Couldn't reprocess this text. Check the text processing settings and try again.</value></data>
+  <data name="HistoryActionFailed" xml:space="preserve"><value>The history action failed. Try again.</value></data>
+  <data name="HistoryDeleteConfirmationTitle" xml:space="preserve"><value>Delete history</value></data>
+  <data name="HistoryDeleteConfirmationMessage" xml:space="preserve"><value>Delete this history item? This action can't be undone.</value></data>
+  <data name="HistoryDeleteSelectedConfirmationMessage" xml:space="preserve"><value>Delete the selected history items? This action can't be undone.</value></data>
+  <data name="HistoryClearAllConfirmationMessage" xml:space="preserve"><value>Clear all history? This action can't be undone.</value></data>
+  <data name="HistoryDeleteSelectedUnavailable" xml:space="preserve"><value>Select one or more history items before deleting.</value></data>
+  <data name="HistoryClearAllUnavailable" xml:space="preserve"><value>History can be cleared after at least one item is available.</value></data>
+  <data name="HistorySaveUnavailable" xml:space="preserve"><value>Enter non-empty final text before saving.</value></data>
+  <data name="HistoryReprocessUnavailable" xml:space="preserve"><value>Reprocessing is available after a text processing chain is configured.</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>Previous</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>Next</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>Dictation details</value></data>
+  <data name="HistoryNoPreview" xml:space="preserve"><value>No preview</value></data>
+  <data name="HistoryContentTypeVoice" xml:space="preserve"><value>Voice</value></data>
+  <data name="HistoryContentTypeImage" xml:space="preserve"><value>Image</value></data>
+  <data name="HistoryContentTypeFile" xml:space="preserve"><value>File</value></data>
+  <data name="HistoryContentTypeWorkflow" xml:space="preserve"><value>Workflow</value></data>
+  <data name="HistoryContentTypeText" xml:space="preserve"><value>Text</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>Close</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>Recognized text</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>Final text</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>Processing metadata</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="HistoryDetailAsr" xml:space="preserve"><value>Speech recognition: </value></data>
+  <data name="HistoryDetailQwen" xml:space="preserve"><value>Qwen model: </value></data>
+  <data name="HistoryDetailLlm" xml:space="preserve"><value>LLM: </value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>Duration</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM duration</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>Frames (captured / dropped)</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>Save edit</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>Reprocess</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>Sanitized diagnostic</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>Copy diagnostic</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>Preparing</value></data>
+  <data name="HudListening" xml:space="preserve"><value>Listening</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>Finalizing</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>Improving</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>Writing</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>Done</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>Copied</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>Dictation could not be completed.</value></data>
+  <data name="HudAgentReadingWindow" xml:space="preserve"><value>Reading current window</value></data>
+  <data name="HudAgentListening" xml:space="preserve"><value>Listening</value></data>
+  <data name="HudAgentTranscribing" xml:space="preserve"><value>Transcribing</value></data>
+  <data name="HudAgentProcessing" xml:space="preserve"><value>Thinking</value></data>
+  <data name="HudAgentOperating" xml:space="preserve"><value>Working</value></data>
+  <data name="HudAgentWaitingForUser" xml:space="preserve"><value>Waiting for you</value></data>
+  <data name="HudAgentCompleted" xml:space="preserve"><value>Done</value></data>
+  <data name="HudAgentFailed" xml:space="preserve"><value>Needs attention</value></data>
+  <data name="HudAgentCopied" xml:space="preserve"><value>Copied</value></data>
+  <data name="HudAgentRedacted" xml:space="preserve"><value>[redacted]</value></data>
+  <data name="HudAgentPathRemoved" xml:space="preserve"><value>[path removed]</value></data>
+  <data name="HudAgentToolReadFile" xml:space="preserve"><value>Read file</value></data>
+  <data name="HudAgentToolSearchTranscriptions" xml:space="preserve"><value>Search history</value></data>
+  <data name="HudAgentToolRespond" xml:space="preserve"><value>Prepare response</value></data>
+  <data name="HudAgentToolAskUserQuestion" xml:space="preserve"><value>Waiting for your answer</value></data>
+  <data name="HudAgentToolWriteFile" xml:space="preserve"><value>Write file</value></data>
+  <data name="HudAgentToolEditFile" xml:space="preserve"><value>Edit file</value></data>
+  <data name="HudAgentToolNotebookEdit" xml:space="preserve"><value>Edit notebook</value></data>
+  <data name="HudAgentToolListFiles" xml:space="preserve"><value>List files</value></data>
+  <data name="HudAgentToolGlobFiles" xml:space="preserve"><value>Find files</value></data>
+  <data name="HudAgentToolGrepFiles" xml:space="preserve"><value>Search files</value></data>
+  <data name="HudAgentToolClipboard" xml:space="preserve"><value>Use clipboard</value></data>
+  <data name="HudAgentToolKeyboard" xml:space="preserve"><value>Use keyboard</value></data>
+  <data name="HudAgentToolTextField" xml:space="preserve"><value>Use text field</value></data>
+  <data name="HudAgentToolHttpRequest" xml:space="preserve"><value>Request website</value></data>
+  <data name="HudAgentToolOpenUrl" xml:space="preserve"><value>Open website</value></data>
+  <data name="HudAgentToolWebFetch" xml:space="preserve"><value>Read webpage</value></data>
+  <data name="HudAgentToolWebSearch" xml:space="preserve"><value>Search web</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>Text could not be inserted into an administrator app. Restart VoxFlow as administrator and try again. The result was copied.</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>Text could not be inserted. The result was copied.</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>The target changed. The result was copied.</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>Text could not be inserted or copied. Copy the result from dictation history.</value></data>
+  <data name="FailureAsrUnavailable" xml:space="preserve"><value>No speech recognizer is ready. Configure a cloud provider or download a local model.</value></data>
+  <data name="FailureMicrophonePermission" xml:space="preserve"><value>Microphone access is unavailable. Review microphone privacy permissions in Windows Settings.</value></data>
+  <data name="FailureCloudProvider" xml:space="preserve"><value>The selected cloud speech provider could not complete this dictation. Review its configuration, then retry.</value></data>
+  <data name="FailureQwenRuntime" xml:space="preserve"><value>The selected Qwen model could not run. Review the model status and retry without changing providers.</value></data>
+  <data name="FailureLlmFallback" xml:space="preserve"><value>Text refinement was unavailable, so VoxFlow kept the original recognized text.</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>Chinese (Mandarin)</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>English</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>Japanese</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>Korean</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>Improve dictated text</value></data>
+  <data name="TrayAgent" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="TrayAgentReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="TrayAgentRunning" xml:space="preserve"><value>Agent Compose is running</value></data>
+  <data name="TrayAgentRuntimeUnavailable" xml:space="preserve"><value>Agent runtime is unavailable</value></data>
+  <data name="TrayAgentProviderUnavailable" xml:space="preserve"><value>Configure and test an Agent-capable provider</value></data>
+  <data name="TrayAgentStart" xml:space="preserve"><value>Start Agent Compose</value></data>
+  <data name="TrayAgentStop" xml:space="preserve"><value>Stop Agent Compose</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>Open VoxFlow</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>Project on GitHub</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>Microphone permissions</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>Exit VoxFlow</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>This action is available after a usable result is ready.</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>Task error · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>Translation error · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>Processing segment {0} of {1}</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>{0} tasks</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>None</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>Retried after an empty result</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>Retried after a duplicate result</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>Retried after a provider error</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>Source file is unavailable</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>Media format is unsupported or damaged</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>No audio track was found</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>Media runtime is unavailable or damaged</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>Not enough temporary disk space</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>Speech provider failed</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>Speech provider is unavailable</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>Speech provider authentication failed</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>Speech provider quota was exceeded</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>Speech provider rejected the audio format</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>Local speech model is not ready</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>Speech provider network request failed</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>Segment processing timed out</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>Full-text translation failed</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>No file transcription is running.</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>Playback is available while the source file remains accessible.</value></data>
+  <data name="LlmProviderHealthUnknown" xml:space="preserve"><value>Not tested</value></data>
+  <data name="LlmProviderHealthTesting" xml:space="preserve"><value>Testing…</value></data>
+  <data name="LlmProviderHealthAvailable" xml:space="preserve"><value>Available</value></data>
+  <data name="LlmProviderHealthUnavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="LlmProviderAgentUnknown" xml:space="preserve"><value>Agent capability not tested</value></data>
+  <data name="LlmProviderAgentSupported" xml:space="preserve"><value>Agent supported</value></data>
+  <data name="LlmProviderAgentUnsupported" xml:space="preserve"><value>Agent not supported</value></data>
+  <data name="LlmProviderAgentError" xml:space="preserve"><value>Agent test failed</value></data>
+  <data name="LlmProviderTitle" xml:space="preserve"><value>LLM providers</value></data>
+  <data name="LlmProviderSubtitle" xml:space="preserve"><value>Configure OpenAI-compatible services for correction, translation, summarization, and built-in Agent tasks.</value></data>
+  <data name="LlmProviderAdd" xml:space="preserve"><value>Add provider</value></data>
+  <data name="LlmProviderEmpty" xml:space="preserve"><value>No model providers yet</value></data>
+  <data name="LlmProviderBadge" xml:space="preserve"><value>LLM</value></data>
+  <data name="LlmProviderCurrent" xml:space="preserve"><value>Current</value></data>
+  <data name="LlmProviderEnable" xml:space="preserve"><value>Enabled</value></data>
+  <data name="LlmProviderSetDefault" xml:space="preserve"><value>Use as default</value></data>
+  <data name="LlmProviderEdit" xml:space="preserve"><value>Edit</value></data>
+  <data name="LlmProviderTestConnection" xml:space="preserve"><value>Test connection</value></data>
+  <data name="LlmProviderTestAgent" xml:space="preserve"><value>Test Agent</value></data>
+  <data name="LlmProviderDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="LlmProviderEditorAddTitle" xml:space="preserve"><value>Add provider</value></data>
+  <data name="LlmProviderEditorEditTitle" xml:space="preserve"><value>Edit provider</value></data>
+  <data name="LlmProviderEditorHint" xml:space="preserve"><value>Selecting a provider fills its official address. Choose Custom to enter your own OpenAI-compatible service.</value></data>
+  <data name="LlmProviderTemplateLabel" xml:space="preserve"><value>Provider</value></data>
+  <data name="LlmProviderCustomTemplate" xml:space="preserve"><value>Custom</value></data>
+  <data name="LlmProviderName" xml:space="preserve"><value>Name</value></data>
+  <data name="LlmProviderServiceUrl" xml:space="preserve"><value>Service URL</value></data>
+  <data name="LlmProviderModel" xml:space="preserve"><value>Model</value></data>
+  <data name="LlmProviderRefreshModels" xml:space="preserve"><value>Refresh models</value></data>
+  <data name="LlmProviderGenerationSettings" xml:space="preserve"><value>Generation</value></data>
+  <data name="LlmProviderTemperature" xml:space="preserve"><value>Temperature</value></data>
+  <data name="LlmProviderTimeout" xml:space="preserve"><value>Timeout</value></data>
+  <data name="LlmProviderSeconds" xml:space="preserve"><value>seconds</value></data>
+  <data name="LlmProviderApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="LlmProviderRevealApiKey" xml:space="preserve"><value>Show saved key</value></data>
+  <data name="LlmProviderHideApiKey" xml:space="preserve"><value>Hide key</value></data>
+  <data name="LlmProviderAddModel" xml:space="preserve"><value>Add model</value></data>
+  <data name="LlmProviderNoApiKeyRequired" xml:space="preserve"><value>No key required</value></data>
+  <data name="LlmProviderCredentialHint" xml:space="preserve"><value>API keys are encrypted for the current Windows user.</value></data>
+  <data name="LlmProviderAvailability" xml:space="preserve"><value>Availability</value></data>
+  <data name="LlmProviderUseAsDefault" xml:space="preserve"><value>Use as default</value></data>
+  <data name="LlmProviderCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LlmProviderSave" xml:space="preserve"><value>Save</value></data>
+  <data name="LlmProviderDeleteConfirmationTitle" xml:space="preserve"><value>Delete provider?</value></data>
+  <data name="LlmProviderDeleteConfirmationMessage" xml:space="preserve"><value>This removes the provider and its saved API key from this computer.</value></data>
+  <data name="LlmProviderActionFailed" xml:space="preserve"><value>The action failed. Check the provider fields and try again.</value></data>
+  <data name="LlmProviderStatusEnabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="LlmProviderStatusDisabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="LlmProviderGetApiKey" xml:space="preserve"><value>Get API key</value></data>
+  <data name="HistorySourceSelectionTranslation" xml:space="preserve"><value>Selection translation</value></data>
+  <data name="HistorySourceSelectionSummary" xml:space="preserve"><value>Selection summary</value></data>
+  <data name="HistorySourceAgentCompose" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="HistorySourceFileTranscription" xml:space="preserve"><value>File transcription</value></data>
+  <data name="WorkflowStatusPending" xml:space="preserve"><value>Waiting</value></data>
+  <data name="WorkflowStatusRunning" xml:space="preserve"><value>In progress</value></data>
+  <data name="WorkflowStatusPartiallyCompleted" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="WorkflowStatusCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="WorkflowStatusFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="WorkflowStatusCancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="WorkflowStatusInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="HistoryDetailWorkflowMetadata" xml:space="preserve"><value>Workflow</value></data>
+  <data name="HistoryDetailStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="HistoryDetailFailure" xml:space="preserve"><value>Failure reason</value></data>
+  <data name="HistoryDetailProvider" xml:space="preserve"><value>Provider</value></data>
+  <data name="HistoryDetailModel" xml:space="preserve"><value>Model</value></data>
+  <data name="HistoryDetailContextSources" xml:space="preserve"><value>Context sources</value></data>
+  <data name="HistoryDetailTimeline" xml:space="preserve"><value>Timeline</value></data>
+  <data name="HistoryDetailTools" xml:space="preserve"><value>Tools used</value></data>
+  <data name="HistoryDetailArtifacts" xml:space="preserve"><value>Artifacts</value></data>
+  <data name="HistoryDetailResultSummary" xml:space="preserve"><value>Result summary</value></data>
+  <data name="SettingsNavigationTranslation" xml:space="preserve"><value>Translation</value></data>
+  <data name="SettingsTranslationHeading" xml:space="preserve"><value>Selection actions</value></data>
+  <data name="SettingsTranslationSubtitle" xml:space="preserve"><value>Set direct shortcuts for translating or summarizing selected text in another app.</value></data>
+  <data name="SettingsHotkeyScreenshotTitle" xml:space="preserve"><value>Screenshot OCR</value></data>
+  <data name="SettingsHotkeyScreenshotDescription" xml:space="preserve"><value>Capture a region and extract text.</value></data>
+  <data name="SettingsHotkeySelectionTranslationTitle" xml:space="preserve"><value>Polish</value></data>
+  <data name="SettingsHotkeySelectionTranslationDescription" xml:space="preserve"><value>Enable quick actions after selecting text.</value></data>
+  <data name="SettingsHotkeySelectionSummaryTitle" xml:space="preserve"><value>Summarize</value></data>
+  <data name="SettingsHotkeySelectionSummaryDescription" xml:space="preserve"><value>Summarize the selected text.</value></data>
+  <data name="SettingsHotkeyAgentComposeTitle" xml:space="preserve"><value>Smart workspace</value></data>
+  <data name="SettingsHotkeyAgentComposeDescription" xml:space="preserve"><value>Send selected text to the smart workspace.</value></data>
+  <data name="SettingsHotkeyAgentSectionTitle" xml:space="preserve"><value>VoxFlow Agent shortcut</value></data>
+  <data name="SettingsHotkeyAgentSectionDescription" xml:space="preserve"><value>Configure the built-in Agent voice gesture. Right Alt and AltGr combinations are not supported.</value></data>
+  <data name="SettingsHotkeyRecord" xml:space="preserve"><value>Record</value></data>
+  <data name="SettingsHotkeyCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SettingsHotkeyClear" xml:space="preserve"><value>Clear</value></data>
+  <data name="SettingsHotkeyRestoreDefault" xml:space="preserve"><value>Restore default</value></data>
+  <data name="SettingsHotkeyUnbound" xml:space="preserve"><value>Not assigned</value></data>
+  <data name="SettingsHotkeyRecordingStatus" xml:space="preserve"><value>Press a shortcut…</value></data>
+  <data name="hotkey.conflict.alreadyAssigned" xml:space="preserve"><value>This shortcut is already assigned to another action.</value></data>
+  <data name="hotkey.conflict.altGrUnsafe" xml:space="preserve"><value>Right Alt or AltGr can type characters and cannot be used for this shortcut.</value></data>
+  <data name="hotkey.conflict.systemEditing" xml:space="preserve"><value>This combination is reserved for common editing commands.</value></data>
+  <data name="SettingsModelDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="SettingsModelRetry" xml:space="preserve"><value>Retry download</value></data>
+  <data name="SettingsModelSelect" xml:space="preserve"><value>Use this model</value></data>
+  <data name="SettingsModelSelected" xml:space="preserve"><value>Selected</value></data>
+  <data name="SettingsModelStatusNotDownloaded" xml:space="preserve"><value>Not downloaded</value></data>
+  <data name="SettingsModelStatusDownloadingFormat" xml:space="preserve"><value>Downloading {0:0}%</value></data>
+  <data name="SettingsModelStatusPreparing" xml:space="preserve"><value>Preparing model…</value></data>
+  <data name="SettingsModelStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsModelStatusSelected" xml:space="preserve"><value>In use</value></data>
+  <data name="SettingsModelStatusInsufficientSpace" xml:space="preserve"><value>Not enough disk space</value></data>
+  <data name="SettingsModelStatusFailed" xml:space="preserve"><value>Download or validation failed</value></data>
+  <data name="SettingsModelActionDownloading" xml:space="preserve"><value>Downloading and verifying the model…</value></data>
+  <data name="SettingsModelActionSelecting" xml:space="preserve"><value>Selecting the model…</value></data>
+  <data name="SettingsModelActionDeleting" xml:space="preserve"><value>Deleting the model…</value></data>
+  <data name="SettingsModelDownloadSucceeded" xml:space="preserve"><value>Model downloaded and ready.</value></data>
+  <data name="SettingsModelSelectSucceeded" xml:space="preserve"><value>Model selected.</value></data>
+  <data name="SettingsModelDeleteSucceeded" xml:space="preserve"><value>Model deleted.</value></data>
+  <data name="SettingsModelActionFailed" xml:space="preserve"><value>The model action failed. Try again.</value></data>
+  <data name="SettingsModelDeleteConfirmationTitle" xml:space="preserve"><value>Delete model?</value></data>
+  <data name="SettingsModelDeleteConfirmationMessage" xml:space="preserve"><value>The downloaded model files will be removed from this computer. You can download them again later.</value></data>
+  <data name="SelectionFailureNoSelection" xml:space="preserve"><value>Select text in another app, then try again.</value></data>
+  <data name="SelectionFailureSecureField" xml:space="preserve"><value>Text in secure fields can't be read.</value></data>
+  <data name="SelectionFailureTargetChanged" xml:space="preserve"><value>The original window changed. Select text again.</value></data>
+  <data name="SelectionFailureClipboardBusy" xml:space="preserve"><value>Clipboard is busy. Try again.</value></data>
+  <data name="SelectionFailureTerminal" xml:space="preserve"><value>No proven terminal selection. Ctrl+C wasn't sent.</value></data>
+  <data name="SelectionFailureCopyFailed" xml:space="preserve"><value>Couldn't copy the selected text.</value></data>
+  <data name="SelectionResultSource" xml:space="preserve"><value>Source</value></data>
+  <data name="SelectionResultResult" xml:space="preserve"><value>Result</value></data>
+  <data name="SelectionResultCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="SelectionResultSpeak" xml:space="preserve"><value>Speak</value></data>
+  <data name="SelectionResultStopSpeaking" xml:space="preserve"><value>Stop speaking</value></data>
+  <data name="SelectionResultReplace" xml:space="preserve"><value>Replace</value></data>
+  <data name="SelectionResultInsertBelow" xml:space="preserve"><value>Insert below</value></data>
+  <data name="SelectionResultProcessing" xml:space="preserve"><value>Processing…</value></data>
+  <data name="SelectionResultTranslation" xml:space="preserve"><value>Translate selection</value></data>
+  <data name="SelectionResultSummary" xml:space="preserve"><value>Summarize selection</value></data>
+  <data name="SelectionResultComplete" xml:space="preserve"><value>Done.</value></data>
+  <data name="SelectionResultPartial" xml:space="preserve"><value>Stopped. The partial result is still available.</value></data>
+  <data name="SelectionResultCancelled" xml:space="preserve"><value>Cancelled.</value></data>
+  <data name="SelectionResultFailed" xml:space="preserve"><value>Couldn't process the selection. Check the default LLM provider and try again.</value></data>
+  <data name="SelectionResultNoText" xml:space="preserve"><value>There is no text to use.</value></data>
+  <data name="SelectionResultCopyFailed" xml:space="preserve"><value>Couldn't copy the text.</value></data>
+  <data name="SelectionResultCopied" xml:space="preserve"><value>Copied.</value></data>
+  <data name="SelectionResultWriteUnavailable" xml:space="preserve"><value>This text cannot be written back to the original app.</value></data>
+  <data name="SelectionResultReplaced" xml:space="preserve"><value>Replaced the selected text.</value></data>
+  <data name="SelectionResultInserted" xml:space="preserve"><value>Inserted below the selection.</value></data>
+  <data name="SelectionResultCopiedFallback" xml:space="preserve"><value>The original target changed, so the result was copied instead.</value></data>
+  <data name="SelectionResultWriteFailed" xml:space="preserve"><value>Couldn't write the text back. The original text was not changed.</value></data>
+  <data name="SelectionResultSpeaking" xml:space="preserve"><value>Speaking…</value></data>
+  <data name="SelectionResultSpeechComplete" xml:space="preserve"><value>Finished speaking.</value></data>
+  <data name="SelectionResultSpeechStopped" xml:space="preserve"><value>Stopped speaking.</value></data>
+  <data name="SelectionResultSpeechUnavailable" xml:space="preserve"><value>No Windows speech voice is available.</value></data>
+  <data name="SelectionResultSpeechFailed" xml:space="preserve"><value>Couldn't speak this text.</value></data>
+  <data name="SelectionFailureUnexpected" xml:space="preserve"><value>Selection tools are unavailable right now. Check the default LLM provider and try again.</value></data>
+  <data name="SelectionUnavailableDuringScreenshot" xml:space="preserve"><value>Finish or close the screenshot tool before translating or summarizing a selection.</value></data>
+  <data name="NavigationMedia" xml:space="preserve"><value>Media</value></data>
+  <data name="ScreenshotMediaHeading" xml:space="preserve"><value>Media</value></data>
+  <data name="ScreenshotMediaSubtitle" xml:space="preserve"><value>Capture, search, and revisit your screenshots.</value></data>
+  <data name="TrayScreenshot" xml:space="preserve"><value>Take screenshot</value></data>
+  <data name="ScreenshotStart" xml:space="preserve"><value>Take screenshot</value></data>
+  <data name="ScreenshotMediaStatsTotal" xml:space="preserve"><value>All media</value></data>
+  <data name="ScreenshotMediaStatsToday" xml:space="preserve"><value>Today's media</value></data>
+  <data name="ScreenshotMediaStatsScreenshots" xml:space="preserve"><value>Screenshots</value></data>
+  <data name="ScreenshotMediaStatsFavorites" xml:space="preserve"><value>Favorites</value></data>
+  <data name="ScreenshotMediaSearch" xml:space="preserve"><value>Search screenshots</value></data>
+  <data name="ScreenshotMediaFilter" xml:space="preserve"><value>Filter screenshots</value></data>
+  <data name="ScreenshotMediaPageSize" xml:space="preserve"><value>Screenshots per page</value></data>
+  <data name="ScreenshotMediaEmptyTitle" xml:space="preserve"><value>No screenshots yet</value></data>
+  <data name="ScreenshotMediaEmptyHint" xml:space="preserve"><value>Take a screenshot and it will appear here.</value></data>
+  <data name="ScreenshotMediaPrevious" xml:space="preserve"><value>Previous</value></data>
+  <data name="ScreenshotMediaNext" xml:space="preserve"><value>Next</value></data>
+  <data name="ScreenshotCopyImage" xml:space="preserve"><value>Copy image</value></data>
+  <data name="ScreenshotCopyText" xml:space="preserve"><value>Copy text</value></data>
+  <data name="ScreenshotFavorite" xml:space="preserve"><value>Add or remove favorite</value></data>
+  <data name="ScreenshotDelete" xml:space="preserve"><value>Delete screenshot</value></data>
+  <data name="ScreenshotFilterAll" xml:space="preserve"><value>All</value></data>
+  <data name="ScreenshotFilterScreenshots" xml:space="preserve"><value>Screenshots</value></data>
+  <data name="ScreenshotFilterFavorites" xml:space="preserve"><value>Favorites</value></data>
+  <data name="ScreenshotDetailTitle" xml:space="preserve"><value>Screenshot details</value></data>
+  <data name="ScreenshotClose" xml:space="preserve"><value>Close</value></data>
+  <data name="ScreenshotImageUnavailable" xml:space="preserve"><value>Image unavailable</value></data>
+  <data name="ScreenshotOriginal" xml:space="preserve"><value>Original</value></data>
+  <data name="ScreenshotTranslatedImage" xml:space="preserve"><value>Translated image</value></data>
+  <data name="ScreenshotResolution" xml:space="preserve"><value>Resolution</value></data>
+  <data name="ScreenshotFileSize" xml:space="preserve"><value>File size</value></data>
+  <data name="ScreenshotCharacters" xml:space="preserve"><value>Characters</value></data>
+  <data name="ScreenshotFavoriteStatus" xml:space="preserve"><value>Favorite</value></data>
+  <data name="ScreenshotOcrTab" xml:space="preserve"><value>OCR</value></data>
+  <data name="ScreenshotRefinedTab" xml:space="preserve"><value>Refined</value></data>
+  <data name="ScreenshotTranslationTab" xml:space="preserve"><value>Translation</value></data>
+  <data name="ScreenshotSummaryTab" xml:space="preserve"><value>Summary</value></data>
+  <data name="ScreenshotSaveAs" xml:space="preserve"><value>Save as</value></data>
+  <data name="ScreenshotReveal" xml:space="preserve"><value>Show in File Explorer</value></data>
+  <data name="ScreenshotReprocess" xml:space="preserve"><value>Recognize again</value></data>
+  <data name="ScreenshotToolSelect" xml:space="preserve"><value>Select</value></data>
+  <data name="ScreenshotToolPen" xml:space="preserve"><value>Pen</value></data>
+  <data name="ScreenshotToolEllipse" xml:space="preserve"><value>Circle</value></data>
+  <data name="ScreenshotToolRectangle" xml:space="preserve"><value>Rectangle</value></data>
+  <data name="ScreenshotToolArrow" xml:space="preserve"><value>Arrow</value></data>
+  <data name="ScreenshotToolDotMarker" xml:space="preserve"><value>Point marker</value></data>
+  <data name="ScreenshotToolNumberedMarker" xml:space="preserve"><value>Numbered marker</value></data>
+  <data name="ScreenshotToolText" xml:space="preserve"><value>Text</value></data>
+  <data name="ScreenshotToolMosaic" xml:space="preserve"><value>Mosaic</value></data>
+  <data name="ScreenshotToolTextRecognition" xml:space="preserve"><value>Text recognition</value></data>
+  <data name="ScreenshotToolTranslate" xml:space="preserve"><value>Translate</value></data>
+  <data name="ScreenshotToolColor" xml:space="preserve"><value>Color</value></data>
+  <data name="ScreenshotToolLineWidth" xml:space="preserve"><value>Line width</value></data>
+  <data name="ScreenshotToolFontSize" xml:space="preserve"><value>Font size</value></data>
+  <data name="ScreenshotToolCopy" xml:space="preserve"><value>Copy annotations</value></data>
+  <data name="ScreenshotToolPaste" xml:space="preserve"><value>Paste annotations</value></data>
+  <data name="ScreenshotToolDuplicate" xml:space="preserve"><value>Duplicate</value></data>
+  <data name="ScreenshotToolUndo" xml:space="preserve"><value>Undo</value></data>
+  <data name="ScreenshotToolRedo" xml:space="preserve"><value>Redo</value></data>
+  <data name="ScreenshotToolDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="ScreenshotToolCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="ScreenshotToolComplete" xml:space="preserve"><value>Done</value></data>
+  <data name="ScreenshotColorGreen" xml:space="preserve"><value>Green</value></data>
+  <data name="ScreenshotColorRed" xml:space="preserve"><value>Red</value></data>
+  <data name="ScreenshotColorWhite" xml:space="preserve"><value>White</value></data>
+  <data name="ScreenshotColorBlack" xml:space="preserve"><value>Black</value></data>
+  <data name="ScreenshotLineWidthThin" xml:space="preserve"><value>Thin (6 px)</value></data>
+  <data name="ScreenshotLineWidthMedium" xml:space="preserve"><value>Medium (8 px)</value></data>
+  <data name="ScreenshotLineWidthThick" xml:space="preserve"><value>Thick (10 px)</value></data>
+  <data name="ScreenshotFontSizeSmall" xml:space="preserve"><value>Small (14 pt)</value></data>
+  <data name="ScreenshotFontSizeMedium" xml:space="preserve"><value>Medium (24 pt)</value></data>
+  <data name="ScreenshotFontSizeLarge" xml:space="preserve"><value>Large (32 pt)</value></data>
+  <data name="ScreenshotFontSizeSmallLabel" xml:space="preserve"><value>Small</value></data>
+  <data name="ScreenshotFontSizeMediumLabel" xml:space="preserve"><value>Medium</value></data>
+  <data name="ScreenshotFontSizeLargeLabel" xml:space="preserve"><value>Large</value></data>
+  <data name="ScreenshotToolbarCurrentValueFormat" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="ScreenshotToolbarSelectedStatus" xml:space="preserve"><value>Selected</value></data>
+  <data name="ScreenshotFavorited" xml:space="preserve"><value>Favorited</value></data>
+  <data name="ScreenshotNotFavorited" xml:space="preserve"><value>Not favorited</value></data>
+  <data name="ScreenshotOverlayName" xml:space="preserve"><value>Screenshot selection overlay</value></data>
+  <data name="ScreenshotAnnotationTextEditor" xml:space="preserve"><value>Screenshot annotation text</value></data>
+  <data name="ScreenshotSaveDialogTitle" xml:space="preserve"><value>Save screenshot</value></data>
+  <data name="ScreenshotPngFileFilter" xml:space="preserve"><value>PNG image (*.png)|*.png</value></data>
+  <data name="ScreenshotDefaultFileNamePrefix" xml:space="preserve"><value>VoxFlow-Screenshot</value></data>
+  <data name="ScreenshotClipboardBusy" xml:space="preserve"><value>Clipboard is busy. The screenshot wasn't copied. Try again.</value></data>
+  <data name="ScreenshotClipboardFailed" xml:space="preserve"><value>Couldn't copy the screenshot. Try again.</value></data>
+  <data name="ScreenshotSaveFailed" xml:space="preserve"><value>Couldn't save the screenshot. Choose another location and try again.</value></data>
+  <data name="ScreenshotCaptureBusy" xml:space="preserve"><value>Another voice or screenshot task is active. Try again when it finishes.</value></data>
+  <data name="ScreenshotCaptureFailed" xml:space="preserve"><value>Couldn't capture the screen. Check the display connection and try again.</value></data>
+  <data name="ScreenshotProcessingFailed" xml:space="preserve"><value>The screenshot was captured, but processing it failed. Try again.</value></data>
+  <data name="ScreenshotReprocessFailed" xml:space="preserve"><value>Couldn't recognize this screenshot again. Check the OCR runtime and try again.</value></data>
+  <data name="ScreenshotResultTitle" xml:space="preserve"><value>Recognition complete</value></data>
+  <data name="ScreenshotResultOpen" xml:space="preserve"><value>View screenshot result</value></data>
+  <data name="ScreenshotResultRefine" xml:space="preserve"><value>Refine text</value></data>
+  <data name="ScreenshotResultCancelRefinement" xml:space="preserve"><value>Cancel refinement</value></data>
+  <data name="ScreenshotResultTranslate" xml:space="preserve"><value>Translate</value></data>
+  <data name="ScreenshotResultCancelTranslation" xml:space="preserve"><value>Cancel translation</value></data>
+  <data name="ScreenshotResultSpeak" xml:space="preserve"><value>Speak</value></data>
+  <data name="ScreenshotResultStopSpeaking" xml:space="preserve"><value>Stop speaking</value></data>
+  <data name="ScreenshotResultNoText" xml:space="preserve"><value>No text was recognized.</value></data>
+  <data name="ScreenshotResultOcrEmpty" xml:space="preserve"><value>No text was found in this screenshot.</value></data>
+  <data name="ScreenshotResultOcrRuntimeUnavailable" xml:space="preserve"><value>Text recognition is unavailable because the OCR runtime isn't ready.</value></data>
+  <data name="ScreenshotResultOcrInputUnavailable" xml:space="preserve"><value>Text recognition couldn't read the screenshot image.</value></data>
+  <data name="ScreenshotResultOcrTimedOut" xml:space="preserve"><value>Text recognition timed out. Reprocess the screenshot to try again.</value></data>
+  <data name="ScreenshotResultOcrFailed" xml:space="preserve"><value>Text recognition failed. Reprocess the screenshot to try again.</value></data>
+  <data name="ScreenshotResultOcrCancelled" xml:space="preserve"><value>Text recognition was cancelled.</value></data>
+  <data name="ScreenshotResultOcrStale" xml:space="preserve"><value>This recognition result is no longer current.</value></data>
+  <data name="ScreenshotResultNoRefinement" xml:space="preserve"><value>No refined text yet.</value></data>
+  <data name="ScreenshotResultNoTranslation" xml:space="preserve"><value>No translation yet.</value></data>
+  <data name="ScreenshotResultNoSummary" xml:space="preserve"><value>No summary yet.</value></data>
+  <data name="ScreenshotResultNoTextToCopy" xml:space="preserve"><value>The current tab has no text to copy.</value></data>
+  <data name="ScreenshotResultCopiedText" xml:space="preserve"><value>Text copied.</value></data>
+  <data name="ScreenshotResultCopyTextFailed" xml:space="preserve"><value>Couldn't copy the text. Try again.</value></data>
+  <data name="ScreenshotResultCopiedImage" xml:space="preserve"><value>Image copied.</value></data>
+  <data name="ScreenshotResultCopyImageFailed" xml:space="preserve"><value>Couldn't copy the image. Try again.</value></data>
+  <data name="ScreenshotResultNoTextToSpeak" xml:space="preserve"><value>The current tab has no text to read.</value></data>
+  <data name="ScreenshotResultSpeaking" xml:space="preserve"><value>Reading aloud…</value></data>
+  <data name="ScreenshotResultSpeechComplete" xml:space="preserve"><value>Reading complete.</value></data>
+  <data name="ScreenshotResultSpeechStopped" xml:space="preserve"><value>Reading stopped.</value></data>
+  <data name="ScreenshotResultSpeechUnavailable" xml:space="preserve"><value>No local or Windows system voice is available.</value></data>
+  <data name="ScreenshotResultSpeechFailed" xml:space="preserve"><value>Couldn't read this text aloud.</value></data>
+  <data name="ScreenshotResultRefining" xml:space="preserve"><value>Refining text…</value></data>
+  <data name="ScreenshotResultTranslating" xml:space="preserve"><value>Translating…</value></data>
+  <data name="ScreenshotResultSummarizing" xml:space="preserve"><value>Creating summary…</value></data>
+  <data name="ScreenshotResultRefinementComplete" xml:space="preserve"><value>Text refinement complete.</value></data>
+  <data name="ScreenshotResultTranslationComplete" xml:space="preserve"><value>Translation complete.</value></data>
+  <data name="ScreenshotResultSummaryComplete" xml:space="preserve"><value>Summary complete.</value></data>
+  <data name="ScreenshotResultRefinementCancelled" xml:space="preserve"><value>Text refinement cancelled.</value></data>
+  <data name="ScreenshotResultTranslationCancelled" xml:space="preserve"><value>Translation cancelled.</value></data>
+  <data name="ScreenshotResultSummaryCancelled" xml:space="preserve"><value>Summary cancelled.</value></data>
+  <data name="ScreenshotResultRefinementPartial" xml:space="preserve"><value>Text refinement stopped; the partial result was kept.</value></data>
+  <data name="ScreenshotResultTranslationPartial" xml:space="preserve"><value>Translation stopped; the partial result was kept.</value></data>
+  <data name="ScreenshotResultSummaryPartial" xml:space="preserve"><value>Summary stopped; the partial result was kept.</value></data>
+  <data name="ScreenshotResultProviderNotConfigured" xml:space="preserve"><value>Set a default LLM provider before using this action.</value></data>
+  <data name="ScreenshotResultProviderUnavailable" xml:space="preserve"><value>The configured LLM provider is unavailable.</value></data>
+  <data name="ScreenshotResultEmptyTransform" xml:space="preserve"><value>No text is available for this action.</value></data>
+  <data name="ScreenshotResultTransformFailed" xml:space="preserve"><value>This action failed. Your existing screenshot result is unchanged.</value></data>
+  <data name="ScreenshotResultHistoryUpdateFailed" xml:space="preserve"><value>The result is available, but screenshot history couldn't be updated.</value></data>
+  <data name="ScreenshotResultRetry" xml:space="preserve"><value>Retry</value></data>
+  <data name="ScreenshotMediaPageSummaryFormat" xml:space="preserve"><value>{0}–{1} of {2}</value></data>
+  <data name="ScreenshotMediaNoResultsTitle" xml:space="preserve"><value>No matching screenshots</value></data>
+  <data name="ScreenshotMediaNoResultsHint" xml:space="preserve"><value>Try another search or filter.</value></data>
+  <data name="ScreenshotMediaLoadFailed" xml:space="preserve"><value>Screenshots couldn't be loaded. Try again.</value></data>
+  <data name="ScreenshotRecordUnavailable" xml:space="preserve"><value>This screenshot is no longer available.</value></data>
+  <data name="ScreenshotAssetUnavailableAction" xml:space="preserve"><value>The screenshot image is missing or unreadable.</value></data>
+  <data name="ScreenshotCopyImageSucceeded" xml:space="preserve"><value>Image copied.</value></data>
+  <data name="ScreenshotTextUnavailable" xml:space="preserve"><value>No recognized text is available.</value></data>
+  <data name="ScreenshotCopyTextSucceeded" xml:space="preserve"><value>Text copied.</value></data>
+  <data name="ScreenshotFavoriteRemoved" xml:space="preserve"><value>Removed from favorites.</value></data>
+  <data name="ScreenshotFavoriteAdded" xml:space="preserve"><value>Added to favorites.</value></data>
+  <data name="ScreenshotDeleteConfirmationTitle" xml:space="preserve"><value>Delete screenshot?</value></data>
+  <data name="ScreenshotDeleteConfirmationMessage" xml:space="preserve"><value>Delete the screenshot from {0}? Exported copies are not affected.</value></data>
+  <data name="ScreenshotDeleteSucceeded" xml:space="preserve"><value>Screenshot deleted.</value></data>
+  <data name="ScreenshotActionFailed" xml:space="preserve"><value>The screenshot action failed. Try again.</value></data>
+  <data name="ScreenshotAssetMissing" xml:space="preserve"><value>Image file is missing</value></data>
+  <data name="ScreenshotAssetUnreadable" xml:space="preserve"><value>Image file can't be opened</value></data>
+  <data name="ScreenshotCardAccessibleNameFormat" xml:space="preserve"><value>Screenshot from {0}, {1}</value></data>
+  <data name="ScreenshotMediaLoading" xml:space="preserve"><value>Loading screenshots…</value></data>
+  <data name="ScreenshotAssetMissingDetail" xml:space="preserve"><value>The managed image file is missing. Text and record actions remain available.</value></data>
+  <data name="ScreenshotDetailLoadFailed" xml:space="preserve"><value>Screenshot details couldn't be loaded. Try again.</value></data>
+  <data name="ScreenshotSaveSucceeded" xml:space="preserve"><value>Image saved.</value></data>
+  <data name="ScreenshotRevealSucceeded" xml:space="preserve"><value>Opened the image in File Explorer.</value></data>
+  <data name="ScreenshotReprocessUnavailable" xml:space="preserve"><value>The original image is missing, so text recognition can't run again.</value></data>
+  <data name="ScreenshotReprocessRequested" xml:space="preserve"><value>Text recognition started again.</value></data>
+  <data name="ScreenshotInlineTranslationInProgress" xml:space="preserve"><value>Translating</value></data>
+  <data name="ScreenshotInlineTranslationProgressFormat" xml:space="preserve"><value>Translating {0}/{1}</value></data>
+  <data name="ScreenshotInlineTranslationNotReady" xml:space="preserve"><value>Translation service is not ready.</value></data>
+  <data name="ScreenshotInlineTranslationFailed" xml:space="preserve"><value>Translation failed.</value></data>
+  <data name="ScreenshotInlineTranslationOcrUnavailable" xml:space="preserve"><value>Text recognition is unavailable for this image.</value></data>
+  <data name="SettingsNavigationScreenshot" xml:space="preserve"><value>Screenshot</value></data>
+  <data name="SettingsNavigationSelectionAssistant" xml:space="preserve"><value>Selection assistant</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrTitle" xml:space="preserve"><value>Clipboard image OCR</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrDescription" xml:space="preserve"><value>Recognize text in images copied to the clipboard.</value></data>
+  <data name="SettingsHotkeySelectionAskAiTitle" xml:space="preserve"><value>Ask AI</value></data>
+  <data name="SettingsHotkeySelectionAskAiDescription" xml:space="preserve"><value>Ask AI about the selected text.</value></data>
+  <data name="SettingsScreenshotHotkeyHeading" xml:space="preserve"><value>Screenshot</value></data>
+  <data name="SettingsScreenshotHotkeyDescription" xml:space="preserve"><value>Configure screenshot, OCR, and screen-capture workflows.</value></data>
+  <data name="SettingsScreenshotClipboardHeading" xml:space="preserve"><value>Write mode</value></data>
+  <data name="SettingsScreenshotClipboardDescription" xml:space="preserve"><value>Configure screenshot and clipboard OCR behavior.</value></data>
+  <data name="SettingsScreenshotClipboardToggle" xml:space="preserve"><value>Clipboard Image OCR</value></data>
+  <data name="SettingsScreenshotClipboardToggleDescription" xml:space="preserve"><value>Recognize text from clipboard images.</value></data>
+  <data name="SettingsGeneralBasicsHeading" xml:space="preserve"><value>Basics</value></data>
+  <data name="SettingsGeneralBasicsDescription" xml:space="preserve"><value>Configure appearance, startup, and language behavior.</value></data>
+  <data name="SettingsGeneralDarkThemeDescription" xml:space="preserve"><value>Use a dark appearance that follows Windows when possible.</value></data>
+  <data name="SettingsGeneralLaunchAtLoginDescription" xml:space="preserve"><value>Start VoxFlow when you sign in to Windows.</value></data>
+  <data name="SettingsGeneralPermissionsDescription" xml:space="preserve"><value>Open Windows privacy settings needed for microphone access.</value></data>
+  <data name="SettingsGeneralDataDescription" xml:space="preserve"><value>Copy sanitized diagnostics or restore local defaults.</value></data>
+  <data name="ClipboardImageOcrNoImage" xml:space="preserve"><value>No recognizable image found in the clipboard.</value></data>
+  <data name="ClipboardImageOcrNoText" xml:space="preserve"><value>No text was recognized from the clipboard image.</value></data>
+  <data name="ClipboardImageOcrDisabled" xml:space="preserve"><value>Clipboard image OCR is disabled.</value></data>
+  <data name="SettingsScreenshotHeading" xml:space="preserve"><value>Screenshot</value></data>
+  <data name="SettingsScreenshotSubtitle" xml:space="preserve"><value>Configure screenshot, OCR, and capture workflows.</value></data>
+
+  <data name="SettingsTextPunctuationDescription" xml:space="preserve"><value>Complete missing end punctuation and convert half-width marks to full-width in Chinese context.</value></data>
+
+  <data name="SettingsTextSmartNumbersDescription" xml:space="preserve"><value>Convert Chinese numbers to Arabic digits in quantity, date, time, and percentage contexts.</value></data>
+
+  <data name="SettingsTextMasterDescription" xml:space="preserve"><value>Skip all processors below when disabled.</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModelsDescription" xml:space="preserve"><value>Release local models when idle to save memory.</value></data>
+
+  <data name="SettingsVoiceTriggerMode" xml:space="preserve"><value>Trigger mode</value></data>
+
+  <data name="SettingsHotkeyModify" xml:space="preserve"><value>Modify shortcut</value></data>
+
+  <data name="SettingsGeneralGrayTrayIcon" xml:space="preserve"><value>Gray tray icon</value></data>
+
+  <data name="SettingsTextDeterministicHeading" xml:space="preserve"><value>Deterministic text processing</value></data>
+
+  <data name="SettingsSelectionAssistantSubtitle" xml:space="preserve"><value>Configure selection-based quick actions.</value></data>
+
+  <data name="SettingsGeneralUiLanguageDescription" xml:space="preserve"><value>Follow system</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicatorDescription" xml:space="preserve"><value>Show Caps Lock as a recording indicator.</value></data>
+
+  <data name="SettingsVoiceMiddleMouseDescription" xml:space="preserve"><value>Click the middle mouse button to start recording; click again to stop and insert.</value></data>
+
+  <data name="SettingsVoiceModify" xml:space="preserve"><value>Modify</value></data>
+
+  <data name="SettingsGeneralStreamPreviewDescription" xml:space="preserve"><value>Show partial results while speaking with local models.</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicator" xml:space="preserve"><value>CapsLock recording indicator</value></data>
+
+  <data name="SettingsVoiceDictationTitle" xml:space="preserve"><value>Voice dictation</value></data>
+
+  <data name="SettingsVoiceDictationDescription" xml:space="preserve"><value>Hold the shortcut to speak, release to transcribe and insert.</value></data>
+
+  <data name="SettingsSelectionSectionHeading" xml:space="preserve"><value>Selection</value></data>
+
+  <data name="SettingsSelectionAssistantHeading" xml:space="preserve"><value>Selection assistant</value></data>
+
+  <data name="SettingsVoiceTriggerModeHint" xml:space="preserve"><value>Only affects short-press / long-press behavior of the voice shortcut.</value></data>
+
+  <data name="SettingsTextThresholdSummaryFormat" xml:space="preserve"><value>Word threshold {0} · character threshold {1}</value></data>
+
+  <data name="SettingsGeneralStreamPreview" xml:space="preserve"><value>Streaming recognition preview</value></data>
+
+  <data name="SettingsGeneralGrayTrayIconDescription" xml:space="preserve"><value>Use a gray system tray icon.</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModels" xml:space="preserve"><value>Auto-release local models</value></data>
+
+  <data name="SettingsGeneralLocalModelsHeading" xml:space="preserve"><value>Local models</value></data>
+
+  <data name="SettingsGeneralLocalModelsDescription" xml:space="preserve"><value>Manage local model behavior and memory.</value></data>
+
+  <data name="SettingsTextDeterministicDescription" xml:space="preserve"><value>Lightweight cleanup before and after LLM correction.</value></data>
+
+  <data name="SettingsGeneralUiLanguage" xml:space="preserve"><value>Interface language</value></data>
+
+  <data name="SettingsSelectionSectionDescription" xml:space="preserve"><value>Configure workflows for selected text.</value></data>
+
+  <data name="SettingsGeneralUiLanguageSystem" xml:space="preserve"><value>Follow system</value></data>
+  <data name="SettingsGeneralUiLanguageTraditionalChinese" xml:space="preserve"><value>Chinese (Traditional)</value></data>
+
+  <data name="HelpFeatureDictationDescription" xml:space="preserve"><value>Hold a shortcut or middle-click to start/stop listening.</value></data>
+
+  <data name="HelpFeatureAgentHeading" xml:space="preserve"><value>AI coding</value></data>
+
+  <data name="HelpFeaturePrivacyDescription" xml:space="preserve"><value>Audio, screenshots, and text stay local unless you choose a cloud service.</value></data>
+
+  <data name="HelpSubtitle" xml:space="preserve"><value>Tips, shortcuts, permissions, and project links.</value></data>
+
+  <data name="HelpFeatureConsoleDescription" xml:space="preserve"><value>Search assets, commands, and workflows from one palette.</value></data>
+
+  <data name="HelpLinkChangelogHeading" xml:space="preserve"><value>Release notes</value></data>
+
+  <data name="HelpFeatureGlossaryDescription" xml:space="preserve"><value>Manage hot words and replacements for more stable recognition.</value></data>
+
+  <data name="HelpFeatureScreenshotHeading" xml:space="preserve"><value>Screenshot OCR</value></data>
+
+  <data name="HelpFeatureNotesHeading" xml:space="preserve"><value>Transcription notes</value></data>
+
+  <data name="HelpLinkUpdateDescription" xml:space="preserve"><value>Check whether a newer VoxFlow release is available.</value></data>
+
+  <data name="HelpLinkUpdateHeading" xml:space="preserve"><value>Check for updates</value></data>
+
+  <data name="HelpLinkProjectDescription" xml:space="preserve"><value>Open the VoxFlow project homepage in your browser.</value></data>
+
+  <data name="HelpFeatureDictationHeading" xml:space="preserve"><value>Shortcut or middle mouse</value></data>
+
+  <data name="HelpFeatureAgentDescription" xml:space="preserve"><value>Send voice commands to the local coding assistant terminal.</value></data>
+
+  <data name="HelpLinkChangelogDescription" xml:space="preserve"><value>Review recent version changes.</value></data>
+
+  <data name="HelpFeatureConsoleHeading" xml:space="preserve"><value>Command palette</value></data>
+
+  <data name="HelpLinkGithubHeading" xml:space="preserve"><value>GitHub repository</value></data>
+
+  <data name="HelpFeatureGlossaryHeading" xml:space="preserve"><value>Glossary correction</value></data>
+
+  <data name="HelpHeading" xml:space="preserve"><value>Help</value></data>
+
+  <data name="HelpFeatureFallbackDescription" xml:space="preserve"><value>When recognition or correction fails, VoxFlow keeps the original text.</value></data>
+
+  <data name="HelpFeaturePrivacyHeading" xml:space="preserve"><value>Local-first privacy</value></data>
+
+  <data name="HelpFeatureScreenshotDescription" xml:space="preserve"><value>Extract, translate, summarize, and reuse text from screenshots.</value></data>
+
+  <data name="HelpFeatureFallbackHeading" xml:space="preserve"><value>Safe fallback</value></data>
+
+  <data name="HelpLinkProjectHeading" xml:space="preserve"><value>Project home</value></data>
+
+  <data name="HelpLinkCommunityHeading" xml:space="preserve"><value>Community support</value></data>
+
+  <data name="HelpLinksHeading" xml:space="preserve"><value>Quick links</value></data>
+
+  <data name="HelpFeatureNotesDescription" xml:space="preserve"><value>Keep dictation text, screenshots, and screen recordings as notes.</value></data>
+
+  <data name="HelpLinkGithubDescription" xml:space="preserve"><value>View source code and project activity.</value></data>
+
+  <data name="HelpLinkCommunityDescription" xml:space="preserve"><value>Open support and community links.</value></data>
+
+  <data name="AgentWorkspaceEmpty" xml:space="preserve"><value>No agent sessions yet.</value></data>
+
+  <data name="GlossarySourceLabel" xml:space="preserve"><value>Find</value></data>
+
+  <data name="NavigationNotes" xml:space="preserve"><value>Notes</value></data>
+
+  <data name="GlossaryWholeWordLabel" xml:space="preserve"><value>Whole word</value></data>
+
+  <data name="WritingStyleGeneralDescription" xml:space="preserve"><value>Default cleanup for everyday dictation.</value></data>
+
+  <data name="WritingStylesAddProfileTitle" xml:space="preserve"><value>New style</value></data>
+
+  <data name="GlossaryNoteLabel" xml:space="preserve"><value>Note</value></data>
+
+  <data name="GlossarySubtitle" xml:space="preserve"><value>Manage hot words and text replacements for ASR boost and LLM context.</value></data>
+
+  <data name="AgentWorkspaceHeading" xml:space="preserve"><value>AI coding</value></data>
+
+  <data name="WritingStyleWritingDescription" xml:space="preserve"><value>Cleaner prose for long-form writing.</value></data>
+
+  <data name="NotesEmpty" xml:space="preserve"><value>No notes yet.</value></data>
+
+  <data name="AgentWorkspaceHistoryHeading" xml:space="preserve"><value>Recent sessions</value></data>
+
+  <data name="GlossaryImportFilter" xml:space="preserve"><value>Glossary files|*.json;*.txt;*.csv|All files|*.*</value></data>
+
+  <data name="GlossarySavedMessage" xml:space="preserve"><value>Glossary saved.</value></data>
+
+  <data name="WritingStyleCodingName" xml:space="preserve"><value>Coding</value></data>
+
+  <data name="GlossaryImportCompleteMessage" xml:space="preserve"><value>Import finished.</value></data>
+
+  <data name="WritingStyleCodingDescription" xml:space="preserve"><value>Preserve code-like tokens and technical terms.</value></data>
+
+  <data name="WritingStylesRestoreTitle" xml:space="preserve"><value>Restore defaults</value></data>
+
+  <data name="NotesSearchPlaceholder" xml:space="preserve"><value>Search notes</value></data>
+
+  <data name="WritingStylesHeading" xml:space="preserve"><value>Styles</value></data>
+
+  <data name="GlossaryTargetLabel" xml:space="preserve"><value>Replace with</value></data>
+
+  <data name="AgentWorkspaceRuntimeDescription" xml:space="preserve"><value>Local coding assistant helper status.</value></data>
+
+  <data name="NotesHeading" xml:space="preserve"><value>Notes</value></data>
+
+  <data name="GlossaryImportTitle" xml:space="preserve"><value>Import glossary</value></data>
+
+  <data name="NavigationAgentWorkspace" xml:space="preserve"><value>AI coding</value></data>
+
+  <data name="WritingStylesDeleteTitle" xml:space="preserve"><value>Delete style</value></data>
+
+  <data name="GlossaryAddReplacementTitle" xml:space="preserve"><value>Add replacement</value></data>
+
+  <data name="AgentWorkspaceHotkeyDescription" xml:space="preserve"><value>Use the Agent shortcut to capture a voice command.</value></data>
+
+  <data name="CommonRefresh" xml:space="preserve"><value>Refresh</value></data>
+
+  <data name="AgentWorkspaceSubtitle" xml:space="preserve"><value>Voice-driven coding assistant workspace and recent sessions.</value></data>
+
+  <data name="GlossaryImportCompleteTitle" xml:space="preserve"><value>Import complete</value></data>
+
+  <data name="WritingStylesRestoredMessage" xml:space="preserve"><value>Style restored to defaults.</value></data>
+
+  <data name="NotesSubtitle" xml:space="preserve"><value>Keep dictation text, screenshots, and related assets as notes.</value></data>
+
+  <data name="WritingStyleGeneralName" xml:space="preserve"><value>General</value></data>
+
+  <data name="WritingStyleSocialDescription" xml:space="preserve"><value>Casual tone for chat and social posts.</value></data>
+
+  <data name="NavigationWritingStyles" xml:space="preserve"><value>Styles</value></data>
+
+  <data name="GlossaryHeading" xml:space="preserve"><value>Glossary</value></data>
+
+  <data name="NavigationHelp" xml:space="preserve"><value>Help</value></data>
+
+  <data name="NavigationGlossary" xml:space="preserve"><value>Glossary</value></data>
+
+  <data name="WritingStyleWritingName" xml:space="preserve"><value>Writing</value></data>
+
+  <data name="GlossaryAddHotwordTitle" xml:space="preserve"><value>Add hot word</value></data>
+
+  <data name="GlossaryHotwordLabel" xml:space="preserve"><value>Hot word</value></data>
+
+  <data name="WritingStylesRestoreMessage" xml:space="preserve"><value>Restore this style to the built-in defaults?</value></data>
+
+  <data name="AgentWorkspaceHotkeyHeading" xml:space="preserve"><value>Voice entry</value></data>
+
+  <data name="WritingStylesSubtitle" xml:space="preserve"><value>Prompt word editors for dictation cleanup and style routing.</value></data>
+
+  <data name="GlossaryDuplicateMessage" xml:space="preserve"><value>This entry already exists.</value></data>
+
+  <data name="WritingStylesSavedMessage" xml:space="preserve"><value>Style saved.</value></data>
+
+  <data name="WritingStylesDeleteMessage" xml:space="preserve"><value>Delete this writing style?</value></data>
+
+  <data name="WritingStylesNameLabel" xml:space="preserve"><value>Name</value></data>
+
+  <data name="WritingStyleSocialName" xml:space="preserve"><value>Social</value></data>
+
+  <data name="AgentWorkspaceRuntimeHeading" xml:space="preserve"><value>Runtime</value></data>
+
+  <data name="WritingStylesCustomDescription" xml:space="preserve"><value>Custom writing style</value></data>
+  <data name="HomeStatsClipboard" xml:space="preserve"><value>Clipboard</value></data>
+  <data name="HomeStatsReusable" xml:space="preserve"><value>Reusable</value></data>
+  <data name="SelectionResultRefine" xml:space="preserve"><value>Polish</value></data>
+  <data name="SelectionResultAskAi" xml:space="preserve"><value>Ask AI</value></data>
+  <data name="HudCapsLock" xml:space="preserve"><value>Caps Lock</value></data>
+  <data name="GlossaryAdd" xml:space="preserve"><value>Add</value></data>
+  <data name="GlossaryImport" xml:space="preserve"><value>Import</value></data>
+  <data name="GlossaryOpenFolder" xml:space="preserve"><value>Open folder</value></data>
+  <data name="GlossarySearch" xml:space="preserve"><value>Search glossary</value></data>
+  <data name="GlossarySuggestionAdd" xml:space="preserve"><value>Add</value></data>
+  <data name="GlossarySuggestionIgnore" xml:space="preserve"><value>Ignore</value></data>
+  <data name="GlossarySuggestionsDescription" xml:space="preserve"><value>Suggested glossary entries based on your usage history.</value></data>
+  <data name="GlossarySuggestionsHeading" xml:space="preserve"><value>Suggestions</value></data>
+  <data name="GlossaryTabHotwords" xml:space="preserve"><value>Hot words</value></data>
+  <data name="GlossaryTabReplacements" xml:space="preserve"><value>Text replacements</value></data>
+  <data name="SettingsCloudSelect" xml:space="preserve"><value>Select</value></data>
+  <data name="SettingsCloudSelectSucceeded" xml:space="preserve"><value>Provider selected.</value></data>
+  <data name="SettingsCredentialHide" xml:space="preserve"><value>Hide</value></data>
+  <data name="SettingsCredentialShow" xml:space="preserve"><value>Show</value></data>
+  <data name="WritingStylesAddProfile" xml:space="preserve"><value>New style</value></data>
+  <data name="WritingStylesApplicationsLabel" xml:space="preserve"><value>Applications</value></data>
+  <data name="WritingStylesAutoMatch" xml:space="preserve"><value>Automatically match applications</value></data>
+  <data name="WritingStylesDescriptionLabel" xml:space="preserve"><value>Description</value></data>
+  <data name="WritingStylesEditorHeading" xml:space="preserve"><value>Style details</value></data>
+  <data name="WritingStylesInstructionLabel" xml:space="preserve"><value>Instructions</value></data>
+  <data name="WritingStylesMarkdownLabel" xml:space="preserve"><value>Markdown template</value></data>
+  <data name="WritingStylesPreviewEmpty" xml:space="preserve"><value>No preview content.</value></data>
+  <data name="WritingStylesPreviewHeading" xml:space="preserve"><value>Preview</value></data>
+  <data name="WritingStylesProfilesHeading" xml:space="preserve"><value>Styles</value></data>
+  <data name="WritingStylesRestore" xml:space="preserve"><value>Restore defaults</value></data>
+  <data name="WritingStylesSave" xml:space="preserve"><value>Save</value></data>
+  <data name="DialogClose" xml:space="preserve"><value>Close</value></data>
+  <data name="WritingStyleEmailDescription" xml:space="preserve"><value>Clear professional email tone.</value></data>
+  <data name="SettingsVoiceDeviceDefaultMarker" xml:space="preserve"><value>system default</value></data>
+  <data name="HelpUpdateAvailable" xml:space="preserve"><value>A newer version is available: {0}.</value></data>
+  <data name="WritingStyleMeetingName" xml:space="preserve"><value>Meeting</value></data>
+  <data name="WritingStylesPreviewSample" xml:space="preserve"><value>Sample dictated text.</value></data>
+  <data name="WritingStyleTranslationDescription" xml:space="preserve"><value>Preserve meaning for bilingual cleanup.</value></data>
+  <data name="HelpUpdateOpenRelease" xml:space="preserve"><value>Open release page</value></data>
+  <data name="HelpUpdateUpToDate" xml:space="preserve"><value>You are on the latest version ({0}).</value></data>
+  <data name="WritingStyleEmailName" xml:space="preserve"><value>Email</value></data>
+  <data name="WritingStylesRoutesEmpty" xml:space="preserve"><value>No app routes</value></data>
+  <data name="WritingStylesPerStyleAutoMatch" xml:space="preserve"><value>Include this style in AI auto-match</value></data>
+  <data name="NotesHistoryOnlySubtitle" xml:space="preserve"><value>Dictation history notes — copy and search past results. Full notebook editing is not available on Windows yet.</value></data>
+  <data name="WritingStyleTranslationName" xml:space="preserve"><value>Translation</value></data>
+  <data name="WritingStyleMeetingDescription" xml:space="preserve"><value>Concise meeting notes.</value></data>
+  <data name="SettingsVoiceDeviceUnavailableMarker" xml:space="preserve"><value>unavailable</value></data>
+  <data name="WritingStylesBuiltInProtectedMessage" xml:space="preserve"><value>Built-in styles cannot be deleted.</value></data>
+  <data name="HelpUpdateFailed" xml:space="preserve"><value>Could not check for updates. Try again later or open the release page.</value></data>
+  <data name="HelpUpdateIdle" xml:space="preserve"><value>Tap “Check for updates” to compare with the latest GitHub release.</value></data>
+</root>

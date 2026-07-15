@@ -1,0 +1,1001 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>码上写 · VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>码上写</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>展开或收起侧边栏</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>首页</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>文件转写</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>设置</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>文件转写</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>将音频和视频文件转换为可复用文本。</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>浏览文件</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>拖放文件到这里，或浏览导入</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3、WAV、M4A、AAC、MP4、MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>转写队列</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>导入的文件会显示在这里。</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>结果</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>选择文件以查看转写内容。</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>可以导入文件。</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>请先选择可用的语音识别服务，再导入文件。</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>不支持这种文件格式。</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>文件已加入转写队列。</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>音频和视频文件</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>等待开始</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>正在转写</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>部分完成</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>已中断</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>等待处理</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>处理中</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>已中断</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · 已完成 {3}/{4} 段</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>第 {0} 段 · {1}–{2} · {3} · 重试 {4} 次 · 回退 {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>无错误</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>腾讯云</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>阿里云</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>火山引擎</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>开始</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>取消</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>继续</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>从头重试</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>复制</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>导出</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>全文翻译</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>播放原文件</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>暂停播放</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>原文</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>译文</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>高级诊断</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>已开始转写。</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>已取消转写。</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>已继续转写。</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>已从头重新转写。</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>已删除转写任务。</value></data>
+  <data name="FileTranscriptionFeedbackDeleteFailed" xml:space="preserve"><value>无法删除这个转写任务，现有结果已保留。</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>已复制结果。</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>无法复制结果。</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>已保存导出文件。</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>无法导出这个结果。</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>全文翻译已完成。</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>翻译失败，原始转写已保留。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>正在准备播放原文件…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>已开始播放原文件。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>已暂停播放。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>无法播放这个原文件，转写结果未受影响。</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>删除转写任务？</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>这会删除任务及已保存的分段，但不会删除源文件。</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>转写文本（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>转写文本（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>字幕（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>译文（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>译文（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>双语 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>首页</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>最近的语音输入和活动会显示在这里。</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>设置</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>配置语音输入、模型、文本处理与隐私。</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>资产总数</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>今日</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>听写</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>截图</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>输入活跃度</value></data>
+  <data name="HomeActivitySubtitle" xml:space="preserve"><value>过去 52 周 · 每格代表一天</value></data>
+  <data name="HomeActivityLess" xml:space="preserve"><value>少</value></data>
+  <data name="HomeActivityMore" xml:space="preserve"><value>多</value></data>
+  <data name="HomeActivityThisWeekFormat" xml:space="preserve"><value>本周 {0} 条资产</value></data>
+  <data name="HistoryCountFormat" xml:space="preserve"><value>共 {0:N0} 条</value></data>
+  <data name="HistorySelectAll" xml:space="preserve"><value>全选</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>资产</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>搜索听写内容</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>资产来源</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>全部来源</value></data>
+  <data name="HistorySourceDictation" xml:space="preserve"><value>听写</value></data>
+  <data name="HistorySourceScreenshot" xml:space="preserve"><value>截图</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>腾讯云</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>阿里云</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>火山引擎</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>没有符合当前筛选条件的听写记录。</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>选择</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>复制</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>详情</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>删除所选</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>清空历史</value></data>
+  <data name="HistoryCopySucceeded" xml:space="preserve"><value>已复制到剪贴板。</value></data>
+  <data name="HistoryCopyFailed" xml:space="preserve"><value>无法复制此历史记录，请重试。</value></data>
+  <data name="HistoryDeleteSucceeded" xml:space="preserve"><value>历史记录已删除。</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>无法删除所选历史记录，请重试。</value></data>
+  <data name="HistorySaveSucceeded" xml:space="preserve"><value>更改已保存。</value></data>
+  <data name="HistorySaveFailed" xml:space="preserve"><value>无法保存更改，请重试。</value></data>
+  <data name="HistoryReprocessSucceeded" xml:space="preserve"><value>文本已重新处理。</value></data>
+  <data name="HistoryReprocessFailed" xml:space="preserve"><value>无法重新处理文本，请检查文本处理设置后重试。</value></data>
+  <data name="HistoryActionFailed" xml:space="preserve"><value>历史记录操作失败，请重试。</value></data>
+  <data name="HistoryDeleteConfirmationTitle" xml:space="preserve"><value>删除历史记录</value></data>
+  <data name="HistoryDeleteConfirmationMessage" xml:space="preserve"><value>确定要删除这条历史记录吗？此操作无法撤销。</value></data>
+  <data name="HistoryDeleteSelectedConfirmationMessage" xml:space="preserve"><value>确定要删除所选历史记录吗？此操作无法撤销。</value></data>
+  <data name="HistoryClearAllConfirmationMessage" xml:space="preserve"><value>确定要清空全部历史记录吗？此操作无法撤销。</value></data>
+  <data name="HistoryDeleteSelectedUnavailable" xml:space="preserve"><value>请先选择一条或多条要删除的历史记录。</value></data>
+  <data name="HistoryClearAllUnavailable" xml:space="preserve"><value>至少有一条历史记录后才能清空。</value></data>
+  <data name="HistorySaveUnavailable" xml:space="preserve"><value>请输入非空的最终文本后再保存。</value></data>
+  <data name="HistoryReprocessUnavailable" xml:space="preserve"><value>配置文本处理链路后即可重新处理。</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>上一页</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>下一页</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>听写详情</value></data>
+  <data name="HistoryNoPreview" xml:space="preserve"><value>暂无预览</value></data>
+  <data name="HistoryContentTypeVoice" xml:space="preserve"><value>语音</value></data>
+  <data name="HistoryContentTypeImage" xml:space="preserve"><value>图片</value></data>
+  <data name="HistoryContentTypeFile" xml:space="preserve"><value>文件</value></data>
+  <data name="HistoryContentTypeWorkflow" xml:space="preserve"><value>工作流</value></data>
+  <data name="HistoryContentTypeText" xml:space="preserve"><value>文本</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>识别原文</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>最终文本</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>处理元数据</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>识别语言</value></data>
+  <data name="HistoryDetailAsr" xml:space="preserve"><value>语音识别： </value></data>
+  <data name="HistoryDetailQwen" xml:space="preserve"><value>Qwen 模型： </value></data>
+  <data name="HistoryDetailLlm" xml:space="preserve"><value>大语言模型： </value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>听写时长</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 处理时长</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>音频帧（采集 / 丢弃）</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>保存编辑</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>重新处理</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>脱敏诊断</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>复制诊断</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>正在准备</value></data>
+  <data name="HudListening" xml:space="preserve"><value>正在聆听</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>正在生成结果</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>正在优化</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>正在写入</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>需要处理</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>已复制</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>未能完成本次听写。</value></data>
+  <data name="HudAgentReadingWindow" xml:space="preserve"><value>正在读取当前窗口</value></data>
+  <data name="HudAgentListening" xml:space="preserve"><value>正在聆听</value></data>
+  <data name="HudAgentTranscribing" xml:space="preserve"><value>正在转写</value></data>
+  <data name="HudAgentProcessing" xml:space="preserve"><value>正在思考</value></data>
+  <data name="HudAgentOperating" xml:space="preserve"><value>正在操作</value></data>
+  <data name="HudAgentWaitingForUser" xml:space="preserve"><value>等待你的回答</value></data>
+  <data name="HudAgentCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="HudAgentFailed" xml:space="preserve"><value>需要处理</value></data>
+  <data name="HudAgentCopied" xml:space="preserve"><value>已复制</value></data>
+  <data name="HudAgentRedacted" xml:space="preserve"><value>[已脱敏]</value></data>
+  <data name="HudAgentPathRemoved" xml:space="preserve"><value>[路径已隐藏]</value></data>
+  <data name="HudAgentToolReadFile" xml:space="preserve"><value>读取文件</value></data>
+  <data name="HudAgentToolSearchTranscriptions" xml:space="preserve"><value>搜索历史</value></data>
+  <data name="HudAgentToolRespond" xml:space="preserve"><value>整理回复</value></data>
+  <data name="HudAgentToolAskUserQuestion" xml:space="preserve"><value>等待你的回答</value></data>
+  <data name="HudAgentToolWriteFile" xml:space="preserve"><value>写入文件</value></data>
+  <data name="HudAgentToolEditFile" xml:space="preserve"><value>编辑文件</value></data>
+  <data name="HudAgentToolNotebookEdit" xml:space="preserve"><value>编辑笔记本</value></data>
+  <data name="HudAgentToolListFiles" xml:space="preserve"><value>列出文件</value></data>
+  <data name="HudAgentToolGlobFiles" xml:space="preserve"><value>查找文件</value></data>
+  <data name="HudAgentToolGrepFiles" xml:space="preserve"><value>搜索文件</value></data>
+  <data name="HudAgentToolClipboard" xml:space="preserve"><value>使用剪贴板</value></data>
+  <data name="HudAgentToolKeyboard" xml:space="preserve"><value>使用键盘</value></data>
+  <data name="HudAgentToolTextField" xml:space="preserve"><value>操作文本框</value></data>
+  <data name="HudAgentToolHttpRequest" xml:space="preserve"><value>请求网站</value></data>
+  <data name="HudAgentToolOpenUrl" xml:space="preserve"><value>打开网站</value></data>
+  <data name="HudAgentToolWebFetch" xml:space="preserve"><value>读取网页</value></data>
+  <data name="HudAgentToolWebSearch" xml:space="preserve"><value>搜索网页</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>无法向管理员应用输入文本。请以管理员身份重启 VoxFlow 后重试。结果已复制。</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>无法输入文本，结果已复制。</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>目标窗口已变化，结果已复制。</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>无法输入或复制文本，请从听写历史中复制结果。</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>识别语言</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>自动识别</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>中文（普通话）</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>英语</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>日语</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>韩语</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>语音识别</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>优化听写文本</value></data>
+  <data name="TrayAgent" xml:space="preserve"><value>VoxFlow 智能体</value></data>
+  <data name="TrayAgentReady" xml:space="preserve"><value>已就绪</value></data>
+  <data name="TrayAgentRunning" xml:space="preserve"><value>智能体正在执行</value></data>
+  <data name="TrayAgentRuntimeUnavailable" xml:space="preserve"><value>智能体运行时不可用</value></data>
+  <data name="TrayAgentProviderUnavailable" xml:space="preserve"><value>请配置并测试支持工具调用的 Provider</value></data>
+  <data name="TrayAgentStart" xml:space="preserve"><value>开始智能体操作</value></data>
+  <data name="TrayAgentStop" xml:space="preserve"><value>停止智能体操作</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>打开码上写</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>设置</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub 项目主页</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>麦克风权限</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>退出码上写</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>获得可用转写结果后才能执行此操作。</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>任务错误 · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>翻译错误 · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>正在处理第 {0}/{1} 段</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>共 {0} 个任务</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>无</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>空结果后重试</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>重复结果后重试</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>服务错误后重试</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>原文件不可用</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>媒体格式不受支持或文件已损坏</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>未找到音轨</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>媒体运行库不可用或已损坏</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>临时磁盘空间不足</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>语音识别服务处理失败</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>语音识别服务不可用</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>语音识别服务鉴权失败</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>语音识别服务额度已用尽</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>语音识别服务不接受此音频格式</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>本地语音模型尚未就绪</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>语音识别服务网络请求失败</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>分段处理超时</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>全文翻译失败</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>当前没有正在运行的文件转写。</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>原文件仍可访问时才能播放。</value></data>
+  <data name="LlmProviderHealthUnknown" xml:space="preserve"><value>尚未测试</value></data>
+  <data name="LlmProviderHealthTesting" xml:space="preserve"><value>正在测试…</value></data>
+  <data name="LlmProviderHealthAvailable" xml:space="preserve"><value>可用</value></data>
+  <data name="LlmProviderHealthUnavailable" xml:space="preserve"><value>不可用</value></data>
+  <data name="LlmProviderAgentUnknown" xml:space="preserve"><value>尚未测试智能体能力</value></data>
+  <data name="LlmProviderAgentSupported" xml:space="preserve"><value>支持智能体</value></data>
+  <data name="LlmProviderAgentUnsupported" xml:space="preserve"><value>不支持智能体</value></data>
+  <data name="LlmProviderAgentError" xml:space="preserve"><value>智能体测试失败</value></data>
+  <data name="LlmProviderTitle" xml:space="preserve"><value>LLM 服务商</value></data>
+  <data name="LlmProviderSubtitle" xml:space="preserve"><value>配置用于纠错、翻译、总结和内置智能体任务的 OpenAI 兼容服务。</value></data>
+  <data name="LlmProviderAdd" xml:space="preserve"><value>添加服务商</value></data>
+  <data name="LlmProviderEmpty" xml:space="preserve"><value>暂无模型服务商</value></data>
+  <data name="LlmProviderBadge" xml:space="preserve"><value>LLM</value></data>
+  <data name="LlmProviderCurrent" xml:space="preserve"><value>当前使用</value></data>
+  <data name="LlmProviderEnable" xml:space="preserve"><value>启用</value></data>
+  <data name="LlmProviderSetDefault" xml:space="preserve"><value>设为默认</value></data>
+  <data name="LlmProviderEdit" xml:space="preserve"><value>编辑</value></data>
+  <data name="LlmProviderTestConnection" xml:space="preserve"><value>测试连接</value></data>
+  <data name="LlmProviderTestAgent" xml:space="preserve"><value>测试智能体</value></data>
+  <data name="LlmProviderDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="LlmProviderEditorAddTitle" xml:space="preserve"><value>添加服务商</value></data>
+  <data name="LlmProviderEditorEditTitle" xml:space="preserve"><value>编辑服务商</value></data>
+  <data name="LlmProviderEditorHint" xml:space="preserve"><value>选择服务商会填入官方地址；选择“自定义”可填写其他 OpenAI 兼容服务。</value></data>
+  <data name="LlmProviderTemplateLabel" xml:space="preserve"><value>服务商</value></data>
+  <data name="LlmProviderCustomTemplate" xml:space="preserve"><value>自定义</value></data>
+  <data name="LlmProviderName" xml:space="preserve"><value>名称</value></data>
+  <data name="LlmProviderServiceUrl" xml:space="preserve"><value>服务地址</value></data>
+  <data name="LlmProviderModel" xml:space="preserve"><value>模型</value></data>
+  <data name="LlmProviderRefreshModels" xml:space="preserve"><value>刷新模型</value></data>
+  <data name="LlmProviderGenerationSettings" xml:space="preserve"><value>生成参数</value></data>
+  <data name="LlmProviderTemperature" xml:space="preserve"><value>温度</value></data>
+  <data name="LlmProviderTimeout" xml:space="preserve"><value>超时</value></data>
+  <data name="LlmProviderSeconds" xml:space="preserve"><value>秒</value></data>
+  <data name="LlmProviderApiKey" xml:space="preserve"><value>API 密钥</value></data>
+  <data name="LlmProviderRevealApiKey" xml:space="preserve"><value>显示已保存密钥</value></data>
+  <data name="LlmProviderHideApiKey" xml:space="preserve"><value>隐藏密钥</value></data>
+  <data name="LlmProviderAddModel" xml:space="preserve"><value>添加模型</value></data>
+  <data name="LlmProviderNoApiKeyRequired" xml:space="preserve"><value>无需密钥</value></data>
+  <data name="LlmProviderCredentialHint" xml:space="preserve"><value>API 密钥会为当前 Windows 用户加密保存。</value></data>
+  <data name="LlmProviderAvailability" xml:space="preserve"><value>可用状态</value></data>
+  <data name="LlmProviderUseAsDefault" xml:space="preserve"><value>设为默认服务商</value></data>
+  <data name="LlmProviderCancel" xml:space="preserve"><value>取消</value></data>
+  <data name="LlmProviderSave" xml:space="preserve"><value>保存</value></data>
+  <data name="LlmProviderDeleteConfirmationTitle" xml:space="preserve"><value>删除服务商？</value></data>
+  <data name="LlmProviderDeleteConfirmationMessage" xml:space="preserve"><value>将从这台电脑删除该服务商及其已保存的 API 密钥。</value></data>
+  <data name="LlmProviderActionFailed" xml:space="preserve"><value>操作失败，请检查服务商配置后重试。</value></data>
+  <data name="LlmProviderStatusEnabled" xml:space="preserve"><value>已启用</value></data>
+  <data name="LlmProviderStatusDisabled" xml:space="preserve"><value>已停用</value></data>
+  <data name="LlmProviderGetApiKey" xml:space="preserve"><value>获取 API 密钥</value></data>
+  <data name="HistorySourceSelectionTranslation" xml:space="preserve"><value>划词翻译</value></data>
+  <data name="HistorySourceSelectionSummary" xml:space="preserve"><value>划词总结</value></data>
+  <data name="HistorySourceAgentCompose" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="HistorySourceFileTranscription" xml:space="preserve"><value>文件转写</value></data>
+  <data name="WorkflowStatusPending" xml:space="preserve"><value>等待中</value></data>
+  <data name="WorkflowStatusRunning" xml:space="preserve"><value>进行中</value></data>
+  <data name="WorkflowStatusPartiallyCompleted" xml:space="preserve"><value>部分完成</value></data>
+  <data name="WorkflowStatusCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="WorkflowStatusFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="WorkflowStatusCancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="WorkflowStatusInterrupted" xml:space="preserve"><value>已中断</value></data>
+  <data name="HistoryDetailWorkflowMetadata" xml:space="preserve"><value>工作流</value></data>
+  <data name="HistoryDetailStatus" xml:space="preserve"><value>状态</value></data>
+  <data name="HistoryDetailFailure" xml:space="preserve"><value>失败原因</value></data>
+  <data name="HistoryDetailProvider" xml:space="preserve"><value>服务商</value></data>
+  <data name="HistoryDetailModel" xml:space="preserve"><value>模型</value></data>
+  <data name="HistoryDetailContextSources" xml:space="preserve"><value>上下文来源</value></data>
+  <data name="HistoryDetailTimeline" xml:space="preserve"><value>事件时间线</value></data>
+  <data name="HistoryDetailTools" xml:space="preserve"><value>已用工具</value></data>
+  <data name="HistoryDetailArtifacts" xml:space="preserve"><value>产物</value></data>
+  <data name="HistoryDetailResultSummary" xml:space="preserve"><value>结果摘要</value></data>
+  <data name="SettingsNavigationTranslation" xml:space="preserve"><value>翻译</value></data>
+  <data name="SettingsTranslationHeading" xml:space="preserve"><value>划词操作</value></data>
+  <data name="SettingsTranslationSubtitle" xml:space="preserve"><value>设置在其他应用中直接翻译或总结选中文字的快捷键。</value></data>
+  <data name="SettingsHotkeyScreenshotTitle" xml:space="preserve"><value>截图 OCR</value></data>
+  <data name="SettingsHotkeyScreenshotDescription" xml:space="preserve"><value>截图并提取文字。</value></data>
+  <data name="SettingsHotkeySelectionTranslationTitle" xml:space="preserve"><value>润色</value></data>
+  <data name="SettingsHotkeySelectionTranslationDescription" xml:space="preserve"><value>启用划词后的快捷操作。</value></data>
+  <data name="SettingsHotkeySelectionSummaryTitle" xml:space="preserve"><value>总结</value></data>
+  <data name="SettingsHotkeySelectionSummaryDescription" xml:space="preserve"><value>总结选中的文字。</value></data>
+  <data name="SettingsHotkeyAgentComposeTitle" xml:space="preserve"><value>智能工作台</value></data>
+  <data name="SettingsHotkeyAgentComposeDescription" xml:space="preserve"><value>把选中的文字发送给任务助手。</value></data>
+  <data name="SettingsHotkeyAgentSectionTitle" xml:space="preserve"><value>VoxFlow Agent 快捷键</value></data>
+  <data name="SettingsHotkeyAgentSectionDescription" xml:space="preserve"><value>设置内置 Agent 的语音手势。右 Alt 和 AltGr 组合不可用。</value></data>
+  <data name="SettingsHotkeyRecord" xml:space="preserve"><value>录制</value></data>
+  <data name="SettingsHotkeyCancel" xml:space="preserve"><value>取消录制</value></data>
+  <data name="SettingsHotkeyClear" xml:space="preserve"><value>清空</value></data>
+  <data name="SettingsHotkeyRestoreDefault" xml:space="preserve"><value>恢复默认</value></data>
+  <data name="SettingsHotkeyUnbound" xml:space="preserve"><value>未设置</value></data>
+  <data name="SettingsHotkeyRecordingStatus" xml:space="preserve"><value>请按下快捷键…</value></data>
+  <data name="hotkey.conflict.alreadyAssigned" xml:space="preserve"><value>该快捷键已分配给其他操作。</value></data>
+  <data name="hotkey.conflict.altGrUnsafe" xml:space="preserve"><value>右 Alt 或 AltGr 可能用于输入字符，不能设为此快捷键。</value></data>
+  <data name="hotkey.conflict.systemEditing" xml:space="preserve"><value>该组合已用于常见的系统编辑操作。</value></data>
+  <data name="FailureAsrUnavailable" xml:space="preserve"><value>没有可用的语音识别服务。请配置云端服务或下载本地模型。</value></data>
+  <data name="FailureCloudProvider" xml:space="preserve"><value>所选云端语音服务未能完成本次听写。请检查配置后重试。</value></data>
+  <data name="FailureLlmFallback" xml:space="preserve"><value>文本优化暂不可用，VoxFlow 已保留原始识别文本。</value></data>
+  <data name="FailureMicrophonePermission" xml:space="preserve"><value>无法访问麦克风。请在 Windows 设置中检查麦克风隐私权限。</value></data>
+  <data name="FailureQwenRuntime" xml:space="preserve"><value>所选 Qwen 模型无法运行。请检查模型状态后重试。</value></data>
+  <data name="SettingsActionApply" xml:space="preserve"><value>应用更改</value></data>
+  <data name="SettingsActionDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="SettingsActionSave" xml:space="preserve"><value>保存</value></data>
+  <data name="SettingsActionTest" xml:space="preserve"><value>测试连接</value></data>
+  <data name="SettingsCloudAudioNotice" xml:space="preserve"><value>听写时，音频会直接发送到此云服务商。</value></data>
+  <data name="SettingsCloudDeleteConfirmationMessage" xml:space="preserve"><value>删除后，新听写将无法使用此服务商，其他服务商和本地模型不受影响。</value></data>
+  <data name="SettingsCloudDeleteConfirmationTitle" xml:space="preserve"><value>删除云服务凭据？</value></data>
+  <data name="SettingsConnectionFailed" xml:space="preserve"><value>连接失败。请检查模型和凭据后重试。</value></data>
+  <data name="SettingsConnectionSucceeded" xml:space="preserve"><value>连接成功。</value></data>
+  <data name="SettingsOperationSaving" xml:space="preserve"><value>正在安全保存凭据…</value></data>
+  <data name="SettingsOperationTesting" xml:space="preserve"><value>正在测试连接…</value></data>
+  <data name="SettingsOperationDeleting" xml:space="preserve"><value>正在删除凭据…</value></data>
+  <data name="SettingsOperationFailed" xml:space="preserve"><value>操作失败，请检查输入后重试。</value></data>
+  <data name="SettingsCredentialAccessToken" xml:space="preserve"><value>访问令牌</value></data>
+  <data name="SettingsCredentialApiKey" xml:space="preserve"><value>API 密钥</value></data>
+  <data name="SettingsCredentialAppId" xml:space="preserve"><value>应用 ID</value></data>
+  <data name="SettingsCredentialConfigured" xml:space="preserve"><value>已安全保存</value></data>
+  <data name="SettingsCredentialNotConfigured" xml:space="preserve"><value>未配置</value></data>
+  <data name="SettingsCredentialSecretId" xml:space="preserve"><value>Secret ID</value></data>
+  <data name="SettingsCredentialSecretKey" xml:space="preserve"><value>Secret Key</value></data>
+  <data name="SettingsDeleteConfirmationMessage" xml:space="preserve"><value>文本优化将被关闭；语音识别和确定性文本清理仍可继续使用。</value></data>
+  <data name="SettingsDeleteConfirmationTitle" xml:space="preserve"><value>删除 OpenAI 凭据？</value></data>
+  <data name="SettingsDeleteSucceeded" xml:space="preserve"><value>凭据已删除。</value></data>
+  <data name="SettingsGeneralAppearance" xml:space="preserve"><value>外观与启动</value></data>
+  <data name="SettingsGeneralCopyDiagnostics" xml:space="preserve"><value>复制已脱敏的诊断信息</value></data>
+  <data name="SettingsGeneralDarkTheme" xml:space="preserve"><value>外观深色模式</value></data>
+  <data name="SettingsGeneralData" xml:space="preserve"><value>本地数据与诊断</value></data>
+  <data name="SettingsGeneralHeading" xml:space="preserve"><value>通用</value></data>
+  <data name="SettingsGeneralLaunchAtLogin" xml:space="preserve"><value>开机自动启动</value></data>
+  <data name="SettingsGeneralOpenMicrophonePrivacy" xml:space="preserve"><value>打开麦克风隐私设置</value></data>
+  <data name="SettingsGeneralPermissions" xml:space="preserve"><value>Windows 权限</value></data>
+  <data name="SettingsGeneralReset" xml:space="preserve"><value>恢复默认设置</value></data>
+  <data name="SettingsDiagnosticsCopying" xml:space="preserve"><value>正在准备脱敏诊断信息…</value></data>
+  <data name="SettingsDiagnosticsCopied" xml:space="preserve"><value>已复制脱敏诊断信息。</value></data>
+  <data name="SettingsDiagnosticsEmpty" xml:space="preserve"><value>尚未记录诊断信息。</value></data>
+  <data name="SettingsGeneralActionFailed" xml:space="preserve"><value>操作失败，请重试或检查 Windows 权限。</value></data>
+  <data name="SettingsGeneralActionUnavailable" xml:space="preserve"><value>当前版本无法使用此设置。</value></data>
+  <data name="SettingsResetting" xml:space="preserve"><value>正在恢复默认设置…</value></data>
+  <data name="SettingsResetSucceeded" xml:space="preserve"><value>已恢复通用和语音默认设置。</value></data>
+  <data name="DebugTranscriptInjectionTitle" xml:space="preserve"><value>调试文本注入</value></data>
+  <data name="DebugTranscriptInjectionSubtitle" xml:space="preserve"><value>跳过麦克风和语音识别，直接运行正式的纠错或智能体后续链路。</value></data>
+  <data name="DebugTranscriptInjectionRun" xml:space="preserve"><value>运行调试链路</value></data>
+  <data name="DebugTranscriptInjectionDefaultText" xml:space="preserve"><value>总结当前窗口，不要修改、发送或打开任何内容。</value></data>
+  <data name="DebugTranscriptInjectionPlaceholder" xml:space="preserve"><value>要注入的识别文本</value></data>
+  <data name="DebugTranscriptInjectionModeDictation" xml:space="preserve"><value>听写纠错</value></data>
+  <data name="DebugTranscriptInjectionModeAgentCompose" xml:space="preserve"><value>智能体编写</value></data>
+  <data name="DebugTranscriptInjectionRunning" xml:space="preserve"><value>正在运行正式后续链路…</value></data>
+  <data name="DebugTranscriptInjectionCompleted" xml:space="preserve"><value>调试链路已完成。</value></data>
+  <data name="DebugTranscriptInjectionBusy" xml:space="preserve"><value>另一个语音工作流正在运行。</value></data>
+  <data name="DebugTranscriptInjectionUnavailable" xml:space="preserve"><value>所选调试链路不可用，请检查 Provider 和运行时。</value></data>
+  <data name="DebugTranscriptInjectionFailed" xml:space="preserve"><value>调试链路已安全失败，请查看 HUD 和脱敏诊断信息。</value></data>
+  <data name="SettingsGeneralSubtitle" xml:space="preserve"><value>管理外观、权限、存储和本地诊断。</value></data>
+  <data name="SettingsModelsAsrTab" xml:space="preserve"><value>语音识别</value></data>
+  <data name="SettingsModelsHeading" xml:space="preserve"><value>模型与服务商</value></data>
+  <data name="SettingsModelsLlmTab" xml:space="preserve"><value>文本优化</value></data>
+  <data name="SettingsModelsAgentTab" xml:space="preserve"><value>智能体</value></data>
+  <data name="SettingsAgentHeading" xml:space="preserve"><value>VoxFlow 智能体</value></data>
+  <data name="SettingsAgentDescription" xml:space="preserve"><value>使用随应用安装且已验证的智能体运行时，以及默认的工具调用模型服务商。</value></data>
+  <data name="SettingsAgentRuntimeLabel" xml:space="preserve"><value>内置运行时</value></data>
+  <data name="SettingsAgentRuntimeAvailable" xml:space="preserve"><value>已验证，可以使用</value></data>
+  <data name="SettingsAgentRuntimeMissing" xml:space="preserve"><value>缺少内置运行时</value></data>
+  <data name="SettingsAgentRuntimeInvalid" xml:space="preserve"><value>运行时清单无效</value></data>
+  <data name="SettingsAgentRuntimeHashMismatch" xml:space="preserve"><value>运行时完整性校验失败</value></data>
+  <data name="SettingsAgentRuntimeDisabled" xml:space="preserve"><value>智能体运行时不可用</value></data>
+  <data name="SettingsAgentVersionLabel" xml:space="preserve"><value>版本</value></data>
+  <data name="SettingsAgentHashLabel" xml:space="preserve"><value>清单 SHA-256</value></data>
+  <data name="SettingsAgentProviderLabel" xml:space="preserve"><value>默认服务商</value></data>
+  <data name="SettingsAgentModelLabel" xml:space="preserve"><value>默认模型</value></data>
+  <data name="SettingsAgentConnectionHealthLabel" xml:space="preserve"><value>连接健康状态</value></data>
+  <data name="SettingsAgentToolCallingHealthLabel" xml:space="preserve"><value>工具调用健康状态</value></data>
+  <data name="SettingsAgentNotAvailable" xml:space="preserve"><value>不可用</value></data>
+  <data name="SettingsAgentNoDefaultProvider" xml:space="preserve"><value>没有已启用的默认服务商</value></data>
+  <data name="AgentQuestionWindowTitle" xml:space="preserve"><value>VoxFlow 智能体</value></data>
+  <data name="AgentQuestionCancel" xml:space="preserve"><value>取消</value></data>
+  <data name="AgentQuestionContinue" xml:space="preserve"><value>继续</value></data>
+  <data name="SettingsModelsSubtitle" xml:space="preserve"><value>选择语音识别模型，并配置可选的文本优化服务。</value></data>
+  <data name="SettingsNavigationGeneral" xml:space="preserve"><value>通用</value></data>
+  <data name="SettingsNavigationModels" xml:space="preserve"><value>模型</value></data>
+  <data name="SettingsNavigationText" xml:space="preserve"><value>文本</value></data>
+  <data name="SettingsNavigationVoice" xml:space="preserve"><value>语音</value></data>
+  <data name="SettingsOpenAiApiKey" xml:space="preserve"><value>API 密钥</value></data>
+  <data name="SettingsOpenAiBaseUrl" xml:space="preserve"><value>API 地址</value></data>
+  <data name="SettingsOpenAiDescription" xml:space="preserve"><value>使用流式文本优化，对听写结果进行保守修正。</value></data>
+  <data name="SettingsOpenAiEnabled" xml:space="preserve"><value>启用文本优化</value></data>
+  <data name="SettingsOpenAiHeading" xml:space="preserve"><value>OpenAI 兼容服务</value></data>
+  <data name="SettingsOpenAiModel" xml:space="preserve"><value>模型</value></data>
+  <data name="SettingsProviderAliyunDescription" xml:space="preserve"><value>使用阿里云 API 密钥进行流式语音识别。</value></data>
+  <data name="SettingsProviderQwen06Description" xml:space="preserve"><value>更轻量的本地语音模型，CPU 识别速度更快。</value></data>
+  <data name="SettingsProviderQwen17Description" xml:space="preserve"><value>更大的本地语音模型，最终识别质量更高。</value></data>
+  <data name="SettingsProviderTencentDescription" xml:space="preserve"><value>使用腾讯云凭据进行流式语音识别。</value></data>
+  <data name="SettingsProviderVolcengineDescription" xml:space="preserve"><value>使用火山引擎凭据进行流式语音识别。</value></data>
+  <data name="SettingsResetConfirmationMessage" xml:space="preserve"><value>这会恢复通用和语音设置。已保存凭据、已下载模型、历史记录和当前服务商选择不会改变。</value></data>
+  <data name="SettingsResetConfirmationTitle" xml:space="preserve"><value>恢复默认设置？</value></data>
+  <data name="SettingsSaveSucceeded" xml:space="preserve"><value>设置已保存。</value></data>
+  <data name="SettingsStatusConfigured" xml:space="preserve"><value>已配置；测试连接后即可选择</value></data>
+  <data name="SettingsStatusNotConfigured" xml:space="preserve"><value>未配置</value></data>
+  <data name="SettingsStatusReady" xml:space="preserve"><value>可用</value></data>
+  <data name="SettingsTextCapitalization" xml:space="preserve"><value>句首大写</value></data>
+  <data name="SettingsTextCjkBreakThreshold" xml:space="preserve"><value>长句拆分前的中日韩字符数</value></data>
+  <data name="SettingsTextCjkPunctuationThreshold" xml:space="preserve"><value>添加标点前的中日韩字符数</value></data>
+  <data name="SettingsTextCjkSpacing" xml:space="preserve"><value>中西文间距</value></data>
+  <data name="SettingsTextFillerWords" xml:space="preserve"><value>语气词过滤</value></data>
+  <data name="SettingsTextHeading" xml:space="preserve"><value>文本</value></data>
+  <data name="SettingsTextLongSentences" xml:space="preserve"><value>长句拆分</value></data>
+  <data name="SettingsTextMaster" xml:space="preserve"><value>启用文本处理</value></data>
+  <data name="SettingsTextPunctuation" xml:space="preserve"><value>标点优化</value></data>
+  <data name="SettingsTextSmartNumbers" xml:space="preserve"><value>智能数字识别</value></data>
+  <data name="SettingsTextSubtitle" xml:space="preserve"><value>在语音识别后进行保守、可预测的文本清理。</value></data>
+  <data name="SettingsTextWordBreakThreshold" xml:space="preserve"><value>长句拆分前的单词数</value></data>
+  <data name="SettingsTextWordPunctuationThreshold" xml:space="preserve"><value>添加标点前的单词数</value></data>
+  <data name="SettingsVoiceAudioDescription" xml:space="preserve"><value>控制提示音、录音时静音和语音增强。</value></data>
+  <data name="SettingsVoiceAudioHeading" xml:space="preserve"><value>音频</value></data>
+  <data name="SettingsVoiceDefaultMicrophone" xml:space="preserve"><value>默认麦克风</value></data>
+  <data name="SettingsVoiceDevice" xml:space="preserve"><value>麦克风</value></data>
+  <data name="SettingsVoiceEnhancement" xml:space="preserve"><value>识别前增强语音</value></data>
+  <data name="SettingsVoiceFeedbackSounds" xml:space="preserve"><value>播放开始和结束提示音</value></data>
+  <data name="SettingsVoiceHeading" xml:space="preserve"><value>语音</value></data>
+  <data name="SettingsVoiceInputDescription" xml:space="preserve"><value>配置输入设备、识别语言和界面语言。</value></data>
+  <data name="SettingsVoiceInputHeading" xml:space="preserve"><value>输入与语言</value></data>
+  <data name="SettingsVoiceInteraction" xml:space="preserve"><value>快捷键行为</value></data>
+  <data name="SettingsVoiceKeepMicrophoneActive" xml:space="preserve"><value>在两次听写之间保持麦克风就绪</value></data>
+  <data name="SettingsVoiceLanguage" xml:space="preserve"><value>识别语言</value></data>
+  <data name="SettingsVoiceMiddleMouse" xml:space="preserve"><value>启用鼠标中键</value></data>
+  <data name="SettingsVoiceModeHold" xml:space="preserve"><value>按住听写</value></data>
+  <data name="SettingsVoiceModeHybrid" xml:space="preserve"><value>按住或单击切换</value></data>
+  <data name="SettingsVoiceModeToggle" xml:space="preserve"><value>按一下开始或停止</value></data>
+  <data name="SettingsVoiceMutePlayback" xml:space="preserve"><value>录音时静音播放内容</value></data>
+  <data name="SettingsVoiceOutputDescription" xml:space="preserve"><value>选择快速粘贴或模拟输入来写入最终文本。</value></data>
+  <data name="SettingsVoiceOutputHeading" xml:space="preserve"><value>输出</value></data>
+  <data name="SettingsVoiceQuickPaste" xml:space="preserve"><value>快速粘贴</value></data>
+  <data name="SettingsVoiceQuickPasteDescription" xml:space="preserve"><value>粘贴最终文本，并安全恢复剪贴板内容。</value></data>
+  <data name="SettingsVoiceRuntimeDescription" xml:space="preserve"><value>需要时，在两次听写之间保持麦克风就绪。</value></data>
+  <data name="SettingsVoiceRuntimeHeading" xml:space="preserve"><value>运行方式</value></data>
+  <data name="SettingsVoiceShortcutDescription" xml:space="preserve"><value>控制语音输入与 AI 编程的全局入口</value></data>
+  <data name="SettingsVoiceShortcutHeading" xml:space="preserve"><value>语音快捷键</value></data>
+  <data name="SettingsVoiceShortcutRightControl" xml:space="preserve"><value>右 Ctrl</value></data>
+  <data name="SettingsVoiceSimulatedTyping" xml:space="preserve"><value>模拟输入</value></data>
+  <data name="SettingsVoiceSimulatedTypingDescription" xml:space="preserve"><value>输入 Unicode 文本，不替换剪贴板内容。</value></data>
+  <data name="SettingsVoiceSubtitle" xml:space="preserve"><value>配置听写如何启动、收音和写入文本。</value></data>
+  <data name="SettingsModelDownload" xml:space="preserve"><value>下载</value></data>
+  <data name="SettingsModelRetry" xml:space="preserve"><value>重新下载</value></data>
+  <data name="SettingsModelSelect" xml:space="preserve"><value>使用此模型</value></data>
+  <data name="SettingsModelSelected" xml:space="preserve"><value>已选择</value></data>
+  <data name="SettingsModelStatusNotDownloaded" xml:space="preserve"><value>未下载</value></data>
+  <data name="SettingsModelStatusDownloadingFormat" xml:space="preserve"><value>正在下载 {0:0}%</value></data>
+  <data name="SettingsModelStatusPreparing" xml:space="preserve"><value>正在准备模型…</value></data>
+  <data name="SettingsModelStatusReady" xml:space="preserve"><value>可用</value></data>
+  <data name="SettingsModelStatusSelected" xml:space="preserve"><value>正在使用</value></data>
+  <data name="SettingsModelStatusInsufficientSpace" xml:space="preserve"><value>磁盘空间不足</value></data>
+  <data name="SettingsModelStatusFailed" xml:space="preserve"><value>下载或验证失败</value></data>
+  <data name="SettingsModelActionDownloading" xml:space="preserve"><value>正在下载并验证模型…</value></data>
+  <data name="SettingsModelActionSelecting" xml:space="preserve"><value>正在选择模型…</value></data>
+  <data name="SettingsModelActionDeleting" xml:space="preserve"><value>正在删除模型…</value></data>
+  <data name="SettingsModelDownloadSucceeded" xml:space="preserve"><value>模型已下载并可以使用。</value></data>
+  <data name="SettingsModelSelectSucceeded" xml:space="preserve"><value>已选择模型。</value></data>
+  <data name="SettingsModelDeleteSucceeded" xml:space="preserve"><value>模型已删除。</value></data>
+  <data name="SettingsModelActionFailed" xml:space="preserve"><value>模型操作失败，请重试。</value></data>
+  <data name="SettingsModelDeleteConfirmationTitle" xml:space="preserve"><value>删除模型？</value></data>
+  <data name="SettingsModelDeleteConfirmationMessage" xml:space="preserve"><value>将从这台电脑删除已下载的模型文件，之后仍可重新下载。</value></data>
+  <data name="SelectionFailureNoSelection" xml:space="preserve"><value>请先在其他应用中选择文字，再重试。</value></data>
+  <data name="SelectionFailureSecureField" xml:space="preserve"><value>无法读取安全输入框中的文字。</value></data>
+  <data name="SelectionFailureTargetChanged" xml:space="preserve"><value>原始窗口已变化，请重新选择文字。</value></data>
+  <data name="SelectionFailureClipboardBusy" xml:space="preserve"><value>剪贴板正忙，请稍后重试。</value></data>
+  <data name="SelectionFailureTerminal" xml:space="preserve"><value>无法确认终端中的选区，未发送 Ctrl+C。</value></data>
+  <data name="SelectionFailureCopyFailed" xml:space="preserve"><value>无法复制选中的文字。</value></data>
+  <data name="SelectionResultSource" xml:space="preserve"><value>原文</value></data>
+  <data name="SelectionResultResult" xml:space="preserve"><value>结果</value></data>
+  <data name="SelectionResultCopy" xml:space="preserve"><value>复制</value></data>
+  <data name="SelectionResultSpeak" xml:space="preserve"><value>朗读</value></data>
+  <data name="SelectionResultStopSpeaking" xml:space="preserve"><value>停止朗读</value></data>
+  <data name="SelectionResultReplace" xml:space="preserve"><value>替换原文</value></data>
+  <data name="SelectionResultInsertBelow" xml:space="preserve"><value>换行插入</value></data>
+  <data name="SelectionResultProcessing" xml:space="preserve"><value>正在处理…</value></data>
+  <data name="SelectionResultTranslation" xml:space="preserve"><value>划词翻译</value></data>
+  <data name="SelectionResultSummary" xml:space="preserve"><value>划词总结</value></data>
+  <data name="SelectionResultComplete" xml:space="preserve"><value>处理完成。</value></data>
+  <data name="SelectionResultPartial" xml:space="preserve"><value>已停止，仍可使用当前的部分结果。</value></data>
+  <data name="SelectionResultCancelled" xml:space="preserve"><value>已取消。</value></data>
+  <data name="SelectionResultFailed" xml:space="preserve"><value>无法处理选中文字，请检查默认 LLM 服务后重试。</value></data>
+  <data name="SelectionResultNoText" xml:space="preserve"><value>当前没有可操作的文字。</value></data>
+  <data name="SelectionResultCopyFailed" xml:space="preserve"><value>无法复制文字。</value></data>
+  <data name="SelectionResultCopied" xml:space="preserve"><value>已复制。</value></data>
+  <data name="SelectionResultWriteUnavailable" xml:space="preserve"><value>无法将这段文字写回原应用。</value></data>
+  <data name="SelectionResultReplaced" xml:space="preserve"><value>已替换选中文字。</value></data>
+  <data name="SelectionResultInserted" xml:space="preserve"><value>已换行插入到选中文字后。</value></data>
+  <data name="SelectionResultCopiedFallback" xml:space="preserve"><value>原目标已变化，结果已改为复制到剪贴板。</value></data>
+  <data name="SelectionResultWriteFailed" xml:space="preserve"><value>无法写回文字，原文没有被修改。</value></data>
+  <data name="SelectionResultSpeaking" xml:space="preserve"><value>正在朗读…</value></data>
+  <data name="SelectionResultSpeechComplete" xml:space="preserve"><value>朗读完成。</value></data>
+  <data name="SelectionResultSpeechStopped" xml:space="preserve"><value>已停止朗读。</value></data>
+  <data name="SelectionResultSpeechUnavailable" xml:space="preserve"><value>Windows 中没有可用的朗读语音。</value></data>
+  <data name="SelectionResultSpeechFailed" xml:space="preserve"><value>无法朗读这段文字。</value></data>
+  <data name="SelectionFailureUnexpected" xml:space="preserve"><value>划词工具暂时不可用，请检查默认 LLM 服务后重试。</value></data>
+  <data name="SelectionUnavailableDuringScreenshot" xml:space="preserve"><value>请先完成或关闭截图工具，再翻译或总结选中文字。</value></data>
+  <data name="NavigationMedia" xml:space="preserve"><value>媒体</value></data>
+  <data name="ScreenshotMediaHeading" xml:space="preserve"><value>媒体</value></data>
+  <data name="ScreenshotMediaSubtitle" xml:space="preserve"><value>截取、搜索并随时查看你的截图。</value></data>
+  <data name="TrayScreenshot" xml:space="preserve"><value>开始截图</value></data>
+  <data name="ScreenshotStart" xml:space="preserve"><value>开始截图</value></data>
+  <data name="ScreenshotMediaStatsTotal" xml:space="preserve"><value>全部媒体</value></data>
+  <data name="ScreenshotMediaStatsToday" xml:space="preserve"><value>今日媒体</value></data>
+  <data name="ScreenshotMediaStatsScreenshots" xml:space="preserve"><value>截图</value></data>
+  <data name="ScreenshotMediaStatsFavorites" xml:space="preserve"><value>收藏</value></data>
+  <data name="ScreenshotMediaSearch" xml:space="preserve"><value>搜索截图</value></data>
+  <data name="ScreenshotMediaFilter" xml:space="preserve"><value>筛选截图</value></data>
+  <data name="ScreenshotMediaPageSize" xml:space="preserve"><value>每页截图数</value></data>
+  <data name="ScreenshotMediaEmptyTitle" xml:space="preserve"><value>还没有截图</value></data>
+  <data name="ScreenshotMediaEmptyHint" xml:space="preserve"><value>完成截图后，记录会显示在这里。</value></data>
+  <data name="ScreenshotMediaPrevious" xml:space="preserve"><value>上一页</value></data>
+  <data name="ScreenshotMediaNext" xml:space="preserve"><value>下一页</value></data>
+  <data name="ScreenshotCopyImage" xml:space="preserve"><value>复制图片</value></data>
+  <data name="ScreenshotCopyText" xml:space="preserve"><value>复制文字</value></data>
+  <data name="ScreenshotFavorite" xml:space="preserve"><value>添加或取消收藏</value></data>
+  <data name="ScreenshotDelete" xml:space="preserve"><value>删除截图</value></data>
+  <data name="ScreenshotFilterAll" xml:space="preserve"><value>全部</value></data>
+  <data name="ScreenshotFilterScreenshots" xml:space="preserve"><value>截图</value></data>
+  <data name="ScreenshotFilterFavorites" xml:space="preserve"><value>收藏</value></data>
+  <data name="ScreenshotDetailTitle" xml:space="preserve"><value>截图详情</value></data>
+  <data name="ScreenshotClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="ScreenshotImageUnavailable" xml:space="preserve"><value>图片不可用</value></data>
+  <data name="ScreenshotOriginal" xml:space="preserve"><value>原图</value></data>
+  <data name="ScreenshotTranslatedImage" xml:space="preserve"><value>翻译图片</value></data>
+  <data name="ScreenshotResolution" xml:space="preserve"><value>分辨率</value></data>
+  <data name="ScreenshotFileSize" xml:space="preserve"><value>文件大小</value></data>
+  <data name="ScreenshotCharacters" xml:space="preserve"><value>字符数</value></data>
+  <data name="ScreenshotFavoriteStatus" xml:space="preserve"><value>收藏</value></data>
+  <data name="ScreenshotOcrTab" xml:space="preserve"><value>文字识别</value></data>
+  <data name="ScreenshotRefinedTab" xml:space="preserve"><value>润色</value></data>
+  <data name="ScreenshotTranslationTab" xml:space="preserve"><value>翻译</value></data>
+  <data name="ScreenshotSummaryTab" xml:space="preserve"><value>总结</value></data>
+  <data name="ScreenshotSaveAs" xml:space="preserve"><value>另存为</value></data>
+  <data name="ScreenshotReveal" xml:space="preserve"><value>在文件资源管理器中显示</value></data>
+  <data name="ScreenshotReprocess" xml:space="preserve"><value>重新识别</value></data>
+  <data name="ScreenshotToolSelect" xml:space="preserve"><value>选择</value></data>
+  <data name="ScreenshotToolPen" xml:space="preserve"><value>画笔</value></data>
+  <data name="ScreenshotToolEllipse" xml:space="preserve"><value>圈注</value></data>
+  <data name="ScreenshotToolRectangle" xml:space="preserve"><value>矩形</value></data>
+  <data name="ScreenshotToolArrow" xml:space="preserve"><value>箭头</value></data>
+  <data name="ScreenshotToolDotMarker" xml:space="preserve"><value>标记点</value></data>
+  <data name="ScreenshotToolNumberedMarker" xml:space="preserve"><value>数字点</value></data>
+  <data name="ScreenshotToolText" xml:space="preserve"><value>文字</value></data>
+  <data name="ScreenshotToolMosaic" xml:space="preserve"><value>马赛克</value></data>
+  <data name="ScreenshotToolTextRecognition" xml:space="preserve"><value>文字识别</value></data>
+  <data name="ScreenshotToolTranslate" xml:space="preserve"><value>翻译</value></data>
+  <data name="ScreenshotToolColor" xml:space="preserve"><value>颜色</value></data>
+  <data name="ScreenshotToolLineWidth" xml:space="preserve"><value>线宽</value></data>
+  <data name="ScreenshotToolFontSize" xml:space="preserve"><value>字号</value></data>
+  <data name="ScreenshotToolCopy" xml:space="preserve"><value>复制标注</value></data>
+  <data name="ScreenshotToolPaste" xml:space="preserve"><value>粘贴标注</value></data>
+  <data name="ScreenshotToolDuplicate" xml:space="preserve"><value>复制一份</value></data>
+  <data name="ScreenshotToolUndo" xml:space="preserve"><value>撤销</value></data>
+  <data name="ScreenshotToolRedo" xml:space="preserve"><value>重做</value></data>
+  <data name="ScreenshotToolDownload" xml:space="preserve"><value>下载</value></data>
+  <data name="ScreenshotToolCancel" xml:space="preserve"><value>取消</value></data>
+  <data name="ScreenshotToolComplete" xml:space="preserve"><value>完成</value></data>
+  <data name="ScreenshotColorGreen" xml:space="preserve"><value>绿色</value></data>
+  <data name="ScreenshotColorRed" xml:space="preserve"><value>红色</value></data>
+  <data name="ScreenshotColorWhite" xml:space="preserve"><value>白色</value></data>
+  <data name="ScreenshotColorBlack" xml:space="preserve"><value>黑色</value></data>
+  <data name="ScreenshotLineWidthThin" xml:space="preserve"><value>细线（6 像素）</value></data>
+  <data name="ScreenshotLineWidthMedium" xml:space="preserve"><value>中线（8 像素）</value></data>
+  <data name="ScreenshotLineWidthThick" xml:space="preserve"><value>粗线（10 像素）</value></data>
+  <data name="ScreenshotFontSizeSmall" xml:space="preserve"><value>小号（14 磅）</value></data>
+  <data name="ScreenshotFontSizeMedium" xml:space="preserve"><value>中号（24 磅）</value></data>
+  <data name="ScreenshotFontSizeLarge" xml:space="preserve"><value>大号（32 磅）</value></data>
+  <data name="ScreenshotFontSizeSmallLabel" xml:space="preserve"><value>小</value></data>
+  <data name="ScreenshotFontSizeMediumLabel" xml:space="preserve"><value>中</value></data>
+  <data name="ScreenshotFontSizeLargeLabel" xml:space="preserve"><value>大</value></data>
+  <data name="ScreenshotToolbarCurrentValueFormat" xml:space="preserve"><value>{0}：{1}</value></data>
+  <data name="ScreenshotToolbarSelectedStatus" xml:space="preserve"><value>已选择</value></data>
+  <data name="ScreenshotFavorited" xml:space="preserve"><value>已收藏</value></data>
+  <data name="ScreenshotNotFavorited" xml:space="preserve"><value>未收藏</value></data>
+  <data name="ScreenshotOverlayName" xml:space="preserve"><value>截图选择界面</value></data>
+  <data name="ScreenshotAnnotationTextEditor" xml:space="preserve"><value>截图标注文字</value></data>
+  <data name="ScreenshotSaveDialogTitle" xml:space="preserve"><value>保存截图</value></data>
+  <data name="ScreenshotPngFileFilter" xml:space="preserve"><value>PNG 图片 (*.png)|*.png</value></data>
+  <data name="ScreenshotDefaultFileNamePrefix" xml:space="preserve"><value>VoxFlow截图</value></data>
+  <data name="ScreenshotClipboardBusy" xml:space="preserve"><value>剪贴板正忙，截图未复制。请重试。</value></data>
+  <data name="ScreenshotClipboardFailed" xml:space="preserve"><value>无法复制截图，请重试。</value></data>
+  <data name="ScreenshotSaveFailed" xml:space="preserve"><value>无法保存截图，请选择其他位置后重试。</value></data>
+  <data name="ScreenshotCaptureBusy" xml:space="preserve"><value>当前有其他语音或截图任务正在进行，请完成后重试。</value></data>
+  <data name="ScreenshotCaptureFailed" xml:space="preserve"><value>无法截取屏幕，请检查显示器连接后重试。</value></data>
+  <data name="ScreenshotProcessingFailed" xml:space="preserve"><value>截图已完成，但后续处理失败，请重试。</value></data>
+  <data name="ScreenshotReprocessFailed" xml:space="preserve"><value>无法重新识别这张截图，请检查 OCR 运行环境后重试。</value></data>
+  <data name="ScreenshotResultTitle" xml:space="preserve"><value>识别完成</value></data>
+  <data name="ScreenshotResultOpen" xml:space="preserve"><value>查看截图结果</value></data>
+  <data name="ScreenshotResultRefine" xml:space="preserve"><value>润色文字</value></data>
+  <data name="ScreenshotResultCancelRefinement" xml:space="preserve"><value>取消润色</value></data>
+  <data name="ScreenshotResultTranslate" xml:space="preserve"><value>翻译</value></data>
+  <data name="ScreenshotResultCancelTranslation" xml:space="preserve"><value>取消翻译</value></data>
+  <data name="ScreenshotResultSpeak" xml:space="preserve"><value>朗读</value></data>
+  <data name="ScreenshotResultStopSpeaking" xml:space="preserve"><value>停止朗读</value></data>
+  <data name="ScreenshotResultNoText" xml:space="preserve"><value>未识别到文字。</value></data>
+  <data name="ScreenshotResultOcrEmpty" xml:space="preserve"><value>未在这张截图中识别到文字。</value></data>
+  <data name="ScreenshotResultOcrRuntimeUnavailable" xml:space="preserve"><value>OCR 运行环境尚未就绪，暂时无法识别文字。</value></data>
+  <data name="ScreenshotResultOcrInputUnavailable" xml:space="preserve"><value>无法读取截图图片，文字识别未完成。</value></data>
+  <data name="ScreenshotResultOcrTimedOut" xml:space="preserve"><value>文字识别超时，请重新识别后再试。</value></data>
+  <data name="ScreenshotResultOcrFailed" xml:space="preserve"><value>文字识别失败，请重新识别后再试。</value></data>
+  <data name="ScreenshotResultOcrCancelled" xml:space="preserve"><value>文字识别已取消。</value></data>
+  <data name="ScreenshotResultOcrStale" xml:space="preserve"><value>此识别结果已过期。</value></data>
+  <data name="ScreenshotResultNoRefinement" xml:space="preserve"><value>暂无润色文字。</value></data>
+  <data name="ScreenshotResultNoTranslation" xml:space="preserve"><value>暂无译文。</value></data>
+  <data name="ScreenshotResultNoSummary" xml:space="preserve"><value>暂无摘要。</value></data>
+  <data name="ScreenshotResultNoTextToCopy" xml:space="preserve"><value>当前标签没有可复制的文字。</value></data>
+  <data name="ScreenshotResultCopiedText" xml:space="preserve"><value>文字已复制。</value></data>
+  <data name="ScreenshotResultCopyTextFailed" xml:space="preserve"><value>无法复制文字，请重试。</value></data>
+  <data name="ScreenshotResultCopiedImage" xml:space="preserve"><value>图片已复制。</value></data>
+  <data name="ScreenshotResultCopyImageFailed" xml:space="preserve"><value>无法复制图片，请重试。</value></data>
+  <data name="ScreenshotResultNoTextToSpeak" xml:space="preserve"><value>当前标签没有可朗读的文字。</value></data>
+  <data name="ScreenshotResultSpeaking" xml:space="preserve"><value>正在朗读…</value></data>
+  <data name="ScreenshotResultSpeechComplete" xml:space="preserve"><value>朗读完成。</value></data>
+  <data name="ScreenshotResultSpeechStopped" xml:space="preserve"><value>已停止朗读。</value></data>
+  <data name="ScreenshotResultSpeechUnavailable" xml:space="preserve"><value>没有可用的本地语音或 Windows 系统语音。</value></data>
+  <data name="ScreenshotResultSpeechFailed" xml:space="preserve"><value>无法朗读这段文字。</value></data>
+  <data name="ScreenshotResultRefining" xml:space="preserve"><value>正在润色文字…</value></data>
+  <data name="ScreenshotResultTranslating" xml:space="preserve"><value>正在翻译…</value></data>
+  <data name="ScreenshotResultSummarizing" xml:space="preserve"><value>正在生成摘要…</value></data>
+  <data name="ScreenshotResultRefinementComplete" xml:space="preserve"><value>文字润色完成。</value></data>
+  <data name="ScreenshotResultTranslationComplete" xml:space="preserve"><value>翻译完成。</value></data>
+  <data name="ScreenshotResultSummaryComplete" xml:space="preserve"><value>摘要完成。</value></data>
+  <data name="ScreenshotResultRefinementCancelled" xml:space="preserve"><value>已取消文字润色。</value></data>
+  <data name="ScreenshotResultTranslationCancelled" xml:space="preserve"><value>已取消翻译。</value></data>
+  <data name="ScreenshotResultSummaryCancelled" xml:space="preserve"><value>已取消摘要。</value></data>
+  <data name="ScreenshotResultRefinementPartial" xml:space="preserve"><value>文字润色已停止，已保留部分结果。</value></data>
+  <data name="ScreenshotResultTranslationPartial" xml:space="preserve"><value>翻译已停止，已保留部分结果。</value></data>
+  <data name="ScreenshotResultSummaryPartial" xml:space="preserve"><value>摘要已停止，已保留部分结果。</value></data>
+  <data name="ScreenshotResultProviderNotConfigured" xml:space="preserve"><value>请先设置默认的大模型服务，再使用此功能。</value></data>
+  <data name="ScreenshotResultProviderUnavailable" xml:space="preserve"><value>当前设置的大模型服务不可用。</value></data>
+  <data name="ScreenshotResultEmptyTransform" xml:space="preserve"><value>没有可用于此操作的文字。</value></data>
+  <data name="ScreenshotResultTransformFailed" xml:space="preserve"><value>操作失败，现有截图结果未受影响。</value></data>
+  <data name="ScreenshotResultHistoryUpdateFailed" xml:space="preserve"><value>结果仍可使用，但无法更新截图历史。</value></data>
+  <data name="ScreenshotResultRetry" xml:space="preserve"><value>重试</value></data>
+  <data name="ScreenshotMediaPageSummaryFormat" xml:space="preserve"><value>第 {0}–{1} 张，共 {2} 张</value></data>
+  <data name="ScreenshotMediaNoResultsTitle" xml:space="preserve"><value>没有匹配的截图</value></data>
+  <data name="ScreenshotMediaNoResultsHint" xml:space="preserve"><value>请尝试其他搜索词或筛选条件。</value></data>
+  <data name="ScreenshotMediaLoadFailed" xml:space="preserve"><value>无法加载截图，请重试。</value></data>
+  <data name="ScreenshotRecordUnavailable" xml:space="preserve"><value>这张截图已不可用。</value></data>
+  <data name="ScreenshotAssetUnavailableAction" xml:space="preserve"><value>截图图片缺失或无法读取。</value></data>
+  <data name="ScreenshotCopyImageSucceeded" xml:space="preserve"><value>图片已复制。</value></data>
+  <data name="ScreenshotTextUnavailable" xml:space="preserve"><value>没有可用的识别文字。</value></data>
+  <data name="ScreenshotCopyTextSucceeded" xml:space="preserve"><value>文字已复制。</value></data>
+  <data name="ScreenshotFavoriteRemoved" xml:space="preserve"><value>已取消收藏。</value></data>
+  <data name="ScreenshotFavoriteAdded" xml:space="preserve"><value>已添加到收藏。</value></data>
+  <data name="ScreenshotDeleteConfirmationTitle" xml:space="preserve"><value>删除截图？</value></data>
+  <data name="ScreenshotDeleteConfirmationMessage" xml:space="preserve"><value>要删除 {0} 的截图吗？另存的副本不会受到影响。</value></data>
+  <data name="ScreenshotDeleteSucceeded" xml:space="preserve"><value>截图已删除。</value></data>
+  <data name="ScreenshotActionFailed" xml:space="preserve"><value>截图操作失败，请重试。</value></data>
+  <data name="ScreenshotAssetMissing" xml:space="preserve"><value>图片文件已丢失</value></data>
+  <data name="ScreenshotAssetUnreadable" xml:space="preserve"><value>无法打开图片文件</value></data>
+  <data name="ScreenshotCardAccessibleNameFormat" xml:space="preserve"><value>{0} 的截图，{1}</value></data>
+  <data name="ScreenshotMediaLoading" xml:space="preserve"><value>正在加载截图…</value></data>
+  <data name="ScreenshotAssetMissingDetail" xml:space="preserve"><value>应用管理的图片文件已丢失，文字和记录操作仍可使用。</value></data>
+  <data name="ScreenshotDetailLoadFailed" xml:space="preserve"><value>无法加载截图详情，请重试。</value></data>
+  <data name="ScreenshotSaveSucceeded" xml:space="preserve"><value>图片已保存。</value></data>
+  <data name="ScreenshotRevealSucceeded" xml:space="preserve"><value>已在文件资源管理器中打开图片。</value></data>
+  <data name="ScreenshotReprocessUnavailable" xml:space="preserve"><value>原图已丢失，无法重新识别文字。</value></data>
+  <data name="ScreenshotReprocessRequested" xml:space="preserve"><value>已开始重新识别文字。</value></data>
+  <data name="ScreenshotInlineTranslationInProgress" xml:space="preserve"><value>翻译中</value></data>
+  <data name="ScreenshotInlineTranslationProgressFormat" xml:space="preserve"><value>翻译中 {0}/{1}</value></data>
+  <data name="ScreenshotInlineTranslationNotReady" xml:space="preserve"><value>翻译服务尚未就绪。</value></data>
+  <data name="ScreenshotInlineTranslationFailed" xml:space="preserve"><value>翻译失败。</value></data>
+  <data name="ScreenshotInlineTranslationOcrUnavailable" xml:space="preserve"><value>无法识别这张图片中的文字。</value></data>
+  <data name="SettingsNavigationScreenshot" xml:space="preserve"><value>截图</value></data>
+  <data name="SettingsNavigationSelectionAssistant" xml:space="preserve"><value>划词助手</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrTitle" xml:space="preserve"><value>剪贴板图片 OCR</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrDescription" xml:space="preserve"><value>识别复制到剪贴板的图片文字。</value></data>
+  <data name="SettingsHotkeySelectionAskAiTitle" xml:space="preserve"><value>问 AI</value></data>
+  <data name="SettingsHotkeySelectionAskAiDescription" xml:space="preserve"><value>向 AI 询问选中的文字。</value></data>
+  <data name="SettingsScreenshotHotkeyHeading" xml:space="preserve"><value>截图</value></data>
+  <data name="SettingsScreenshotHotkeyDescription" xml:space="preserve"><value>配置截图、OCR 和屏幕捕获工作流。</value></data>
+  <data name="SettingsScreenshotClipboardHeading" xml:space="preserve"><value>写入方式</value></data>
+  <data name="SettingsScreenshotClipboardDescription" xml:space="preserve"><value>配置截图和剪贴板 OCR 行为。</value></data>
+  <data name="SettingsScreenshotClipboardToggle" xml:space="preserve"><value>剪贴板图片 OCR</value></data>
+  <data name="SettingsScreenshotClipboardToggleDescription" xml:space="preserve"><value>识别剪贴板图片中的文字。</value></data>
+  <data name="SettingsGeneralBasicsHeading" xml:space="preserve"><value>基础</value></data>
+  <data name="SettingsGeneralBasicsDescription" xml:space="preserve"><value>配置外观、启动和语言行为。</value></data>
+  <data name="SettingsGeneralDarkThemeDescription" xml:space="preserve"><value>跟随系统或使用深色外观。</value></data>
+  <data name="SettingsGeneralLaunchAtLoginDescription" xml:space="preserve"><value>登录系统时自动启动码上写。</value></data>
+  <data name="SettingsGeneralPermissionsDescription" xml:space="preserve"><value>打开麦克风等 Windows 隐私设置。</value></data>
+  <data name="SettingsGeneralDataDescription" xml:space="preserve"><value>复制脱敏诊断信息或恢复本地默认设置。</value></data>
+  <data name="ClipboardImageOcrNoImage" xml:space="preserve"><value>剪贴板中没有可识别的图片。</value></data>
+  <data name="ClipboardImageOcrNoText" xml:space="preserve"><value>未能从剪贴板图片中识别出文字。</value></data>
+  <data name="ClipboardImageOcrDisabled" xml:space="preserve"><value>剪贴板图片 OCR 已关闭。</value></data>
+  <data name="SettingsScreenshotHeading" xml:space="preserve"><value>截图</value></data>
+  <data name="SettingsScreenshotSubtitle" xml:space="preserve"><value>配置截图、OCR 和屏幕捕获工作流。</value></data>
+
+  <data name="SettingsTextPunctuationDescription" xml:space="preserve"><value>补全句末标点，在中文语境中将半角标点转为全角</value></data>
+
+  <data name="SettingsTextSmartNumbersDescription" xml:space="preserve"><value>在数量、日期、时间和百分比语境中将中文数字转换为阿拉伯数字</value></data>
+
+  <data name="SettingsTextMasterDescription" xml:space="preserve"><value>关闭后将跳过以下所有处理器</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModelsDescription" xml:space="preserve"><value>空闲时释放本地模型以节省内存。</value></data>
+
+  <data name="SettingsVoiceTriggerMode" xml:space="preserve"><value>触发方式</value></data>
+
+  <data name="SettingsHotkeyModify" xml:space="preserve"><value>修改快捷键</value></data>
+
+  <data name="SettingsGeneralGrayTrayIcon" xml:space="preserve"><value>外观灰色菜单栏图标</value></data>
+
+  <data name="SettingsTextDeterministicHeading" xml:space="preserve"><value>确定性文本处理</value></data>
+
+  <data name="SettingsSelectionAssistantSubtitle" xml:space="preserve"><value>配置选中文本的快捷操作。</value></data>
+
+  <data name="SettingsGeneralUiLanguageDescription" xml:space="preserve"><value>跟随系统</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicatorDescription" xml:space="preserve"><value>显示 Caps Lock 录音指示器。</value></data>
+
+  <data name="SettingsVoiceMiddleMouseDescription" xml:space="preserve"><value>点击鼠标中键开始录音，再次点击结束并输入</value></data>
+
+  <data name="SettingsVoiceModify" xml:space="preserve"><value>修改</value></data>
+
+  <data name="SettingsGeneralStreamPreviewDescription" xml:space="preserve"><value>使用本地模型时，说话过程中显示流式识别结果。</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicator" xml:space="preserve"><value>外观 CapsLock 指示器</value></data>
+
+  <data name="SettingsVoiceDictationTitle" xml:space="preserve"><value>语音转录</value></data>
+
+  <data name="SettingsVoiceDictationDescription" xml:space="preserve"><value>按住快捷键说话，松开后转录并输入</value></data>
+
+  <data name="SettingsSelectionSectionHeading" xml:space="preserve"><value>划词</value></data>
+
+  <data name="SettingsSelectionAssistantHeading" xml:space="preserve"><value>划词助手</value></data>
+
+  <data name="SettingsVoiceTriggerModeHint" xml:space="preserve"><value>仅影响语音快捷键的短按/长按行为</value></data>
+
+  <data name="SettingsTextThresholdSummaryFormat" xml:space="preserve"><value>单词阈值 {0} 个词 · 字符阈值 {1} 个字</value></data>
+
+  <data name="SettingsGeneralStreamPreview" xml:space="preserve"><value>流式识别预览</value></data>
+
+  <data name="SettingsGeneralGrayTrayIconDescription" xml:space="preserve"><value>使用灰色菜单栏图标。</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModels" xml:space="preserve"><value>自动释放本地模型</value></data>
+
+  <data name="SettingsGeneralLocalModelsHeading" xml:space="preserve"><value>本地模型</value></data>
+
+  <data name="SettingsGeneralLocalModelsDescription" xml:space="preserve"><value>管理本地模型行为和存储。</value></data>
+
+  <data name="SettingsTextDeterministicDescription" xml:space="preserve"><value>在 LLM 纠错前后运行的轻量文本清理</value></data>
+
+  <data name="SettingsGeneralUiLanguage" xml:space="preserve"><value>界面语言</value></data>
+
+  <data name="SettingsSelectionSectionDescription" xml:space="preserve"><value>配置选中文本的工作流。</value></data>
+
+  <data name="SettingsGeneralUiLanguageSystem" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="SettingsGeneralUiLanguageTraditionalChinese" xml:space="preserve"><value>繁体中文</value></data>
+
+  <data name="HelpFeatureDictationDescription" xml:space="preserve"><value>按快捷键或鼠标中键开始 / 停止听写。</value></data>
+
+  <data name="HelpFeatureAgentHeading" xml:space="preserve"><value>AI 编程</value></data>
+
+  <data name="HelpFeaturePrivacyDescription" xml:space="preserve"><value>除非你选择云端服务，音频、截图和文本都留在本地。</value></data>
+
+  <data name="HelpSubtitle" xml:space="preserve"><value>查看使用提示、快捷键、权限和项目链接。</value></data>
+
+  <data name="HelpFeatureConsoleDescription" xml:space="preserve"><value>在一个启动台里搜索资产、命令和工作流。</value></data>
+
+  <data name="HelpLinkChangelogHeading" xml:space="preserve"><value>更新日志</value></data>
+
+  <data name="HelpFeatureGlossaryDescription" xml:space="preserve"><value>管理热词和文本替换，让识别更稳定。</value></data>
+
+  <data name="HelpFeatureScreenshotHeading" xml:space="preserve"><value>截图 OCR</value></data>
+
+  <data name="HelpFeatureNotesHeading" xml:space="preserve"><value>转写笔记</value></data>
+
+  <data name="HelpLinkUpdateDescription" xml:space="preserve"><value>检查是否有可用的 VoxFlow 新版本。</value></data>
+
+  <data name="HelpLinkUpdateHeading" xml:space="preserve"><value>检查更新</value></data>
+
+  <data name="HelpLinkProjectDescription" xml:space="preserve"><value>在浏览器中打开 VoxFlow 项目主页。</value></data>
+
+  <data name="HelpFeatureDictationHeading" xml:space="preserve"><value>快捷键或鼠标中键</value></data>
+
+  <data name="HelpFeatureAgentDescription" xml:space="preserve"><value>把语音指令发送到本地编码助手终端。</value></data>
+
+  <data name="HelpLinkChangelogDescription" xml:space="preserve"><value>查看最近版本的变化。</value></data>
+
+  <data name="HelpFeatureConsoleHeading" xml:space="preserve"><value>命令启动台</value></data>
+
+  <data name="HelpLinkGithubHeading" xml:space="preserve"><value>GitHub 仓库</value></data>
+
+  <data name="HelpFeatureGlossaryHeading" xml:space="preserve"><value>词汇纠错</value></data>
+
+  <data name="HelpHeading" xml:space="preserve"><value>帮助</value></data>
+
+  <data name="HelpFeatureFallbackDescription" xml:space="preserve"><value>识别或纠错失败时，VoxFlow 会保留原文。</value></data>
+
+  <data name="HelpFeaturePrivacyHeading" xml:space="preserve"><value>本地优先隐私</value></data>
+
+  <data name="HelpFeatureScreenshotDescription" xml:space="preserve"><value>截图后提取文字、翻译、总结并复用。</value></data>
+
+  <data name="HelpFeatureFallbackHeading" xml:space="preserve"><value>安全回退</value></data>
+
+  <data name="HelpLinkProjectHeading" xml:space="preserve"><value>项目主页</value></data>
+
+  <data name="HelpLinkCommunityHeading" xml:space="preserve"><value>社区支持</value></data>
+
+  <data name="HelpLinksHeading" xml:space="preserve"><value>快捷链接</value></data>
+
+  <data name="HelpFeatureNotesDescription" xml:space="preserve"><value>用笔记保留听写文本、截图和录屏。</value></data>
+
+  <data name="HelpLinkGithubDescription" xml:space="preserve"><value>查看源码和项目动态。</value></data>
+
+  <data name="HelpLinkCommunityDescription" xml:space="preserve"><value>打开支持和社区链接。</value></data>
+
+  <data name="AgentWorkspaceEmpty" xml:space="preserve"><value>还没有 Agent 会话。</value></data>
+
+  <data name="GlossarySourceLabel" xml:space="preserve"><value>查找</value></data>
+
+  <data name="NavigationNotes" xml:space="preserve"><value>笔记</value></data>
+
+  <data name="GlossaryWholeWordLabel" xml:space="preserve"><value>整词匹配</value></data>
+
+  <data name="WritingStyleGeneralDescription" xml:space="preserve"><value>日常听写的默认清洗。</value></data>
+
+  <data name="WritingStylesAddProfileTitle" xml:space="preserve"><value>新建风格</value></data>
+
+  <data name="GlossaryNoteLabel" xml:space="preserve"><value>备注</value></data>
+
+  <data name="GlossarySubtitle" xml:space="preserve"><value>管理热词和文本替换规则，用于 ASR 热词增强和 LLM 纠错上下文。</value></data>
+
+  <data name="AgentWorkspaceHeading" xml:space="preserve"><value>AI 编程</value></data>
+
+  <data name="WritingStyleWritingDescription" xml:space="preserve"><value>更适合长文写作的清洗。</value></data>
+
+  <data name="NotesEmpty" xml:space="preserve"><value>还没有笔记。</value></data>
+
+  <data name="AgentWorkspaceHistoryHeading" xml:space="preserve"><value>最近会话</value></data>
+
+  <data name="GlossaryImportFilter" xml:space="preserve"><value>词汇文件|*.json;*.txt;*.csv|所有文件|*.*</value></data>
+
+  <data name="GlossarySavedMessage" xml:space="preserve"><value>词汇表已保存。</value></data>
+
+  <data name="WritingStyleCodingName" xml:space="preserve"><value>编程</value></data>
+
+  <data name="GlossaryImportCompleteMessage" xml:space="preserve"><value>导入完成。</value></data>
+
+  <data name="WritingStyleCodingDescription" xml:space="preserve"><value>保留代码片段与技术术语。</value></data>
+
+  <data name="WritingStylesRestoreTitle" xml:space="preserve"><value>恢复默认</value></data>
+
+  <data name="NotesSearchPlaceholder" xml:space="preserve"><value>搜索笔记</value></data>
+
+  <data name="WritingStylesHeading" xml:space="preserve"><value>风格</value></data>
+
+  <data name="GlossaryTargetLabel" xml:space="preserve"><value>替换为</value></data>
+
+  <data name="AgentWorkspaceRuntimeDescription" xml:space="preserve"><value>本地编程助手 helper 状态。</value></data>
+
+  <data name="NotesHeading" xml:space="preserve"><value>笔记</value></data>
+
+  <data name="GlossaryImportTitle" xml:space="preserve"><value>导入词汇表</value></data>
+
+  <data name="NavigationAgentWorkspace" xml:space="preserve"><value>AI 编程</value></data>
+
+  <data name="WritingStylesDeleteTitle" xml:space="preserve"><value>删除风格</value></data>
+
+  <data name="GlossaryAddReplacementTitle" xml:space="preserve"><value>添加文本替换</value></data>
+
+  <data name="AgentWorkspaceHotkeyDescription" xml:space="preserve"><value>使用 Agent 快捷键录制语音指令。</value></data>
+
+  <data name="CommonRefresh" xml:space="preserve"><value>刷新</value></data>
+
+  <data name="AgentWorkspaceSubtitle" xml:space="preserve"><value>语音驱动的编程助手工作台与最近会话。</value></data>
+
+  <data name="GlossaryImportCompleteTitle" xml:space="preserve"><value>导入完成</value></data>
+
+  <data name="WritingStylesRestoredMessage" xml:space="preserve"><value>已恢复为默认风格。</value></data>
+
+  <data name="NotesSubtitle" xml:space="preserve"><value>用笔记保留听写文本、截图和相关资产。</value></data>
+
+  <data name="WritingStyleGeneralName" xml:space="preserve"><value>通用</value></data>
+
+  <data name="WritingStyleSocialDescription" xml:space="preserve"><value>聊天与社交内容的轻松语气。</value></data>
+
+  <data name="NavigationWritingStyles" xml:space="preserve"><value>风格</value></data>
+
+  <data name="GlossaryHeading" xml:space="preserve"><value>词汇表</value></data>
+
+  <data name="NavigationHelp" xml:space="preserve"><value>帮助</value></data>
+
+  <data name="NavigationGlossary" xml:space="preserve"><value>词汇表</value></data>
+
+  <data name="WritingStyleWritingName" xml:space="preserve"><value>写作</value></data>
+
+  <data name="GlossaryAddHotwordTitle" xml:space="preserve"><value>添加热词</value></data>
+
+  <data name="GlossaryHotwordLabel" xml:space="preserve"><value>热词</value></data>
+
+  <data name="WritingStylesRestoreMessage" xml:space="preserve"><value>将此风格恢复为内置默认？</value></data>
+
+  <data name="AgentWorkspaceHotkeyHeading" xml:space="preserve"><value>语音入口</value></data>
+
+  <data name="WritingStylesSubtitle" xml:space="preserve"><value>用于听写清洗与风格路由的提示词编辑器。</value></data>
+
+  <data name="GlossaryDuplicateMessage" xml:space="preserve"><value>该条目已存在。</value></data>
+
+  <data name="WritingStylesSavedMessage" xml:space="preserve"><value>风格已保存。</value></data>
+
+  <data name="WritingStylesDeleteMessage" xml:space="preserve"><value>确定删除此写作风格？</value></data>
+
+  <data name="WritingStylesNameLabel" xml:space="preserve"><value>名称</value></data>
+
+  <data name="WritingStyleSocialName" xml:space="preserve"><value>社交</value></data>
+
+  <data name="AgentWorkspaceRuntimeHeading" xml:space="preserve"><value>运行时</value></data>
+
+  <data name="WritingStylesCustomDescription" xml:space="preserve"><value>自定义写作风格</value></data>
+  <data name="HomeStatsClipboard" xml:space="preserve"><value>剪贴板</value></data>
+  <data name="HomeStatsReusable" xml:space="preserve"><value>可复用</value></data>
+  <data name="SelectionResultRefine" xml:space="preserve"><value>润色</value></data>
+  <data name="SelectionResultAskAi" xml:space="preserve"><value>问 AI</value></data>
+  <data name="HudCapsLock" xml:space="preserve"><value>大写锁定</value></data>
+  <data name="GlossaryAdd" xml:space="preserve"><value>添加</value></data>
+  <data name="GlossaryImport" xml:space="preserve"><value>导入</value></data>
+  <data name="GlossaryOpenFolder" xml:space="preserve"><value>打开文件夹</value></data>
+  <data name="GlossarySearch" xml:space="preserve"><value>搜索词汇表</value></data>
+  <data name="GlossarySuggestionAdd" xml:space="preserve"><value>添加</value></data>
+  <data name="GlossarySuggestionIgnore" xml:space="preserve"><value>忽略</value></data>
+  <data name="GlossarySuggestionsDescription" xml:space="preserve"><value>根据使用记录建议可加入词汇表的内容。</value></data>
+  <data name="GlossarySuggestionsHeading" xml:space="preserve"><value>建议</value></data>
+  <data name="GlossaryTabHotwords" xml:space="preserve"><value>热词</value></data>
+  <data name="GlossaryTabReplacements" xml:space="preserve"><value>文本替换</value></data>
+  <data name="SettingsCloudSelect" xml:space="preserve"><value>选择</value></data>
+  <data name="SettingsCloudSelectSucceeded" xml:space="preserve"><value>已选择服务商。</value></data>
+  <data name="SettingsCredentialHide" xml:space="preserve"><value>隐藏</value></data>
+  <data name="SettingsCredentialShow" xml:space="preserve"><value>显示</value></data>
+  <data name="WritingStylesAddProfile" xml:space="preserve"><value>新建风格</value></data>
+  <data name="WritingStylesApplicationsLabel" xml:space="preserve"><value>适用应用</value></data>
+  <data name="WritingStylesAutoMatch" xml:space="preserve"><value>自动匹配应用</value></data>
+  <data name="WritingStylesDescriptionLabel" xml:space="preserve"><value>描述</value></data>
+  <data name="WritingStylesEditorHeading" xml:space="preserve"><value>风格详情</value></data>
+  <data name="WritingStylesInstructionLabel" xml:space="preserve"><value>指令</value></data>
+  <data name="WritingStylesMarkdownLabel" xml:space="preserve"><value>Markdown 模板</value></data>
+  <data name="WritingStylesPreviewEmpty" xml:space="preserve"><value>暂无预览内容。</value></data>
+  <data name="WritingStylesPreviewHeading" xml:space="preserve"><value>预览</value></data>
+  <data name="WritingStylesProfilesHeading" xml:space="preserve"><value>风格列表</value></data>
+  <data name="WritingStylesRestore" xml:space="preserve"><value>恢复默认</value></data>
+  <data name="WritingStylesSave" xml:space="preserve"><value>保存</value></data>
+  <data name="DialogClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="WritingStyleEmailDescription" xml:space="preserve"><value>清晰专业的邮件语气。</value></data>
+  <data name="SettingsVoiceDeviceDefaultMarker" xml:space="preserve"><value>系统默认</value></data>
+  <data name="HelpUpdateAvailable" xml:space="preserve"><value>有新版本可用：{0}。</value></data>
+  <data name="WritingStyleMeetingName" xml:space="preserve"><value>会议</value></data>
+  <data name="WritingStylesPreviewSample" xml:space="preserve"><value>示例听写文本。</value></data>
+  <data name="WritingStyleTranslationDescription" xml:space="preserve"><value>双语清理时保留原意。</value></data>
+  <data name="HelpUpdateOpenRelease" xml:space="preserve"><value>打开发布页</value></data>
+  <data name="HelpUpdateUpToDate" xml:space="preserve"><value>已是最新版本（{0}）。</value></data>
+  <data name="WritingStyleEmailName" xml:space="preserve"><value>邮件</value></data>
+  <data name="WritingStylesRoutesEmpty" xml:space="preserve"><value>未配置应用路由</value></data>
+  <data name="WritingStylesPerStyleAutoMatch" xml:space="preserve"><value>在 AI 自动匹配中包含此风格</value></data>
+  <data name="NotesHistoryOnlySubtitle" xml:space="preserve"><value>听写历史笔记——可搜索并复制过往结果。完整笔记本编辑尚未在 Windows 提供。</value></data>
+  <data name="WritingStyleTranslationName" xml:space="preserve"><value>翻译</value></data>
+  <data name="WritingStyleMeetingDescription" xml:space="preserve"><value>简洁会议纪要。</value></data>
+  <data name="SettingsVoiceDeviceUnavailableMarker" xml:space="preserve"><value>不可用</value></data>
+  <data name="WritingStylesBuiltInProtectedMessage" xml:space="preserve"><value>内置风格不可删除。</value></data>
+  <data name="HelpUpdateFailed" xml:space="preserve"><value>无法检查更新。请稍后重试或打开发布页。</value></data>
+  <data name="HelpUpdateIdle" xml:space="preserve"><value>点击“检查更新”以对照最新 GitHub 发布版本。</value></data>
+</root>

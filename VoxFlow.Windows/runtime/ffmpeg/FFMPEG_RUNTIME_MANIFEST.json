@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "runtimeId": "ffmpeg-n8.1.2-22-g94138f6973-20260710-win64-lgpl-shared",
+  "architecture": "x64",
+  "license": "LGPL-3.0-or-later",
+  "licenseFile": {
+    "path": "LICENSE.txt",
+    "size": 7651,
+    "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+  },
+  "archive": {
+    "fileName": "ffmpeg-n8.1.2-22-g94138f6973-win64-lgpl-shared-8.1.zip",
+    "size": 70508421,
+    "sha256": "cd39114d50ad2d17d892571d896f67fbe8b25333958682430f095eeffbb58598",
+    "assetId": 472524907,
+    "releaseTag": "autobuild-2026-07-10-13-44"
+  },
+  "files": [
+    { "path": "avcodec-62.dll", "size": 70881792, "sha256": "06f15c16294f59d6ae63279443f59c32c11c682975b4c90fccc09295a37b295f" },
+    { "path": "avdevice-62.dll", "size": 3699712, "sha256": "93e150e2e8e8107deb5c17e652691da65d5ab5a56740edc957485ca029ce11f0" },
+    { "path": "avfilter-11.dll", "size": 29816320, "sha256": "5086c95910729913ebb0c812d63ace8060c99513e644dfaa09c46675ddf57180" },
+    { "path": "avformat-62.dll", "size": 22070784, "sha256": "3d61acda2f552e40cbb706e32c0d2bbf3bd4e71cd98677f1ed33a90e23c9be00" },
+    { "path": "avutil-60.dll", "size": 2937856, "sha256": "efe39d566fe0dcaab6edc3921efbefb582000ccb65ad32ee4ad10b07839ed3e9" },
+    { "path": "ffmpeg.exe", "size": 542208, "sha256": "150a59fcec879bc7b4c084afa51657e0dec29257a81cc01fd3595b6fe917367a" },
+    { "path": "ffprobe.exe", "size": 227840, "sha256": "86427747d48175c22485950dbfee4e883912df583f0986e0070ac7cff9c9f823" },
+    { "path": "swresample-6.dll", "size": 723968, "sha256": "8d03a589f26f038585ffc2cf3fb4f1f2aa88f024584029c5aa1f4c94d8fe250d" },
+    { "path": "swscale-9.dll", "size": 12570624, "sha256": "6c3a0f0b2b7fbe5e1ac293856c03cd20dd2bbc0946542f4a53945c0aec556d16" }
+  ]
+}

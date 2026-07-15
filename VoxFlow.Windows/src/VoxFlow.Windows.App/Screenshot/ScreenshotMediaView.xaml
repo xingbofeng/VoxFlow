@@ -1,0 +1,436 @@
+<UserControl x:Class="VoxFlow.Windows.App.Screenshot.ScreenshotMediaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+             AutomationProperties.Name="{Binding Heading}"
+             Loaded="OnLoaded" Unloaded="OnUnloaded" SizeChanged="OnSizeChanged">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="MediaMetricCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16,14" />
+        </Style>
+        <Style x:Key="MediaIconButton" TargetType="Button">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="MediaCardDetailsButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="FocusBorder" Background="Transparent"
+                                BorderBrush="Transparent" BorderThickness="2"
+                                CornerRadius="9" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="FocusBorder" Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FocusBorder" Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="MediaFilterItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="13,7" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="FilterBackground"
+                                Padding="{TemplateBinding Padding}"
+                                Background="Transparent"
+                                CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="FilterBackground" Property="Background"
+                                        Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter TargetName="FilterBackground" Property="Background"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FilterBackground" Property="BorderBrush"
+                                        Value="{DynamicResource AccentDarkBrush}" />
+                                <Setter TargetName="FilterBackground" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="18" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE8B7;"
+                           FontFamily="Segoe Fluent Icons"
+                           FontSize="30"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Heading}"
+                           Margin="12,0,0,0"
+                           FontSize="{DynamicResource HeadingFontSize}"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+            <Button x:Name="StartScreenshotButton" Grid.Column="1"
+                    Style="{DynamicResource VoxFlowButtonStyle}"
+                    Click="OnStartScreenshot"
+                    AutomationProperties.AutomationId="screenshot-start"
+                    AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotStart}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="＋" FontSize="18" Margin="0,-2,8,0" />
+                    <TextBlock Text="{x:Static l10n:L10n.ScreenshotStart}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource MediaMetricCard}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                        <TextBlock Text="{x:Static l10n:L10n.ScreenshotMediaStatsTotal}"
+                                   Margin="8,0,0,0"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding AllMediaCount}" Margin="0,5,0,0"
+                               FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource MediaMetricCard}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE787;" FontFamily="Segoe Fluent Icons"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                        <TextBlock Text="{x:Static l10n:L10n.ScreenshotMediaStatsToday}"
+                                   Margin="8,0,0,0"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding AllTodayMediaCount}" Margin="0,5,0,0"
+                               FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="4" Style="{StaticResource MediaMetricCard}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE91B;" FontFamily="Segoe Fluent Icons"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                        <TextBlock Text="{x:Static l10n:L10n.ScreenshotMediaStatsScreenshots}"
+                                   Margin="8,0,0,0"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding ScreenshotCount}" Margin="0,5,0,0"
+                               FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Height="38" Padding="3" CornerRadius="9"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1">
+                <ListBox x:Name="ScreenshotFilterBox"
+                         ItemsSource="{Binding FilterOptions}"
+                         SelectedItem="{Binding SelectedFilter}"
+                         SelectionChanged="OnFilterChanged"
+                         ItemContainerStyle="{StaticResource MediaFilterItem}"
+                         DisplayMemberPath="Label"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         AutomationProperties.AutomationId="screenshot-filter"
+                         AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaFilter}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+            </Border>
+            <Border Grid.Column="2" Height="38" CornerRadius="8"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="36" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="⌕" FontSize="17" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox x:Name="ScreenshotSearchBox" Grid.Column="1"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="OnSearchTextChanged"
+                             BorderThickness="0" Background="Transparent"
+                             VerticalContentAlignment="Center"
+                             AutomationProperties.AutomationId="screenshot-search"
+                             AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaSearch}" />
+                </Grid>
+            </Border>
+            <ComboBox x:Name="ScreenshotPageSizeBox" Grid.Column="4"
+                      Width="92" Height="38"
+                      ItemsSource="{Binding PageSizeOptions}"
+                      SelectedItem="{Binding PageSize}"
+                      SelectionChanged="OnPageSizeChanged"
+                      AutomationProperties.AutomationId="screenshot-page-size"
+                      AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaPageSize}" />
+        </Grid>
+
+        <Grid Grid.Row="6">
+            <ListBox ItemsSource="{Binding Rows}"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
+                     AutomationProperties.AutomationId="screenshot-card-list"
+                     AutomationProperties.Name="{Binding Heading}"
+                     Visibility="{Binding HasRecords, Converter={StaticResource BoolToVisibility}}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,0,12" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Focusable" Value="False" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <ItemsControl ItemsSource="{Binding Cards}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="{Binding DataContext.ColumnCount,
+                                        RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="Margin" Value="0,0,12,0" />
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}"
+                                            BorderBrush="{DynamicResource PanelBorderBrush}"
+                                            BorderThickness="1" CornerRadius="12" Padding="10">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="126" />
+                                                <RowDefinition Height="10" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="6" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="8" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Button Grid.Row="0" Grid.RowSpan="5" Panel.ZIndex="1"
+                                                    Style="{StaticResource MediaCardDetailsButton}"
+                                                    Click="OnOpenCard"
+                                                    AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                    AutomationProperties.Name="{Binding AccessibleName}" />
+                                            <Border Grid.Row="0"
+                                                    Background="{DynamicResource ControlBackgroundBrush}"
+                                                    CornerRadius="8" ClipToBounds="True"
+                                                    IsHitTestVisible="False">
+                                                <Grid>
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                    <StackPanel HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                Visibility="{Binding IsImageMissing,
+                                                                    Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="▧" FontSize="28"
+                                                                   HorizontalAlignment="Center"
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                                        <TextBlock Text="{Binding AssetStatusText}" Margin="0,6,0,0"
+                                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                            <Grid Grid.Row="2" IsHitTestVisible="False">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding CreatedAtText}" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="{Binding ResolutionText}"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           FontSize="{DynamicResource CaptionFontSize}" />
+                                            </Grid>
+                                            <TextBlock Grid.Row="4" Text="{Binding TextPreview}"
+                                                       IsHitTestVisible="False"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                       MaxHeight="38" />
+                                            <WrapPanel Grid.Row="6" Panel.ZIndex="2"
+                                                       HorizontalAlignment="Right">
+                                                <Button Content="&#xE91B;" Style="{StaticResource MediaIconButton}"
+                                                        IsEnabled="{Binding CanCopyImage}"
+                                                        ToolTip="{x:Static l10n:L10n.ScreenshotCopyImage}"
+                                                        AutomationProperties.AutomationId="{Binding CopyImageAutomationId}"
+                                                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotCopyImage}"
+                                                        Tag="copy-image" Click="OnCardAction" />
+                                                <Button Content="&#xE8C8;" Style="{StaticResource MediaIconButton}"
+                                                        ToolTip="{x:Static l10n:L10n.ScreenshotCopyText}"
+                                                        AutomationProperties.AutomationId="{Binding CopyTextAutomationId}"
+                                                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotCopyText}"
+                                                        Tag="copy-text" Click="OnCardAction" />
+                                                <Button Content="{Binding FavoriteGlyph}"
+                                                        Style="{StaticResource MediaIconButton}"
+                                                        ToolTip="{x:Static l10n:L10n.ScreenshotFavorite}"
+                                                        AutomationProperties.AutomationId="{Binding FavoriteAutomationId}"
+                                                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotFavorite}"
+                                                        AutomationProperties.HelpText="{Binding FavoriteStatusText}"
+                                                        AutomationProperties.ItemStatus="{Binding FavoriteStatusText}"
+                                                        Tag="favorite" Click="OnCardAction" />
+                                                <Button Content="&#xE74D;" Style="{StaticResource MediaIconButton}"
+                                                        ToolTip="{x:Static l10n:L10n.ScreenshotDelete}"
+                                                        AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
+                                                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotDelete}"
+                                                        Tag="delete" Click="OnCardAction" />
+                                            </WrapPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="32"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="▧" FontSize="42" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource AccentBrush}" />
+                    <TextBlock Text="{Binding EmptyTitle}" Margin="0,14,0,0"
+                               FontSize="18" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding EmptyHint}" Margin="0,7,0,0"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="32"
+                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"
+                    AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaLoading}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar Width="180" Height="4" IsIndeterminate="True" />
+                    <TextBlock Text="{x:Static l10n:L10n.ScreenshotMediaLoading}"
+                               Margin="0,14,0,0" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="32"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"
+                    AutomationProperties.LiveSetting="Assertive"
+                    AutomationProperties.Name="{Binding ErrorMessage}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="!" FontSize="32" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Text="{Binding ErrorMessage}" Margin="0,12,0,0"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding PageSummary}"
+                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBlock Text="{Binding StatusMessage}" Margin="16,0,0,0"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           AutomationProperties.LiveSetting="Polite"
+                           AutomationProperties.Name="{Binding StatusMessage}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="{x:Static l10n:L10n.ScreenshotMediaPrevious}"
+                        AutomationProperties.AutomationId="screenshot-page-previous"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaPrevious}"
+                        IsEnabled="{Binding CanGoPrevious}" Click="OnPrevious" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotMediaNext}"
+                        Margin="8,0,0,0"
+                        AutomationProperties.AutomationId="screenshot-page-next"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotMediaNext}"
+                        IsEnabled="{Binding CanGoNext}" Click="OnNext" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

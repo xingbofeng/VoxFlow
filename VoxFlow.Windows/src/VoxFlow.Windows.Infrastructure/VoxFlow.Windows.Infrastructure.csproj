@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\VoxFlow.Windows.Application\VoxFlow.Windows.Application.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Domain\VoxFlow.Windows.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence/Migrations/V001__initial.sql"
+                      LogicalName="VoxFlow.Windows.Infrastructure.Persistence.Migrations.V001__initial.sql" />
+    <EmbeddedResource Include="Persistence/Migrations/V002__file_transcription.sql"
+                      LogicalName="VoxFlow.Windows.Infrastructure.Persistence.Migrations.V002__file_transcription.sql" />
+    <EmbeddedResource Include="Persistence/Migrations/V003__interactive_workflows.sql"
+                      LogicalName="VoxFlow.Windows.Infrastructure.Persistence.Migrations.V003__interactive_workflows.sql" />
+    <EmbeddedResource Include="Persistence/Migrations/V004__screenshot_records.sql"
+                      LogicalName="VoxFlow.Windows.Infrastructure.Persistence.Migrations.V004__screenshot_records.sql" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

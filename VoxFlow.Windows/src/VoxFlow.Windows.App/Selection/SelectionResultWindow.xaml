@@ -1,0 +1,142 @@
+<Window x:Class="VoxFlow.Windows.App.Selection.SelectionResultWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+        Width="440"
+        Height="560"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="{DynamicResource AppFontFamily}"
+        AllowsTransparency="True"
+        ShowActivated="True"
+        KeyDown="OnKeyDown"
+        MouseLeftButtonDown="OnMouseLeftButtonDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+    <Border x:Name="Root"
+            Background="{DynamicResource PanelBackgroundBrush}"
+            BorderBrush="{DynamicResource PanelBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="14"
+            AutomationProperties.Name="{Binding OperationLabel}"
+            AutomationProperties.LiveSetting="Polite">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Margin="2,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding OperationLabel}"
+                               FontSize="{DynamicResource TitleFontSize}"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatusTextBlock"
+                               Text="{Binding StatusText}"
+                               Margin="0,3,0,0"
+                               FontSize="{DynamicResource CaptionFontSize}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.Name="{Binding StatusText}" />
+                    <ProgressBar Height="2" Margin="0,7,0,0"
+                                 IsIndeterminate="True"
+                                 Visibility="{Binding IsTransforming, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+                <Button x:Name="CloseButton" Grid.Column="1" Content="×" Width="30" Height="30"
+                        FontSize="18" Padding="0" Click="OnClose"
+                        Style="{DynamicResource VoxFlowSecondaryButtonStyle}"
+                        ToolTip="{x:Static l10n:L10n.HistoryDetailClose}"
+                        AutomationProperties.Name="{x:Static l10n:L10n.HistoryDetailClose}"
+                        TabIndex="0" />
+            </Grid>
+            <Border Grid.Row="1" Background="{DynamicResource ControlBackgroundBrush}" CornerRadius="9" Padding="3">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Button x:Name="SourceTabButton" Grid.Column="0" Content="{x:Static l10n:L10n.SelectionResultSource}"
+                            Click="OnSelectSource" BorderThickness="0"
+                            AutomationProperties.Name="{x:Static l10n:L10n.SelectionResultSource}"
+                            TabIndex="1">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Padding" Value="12,8" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSourceTab}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentDarkBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="ResultTabButton" Grid.Column="1" Content="{x:Static l10n:L10n.SelectionResultResult}"
+                            Click="OnSelectResult" BorderThickness="0"
+                            AutomationProperties.Name="{x:Static l10n:L10n.SelectionResultResult}"
+                            TabIndex="2">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Padding" Value="12,8" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsResultTab}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentDarkBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+            <Border Grid.Row="2" Margin="0,12" Padding="12" CornerRadius="10"
+                    Background="{DynamicResource ControlBackgroundBrush}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <TextBox x:Name="DisplayedTextBox" Text="{Binding DisplayedText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0"
+                             Background="Transparent" TextWrapping="Wrap" AcceptsReturn="True"
+                             FontSize="15" Foreground="{DynamicResource PrimaryTextBrush}"
+                             AutomationProperties.Name="{Binding OperationLabel}"
+                             TabIndex="3" />
+                </ScrollViewer>
+            </Border>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="SpeakButton" Click="OnSpeak"
+                        Content="{Binding SpeakButtonLabel}"
+                        IsEnabled="{Binding CanSpeak}"
+                        Style="{DynamicResource VoxFlowSecondaryButtonStyle}"
+                        AutomationProperties.Name="{Binding SpeakButtonLabel}"
+                        TabIndex="4" />
+                <Button x:Name="CopyButton" Content="{x:Static l10n:L10n.SelectionResultCopy}" Click="OnCopy"
+                        Margin="8,0,0,0"
+                        IsEnabled="{Binding CanCopy}"
+                        Style="{DynamicResource VoxFlowSecondaryButtonStyle}"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SelectionResultCopy}"
+                        TabIndex="5" />
+                <Button Content="{x:Static l10n:L10n.SelectionResultReplace}" Margin="8,0,0,0"
+                        Style="{DynamicResource VoxFlowSecondaryButtonStyle}"
+                        IsEnabled="{Binding CanWriteBack}" Click="OnReplace"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SelectionResultReplace}"
+                        TabIndex="6" />
+                <Button Content="{x:Static l10n:L10n.SelectionResultInsertBelow}" Margin="8,0,0,0"
+                        Style="{DynamicResource VoxFlowSecondaryButtonStyle}"
+                        IsEnabled="{Binding CanWriteBack}" Click="OnInsertAfter"
+                        AutomationProperties.Name="{x:Static l10n:L10n.SelectionResultInsertBelow}"
+                        TabIndex="7" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

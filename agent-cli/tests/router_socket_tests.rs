@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;

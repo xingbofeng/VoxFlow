@@ -1,12 +1,21 @@
+#[cfg(unix)]
 use anyhow::{bail, Result};
+#[cfg(unix)]
 use std::io::Read;
+#[cfg(unix)]
 use voxflow::cli::{normalize_invocation_args, parse_from, VoxflowCommand};
+#[cfg(unix)]
 use voxflow::ipc::RouterServer;
+#[cfg(unix)]
 use voxflow::mcp::McpServer;
+#[cfg(unix)]
 use voxflow::paths::router_home;
+#[cfg(unix)]
 use voxflow::router::Router;
+#[cfg(unix)]
 use voxflow::session::{SessionRegistry, SystemProcessInspector};
 
+#[cfg(unix)]
 fn main() {
     if let Err(error) = run() {
         eprintln!("voxflow: {error:#}");
@@ -14,6 +23,7 @@ fn main() {
     }
 }
 
+#[cfg(unix)]
 fn run() -> Result<()> {
     let args = normalize_invocation_args(std::env::args()).map_err(anyhow::Error::msg)?;
     let command = parse_from(args).map_err(anyhow::Error::msg)?;
@@ -104,4 +114,10 @@ fn run() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(not(unix))]
+fn main() {
+    eprintln!("voxflow is available only on Unix; use voxflow-agent on Windows");
+    std::process::exit(1);
 }
