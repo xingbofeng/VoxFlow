@@ -61,7 +61,7 @@ final class AppPresentationPolicyTests: XCTestCase {
         )
         let launchRange = try XCTUnwrap(source.range(of: "func applicationDidFinishLaunching"))
         let launchSource = source[launchRange.lowerBound...]
-        let bootstrapRange = try XCTUnwrap(launchSource.range(of: "AppRuntime.bootstrap()"))
+        let bootstrapRange = try XCTUnwrap(launchSource.range(of: "AppRuntime.bootstrap("))
         let orchestratorRange = try XCTUnwrap(launchSource.range(of: "setupDictationOrchestrator()"))
         let statusItemRange = try XCTUnwrap(launchSource.range(of: "setupStatusItem()"))
         let menuRange = try XCTUnwrap(launchSource.range(of: "setupMenu()"))

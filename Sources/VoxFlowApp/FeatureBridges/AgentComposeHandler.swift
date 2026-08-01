@@ -122,6 +122,9 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
         case .cancelled:
             AppLogger.dictation.debug("AgentComposeHandler finish cancelled")
             break
+        case .handledExternally:
+            AppLogger.dictation.debug("AgentComposeHandler finish handledExternally")
+            break
         }
         activeTaskID = nil
         target = nil

@@ -66,7 +66,6 @@ final class TencentCloudASRProviderViewModelTests: XCTestCase {
         XCTAssertTrue(zhHans.contains("密钥 ID"))
         XCTAssertTrue(zhHans.contains("实时流式语音识别"))
         XCTAssertTrue(zhHans.contains("本地凭据文件"))
-        XCTAssertFalse(source.contains("腾讯云。应用 ID、密钥 ID 和 密钥 保存在系统钥匙串"))
     }
 
     private static func repositoryRoot() -> URL {

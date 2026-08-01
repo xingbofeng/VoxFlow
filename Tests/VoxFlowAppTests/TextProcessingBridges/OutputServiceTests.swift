@@ -205,6 +205,37 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertTrue(injector.injectedTexts.isEmpty)
     }
 
+    func testOutputPolicyKeepsAgentComposeCopyOnly() {
+        let policy = DefaultOutputPolicy()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+
+        XCTAssertEqual(
+            policy.action(mode: .agentCompose, target: target, originalTarget: target),
+            .copy(reason: .agentCompose)
+        )
+    }
+
+    func testOutputPolicyRequestsCopyWhenTargetChanged() {
+        let policy = DefaultOutputPolicy()
+        let original = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let current = DictationTarget(bundleID: "com.apple.Safari", appName: "Safari")
+
+        XCTAssertEqual(
+            policy.action(mode: .dictation, target: current, originalTarget: original),
+            .copy(reason: .targetChanged("Target application changed from Editor to Safari"))
+        )
+    }
+
+    func testOutputPolicyRequestsInsertionForUnchangedDictationTarget() {
+        let policy = DefaultOutputPolicy()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+
+        XCTAssertEqual(
+            policy.action(mode: .dictation, target: target, originalTarget: target),
+            .insert
+        )
+    }
+
     func testInjectionFailureReportsCopyFailureWhenFallbackCopyFails() async {
         let injector = StubTextInjector(result: .eventCreationFailed)
         let clipboard = StubClipboardService(succeeds: false)

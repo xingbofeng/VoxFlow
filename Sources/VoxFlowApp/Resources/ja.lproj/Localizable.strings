@@ -158,6 +158,10 @@
 "app.learning.undo_success" = "元に戻しました。";
 "app.learning.undo_unchanged" = "元に戻す変更はありません。";
 "app.output.input_failed" = "入力に失敗しました。再試行してください。継続する場合は権限を確認してください。";
+"app.startup.storage_failure.continue_temporary" = "一時的に続行";
+"app.startup.storage_failure.message" = "VoxFlow は永続ストレージを開けませんでした: %@\n\nこのセッションでは一時ストレージで続行できますが、新しい履歴、アセット、設定は再起動後に失われる可能性があります。";
+"app.startup.storage_failure.quit" = "終了";
+"app.startup.storage_failure.title" = "ストレージを利用できません";
 "app.permissions.accessibility_subtitle_format" = "VoxFlowはグローバルショートカットを監視・起動するためにアクセシビリティ権限が必要です。";
 "app.permissions.accessibility_title" = "アクセシビリティ";
 "app.permissions.check_title" = "権限ステータス";
@@ -983,7 +987,7 @@
 "model.llm_provider.field_name" = "名前";
 "model.llm_provider.field_name_placeholder" = "プロバイダー名";
 "model.llm_provider.field_service_url" = "サービス URL";
-"model.llm_provider.keychain_hint" = "API キーはキーチェーンに保存されます。";
+"model.llm_provider.keychain_hint" = "API keys are stored in the local credentials file.";
 "model.llm_provider.get_api_key" = "API キーを取得";
 "model.llm_provider.label_address" = "アドレス";
 "model.llm_provider.label_model" = "モデル";

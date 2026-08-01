@@ -58,6 +58,77 @@
 
 后续划词动作实现继续优先检查 `docs/third-party-selection-actions.md`，优先搬运许可证兼容的 P0 来源。每次新增复制 / 改写第三方源码时，必须在本文件追加上游项目、commit、许可证、文件清单、本地目标路径和不原样搬运原因。
 
+## Mashangxie iOS Keyboard
+
+iOS 输入法原型和中文输入链路位于 `Apps/VoxFlowiOS/`。完整 iOS 第三方声明维护在
+`Apps/VoxFlowiOS/THIRD_PARTY_NOTICES.md`；本节记录主仓库许可证索引里的摘要，确保 App
+内“开源许可证”链接可以覆盖 iOS 端参考/搬运来源。
+
+### Dictus iOS
+
+- 上游项目：getdictus/dictus-ios
+- 上游 URL：https://github.com/getdictus/dictus-ios
+- 上游 commit：7264b1d892adfddd1d9cf3a5f7c4debb37b00019
+- 许可证：MIT
+- 版权：Copyright (c) 2026 PIVI Solutions
+- 本地目标路径：
+  - `Apps/VoxFlowiOS/Keyboard/`
+  - `Apps/VoxFlowiOS/Shared/`
+  - `Apps/VoxFlowiOS/VoxFlowiOS/Views/`
+  - `Apps/VoxFlowiOS/VoxFlowiOS/Dictation/`
+- 复制 / 改写行为：
+  - Keyboard Extension UI、键盘状态机、App Group / Darwin notification 桥接、录音 overlay、日志和设置页外壳。
+  - 本地改动主要替换 ASR provider 桥接、品牌主题、本地化、中文键盘入口和云端凭证 dev 注入。
+
+### Hamster
+
+- 上游项目：imfuxiao/Hamster
+- 上游 URL：https://github.com/imfuxiao/Hamster
+- 上游 commit：65693706d01fc6c19ed6071968e542b0a2ef3f36
+- 许可证：MIT
+- 版权：Copyright (c) 2025 xiao.fu
+- 本地目标路径：
+  - `Apps/VoxFlowiOS/ChineseInput/Upstream/HamsterKit/`
+  - `Apps/VoxFlowiOS/ChineseInput/Upstream/HamsterKeyboardKit/`
+  - `Apps/VoxFlowiOS/ChineseInput/Sources/`
+- 复制 / 改写行为：
+  - T9 拼音映射、候选模型、RimeContext 相关结构、中文 26 键 / 9 键布局参考和 Rime schema 部署思路。
+  - 本地改动将 Hamster 中文输入能力接入 Dictus 风格键盘壳层。
+
+### LibrimeKit / Rime native bundle
+
+- 上游项目：amorphobia/LibrimeKit
+- 上游 URL：https://github.com/amorphobia/LibrimeKit
+- native bundle 来源：https://github.com/amorphobia/LibrimeKit/releases/download/v0.1.0/Frameworks.tgz
+- 本地目标路径：
+  - `Apps/VoxFlowiOS/ChineseInput/Frameworks/`
+  - `Apps/VoxFlowiOS/ChineseInput/RimeKitObjC/`
+  - `Apps/VoxFlowiOS/ChineseInput/Upstream/RimeKit/`
+- 复制 / 改写行为：
+  - iOS 端 Rime 原生运行时桥接和 xcframework 依赖，用于中文 26 键、9 键和候选词。
+- 依赖许可证摘要：
+  - `librime`：BSD-3-Clause
+  - `boost_atomic`、`boost_filesystem`、`boost_regex`、`boost_system`：Boost Software License
+  - `libglog`：BSD-3-Clause
+  - `libleveldb`：BSD-3-Clause
+  - `libmarisa`：BSD-style license
+  - `libopencc`：Apache-2.0
+  - `libyaml-cpp`：MIT
+
+发布前需要按最终嵌入的二进制依赖重新审计完整 license text，并同步到 App 内许可证说明。
+
+### Rime Ice Schema Data
+
+- 上游项目：iDvel/rime-ice
+- 上游 URL：https://github.com/iDvel/rime-ice
+- 上游 revision：846e5fcae56f0e3f4dcd8570319ffaf377e15471
+- 许可证：GPL-3.0
+- 本地目标路径：
+  - `Apps/VoxFlowiOS/ChineseInput/Resources/Schemas/`
+- 复制 / 改写行为：
+  - `rime_ice.schema.yaml`、`rime_ice.dict.yaml`、`t9.schema.yaml`、依赖 schema、词典、Lua helper、OpenCC 和 emoji 资源。
+  - iOS 端默认中文 26 键使用雾凇拼音；9 键使用上游 `t9.schema.yaml` 继承雾凇词典并通过 Rime speller algebra 处理数字输入。
+
 ## sadopc/ScreenCapture
 
 - 上游项目：sadopc/ScreenCapture

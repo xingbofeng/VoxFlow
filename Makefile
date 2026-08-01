@@ -15,6 +15,7 @@ VOXFLOW_DEVELOPER_DIR ?= $(HOME)/Applications/Xcode-16.4.0.app/Contents/Develope
 ifneq ($(wildcard $(VOXFLOW_DEVELOPER_DIR)),)
 export DEVELOPER_DIR := $(VOXFLOW_DEVELOPER_DIR)
 endif
+ACTIVE_DEVELOPER_DIR := $(if $(DEVELOPER_DIR),$(DEVELOPER_DIR),$(shell xcode-select -p))
 SWIFT := xcrun swift
 SWIFT_PACKAGE_FLAGS := --scratch-path $(SWIFTPM_BUILD_DIR)
 ARM_RELEASE_BIN_DIR := $(SWIFTPM_BUILD_DIR)/arm64-apple-macosx/release
@@ -67,7 +68,7 @@ export SENTRY_PROJECT
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup gen-l10n lint i18n-check
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-ipa ios-keyboard-release-archive ios-clean
 
 all: build
 
@@ -276,11 +277,15 @@ apply-launch-env:
 	done
 
 prelaunch-cleanup:
-	@echo "🧽 Cleaning stale local app registration..."
+	@echo "🧽 Stopping stale local app processes..."
 	@pkill -x "$(APP_NAME)" 2>/dev/null || true
 	@pkill -x "$(SWIFT_EXECUTABLE)" 2>/dev/null || true
 	@pkill -f "$(CURDIR)/$(BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve" 2>/dev/null || true
 	@pkill -f "$(CURDIR)/$(DEV_BUNDLE_DIR)/Contents/Helpers/[v]oxflow serve" 2>/dev/null || true
+	@rm -rf ".build/$(APP_NAME).app"
+
+clean-ls-cache:
+	@echo "🧽 Cleaning LaunchServices and status item cache..."
 	@for app in \
 		"$(BUNDLE_DIR)" \
 		"$(DEV_BUNDLE_DIR)" \
@@ -303,6 +308,8 @@ prelaunch-cleanup:
 	done
 	@killall cfprefsd 2>/dev/null || true
 	@killall ControlCenter 2>/dev/null || true
+
+reset-dev-state: prelaunch-cleanup clean-ls-cache
 
 install: build
 	@echo "📥 Installing to $(INSTALL_DIR)..."
@@ -388,3 +395,223 @@ clean:
 
 debug: prepare-runtime
 	$(SWIFT) build $(SWIFT_PACKAGE_FLAGS) -c debug -Xswiftc -warnings-as-errors
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mashangxie iOS：Simulator 构建运行 + Keyboard Extension 静态验证
+#
+# 真机微信输入法验收仍以 Apps/VoxFlowiOS/NOTES.md 为准。
+# ─────────────────────────────────────────────────────────────────────────────
+
+IOS_APP_DIR := Apps/VoxFlowiOS
+IOS_PROJECT := $(IOS_APP_DIR)/VoxFlowiOS.xcodeproj
+IOS_SCHEME := Mashangxie
+IOS_KEYBOARD_SCHEME := MashangxieKeyboard
+IOS_BUNDLE_ID := com.mashangxie.ios
+IOS_BUILD_DIR := $(BUILD_DIR)/ios
+IOS_DEV_CLOUD_RESOURCE := $(IOS_APP_DIR)/Generated/DevCloudCredentials.plist
+IOS_IPA_DIR := dist/ios
+IOS_IPA := $(IOS_IPA_DIR)/Mashangxie.ipa
+IOS_RELEASE_ARCHIVE := $(IOS_BUILD_DIR)/Mashangxie.xcarchive
+IOS_RIME_PREBUILD_DIR := $(IOS_APP_DIR)/ChineseInput/Resources/Schemas/build
+IOS_SIMULATOR_NAME ?= iPhone 16
+IOS_SIMULATOR_OS ?= 18.5
+IOS_SIMULATOR_ARCH ?= x86_64
+IOS_DEVICE_CONFIGURATION ?= Release
+IOS_SIM_CODE_SIGN_ARGS := CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-
+# iOS 与 macOS 默认使用同一套 Xcode，避免同一工作区下不同构建目标暗中切换工具链。
+# 如需切换 Xcode，请统一覆盖 VOXFLOW_DEVELOPER_DIR，例如：
+#   make ios-run-sim VOXFLOW_DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+IOS_DEVELOPER_DIR ?= $(ACTIVE_DEVELOPER_DIR)
+
+xcode-toolchain-check:
+	@echo "→ 使用 DEVELOPER_DIR=$(ACTIVE_DEVELOPER_DIR)"
+	@DEVELOPER_DIR="$(ACTIVE_DEVELOPER_DIR)" xcrun xcodebuild -version
+	@DEVELOPER_DIR="$(ACTIVE_DEVELOPER_DIR)" xcrun swift --version | head -1
+	@test "$$(awk '/swift-tools-version:/ { print $$3; exit }' Package.swift)" = "6.0" || (echo "Package.swift swift-tools-version must stay at 6.0" && exit 1)
+	@python3 -c 'from pathlib import Path; p = Path("Apps/VoxFlowiOS/project.yml").read_text(encoding="utf-8"); raise SystemExit(0 if "SWIFT_VERSION: \"6.0\"" in p else "Apps/VoxFlowiOS/project.yml must keep base SWIFT_VERSION at 6.0")'
+
+ios-bootstrap: ios-gen-project
+	@echo "iOS workspace ready: $(IOS_PROJECT)"
+	@echo "Generated dev cloud credentials: $(IOS_DEV_CLOUD_RESOURCE)"
+
+ios-rime-schemas:
+	@Apps/VoxFlowiOS/Scripts/bootstrap-rime-ice-schemas.sh
+
+ios-gen-project: ios-dev-cloud-resource ios-rime-schemas
+	@command -v xcodegen >/dev/null 2>&1 || (echo "xcodegen not found. Run: brew install xcodegen" && exit 1)
+	cd "$(IOS_APP_DIR)" && xcodegen generate 2>&1 | sed 's/^/[xcodegen] /'
+
+ios-rime-prebuild: ios-gen-project
+	@echo "→ 预编译完整 Rime build 产物到 $(IOS_RIME_PREBUILD_DIR)"
+	@rm -rf "$(IOS_RIME_PREBUILD_DIR)"
+	@touch "$(IOS_APP_DIR)/.export-rime-prebuild"
+	@set -e; \
+		trap 'rm -f "$(IOS_APP_DIR)/.export-rime-prebuild"' EXIT; \
+		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+			-project "$(IOS_PROJECT)" \
+			-scheme RimeNativeRuntimeTests \
+			-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+			-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+			$(IOS_SIM_CODE_SIGN_ARGS) \
+			test
+	@test -f "$(IOS_RIME_PREBUILD_DIR)/rime_ice.table.bin" || (echo "Missing prebuilt rime_ice.table.bin" && exit 1)
+	@du -sh "$(IOS_RIME_PREBUILD_DIR)"
+
+ios-rime-prebuild-if-needed: ios-gen-project
+	@if [ ! -f "$(IOS_RIME_PREBUILD_DIR)/rime_ice.table.bin" ]; then \
+		echo "→ 未找到预编译 Rime build，先生成测试运行时资源"; \
+		$(MAKE) ios-rime-prebuild; \
+	else \
+		echo "Rime prebuilt build ready: $(IOS_RIME_PREBUILD_DIR)"; \
+	fi
+
+# 生成 Xcode 项目（若不存在）后在 iOS Simulator 上构建
+ios-dev-cloud-resource:
+	@MASHANGXIE_DEV_TENCENT_APP_ID="$(MASHANGXIE_DEV_TENCENT_APP_ID)" \
+	MASHANGXIE_DEV_TENCENT_SECRET_ID="$(MASHANGXIE_DEV_TENCENT_SECRET_ID)" \
+	MASHANGXIE_DEV_TENCENT_SECRET_KEY="$(MASHANGXIE_DEV_TENCENT_SECRET_KEY)" \
+	MASHANGXIE_DEV_ALIYUN_API_KEY="$(MASHANGXIE_DEV_ALIYUN_API_KEY)" \
+	MASHANGXIE_DEV_VOLCENGINE_APP_ID="$(MASHANGXIE_DEV_VOLCENGINE_APP_ID)" \
+	MASHANGXIE_DEV_VOLCENGINE_ACCESS_TOKEN="$(MASHANGXIE_DEV_VOLCENGINE_ACCESS_TOKEN)" \
+	MASHANGXIE_DEV_VOLCENGINE_SECRET_KEY="$(MASHANGXIE_DEV_VOLCENGINE_SECRET_KEY)" \
+	python3 "$(IOS_APP_DIR)/Scripts/write-dev-cloud-resource.py" "$(IOS_DEV_CLOUD_RESOURCE)"
+
+ios-build-sim: ios-gen-project
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@rm -rf "$(IOS_BUILD_DIR)/DerivedData/Build/Products/Debug-iphonesimulator/$(IOS_SCHEME).app"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	@DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild \
+		-project "$(IOS_PROJECT)" \
+		-scheme "$(IOS_SCHEME)" \
+		-configuration Debug \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		build
+
+# 构建设备平台未签名 .app。不要复用 Simulator 产物；真机预览需要
+# iphoneos binary，而不是 iphonesimulator binary。
+ios-build-device: ios-gen-project
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@rm -rf "$(IOS_BUILD_DIR)/DerivedData/Build/Products/$(IOS_DEVICE_CONFIGURATION)-iphoneos/$(IOS_SCHEME).app"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	@DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild \
+		-project "$(IOS_PROJECT)" \
+		-scheme "$(IOS_SCHEME)" \
+		-configuration "$(IOS_DEVICE_CONFIGURATION)" \
+		-destination "generic/platform=iOS" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		CODE_SIGNING_ALLOWED=NO \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGN_IDENTITY="" \
+		ENABLE_CODE_COVERAGE=NO \
+		CLANG_COVERAGE_MAPPING=NO \
+		GCC_GENERATE_TEST_COVERAGE_FILES=NO \
+		GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=NO \
+		build
+
+# 在默认或指定 Simulator 上安装并启动 App
+ios-run-sim: ios-build-sim
+	@echo "→ 选择 Simulator（$(IOS_SIMULATOR_NAME), OS $(IOS_SIMULATOR_OS)）"
+	$(eval SIMULATOR_UDID := $(shell DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl list devices available -j | python3 -c "import sys,json;d=json.load(sys.stdin);rts=[(r['udid'],r['name']) for os,runtime in d['devices'].items() for r in runtime if r.get('isAvailable')];name='$(IOS_SIMULATOR_NAME)';match=[u for u,n in rts if n==name];print(match[0] if match else (rts[0][0] if rts else ''))"))
+	@test -n "$(SIMULATOR_UDID)" || (echo "未找到可用 Simulator" && exit 1)
+	@echo "→ 启动 Simulator: $(SIMULATOR_UDID)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl bootstatus "$(SIMULATOR_UDID)" -b
+	@APP_PATH=$$(find "$(IOS_BUILD_DIR)/DerivedData/Build/Products/Debug-iphonesimulator" -name "$(IOS_SCHEME).app" -type d | head -1); \
+		test -n "$$APP_PATH" || (echo "未找到构建产物 $(IOS_SCHEME).app" && exit 1); \
+		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl install "$(SIMULATOR_UDID)" "$$APP_PATH"; \
+		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl launch "$(SIMULATOR_UDID)" "$(IOS_BUNDLE_ID)"; \
+		open -a Simulator
+
+ios-test-sim: ios-rime-prebuild-if-needed
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme SharedTests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		test
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme KeyboardTests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		test
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme MashangxieTests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		-only-testing:MashangxieTests \
+		test
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme ChineseInputTests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		test
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme RimeNativeRuntimeTests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		test
+
+ios-ui-test-sim: ios-gen-project
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
+		-project "$(IOS_PROJECT)" \
+		-scheme MashangxieUITests \
+		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		$(IOS_SIM_CODE_SIGN_ARGS) \
+		test
+
+ios-device-preflight:
+	Apps/VoxFlowiOS/Scripts/verify-device-prereqs.sh
+
+# 打包未签名 IPA。需要签名的真机路径使用 ios-keyboard-release-archive，
+# 不需要改源码。
+ios-ipa: ios-build-device
+	@mkdir -p "$(IOS_IPA_DIR)"
+	@rm -f "$(IOS_IPA)"
+	@rm -rf "$(IOS_BUILD_DIR)/Payload"
+	@mkdir -p "$(IOS_BUILD_DIR)/Payload"
+	@APP_PATH=$$(find "$(IOS_BUILD_DIR)/DerivedData/Build/Products/$(IOS_DEVICE_CONFIGURATION)-iphoneos" -name "$(IOS_SCHEME).app" -type d | head -1); \
+		test -n "$$APP_PATH" || (echo "未找到构建产物 $(IOS_SCHEME).app" && exit 1); \
+		cp -R "$$APP_PATH" "$(IOS_BUILD_DIR)/Payload/"; \
+		cd "$(IOS_BUILD_DIR)" && zip -r -q "$(CURDIR)/$(IOS_IPA)" Payload; \
+		echo "✅ IPA 已生成: $(IOS_IPA)"
+	@Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh "$(IOS_IPA)" "$(IOS_APP_DIR)"
+	@echo "→ 未签名 IPA 已完成静态 contract 校验。"
+
+ios-keyboard-release-archive: ios-gen-project
+	@test -n "$(MASHANGXIE_DEVELOPMENT_TEAM)" || (echo "Set MASHANGXIE_DEVELOPMENT_TEAM=<Apple team id>" && exit 2)
+	@mkdir -p "$(IOS_BUILD_DIR)"
+	@rm -rf "$(IOS_RELEASE_ARCHIVE)"
+	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
+	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild \
+		-project "$(IOS_PROJECT)" \
+		-scheme "$(IOS_SCHEME)" \
+		-configuration Release \
+		-destination "generic/platform=iOS" \
+		-archivePath "$(IOS_RELEASE_ARCHIVE)" \
+		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
+		DEVELOPMENT_TEAM="$(MASHANGXIE_DEVELOPMENT_TEAM)" \
+		CODE_SIGN_STYLE=Automatic \
+		CODE_SIGNING_ALLOWED=YES \
+		CODE_SIGNING_REQUIRED=YES \
+		-allowProvisioningUpdates \
+		archive
+	@echo "✅ Paid/developer signing archive: $(IOS_RELEASE_ARCHIVE)"
+
+ios-clean:
+	@rm -rf "$(IOS_PROJECT)" "$(IOS_BUILD_DIR)" "$(IOS_IPA_DIR)" "$(IOS_APP_DIR)/Generated"
+	@echo "✅ iOS 构建产物已清理"

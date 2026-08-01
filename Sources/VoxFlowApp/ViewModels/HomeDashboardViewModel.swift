@@ -799,7 +799,7 @@ final class HomeDashboardViewModel: ObservableObject {
             lastError = nil
             lastActionMessage = "已复制到剪贴板，请手动粘贴"
             lastActionTone = .success
-        case .permissionDenied, .failed, .cancelled:
+        case .permissionDenied, .failed, .handledExternally, .cancelled:
             lastError = "重新输出失败。"
         }
     }

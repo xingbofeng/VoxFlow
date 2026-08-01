@@ -158,6 +158,10 @@
 "app.learning.undo_success" = "已復原。";
 "app.learning.undo_unchanged" = "目前沒有可復原內容。";
 "app.output.input_failed" = "輸入失敗，請重試。若持續發生，請檢查權限。";
+"app.startup.storage_failure.continue_temporary" = "暫時繼續";
+"app.startup.storage_failure.message" = "VoxFlow 無法開啟持久化儲存：%@\n\n你可以在本次工作階段使用暫存儲存繼續，但新的歷史、資產和設定可能會在重新啟動後遺失。";
+"app.startup.storage_failure.quit" = "結束";
+"app.startup.storage_failure.title" = "儲存不可用";
 "app.permissions.accessibility_subtitle_format" = "碼上寫需要「輔助功能」權限才能監聽與觸發全域快捷鍵。";
 "app.permissions.accessibility_title" = "輔助功能";
 "app.permissions.check_title" = "權限狀態";
@@ -983,7 +987,7 @@
 "model.llm_provider.field_name" = "名稱";
 "model.llm_provider.field_name_placeholder" = "服務商名稱";
 "model.llm_provider.field_service_url" = "服務位址";
-"model.llm_provider.keychain_hint" = "API 金鑰會存入鑰匙圈。";
+"model.llm_provider.keychain_hint" = "API 金鑰會存入本地憑據檔案。";
 "model.llm_provider.get_api_key" = "取得 API 金鑰";
 "model.llm_provider.label_address" = "位址";
 "model.llm_provider.label_model" = "模型";

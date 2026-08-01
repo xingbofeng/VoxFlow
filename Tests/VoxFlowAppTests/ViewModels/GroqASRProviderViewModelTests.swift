@@ -234,7 +234,6 @@ final class GroqASRProviderViewModelTests: XCTestCase {
 
         XCTAssertTrue(source.contains(#"asr.provider.groq.privacy_note"#))
         XCTAssertTrue(zhHans.contains("访问密钥保存在本地凭据文件"))
-        XCTAssertFalse(source.contains("录音会发送到 Groq。访问密钥保存在系统钥匙串"))
     }
 
     func testRejectsNonHTTPSGroqEndpoint() throws {

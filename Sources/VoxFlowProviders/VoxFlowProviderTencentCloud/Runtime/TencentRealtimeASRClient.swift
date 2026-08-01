@@ -53,10 +53,10 @@ public struct TencentRealtimeASRConfiguration: Equatable, Sendable {
         timeoutSeconds: Double = 30,
         hotwordList: String? = nil
     ) {
-        self.appID = appID
-        self.secretID = secretID
-        self.secretKey = secretKey
-        self.engineModelType = engineModelType
+        self.appID = appID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.secretID = secretID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.secretKey = secretKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.engineModelType = engineModelType.trimmingCharacters(in: .whitespacesAndNewlines)
         self.voiceFormat = voiceFormat
         self.needVAD = needVAD
         self.timeoutSeconds = timeoutSeconds
@@ -104,14 +104,14 @@ public struct TencentRealtimeASRURLSigner: Sendable {
         needVAD: Int,
         hotwordList: String? = nil
     ) {
-        self.appID = appID
-        self.secretID = secretID
-        self.secretKey = secretKey
+        self.appID = appID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.secretID = secretID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.secretKey = secretKey.trimmingCharacters(in: .whitespacesAndNewlines)
         self.timestamp = timestamp
         self.expired = expired
         self.nonce = nonce
         self.voiceID = voiceID
-        self.engineModelType = engineModelType
+        self.engineModelType = engineModelType.trimmingCharacters(in: .whitespacesAndNewlines)
         self.voiceFormat = voiceFormat
         self.needVAD = needVAD
         self.hotwordList = Self.normalizedHotwordList(hotwordList)

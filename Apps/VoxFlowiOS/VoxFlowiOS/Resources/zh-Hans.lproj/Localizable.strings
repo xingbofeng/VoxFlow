@@ -1,0 +1,328 @@
+/* VoxFlowiOS — 简体中文 */
+
+/* Tabs */
+"tab.home" = "首页";
+"tab.dictation" = "听写";
+"tab.diagnostics" = "诊断";
+"tab.services" = "服务";
+"tab.settings" = "设置";
+
+/* Common */
+"common.cancel" = "取消";
+"common.delete" = "删除";
+"common.error" = "错误";
+"common.ok" = "好";
+"common.retry" = "重试";
+
+/* App Home */
+"app.home.title" = "码上写";
+"app.home.brand" = "码上写";
+"app.home.tagline" = "中文优先的语音键盘";
+"app.home.active_model" = "当前模型";
+"app.home.download_model" = "选择一个服务后开始";
+"app.home.download_model_hint" = "前往模型页选择语音识别服务。";
+"app.home.provider_status" = "当前识别服务";
+"app.home.provider_ready" = "已准备好用于键盘听写。";
+"app.home.last_transcription" = "上次识别";
+"app.home.tap_to_copy" = "点按复制";
+"app.home.copied" = "已复制！";
+"app.home.new_dictation" = "开始听写";
+"app.home.keyboard_hint" = "在 iOS 设置中启用码上写键盘后，就可以在微信或任意输入框里使用。";
+
+/* Recording */
+"recording.transcribing" = "识别中…";
+"recording.copied" = "已复制！";
+"recording.tap_text_to_copy" = "点按文本复制";
+"recording.stop_accessibility" = "停止录音";
+"recording.retry" = "重试";
+"recording.failed" = "识别失败，请检查 Provider 设置和系统权限。";
+
+/* Cold start */
+"cold_start.title" = "正在录音";
+"cold_start.subtitle" = "由于 iOS 第三方键盘不能直接访问麦克风，码上写会在主 App 中完成录音。";
+"cold_start.instruction" = "从屏幕底部向右轻扫\n返回刚才的输入框";
+"cold_start.listening" = "正在听…";
+
+/* Onboarding */
+"onboarding.get_started" = "开始使用";
+"onboarding.continue" = "继续";
+"onboarding.welcome.brand" = "码上写";
+"onboarding.welcome.tagline" = "中文优先的语音键盘，能在微信和任意输入框使用";
+"onboarding.mic.title" = "麦克风";
+"onboarding.mic.subtitle" = "iOS 第三方键盘不能直接录音。码上写会在主 App 中录音，再把结果送回键盘。";
+"onboarding.mic.authorized" = "麦克风已授权";
+"onboarding.mic.later" = "你也可以稍后在系统设置中开启麦克风权限。";
+"onboarding.keyboard.title" = "添加键盘";
+"onboarding.keyboard.open_settings" = "打开设置";
+"onboarding.keyboard.auto_detect" = "系统允许时会自动检测键盘是否已启用。";
+"onboarding.keyboard.restart_note" = "开启完全访问后，码上写可能会被系统重启，这是正常现象。";
+"onboarding.keyboard.detected" = "已检测到键盘";
+"onboarding.keyboard.step_add" = "在 iOS 键盘设置中添加码上写。";
+"onboarding.keyboard.step_full_access" = "开启完全访问，用于 Provider 和 App Group 通信。";
+"onboarding.keyboard.step_return" = "回到这里，然后在微信里使用键盘。";
+"onboarding.mode.title" = "选择键盘";
+"onboarding.mode.subtitle" = "当前默认打开 ABC。第二阶段的中文 26 键和 9 键会继续使用这套外壳。";
+"onboarding.mode.picker" = "默认键盘页";
+"onboarding.provider.title" = "识别服务";
+"onboarding.provider.subtitle" = "默认使用 Apple 语音识别。云服务 Provider 可以在设置中配置。";
+"onboarding.success.title" = "准备好了！";
+"onboarding.success.subtitle" = "码上写已准备好。在 iOS 设置中启用键盘后，就可以从输入框开始听写。";
+"keyboard.space" = "空格";
+
+/* Providers */
+"provider.apple_speech" = "Apple 语音识别";
+"provider.tencent" = "腾讯云实时 ASR";
+"provider.aliyun" = "阿里云 DashScope";
+"provider.volcengine" = "火山云实时 ASR";
+"provider.summary.apple_speech" = "系统自带 baseline，需要语音识别权限。LiveContainer 环境下可能受限。";
+"provider.summary.tencent" = "腾讯云实时 ASR，需要 AppID、SecretId 和 SecretKey。";
+"provider.summary.aliyun" = "阿里云 DashScope 实时 ASR，需要 API Key。";
+"provider.summary.volcengine" = "火山云实时 ASR，需要 App ID、Access Token 和 Secret Key。";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "听写";
+"dictation.current_service" = "当前服务";
+"dictation.change" = "切换";
+"dictation.language_label" = "语言";
+"dictation.live_text" = "实时文本";
+"dictation.live_placeholder" = "实时文本将显示在这里。";
+"dictation.start" = "开始";
+"dictation.stop" = "停止";
+"dictation.start_again" = "再次开始";
+"dictation.requesting_permission" = "正在请求麦克风权限…";
+"dictation.transcribing" = "识别中…";
+"dictation.copy" = "复制";
+"dictation.share" = "分享";
+"dictation.clear" = "清空";
+"dictation.copied" = "已复制";
+"dictation.final_text" = "最终文本";
+
+/* Settings */
+"settings.title" = "设置";
+"settings.layout" = "布局";
+"settings.haptic_feedback" = "触感反馈";
+"settings.sounds" = "声音";
+"settings.autocorrect" = "自动纠错";
+"settings.live_activity" = "实时活动";
+"settings.live_activity_disabled_hint" = "灵动岛和锁屏通知已关闭。";
+"settings.autocorrect_debug_logs" = "自动纠错调试日志";
+"settings.developer_section" = "开发者";
+"settings.autocorrect_debug_warning" = "警告：日志会包含输入词和纠错内容，仅限 Debug 构建。";
+"settings.autocorrect_debug_hint" = "记录自动纠错决策用于调试，默认关闭。";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR 服务";
+"settings.provider.apple_speech_hint" = "Apple 语音识别使用系统识别器，无需凭证，但需要语音识别权限。";
+"settings.language_section" = "语言";
+"settings.language" = "识别语言";
+"settings.credentials_section" = "云服务凭证";
+"settings.credentials_not_set" = "未填写";
+"settings.credentials_configured" = "已配置";
+"settings.credentials_save" = "保存";
+"settings.credentials_clear" = "清空";
+"settings.credentials_saved_toast" = "已保存";
+"settings.credentials_warning" = "V1 凭证以明文保存在本地文件，仅用于个人测试 key，请勿使用高权限生产 key。";
+"settings.keyboard_section" = "键盘";
+"settings.keyboard_phase2_hint" = "中文 26 键和 9 键会在 Phase 2 继续使用这套 Dictus 风格外壳。";
+"settings.diagnostics_section" = "诊断";
+"settings.debug_logs" = "调试日志";
+"settings.debug_logs_hint" = "查看键盘冷启动和 Provider 桥接事件。";
+"settings.export_logs" = "导出日志";
+"settings.export_logs_hint" = "分享 App Group 日志文件用于排查问题。";
+"settings.security_note" = "安全提示";
+"settings.about_section" = "关于";
+"settings.about_version" = "版本";
+"settings.github_star" = "GitHub / 点 Star";
+"settings.privacy_policy" = "隐私政策";
+"settings.licenses" = "开源许可证";
+"settings.licenses_placeholder" = "开源许可证说明已随仓库提供。";
+"settings.diagnostic" = "诊断";
+"settings.about_env" = "运行环境";
+"settings.about_env_simulator" = "iOS 模拟器";
+"settings.about_env_device" = "iOS 真机";
+"settings.about_env_hint" = "模拟器、LiveContainer 和真机的诊断和预览路径不同。";
+
+/* Services */
+"services.title" = "服务";
+"services.current_section" = "当前服务";
+"services.providers_section" = "可用 Provider";
+"services.downloaded_section" = "已选择";
+"services.available_section" = "可用";
+"services.recommended" = "推荐";
+"services.gauge.accuracy" = "准确度";
+"services.gauge.speed" = "速度";
+"services.runtime.system" = "系统";
+"services.runtime.cloud" = "云端";
+"services.engine.apple_speech" = "Apple 语音识别——默认 baseline Provider，用于首次安装后的键盘听写。";
+"services.engine.cloud" = "云端 ASR——腾讯云、阿里云 DashScope 和火山云复用码上写实时 ASR 桥接层。";
+"services.optimizing" = "正在准备…";
+"services.delete_alert_title" = "删除 Provider？";
+"services.delete_alert_message" = "删除 %@？该 Provider 会从已选择列表中移除。";
+
+/* Model loading */
+"model_loading.ready" = "服务已准备好";
+"model_loading.stay_on_page" = "请停留在此页面，不要离开 App。";
+"model_loading.phase.downloading" = "准备中";
+"model_loading.phase.compiling" = "优化中";
+"model_loading.phase.loading" = "加载中";
+"model_loading.phase.ready" = "已就绪";
+"model_loading.downloading.1" = "正在准备服务…";
+"model_loading.downloading.2" = "正在检查 Provider 设置…";
+"model_loading.downloading.3" = "正在连接共享状态…";
+"model_loading.downloading.4" = "马上就好…";
+"model_loading.downloading.5" = "正在完成设置…";
+"model_loading.compiling.1" = "正在为你的 iPhone 优化…";
+"model_loading.compiling.2" = "正在准备音频路由…";
+"model_loading.compiling.3" = "正在检查键盘桥接…";
+"model_loading.compiling.4" = "正在调整 Provider 设置…";
+"model_loading.compiling.5" = "正在预热会话…";
+"model_loading.compiling.6" = "正在构建听写链路…";
+"model_loading.compiling.7" = "正在预热音频管线…";
+"model_loading.compiling.8" = "正在对齐共享存储…";
+"model_loading.compiling.9" = "正在缓存运行状态…";
+"model_loading.compiling.10" = "正在准备低延迟输入…";
+"model_loading.compiling.11" = "正在完成最后一步…";
+"model_loading.compiling.12" = "再等几秒…";
+"model_loading.loading.1" = "正在加载 Provider…";
+"model_loading.loading.2" = "正在映射服务状态…";
+"model_loading.loading.3" = "正在准备听写…";
+"model_loading.loading.4" = "正在预热音频管线…";
+"model_loading.loading.5" = "快好了…";
+
+/* Diagnostics */
+"diagnostics.title" = "诊断";
+"diagnostics.app_group_section" = "App Group";
+"diagnostics.app_group_container" = "容器";
+"diagnostics.app_group_read" = "读取";
+"diagnostics.app_group_write" = "写入";
+"diagnostics.app_group_file_read" = "文件读取";
+"diagnostics.app_group_file_write" = "文件写入";
+"diagnostics.app_group_file" = "探针文件";
+"diagnostics.app_group_timestamp" = "检查时间";
+"diagnostics.keyboard_section" = "键盘共享状态";
+"diagnostics.keyboard_status" = "状态";
+"diagnostics.keyboard_heartbeat" = "心跳";
+"diagnostics.keyboard_cold_start" = "冷启动";
+"diagnostics.keyboard_pending_transcription" = "待插入转写";
+"diagnostics.keyboard_last_error" = "最近错误";
+"diagnostics.providers_section" = "Provider 可用性";
+"diagnostics.env_section" = "运行环境";
+"diagnostics.recorder_section" = "录音器";
+"diagnostics.logs_section" = "日志";
+"diagnostics.open_debug_logs" = "打开调试日志";
+"diagnostics.open_debug_logs_hint" = "读取 App 和键盘写入的持久日志。";
+"diagnostics.timeline_section" = "时间线";
+"diagnostics.timeline_empty" = "暂无事件。";
+"diagnostics.recorder_deactivation_error" = "会话停用错误";
+"diagnostics.recorder_no_error" = "录音器暂无错误记录。";
+"diagnostics.env_platform" = "平台";
+"diagnostics.env_platform_simulator" = "模拟器";
+"diagnostics.env_platform_device" = "真机";
+"diagnostics.env_container" = "容器";
+"diagnostics.env_container_native" = "原生 App";
+"diagnostics.env_container_livecontainer" = "LiveContainer（宿主 App）";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.env_bundle" = "Bundle";
+"diagnostics.env_url_scheme" = "URL Scheme";
+"diagnostics.ok" = "正常";
+"diagnostics.failed" = "失败";
+"diagnostics.value_none" = "无";
+"diagnostics.value_unknown" = "未知";
+"diagnostics.value_yes" = "是";
+"diagnostics.value_no" = "否";
+"diagnostics.heartbeat_age" = "%d 秒前";
+"diagnostics.pending_transcription_length" = "还有 %d 个字符待插入";
+"diagnostics.availability.ready" = "可用";
+"diagnostics.availability.missing_credentials" = "缺少凭证，请到服务页填写。";
+"diagnostics.availability.permission_denied" = "权限被拒绝，请在系统设置中授权。";
+"diagnostics.availability.permission_not_determined" = "尚未请求权限。";
+"diagnostics.availability.env_limited" = "受运行环境限制。";
+
+/* Diagnostic detail */
+
+/* Debug logs */
+"debug_logs.title" = "调试日志";
+"debug_logs.empty" = "暂无日志";
+"debug_logs.empty_hint" = "从 App 或键盘发起一次听写后，再回到这里查看。";
+"debug_logs.copy" = "复制";
+"debug_logs.clear" = "清空";
+
+/* Timeline */
+"timeline.start_requested" = "请求开始";
+"timeline.stop_requested" = "请求停止";
+"timeline.interruption" = "音频中断开始";
+"timeline.route_change" = "音频路由变化——输入设备不可用";
+"timeline.permission_denied" = "麦克风权限被拒绝";
+"timeline.engine_build_failed" = "Engine 构建失败：%@";
+"timeline.final_received" = "收到最终文本";
+"timeline.failed" = "失败：%@";
+"timeline.copied" = "已复制到剪贴板";
+"timeline.credentials_saved" = "%@ 凭证已保存";
+"timeline.credentials_cleared" = "%@ 凭证已清空";
+
+/* Errors */
+"error.interruption" = "录音被系统中断，点按开始重试。";
+"error.route_change" = "输入设备已断开，请重新连接后重试。";
+
+/* Bridge mode (diagnostics) */
+"bridge_mode.automatic" = "自动";
+"bridge_mode.clipboard" = "剪贴板";
+"bridge_mode.app_group" = "App Group";
+"bridge.effective.app_group" = "AppGroupBridge";
+"bridge.effective.clipboard" = "ClipboardBridge";
+"bridge.fallback.suite_not_configurable" = "App Group 套件不可配置";
+"bridge.fallback.container_lookup_failed" = "App Group 容器查找失败";
+"bridge.fallback.entitlement_missing" = "App Group entitlement 缺失";
+"bridge.fallback.forced_clipboard" = "强制剪贴板模式";
+"bridge.fallback.forced_app_group" = "强制 AppGroup 模式";
+"bridge.fallback.auto_degraded" = "自动模式：已降级到剪贴板";
+
+/* Diagnostics: bridge section */
+"diagnostics.bridge_section" = "听写桥接";
+"diagnostics.bridge_mode" = "模式";
+"diagnostics.bridge_effective" = "生效桥接";
+"diagnostics.bridge_app_group" = "App Group";
+"diagnostics.bridge_app_group_available" = "可用";
+"diagnostics.bridge_app_group_unavailable" = "不可用";
+"diagnostics.bridge_fallback_reason" = "降级原因";
+"diagnostics.bridge_last_clipboard_event" = "最近剪贴板事件";
+"diagnostics.bridge_event.deep_link_opened" = "深链已打开";
+"diagnostics.bridge_event.pasteboard_write_success" = "剪贴板写入成功";
+"diagnostics.bridge_event.pasteboard_write_failed" = "剪贴板写入失败";
+"diagnostics.bridge_event.pasteboard_read_success" = "剪贴板读取成功";
+"diagnostics.bridge_event.pasteboard_read_empty" = "剪贴板为空";
+"diagnostics.bridge_event.pasteboard_read_failed" = "剪贴板读取失败";
+"diagnostics.bridge_event.inserted" = "已插入";
+"diagnostics.bridge_event.dismissed" = "已关闭";
+
+/* Clipboard dictation handoff page */
+"clipboard_handoff.title" = "听写";
+"clipboard_handoff.recording_title" = "正在听写";
+"clipboard_handoff.subtitle" = "请开始说话——结果会自动复制到剪贴板。";
+"clipboard_handoff.partial_placeholder" = "正在聆听…";
+"clipboard_handoff.button_complete_and_copy" = "完成并复制";
+"clipboard_handoff.button_stop_and_recognize" = "停止并识别";
+"clipboard_handoff.button_finalizing" = "正在复制…";
+"clipboard_handoff.status_recognizing" = "正在识别中…";
+"clipboard_handoff.status_waiting_final" = "等待云端结果…";
+"clipboard_handoff.status_fetching_final" = "正在获取最终结果…";
+"clipboard_handoff.copied_title" = "已复制";
+"clipboard_handoff.copied_hint" = "回到刚才的 App，点键盘上的预览插入。";
+"clipboard_handoff.swipe_back_hint" = "左滑回到刚才的 App";
+"clipboard_handoff.copied_temporary_hint" = "已复制临时识别结果。回到刚才的 App，点键盘上的预览插入。";
+"clipboard_handoff.empty_title" = "没有识别到内容";
+"clipboard_handoff.empty_hint" = "没有捕获到语音，再试一次。";
+"clipboard_handoff.button_retry" = "重新听写";
+"clipboard_handoff.button_cancel" = "取消";
+"clipboard_handoff.failed_title" = "听写失败";
+"clipboard_handoff.permission_denied_hint" = "需要麦克风权限。请到 iOS 设置 → 隐私 → 麦克风开启。";
+"clipboard_handoff.button_open_settings" = "打开设置";
+"clipboard_handoff.finalizing_title" = "正在整理最后一句";
+"clipboard_handoff.permission_requesting" = "正在请求麦克风权限…";
+"clipboard_handoff.preparing_title" = "准备中";

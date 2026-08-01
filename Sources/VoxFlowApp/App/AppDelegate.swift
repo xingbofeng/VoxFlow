@@ -1,61 +1,9 @@
 import AppKit
+import VoxFlowASRRuntime
 import AVFoundation
 import SwiftUI
 import VoxFlowScreenshotKit
 import VoxFlowTextInsertion
-
-@MainActor
-struct AgentDefaultOutputOperation {
-    struct Result {
-        let finalText: String
-        let activatedOriginalTarget: Bool
-        let currentTarget: DictationTarget?
-        let outputResult: OutputResult
-        let processingTrace: TextProcessingTrace?
-    }
-
-    let process: (String, DictationTarget?) async -> TextProcessingResult
-    let activate: (DictationTarget?) async -> Bool
-    let currentTarget: () -> DictationTarget?
-    let deliver: (String, DictationTarget?, DictationTarget?) async -> OutputResult
-    let isCancelled: () -> Bool
-
-    func run(utterance: String, originalTarget: DictationTarget?) async -> Result? {
-        let processingResult = await process(utterance, originalTarget)
-        guard !isCancelled() else { return nil }
-
-        let trimmedFinalText = processingResult.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalText = trimmedFinalText.isEmpty ? utterance : trimmedFinalText
-        let activatedOriginalTarget = await activate(originalTarget)
-        guard !isCancelled() else { return nil }
-
-        let target = currentTarget()
-        let outputResult = await deliver(finalText, target, originalTarget)
-        guard !isCancelled() else { return nil }
-
-        return Result(
-            finalText: finalText,
-            activatedOriginalTarget: activatedOriginalTarget,
-            currentTarget: target,
-            outputResult: outputResult,
-            processingTrace: processingResult.trace
-        )
-    }
-}
-
-enum AgentDefaultOutputHUDCompletion: Equatable {
-    case hidden
-    case failure(message: String, retainedText: String)
-
-    init(outputResult: OutputResult, finalText: String) {
-        switch outputResult.kind {
-        case .permissionDenied, .failed:
-            self = .failure(message: L10n.localize("app.output.input_failed", comment: "Workflow output failure hint"), retainedText: finalText)
-        case .inserted, .copied, .targetChanged, .cancelled:
-            self = .hidden
-        }
-    }
-}
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -420,7 +368,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("application_did_finish_launching")
         NSApp.setActivationPolicy(AppPresentationPolicy.activationPolicy)
-        runtime = AppRuntime.bootstrap()
+        do {
+            runtime = try AppRuntime.bootstrap(
+                temporaryStorageFallbackDecision: { [weak self] error in
+                    self?.confirmTemporaryStorageFallback(error: error) ?? false
+                }
+            )
+        } catch {
+            handleRuntimeBootstrapFailure(error)
+            return
+        }
         // 字幕协调器：HUD/详情页/编辑界面共享同一实例，回调由 AppDelegate 接管 UI 刷新与编辑器。
         appEnvironment.subtitleCoordinator = recordingSubtitleCoordinator
         runtime!.screenRecordingSelectionBridge.onSelection = { [weak self] state, display, audioMode, overlayControls in
@@ -489,6 +446,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowCoordinator.showMainWindow()
         }
         logger.debug("application_launch_completed")
+    }
+
+    private func confirmTemporaryStorageFallback(error: Error) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = L10n.localize("app.startup.storage_failure.title", comment: "")
+        alert.informativeText = L10n.format(
+            "app.startup.storage_failure.message",
+            comment: "",
+            error.localizedDescription
+        )
+        alert.addButton(withTitle: L10n.localize("app.startup.storage_failure.continue_temporary", comment: ""))
+        alert.addButton(withTitle: L10n.localize("app.startup.storage_failure.quit", comment: ""))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func handleRuntimeBootstrapFailure(_ error: Error) {
+        logger.error("application_runtime_bootstrap_failed \(error.localizedDescription)")
+        NSApp.terminate(nil)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -757,7 +733,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func fallbackReason(for result: OutputResult) -> String {
         switch result {
-        case .injected, .copied, .cancelled:
+        case .injected, .copied, .handledExternally, .cancelled:
             return "none"
         case let .targetChanged(reason),
              let .permissionDenied(reason),
@@ -1176,6 +1152,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             })
         case .injected:
             hudFeatureController.handleWorkflowFeedback(.agentComposeInjected)
+        case .handledExternally:
+            break
         case .cancelled:
             break
         }
@@ -1226,7 +1204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 message: L10n.localize("app.output.input_failed", comment: "Workflow output failure hint"),
                 retainedText: rawText
             ))
-        case .inserted, .copied, .targetChanged, .cancelled:
+        case .inserted, .copied, .targetChanged, .handledExternally, .cancelled:
             break
         }
     }

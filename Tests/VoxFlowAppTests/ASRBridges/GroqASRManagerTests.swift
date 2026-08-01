@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowASRRuntime
 @testable import VoxFlowApp
 
 final class GroqASRManagerTests: XCTestCase {

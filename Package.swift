@@ -4,9 +4,18 @@ import PackageDescription
 let package = Package(
     name: "VoxFlowApp",
     defaultLocalization: "en",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v15), .iOS(.v17)],
     products: [
-        .executable(name: "VoxFlowApp", targets: ["VoxFlowApp"])
+        .executable(name: "VoxFlowApp", targets: ["VoxFlowApp"]),
+        .library(name: "VoxFlowAudio", targets: ["VoxFlowAudio"]),
+        .library(name: "VoxFlowASRCore", targets: ["VoxFlowASRCore"]),
+        .library(name: "VoxFlowASRRuntime", targets: ["VoxFlowASRRuntime"]),
+        .library(name: "VoxFlowMobileCore", targets: ["VoxFlowMobileCore"]),
+        .library(name: "VoxFlowProviderCloudCore", targets: ["VoxFlowProviderCloudCore"]),
+        .library(name: "VoxFlowProviderApple", targets: ["VoxFlowProviderApple"]),
+        .library(name: "VoxFlowProviderTencentCloud", targets: ["VoxFlowProviderTencentCloud"]),
+        .library(name: "VoxFlowProviderAliyunDashScope", targets: ["VoxFlowProviderAliyunDashScope"]),
+        .library(name: "VoxFlowProviderVolcengine", targets: ["VoxFlowProviderVolcengine"])
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.4"),
@@ -50,6 +59,22 @@ let package = Package(
                 "VoxFlowAudio"
             ],
             path: "Sources/VoxFlowASRCore"
+        ),
+        .target(
+            name: "VoxFlowASRRuntime",
+            dependencies: [
+                "VoxFlowAudio",
+                "VoxFlowProviderCloudCore"
+            ],
+            path: "Sources/VoxFlowASRRuntime"
+        ),
+        .target(
+            name: "VoxFlowMobileCore",
+            dependencies: [
+                "VoxFlowAudio",
+                "VoxFlowASRRuntime"
+            ],
+            path: "Sources/VoxFlowMobileCore"
         ),
         .target(
             name: "VoxFlowModelStore",
@@ -230,6 +255,7 @@ let package = Package(
                 "VoxFlowDomain",
                 "VoxFlowAudio",
                 "VoxFlowASRCore",
+                "VoxFlowASRRuntime",
                 "VoxFlowInfrastructure",
                 "VoxFlowModelStore",
                 "VoxFlowObjCExceptionSupport",
@@ -329,6 +355,22 @@ let package = Package(
             name: "VoxFlowASRCoreTests",
             dependencies: [
                 "VoxFlowASRCore",
+                "VoxFlowAudio"
+            ]
+        ),
+        .testTarget(
+            name: "VoxFlowASRRuntimeTests",
+            dependencies: [
+                "VoxFlowASRRuntime",
+                "VoxFlowAudio",
+                "VoxFlowProviderCloudCore"
+            ]
+        ),
+        .testTarget(
+            name: "VoxFlowMobileCoreTests",
+            dependencies: [
+                "VoxFlowMobileCore",
+                "VoxFlowASRRuntime",
                 "VoxFlowAudio"
             ]
         ),

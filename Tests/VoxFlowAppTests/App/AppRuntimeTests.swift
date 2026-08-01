@@ -6,7 +6,7 @@ final class AppRuntimeTests: XCTestCase {
     func testBootstrapBuildsCoreRuntimeFromContainerFactory() throws {
         let container = try DependencyContainer.inMemory()
 
-        let runtime = AppRuntime.bootstrap(containerFactory: { container })
+        let runtime = try AppRuntime.bootstrap(containerFactory: { container })
 
         XCTAssertEqual(runtime.environment.storageHealth, container.storageHealth)
         XCTAssertEqual(
@@ -16,13 +16,28 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertFalse(runtime.llmRefiner.isConfigured)
     }
 
-    func testBootstrapFallsBackToUnavailableInMemoryRuntimeWhenLiveContainerFails() {
-        let runtime = AppRuntime.bootstrap(containerFactory: {
+    func testBootstrapRequiresExplicitTemporaryStorageFallbackWhenLiveContainerFails() {
+        XCTAssertThrowsError(try AppRuntime.bootstrap(containerFactory: {
             throw NSError(
                 domain: "AppRuntimeTests",
                 code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "disk locked"]
             )
+        })) { error in
+            XCTAssertTrue(error is AppRuntimeBootstrapError)
+        }
+    }
+
+    func testBootstrapUsesTemporaryStorageOnlyWhenFallbackDecisionAllowsIt() throws {
+        let runtime = try AppRuntime.bootstrap(containerFactory: {
+            throw NSError(
+                domain: "AppRuntimeTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "disk locked"]
+            )
+        }, temporaryStorageFallbackDecision: { error in
+            XCTAssertEqual((error as NSError).localizedDescription, "disk locked")
+            return true
         })
 
         XCTAssertEqual(
@@ -134,11 +149,12 @@ final class AppRuntimeTests: XCTestCase {
 
     func testFallbackRuntimeKeepsASRCredentialsInPersistentStoreAcrossRelaunches() throws {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppRuntimeCredentialFallback-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("AppRuntimeFallbackCredentials-\(UUID().uuidString)", isDirectory: true)
         let paths = ApplicationSupportPaths(applicationSupportDirectory: root)
+        let credentialStore = AppLocalCredentialStore(fileURL: paths.credentialsURL)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let firstRuntime = AppRuntime.bootstrap(
+        let firstRuntime = try AppRuntime.bootstrap(
             containerFactory: {
                 throw NSError(
                     domain: "AppRuntimeTests",
@@ -147,12 +163,15 @@ final class AppRuntimeTests: XCTestCase {
                 )
             },
             fallbackCredentialStore: {
-                DependencyContainer.defaultCredentialStore(paths: paths)
+                credentialStore
+            },
+            temporaryStorageFallbackDecision: { _ in
+                true
             }
         )
         try firstRuntime.asrRuntime.manager.saveGroqAPIKey("groq-secret")
 
-        let secondRuntime = AppRuntime.bootstrap(
+        let secondRuntime = try AppRuntime.bootstrap(
             containerFactory: {
                 throw NSError(
                     domain: "AppRuntimeTests",
@@ -161,7 +180,10 @@ final class AppRuntimeTests: XCTestCase {
                 )
             },
             fallbackCredentialStore: {
-                DependencyContainer.defaultCredentialStore(paths: paths)
+                credentialStore
+            },
+            temporaryStorageFallbackDecision: { _ in
+                true
             }
         )
 
@@ -169,7 +191,7 @@ final class AppRuntimeTests: XCTestCase {
         XCTAssertEqual(secondRuntime.asrRuntime.manager.storedGroqAPIKey(), "groq-secret")
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: paths.credentialsURL.path),
-            "Fallback ASR credentials must be written to the persistent credentials file, not a volatile temp path."
+            "Fallback ASR credentials must be written to the persistent credentials file."
         )
     }
 

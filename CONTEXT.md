@@ -178,3 +178,71 @@ Agent Dispatch sends instructions only to registered Agent sessions through a wr
 ### ADR-013: Style Output Format Overrides Global Formatting
 
 Style output format controls are runtime rules, not user-editable prompt text. When a style is resolved by manual app rule, AI auto-match, or default style, its output-format fields override global deterministic punctuation and capitalization field-by-field. If no effective style exists, the global deterministic settings preserve existing behavior.
+
+## iOS LiveContainer V1
+
+### Domain Language (iOS)
+
+- **iOS V1**: 普通 iOS App，不包含 Keyboard Extension 或任意 App 注入；通过 LiveContainer 在真机预览。
+- **LiveContainer**: 让未签名 IPA 在真机运行的宿主 App，V1 的真机预览路径，不是长期系统能力基石。
+- **Shared ASR Runtime**: `Sources/VoxFlowASRRuntime/` 中的跨平台云实时 ASR 适配层，macOS 与 iOS 共用。
+- **MobileCore**: `Sources/VoxFlowMobileCore/` 中的移动端听写状态机和会话桥接，不含 UI。
+- **LocalCredentialStore**: iOS App sandbox 内的明文 JSON 凭证存储，仅用于个人测试 key。
+- **AppleSpeechASREngineAdapter**: 把 `ASRSession`（AsyncStream）适配为 `ASREngine`（闭包回调）的桥接器，使 Apple Speech Provider 接入移动端听写会话。
+
+### Module Boundaries (iOS)
+
+| Module | Owns | Must not own |
+| --- | --- | --- |
+| `Sources/VoxFlowASRRuntime/` | 云实时 ASR engine、PCM16 编码、转写拼接、错误映射；macOS 与 iOS 共用 | AppKit、UIKit、SwiftUI、剪贴板、Keychain、UserDefaults、LiveContainer |
+| `Sources/VoxFlowMobileCore/` | 移动端听写状态机、ASRSession/ASREngine 与录音器的会话桥接 | UI、权限呈现、凭证存储、LiveContainer |
+| `Apps/VoxFlowiOS/` | iOS App 壳层：SwiftUI 页面、权限引导、本地凭证文件、UIPasteboard 复制、LiveContainer 诊断 | macOS App、AppKit、菜单栏、全局快捷键 |
+| `iOSAudioRecorder` | `AVAudioSession + AVAudioEngine` 录音、中断/路由变化处理、PCM buffer → `AudioFrame` | ASR、UI、凭证 |
+| `AppleSpeechASREngineAdapter` | `ASRSession` → `ASREngine` 闭包适配；事件流 → onTranscription/onError | UI、录音、凭证 |
+| `iOSASREngineFactory` | 根据本地凭证构建腾讯/阿里/火山云 `ASREngine` | UI、权限、状态机 |
+| `LocalCredentialStore` | App sandbox 明文 JSON 凭证读写 | Keychain、加密、网络 |
+
+### Core 禁依赖
+
+`Sources/VoxFlowASRRuntime/` 和 `Sources/VoxFlowMobileCore/` 不允许 `import AppKit`、`import UIKit`、`import SwiftUI`、`import Cocoa`，不允许直接调用 `UIPasteboard`、`NSPasteboard`、`Keychain`、`UserDefaults`、LiveContainer 专用符号。平台能力通过 protocol 注入（`MobileAudioRecording`、`ASREngine`、`ASRSession`）。
+
+### ADR-014: iOS V1 交付为普通 App + LiveContainer 预览
+
+V1 不支付 Apple Developer Program 年费，通过 LiveContainer 在真机预览普通 App。Keyboard Extension、任意 App 注入、App Store/TestFlight 发布、Keychain 凭证加密、历史持久化、本地模型 Provider 均为后续轨道。
+
+### ADR-015: 云 ASR 为主验收路径，Apple Speech 为 baseline
+
+LiveContainer 环境下 Speech 权限可能不可用，Apple Speech 不能作为 V1 唯一成功路径。腾讯/阿里/火山云实时 ASR 通过共享 runtime 复用 macOS 实现作为主验收路径。Apple Speech 通过 `AppleSpeechASREngineAdapter` 保留为可选 baseline。
+
+### ADR-016: iOS V1 凭证明文本地存储
+
+凭证以明文 JSON 保存在 `Application Support/VoxFlow/credentials.json`，仅用于个人测试 key。设置页持续显示警告。Keychain、加密、导入导出、服务端 token broker 为后续轨道。
+
+### 电脑端预览路径
+
+iOS Simulator 提供两条电脑端预览路径：
+
+1. **Simulator + Mac 麦克风**：快速验证录音权限、UI 状态、云 ASR partial/final
+2. **Simulator + 固定音频注入**：通过 BlackHole 2ch 等虚拟音频设备做可重复验收
+
+详细步骤、限制和真机 LiveContainer 验收路径见 `docs/ios-preview.md`。
+
+### AppGroup 不得作为键盘启动硬依赖
+
+iOS Keyboard Extension 在免费 Apple ID / AltStore / SideStore 签名路径下，App Group entitlement 经常不可用或返回 nil。键盘启动链路必须容忍这种失败：
+
+- `Shared/AppGroup.swift` 区分 `defaults`（强制，用于 AppGroupBridge 正式路径）与 `defaultsIfAvailable`（可失败，用于键盘启动 / ClipboardBridge）。
+- `KeyboardState.defaults` 使用 `AppGroup.defaultsIfAvailable ?? UserDefaults.standard`，确保键盘在 App Group 不可用时仍能渲染和打字。
+- `SharedStatusStore` 和 `BridgeModeStore` 的读写都通过 `defaultsIfAvailable`，写入失败时退化为 standard defaults。
+- AppGroupBridge 路径只在 `BridgeMode=AppGroup` 或 `BridgeMode=Auto + AppGroup available` 时进入。
+- ClipboardBridge 路径完全不依赖 AppGroup — 使用 UIPasteboard + URL deep link + 本地 UserDefaults pending state。
+- 详见 OpenSpec change `add-ios-keyboard-clipboard-fallback`。
+
+### 后续轨道（不在 V1 范围）
+
+- iOS 系统级键盘 / Keyboard Extension / 任意 App 注入
+- App Store / TestFlight 发布、付费 Apple Developer Program
+- Keychain 凭证加密、导入导出、服务端 token broker
+- 历史记录、SQLite 持久化、多设备同步
+- Qwen3 / Whisper / FunASR / SenseVoice 本地模型 Provider
+- Agent Compose、Agent Dispatch、截图/OCR、文件转写、笔记工作台

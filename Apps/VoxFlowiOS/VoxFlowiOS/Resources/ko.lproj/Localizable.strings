@@ -1,0 +1,328 @@
+/* VoxFlowiOS — 한국어 */
+
+/* Tabs */
+"tab.home" = "홈";
+"tab.dictation" = "받아쓰기";
+"tab.diagnostics" = "진단";
+"tab.services" = "서비스";
+"tab.settings" = "설정";
+
+/* Common */
+"common.cancel" = "취소";
+"common.delete" = "삭제";
+"common.error" = "오류";
+"common.ok" = "확인";
+"common.retry" = "다시 시도";
+
+/* App Home */
+"app.home.title" = "Mashangxie";
+"app.home.brand" = "Mashangxie";
+"app.home.tagline" = "중국어 우선 음성 키보드";
+"app.home.active_model" = "활성 모델";
+"app.home.download_model" = "제공자를 선택해 시작";
+"app.home.download_model_hint" = "Models 탭에서 음성 인식 제공자를 선택하세요.";
+"app.home.provider_status" = "현재 인식 서비스";
+"app.home.provider_ready" = "키보드 받아쓰기를 사용할 준비가 되었습니다.";
+"app.home.last_transcription" = "최근 인식 결과";
+"app.home.tap_to_copy" = "탭하여 복사";
+"app.home.copied" = "복사됨!";
+"app.home.new_dictation" = "받아쓰기 시작";
+"app.home.keyboard_hint" = "iOS 설정에서 Mashangxie 키보드를 활성화하면 WeChat 또는 모든 입력란에서 사용할 수 있습니다.";
+
+/* Recording */
+"recording.transcribing" = "인식 중…";
+"recording.copied" = "복사됨!";
+"recording.tap_text_to_copy" = "텍스트를 탭하여 복사";
+"recording.stop_accessibility" = "녹음 중지";
+"recording.retry" = "다시 시도";
+"recording.failed" = "인식에 실패했습니다. Provider 설정과 권한을 확인하세요.";
+
+/* Cold start */
+"cold_start.title" = "녹음 중";
+"cold_start.subtitle" = "iOS 타사 키보드는 마이크에 직접 접근할 수 없으므로 Mashangxie는 메인 App에서 녹음합니다.";
+"cold_start.instruction" = "화면 하단에서 오른쪽으로 쓸어\n입력란으로 돌아가기";
+"cold_start.listening" = "듣는 중…";
+
+/* Onboarding */
+"onboarding.get_started" = "시작하기";
+"onboarding.continue" = "계속";
+"onboarding.welcome.brand" = "Mashangxie";
+"onboarding.welcome.tagline" = "WeChat과 모든 입력란에서 쓰는 중국어 우선 음성 키보드";
+"onboarding.mic.title" = "마이크";
+"onboarding.mic.subtitle" = "iOS 타사 키보드는 직접 녹음할 수 없습니다. Mashangxie는 메인 App에서 녹음하고 결과를 키보드로 돌려보냅니다.";
+"onboarding.mic.authorized" = "마이크 권한이 허용되었습니다";
+"onboarding.mic.later" = "마이크 권한은 나중에 설정에서 켤 수 있습니다.";
+"onboarding.keyboard.title" = "키보드 추가";
+"onboarding.keyboard.open_settings" = "설정 열기";
+"onboarding.keyboard.auto_detect" = "가능한 경우 키보드 활성화를 자동으로 감지합니다.";
+"onboarding.keyboard.restart_note" = "전체 접근 변경 시 Mashangxie가 다시 시작될 수 있습니다. 정상 동작입니다.";
+"onboarding.keyboard.detected" = "키보드 감지됨";
+"onboarding.keyboard.step_add" = "iOS 키보드 설정에서 Mashangxie를 추가합니다.";
+"onboarding.keyboard.step_full_access" = "Provider와 App Group 통신을 위해 전체 접근을 켭니다.";
+"onboarding.keyboard.step_return" = "여기로 돌아온 뒤 WeChat에서 키보드를 사용합니다.";
+"onboarding.mode.title" = "키보드 선택";
+"onboarding.mode.subtitle" = "현재는 ABC가 기본입니다. Phase 2의 중국어 26키와 9키도 같은 셸을 사용합니다.";
+"onboarding.mode.picker" = "기본 키보드 페이지";
+"onboarding.provider.title" = "인식 서비스";
+"onboarding.provider.subtitle" = "기본값은 Apple 음성 인식입니다. 클라우드 Provider는 설정에서 구성할 수 있습니다.";
+"onboarding.success.title" = "준비되었습니다!";
+"onboarding.success.subtitle" = "Mashangxie가 준비되었습니다. iOS 설정에서 키보드를 활성화한 뒤 입력란에서 받아쓰기를 시작하세요.";
+"keyboard.space" = "스페이스";
+
+/* Providers */
+"provider.apple_speech" = "Apple 음성 인식";
+"provider.tencent" = "Tencent Cloud 실시간 ASR";
+"provider.aliyun" = "Aliyun DashScope";
+"provider.volcengine" = "Volcengine 실시간 ASR";
+"provider.summary.apple_speech" = "시스템 내장 베이스라인. 음성 인식 권한이 필요합니다. LiveContainer 환경에서는 제한될 수 있습니다.";
+"provider.summary.tencent" = "Tencent Cloud 실시간 ASR. AppID, SecretId, SecretKey가 필요합니다.";
+"provider.summary.aliyun" = "Aliyun DashScope 실시간 ASR. API Key가 필요합니다.";
+"provider.summary.volcengine" = "Volcengine 실시간 ASR. App ID, Access Token, Secret Key가 필요합니다.";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "받아쓰기";
+"dictation.current_service" = "현재 서비스";
+"dictation.change" = "변경";
+"dictation.language_label" = "언어";
+"dictation.live_text" = "실시간 텍스트";
+"dictation.live_placeholder" = "실시간 텍스트가 여기에 표시됩니다.";
+"dictation.start" = "시작";
+"dictation.stop" = "중지";
+"dictation.start_again" = "다시 시작";
+"dictation.requesting_permission" = "마이크 권한 요청 중…";
+"dictation.transcribing" = "인식 중…";
+"dictation.copy" = "복사";
+"dictation.share" = "공유";
+"dictation.clear" = "지우기";
+"dictation.copied" = "복사됨";
+"dictation.final_text" = "최종 텍스트";
+
+/* Settings */
+"settings.title" = "설정";
+"settings.layout" = "레이아웃";
+"settings.haptic_feedback" = "햅틱 피드백";
+"settings.sounds" = "사운드";
+"settings.autocorrect" = "자동 수정";
+"settings.live_activity" = "Live Activity";
+"settings.live_activity_disabled_hint" = "Dynamic Island와 잠금 화면 알림이 꺼져 있습니다.";
+"settings.autocorrect_debug_logs" = "자동 수정 디버그 로그";
+"settings.developer_section" = "개발자";
+"settings.autocorrect_debug_warning" = "경고: 로그에는 입력 단어와 수정 내용이 포함됩니다. Debug 빌드 전용입니다.";
+"settings.autocorrect_debug_hint" = "자동 수정 판단을 디버깅용으로 기록합니다. 기본값은 꺼짐입니다.";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR 서비스";
+"settings.provider.apple_speech_hint" = "Apple 음성 인식은 시스템 인식기를 사용합니다. 자격 증명이 불필요하지만 음성 인식 권한이 필요합니다.";
+"settings.language_section" = "언어";
+"settings.language" = "인식 언어";
+"settings.credentials_section" = "클라우드 자격 증명";
+"settings.credentials_not_set" = "설정되지 않음";
+"settings.credentials_configured" = "구성됨";
+"settings.credentials_save" = "저장";
+"settings.credentials_clear" = "지우기";
+"settings.credentials_saved_toast" = "저장됨";
+"settings.credentials_warning" = "V1 자격 증명은 평문 로컬 파일에 저장되며 개인 테스트용으로만 사용됩니다. 고권한 프로덕션 키는 사용하지 마세요.";
+"settings.keyboard_section" = "키보드";
+"settings.keyboard_phase2_hint" = "중국어 26키와 9키는 Phase 2에서 이 Dictus 스타일 셸을 그대로 사용합니다.";
+"settings.diagnostics_section" = "진단";
+"settings.debug_logs" = "디버그 로그";
+"settings.debug_logs_hint" = "키보드 콜드 스타트와 Provider 브리지 이벤트를 확인합니다.";
+"settings.export_logs" = "로그 내보내기";
+"settings.export_logs_hint" = "문제 해결을 위해 App Group 로그 파일을 공유합니다.";
+"settings.security_note" = "보안 메모";
+"settings.about_section" = "정보";
+"settings.about_version" = "버전";
+"settings.github_star" = "GitHub / Star";
+"settings.privacy_policy" = "개인정보 처리방침";
+"settings.licenses" = "오픈소스 라이선스";
+"settings.licenses_placeholder" = "오픈소스 라이선스 고지는 저장소에 포함되어 있습니다.";
+"settings.diagnostic" = "진단";
+"settings.about_env" = "실행 환경";
+"settings.about_env_simulator" = "iOS 시뮬레이터";
+"settings.about_env_device" = "iOS 실기기";
+"settings.about_env_hint" = "시뮬레이터, LiveContainer, 실기기마다 진단 및 미리보기 경로가 다릅니다.";
+
+/* Services */
+"services.title" = "서비스";
+"services.current_section" = "현재 서비스";
+"services.providers_section" = "사용 가능한 Provider";
+"services.downloaded_section" = "선택됨";
+"services.available_section" = "사용 가능";
+"services.recommended" = "추천";
+"services.gauge.accuracy" = "정확도";
+"services.gauge.speed" = "속도";
+"services.runtime.system" = "시스템";
+"services.runtime.cloud" = "클라우드";
+"services.engine.apple_speech" = "Apple 음성 인식 — 첫 실행 키보드 받아쓰기의 기본 baseline Provider입니다.";
+"services.engine.cloud" = "클라우드 ASR — Tencent Cloud, Aliyun DashScope, Volcengine은 Mashangxie 실시간 ASR 브리지를 재사용합니다.";
+"services.optimizing" = "준비 중…";
+"services.delete_alert_title" = "Provider를 삭제할까요?";
+"services.delete_alert_message" = "%@을(를) 삭제할까요? 이 Provider는 선택됨 목록에서 제거됩니다.";
+
+/* Model loading */
+"model_loading.ready" = "서비스 준비 완료";
+"model_loading.stay_on_page" = "이 페이지에 머물러 주세요. App을 나가지 마세요.";
+"model_loading.phase.downloading" = "준비 중";
+"model_loading.phase.compiling" = "최적화 중";
+"model_loading.phase.loading" = "불러오는 중";
+"model_loading.phase.ready" = "준비 완료";
+"model_loading.downloading.1" = "서비스를 준비하는 중…";
+"model_loading.downloading.2" = "Provider 설정을 확인하는 중…";
+"model_loading.downloading.3" = "공유 상태에 연결하는 중…";
+"model_loading.downloading.4" = "거의 다 됐습니다…";
+"model_loading.downloading.5" = "설정을 마무리하는 중…";
+"model_loading.compiling.1" = "iPhone에 맞게 최적화하는 중…";
+"model_loading.compiling.2" = "오디오 경로를 준비하는 중…";
+"model_loading.compiling.3" = "키보드 브리지를 확인하는 중…";
+"model_loading.compiling.4" = "Provider 설정을 조정하는 중…";
+"model_loading.compiling.5" = "세션을 예열하는 중…";
+"model_loading.compiling.6" = "받아쓰기 경로를 만드는 중…";
+"model_loading.compiling.7" = "오디오 파이프라인을 준비하는 중…";
+"model_loading.compiling.8" = "공유 저장소를 맞추는 중…";
+"model_loading.compiling.9" = "런타임 상태를 캐시하는 중…";
+"model_loading.compiling.10" = "저지연 입력을 준비하는 중…";
+"model_loading.compiling.11" = "마지막 단계를 마무리하는 중…";
+"model_loading.compiling.12" = "몇 초만 더 기다려 주세요…";
+"model_loading.loading.1" = "Provider를 불러오는 중…";
+"model_loading.loading.2" = "서비스 상태를 매핑하는 중…";
+"model_loading.loading.3" = "받아쓰기를 준비하는 중…";
+"model_loading.loading.4" = "오디오 파이프라인을 준비하는 중…";
+"model_loading.loading.5" = "곧 준비됩니다…";
+
+/* Diagnostics */
+"diagnostics.title" = "진단";
+"diagnostics.app_group_section" = "App Group";
+"diagnostics.app_group_container" = "컨테이너";
+"diagnostics.app_group_read" = "읽기";
+"diagnostics.app_group_write" = "쓰기";
+"diagnostics.app_group_file_read" = "파일 읽기";
+"diagnostics.app_group_file_write" = "파일 쓰기";
+"diagnostics.app_group_file" = "프로브 파일";
+"diagnostics.app_group_timestamp" = "확인 시간";
+"diagnostics.keyboard_section" = "키보드 공유 상태";
+"diagnostics.keyboard_status" = "상태";
+"diagnostics.keyboard_heartbeat" = "하트비트";
+"diagnostics.keyboard_cold_start" = "콜드 스타트";
+"diagnostics.keyboard_pending_transcription" = "대기 중인 전사";
+"diagnostics.keyboard_last_error" = "최근 오류";
+"diagnostics.providers_section" = "Provider 가용성";
+"diagnostics.env_section" = "실행 환경";
+"diagnostics.recorder_section" = "레코더";
+"diagnostics.logs_section" = "로그";
+"diagnostics.open_debug_logs" = "디버그 로그 열기";
+"diagnostics.open_debug_logs_hint" = "App과 키보드가 쓴 영구 로그를 읽습니다.";
+"diagnostics.timeline_section" = "타임라인";
+"diagnostics.timeline_empty" = "이벤트가 아직 없습니다.";
+"diagnostics.recorder_deactivation_error" = "비활성화 오류";
+"diagnostics.recorder_no_error" = "레코더 오류가 기록되지 않았습니다.";
+"diagnostics.env_platform" = "플랫폼";
+"diagnostics.env_platform_simulator" = "시뮬레이터";
+"diagnostics.env_platform_device" = "실기기";
+"diagnostics.env_container" = "컨테이너";
+"diagnostics.env_container_native" = "네이티브 App";
+"diagnostics.env_container_livecontainer" = "LiveContainer(게스트 App)";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.env_bundle" = "Bundle";
+"diagnostics.env_url_scheme" = "URL Scheme";
+"diagnostics.ok" = "정상";
+"diagnostics.failed" = "실패";
+"diagnostics.value_none" = "없음";
+"diagnostics.value_unknown" = "알 수 없음";
+"diagnostics.value_yes" = "예";
+"diagnostics.value_no" = "아니요";
+"diagnostics.heartbeat_age" = "%d초 전";
+"diagnostics.pending_transcription_length" = "%d자 대기 중";
+"diagnostics.availability.ready" = "사용 가능";
+"diagnostics.availability.missing_credentials" = "자격 증명 누락 — 서비스 화면에서 입력하세요.";
+"diagnostics.availability.permission_denied" = "권한 거부됨 — 시스템 설정에서 활성화하세요.";
+"diagnostics.availability.permission_not_determined" = "아직 권한이 요청되지 않았습니다.";
+"diagnostics.availability.env_limited" = "실행 환경에 의해 제한됨.";
+
+/* Diagnostic detail */
+
+/* Debug logs */
+"debug_logs.title" = "디버그 로그";
+"debug_logs.empty" = "로그 없음";
+"debug_logs.empty_hint" = "App 또는 키보드에서 받아쓰기를 한 번 시작한 뒤 다시 돌아오세요.";
+"debug_logs.copy" = "복사";
+"debug_logs.clear" = "지우기";
+
+/* Timeline */
+"timeline.start_requested" = "시작 요청됨";
+"timeline.stop_requested" = "중지 요청됨";
+"timeline.interruption" = "오디오 인터럽트 시작됨";
+"timeline.route_change" = "오디오 경로 변경 — 입력 장치 사용 불가";
+"timeline.permission_denied" = "마이크 권한 거부됨";
+"timeline.engine_build_failed" = "Engine 빌드 실패: %@";
+"timeline.final_received" = "최종 텍스트 수신됨";
+"timeline.failed" = "실패: %@";
+"timeline.copied" = "클립보드에 복사됨";
+"timeline.credentials_saved" = "%@ 자격 증명 저장됨";
+"timeline.credentials_cleared" = "%@ 자격 증명 지워짐";
+
+/* Errors */
+"error.interruption" = "녹음이 시스템에 의해 중단되었습니다. 시작을 탭하여 다시 시도하세요.";
+"error.route_change" = "입력 장치 연결이 끊어졌습니다. 다시 연결하고 시도하세요.";
+
+/* Bridge mode (diagnostics) */
+"bridge_mode.automatic" = "자동";
+"bridge_mode.clipboard" = "클립보드";
+"bridge_mode.app_group" = "App Group";
+"bridge.effective.app_group" = "AppGroupBridge";
+"bridge.effective.clipboard" = "ClipboardBridge";
+"bridge.fallback.suite_not_configurable" = "App Group suite 구성 불가";
+"bridge.fallback.container_lookup_failed" = "App Group 컨테이너 조회 실패";
+"bridge.fallback.entitlement_missing" = "App Group entitlement 없음";
+"bridge.fallback.forced_clipboard" = "클립보드 강제 모드";
+"bridge.fallback.forced_app_group" = "AppGroup 강제 모드";
+"bridge.fallback.auto_degraded" = "자동 모드: 클립보드로 강등";
+
+/* Diagnostics: bridge section */
+"diagnostics.bridge_section" = "받아쓰기 브리지";
+"diagnostics.bridge_mode" = "모드";
+"diagnostics.bridge_effective" = "실제 브리지";
+"diagnostics.bridge_app_group" = "App Group";
+"diagnostics.bridge_app_group_available" = "사용 가능";
+"diagnostics.bridge_app_group_unavailable" = "사용 불가";
+"diagnostics.bridge_fallback_reason" = "강등 사유";
+"diagnostics.bridge_last_clipboard_event" = "최근 클립보드 이벤트";
+"diagnostics.bridge_event.deep_link_opened" = "딥링크 열림";
+"diagnostics.bridge_event.pasteboard_write_success" = "클립보드 쓰기 성공";
+"diagnostics.bridge_event.pasteboard_write_failed" = "클립보드 쓰기 실패";
+"diagnostics.bridge_event.pasteboard_read_success" = "클립보드 읽기 성공";
+"diagnostics.bridge_event.pasteboard_read_empty" = "클립보드가 비어 있음";
+"diagnostics.bridge_event.pasteboard_read_failed" = "클립보드 읽기 실패";
+"diagnostics.bridge_event.inserted" = "삽입됨";
+"diagnostics.bridge_event.dismissed" = "닫힘";
+
+/* Clipboard dictation handoff page */
+"clipboard_handoff.title" = "받아쓰기";
+"clipboard_handoff.recording_title" = "듣는 중";
+"clipboard_handoff.subtitle" = "말씀해 주세요 — 결과가 클립보드에 복사됩니다.";
+"clipboard_handoff.partial_placeholder" = "듣는 중…";
+"clipboard_handoff.button_complete_and_copy" = "완료 후 복사";
+"clipboard_handoff.button_stop_and_recognize" = "중지하고 인식";
+"clipboard_handoff.button_finalizing" = "복사 중…";
+"clipboard_handoff.status_recognizing" = "인식 중…";
+"clipboard_handoff.status_waiting_final" = "클라우드 결과 대기 중…";
+"clipboard_handoff.status_fetching_final" = "최종 결과 가져오는 중…";
+"clipboard_handoff.copied_title" = "복사됨";
+"clipboard_handoff.copied_hint" = "이전 앱으로 돌아가 키보드의 미리보기를 탭하여 삽입하세요.";
+"clipboard_handoff.swipe_back_hint" = "왼쪽으로 쓸어 이전 앱으로 돌아가기";
+"clipboard_handoff.copied_temporary_hint" = "중간 결과를 복사했습니다. 이전 앱으로 돌아가 키보드의 미리보기를 탭하여 삽입하세요.";
+"clipboard_handoff.empty_title" = "인식된 내용 없음";
+"clipboard_handoff.empty_hint" = "음성이 캡처되지 않았습니다. 다시 시도해 주세요.";
+"clipboard_handoff.button_retry" = "다시 받아쓰기";
+"clipboard_handoff.button_cancel" = "취소";
+"clipboard_handoff.failed_title" = "받아쓰기 실패";
+"clipboard_handoff.permission_denied_hint" = "마이크 권한이 필요합니다. iOS 설정 → 개인정보 보호 → 마이크에서 활성화하세요.";
+"clipboard_handoff.button_open_settings" = "설정 열기";
+"clipboard_handoff.finalizing_title" = "마지막 문장 정리 중";
+"clipboard_handoff.permission_requesting" = "마이크 권한 요청 중…";
+"clipboard_handoff.preparing_title" = "준비 중";

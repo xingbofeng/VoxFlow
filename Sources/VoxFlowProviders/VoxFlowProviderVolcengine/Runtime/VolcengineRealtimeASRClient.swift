@@ -57,7 +57,7 @@ public struct VolcengineRealtimeASRConfiguration: Equatable, Sendable {
         self.accessToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         self.secretKey = secretKey.trimmingCharacters(in: .whitespacesAndNewlines)
         self.resourceID = resourceID.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.endpoint = endpoint
+        self.endpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         self.modelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
         self.timeoutSeconds = timeoutSeconds
     }

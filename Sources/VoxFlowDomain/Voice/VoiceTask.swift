@@ -105,6 +105,7 @@ public enum OutputResult: Codable, Equatable, Sendable {
     case permissionDenied(reason: String)
     case injectionFailed(reason: String)
     case copyFailed(reason: String)
+    case handledExternally
     case cancelled
 }
 
@@ -114,6 +115,7 @@ public enum OutputResultKind: String, Codable, Equatable, Sendable {
     case targetChanged
     case permissionDenied
     case failed
+    case handledExternally
     case cancelled
 }
 
@@ -138,6 +140,8 @@ public extension OutputResult {
             return .permissionDenied
         case .injectionFailed, .copyFailed:
             return .failed
+        case .handledExternally:
+            return .handledExternally
         case .cancelled:
             return .cancelled
         }

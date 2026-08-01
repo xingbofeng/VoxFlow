@@ -1,7 +1,11 @@
 .DS_Store
 .build/
+build/
 .swiftpm/
 dist/
+DerivedData/
+*.xcresult/
+*.profraw
 *.xcuserstate
 *.xccheckout
 xcuserdata/
@@ -11,6 +15,10 @@ xcuserdata/
 .playwright-mcp/
 .codegraph/
 openspec/
+Apps/VoxFlowiOS/Generated/
+Apps/VoxFlowiOS/build/
+Apps/VoxFlowiOS/VoxFlowiOS.xcodeproj/
+Apps/VoxFlowiOS/ChineseInput/Resources/Schemas/
 .workbuddy/
 .claude/
 .codebuddy/

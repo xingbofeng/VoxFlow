@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowASRRuntime
 import VoxFlowASRCore
 import VoxFlowAudio
 

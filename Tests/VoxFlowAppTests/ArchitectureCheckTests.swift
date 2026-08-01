@@ -24,8 +24,7 @@ final class ArchitectureCheckTests: XCTestCase {
         )
     }
 
-    func testArchitectureCheckAcceptsAllowedFixture() throws {
-        let fixture = try ArchitectureFixture()
+    func testArchitectureCheckAcceptsAllowedFixture() throws {        let fixture = try ArchitectureFixture()
         try fixture.writePackage(targetNames: ["VoxFlowApp", "VoxFlowProviderQwen3"])
         try fixture.writeSource(
             target: "VoxFlowProviderQwen3",
@@ -41,6 +40,71 @@ final class ArchitectureCheckTests: XCTestCase {
 
         XCTAssertEqual(result.status, 0, result.output)
         XCTAssertTrue(result.output.contains("architecture-check passed"), result.output)
+    }
+
+    func testArchitectureCheckRejectsSharedCoreUIKitImport() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowASRRuntime"])
+        try fixture.writeSource(
+            target: "VoxFlowASRRuntime",
+            file: "UIKitLeak.swift",
+            contents: """
+            import UIKit
+
+            struct UIKitLeak {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("Shared Core target must not import UIKit"),
+            result.output
+        )
+    }
+
+    func testArchitectureCheckRejectsSharedCoreClipboardOrKeychainAccess() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowASRCore"])
+        try fixture.writeSource(
+            target: "VoxFlowASRCore",
+            file: "ClipboardLeak.swift",
+            contents: """
+            import Foundation
+
+            enum ClipboardLeak {
+                static let pasteboard = NSPasteboard.general
+            }
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("Shared Core target must not access clipboard, Keychain, UserDefaults, or LiveContainer"),
+            result.output
+        )
+    }
+
+    func testArchitectureCheckAcceptsCleanSharedCoreTarget() throws {
+        let fixture = try ArchitectureFixture()
+        try fixture.writePackage(targetNames: ["VoxFlowASRRuntime"])
+        try fixture.writeSource(
+            target: "VoxFlowASRRuntime",
+            file: "CleanRuntime.swift",
+            contents: """
+            import Foundation
+            import VoxFlowAudio
+
+            struct CleanRuntime {}
+            """
+        )
+
+        let result = try runArchitectureCheck(package: fixture.packageURL, sourceRoot: fixture.sourcesURL)
+
+        XCTAssertEqual(result.status, 0, result.output)
     }
 
     func testArchitectureCheckRejectsProviderSwiftUIImport() throws {

@@ -119,6 +119,17 @@ final class AppTextRuntime {
     }
 }
 
+enum AppRuntimeBootstrapError: Error, LocalizedError {
+    case persistentStorageUnavailable(reason: String, underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .persistentStorageUnavailable(let reason, _):
+            return reason
+        }
+    }
+}
+
 @MainActor
 struct AppRuntime {
     let environment: AppEnvironment
@@ -156,13 +167,15 @@ struct AppRuntime {
         containerFactory: () throws -> DependencyContainer = {
             try DependencyContainer.live()
         },
-        fallbackCredentialStore: @MainActor () -> CredentialStore? = AppRuntime.persistentFallbackCredentialStore
-    ) -> AppRuntime {
+        fallbackCredentialStore: @MainActor () -> CredentialStore? = AppRuntime.persistentFallbackCredentialStore,
+        temporaryStorageFallbackDecision: @MainActor (Error) -> Bool = { _ in false }
+    ) throws -> AppRuntime {
         AppLogger.general.info("AppRuntime bootstrap start")
         let environment = AppEnvironment(
-            container: makeLaunchContainer(
+            container: try makeLaunchContainer(
                 containerFactory: containerFactory,
-                fallbackCredentialStore: fallbackCredentialStore
+                fallbackCredentialStore: fallbackCredentialStore,
+                temporaryStorageFallbackDecision: temporaryStorageFallbackDecision
             )
         )
         AppLogger.general.debug("AppRuntime environment created")
@@ -443,19 +456,27 @@ struct AppRuntime {
 
     private static func makeLaunchContainer(
         containerFactory: () throws -> DependencyContainer,
-        fallbackCredentialStore: @MainActor () -> CredentialStore?
-    ) -> DependencyContainer {
+        fallbackCredentialStore: @MainActor () -> CredentialStore?,
+        temporaryStorageFallbackDecision: @MainActor (Error) -> Bool
+    ) throws -> DependencyContainer {
         do {
             let container = try containerFactory()
             AppLogger.general.debug("makeLaunchContainer obtained persistent container")
             return container
         } catch {
             AppLogger.general.error("Failed to initialize app environment: \(error.localizedDescription)")
+            guard temporaryStorageFallbackDecision(error) else {
+                AppLogger.general.warning("makeLaunchContainer temporary storage fallback declined")
+                throw AppRuntimeBootstrapError.persistentStorageUnavailable(
+                    reason: "Persistent storage failed to initialize: \(error.localizedDescription)",
+                    underlying: error
+                )
+            }
             try? FileManager.default.createDirectory(
                 at: FileManager.default.temporaryDirectory,
                 withIntermediateDirectories: true
             )
-            AppLogger.general.warning("makeLaunchContainer fallback to in-memory container")
+            AppLogger.general.warning("makeLaunchContainer fallback to in-memory container after explicit decision")
             return try! DependencyContainer.inMemory(
                 credentialStore: fallbackCredentialStore(),
                 storageHealth: .unavailable(

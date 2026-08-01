@@ -97,7 +97,7 @@ struct DependencyContainer {
             clock: clock,
             paths: nil,
             storageHealth: storageHealth,
-            credentialStore: credentialStore ?? defaultCredentialStore(paths: volatilePaths),
+            credentialStore: credentialStore ?? AppLocalCredentialStore(fileURL: volatilePaths.credentialsURL),
             defaults: defaults
         )
     }

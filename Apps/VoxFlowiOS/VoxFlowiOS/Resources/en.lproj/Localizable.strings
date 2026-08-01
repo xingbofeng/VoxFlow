@@ -1,0 +1,328 @@
+/* VoxFlowiOS — English */
+
+/* Tabs */
+"tab.home" = "Home";
+"tab.dictation" = "Dictation";
+"tab.diagnostics" = "Diagnostics";
+"tab.services" = "Services";
+"tab.settings" = "Settings";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.delete" = "Delete";
+"common.error" = "Error";
+"common.ok" = "OK";
+"common.retry" = "Retry";
+
+/* App Home */
+"app.home.title" = "Mashangxie";
+"app.home.brand" = "Mashangxie";
+"app.home.tagline" = "Chinese-first voice keyboard";
+"app.home.active_model" = "Active model";
+"app.home.download_model" = "Choose a provider to get started";
+"app.home.download_model_hint" = "Go to the Models tab to select a transcription provider.";
+"app.home.provider_status" = "Current provider";
+"app.home.provider_ready" = "Ready for keyboard dictation.";
+"app.home.last_transcription" = "Last transcription";
+"app.home.tap_to_copy" = "Tap to copy";
+"app.home.copied" = "Copied!";
+"app.home.new_dictation" = "New dictation";
+"app.home.keyboard_hint" = "Enable the Mashangxie keyboard in iOS Settings, then use it from WeChat or any text field.";
+
+/* Recording */
+"recording.transcribing" = "Transcribing…";
+"recording.copied" = "Copied!";
+"recording.tap_text_to_copy" = "Tap text to copy";
+"recording.stop_accessibility" = "Stop recording";
+"recording.retry" = "Retry";
+"recording.failed" = "Transcription failed. Check provider settings and permissions.";
+
+/* Cold start */
+"cold_start.title" = "Recording started";
+"cold_start.subtitle" = "Mashangxie is listening in the main app because iOS keyboards cannot access the microphone directly.";
+"cold_start.instruction" = "Swipe right at the bottom of your screen\nto return to your text field";
+"cold_start.listening" = "Listening...";
+
+/* Onboarding */
+"onboarding.get_started" = "Get started";
+"onboarding.continue" = "Continue";
+"onboarding.welcome.brand" = "Mashangxie";
+"onboarding.welcome.tagline" = "Chinese-first voice keyboard for WeChat and every text field";
+"onboarding.mic.title" = "Microphone";
+"onboarding.mic.subtitle" = "iOS keyboards cannot record directly. Mashangxie records in the main app and sends the result back to the keyboard.";
+"onboarding.mic.authorized" = "Microphone authorized";
+"onboarding.mic.later" = "You can enable the microphone later in Settings.";
+"onboarding.keyboard.title" = "Add keyboard";
+"onboarding.keyboard.open_settings" = "Open Settings";
+"onboarding.keyboard.auto_detect" = "The keyboard will be detected automatically when possible.";
+"onboarding.keyboard.restart_note" = "Mashangxie may restart when Full Access changes. This is normal.";
+"onboarding.keyboard.detected" = "Keyboard detected";
+"onboarding.keyboard.step_add" = "Add Mashangxie in iOS Keyboard settings.";
+"onboarding.keyboard.step_full_access" = "Enable Full Access for provider and App Group communication.";
+"onboarding.keyboard.step_return" = "Return here, then use the keyboard in WeChat.";
+"onboarding.mode.title" = "Choose your keyboard";
+"onboarding.mode.subtitle" = "ABC opens by default now. Chinese 26-key and 9-key modes will use this same shell in Phase 2.";
+"onboarding.mode.picker" = "Default keyboard page";
+"onboarding.provider.title" = "Recognition provider";
+"onboarding.provider.subtitle" = "Apple Speech is the default. Cloud providers can be configured in Settings.";
+"onboarding.success.title" = "You're all set!";
+"onboarding.success.subtitle" = "Mashangxie is ready. Enable the keyboard in iOS Settings, then start dictating from your text field.";
+"keyboard.space" = "space";
+
+/* Providers */
+"provider.apple_speech" = "Apple Speech";
+"provider.tencent" = "Tencent Cloud Realtime ASR";
+"provider.aliyun" = "Aliyun DashScope";
+"provider.volcengine" = "Volcengine Realtime ASR";
+"provider.summary.apple_speech" = "On-device baseline. Requires Speech recognition permission. May be limited inside LiveContainer.";
+"provider.summary.tencent" = "Cloud realtime ASR via Tencent Cloud. Requires AppID, SecretId and SecretKey.";
+"provider.summary.aliyun" = "Cloud realtime ASR via Aliyun DashScope. Requires API Key.";
+"provider.summary.volcengine" = "Cloud realtime ASR via Volcengine. Requires App ID, Access Token and Secret Key.";
+
+/* Languages */
+"language.zh-CN" = "简体中文";
+"language.zh-TW" = "繁體中文";
+"language.en-US" = "English (US)";
+"language.ja-JP" = "日本語";
+"language.ko-KR" = "한국어";
+
+/* Dictation */
+"dictation.title" = "Dictation";
+"dictation.current_service" = "Current service";
+"dictation.change" = "Change";
+"dictation.language_label" = "Language";
+"dictation.live_text" = "Live transcript";
+"dictation.live_placeholder" = "Live transcript will appear here.";
+"dictation.start" = "Start";
+"dictation.stop" = "Stop";
+"dictation.start_again" = "Start again";
+"dictation.requesting_permission" = "Requesting microphone permission…";
+"dictation.transcribing" = "Transcribing…";
+"dictation.copy" = "Copy";
+"dictation.share" = "Share";
+"dictation.clear" = "Clear";
+"dictation.copied" = "Copied";
+"dictation.final_text" = "Final transcript";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.layout" = "Layout";
+"settings.haptic_feedback" = "Haptic feedback";
+"settings.sounds" = "Sounds";
+"settings.autocorrect" = "Autocorrect";
+"settings.live_activity" = "Live Activity";
+"settings.live_activity_disabled_hint" = "Dynamic Island and Lock Screen notification are disabled.";
+"settings.autocorrect_debug_logs" = "Autocorrect debug logs";
+"settings.developer_section" = "Developer";
+"settings.autocorrect_debug_warning" = "Warning: logs contain typed words and corrections. Debug builds only.";
+"settings.autocorrect_debug_hint" = "Logs autocorrect decisions for debugging. Off by default.";
+"settings.provider_section" = "Provider";
+"settings.provider" = "ASR Provider";
+"settings.provider.apple_speech_hint" = "Apple Speech uses the system recognizer. No credentials needed; requires Speech recognition permission.";
+"settings.language_section" = "Language";
+"settings.language" = "Recognition language";
+"settings.credentials_section" = "Cloud credentials";
+"settings.credentials_not_set" = "Not set";
+"settings.credentials_configured" = "Configured";
+"settings.credentials_save" = "Save";
+"settings.credentials_clear" = "Clear";
+"settings.credentials_saved_toast" = "Saved";
+"settings.credentials_warning" = "V1 stores credentials in a plaintext local file for personal testing only. Do not use high-privilege production keys.";
+"settings.keyboard_section" = "Keyboard";
+"settings.keyboard_phase2_hint" = "Chinese 26-key and 9-key will use this same Dictus-style shell in Phase 2.";
+"settings.diagnostics_section" = "Diagnostics";
+"settings.debug_logs" = "Debug logs";
+"settings.debug_logs_hint" = "Inspect keyboard cold-start and provider bridge events.";
+"settings.export_logs" = "Export logs";
+"settings.export_logs_hint" = "Share the App Group log file for troubleshooting.";
+"settings.security_note" = "Security note";
+"settings.about_section" = "About";
+"settings.about_version" = "Version";
+"settings.github_star" = "GitHub / Star";
+"settings.privacy_policy" = "Privacy Policy";
+"settings.licenses" = "Open Source Licenses";
+"settings.licenses_placeholder" = "Open source license notices are bundled in the repository.";
+"settings.diagnostic" = "Diagnostic";
+"settings.about_env" = "Runtime";
+"settings.about_env_simulator" = "iOS Simulator";
+"settings.about_env_device" = "iOS Device";
+"settings.about_env_hint" = "Diagnostics and preview paths differ between Simulator, LiveContainer and native device.";
+
+/* Services */
+"services.title" = "Services";
+"services.current_section" = "Current service";
+"services.providers_section" = "Available providers";
+"services.downloaded_section" = "Selected";
+"services.available_section" = "Available";
+"services.recommended" = "Recommended";
+"services.gauge.accuracy" = "Accuracy";
+"services.gauge.speed" = "Speed";
+"services.runtime.system" = "System";
+"services.runtime.cloud" = "Cloud";
+"services.engine.apple_speech" = "Apple Speech — system recognition provider used as the default baseline for first-run keyboard dictation.";
+"services.engine.cloud" = "Cloud ASR — Tencent Cloud, Aliyun DashScope, and Volcengine providers reuse Mashangxie realtime ASR bridge.";
+"services.optimizing" = "Optimizing...";
+"services.delete_alert_title" = "Delete provider?";
+"services.delete_alert_message" = "Delete %@? The provider will be removed from the selected list.";
+
+/* Model loading */
+"model_loading.ready" = "Service ready";
+"model_loading.stay_on_page" = "Please stay on this page — do not leave the app.";
+"model_loading.phase.downloading" = "Preparing";
+"model_loading.phase.compiling" = "Optimizing";
+"model_loading.phase.loading" = "Loading";
+"model_loading.phase.ready" = "Ready";
+"model_loading.downloading.1" = "Preparing the service…";
+"model_loading.downloading.2" = "Checking provider settings…";
+"model_loading.downloading.3" = "Connecting shared state…";
+"model_loading.downloading.4" = "Almost there…";
+"model_loading.downloading.5" = "Finishing setup…";
+"model_loading.compiling.1" = "Optimizing for your iPhone…";
+"model_loading.compiling.2" = "Preparing the audio route…";
+"model_loading.compiling.3" = "Checking keyboard bridge…";
+"model_loading.compiling.4" = "Tuning provider settings…";
+"model_loading.compiling.5" = "Warming the session…";
+"model_loading.compiling.6" = "Building the dictation path…";
+"model_loading.compiling.7" = "Priming the audio pipeline…";
+"model_loading.compiling.8" = "Aligning shared storage…";
+"model_loading.compiling.9" = "Caching runtime state…";
+"model_loading.compiling.10" = "Preparing low-latency input…";
+"model_loading.compiling.11" = "Polishing the final pass…";
+"model_loading.compiling.12" = "A few more seconds…";
+"model_loading.loading.1" = "Loading the provider…";
+"model_loading.loading.2" = "Mapping the service into memory…";
+"model_loading.loading.3" = "Preparing dictation…";
+"model_loading.loading.4" = "Priming the audio pipeline…";
+"model_loading.loading.5" = "Almost ready…";
+
+/* Diagnostics */
+"diagnostics.title" = "Diagnostics";
+"diagnostics.app_group_section" = "App Group";
+"diagnostics.app_group_container" = "Container";
+"diagnostics.app_group_read" = "Read";
+"diagnostics.app_group_write" = "Write";
+"diagnostics.app_group_file_read" = "File read";
+"diagnostics.app_group_file_write" = "File write";
+"diagnostics.app_group_file" = "Probe file";
+"diagnostics.app_group_timestamp" = "Checked";
+"diagnostics.keyboard_section" = "Keyboard shared state";
+"diagnostics.keyboard_status" = "Status";
+"diagnostics.keyboard_heartbeat" = "Heartbeat";
+"diagnostics.keyboard_cold_start" = "Cold start";
+"diagnostics.keyboard_pending_transcription" = "Pending transcription";
+"diagnostics.keyboard_last_error" = "Last error";
+"diagnostics.providers_section" = "Provider availability";
+"diagnostics.env_section" = "Runtime environment";
+"diagnostics.recorder_section" = "Recorder";
+"diagnostics.logs_section" = "Logs";
+"diagnostics.open_debug_logs" = "Open debug logs";
+"diagnostics.open_debug_logs_hint" = "Read persistent logs written by the app and keyboard.";
+"diagnostics.timeline_section" = "Timeline";
+"diagnostics.timeline_empty" = "No events yet.";
+"diagnostics.recorder_deactivation_error" = "Deactivation error";
+"diagnostics.recorder_no_error" = "No recorder errors recorded.";
+"diagnostics.env_platform" = "Platform";
+"diagnostics.env_platform_simulator" = "Simulator";
+"diagnostics.env_platform_device" = "Device";
+"diagnostics.env_container" = "Container";
+"diagnostics.env_container_native" = "Native app";
+"diagnostics.env_container_livecontainer" = "LiveContainer (guest app)";
+"diagnostics.env_locale" = "Locale";
+"diagnostics.env_bundle" = "Bundle";
+"diagnostics.env_url_scheme" = "URL scheme";
+"diagnostics.ok" = "OK";
+"diagnostics.failed" = "Failed";
+"diagnostics.value_none" = "None";
+"diagnostics.value_unknown" = "Unknown";
+"diagnostics.value_yes" = "Yes";
+"diagnostics.value_no" = "No";
+"diagnostics.heartbeat_age" = "%d seconds ago";
+"diagnostics.pending_transcription_length" = "%d characters pending";
+"diagnostics.availability.ready" = "Ready";
+"diagnostics.availability.missing_credentials" = "Missing credentials — open Services to fill in.";
+"diagnostics.availability.permission_denied" = "Permission denied — enable in System Settings.";
+"diagnostics.availability.permission_not_determined" = "Permission not yet requested.";
+"diagnostics.availability.env_limited" = "Limited by runtime environment.";
+
+/* Diagnostic detail */
+
+/* Debug logs */
+"debug_logs.title" = "Debug Logs";
+"debug_logs.empty" = "No logs";
+"debug_logs.empty_hint" = "Start dictation from the app or keyboard, then return here.";
+"debug_logs.copy" = "Copy";
+"debug_logs.clear" = "Clear";
+
+/* Timeline */
+"timeline.start_requested" = "Start requested";
+"timeline.stop_requested" = "Stop requested";
+"timeline.interruption" = "Audio interruption began";
+"timeline.route_change" = "Audio route changed — input device unavailable";
+"timeline.permission_denied" = "Microphone permission denied";
+"timeline.engine_build_failed" = "Engine build failed: %@";
+"timeline.final_received" = "Final transcript received";
+"timeline.failed" = "Failed: %@";
+"timeline.copied" = "Copied to clipboard";
+"timeline.credentials_saved" = "%@ credentials saved";
+"timeline.credentials_cleared" = "%@ credentials cleared";
+
+/* Errors */
+"error.interruption" = "Recording was interrupted by the system. Tap Start to try again.";
+"error.route_change" = "Audio input device was disconnected. Reconnect and try again.";
+
+/* Bridge mode (diagnostics) */
+"bridge_mode.automatic" = "Auto";
+"bridge_mode.clipboard" = "Clipboard";
+"bridge_mode.app_group" = "App Group";
+"bridge.effective.app_group" = "AppGroupBridge";
+"bridge.effective.clipboard" = "ClipboardBridge";
+"bridge.fallback.suite_not_configurable" = "App Group suite not configurable";
+"bridge.fallback.container_lookup_failed" = "App Group container lookup failed";
+"bridge.fallback.entitlement_missing" = "App Group entitlement missing";
+"bridge.fallback.forced_clipboard" = "Forced Clipboard mode";
+"bridge.fallback.forced_app_group" = "Forced AppGroup mode";
+"bridge.fallback.auto_degraded" = "Auto: degraded to Clipboard";
+
+/* Diagnostics: bridge section */
+"diagnostics.bridge_section" = "Dictation bridge";
+"diagnostics.bridge_mode" = "Mode";
+"diagnostics.bridge_effective" = "Effective bridge";
+"diagnostics.bridge_app_group" = "App Group";
+"diagnostics.bridge_app_group_available" = "Available";
+"diagnostics.bridge_app_group_unavailable" = "Unavailable";
+"diagnostics.bridge_fallback_reason" = "Fallback reason";
+"diagnostics.bridge_last_clipboard_event" = "Last clipboard event";
+"diagnostics.bridge_event.deep_link_opened" = "Deep link opened";
+"diagnostics.bridge_event.pasteboard_write_success" = "Pasteboard write";
+"diagnostics.bridge_event.pasteboard_write_failed" = "Pasteboard write failed";
+"diagnostics.bridge_event.pasteboard_read_success" = "Pasteboard read";
+"diagnostics.bridge_event.pasteboard_read_empty" = "Pasteboard empty";
+"diagnostics.bridge_event.pasteboard_read_failed" = "Pasteboard read failed";
+"diagnostics.bridge_event.inserted" = "Inserted";
+"diagnostics.bridge_event.dismissed" = "Dismissed";
+
+/* Clipboard dictation handoff page */
+"clipboard_handoff.title" = "Dictation";
+"clipboard_handoff.recording_title" = "Listening";
+"clipboard_handoff.subtitle" = "Speak now — text will be copied to the clipboard.";
+"clipboard_handoff.partial_placeholder" = "Listening…";
+"clipboard_handoff.button_complete_and_copy" = "Finish & Copy";
+"clipboard_handoff.button_stop_and_recognize" = "Stop & Recognize";
+"clipboard_handoff.button_finalizing" = "Copying…";
+"clipboard_handoff.status_recognizing" = "Recognizing…";
+"clipboard_handoff.status_waiting_final" = "Waiting for cloud result…";
+"clipboard_handoff.status_fetching_final" = "Fetching final result…";
+"clipboard_handoff.copied_title" = "Copied";
+"clipboard_handoff.copied_hint" = "Return to your previous app and tap the keyboard preview to insert.";
+"clipboard_handoff.swipe_back_hint" = "Swipe back to the previous app";
+"clipboard_handoff.copied_temporary_hint" = "Copied a partial result. Return to your previous app and tap the keyboard preview to insert.";
+"clipboard_handoff.empty_title" = "Nothing recognized";
+"clipboard_handoff.empty_hint" = "No speech was captured. Try again.";
+"clipboard_handoff.button_retry" = "Dictate again";
+"clipboard_handoff.button_cancel" = "Cancel";
+"clipboard_handoff.failed_title" = "Dictation failed";
+"clipboard_handoff.permission_denied_hint" = "Microphone access is required. Enable it in iOS Settings → Privacy → Microphone.";
+"clipboard_handoff.button_open_settings" = "Open Settings";
+"clipboard_handoff.finalizing_title" = "Finishing last sentence";
+"clipboard_handoff.permission_requesting" = "Requesting microphone permission…";
+"clipboard_handoff.preparing_title" = "Preparing";

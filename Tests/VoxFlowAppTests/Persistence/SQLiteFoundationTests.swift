@@ -44,6 +44,35 @@ final class SQLiteFoundationTests: XCTestCase {
         XCTAssertEqual(value, 42)
     }
 
+    func testDatabaseQueueAllowsNestedReadInsideWrite() throws {
+        let queue = try DatabaseQueue(connection: .inMemory())
+        let queueBox = DatabaseQueueTestBox(queue)
+        let finished = expectation(description: "nested read inside write finished")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let value = try queueBox.queue.write { connection in
+                    try connection.execute("CREATE TABLE nested_counters (value INTEGER NOT NULL)")
+                    try connection.execute("INSERT INTO nested_counters (value) VALUES (7)")
+
+                    return try queueBox.queue.read { nestedConnection in
+                        XCTAssertTrue(connection === nestedConnection)
+                        let statement = try nestedConnection.prepare("SELECT value FROM nested_counters")
+                        XCTAssertTrue(try statement.step())
+                        return statement.columnInt(at: 0)
+                    }
+                }
+                XCTAssertEqual(value, 7)
+                finished.fulfill()
+            } catch {
+                XCTFail("Nested database queue access failed: \(error)")
+                finished.fulfill()
+            }
+        }
+
+        wait(for: [finished], timeout: 1.0)
+    }
+
     func testMigratorCreatesMigrationTableAndRecordsAppliedMigration() throws {
         let queue = try DatabaseQueue(connection: .inMemory())
         let migrator = DatabaseMigrator(migrations: [
@@ -106,7 +135,7 @@ final class SQLiteFoundationTests: XCTestCase {
         XCTAssertFalse(tables.contains("replacement_rules"))
     }
 
-    func testLLMProvidersStoreOnlyKeychainReference() throws {
+    func testLLMProvidersStoreOnlyCredentialReference() throws {
         let queue = try DatabaseQueue(connection: .inMemory())
 
         try AppDatabase.migrator().migrate(queue)
@@ -510,8 +539,16 @@ final class SQLiteFoundationTests: XCTestCase {
         }
         return names
     }
-}
+    }
 
-private final class Counter {
-    var value = 0
-}
+    private final class Counter {
+        var value = 0
+    }
+
+    private final class DatabaseQueueTestBox: @unchecked Sendable {
+        let queue: DatabaseQueue
+
+        init(_ queue: DatabaseQueue) {
+            self.queue = queue
+        }
+    }

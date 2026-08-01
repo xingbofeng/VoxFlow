@@ -1,0 +1,28 @@
+/* Mashangxie Keyboard localizable strings (Korean). */
+/* Placeholder — replaced in Section 4 with copied Dictus keyboard strings. */
+"keyboard.full_access_required" = "전체 접근 권한 필요";
+"keyboard.full_access_message" = "받아쓰기를 사용하려면 설정 > 키보드 > Mashangxie에서 전체 접근을 켜세요.";
+"keyboard.open_settings" = "설정 열기";
+"keyboard.recording.starting" = "시작 중…";
+"keyboard.recording.transcribing" = "인식 중…";
+"keyboard.recording.listening" = "듣는 중…";
+"keyboard.chinese_engine.loading" = "중국어 엔진 불러오는 중…";
+"keyboard.chinese_engine.failed" = "중국어 엔진 실패 — 바로 입력함";
+"keyboard.chinese.candidates.total" = "후보 %d개";
+"keyboard.chinese.candidates.more" = "더 보기";
+"keyboard.chinese.candidates.collapse" = "후보 접기";
+"keyboard.clipboard.reading" = "클립보드 읽는 중…";
+"keyboard.clipboard.full_access_required" = "전체 접근을 켠 뒤 탭하여 다시 시도";
+"keyboard.clipboard.read_failed" = "클립보드를 읽지 못했습니다. 탭하여 다시 시도";
+"keyboard.clipboard.preview_hint" = "탭하여 삽입 · 왼쪽으로 쓸기";
+"keyboard.space" = "스페이스";
+"emoji.recents" = "최근 사용";
+"emoji.no_results" = "결과 없음";
+"emoji.search" = "Emoji 검색";
+"accessibility.nextKeyboard" = "다음 키보드";
+"accessibility.space" = "스페이스";
+"accessibility.backspace" = "백스페이스";
+"accessibility.shift" = "Shift";
+"accessibility.moreLetters" = "더 많은 문자";
+"accessibility.moreNumbers" = "더 많은 숫자";
+"accessibility.moreSymbols" = "더 많은 기호";

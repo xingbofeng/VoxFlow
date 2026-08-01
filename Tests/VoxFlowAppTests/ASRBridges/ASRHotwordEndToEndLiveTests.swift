@@ -1,4 +1,5 @@
 import AVFoundation
+import VoxFlowASRRuntime
 import VoxFlowASRCore
 import VoxFlowAudio
 import VoxFlowProviderNVIDIA

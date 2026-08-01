@@ -1,4 +1,5 @@
 import XCTest
+import VoxFlowASRRuntime
 import VoxFlowModelStore
 import VoxFlowProviderFunASR
 import VoxFlowProviderOmnilingual

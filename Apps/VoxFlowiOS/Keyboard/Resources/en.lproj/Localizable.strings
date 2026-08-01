@@ -1,0 +1,28 @@
+/* Mashangxie Keyboard localizable strings (English). */
+/* Placeholder — replaced in Section 4 with copied Dictus keyboard strings. */
+"keyboard.full_access_required" = "Full access required";
+"keyboard.full_access_message" = "Enable Full Access in Settings > Keyboards > Mashangxie to use dictation.";
+"keyboard.open_settings" = "Open Settings";
+"keyboard.recording.starting" = "Starting…";
+"keyboard.recording.transcribing" = "Transcribing…";
+"keyboard.recording.listening" = "Listening…";
+"keyboard.chinese_engine.loading" = "Loading Chinese engine…";
+"keyboard.chinese_engine.failed" = "Chinese engine failed — typing directly";
+"keyboard.chinese.candidates.total" = "%d candidates";
+"keyboard.chinese.candidates.more" = "More";
+"keyboard.chinese.candidates.collapse" = "Collapse candidates";
+"keyboard.clipboard.reading" = "Reading clipboard…";
+"keyboard.clipboard.full_access_required" = "Enable Full Access, then tap to retry";
+"keyboard.clipboard.read_failed" = "Could not read clipboard. Tap to retry";
+"keyboard.clipboard.preview_hint" = "Tap to insert · swipe back";
+"keyboard.space" = "space";
+"emoji.recents" = "Recents";
+"emoji.no_results" = "No results";
+"emoji.search" = "Search Emoji";
+"accessibility.nextKeyboard" = "Next keyboard";
+"accessibility.space" = "Space";
+"accessibility.backspace" = "Backspace";
+"accessibility.shift" = "Shift";
+"accessibility.moreLetters" = "More letters";
+"accessibility.moreNumbers" = "More numbers";
+"accessibility.moreSymbols" = "More symbols";

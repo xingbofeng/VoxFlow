@@ -1,4 +1,5 @@
 import Foundation
+import VoxFlowASRRuntime
 import VoxFlowASRCore
 import VoxFlowModelStore
 import VoxFlowProviderAliyunDashScope
@@ -54,8 +55,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private let defaults: UserDefaults
     private let settingsRepository: (any SettingsRepository)?
     private let modelInstallationRepository: (any ModelInstallationStateStoring)?
+    private let modelInstallationStateService: ASRModelInstallationStateService
     private let qwen3RuntimePreflight: (ModelSize) -> Qwen3RuntimePreflightResult
-    private let cloudCredentials: ASRCloudCredentialManager
+    private let cloudCredentialService: ASRCloudCredentialService
     private let modelStoreRoot: URL?
 
     private enum Keys {
@@ -73,15 +75,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         static let aliyunDashScopeVocabularyID = "ASRManager.aliyunDashScopeVocabularyID"
     }
 
-    static let groqAPIKeyAccount = "asr.groq.api-key"
-    private static let legacyGroqAPIKeyAccounts = ["groq-key"]
-    static let tencentAppIDAccount = "asr.tencent.app-id"
-    static let tencentSecretIDAccount = "asr.tencent.secret-id"
-    static let tencentSecretKeyAccount = "asr.tencent.secret-key"
-    static let aliyunDashScopeAPIKeyAccount = "asr.aliyun-dashscope.api-key"
-    static let volcengineAppIDAccount = "asr.volcengine.app-id"
-    static let volcengineAccessTokenAccount = "asr.volcengine.access-token"
-    static let volcengineSecretKeyAccount = "asr.volcengine.secret-key"
+    static let groqAPIKeyAccount = ASRCloudCredentialService.groqAPIKeyAccount
+    static let tencentAppIDAccount = ASRCloudCredentialService.tencentAppIDAccount
+    static let tencentSecretIDAccount = ASRCloudCredentialService.tencentSecretIDAccount
+    static let tencentSecretKeyAccount = ASRCloudCredentialService.tencentSecretKeyAccount
+    static let aliyunDashScopeAPIKeyAccount = ASRCloudCredentialService.aliyunDashScopeAPIKeyAccount
+    static let volcengineAppIDAccount = ASRCloudCredentialService.volcengineAppIDAccount
+    static let volcengineAccessTokenAccount = ASRCloudCredentialService.volcengineAccessTokenAccount
+    static let volcengineSecretKeyAccount = ASRCloudCredentialService.volcengineSecretKeyAccount
 
     var funASRPrecision: FunASRPrecision {
         get {
@@ -185,12 +186,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         self.defaults = defaults
         self.settingsRepository = settingsRepository
         self.modelInstallationRepository = modelInstallationRepository ?? Self.defaultModelInstallationRepository(for: defaults)
-        cloudCredentials = ASRCloudCredentialManager(
+        self.modelInstallationStateService = ASRModelInstallationStateService(repository: self.modelInstallationRepository)
+        cloudCredentialService = ASRCloudCredentialService(
             credentialStore: credentialStore,
-            settingsRepository: settingsRepository,
-            legacyAccountAliases: [
-                Self.groqAPIKeyAccount: Self.legacyGroqAPIKeyAccounts,
-            ]
+            settingsRepository: settingsRepository
         )
         self.qwen3RuntimePreflight = qwen3RuntimePreflight
         self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
@@ -247,15 +246,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isGroqConfigured: Bool {
-        cloudCredentials.isConfigured(account: Self.groqAPIKeyAccount)
+        cloudCredentialService.isGroqConfigured
     }
 
     func storedGroqAPIKey() -> String {
-        cloudCredentials.storedCredential(account: Self.groqAPIKeyAccount)
+        cloudCredentialService.storedGroqAPIKey()
     }
 
     func saveGroqAPIKey(_ apiKey: String) throws {
-        try cloudCredentials.saveCredential(apiKey, account: Self.groqAPIKeyAccount)
+        try cloudCredentialService.saveGroqAPIKey(apiKey)
     }
 
     func testGroqConnection() async throws -> ASRProviderHealthResult {
@@ -276,29 +275,19 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isTencentCloudConfigured: Bool {
-        cloudCredentials.isConfigured(account: Self.tencentAppIDAccount)
-            && cloudCredentials.isConfigured(account: Self.tencentSecretIDAccount)
-            && cloudCredentials.isConfigured(account: Self.tencentSecretKeyAccount)
+        cloudCredentialService.isTencentCloudConfigured
     }
 
     func storedTencentCloudCredentials() -> (appID: String, secretID: String, secretKey: String) {
-        (
-            cloudCredentials.storedCredential(account: Self.tencentAppIDAccount),
-            cloudCredentials.storedCredential(account: Self.tencentSecretIDAccount),
-            cloudCredentials.storedCredential(account: Self.tencentSecretKeyAccount)
-        )
+        cloudCredentialService.storedTencentCloudCredentials()
     }
 
     func saveTencentCloudCredentials(appID: String, secretID: String, secretKey: String) throws {
-        try cloudCredentials.saveCredential(appID, account: Self.tencentAppIDAccount)
-        try cloudCredentials.saveCredential(secretID, account: Self.tencentSecretIDAccount)
-        try cloudCredentials.saveCredential(secretKey, account: Self.tencentSecretKeyAccount)
+        try cloudCredentialService.saveTencentCloudCredentials(appID: appID, secretID: secretID, secretKey: secretKey)
     }
 
     func deleteTencentCloudCredentials() throws {
-        try cloudCredentials.deleteCredential(account: Self.tencentAppIDAccount)
-        try cloudCredentials.deleteCredential(account: Self.tencentSecretIDAccount)
-        try cloudCredentials.deleteCredential(account: Self.tencentSecretKeyAccount)
+        try cloudCredentialService.deleteTencentCloudCredentials()
     }
 
     func tencentCloudConfiguration() throws -> TencentRealtimeASRConfiguration {
@@ -322,15 +311,15 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isAliyunDashScopeConfigured: Bool {
-        cloudCredentials.isConfigured(account: Self.aliyunDashScopeAPIKeyAccount)
+        cloudCredentialService.isAliyunDashScopeConfigured
     }
 
     func storedAliyunDashScopeAPIKey() -> String {
-        cloudCredentials.storedCredential(account: Self.aliyunDashScopeAPIKeyAccount)
+        cloudCredentialService.storedAliyunDashScopeAPIKey()
     }
 
     func saveAliyunDashScopeAPIKey(_ apiKey: String) throws {
-        try cloudCredentials.saveCredential(apiKey, account: Self.aliyunDashScopeAPIKeyAccount)
+        try cloudCredentialService.saveAliyunDashScopeAPIKey(apiKey)
     }
 
     func aliyunDashScopeConfiguration() throws -> AliyunDashScopeRealtimeASRConfiguration {
@@ -352,29 +341,19 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     var isVolcengineConfigured: Bool {
-        cloudCredentials.isConfigured(account: Self.volcengineAppIDAccount)
-            && cloudCredentials.isConfigured(account: Self.volcengineAccessTokenAccount)
-            && cloudCredentials.isConfigured(account: Self.volcengineSecretKeyAccount)
+        cloudCredentialService.isVolcengineConfigured
     }
 
     func storedVolcengineCredentials() -> (appID: String, accessToken: String, secretKey: String) {
-        (
-            cloudCredentials.storedCredential(account: Self.volcengineAppIDAccount),
-            cloudCredentials.storedCredential(account: Self.volcengineAccessTokenAccount),
-            cloudCredentials.storedCredential(account: Self.volcengineSecretKeyAccount)
-        )
+        cloudCredentialService.storedVolcengineCredentials()
     }
 
     func saveVolcengineCredentials(appID: String, accessToken: String, secretKey: String) throws {
-        try cloudCredentials.saveCredential(appID, account: Self.volcengineAppIDAccount)
-        try cloudCredentials.saveCredential(accessToken, account: Self.volcengineAccessTokenAccount)
-        try cloudCredentials.saveCredential(secretKey, account: Self.volcengineSecretKeyAccount)
+        try cloudCredentialService.saveVolcengineCredentials(appID: appID, accessToken: accessToken, secretKey: secretKey)
     }
 
     func deleteVolcengineCredentials() throws {
-        try cloudCredentials.deleteCredential(account: Self.volcengineAppIDAccount)
-        try cloudCredentials.deleteCredential(account: Self.volcengineAccessTokenAccount)
-        try cloudCredentials.deleteCredential(account: Self.volcengineSecretKeyAccount)
+        try cloudCredentialService.deleteVolcengineCredentials()
     }
 
     func volcengineConfiguration() throws -> VolcengineRealtimeASRConfiguration {
@@ -408,7 +387,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     private func cloudCredentialStore() -> any CredentialStore {
-        cloudCredentials
+        cloudCredentialService.credentialStore
     }
 
     // MARK: - Qwen3 Configuration
@@ -460,106 +439,39 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     }
 
     func markQwen3ModelDownloading(for size: ModelSize, progress: ModelDownloadProgress) {
-        guard let key = Self.qwen3ModelInstallKey(for: size),
-              let modelInstallationRepository else {
-            return
-        }
-        try? modelInstallationRepository.save(.downloading(progress: progress), for: key)
+        modelInstallationStateService.markDownloading(for: Self.qwen3ModelInstallKey(for: size), progress: progress)
     }
 
     func markWhisperModelReady(at path: String, variant: WhisperVariant) {
-        guard let key = Self.whisperModelInstallKey(for: variant),
-              let modelInstallationRepository else {
-            return
-        }
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.whisperModelInstallKey(for: variant))
     }
 
     func markFunASRModelReady(at path: String, precision: FunASRPrecision) {
-        guard let key = Self.funASRModelInstallKey(for: precision),
-              let modelInstallationRepository else {
-            return
-        }
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.funASRModelInstallKey(for: precision))
     }
 
     func markSenseVoiceModelReady(at path: String) {
-        guard let modelInstallationRepository else {
-            return
-        }
-        let key = Self.senseVoiceModelInstallKey()
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.senseVoiceModelInstallKey())
     }
 
     func markParaformerModelReady(at path: String) {
-        guard let modelInstallationRepository else {
-            return
-        }
-        let key = Self.paraformerModelInstallKey()
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.paraformerModelInstallKey())
     }
 
     func markNVIDIANemotronModelReady(at path: String) {
-        guard let modelInstallationRepository else {
-            return
-        }
-        let key = Self.nvidiaNemotronModelInstallKey()
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.nvidiaNemotronModelInstallKey())
     }
 
     func markParakeetModelReady(at path: String) {
-        guard let modelInstallationRepository else {
-            return
-        }
-        let key = Self.parakeetModelInstallKey()
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.parakeetModelInstallKey())
     }
 
     func markOmnilingualModelReady(at path: String) {
-        guard let modelInstallationRepository else {
-            return
-        }
-        let key = Self.omnilingualModelInstallKey()
-        let installation = ModelInstallation(
-            modelID: key.modelID,
-            version: key.version,
-            installedRoot: URL(fileURLWithPath: path, isDirectory: true)
-        )
-        try? modelInstallationRepository.save(.ready(installation), for: key)
+        modelInstallationStateService.markReady(at: path, for: Self.omnilingualModelInstallKey())
     }
 
     func clearModelInstallationState(for engineType: ASREngineType) {
-        guard let modelInstallationRepository else {
+        guard modelInstallationRepository != nil else {
             return
         }
 
@@ -569,66 +481,36 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .qwen3:
             clearAllQwen3ModelInstallationStates()
         case .funASR:
-            guard let key = Self.funASRModelInstallKey(for: funASRPrecision) else {
-                return
-            }
-            try? modelInstallationRepository.removeState(for: key)
+            modelInstallationStateService.removeState(for: Self.funASRModelInstallKey(for: funASRPrecision))
         case .whisper:
-            guard let key = Self.whisperModelInstallKey(for: whisperVariant) else {
-                return
-            }
-            try? modelInstallationRepository.removeState(for: key)
+            modelInstallationStateService.removeState(for: Self.whisperModelInstallKey(for: whisperVariant))
         case .senseVoice:
-            try? modelInstallationRepository.removeState(for: Self.senseVoiceModelInstallKey())
+            modelInstallationStateService.removeState(for: Self.senseVoiceModelInstallKey())
         case .paraformer:
-            try? modelInstallationRepository.removeState(for: Self.paraformerModelInstallKey())
+            modelInstallationStateService.removeState(for: Self.paraformerModelInstallKey())
         case .nvidiaNemotron:
-            try? modelInstallationRepository.removeState(for: Self.nvidiaNemotronModelInstallKey())
+            modelInstallationStateService.removeState(for: Self.nvidiaNemotronModelInstallKey())
         case .parakeetStreaming:
-            try? modelInstallationRepository.removeState(for: Self.parakeetModelInstallKey())
+            modelInstallationStateService.removeState(for: Self.parakeetModelInstallKey())
         case .omnilingualASR:
-            try? modelInstallationRepository.removeState(for: Self.omnilingualModelInstallKey())
+            modelInstallationStateService.removeState(for: Self.omnilingualModelInstallKey())
         }
     }
 
     func markModelDeleting(for engineType: ASREngineType) {
-        guard let key = self.modelInstallKey(for: engineType),
-              let modelInstallationRepository,
-              case let .ready(installation) = (try? modelInstallationRepository.state(for: key)) ?? .notInstalled else {
-            return
-        }
-        AppLogger.general.info("Marking model deleting: \(engineType.rawValue)")
-        try? modelInstallationRepository.save(.deleting(installation), for: key)
+        modelInstallationStateService.markDeleting(for: modelInstallKey(for: engineType), engineType: engineType)
     }
 
     func markModelDownloading(for engineType: ASREngineType, progress: ModelDownloadProgress) {
-        guard let key = self.modelInstallKey(for: engineType),
-              let modelInstallationRepository else {
-            return
-        }
-        try? modelInstallationRepository.save(.downloading(progress: progress), for: key)
+        modelInstallationStateService.markDownloading(for: modelInstallKey(for: engineType), progress: progress)
     }
 
     func markModelDeletionFailed(for engineType: ASREngineType, message: String) {
-        guard let key = self.modelInstallKey(for: engineType),
-              let modelInstallationRepository else {
-            return
-        }
-        AppLogger.general.error("Model deletion failed: \(engineType.rawValue), reason=\(message)")
-        try? modelInstallationRepository.save(.failed(message: message), for: key)
+        modelInstallationStateService.markDeletionFailed(for: modelInstallKey(for: engineType), engineType: engineType, message: message)
     }
 
     func restoreModelInstallationState(_ state: ModelInstallationState, for engineType: ASREngineType) {
-        guard let key = self.modelInstallKey(for: engineType),
-              let modelInstallationRepository else {
-            return
-        }
-        switch state {
-        case .notInstalled:
-            try? modelInstallationRepository.removeState(for: key)
-        default:
-            try? modelInstallationRepository.save(state, for: key)
-        }
+        modelInstallationStateService.restore(state, for: modelInstallKey(for: engineType))
     }
 
     func modelInstallationState(for engineType: ASREngineType) -> ModelInstallationState {
@@ -887,11 +769,11 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     @discardableResult
     func selectEngine(_ type: ASREngineType) -> Bool {
         AppLogger.general.info("Request selecting ASR engine: \(type.rawValue)")
-        selectedEngineType = type
         guard canSelectEngine(type) else {
             AppLogger.general.warning("Reject ASR engine selection: \(type.rawValue)")
             return false
         }
+        selectedEngineType = type
         AppLogger.general.info("ASR engine selected: \(type.rawValue)")
         return true
     }
