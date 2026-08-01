@@ -112,7 +112,7 @@ final class ChineseKeyboardModeSwitchTests: XCTestCase {
 
         bridge.didTriggerKey(KeyDefinition(type: .input(key: "x", alternate: nil)))
 
-        await waitUntil { controller.proxy.text == "x" }
+        await waitUntil(timeout: 5) { controller.proxy.text == "x" }
         XCTAssertEqual(controller.proxy.text, "x")
         SuggestionState.shared.clear()
     }
