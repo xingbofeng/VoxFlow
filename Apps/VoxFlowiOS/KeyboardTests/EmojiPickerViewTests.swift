@@ -1,5 +1,4 @@
 import XCTest
-@testable import MashangxieKeyboard
 @testable import Shared
 
 final class EmojiPickerViewTests: XCTestCase {

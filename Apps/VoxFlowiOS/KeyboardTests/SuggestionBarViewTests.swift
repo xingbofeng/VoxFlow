@@ -1,6 +1,5 @@
 import XCTest
 import SwiftUI
-@testable import MashangxieKeyboard
 
 @MainActor
 final class SuggestionBarViewTests: XCTestCase {
