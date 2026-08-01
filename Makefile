@@ -68,7 +68,7 @@ export SENTRY_PROJECT
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-ipa ios-keyboard-release-archive ios-clean
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-ipa ios-keyboard-release-archive ios-clean
 
 all: build
 
@@ -457,6 +457,14 @@ ios-rime-prebuild: ios-gen-project
 	@test -f "$(IOS_RIME_PREBUILD_DIR)/rime_ice.table.bin" || (echo "Missing prebuilt rime_ice.table.bin" && exit 1)
 	@du -sh "$(IOS_RIME_PREBUILD_DIR)"
 
+ios-rime-prebuild-if-needed: ios-gen-project
+	@if [ ! -f "$(IOS_RIME_PREBUILD_DIR)/rime_ice.table.bin" ]; then \
+		echo "→ 未找到预编译 Rime build，先生成测试运行时资源"; \
+		$(MAKE) ios-rime-prebuild; \
+	else \
+		echo "Rime prebuilt build ready: $(IOS_RIME_PREBUILD_DIR)"; \
+	fi
+
 # 生成 Xcode 项目（若不存在）后在 iOS Simulator 上构建
 ios-dev-cloud-resource:
 	@MASHANGXIE_DEV_TENCENT_APP_ID="$(MASHANGXIE_DEV_TENCENT_APP_ID)" \
@@ -515,7 +523,7 @@ ios-run-sim: ios-build-sim
 		DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun simctl launch "$(SIMULATOR_UDID)" "$(IOS_BUNDLE_ID)"; \
 		open -a Simulator
 
-ios-test-sim: ios-gen-project
+ios-test-sim: ios-rime-prebuild-if-needed
 	@mkdir -p "$(IOS_BUILD_DIR)"
 	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
 	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
