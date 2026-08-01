@@ -72,6 +72,7 @@ class SuggestionState: ObservableObject {
 
     var toolbarSuggestions: [String] {
         if mode == .chineseCandidates, suggestions.isEmpty, !chinesePreedit.isEmpty {
+            guard !chinesePreedit.contains(where: \.isNumber) else { return [] }
             return [chinesePreedit]
         }
         return suggestions

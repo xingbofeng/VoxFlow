@@ -538,6 +538,7 @@ ios-test-sim: ios-gen-project
 		-destination "platform=iOS Simulator,name=$(IOS_SIMULATOR_NAME),OS=$(IOS_SIMULATOR_OS),arch=$(IOS_SIMULATOR_ARCH)" \
 		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
 		$(IOS_SIM_CODE_SIGN_ARGS) \
+		-only-testing:MashangxieTests \
 		test
 	DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" xcrun xcodebuild -quiet \
 		-project "$(IOS_PROJECT)" \

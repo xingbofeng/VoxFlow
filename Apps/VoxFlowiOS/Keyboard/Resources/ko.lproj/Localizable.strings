@@ -10,6 +10,7 @@
 "keyboard.chinese_engine.failed" = "중국어 엔진 실패 — 바로 입력함";
 "keyboard.chinese.candidates.total" = "후보 %d개";
 "keyboard.chinese.candidates.more" = "더 보기";
+"keyboard.chinese.candidates.collapse" = "후보 접기";
 "keyboard.clipboard.reading" = "클립보드 읽는 중…";
 "keyboard.clipboard.full_access_required" = "전체 접근을 켠 뒤 탭하여 다시 시도";
 "keyboard.clipboard.read_failed" = "클립보드를 읽지 못했습니다. 탭하여 다시 시도";

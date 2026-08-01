@@ -5,6 +5,27 @@ import Combine
 import Shared
 import ChineseInput
 
+struct KeyboardChromeLayoutPolicy: Equatable {
+    let dictationStatus: DictationStatus
+    let isShowingEmoji: Bool
+    let isShowingAuxiliaryPanel: Bool
+    let isShowingChineseCandidatePanel: Bool
+
+    private var isRecording: Bool {
+        dictationStatus == .requested
+            || dictationStatus == .recording
+            || dictationStatus == .transcribing
+    }
+
+    var hidesKeyGrid: Bool {
+        isRecording || isShowingEmoji || isShowingAuxiliaryPanel || isShowingChineseCandidatePanel
+    }
+
+    var expandsHostingView: Bool {
+        hidesKeyGrid
+    }
+}
+
 class KeyboardViewController: UIInputViewController {
     let controllerID = String(UUID().uuidString.prefix(8))
 
@@ -73,6 +94,7 @@ class KeyboardViewController: UIInputViewController {
     /// (e.g. missing schema resources) does not thrash on every keystroke.
     private var chineseInstallRetryCount = 0
     private let maxChineseInstallRetries = 5
+    private var isShowingExpandedSwiftUIPanel = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -608,6 +630,7 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func setChineseAuxiliaryPanelVisible(_ visible: Bool) {
+        isShowingExpandedSwiftUIPanel = visible
         guard hasAppeared else { return }
 
         let status = KeyboardState.shared.dictationStatus
@@ -621,8 +644,14 @@ class KeyboardViewController: UIInputViewController {
             NotificationCenter.default.post(name: .mashangxieSetEmojiVisible, object: false)
         }
 
-        giellaKeyboard?.isHidden = visible || isShowingEmoji
-        if visible {
+        let layout = KeyboardChromeLayoutPolicy(
+            dictationStatus: status,
+            isShowingEmoji: isShowingEmoji,
+            isShowingAuxiliaryPanel: ChineseAuxiliaryPanelState.shared.mode != nil,
+            isShowingChineseCandidatePanel: isShowingExpandedSwiftUIPanel
+        )
+        giellaKeyboard?.isHidden = layout.hidesKeyGrid
+        if layout.expandsHostingView {
             hostingHeightConstraint?.constant = computeKeyboardHeight()
             setHostingExpanded(true)
         } else if !isShowingEmoji {
@@ -859,7 +888,13 @@ class KeyboardViewController: UIInputViewController {
         }
 
         let isShowingAuxiliaryPanel = ChineseAuxiliaryPanelState.shared.mode != nil
-        giellaKeyboard?.isHidden = isRecording || isShowingEmoji || isShowingAuxiliaryPanel
+        let layout = KeyboardChromeLayoutPolicy(
+            dictationStatus: status,
+            isShowingEmoji: isShowingEmoji,
+            isShowingAuxiliaryPanel: isShowingAuxiliaryPanel,
+            isShowingChineseCandidatePanel: isShowingExpandedSwiftUIPanel
+        )
+        giellaKeyboard?.isHidden = layout.hidesKeyGrid
 
         if isRecording {
             // Expand hosting view to fill the full keyboard area for the recording overlay
@@ -872,7 +907,7 @@ class KeyboardViewController: UIInputViewController {
                 action: "hostingSet_recording",
                 details: "old=\(oldHosting) new=\(fullHeight) status=\(status.rawValue)"
             ))
-        } else if isShowingAuxiliaryPanel {
+        } else if layout.expandsHostingView {
             let fullHeight = computeKeyboardHeight()
             hostingHeightConstraint?.constant = fullHeight
             setHostingExpanded(true)
@@ -1066,6 +1101,7 @@ class KeyboardViewController: UIInputViewController {
 
         // Apply current shift state
         bridge?.updateCapitalization()
+        handleDictationStatusChange(KeyboardState.shared.dictationStatus)
     }
 
     @objc private func handleKeyboardLayoutReloadNotification() {

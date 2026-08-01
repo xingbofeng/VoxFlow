@@ -57,6 +57,7 @@ struct SuggestionBarView: View {
     /// button so users know more candidates are reachable. Defaults to the
     /// visible list length when omitted.
     var candidateCount: Int? = nil
+    var preedit: String? = nil
 
     private var totalCandidateCount: Int {
         candidateCount ?? suggestions.count
@@ -82,6 +83,18 @@ struct SuggestionBarView: View {
 
     private var chineseCandidateStrip: some View {
         HStack(spacing: 6) {
+            if let preedit, !preedit.isEmpty {
+                Text(preedit)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 44, minHeight: displayPolicy.minTouchHeight)
+                    .background(Color(.systemBackground).opacity(0.58))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color(.systemBackground).opacity(0.58))

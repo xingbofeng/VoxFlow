@@ -10,6 +10,7 @@
 "keyboard.chinese_engine.failed" = "中国語エンジンの読み込みに失敗しました（直接入力）";
 "keyboard.chinese.candidates.total" = "候補 %d 件";
 "keyboard.chinese.candidates.more" = "もっと";
+"keyboard.chinese.candidates.collapse" = "候補を閉じる";
 "keyboard.clipboard.reading" = "クリップボードを読み取り中…";
 "keyboard.clipboard.full_access_required" = "フルアクセスを有効にして再試行";
 "keyboard.clipboard.read_failed" = "クリップボードを読めません。タップして再試行";

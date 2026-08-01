@@ -4,6 +4,45 @@ import Combine
 import Shared
 import ChineseInput
 
+struct ChineseCandidatePanelPresentation: Equatable {
+    let preedit: String
+    let pinyinCandidates: [String]
+
+    var showsPinyinSidebar: Bool {
+        !pinyinCandidates.isEmpty
+    }
+
+    init(
+        mode: ChineseInputMode,
+        rawPreedit: String,
+        pinyinCandidates: [String],
+        selectedPinyin: String?
+    ) {
+        guard mode == .chineseNineGrid else {
+            preedit = rawPreedit
+            self.pinyinCandidates = []
+            return
+        }
+
+        var seen = Set<String>()
+        var normalized = pinyinCandidates.filter { candidate in
+            !candidate.isEmpty
+                && candidate.allSatisfy(\.isLetter)
+                && seen.insert(candidate).inserted
+        }
+        let validSelectedPinyin = selectedPinyin.flatMap { selected -> String? in
+            guard !selected.isEmpty, selected.allSatisfy(\.isLetter) else { return nil }
+            return normalized.isEmpty || normalized.contains(selected) ? selected : nil
+        }
+        if normalized.isEmpty, let validSelectedPinyin {
+            normalized.append(validSelectedPinyin)
+        }
+
+        self.pinyinCandidates = normalized
+        preedit = validSelectedPinyin ?? normalized.first ?? ""
+    }
+}
+
 /// Root SwiftUI view for the keyboard extension chrome (toolbar + recording overlay).
 ///
 /// Phase 18 architecture change: The keyboard grid is now a UIKit GiellaKeyboardView
@@ -53,10 +92,13 @@ struct KeyboardRootView: View {
         suggestionState.chineseCandidateTotalCount
     }
 
-    /// Rime-derived pinyin readings for the current 9-key composition.
-    private var pinyinVariantsForCurrentMode: [String] {
-        guard chineseInputMode == .chineseNineGrid else { return [] }
-        return suggestionState.chinesePinyinCandidates
+    private var candidatePresentation: ChineseCandidatePanelPresentation {
+        ChineseCandidatePanelPresentation(
+            mode: chineseInputMode,
+            rawPreedit: suggestionState.chinesePreedit,
+            pinyinCandidates: suggestionState.chinesePinyinCandidates,
+            selectedPinyin: suggestionState.chineseSelectedPinyin
+        )
     }
 
     /// Callback when the user cycles language via the toolbar switcher.
@@ -207,13 +249,14 @@ struct KeyboardRootView: View {
                 showingEmoji = false
                 showingChineseCandidates = false
             }
-            onAuxiliaryPanelVisibilityChanged?(isVisible)
         }
         .onChange(of: showingChineseCandidates) { _, isVisible in
             if isVisible {
                 showingEmoji = false
                 auxiliaryPanelState.dismiss()
             }
+        }
+        .onChange(of: showingChineseCandidates || auxiliaryPanelState.mode != nil) { _, isVisible in
             onAuxiliaryPanelVisibilityChanged?(isVisible)
         }
         .onChange(of: suggestionState.mode) { _, mode in
@@ -237,30 +280,14 @@ struct KeyboardRootView: View {
 
     private var expandedCandidateContent: some View {
         VStack(spacing: 0) {
-            ToolbarView(
-                hasFullAccess: state.controller?.hasFullAccess ?? false,
+            ExpandedChineseCandidateHeader(
+                preedit: candidatePresentation.preedit,
                 dictationStatus: state.dictationStatus,
+                onCollapse: dismissChineseCandidatePanel,
                 onMicTap: {
                     dismissChineseCandidatePanel()
                     startVoiceDictation()
-                },
-                statusMessage: toolbarStatusMessage,
-                suggestions: suggestionState.toolbarSuggestions,
-                suggestionMode: suggestionState.mode,
-                onSuggestionTap: { index in
-                    handleSuggestionTap(index: index)
-                    dismissChineseCandidatePanel()
-                },
-                suggestionsExpanded: true,
-                onSuggestionExpand: { dismissChineseCandidatePanel() },
-                candidateCount: chineseCandidateCountBar,
-                onLanguageChanged: onLanguageChanged,
-                chineseInputMode: chineseInputMode,
-                onChineseModeToggle: { mode in switchChineseInputMode(mode) },
-                pendingClipboard: state.pendingClipboard,
-                onPendingInsert: { state.insertPendingTextAndClear() },
-                onPendingDismiss: { state.dismissPendingAndClear() },
-                onPendingRetry: { state.retryPendingClipboardRead() }
+                }
             )
             .frame(height: 52)
 
@@ -271,12 +298,10 @@ struct KeyboardRootView: View {
                     HapticFeedback.keyTapped()
                     dismissChineseCandidatePanel()
                 },
-                pinyinVariants: pinyinVariantsForCurrentMode,
-                pinyinHeader: suggestionState.chinesePreedit,
+                pinyinVariants: candidatePresentation.pinyinCandidates,
                 selectedPinyin: suggestionState.chineseSelectedPinyin,
                 onPinyinTap: handlePinyinVariantTap,
-                onPageMore: suggestionState.chineseHasMoreCandidates ? handleCandidatePageMore : nil,
-                candidateCount: suggestionState.chineseCandidateTotalCount
+                onPageMore: suggestionState.chineseHasMoreCandidates ? handleCandidatePageMore : nil
             )
         }
     }
@@ -373,6 +398,7 @@ struct KeyboardRootView: View {
             suggestionsExpanded: false,
             onSuggestionExpand: showChineseCandidatePanel,
             candidateCount: chineseCandidateCountBar,
+            chinesePreedit: candidatePresentation.preedit,
             onLanguageChanged: onLanguageChanged,
             chineseInputMode: chineseInputMode,
             onChineseModeToggle: { mode in switchChineseInputMode(mode) },
@@ -486,7 +512,7 @@ struct KeyboardRootView: View {
     private func dismissChineseCandidatePanel() {
         guard showingChineseCandidates else { return }
         showingChineseCandidates = false
-        onAuxiliaryPanelVisibilityChanged?(false)
+        onAuxiliaryPanelVisibilityChanged?(auxiliaryPanelState.mode != nil)
     }
 
     private func handlePinyinVariantTap(_ variant: String) {
@@ -600,7 +626,7 @@ struct KeyboardRootView: View {
 
     private func dismissAuxiliaryPanel() {
         auxiliaryPanelState.dismiss()
-        onAuxiliaryPanelVisibilityChanged?(false)
+        onAuxiliaryPanelVisibilityChanged?(showingChineseCandidates)
     }
 
     private func insertAuxiliaryText(_ text: String, dismissAfterInsert: Bool) {
@@ -623,147 +649,140 @@ struct KeyboardRootView: View {
     }
 }
 
+private struct ExpandedChineseCandidateHeader: View {
+    let preedit: String
+    let dictationStatus: DictationStatus
+    let onCollapse: () -> Void
+    let onMicTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(preedit)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.leading, 12)
+
+            Button(action: onCollapse) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 52, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(NSLocalizedString(
+                "keyboard.chinese.candidates.collapse",
+                bundle: .main,
+                comment: ""
+            )))
+
+            AnimatedMicButton(status: dictationStatus, isPill: true, onTap: onMicTap)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 4)
+        .frame(height: 52)
+        .background(Color(.systemGray5))
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+}
+
 private struct ExpandedChineseCandidatePanel: View {
     let candidates: [CandidateSuggestion]
     let onTap: (CandidateSuggestion) -> Void
-    /// Pinyin/variant readings for the current digit sequence (9-key) or pinyin
-    /// completions (26-key). Rendered in the left sidebar column.
+    /// Pinyin readings for the current 9-key digit sequence.
     var pinyinVariants: [String] = []
-    /// The raw digit sequence or partial pinyin being composed (sidebar header).
-    var pinyinHeader: String = ""
     var selectedPinyin: String? = nil
     /// Tap a pinyin variant to replace the current preedit with that variant.
     var onPinyinTap: ((String) -> Void)? = nil
     /// Request the next page of candidates. Presented as a "更多" button in the
     /// footer when more candidates are known to exist.
     var onPageMore: (() -> Void)? = nil
-    /// Total candidate count for the composition; may exceed the visible list
-    /// when the window is capped. Shown in a footer so users know how many more
-    /// candidates exist.
-    var candidateCount: Int? = nil
-
-    private var totalCount: Int {
-        candidateCount ?? candidates.count
-    }
-
-    private let columns = [
-        GridItem(.adaptive(minimum: 70), spacing: 8, alignment: .leading)
-    ]
+    private let columns = Array(
+        repeating: GridItem(.flexible(minimum: 52), spacing: 0, alignment: .center),
+        count: 4
+    )
 
     var body: some View {
-        let hasSidebar = !pinyinVariants.isEmpty || !pinyinHeader.isEmpty
-        return HStack(alignment: .top, spacing: 0) {
-            if hasSidebar {
-                pinyinSidebarView
-                    .frame(width: 62)
-            }
-            VStack(spacing: 0) {
-                ScrollView { candidateGridView }
-                if totalCount > candidates.count || onPageMore != nil { combinedFooterView }
+        ScrollView {
+            HStack(alignment: .top, spacing: 0) {
+                if !pinyinVariants.isEmpty {
+                    pinyinSidebarView
+                        .frame(width: 72)
+                }
+                VStack(spacing: 0) {
+                    candidateGridView
+                    if let onPageMore {
+                        moreButton(action: onPageMore)
+                    }
+                }
             }
         }
         .background(Color(.systemGray5))
     }
 
     private var candidateGridView: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 0) {
             ForEach(Array(candidates.enumerated()), id: \.offset) { index, candidate in
                 Button {
                     onTap(candidate)
                 } label: {
-                    VStack(spacing: 2) {
-                        Text(candidate.title)
-                            .font(.system(size: 20, weight: index == 0 ? .semibold : .regular))
-                            .foregroundStyle(Color(.label))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                        if let subtitle = candidate.subtitle, !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    Text(candidate.title)
+                        .font(.system(size: 21, weight: index == 0 ? .semibold : .regular))
+                        .foregroundStyle(Color(.label))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, 6)
+                        .frame(maxWidth: .infinity, minHeight: 56)
                     .contentShape(Rectangle())
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(index == 0 ? Color(.systemBackground).opacity(0.96) : Color(.systemGray6))
+                        index == 0 ? Color(.systemBackground) : Color(.systemGray6)
                     )
+                    .overlay(Rectangle().stroke(Color(.separator).opacity(0.24), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
     }
 
     private var pinyinSidebarView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
-                if !pinyinHeader.isEmpty {
-                    Text(pinyinHeader)
-                        .font(.system(size: 13, weight: .semibold))
+        VStack(spacing: 0) {
+            ForEach(pinyinVariants, id: \.self) { variant in
+                Button {
+                    onPinyinTap?(variant)
+                } label: {
+                    Text(variant)
+                        .font(.system(size: 16, weight: .regular))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .padding(.horizontal, 6)
-                        .padding(.bottom, 4)
-                }
-                ForEach(pinyinVariants, id: \.self) { variant in
-                    Button {
-                        onPinyinTap?(variant)
-                    } label: {
-                        Text(variant)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(variant == selectedPinyin ? Color(.systemGray4).opacity(0.5) : Color.clear)
-                            )
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 10)
-        }
-        .background(Color(.systemGray6))
-    }
-
-    private var combinedFooterView: some View {
-        HStack {
-            if totalCount > candidates.count {
-                Text(String(format: NSLocalizedString("keyboard.chinese.candidates.total", bundle: .main, comment: ""), totalCount))
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let pageMore = onPageMore {
-                Button(action: pageMore) {
-                    Text(NSLocalizedString("keyboard.chinese.candidates.more", bundle: .main, comment: ""))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, minHeight: 56)
                         .background(
-                            Capsule()
-                                .fill(Color.dictusAccent)
+                            variant == selectedPinyin || (selectedPinyin == nil && variant == pinyinVariants.first)
+                                ? Color(.systemGray4)
+                                : Color(.systemGray5)
                         )
+                        .contentShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color(.separator).opacity(0.24), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+    }
+
+    private func moreButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(NSLocalizedString("keyboard.chinese.candidates.more", bundle: .main, comment: ""))
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .background(Color(.systemGray6))
+        .overlay(Rectangle().stroke(Color(.separator).opacity(0.24), lineWidth: 0.5))
     }
 }

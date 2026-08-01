@@ -94,11 +94,13 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
         try ensureStarted()
         guard mode.isChinese else {
             api.cleanComposition(session)
+            selectedPinyinReplacement = nil
             state = .init()
             return state
         }
 
         api.cleanComposition(session)
+        selectedPinyinReplacement = nil
         try selectSchema(for: mode)
         state = readState()
         return state
@@ -279,6 +281,7 @@ public final class NativeChineseRimeBridge: ChineseRimeBridge {
             if nonEmptyCommit != nil {
                 api.cleanComposition(session)
             }
+            selectedPinyinReplacement = nil
             return .init(commitText: nonEmptyCommit)
         }
 

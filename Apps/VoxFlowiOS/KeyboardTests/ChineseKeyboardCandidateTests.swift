@@ -82,6 +82,67 @@ final class ChineseKeyboardCandidateTests: XCTestCase {
         XCTAssertNil(state.chineseSelectedPinyin)
     }
 
+    func testNineGridCandidatePresentationUsesPinyinInsteadOfRawDigitPreedit() {
+        let presentation = ChineseCandidatePanelPresentation(
+            mode: .chineseNineGrid,
+            rawPreedit: "96 4...",
+            pinyinCandidates: ["wo", "yo", "9", "w", "x"],
+            selectedPinyin: nil
+        )
+
+        XCTAssertEqual(presentation.preedit, "wo")
+        XCTAssertEqual(presentation.pinyinCandidates, ["wo", "yo", "w", "x"])
+        XCTAssertTrue(presentation.showsPinyinSidebar)
+    }
+
+    func testNineGridCandidatePresentationIgnoresStaleSelectedPinyin() {
+        let presentation = ChineseCandidatePanelPresentation(
+            mode: .chineseNineGrid,
+            rawPreedit: "6464",
+            pinyinCandidates: ["ming", "ning"],
+            selectedPinyin: "zhong"
+        )
+
+        XCTAssertEqual(presentation.preedit, "ming")
+        XCTAssertEqual(presentation.pinyinCandidates, ["ming", "ning"])
+    }
+
+    func testNumericChinesePreeditDoesNotBecomeToolbarSuggestion() {
+        let state = SuggestionState.shared
+        state.clear()
+
+        state.updateChineseComposition(preedit: "222", candidates: [])
+
+        XCTAssertEqual(state.mode, .chineseCandidates)
+        XCTAssertTrue(state.toolbarSuggestions.isEmpty)
+        state.clear()
+    }
+
+    func testQwertyCandidatePresentationKeepsLetterPreeditWithoutPinyinSidebar() {
+        let presentation = ChineseCandidatePanelPresentation(
+            mode: .chineseQwerty,
+            rawPreedit: "wo",
+            pinyinCandidates: ["wo", "yo"],
+            selectedPinyin: nil
+        )
+
+        XCTAssertEqual(presentation.preedit, "wo")
+        XCTAssertTrue(presentation.pinyinCandidates.isEmpty)
+        XCTAssertFalse(presentation.showsPinyinSidebar)
+    }
+
+    func testKeyboardChromeStaysExpandedWhileChineseCandidatePanelIsVisible() {
+        let layout = KeyboardChromeLayoutPolicy(
+            dictationStatus: .idle,
+            isShowingEmoji: false,
+            isShowingAuxiliaryPanel: false,
+            isShowingChineseCandidatePanel: true
+        )
+
+        XCTAssertTrue(layout.hidesKeyGrid)
+        XCTAssertTrue(layout.expandsHostingView)
+    }
+
     // MARK: - Consistent 9-key preview (no inert live-candidate trap)
 
     func testNineKeyPreviewBeforeSessionStartShowsPreeditOnly() async throws {

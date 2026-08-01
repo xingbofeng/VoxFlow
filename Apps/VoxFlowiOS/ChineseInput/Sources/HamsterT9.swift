@@ -51,10 +51,12 @@ public enum HamsterT9 {
         if result.isEmpty, !rawInput.isEmpty {
             result = completions(startingWith: rawInput)
         }
-        return Array(Set(result)).sorted {
-            if $0.count != $1.count { return $0.count > $1.count }
-            return $0 < $1
-        }
+        return Array(Set(result))
+            .filter { !$0.isEmpty && $0.allSatisfy(\.isLetter) }
+            .sorted {
+                if $0.count != $1.count { return $0.count > $1.count }
+                return $0 < $1
+            }
     }
 
     public static func replayInput(

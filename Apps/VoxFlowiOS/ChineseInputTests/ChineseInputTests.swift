@@ -224,6 +224,15 @@ final class ChineseInputTests: XCTestCase {
         XCTAssertEqual(HamsterT9.pinyinCandidates(for: "94664"), ["xiong", "zhong"])
     }
 
+    func testHamsterT9ExpandedPinyinCandidatesExcludeNumericPlaceholders() {
+        let candidates = HamsterT9.pinyinCandidates(preedit: "96 4", rawInput: "964")
+
+        XCTAssertTrue(candidates.contains("wo"))
+        XCTAssertTrue(candidates.contains("yo"))
+        XCTAssertFalse(candidates.contains("9"))
+        XCTAssertTrue(candidates.allSatisfy { $0.allSatisfy(\.isLetter) })
+    }
+
     func testHamsterT9PinyinToDigitMapping() {
         XCTAssertEqual(HamsterT9.digitSequence(forPinyin: "zhong"), "94664")
         XCTAssertEqual(HamsterT9.digitSequence(forPinyin: "ming"), "6464")
@@ -598,6 +607,42 @@ final class ChineseInputTests: XCTestCase {
             selected.candidates.map(\.text).contains("中"),
             "zhong candidates: \(selected.candidates.map(\.text))"
         )
+    }
+
+    func testNativeChineseRimeBridgeClearsSelectedPinyinAfterCommit() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let bridge = NativeChineseRimeBridge(
+            mode: .chineseNineGrid,
+            directories: .init(
+                appGroupRoot: root.appendingPathComponent("AppGroup", isDirectory: true),
+                sandboxRoot: root.appendingPathComponent("Sandbox", isDirectory: true)
+            ),
+            bundle: try schemaResourceBundle()
+        )
+        let session = ChineseInputSession(mode: .chineseNineGrid, bridge: bridge)
+
+        try await session.start(hasFullAccess: false)
+        _ = try await session.input("94664")
+        let selectedAction = try await session.selectPinyinCandidate("zhong")
+        guard case let .updateComposition(selected) = selectedAction,
+              let candidate = selected.candidates.first(where: { $0.text == "中" }) else {
+            XCTFail("Expected selectable zhong composition")
+            return
+        }
+
+        guard case .commitText = try await session.selectCandidate(at: candidate.index) else {
+            XCTFail("Expected selected zhong candidate to commit")
+            return
+        }
+        let nextAction = try await session.input("6464")
+        guard case let .updateComposition(next) = nextAction else {
+            XCTFail("Expected next T9 composition")
+            return
+        }
+
+        XCTAssertNil(next.selectedPinyin)
+        XCTAssertTrue(next.pinyinCandidates.contains("ming"))
     }
 
     private func schemaResourceBundle() throws -> Bundle {

@@ -10,6 +10,7 @@
 "keyboard.chinese_engine.failed" = "中文引擎加载失败，已切换为直接输入";
 "keyboard.chinese.candidates.total" = "共 %d 个候选";
 "keyboard.chinese.candidates.more" = "更多";
+"keyboard.chinese.candidates.collapse" = "收起候选";
 "keyboard.clipboard.reading" = "正在读取剪贴板…";
 "keyboard.clipboard.full_access_required" = "请开启完全访问后点此重试";
 "keyboard.clipboard.read_failed" = "未读到剪贴板，点此重试";
