@@ -9,6 +9,10 @@ repository_root="$(cd "${windows_root}/.." && pwd)"
 has_detection=0
 has_input_error=0
 
+lowercase() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 trim_value() {
   local value="$1"
   value="${value#"${value%%[![:space:]]*}"}"
@@ -26,7 +30,7 @@ has_nonempty_assignment_value() {
   value="${value%\}}"
   value="$(trim_value "${value}")"
 
-  case "${value,,}" in
+  case "$(lowercase "${value}")" in
     ''|'""'|"''"|null|todo)
       return 1
       ;;
@@ -50,7 +54,8 @@ is_scannable_text_file() {
 }
 
 is_sensitive_release_artifact() {
-  local path="${1,,}"
+  local path
+  path="$(lowercase "$1")"
 
   case "${path}" in
     *.wav|*.mp3|*.m4a|*.aac|*.mp4|*.mov|*.db|*.sqlite|*.sqlite3|*.log|*screenshot*.png|*snapshot*.png|*screenshot*.jpg|*snapshot*.jpg|*screenshot*.jpeg|*snapshot*.jpeg|*screenshot*.webp|*snapshot*.webp)
@@ -78,7 +83,7 @@ is_manifest_pinned_readiness_canary() {
   # similarly named object with a regular expression would let a misplaced
   # fixedWav object authorize an unrelated audio artifact.
 
-  case "${normalized,,}" in
+  case "$(lowercase "${normalized}")" in
     */qwen/readiness-canary.wav)
       ;;
     *)
@@ -95,12 +100,14 @@ is_manifest_pinned_readiness_canary() {
 
   [[ "${manifest_sha256}" == "${expected_manifest_sha256}" \
     && "${bytes}" == "${expected_bytes}" \
-    && "${sha256,,}" == "${expected_sha256}" ]]
+    && "$(lowercase "${sha256}")" == "${expected_sha256}" ]]
 }
 
 scan_file() {
   local candidate="$1"
   local extension="${candidate##*.}"
+  local lowercase_extension
+  lowercase_extension="$(lowercase "${extension}")"
   local line
   local line_number=0
   local rule
@@ -124,21 +131,21 @@ scan_file() {
       if has_nonempty_assignment_value "${value}"; then
         rule="non-empty secret environment assignment"
       fi
-    elif [[ "${extension,,}" =~ ^ps(m)?1$ ]] && [[ "${line}" =~ ^[[:space:]]*\$(env:)?[A-Za-z_][A-Za-z0-9_]*(API_KEY|SECRET_ID|SECRET_KEY|ACCESS_TOKEN|AUTHORIZATION_TOKEN|BEARER_TOKEN)[A-Za-z0-9_]*[[:space:]]*= ]]; then
+    elif [[ "${lowercase_extension}" =~ ^ps(m)?1$ ]] && [[ "${line}" =~ ^[[:space:]]*\$(env:)?[A-Za-z_][A-Za-z0-9_]*(API_KEY|SECRET_ID|SECRET_KEY|ACCESS_TOKEN|AUTHORIZATION_TOKEN|BEARER_TOKEN)[A-Za-z0-9_]*[[:space:]]*= ]]; then
       value="${line#*=}"
       if has_nonempty_assignment_value "${value}"; then
         rule="PowerShell secret assignment"
       fi
-    elif [[ "${extension,,}" =~ ^(json|jsonc|ya?ml|config)$ ]] && [[ "${line}" =~ (api[_-]?key|secret[_-]?(id|key)|access[_-]?token|authorization|bearer[_-]?token)[A-Za-z0-9_.-]*[\"\']?[[:space:]]*: ]]; then
+    elif [[ "${lowercase_extension}" =~ ^(json|jsonc|ya?ml|config)$ ]] && [[ "${line}" =~ (api[_-]?key|secret[_-]?(id|key)|access[_-]?token|authorization|bearer[_-]?token)[A-Za-z0-9_.-]*[\"\']?[[:space:]]*: ]]; then
       value="${line#*:}"
       if has_nonempty_assignment_value "${value}"; then
         rule="structured secret assignment"
       fi
-    elif [[ "${extension,,}" =~ ^(xml|config|csproj|props|targets|xaml)$ ]] && [[ "${line}" =~ \<(ApiKey|SecretId|SecretKey|AccessToken|Authorization|BearerToken)\>[[:space:]]*[^\<[:space:]] ]]; then
+    elif [[ "${lowercase_extension}" =~ ^(xml|config|csproj|props|targets|xaml)$ ]] && [[ "${line}" =~ \<(ApiKey|SecretId|SecretKey|AccessToken|Authorization|BearerToken)\>[[:space:]]*[^\<[:space:]] ]]; then
       rule="XML secret element"
     elif [[ "${line}" =~ (ApiKey|SecretId|SecretKey|AccessToken|AuthorizationToken|BearerToken)[[:space:]]*=[[:space:]]*[\"\'][^\"\']{8,}[\"\'] ]]; then
       rule="source-code secret literal"
-    elif [[ "${extension,,}" == cs ]] \
+    elif [[ "${lowercase_extension}" == cs ]] \
       && [[ "${line}" =~ ((Console|Debug|Trace|Logger?)\.(Write|Log)|Log(Trace|Debug|Information|Warning|Error|Critical)?[[:space:]]*\()[^\n]*(SourcePath|RawText|FinalText|TranslatedText|Authorization) ]]; then
       rule="sensitive transcription logging"
     fi

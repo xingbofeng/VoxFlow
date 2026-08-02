@@ -87,11 +87,15 @@ fn empty_completion_finishes_without_inventing_output() {
     let host = RecordingToolHost::new(vec![]);
     let mut engine = AgentLoopEngine::new(model, host);
 
-    let result = engine.run(builtin_request("do not make anything up")).unwrap();
+    let result = engine
+        .run(builtin_request("do not make anything up"))
+        .unwrap();
 
     assert_eq!(result.final_text, None);
     assert!(result.tool_results.is_empty());
-    assert!(matches!(result.events.last(), Some(BuiltinAgentEvent::TurnCompleted { summary }) if summary.is_empty()));
+    assert!(
+        matches!(result.events.last(), Some(BuiltinAgentEvent::TurnCompleted { summary }) if summary.is_empty())
+    );
 }
 
 #[test]
@@ -395,19 +399,18 @@ fn stdio_protocol_reports_model_http_failure_without_echoing_credentials() {
             let mut chunk = [0_u8; 1024];
             let read = stream.read(&mut chunk).unwrap();
             request.extend_from_slice(&chunk[..read]);
-            let Some(headers_end) = request.windows(4).position(|window| window == b"\r\n\r\n") else {
+            let Some(headers_end) = request.windows(4).position(|window| window == b"\r\n\r\n")
+            else {
                 continue;
             };
             let headers = String::from_utf8_lossy(&request[..headers_end]);
-            let content_length = headers
-                .lines()
-                .find_map(|line| {
-                    line.split_once(':').and_then(|(name, value)| {
-                        name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse::<usize>().ok())
-                            .flatten()
-                    })
-                });
+            let content_length = headers.lines().find_map(|line| {
+                line.split_once(':').and_then(|(name, value)| {
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+            });
             let Some(content_length) = content_length else {
                 continue;
             };
@@ -426,8 +429,8 @@ fn stdio_protocol_reports_model_http_failure_without_echoing_credentials() {
     );
     let mut stdout = Vec::new();
 
-    let exit_code = voxflow::builtin_agent::run_builtin_agent_stdio(Cursor::new(request), &mut stdout)
-        .unwrap();
+    let exit_code =
+        voxflow::builtin_agent::run_builtin_agent_stdio(Cursor::new(request), &mut stdout).unwrap();
 
     server.join().unwrap();
     let output = String::from_utf8(stdout).unwrap();
