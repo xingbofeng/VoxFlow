@@ -202,9 +202,10 @@ if grep -R -Fq --include='*.ps1' 'Start-Process' "${windows_root}/scripts"; then
   printf '%s\n' 'Release and governance scripts must not use unbounded Start-Process.' >&2
   exit 1
 fi
-grep -Fq 'cd39114d50ad2d17d892571d896f67fbe8b25333958682430f095eeffbb58598' \
+grep -Fq 'https://api.nuget.org/v3-flatcontainer/devenvy.ffmpeg.binaries.lgpl/' \
   "${windows_root}/runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json"
-ffmpeg_manifest_hash='957ee658b3acbc8683c40131db499147c48e4d11cff745b15e332443798e1038'
+grep -Fq '8.0.1.4' "${windows_root}/runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json"
+ffmpeg_manifest_hash='edcea9157fcb9789645879111299739d9da1bb1e4656bba1c0352740d84f5110'
 test "$(sha256sum "${windows_root}/runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json" | awk '{print $1}')" = \
   "${ffmpeg_manifest_hash}"
 grep -Fq "${ffmpeg_manifest_hash}" "${layout_check}"
@@ -218,7 +219,7 @@ for lf_path in \
   'scripts/patches/*.patch'; do
   grep -Fq "${lf_path} text eol=lf" "${windows_root}/.gitattributes"
 done
-grep -Fq 'da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768' \
+grep -Fq '39d65c5952106502f000d66c41c3bd23d2c0550a8c3270bb224c7642b3cccf9e' \
   "${windows_root}/runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json"
 
 printf '%s\n' 'PASS: Windows packaging source contract is per-user, x64-only, self-contained, license-complete, and has explicit data deletion.'

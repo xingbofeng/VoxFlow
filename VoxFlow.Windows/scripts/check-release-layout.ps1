@@ -317,25 +317,27 @@ $reviewedFfmpegManifestPath = Join-Path $windowsRoot 'runtime/ffmpeg/FFMPEG_RUNT
 $reviewedFfmpegManifestHash = (Get-FileHash -LiteralPath $reviewedFfmpegManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $publishedFfmpegManifestHash = (Get-FileHash -LiteralPath $ffmpegManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($reviewedFfmpegManifestHash -ne
-        '957ee658b3acbc8683c40131db499147c48e4d11cff745b15e332443798e1038' -or
+        'edcea9157fcb9789645879111299739d9da1bb1e4656bba1c0352740d84f5110' -or
     $publishedFfmpegManifestHash -ne $reviewedFfmpegManifestHash) {
     Fail 'The published FFmpeg manifest does not match the reviewed source manifest.'
 }
 $ffmpegManifest = Get-Content -LiteralPath $ffmpegManifestPath -Raw | ConvertFrom-Json
 if ($ffmpegManifest.schemaVersion -ne 1 -or
-    $ffmpegManifest.runtimeId -ne 'ffmpeg-n8.1.2-22-g94138f6973-20260710-win64-lgpl-shared' -or
+    $ffmpegManifest.runtimeId -ne 'devenvy-ffmpeg-lgpl-8.0.1.4-win-x64' -or
     $ffmpegManifest.architecture -ne 'x64' -or
-    $ffmpegManifest.license -ne 'LGPL-3.0-or-later' -or
-    $ffmpegManifest.archive.fileName -ne 'ffmpeg-n8.1.2-22-g94138f6973-win64-lgpl-shared-8.1.zip' -or
-    [long]$ffmpegManifest.archive.size -ne 70508421 -or
+    $ffmpegManifest.license -ne 'LGPL-2.1-or-later' -or
+    $ffmpegManifest.archive.fileName -ne 'devenvy.ffmpeg.binaries.lgpl.8.0.1.4.nupkg' -or
+    [long]$ffmpegManifest.archive.size -ne 195504127 -or
     $ffmpegManifest.archive.sha256 -ne
-        'cd39114d50ad2d17d892571d896f67fbe8b25333958682430f095eeffbb58598' -or
-    [long]$ffmpegManifest.archive.assetId -ne 472524907 -or
-    $ffmpegManifest.archive.releaseTag -ne 'autobuild-2026-07-10-13-44' -or
-    $ffmpegManifest.licenseFile.path -ne 'LICENSE.txt' -or
-    [long]$ffmpegManifest.licenseFile.size -ne 7651 -or
+        'd80010128975b46e1b2b74505c464250a3413e23681cc331c6943a9cf1046fda' -or
+    $ffmpegManifest.archive.downloadUrl -ne
+        'https://api.nuget.org/v3-flatcontainer/devenvy.ffmpeg.binaries.lgpl/8.0.1.4/devenvy.ffmpeg.binaries.lgpl.8.0.1.4.nupkg' -or
+    $ffmpegManifest.archive.runtimePath -ne 'ffmpeg/win-x64' -or
+    $ffmpegManifest.archive.noticePath -ne 'THIRD_PARTY_NOTICES.md' -or
+    $ffmpegManifest.licenseFile.path -ne 'THIRD_PARTY_NOTICES.md' -or
+    [long]$ffmpegManifest.licenseFile.size -ne 2174 -or
     $ffmpegManifest.licenseFile.sha256 -ne
-        'da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768') {
+        '39d65c5952106502f000d66c41c3bd23d2c0550a8c3270bb224c7642b3cccf9e') {
     Fail 'The published FFmpeg runtime identity or architecture changed.'
 }
 $reviewedFfmpegFilePaths = @(

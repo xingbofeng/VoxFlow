@@ -45,8 +45,7 @@ New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 try {
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         $ArchivePath = Join-Path $temporaryRoot $manifest.archive.fileName
-        $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/$($manifest.archive.releaseTag)/$($manifest.archive.fileName)"
-        Invoke-WebRequest -Uri $url -OutFile $ArchivePath -UseBasicParsing -TimeoutSec 1800
+        Invoke-WebRequest -Uri $manifest.archive.downloadUrl -OutFile $ArchivePath -UseBasicParsing -TimeoutSec 1800
     }
     $resolvedArchive = (Resolve-Path -LiteralPath $ArchivePath).Path
     $archiveInfo = Get-Item -LiteralPath $resolvedArchive
@@ -59,13 +58,11 @@ try {
     }
 
     $expanded = Join-Path $temporaryRoot 'expanded'
-    Expand-Archive -LiteralPath $resolvedArchive -DestinationPath $expanded
-    $bin = Get-ChildItem -LiteralPath $expanded -Directory |
-        Select-Object -First 1 |
-        ForEach-Object { Join-Path $_.FullName 'bin' }
-    $license = Get-ChildItem -LiteralPath $expanded -Directory |
-        Select-Object -First 1 |
-        ForEach-Object { Join-Path $_.FullName 'LICENSE.txt' }
+    $expandableArchive = Join-Path $temporaryRoot 'ffmpeg-package.zip'
+    Copy-Item -LiteralPath $resolvedArchive -Destination $expandableArchive -Force
+    Expand-Archive -LiteralPath $expandableArchive -DestinationPath $expanded
+    $bin = Join-Path $expanded $manifest.archive.runtimePath
+    $license = Join-Path $expanded $manifest.archive.noticePath
     if (-not (Test-Path -LiteralPath $bin -PathType Container) -or
         -not (Test-Path -LiteralPath $license -PathType Leaf)) {
         throw 'The reviewed FFmpeg archive layout changed.'

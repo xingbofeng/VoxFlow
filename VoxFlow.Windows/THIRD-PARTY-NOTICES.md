@@ -9,7 +9,7 @@ Windows installer.
 | Component | Source | License | Distribution rule |
 | --- | --- | --- | --- |
 | antirez/qwen-asr | https://github.com/antirez/qwen-asr | MIT | Pin an audited revision, preserve its copyright and MIT license, and record local patches in `native/qwen-asr/UPSTREAM.md`. |
-| FFmpeg `n8.1.2-22-g94138f6973-20260710` | https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-07-10-13-44 and https://github.com/FFmpeg/FFmpeg/commit/94138f6973 | LGPL-3.0-or-later build | Ship the reviewed `win64-lgpl-shared-8.1` executables and shared libraries together, preserve `LICENSE.txt`, publish the corresponding FFmpeg source, build configuration, file sizes, and SHA-256 values, and never replace the package with a GPL/nonfree variant or a PATH executable. |
+| DevEnvy FFmpeg `8.0.1.4` | https://www.nuget.org/packages/DevEnvy.FFmpeg.Binaries.LGPL/8.0.1.4 | LGPL-2.1-or-later build | Ship only the reviewed Windows x64 CLI executables and shared libraries, preserve `THIRD_PARTY_NOTICES.md`, retain the immutable NuGet package URL, file sizes, and SHA-256 values, and never replace the package with a GPL/nonfree variant or a PATH executable. |
 | VoxFlow Agent sidecar | This repository, `agent-cli/` | MIT component within the GPL-3.0-or-later VoxFlow distribution | Preserve the crate's declared MIT terms and the project GPL license. Build only the locked `builtin-agent` feature for `x86_64-pc-windows-msvc` with static CRT; stage it at `runtime/agent/`, record source revision/size/SHA-256, and never discover a replacement through PATH. |
 | Tesseract `5.5.2` | https://github.com/tesseract-ocr/tesseract/tree/5.5.2 | Apache-2.0 | Build only from the reviewed source on Windows x64/MSVC with vcpkg baseline `03e366fb91e38b9432ebd5f8cc79f7c8f55e96ab` and triplet `x64-windows-static`; preserve the 11,358-byte Apache license and stage only a hash-verified `runtime/ocr/` payload. |
 | tessdata_fast `87416418657359cb625c412a48b6e1d6d41c29bd` | https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd | Apache-2.0 | Ship only `eng`, `chi_sim`, `chi_tra`, `jpn`, and `kor`, each with the fixed size/SHA-256 in `TESSERACT_RUNTIME_MANIFEST.json`; do not locate additional system data or models through PATH. |
@@ -49,15 +49,12 @@ license. The release gate requires the exact dependency names, versions,
 source URLs, license expressions, notice paths, file sizes, and SHA-256 values;
 an added, removed, or modified native input fails packaging.
 
-The FFmpeg archive is
-`ffmpeg-n8.1.2-22-g94138f6973-win64-lgpl-shared-8.1.zip`, GitHub asset
-`472524907`, with SHA-256
-`cd39114d50ad2d17d892571d896f67fbe8b25333958682430f095eeffbb58598`.
-It is built for `x86_64-w64-mingw32` with `--enable-shared`,
-`--disable-static`, `--disable-libx264`, `--disable-libx265`,
-`--disable-libxvid`, and without `--enable-gpl` or `--enable-nonfree`.
-The package reports GNU Lesser General Public License version 3. The exact
-runtime inventory and build provenance are in `runtime/ffmpeg/`.
+The FFmpeg archive is the immutable NuGet package
+`devenvy.ffmpeg.binaries.lgpl.8.0.1.4.nupkg`, with SHA-256
+`d80010128975b46e1b2b74505c464250a3413e23681cc331c6943a9cf1046fda`.
+The package declares LGPL-2.1-or-later and documents `--disable-gpl`,
+`--disable-nonfree`, `--enable-shared`, and `--disable-static`. The exact
+Windows x64 runtime inventory and build provenance are in `runtime/ffmpeg/`.
 
 ## Agent sidecar Cargo runtime inventory
 

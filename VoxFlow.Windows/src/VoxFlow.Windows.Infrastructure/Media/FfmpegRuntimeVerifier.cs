@@ -45,7 +45,7 @@ public sealed class FfmpegRuntimeVerifier : IFfmpegRuntimeVerifier
 {
     public const string ManifestFileName = "FFMPEG_RUNTIME_MANIFEST.json";
     public const string ExpectedRuntimeId =
-        "ffmpeg-n8.1.2-22-g94138f6973-20260710-win64-lgpl-shared";
+        "devenvy-ffmpeg-lgpl-8.0.1.4-win-x64";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
