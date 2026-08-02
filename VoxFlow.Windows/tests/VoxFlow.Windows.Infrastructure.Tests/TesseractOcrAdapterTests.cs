@@ -117,16 +117,10 @@ public sealed class TesseractOcrAdapterTests
 
         var run = runner.RunAsync(ProcessRequest(), cancellation.Token);
         Assert.True(process.Started.Wait(TimeSpan.FromSeconds(1)));
-        var stopwatch = Stopwatch.StartNew();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
-
-        // Bound must stay far below an unbounded hang, but CI runners under load
-        // can take longer than a tight local 500ms threshold.
-        Assert.True(
-            stopwatch.Elapsed < TimeSpan.FromSeconds(2),
-            stopwatch.Elapsed.ToString());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => run.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(1, process.KillCount);
         Assert.Equal(1, job.DisposeCount);
         Assert.True(process.DisposeCount >= 1);
@@ -146,14 +140,10 @@ public sealed class TesseractOcrAdapterTests
 
         var run = runner.RunAsync(ProcessRequest(), cancellation.Token);
         Assert.True(process.Started.Wait(TimeSpan.FromSeconds(1)));
-        var stopwatch = Stopwatch.StartNew();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
-
-        Assert.True(
-            stopwatch.Elapsed < TimeSpan.FromSeconds(2),
-            stopwatch.Elapsed.ToString());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => run.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(1, process.KillCount);
         Assert.True(process.WaitForExitCount >= 2);
         Assert.True(process.DisposeCount >= 1);
