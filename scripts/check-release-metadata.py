@@ -65,11 +65,26 @@ def main() -> int:
             failures,
         )
 
-    require(
-        (ROOT / f".github/release-notes/{tag}.md").exists(),
-        f"missing release notes for {tag}",
-        failures,
-    )
+    release_notes_path = ROOT / f".github/release-notes/{tag}.md"
+    require(release_notes_path.exists(), f"missing release notes for {tag}", failures)
+    release_notes = ""
+    release_notes_summary = ""
+    if release_notes_path.exists():
+        release_notes = read_text(release_notes_path)
+        release_notes_summary = next(
+            (
+                re.sub(r"^[-*]\s+", "", line.strip())
+                for line in release_notes.splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ),
+            "",
+        )
+        for asset_name in [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]:
+            require(
+                asset_name in release_notes,
+                f"release notes asset reference is stale: {asset_name}",
+                failures,
+            )
 
     docs_script = read_text(ROOT / "docs/script.js")
     require(f'version: "{version}"' in docs_script, "docs/script.js release.version is stale", failures)
@@ -108,10 +123,31 @@ def main() -> int:
         failures,
     )
     require(f"{tag} · Free & open source" in docs_index, "docs/index.html release note fallback is stale", failures)
+    release_data_match = re.search(
+        r'<script id="voxflow-release-data" type="application/json">\s*(.*?)\s*</script>',
+        docs_index,
+        re.DOTALL,
+    )
+    require(release_data_match is not None, "docs/index.html release data fallback is missing", failures)
+    if release_data_match is not None:
+        release_data = json.loads(release_data_match.group(1))
+        current_release = next((item for item in release_data if item.get("tag_name") == tag), None)
+        require(current_release is not None, "docs/index.html current release fallback is missing", failures)
+        if current_release is not None:
+            require(
+                current_release.get("body", "").strip() == release_notes.strip(),
+                "docs/index.html current release notes fallback is stale",
+                failures,
+            )
 
     release_json = json.loads(read_text(ROOT / "docs/release.json"))
     require(release_json.get("version") == version, "docs/release.json version is stale", failures)
     require(release_json.get("tag") == tag, "docs/release.json tag is stale", failures)
+    require(
+        release_json.get("releaseNotes") == release_notes_summary,
+        "docs/release.json releaseNotes summary is stale",
+        failures,
+    )
     require(release_json.get("assetName") == dmg_name, "docs/release.json assetName is stale", failures)
     require(
         release_json.get("releasePageURL") == f"https://github.com/xingbofeng/VoxFlow/releases/tag/{tag}",

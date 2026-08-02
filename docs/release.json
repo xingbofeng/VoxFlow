@@ -29,7 +29,7 @@
       "distribution": "ad-hoc"
     }
   },
-  "releaseNotes": "新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。",
+  "releaseNotes": "VoxFlow 现同时提供 macOS、Windows 与 iOS 版本，并通过同一条发布流水线生成三平台安装包。",
   "draft": false,
   "prerelease": false
 }
