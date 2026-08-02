@@ -330,11 +330,26 @@ html[lang^="zh"] h1 {
   gap: 16px;
   margin-top: 30px;
 }
+.platform-downloads {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 760px);
+}
+.hero-actions .platform-downloads {
+  grid-template-columns: 1fr;
+  width: min(100%, 360px);
+}
+.platform-downloads.compact {
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
 .download-button {
   display: inline-flex;
   align-items: center;
   gap: 13px;
   min-width: 236px;
+  width: 100%;
   padding: 14px 20px;
   color: #fff;
   border: 1px solid rgba(255,255,255,.36);
@@ -343,6 +358,21 @@ html[lang^="zh"] h1 {
   box-shadow: 0 20px 54px rgba(8, 69, 54, .22);
   text-align: left;
   transition: transform .24s ease, box-shadow .24s ease, background .24s ease;
+}
+.download-button.secondary {
+  color: #18332c;
+  border-color: rgba(7, 128, 106, .18);
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 16px 42px rgba(8, 69, 54, .1);
+}
+.download-button.secondary:hover {
+  background: #fff;
+}
+.download-button.secondary .download-icon {
+  background: rgba(7, 128, 106, .1);
+}
+.download-button.secondary small {
+  color: #668078;
 }
 .download-button:hover {
   background: #0e1512;
@@ -698,6 +728,11 @@ h2 {
 }
 .download-button.compact {
   min-width: 220px;
+}
+@media (max-width: 760px) {
+  .platform-downloads {
+    grid-template-columns: 1fr;
+  }
 }
 .footer {
   display: flex;

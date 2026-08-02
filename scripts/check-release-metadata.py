@@ -8,6 +8,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLIST = ROOT / "Sources/VoxFlowApp/Resources/Info.plist"
+IOS_PROJECT = ROOT / "Apps/VoxFlowiOS/project.yml"
+IOS_INFO_PLISTS = [
+    ROOT / "Apps/VoxFlowiOS/VoxFlowiOS/Info.plist",
+    ROOT / "Apps/VoxFlowiOS/Keyboard/Info.plist",
+]
 
 
 def read_version() -> tuple[str, str]:
@@ -26,7 +31,7 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
 
 
 def main() -> int:
-    version, _build = read_version()
+    version, build = read_version()
     tag = f"v{version}"
     dmg_name = f"VoxFlow-{version}-macOS.dmg"
     windows_installer_name = f"VoxFlow-{version}-windows-x64-setup.exe"
@@ -34,6 +39,31 @@ def main() -> int:
     ios_ipa_name = f"Mashangxie-{version}-iOS.ipa"
     release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
     failures: list[str] = []
+
+    ios_project = read_text(IOS_PROJECT)
+    require(
+        ios_project.count(f'CFBundleShortVersionString: "{version}"') == 2,
+        "Apps/VoxFlowiOS/project.yml versions are stale",
+        failures,
+    )
+    require(
+        ios_project.count(f'CFBundleVersion: "{build}"') == 2,
+        "Apps/VoxFlowiOS/project.yml builds are stale",
+        failures,
+    )
+    for info_plist in IOS_INFO_PLISTS:
+        with info_plist.open("rb") as handle:
+            ios_plist = plistlib.load(handle)
+        require(
+            str(ios_plist.get("CFBundleShortVersionString")) == version,
+            f"{info_plist.relative_to(ROOT)} version is stale",
+            failures,
+        )
+        require(
+            str(ios_plist.get("CFBundleVersion")) == build,
+            f"{info_plist.relative_to(ROOT)} build is stale",
+            failures,
+        )
 
     require(
         (ROOT / f".github/release-notes/{tag}.md").exists(),
@@ -65,6 +95,16 @@ def main() -> int:
     require(
         f"releases/download/{tag}/{dmg_name}" in docs_index,
         "docs/index.html download fallback is stale",
+        failures,
+    )
+    require(
+        f"releases/download/{tag}/{windows_installer_name}" in docs_index,
+        "docs/index.html Windows download fallback is stale",
+        failures,
+    )
+    require(
+        f"releases/download/{tag}/{ios_ipa_name}" in docs_index,
+        "docs/index.html iOS download fallback is stale",
         failures,
     )
     require(f"{tag} · Free & open source" in docs_index, "docs/index.html release note fallback is stale", failures)
@@ -110,8 +150,14 @@ def main() -> int:
 
     for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
         text = read_text(ROOT / relative)
-        found = re.findall(r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", text)
-        require(found == [dmg_name], f"{relative} DMG reference is stale: {found}", failures)
+        expected_readme_assets = [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]
+        for expected_asset in expected_readme_assets:
+            found = re.findall(re.escape(expected_asset), text)
+            require(
+                found == [expected_asset],
+                f"{relative} asset reference is stale: {expected_asset} ({len(found)} found)",
+                failures,
+            )
 
     if os.environ.get("VOXFLOW_RELEASE_CHECK_REQUIRE_SENTRY") == "1":
         sentry_dsn = os.environ.get("VOXFLOW_SENTRY_DSN", "").strip()

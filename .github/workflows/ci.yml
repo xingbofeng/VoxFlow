@@ -166,3 +166,135 @@ jobs:
           swift build -c debug -Xswiftc -warnings-as-errors
           duration=$(( $(date +%s) - start ))
           echo "| debug warnings-as-errors build | $duration |" >> "$GITHUB_STEP_SUMMARY"
+
+  package-macos:
+    name: Package signed macOS DMG
+    if: github.event_name != 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/artifacts
+            .build/checkouts
+            .build/plugins
+            .build/repositories
+          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-
+
+      - name: Prepare sherpa-onnx runtime
+        run: ./scripts/bootstrap-sherpa-onnx.sh
+
+      - name: Configure macOS distribution signing
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.VOXFLOW_RELEASE_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.VOXFLOW_RELEASE_CERTIFICATE_PASSWORD }}
+        run: |
+          test -n "$CERTIFICATE_BASE64"
+          test -n "$CERTIFICATE_PASSWORD"
+          certificate_path="$RUNNER_TEMP/voxflow-release.p12"
+          keychain_path="$RUNNER_TEMP/voxflow-release.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          certificate_sha1="$(security find-certificate -a -Z "$keychain_path" | awk '/SHA-1 hash:/ { print $3; exit }')"
+          test -n "$certificate_sha1"
+          echo "VOXFLOW_RELEASE_SIGNING_IDENTITY=$certificate_sha1" >> "$GITHUB_ENV"
+          echo "VOXFLOW_RELEASE_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Build signed DMG
+        env:
+          VOXFLOW_SENTRY_DSN: ${{ secrets.VOXFLOW_SENTRY_DSN }}
+        run: |
+          make dmg \
+            RELEASE_CODE_SIGN_IDENTITY="$VOXFLOW_RELEASE_SIGNING_IDENTITY" \
+            RELEASE_KEYCHAIN_PATH="$VOXFLOW_RELEASE_KEYCHAIN_PATH"
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoxFlow-macOS
+          path: |
+            dist/VoxFlow-*-macOS.dmg
+            dist/VoxFlow-*-macOS.dmg.sha256
+          if-no-files-found: error
+
+  package-ios:
+    name: Package installable iOS IPA
+    if: github.event_name != 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Install iOS distribution certificate and profiles
+        id: signing
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD }}
+          APP_PROFILE_BASE64: ${{ secrets.MASHANGXIE_IOS_APP_PROFILE_BASE64 }}
+          KEYBOARD_PROFILE_BASE64: ${{ secrets.MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64 }}
+        run: |
+          for value in "$CERTIFICATE_BASE64" "$CERTIFICATE_PASSWORD" "$APP_PROFILE_BASE64" "$KEYBOARD_PROFILE_BASE64"; do
+            test -n "$value"
+          done
+          keychain_path="$RUNNER_TEMP/mashangxie-ios.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          certificate_path="$RUNNER_TEMP/mashangxie-ios.p12"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profiles_dir"
+          install_profile() {
+            encoded="$1"
+            prefix="$2"
+            source_path="$RUNNER_TEMP/$prefix.mobileprovision"
+            plist_path="$RUNNER_TEMP/$prefix.plist"
+            printf '%s' "$encoded" | base64 --decode > "$source_path"
+            security cms -D -i "$source_path" > "$plist_path"
+            uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist_path")"
+            name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$plist_path")"
+            cp "$source_path" "$profiles_dir/$uuid.mobileprovision"
+            echo "${prefix}_profile=$name" >> "$GITHUB_OUTPUT"
+          }
+          install_profile "$APP_PROFILE_BASE64" app
+          install_profile "$KEYBOARD_PROFILE_BASE64" keyboard
+
+      - name: Build Ad Hoc IPA
+        run: |
+          make ios-ipa \
+            MASHANGXIE_DEVELOPMENT_TEAM="${{ secrets.MASHANGXIE_IOS_TEAM_ID }}" \
+            MASHANGXIE_APP_PROFILE_SPECIFIER="${{ steps.signing.outputs.app_profile }}" \
+            MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER="${{ steps.signing.outputs.keyboard_profile }}"
+
+      - name: Upload iOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mashangxie-iOS
+          path: |
+            dist/ios/Mashangxie-*-iOS.ipa
+            dist/ios/Mashangxie-*-iOS.ipa.sha256
+          if-no-files-found: error

@@ -2,11 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>VoxFlow</h1>
-  <p><strong>macOS용 음성 키보드이자 로컬 컨텍스트 워크벤치.</strong></p>
-  <p>단축키를 누른 채 말하고, 놓으면 현재 커서 위치에 입력됩니다. 음성, 스크린샷, 화면 녹화, 클립보드 항목은 Mac 안에서 검색 가능한 로컬 자산이 됩니다.</p>
+  <p><strong>macOS, Windows, iOS를 지원하는 음성 입력 도구.</strong></p>
+  <p>세 플랫폼 모두에서 음성으로 입력할 수 있습니다. 데스크톱 버전은 전역 받아쓰기를 제공하며, macOS 버전에는 로컬 컨텍스트 워크벤치도 포함됩니다.</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white" alt="Windows x64">
+    <img src="https://img.shields.io/badge/iOS-17%2B-000000?style=flat-square&amp;logo=ios&amp;logoColor=white" alt="iOS 17+">
     <img src="https://img.shields.io/badge/Swift-6%2B-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6+">
     <img src="https://img.shields.io/badge/Native-macOS-147EFB?style=flat-square" alt="Native macOS">
     <img src="https://img.shields.io/badge/Local--first-1F883D?style=flat-square" alt="Local-first">
@@ -76,16 +78,19 @@ VoxFlow는 지금 사용 중인 앱 안에 머무르는 음성 입력 도구입�
 
 ### Download And Install
 
-Download the latest release from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
+[GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest)에서 최신 버전을 다운로드하세요.
 
-1. Open `VoxFlow-1.15.0-macOS.dmg`.
-2. Drag `VoxFlow` into the `Applications` folder.
-3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**.
+| 플랫폼 | 패키지 | 설치 방법 |
+| --- | --- | --- |
+| macOS | `VoxFlow-1.15.0-macOS.dmg` | DMG를 열고 VoxFlow를 Applications로 옮깁니다. |
+| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 또는 `VoxFlow-1.15.0-windows-x64-portable.zip` | 설치 프로그램을 실행하거나 포터블 패키지를 압축 해제합니다. |
+| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Ad Hoc profile에 UDID가 등록된 기기에 설치합니다. |
 
 ### Requirements
 
-- macOS 15 Sequoia or later
-- A Mac with a microphone
+- macOS 15+, Windows x64 또는 iOS 17+
+- 마이크
+- iOS IPA는 이번 Ad Hoc 릴리스에 등록된 기기가 필요합니다
 
 ### Permissions
 

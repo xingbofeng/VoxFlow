@@ -17,8 +17,13 @@ const release = {
   }
 };
 
-const releaseDownloadURL =
-  `https://github.com/xingbofeng/VoxFlow/releases/download/${release.tag}/${release.assetName}`;
+const releaseAssetURL = (assetName) =>
+  `https://github.com/xingbofeng/VoxFlow/releases/download/${release.tag}/${assetName}`;
+const releaseDownloadURLs = {
+  macos: releaseAssetURL(release.assets.macos.dmg.name),
+  windows: releaseAssetURL(release.assets.windows.installer.name),
+  ios: releaseAssetURL(release.assets.ios.ipa.name)
+};
 
 const siteURL = "https://mashangxie.app/";
 const releaseNotesURL = "https://api.github.com/repos/xingbofeng/VoxFlow/releases?per_page=3";
@@ -47,9 +52,9 @@ const languageMeta = {
 const copy = {
   en: {
     title: "VoxFlow - Voice, OCR, and local agent workflows in one workspace",
-    metaDescription: "VoxFlow brings voice input, screenshot OCR, clipboard history, and local agent routing into one macOS workspace.",
+    metaDescription: "VoxFlow brings voice input to macOS, Windows, and iOS, with richer OCR, history, and local agent workflows on desktop.",
     ogTitle: "VoxFlow - Voice, OCR, and local agent workflows in one workspace",
-    ogDescription: "A macOS workspace for voice input, screenshot OCR, translation, asset history, and local AI assistant routing.",
+    ogDescription: "Voice input for macOS, Windows, and iOS, plus desktop OCR, history, and local AI assistant workflows.",
     ogImage: shareImageURL,
     heroImage: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
     heroImageWebP: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
@@ -61,7 +66,7 @@ const copy = {
     navGuide: "Guide",
     navChangelog: "Updates",
     navShortcuts: "Shortcuts",
-    eyebrow: "macOS input workspace",
+    eyebrow: "VoxFlow for macOS, Windows & iOS",
     headline: "Speak, capture, translate, and keep the result.",
     heroCopy: "VoxFlow stays attached to the app you are already using: voice input, screenshot OCR, translation, clipboard history, and AI assistant routing all become searchable local assets.",
     heroBadgeVoice: "Speak to write",
@@ -71,6 +76,12 @@ const copy = {
     heroBadgeAgent: "Route AI",
     download: "Download for macOS",
     downloadMeta: "macOS 15+ · Apple Silicon",
+    downloadMacOS: "Download for macOS",
+    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadWindows: "Download for Windows",
+    downloadWindowsMeta: "Windows x64 · Installer",
+    downloadIOS: "Download IPA for iOS",
+    downloadIOSMeta: "iOS 17+ · Registered devices",
     releaseNote: `${release.tag} · Free & open source`,
     capVoiceLabel: "Voice Input",
     capVoiceTitle: "Hold to speak, release to insert",
@@ -130,13 +141,13 @@ const copy = {
     privacyCopy: "Asset history is stored locally by default. Local models keep audio on-device; content is sent out only when you choose a cloud ASR or external model provider.",
     ctaTitle: "Send the next sentence, screenshot, or translation into the workspace.",
     footerBrand: "VoxFlow © 2026",
-    footer: "Swift & AppKit · Open source"
+    footer: "macOS · Windows · iOS · Open source"
   },
   zh: {
     title: "码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台",
-    metaDescription: "码上写 VoxFlow 把语音输入、截图 OCR、剪贴板历史和本地 Agent 调度收进同一个 macOS 工作台。",
+    metaDescription: "码上写 VoxFlow 支持 macOS、Windows 与 iOS 语音输入，并在桌面端提供 OCR、历史与本地 Agent 工作流。",
     ogTitle: "码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台",
-    ogDescription: "把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。",
+    ogDescription: "支持 macOS、Windows 与 iOS 的语音输入，并为桌面端补充 OCR、历史与本地 Agent 工作流。",
     ogImage: shareImageURL,
     heroImage: "assets/optimized/voxflow-hero-workbench-promo-zh.webp",
     heroImageWebP: "assets/optimized/voxflow-hero-workbench-promo-zh.webp",
@@ -148,7 +159,7 @@ const copy = {
     navGuide: "使用文档",
     navChangelog: "更新",
     navShortcuts: "快捷键",
-    eyebrow: "macOS 输入工作台",
+    eyebrow: "VoxFlow 支持 macOS、Windows 与 iOS",
     headline: "说出来、截下来、翻译好，全部沉淀成资产。",
     heroCopy: "VoxFlow 贴着当前应用工作：语音输入、截图 OCR、划词翻译、剪贴板和 AI 助手调度，都会进入一个可搜索、可复用的本地工作台。",
     heroBadgeVoice: "说话写入",
@@ -158,6 +169,12 @@ const copy = {
     heroBadgeAgent: "AI 调度",
     download: "下载 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
+    downloadMacOS: "下载 macOS App",
+    downloadMacOSMeta: "macOS 15+ · 通用 DMG",
+    downloadWindows: "下载 Windows App",
+    downloadWindowsMeta: "Windows x64 · 安装包",
+    downloadIOS: "下载 iOS IPA",
+    downloadIOSMeta: "iOS 17+ · 已登记设备",
     releaseNote: `${release.tag} · 免费开源`,
     capVoiceLabel: "语音输入",
     capVoiceTitle: "按住说话，松开回填",
@@ -217,13 +234,13 @@ const copy = {
     privacyCopy: "资产历史默认保存在本机。选择本地模型时音频留在设备上；只有主动选择云端 ASR 或外部模型时，才会把对应内容发送给你配置的服务商。",
     ctaTitle: "让下一句话、下一张截图、下一次翻译都进入工作台。",
     footerBrand: "码上写 VoxFlow © 2026",
-    footer: "Swift & AppKit · 开源"
+    footer: "macOS · Windows · iOS · 开源"
   },
   "zh-Hant": {
     title: "碼上寫 VoxFlow - 語音、OCR 和本地 Agent 工作流都進工作台",
-    metaDescription: "碼上寫 VoxFlow 把語音輸入、截圖 OCR、剪貼簿歷史和本地 Agent 調度收進同一個 macOS 工作台。",
+    metaDescription: "碼上寫 VoxFlow 支援 macOS、Windows 與 iOS 語音輸入，並在桌面端提供 OCR、歷史與本機 Agent 工作流程。",
     ogTitle: "碼上寫 VoxFlow - 語音、OCR 和本地 Agent 工作流都進工作台",
-    ogDescription: "把語音輸入、截圖 OCR、翻譯摘要、剪貼簿和 AI 助手調度收進同一個 macOS 工作台。",
+    ogDescription: "支援 macOS、Windows 與 iOS 的語音輸入，並為桌面端補充 OCR、歷史與本機 Agent 工作流程。",
     ogImage: shareImageURL,
     heroImage: "assets/optimized/voxflow-hero-workbench-promo-zh.webp",
     heroImageWebP: "assets/optimized/voxflow-hero-workbench-promo-zh.webp",
@@ -235,7 +252,7 @@ const copy = {
     navGuide: "使用文件",
     navChangelog: "更新",
     navShortcuts: "快捷鍵",
-    eyebrow: "macOS 輸入工作台",
+    eyebrow: "VoxFlow 支援 macOS、Windows 與 iOS",
     headline: "說出來、截下來、翻譯好，全部沉澱成資產。",
     heroCopy: "VoxFlow 貼著目前應用工作：語音輸入、截圖 OCR、劃詞翻譯、剪貼簿和 AI 助手調度，都會進入一個可搜尋、可重用的本地工作台。",
     heroBadgeVoice: "說話寫入",
@@ -245,6 +262,12 @@ const copy = {
     heroBadgeAgent: "AI 調度",
     download: "下載 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
+    downloadMacOS: "下載 macOS App",
+    downloadMacOSMeta: "macOS 15+ · 通用 DMG",
+    downloadWindows: "下載 Windows App",
+    downloadWindowsMeta: "Windows x64 · 安裝程式",
+    downloadIOS: "下載 iOS IPA",
+    downloadIOSMeta: "iOS 17+ · 已登記裝置",
     releaseNote: `${release.tag} · 免費開源`,
     capVoiceLabel: "語音輸入",
     capVoiceTitle: "按住說話，放開回填",
@@ -304,13 +327,13 @@ const copy = {
     privacyCopy: "資產歷史預設保存在本機。選擇本地模型時音訊留在裝置上；只有主動選擇雲端 ASR 或外部模型時，才會把對應內容送到你配置的服務商。",
     ctaTitle: "讓下一句話、下一張截圖、下一次翻譯都進入工作台。",
     footerBrand: "碼上寫 VoxFlow © 2026",
-    footer: "Swift & AppKit · 開源"
+    footer: "macOS · Windows · iOS · 開源"
   },
   ja: {
     title: "VoxFlow - 音声入力、OCR、ローカル Agent ワークフローを 1 つのワークスペースへ",
-    metaDescription: "VoxFlow は音声入力、スクリーンショット OCR、クリップボード履歴、ローカル Agent 連携を 1 つの macOS ワークスペースにまとめます。",
+    metaDescription: "VoxFlow は macOS、Windows、iOS の音声入力に対応し、デスクトップでは OCR、履歴、ローカル Agent ワークフローも提供します。",
     ogTitle: "VoxFlow - 音声入力、OCR、ローカル Agent ワークフローを 1 つのワークスペースへ",
-    ogDescription: "音声入力、スクリーンショット OCR、翻訳、履歴、ローカル AI アシスタント連携のための macOS ワークスペース。",
+    ogDescription: "macOS、Windows、iOS の音声入力と、デスクトップ向け OCR、履歴、ローカル AI ワークフロー。",
     ogImage: shareImageURL,
     heroImage: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
     heroImageWebP: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
@@ -322,7 +345,7 @@ const copy = {
     navGuide: "ガイド",
     navChangelog: "更新",
     navShortcuts: "ショートカット",
-    eyebrow: "macOS 入力ワークスペース",
+    eyebrow: "VoxFlow for macOS, Windows & iOS",
     headline: "話す、切り取る、翻訳する。結果はそのまま残せる。",
     heroCopy: "VoxFlow は今使っているアプリのそばで動きます。音声入力、スクリーンショット OCR、翻訳、クリップボード履歴、AI アシスタントの振り分けが、検索できるローカル資産になります。",
     heroBadgeVoice: "話して入力",
@@ -332,6 +355,12 @@ const copy = {
     heroBadgeAgent: "AI を振り分け",
     download: "macOS 版をダウンロード",
     downloadMeta: "macOS 15+ · Apple Silicon",
+    downloadMacOS: "macOS 版をダウンロード",
+    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadWindows: "Windows 版をダウンロード",
+    downloadWindowsMeta: "Windows x64 · インストーラー",
+    downloadIOS: "iOS IPA をダウンロード",
+    downloadIOSMeta: "iOS 17+ · 登録済みデバイス",
     releaseNote: `${release.tag} · Free & open source`,
     capVoiceLabel: "音声入力",
     capVoiceTitle: "押して話し、離して挿入",
@@ -391,13 +420,13 @@ const copy = {
     privacyCopy: "資産履歴は標準でローカル保存されます。ローカルモデル利用時は音声が端末外へ出ません。クラウド ASR や外部モデルを選んだ場合だけ、そのサービスに送信されます。",
     ctaTitle: "次のひと言も、次のスクリーンショットも、次の翻訳もワークスペースへ。",
     footerBrand: "VoxFlow © 2026",
-    footer: "Swift & AppKit · Open source"
+    footer: "macOS · Windows · iOS · オープンソース"
   },
   ko: {
     title: "VoxFlow - 음성 입력, OCR, 로컬 Agent 워크플로를 하나의 워크스페이스로",
-    metaDescription: "VoxFlow는 음성 입력, 스크린샷 OCR, 클립보드 기록, 로컬 Agent 라우팅을 하나의 macOS 워크스페이스로 묶습니다.",
+    metaDescription: "VoxFlow는 macOS, Windows, iOS 음성 입력을 지원하며 데스크톱에서 OCR, 기록, 로컬 Agent 워크플로를 제공합니다.",
     ogTitle: "VoxFlow - 음성 입력, OCR, 로컬 Agent 워크플로를 하나의 워크스페이스로",
-    ogDescription: "음성 입력, 스크린샷 OCR, 번역, 기록, 로컬 AI 도우미 라우팅을 위한 macOS 워크스페이스.",
+    ogDescription: "macOS, Windows, iOS 음성 입력과 데스크톱용 OCR, 기록, 로컬 AI 워크플로.",
     ogImage: shareImageURL,
     heroImage: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
     heroImageWebP: "assets/optimized/voxflow-hero-workbench-promo-en.webp",
@@ -409,7 +438,7 @@ const copy = {
     navGuide: "가이드",
     navChangelog: "업데이트",
     navShortcuts: "단축키",
-    eyebrow: "macOS 입력 워크스페이스",
+    eyebrow: "VoxFlow for macOS, Windows & iOS",
     headline: "말하고, 캡처하고, 번역한 다음 그대로 남겨두세요.",
     heroCopy: "VoxFlow는 지금 쓰고 있는 앱 옆에서 동작합니다. 음성 입력, 스크린샷 OCR, 번역, 클립보드 기록, AI 도우미 라우팅이 모두 검색 가능한 로컬 자산이 됩니다.",
     heroBadgeVoice: "말해서 입력",
@@ -419,6 +448,12 @@ const copy = {
     heroBadgeAgent: "AI 라우팅",
     download: "macOS용 다운로드",
     downloadMeta: "macOS 15+ · Apple Silicon",
+    downloadMacOS: "macOS용 다운로드",
+    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadWindows: "Windows용 다운로드",
+    downloadWindowsMeta: "Windows x64 · 설치 프로그램",
+    downloadIOS: "iOS IPA 다운로드",
+    downloadIOSMeta: "iOS 17+ · 등록된 기기",
     releaseNote: `${release.tag} · Free & open source`,
     capVoiceLabel: "음성 입력",
     capVoiceTitle: "누르고 말하고, 떼면 삽입",
@@ -478,7 +513,7 @@ const copy = {
     privacyCopy: "자산 기록은 기본적으로 로컬에 저장됩니다. 로컬 모델을 쓰면 오디오는 기기 안에 머뭅니다. 클라우드 ASR이나 외부 모델을 고를 때만 해당 서비스로 전송됩니다.",
     ctaTitle: "다음 한 문장도, 다음 스크린샷도, 다음 번역도 워크스페이스로 보내세요.",
     footerBrand: "VoxFlow © 2026",
-    footer: "Swift & AppKit · Open source"
+    footer: "macOS · Windows · iOS · 오픈 소스"
   }
 };
 
@@ -876,8 +911,8 @@ function setLanguage(language, { pushState = true, persist = true } = {}) {
   }
 }
 
-document.querySelectorAll("[data-download-link]").forEach((element) => {
-  element.href = releaseDownloadURL;
+document.querySelectorAll("[data-download-platform]").forEach((element) => {
+  element.href = releaseDownloadURLs[element.dataset.downloadPlatform] || releaseDownloadURLs.macos;
 });
 
 if (languageSwitchButton && languageMenu) {

@@ -2,11 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>码上写 · VoxFlow</h1>
-  <p><strong>贴在当前工作流里的 macOS 语音键盘和本地上下文工作台。</strong></p>
-  <p>按住快捷键说话，松开后文字回到当前光标；语音、截图、录屏和剪切板内容会沉淀为可搜索、可复用的本地资产。</p>
+  <p><strong>支持 macOS、Windows 与 iOS 的语音输入工具。</strong></p>
+  <p>三个平台都可以用语音写字；桌面版提供全局听写，macOS 版还包含完整的本地上下文工作台。</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white" alt="Windows x64">
+    <img src="https://img.shields.io/badge/iOS-17%2B-000000?style=flat-square&amp;logo=ios&amp;logoColor=white" alt="iOS 17+">
     <img src="https://img.shields.io/badge/Swift-6%2B-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6+">
     <img src="https://img.shields.io/badge/Native-macOS-147EFB?style=flat-square" alt="Native macOS">
     <img src="https://img.shields.io/badge/Local--first-1F883D?style=flat-square" alt="Local-first">
@@ -78,14 +80,17 @@
 
 从 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) 下载最新版本：
 
-1. 打开 `VoxFlow-1.15.0-macOS.dmg`。
-2. 将 `VoxFlow` 拖入 `Applications` 文件夹。
-3. 首次启动时，如果 macOS 提示无法验证，请按住 Control 点击应用，选择“打开”。
+| 平台 | 安装包 | 安装方式 |
+| --- | --- | --- |
+| macOS | `VoxFlow-1.15.0-macOS.dmg` | 打开 DMG，将 VoxFlow 拖入“应用程序”。 |
+| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 或 `VoxFlow-1.15.0-windows-x64-portable.zip` | 运行当前用户安装包，或解压便携包。 |
+| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | 仅可安装到已写入 Ad Hoc profiles 的 UDID 设备。 |
 
 ### 系统要求
 
-- macOS 15 Sequoia 或更高版本
-- 一台带麦克风的 Mac
+- macOS 15+、Windows x64 或 iOS 17+
+- 麦克风
+- 安装 iOS IPA 的设备必须已登记在本次 Ad Hoc 发布中
 
 ### 首次授权
 

@@ -60,28 +60,31 @@ CI 在 iOS 相关路径变化时运行 `make ios-test-sim`。UI 测试依赖模�
 
 ## 分发与签名形态
 
-源码只维护一套 App + Keyboard Extension。未签名设备包和未来付费账号只在打包/签名入口上分开：
+源码只维护一套 App + Keyboard Extension。正式分发使用 Apple Developer Program 的 Ad Hoc 签名：
 
 ```bash
+MASHANGXIE_DEVELOPMENT_TEAM=<team-id> \
+MASHANGXIE_APP_PROFILE_SPECIFIER=<app-profile-name> \
+MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER=<keyboard-profile-name> \
 make ios-ipa
 ```
 
-生成 `dist/ios/Mashangxie.ipa`。该 IPA 是未签名设备包，包含：
+生成版本化的 `dist/ios/Mashangxie-<version>-iOS.ipa`。该 IPA 已使用 Ad Hoc provisioning profiles 签名，可安装到两个 profile 已登记的 UDID 设备，并包含：
 
 ```text
 Payload/Mashangxie.app
 Payload/Mashangxie.app/PlugIns/MashangxieKeyboard.appex
 ```
 
-打包后会自动运行 `Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh`，检查 app、keyboard extension、Rime/ChineseInput runtime frameworks 和源 entitlements。签名后的 App Group 运行时可用性仍必须在真机上通过诊断页验证。
+打包后会自动运行 `Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh --signed`，检查 app、keyboard extension、Rime/ChineseInput runtime frameworks、嵌入式 profiles、签名和 App Group entitlements。App Group 的运行时可用性仍必须在真机上通过诊断页验证。
 
-未来付费开发者账号使用：
+只做本地结构检查、不用于安装时，可使用：
 
 ```bash
-MASHANGXIE_DEVELOPMENT_TEAM=<team-id> make ios-keyboard-release-archive
+make ios-ipa-unsigned
 ```
 
-该命令走 Xcode automatic signing 生成 `Mashangxie.xcarchive`。它和免费探针使用同一套 bundle id、keyboard bundle id、App Group 和源码，不需要为了付费账号改代码。
+该命令生成 `dist/ios/Mashangxie-unsigned.ipa`，不会伪装成可安装发布包。
 
 ## 目录边界
 

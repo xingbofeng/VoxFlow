@@ -5,12 +5,14 @@ on:
     paths:
       - "VoxFlow.Windows/**"
       - "agent-cli/**"
+      - "docs/release.json"
       - ".github/workflows/windows-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "VoxFlow.Windows/**"
       - "agent-cli/**"
+      - "docs/release.json"
       - ".github/workflows/windows-ci.yml"
   workflow_dispatch:
 
@@ -151,11 +153,12 @@ jobs:
 
       - name: Build self-contained portable package and per-user installer
         shell: pwsh
-        run: >-
-          ./VoxFlow.Windows/scripts/prepare-windows-release.ps1
-          -Version "0.1.${{ github.run_number }}"
-          -NativeDllPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll
-          -OutputRoot ./VoxFlow.Windows/artifacts/release
+        run: |
+          $version = (Get-Content ./docs/release.json | ConvertFrom-Json).version
+          ./VoxFlow.Windows/scripts/prepare-windows-release.ps1 `
+            -Version $version `
+            -NativeDllPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll `
+            -OutputRoot ./VoxFlow.Windows/artifacts/release
 
       - name: Upload file transcription visual evidence
         if: always()

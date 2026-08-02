@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
+if [[ $# -lt 1 || $# -gt 3 ]]; then
   cat >&2 <<'EOF'
 Usage:
-  Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh <ipa-path> [ios-root]
+  Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh <ipa-path> [ios-root] [--signed]
 
-Verifies the unsigned IPA still contains the real app plus Mashangxie keyboard
-extension payload needed by future signing flows. Signed entitlement behavior
-still requires physical-device validation after install.
+Verifies the IPA contains the real app plus Mashangxie keyboard extension.
+With --signed, also requires distribution signatures, embedded profiles, and
+the App Group entitlement on both targets.
 EOF
   exit 64
 fi
 
 IPA_PATH="$1"
 IOS_ROOT="${2:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SIGNING_MODE="${3:-}"
 APP_GROUP_ID="group.com.mashangxie.ios"
+
+[[ -z "$SIGNING_MODE" || "$SIGNING_MODE" == "--signed" ]] || {
+  echo "Unknown verification mode: $SIGNING_MODE" >&2
+  exit 64
+}
 
 fail() {
   echo "❌ $*" >&2
@@ -73,7 +79,27 @@ APP_GROUPS_KEYBOARD="$(plist_value "$IOS_ROOT/Keyboard/Keyboard.entitlements" ":
 [[ "$APP_GROUPS_APP" == "$APP_GROUP_ID" ]] || fail "App entitlement does not declare $APP_GROUP_ID"
 [[ "$APP_GROUPS_KEYBOARD" == "$APP_GROUP_ID" ]] || fail "Keyboard entitlement does not declare $APP_GROUP_ID"
 
+if [[ "$SIGNING_MODE" == "--signed" ]]; then
+  [[ -f "$APP_PATH/embedded.mobileprovision" ]] || fail "Missing app provisioning profile"
+  [[ -f "$KEYBOARD_PATH/embedded.mobileprovision" ]] || fail "Missing keyboard provisioning profile"
+  [[ -f "$APP_PATH/_CodeSignature/CodeResources" ]] || fail "Missing app code signature"
+  [[ -f "$KEYBOARD_PATH/_CodeSignature/CodeResources" ]] || fail "Missing keyboard code signature"
+  codesign --verify --deep --strict "$APP_PATH" || fail "App signature verification failed"
+
+  APP_SIGNED_ENTITLEMENTS="$TMP_DIR/app-entitlements.plist"
+  KEYBOARD_SIGNED_ENTITLEMENTS="$TMP_DIR/keyboard-entitlements.plist"
+  codesign -d --entitlements "$APP_SIGNED_ENTITLEMENTS" "$APP_PATH" >/dev/null 2>&1 \
+    || fail "Unable to read app signed entitlements"
+  codesign -d --entitlements "$KEYBOARD_SIGNED_ENTITLEMENTS" "$KEYBOARD_PATH" >/dev/null 2>&1 \
+    || fail "Unable to read keyboard signed entitlements"
+  [[ "$(plist_value "$APP_SIGNED_ENTITLEMENTS" ':com.apple.security.application-groups:0')" == "$APP_GROUP_ID" ]] \
+    || fail "Signed app is missing $APP_GROUP_ID"
+  [[ "$(plist_value "$KEYBOARD_SIGNED_ENTITLEMENTS" ':com.apple.security.application-groups:0')" == "$APP_GROUP_ID" ]] \
+    || fail "Signed keyboard is missing $APP_GROUP_ID"
+fi
+
 echo "✅ IPA contract OK: $(basename "$IPA_PATH")"
 echo "   App:      $APP_BUNDLE_ID"
 echo "   Keyboard: $KEYBOARD_BUNDLE_ID"
 echo "   AppGroup: $APP_GROUP_ID (source entitlements; runtime must be validated on device)"
+[[ "$SIGNING_MODE" != "--signed" ]] || echo "   Signing:  Ad Hoc profiles and signatures verified"

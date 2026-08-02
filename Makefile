@@ -68,7 +68,7 @@ export SENTRY_PROJECT
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-ipa ios-keyboard-release-archive ios-clean
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-signing-preflight ios-ipa ios-ipa-unsigned ios-keyboard-release-archive ios-clean
 
 all: build
 
@@ -410,8 +410,11 @@ IOS_BUNDLE_ID := com.mashangxie.ios
 IOS_BUILD_DIR := $(BUILD_DIR)/ios
 IOS_DEV_CLOUD_RESOURCE := $(IOS_APP_DIR)/Generated/DevCloudCredentials.plist
 IOS_IPA_DIR := dist/ios
-IOS_IPA := $(IOS_IPA_DIR)/Mashangxie.ipa
+IOS_RELEASE_VERSION ?= $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/VoxFlowApp/Resources/Info.plist)
+IOS_IPA := $(IOS_IPA_DIR)/Mashangxie-$(IOS_RELEASE_VERSION)-iOS.ipa
+IOS_UNSIGNED_IPA := $(IOS_IPA_DIR)/Mashangxie-unsigned.ipa
 IOS_RELEASE_ARCHIVE := $(IOS_BUILD_DIR)/Mashangxie.xcarchive
+MASHANGXIE_CODE_SIGN_IDENTITY ?= Apple Distribution
 IOS_RIME_PREBUILD_DIR := $(IOS_APP_DIR)/ChineseInput/Resources/Schemas/build
 IOS_SIMULATOR_NAME ?= iPhone 16
 IOS_SIMULATOR_OS ?= 18.5
@@ -577,23 +580,26 @@ ios-ui-test-sim: ios-gen-project
 ios-device-preflight:
 	Apps/VoxFlowiOS/Scripts/verify-device-prereqs.sh
 
-# 打包未签名 IPA。需要签名的真机路径使用 ios-keyboard-release-archive，
-# 不需要改源码。
-ios-ipa: ios-build-device
+# 打包未签名 IPA，仅用于本地静态检查，不能直接安装到真机。
+ios-ipa-unsigned: ios-build-device
 	@mkdir -p "$(IOS_IPA_DIR)"
-	@rm -f "$(IOS_IPA)"
+	@rm -f "$(IOS_UNSIGNED_IPA)"
 	@rm -rf "$(IOS_BUILD_DIR)/Payload"
 	@mkdir -p "$(IOS_BUILD_DIR)/Payload"
 	@APP_PATH=$$(find "$(IOS_BUILD_DIR)/DerivedData/Build/Products/$(IOS_DEVICE_CONFIGURATION)-iphoneos" -name "$(IOS_SCHEME).app" -type d | head -1); \
 		test -n "$$APP_PATH" || (echo "未找到构建产物 $(IOS_SCHEME).app" && exit 1); \
 		cp -R "$$APP_PATH" "$(IOS_BUILD_DIR)/Payload/"; \
-		cd "$(IOS_BUILD_DIR)" && zip -r -q "$(CURDIR)/$(IOS_IPA)" Payload; \
-		echo "✅ IPA 已生成: $(IOS_IPA)"
-	@Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh "$(IOS_IPA)" "$(IOS_APP_DIR)"
+		cd "$(IOS_BUILD_DIR)" && zip -r -q "$(CURDIR)/$(IOS_UNSIGNED_IPA)" Payload; \
+		echo "✅ 未签名 IPA 已生成: $(IOS_UNSIGNED_IPA)"
+	@Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh "$(IOS_UNSIGNED_IPA)" "$(IOS_APP_DIR)"
 	@echo "→ 未签名 IPA 已完成静态 contract 校验。"
 
-ios-keyboard-release-archive: ios-gen-project
+ios-signing-preflight:
 	@test -n "$(MASHANGXIE_DEVELOPMENT_TEAM)" || (echo "Set MASHANGXIE_DEVELOPMENT_TEAM=<Apple team id>" && exit 2)
+	@test -n "$(MASHANGXIE_APP_PROFILE_SPECIFIER)" || (echo "Set MASHANGXIE_APP_PROFILE_SPECIFIER=<profile name>" && exit 2)
+	@test -n "$(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)" || (echo "Set MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER=<profile name>" && exit 2)
+
+ios-keyboard-release-archive: ios-signing-preflight ios-rime-prebuild-if-needed
 	@mkdir -p "$(IOS_BUILD_DIR)"
 	@rm -rf "$(IOS_RELEASE_ARCHIVE)"
 	@echo "→ 使用 DEVELOPER_DIR=$(IOS_DEVELOPER_DIR)"
@@ -605,12 +611,29 @@ ios-keyboard-release-archive: ios-gen-project
 		-archivePath "$(IOS_RELEASE_ARCHIVE)" \
 		-derivedDataPath "$(IOS_BUILD_DIR)/DerivedData" \
 		DEVELOPMENT_TEAM="$(MASHANGXIE_DEVELOPMENT_TEAM)" \
-		CODE_SIGN_STYLE=Automatic \
+		MASHANGXIE_APP_PROFILE_SPECIFIER="$(MASHANGXIE_APP_PROFILE_SPECIFIER)" \
+		MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER="$(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)" \
+		CODE_SIGN_STYLE=Manual \
+		CODE_SIGN_IDENTITY="$(MASHANGXIE_CODE_SIGN_IDENTITY)" \
 		CODE_SIGNING_ALLOWED=YES \
 		CODE_SIGNING_REQUIRED=YES \
-		-allowProvisioningUpdates \
 		archive
-	@echo "✅ Paid/developer signing archive: $(IOS_RELEASE_ARCHIVE)"
+	@echo "✅ Ad Hoc signing archive: $(IOS_RELEASE_ARCHIVE)"
+
+# 导出可直接安装到 provisioning profiles 已登记设备的 Ad Hoc IPA。
+ios-ipa: ios-keyboard-release-archive
+	@mkdir -p "$(IOS_IPA_DIR)"
+	@rm -f "$(IOS_IPA)"
+	@DEVELOPER_DIR="$(IOS_DEVELOPER_DIR)" Apps/VoxFlowiOS/Scripts/export-ad-hoc-ipa.sh \
+		"$(IOS_RELEASE_ARCHIVE)" \
+		"$(IOS_IPA_DIR)" \
+		"$(IOS_IPA)" \
+		"$(MASHANGXIE_DEVELOPMENT_TEAM)" \
+		"$(MASHANGXIE_APP_PROFILE_SPECIFIER)" \
+		"$(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)"
+	@Apps/VoxFlowiOS/Scripts/verify-ios-ipa-contract.sh "$(IOS_IPA)" "$(IOS_APP_DIR)" --signed
+	@shasum -a 256 "$(IOS_IPA)" > "$(IOS_IPA).sha256"
+	@echo "✅ 可安装 Ad Hoc IPA 已生成: $(IOS_IPA)"
 
 ios-clean:
 	@rm -rf "$(IOS_PROJECT)" "$(IOS_BUILD_DIR)" "$(IOS_IPA_DIR)" "$(IOS_APP_DIR)/Generated"
