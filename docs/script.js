@@ -1,7 +1,20 @@
 const release = {
   version: "1.15.0",
   tag: "v1.15.0",
-  assetName: "VoxFlow-1.15.0-macOS.dmg"
+  assetName: "VoxFlow-1.15.0-macOS.dmg",
+  assets: {
+    macos: {
+      dmg: { name: "VoxFlow-1.15.0-macOS.dmg" }
+    },
+    windows: {
+      installer: { name: "VoxFlow-1.15.0-windows-x64-setup.exe" },
+      portable: { name: "VoxFlow-1.15.0-windows-x64-portable.zip" }
+    },
+    ios: {
+      ipa: { name: "Mashangxie-1.15.0-iOS.ipa" },
+      distribution: "ad-hoc"
+    }
+  }
 };
 
 const releaseDownloadURL =

@@ -41,11 +41,26 @@ def ensure_release_notes(version: str, build: str) -> None:
 def update_docs(version: str) -> None:
     tag = f"v{version}"
     dmg = f"VoxFlow-{version}-macOS.dmg"
+    windows_installer = f"VoxFlow-{version}-windows-x64-setup.exe"
+    windows_portable = f"VoxFlow-{version}-windows-x64-portable.zip"
+    ios_ipa = f"Mashangxie-{version}-iOS.ipa"
 
     script = ROOT / "docs/script.js"
     replace(script, r'version: "[^"]+"', f'version: "{version}"')
     replace(script, r'tag: "v[^"]+"', f'tag: "{tag}"')
     replace(script, r'assetName: "VoxFlow-[^"]+-macOS\.dmg"', f'assetName: "{dmg}"')
+    replace(script, r'name: "VoxFlow-[^"]+-macOS\.dmg"', f'name: "{dmg}"')
+    replace(
+        script,
+        r'name: "VoxFlow-[^"]+-windows-x64-setup\.exe"',
+        f'name: "{windows_installer}"',
+    )
+    replace(
+        script,
+        r'name: "VoxFlow-[^"]+-windows-x64-portable\.zip"',
+        f'name: "{windows_portable}"',
+    )
+    replace(script, r'name: "Mashangxie-[^"]+-iOS\.ipa"', f'name: "{ios_ipa}"')
 
     index = ROOT / "docs/index.html"
     release_url = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}/{dmg}"
@@ -57,12 +72,38 @@ def update_docs(version: str) -> None:
     replace(index, r"v[0-9]+\.[0-9]+\.[0-9]+ · Free & open source", f"{tag} · Free & open source")
 
     release_notes = release_notes_summary(version)
+    release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
     release_json = {
         "version": version,
         "tag": tag,
         "assetName": dmg,
         "releasePageURL": f"https://github.com/xingbofeng/VoxFlow/releases/tag/{tag}",
         "downloadURL": release_url,
+        "assets": {
+            "macos": {
+                "dmg": {
+                    "name": dmg,
+                    "downloadURL": f"{release_download_base}/{dmg}",
+                }
+            },
+            "windows": {
+                "installer": {
+                    "name": windows_installer,
+                    "downloadURL": f"{release_download_base}/{windows_installer}",
+                },
+                "portable": {
+                    "name": windows_portable,
+                    "downloadURL": f"{release_download_base}/{windows_portable}",
+                },
+            },
+            "ios": {
+                "ipa": {
+                    "name": ios_ipa,
+                    "downloadURL": f"{release_download_base}/{ios_ipa}",
+                },
+                "distribution": "ad-hoc",
+            },
+        },
         "releaseNotes": release_notes,
         "draft": False,
         "prerelease": False,

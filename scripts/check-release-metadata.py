@@ -29,6 +29,10 @@ def main() -> int:
     version, _build = read_version()
     tag = f"v{version}"
     dmg_name = f"VoxFlow-{version}-macOS.dmg"
+    windows_installer_name = f"VoxFlow-{version}-windows-x64-setup.exe"
+    windows_portable_name = f"VoxFlow-{version}-windows-x64-portable.zip"
+    ios_ipa_name = f"Mashangxie-{version}-iOS.ipa"
+    release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
     failures: list[str] = []
 
     require(
@@ -43,6 +47,17 @@ def main() -> int:
     require(
         f'assetName: "{dmg_name}"' in docs_script,
         "docs/script.js release.assetName is stale",
+        failures,
+    )
+    for asset_name in [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]:
+        require(
+            f'name: "{asset_name}"' in docs_script,
+            f"docs/script.js asset reference is stale: {asset_name}",
+            failures,
+        )
+    require(
+        'distribution: "ad-hoc"' in docs_script,
+        "docs/script.js iOS distribution must be ad-hoc",
         failures,
     )
 
@@ -64,8 +79,32 @@ def main() -> int:
         failures,
     )
     require(
-        release_json.get("downloadURL") == f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}/{dmg_name}",
+        release_json.get("downloadURL") == f"{release_download_base}/{dmg_name}",
         "docs/release.json downloadURL is stale",
+        failures,
+    )
+    assets = release_json.get("assets", {})
+    expected_assets = {
+        ("macos", "dmg"): dmg_name,
+        ("windows", "installer"): windows_installer_name,
+        ("windows", "portable"): windows_portable_name,
+        ("ios", "ipa"): ios_ipa_name,
+    }
+    for (platform, kind), asset_name in expected_assets.items():
+        asset = assets.get(platform, {}).get(kind, {})
+        require(
+            asset.get("name") == asset_name,
+            f"docs/release.json assets.{platform}.{kind}.name is stale",
+            failures,
+        )
+        require(
+            asset.get("downloadURL") == f"{release_download_base}/{asset_name}",
+            f"docs/release.json assets.{platform}.{kind}.downloadURL is stale",
+            failures,
+        )
+    require(
+        assets.get("ios", {}).get("distribution") == "ad-hoc",
+        "docs/release.json assets.ios.distribution must be ad-hoc",
         failures,
     )
 
