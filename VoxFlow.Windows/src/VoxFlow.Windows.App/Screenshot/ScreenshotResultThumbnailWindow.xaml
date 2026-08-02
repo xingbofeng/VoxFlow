@@ -1,0 +1,46 @@
+<Window x:Class="VoxFlow.Windows.App.Screenshot.ScreenshotResultThumbnailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="260"
+        Height="150"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        AllowsTransparency="True"
+        ShowActivated="True"
+        AutomationProperties.AutomationId="screenshot-result-thumbnail-window"
+        KeyDown="OnKeyDown"
+        ContentRendered="OnContentRendered">
+    <Border Background="{DynamicResource PanelBackgroundBrush}"
+            BorderBrush="{DynamicResource PanelBorderBrush}"
+            BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+        <Button x:Name="OpenButton" x:FieldModifier="public"
+                Padding="0" BorderThickness="0" Background="Transparent"
+                Click="OnOpen" ToolTip="{Binding OpenResultLabel}"
+                AutomationProperties.AutomationId="screenshot-result-thumbnail-open"
+                AutomationProperties.Name="{Binding OpenResultLabel}">
+            <Grid Width="260" Height="150">
+                <Image Source="{Binding ThumbnailImagePath}" Stretch="UniformToFill"
+                       AutomationProperties.Name="{Binding OriginalTabLabel}" />
+                <Border Padding="12" Background="{DynamicResource PanelBackgroundBrush}">
+                    <TextBlock Text="{Binding ThumbnailFallbackText}" TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis" MaxHeight="110"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasThumbnailImage}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+            </Grid>
+        </Button>
+    </Border>
+</Window>

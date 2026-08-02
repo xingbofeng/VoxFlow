@@ -1,0 +1,65 @@
+<UserControl x:Class="VoxFlow.Windows.App.Notes.NotesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:home="clr-namespace:VoxFlow.Windows.App.Home"
+             Background="{DynamicResource PageBackgroundBrush}">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </UserControl.Resources>
+    <Grid Margin="{DynamicResource PageSpacing}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="18" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="{Binding Heading}" FontSize="{DynamicResource HeadingFontSize}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Subtitle}" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
+            </StackPanel>
+            <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     Padding="12,9" VerticalAlignment="Bottom" ToolTip="{Binding SearchPlaceholder}" />
+            <Button Grid.Column="3" Content="{Binding RefreshLabel}" VerticalAlignment="Bottom" Click="OnRefresh" />
+        </Grid>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <TextBlock Text="{Binding EmptyText}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}"
+                           HorizontalAlignment="Center" Margin="0,60" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type home:HomeHistoryItem}">
+                            <Border Style="{StaticResource VoxFlowCardStyle}" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="52" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding WorkflowGlyph}" FontFamily="Segoe Fluent Icons" FontSize="18"
+                                                   Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,20,0">
+                                        <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold" FontSize="16" />
+                                        <TextBlock Text="{Binding ResultTextPreview}" Margin="0,8,0,0" TextWrapping="Wrap" MaxHeight="100"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        <TextBlock Text="{Binding CreatedAtUtc, StringFormat={}{0:g}}" Margin="0,8,0,0"
+                                                   FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="{Binding DataContext.CopyLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Tag="{Binding Id}" VerticalAlignment="Top" Click="OnCopy" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

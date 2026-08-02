@@ -1,0 +1,5 @@
+native/qwen-asr/LICENSE.upstream text eol=lf
+native/qwen-asr/MODEL_PROVENANCE.json text eol=lf
+native/qwen-asr/windows-port/patches/*.patch text eol=lf whitespace=-blank-at-eol
+runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json text eol=lf
+scripts/patches/*.patch text eol=lf whitespace=-blank-at-eol

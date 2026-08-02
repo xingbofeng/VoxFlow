@@ -1,0 +1,134 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.App", "src\VoxFlow.Windows.App\VoxFlow.Windows.App.csproj", "{D7C54E18-CADE-4A30-A509-F9323996D5B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Application", "src\VoxFlow.Windows.Application\VoxFlow.Windows.Application.csproj", "{94679E68-44E2-4DA3-8718-1965B4148F49}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Domain", "src\VoxFlow.Windows.Domain\VoxFlow.Windows.Domain.csproj", "{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Infrastructure", "src\VoxFlow.Windows.Infrastructure\VoxFlow.Windows.Infrastructure.csproj", "{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Platform", "src\VoxFlow.Windows.Platform\VoxFlow.Windows.Platform.csproj", "{A397EFD4-E3C5-453C-BF32-528A5FC59991}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Providers.Cloud", "src\VoxFlow.Windows.Providers.Cloud\VoxFlow.Windows.Providers.Cloud.csproj", "{58F03B88-A529-4C34-A6CC-3547BF2CC1D7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Providers.Qwen", "src\VoxFlow.Windows.Providers.Qwen\VoxFlow.Windows.Providers.Qwen.csproj", "{3E9F039E-ACE6-4853-89C1-21E1A20610F2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.App.Tests", "tests\VoxFlow.Windows.App.Tests\VoxFlow.Windows.App.Tests.csproj", "{A4F3552C-48F7-4648-B46A-173586AA853D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Application.Tests", "tests\VoxFlow.Windows.Application.Tests\VoxFlow.Windows.Application.Tests.csproj", "{E05C6326-0CB6-4A60-BDA7-C00B43C4B517}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Domain.Tests", "tests\VoxFlow.Windows.Domain.Tests\VoxFlow.Windows.Domain.Tests.csproj", "{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Infrastructure.Tests", "tests\VoxFlow.Windows.Infrastructure.Tests\VoxFlow.Windows.Infrastructure.Tests.csproj", "{9EC04A68-2521-4464-B7AB-E7EDE7563537}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.IntegrationTests", "tests\VoxFlow.Windows.IntegrationTests\VoxFlow.Windows.IntegrationTests.csproj", "{F933EE91-6494-4DC2-89A1-6A9E871006E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Platform.Tests", "tests\VoxFlow.Windows.Platform.Tests\VoxFlow.Windows.Platform.Tests.csproj", "{CA677E07-500D-4BAD-AA2C-50D315FB57B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Providers.Cloud.Tests", "tests\VoxFlow.Windows.Providers.Cloud.Tests\VoxFlow.Windows.Providers.Cloud.Tests.csproj", "{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Providers.Qwen.Tests", "tests\VoxFlow.Windows.Providers.Qwen.Tests\VoxFlow.Windows.Providers.Qwen.Tests.csproj", "{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxFlow.Windows.Testing", "tests\VoxFlow.Windows.Testing\VoxFlow.Windows.Testing.csproj", "{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D7C54E18-CADE-4A30-A509-F9323996D5B9}.Debug|x64.ActiveCfg = Debug|x64
+		{D7C54E18-CADE-4A30-A509-F9323996D5B9}.Debug|x64.Build.0 = Debug|x64
+		{D7C54E18-CADE-4A30-A509-F9323996D5B9}.Release|x64.ActiveCfg = Release|x64
+		{D7C54E18-CADE-4A30-A509-F9323996D5B9}.Release|x64.Build.0 = Release|x64
+		{94679E68-44E2-4DA3-8718-1965B4148F49}.Debug|x64.ActiveCfg = Debug|x64
+		{94679E68-44E2-4DA3-8718-1965B4148F49}.Debug|x64.Build.0 = Debug|x64
+		{94679E68-44E2-4DA3-8718-1965B4148F49}.Release|x64.ActiveCfg = Release|x64
+		{94679E68-44E2-4DA3-8718-1965B4148F49}.Release|x64.Build.0 = Release|x64
+		{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1}.Debug|x64.ActiveCfg = Debug|x64
+		{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1}.Debug|x64.Build.0 = Debug|x64
+		{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1}.Release|x64.ActiveCfg = Release|x64
+		{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1}.Release|x64.Build.0 = Release|x64
+		{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3}.Debug|x64.ActiveCfg = Debug|x64
+		{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3}.Debug|x64.Build.0 = Debug|x64
+		{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3}.Release|x64.ActiveCfg = Release|x64
+		{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3}.Release|x64.Build.0 = Release|x64
+		{A397EFD4-E3C5-453C-BF32-528A5FC59991}.Debug|x64.ActiveCfg = Debug|x64
+		{A397EFD4-E3C5-453C-BF32-528A5FC59991}.Debug|x64.Build.0 = Debug|x64
+		{A397EFD4-E3C5-453C-BF32-528A5FC59991}.Release|x64.ActiveCfg = Release|x64
+		{A397EFD4-E3C5-453C-BF32-528A5FC59991}.Release|x64.Build.0 = Release|x64
+		{58F03B88-A529-4C34-A6CC-3547BF2CC1D7}.Debug|x64.ActiveCfg = Debug|x64
+		{58F03B88-A529-4C34-A6CC-3547BF2CC1D7}.Debug|x64.Build.0 = Debug|x64
+		{58F03B88-A529-4C34-A6CC-3547BF2CC1D7}.Release|x64.ActiveCfg = Release|x64
+		{58F03B88-A529-4C34-A6CC-3547BF2CC1D7}.Release|x64.Build.0 = Release|x64
+		{3E9F039E-ACE6-4853-89C1-21E1A20610F2}.Debug|x64.ActiveCfg = Debug|x64
+		{3E9F039E-ACE6-4853-89C1-21E1A20610F2}.Debug|x64.Build.0 = Debug|x64
+		{3E9F039E-ACE6-4853-89C1-21E1A20610F2}.Release|x64.ActiveCfg = Release|x64
+		{3E9F039E-ACE6-4853-89C1-21E1A20610F2}.Release|x64.Build.0 = Release|x64
+		{A4F3552C-48F7-4648-B46A-173586AA853D}.Debug|x64.ActiveCfg = Debug|x64
+		{A4F3552C-48F7-4648-B46A-173586AA853D}.Debug|x64.Build.0 = Debug|x64
+		{A4F3552C-48F7-4648-B46A-173586AA853D}.Release|x64.ActiveCfg = Release|x64
+		{A4F3552C-48F7-4648-B46A-173586AA853D}.Release|x64.Build.0 = Release|x64
+		{E05C6326-0CB6-4A60-BDA7-C00B43C4B517}.Debug|x64.ActiveCfg = Debug|x64
+		{E05C6326-0CB6-4A60-BDA7-C00B43C4B517}.Debug|x64.Build.0 = Debug|x64
+		{E05C6326-0CB6-4A60-BDA7-C00B43C4B517}.Release|x64.ActiveCfg = Release|x64
+		{E05C6326-0CB6-4A60-BDA7-C00B43C4B517}.Release|x64.Build.0 = Release|x64
+		{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B}.Debug|x64.ActiveCfg = Debug|x64
+		{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B}.Debug|x64.Build.0 = Debug|x64
+		{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B}.Release|x64.ActiveCfg = Release|x64
+		{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B}.Release|x64.Build.0 = Release|x64
+		{9EC04A68-2521-4464-B7AB-E7EDE7563537}.Debug|x64.ActiveCfg = Debug|x64
+		{9EC04A68-2521-4464-B7AB-E7EDE7563537}.Debug|x64.Build.0 = Debug|x64
+		{9EC04A68-2521-4464-B7AB-E7EDE7563537}.Release|x64.ActiveCfg = Release|x64
+		{9EC04A68-2521-4464-B7AB-E7EDE7563537}.Release|x64.Build.0 = Release|x64
+		{F933EE91-6494-4DC2-89A1-6A9E871006E5}.Debug|x64.ActiveCfg = Debug|x64
+		{F933EE91-6494-4DC2-89A1-6A9E871006E5}.Debug|x64.Build.0 = Debug|x64
+		{F933EE91-6494-4DC2-89A1-6A9E871006E5}.Release|x64.ActiveCfg = Release|x64
+		{F933EE91-6494-4DC2-89A1-6A9E871006E5}.Release|x64.Build.0 = Release|x64
+		{CA677E07-500D-4BAD-AA2C-50D315FB57B9}.Debug|x64.ActiveCfg = Debug|x64
+		{CA677E07-500D-4BAD-AA2C-50D315FB57B9}.Debug|x64.Build.0 = Debug|x64
+		{CA677E07-500D-4BAD-AA2C-50D315FB57B9}.Release|x64.ActiveCfg = Release|x64
+		{CA677E07-500D-4BAD-AA2C-50D315FB57B9}.Release|x64.Build.0 = Release|x64
+		{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0}.Debug|x64.ActiveCfg = Debug|x64
+		{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0}.Debug|x64.Build.0 = Debug|x64
+		{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0}.Release|x64.ActiveCfg = Release|x64
+		{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0}.Release|x64.Build.0 = Release|x64
+		{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69}.Debug|x64.ActiveCfg = Debug|x64
+		{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69}.Debug|x64.Build.0 = Debug|x64
+		{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69}.Release|x64.ActiveCfg = Release|x64
+		{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69}.Release|x64.Build.0 = Release|x64
+		{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42}.Debug|x64.ActiveCfg = Debug|x64
+		{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42}.Debug|x64.Build.0 = Debug|x64
+		{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42}.Release|x64.ActiveCfg = Release|x64
+		{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D7C54E18-CADE-4A30-A509-F9323996D5B9} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{94679E68-44E2-4DA3-8718-1965B4148F49} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{1EDC6609-8EEE-41B5-A41C-54A2F7CA3DF1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{44A4FFA2-BE51-4379-A5F3-E45E0D771AB3} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{A397EFD4-E3C5-453C-BF32-528A5FC59991} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{58F03B88-A529-4C34-A6CC-3547BF2CC1D7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{3E9F039E-ACE6-4853-89C1-21E1A20610F2} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{A4F3552C-48F7-4648-B46A-173586AA853D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{E05C6326-0CB6-4A60-BDA7-C00B43C4B517} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{B4A1D3E4-357E-4CDE-BADC-A389FB613C2B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{9EC04A68-2521-4464-B7AB-E7EDE7563537} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{F933EE91-6494-4DC2-89A1-6A9E871006E5} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{CA677E07-500D-4BAD-AA2C-50D315FB57B9} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{22AA4B2A-FB8B-48A9-9357-00EC1DB252A0} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{0C6BA7D8-3610-4E8E-9737-7B6DA4120D69} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{0B1D58FC-F808-46D2-BD6A-B463D2D7AC42} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+EndGlobal

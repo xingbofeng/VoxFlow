@@ -1,0 +1,1003 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>사이드바 전환</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>홈</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>파일 전사</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>설정</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>파일 전사</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>오디오와 비디오 파일을 재사용 가능한 텍스트로 변환합니다.</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>파일 찾아보기</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>여기에 파일을 놓거나 찾아보기로 가져오세요</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3, WAV, M4A, AAC, MP4, MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>전사 대기열</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>가져온 파일이 여기에 표시됩니다.</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>결과</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>파일을 선택하여 전사 내용을 확인하세요.</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>파일을 가져올 준비가 되었습니다.</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>사용 가능한 음성 인식 서비스를 선택한 뒤 파일을 가져오세요.</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>지원하지 않는 파일 형식입니다.</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>파일을 전사 대기열에 추가했습니다.</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>오디오 및 비디오 파일</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>대기 중</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>전사 중</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>일부 완료</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>중단됨</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>취소됨</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>실패</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>대기 중</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>처리 중</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>실패</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>중단됨</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>취소됨</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4}개 구간 완료</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>구간 {0} · {1}–{2} · {3} · 재시도 {4}회 · 폴백 {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>오류 없음</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>텐센트 클라우드</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>알리바바 클라우드</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>시작</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>계속</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>처음부터 다시 시도</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>복사</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>내보내기</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>전체 번역</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>원본 파일 재생</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>재생 일시 정지</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>원문</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>번역</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>고급 진단</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>전사를 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>전사를 취소했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>전사를 계속합니다.</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>처음부터 전사를 다시 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>전사 작업을 삭제했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackDeleteFailed" xml:space="preserve"><value>이 전사 작업을 삭제하지 못했습니다. 기존 결과는 유지됩니다.</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>결과를 복사했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>결과를 복사하지 못했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>내보내기 파일을 저장했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>이 결과를 내보내지 못했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>전체 번역을 완료했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>번역에 실패했습니다. 원본 전사는 유지됩니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>원본 파일 재생을 준비하는 중…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>원본 파일 재생을 시작했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>재생을 일시 정지했습니다.</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>원본 파일을 재생하지 못했습니다. 전사 결과는 변경되지 않았습니다.</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>전사 작업을 삭제할까요?</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>작업과 저장된 구간을 삭제합니다. 원본 파일은 삭제되지 않습니다.</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>전사문（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>전사문（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>자막（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>번역문（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>번역문（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>이중 언어 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>홈</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>최근 음성 입력과 활동이 여기에 표시됩니다.</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>설정</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>음성 입력, 모델, 텍스트 처리 및 개인정보 보호를 구성합니다.</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>전체 자산</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>오늘</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>받아쓰기</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>입력 활동</value></data>
+  <data name="HomeActivitySubtitle" xml:space="preserve"><value>지난 52주 · 한 칸은 하루</value></data>
+  <data name="HomeActivityLess" xml:space="preserve"><value>적음</value></data>
+  <data name="HomeActivityMore" xml:space="preserve"><value>많음</value></data>
+  <data name="HomeActivityThisWeekFormat" xml:space="preserve"><value>이번 주 {0}개</value></data>
+  <data name="HistoryCountFormat" xml:space="preserve"><value>총 {0:N0}개</value></data>
+  <data name="HistorySelectAll" xml:space="preserve"><value>모두 선택</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>자산</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>받아쓰기 내용 검색</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>자산 소스</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>모든 소스</value></data>
+  <data name="HistorySourceDictation" xml:space="preserve"><value>받아쓰기</value></data>
+  <data name="HistorySourceScreenshot" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>현재 필터와 일치하는 받아쓰기 기록이 없습니다.</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>선택</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>복사</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>세부 정보</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>선택 항목 삭제</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>기록 지우기</value></data>
+  <data name="HistoryCopySucceeded" xml:space="preserve"><value>클립보드에 복사했습니다.</value></data>
+  <data name="HistoryCopyFailed" xml:space="preserve"><value>이 기록을 복사하지 못했습니다. 다시 시도하세요.</value></data>
+  <data name="HistoryDeleteSucceeded" xml:space="preserve"><value>기록을 삭제했습니다.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>선택한 기록을 삭제하지 못했습니다. 다시 시도하세요.</value></data>
+  <data name="HistorySaveSucceeded" xml:space="preserve"><value>변경 사항을 저장했습니다.</value></data>
+  <data name="HistorySaveFailed" xml:space="preserve"><value>변경 사항을 저장하지 못했습니다. 다시 시도하세요.</value></data>
+  <data name="HistoryReprocessSucceeded" xml:space="preserve"><value>텍스트를 다시 처리했습니다.</value></data>
+  <data name="HistoryReprocessFailed" xml:space="preserve"><value>텍스트를 다시 처리하지 못했습니다. 텍스트 처리 설정을 확인한 후 다시 시도하세요.</value></data>
+  <data name="HistoryActionFailed" xml:space="preserve"><value>기록 작업에 실패했습니다. 다시 시도하세요.</value></data>
+  <data name="HistoryDeleteConfirmationTitle" xml:space="preserve"><value>기록 삭제</value></data>
+  <data name="HistoryDeleteConfirmationMessage" xml:space="preserve"><value>이 기록을 삭제할까요? 이 작업은 취소할 수 없습니다.</value></data>
+  <data name="HistoryDeleteSelectedConfirmationMessage" xml:space="preserve"><value>선택한 기록을 삭제할까요? 이 작업은 취소할 수 없습니다.</value></data>
+  <data name="HistoryClearAllConfirmationMessage" xml:space="preserve"><value>모든 기록을 지울까요? 이 작업은 취소할 수 없습니다.</value></data>
+  <data name="HistoryDeleteSelectedUnavailable" xml:space="preserve"><value>삭제할 기록을 하나 이상 선택하세요.</value></data>
+  <data name="HistoryClearAllUnavailable" xml:space="preserve"><value>기록이 하나 이상 있을 때 지울 수 있습니다.</value></data>
+  <data name="HistorySaveUnavailable" xml:space="preserve"><value>비어 있지 않은 최종 텍스트를 입력한 후 저장하세요.</value></data>
+  <data name="HistoryReprocessUnavailable" xml:space="preserve"><value>텍스트 처리 흐름을 구성한 후 다시 처리할 수 있습니다.</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>이전</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>다음</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>받아쓰기 세부 정보</value></data>
+  <data name="HistoryNoPreview" xml:space="preserve"><value>미리보기 없음</value></data>
+  <data name="HistoryContentTypeVoice" xml:space="preserve"><value>음성</value></data>
+  <data name="HistoryContentTypeImage" xml:space="preserve"><value>이미지</value></data>
+  <data name="HistoryContentTypeFile" xml:space="preserve"><value>파일</value></data>
+  <data name="HistoryContentTypeWorkflow" xml:space="preserve"><value>워크플로</value></data>
+  <data name="HistoryContentTypeText" xml:space="preserve"><value>텍스트</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>인식된 텍스트</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>최종 텍스트</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>처리 메타데이터</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>인식 언어</value></data>
+  <data name="HistoryDetailAsr" xml:space="preserve"><value>음성 인식: </value></data>
+  <data name="HistoryDetailQwen" xml:space="preserve"><value>Qwen 모델: </value></data>
+  <data name="HistoryDetailLlm" xml:space="preserve"><value>대규모 언어 모델: </value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>받아쓰기 시간</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 처리 시간</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>오디오 프레임(캡처 / 삭제)</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>편집 저장</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>다시 처리</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>민감 정보가 제거된 진단</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>진단 복사</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>준비 중</value></data>
+  <data name="HudListening" xml:space="preserve"><value>듣는 중</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>결과 정리 중</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>문장 다듬는 중</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>입력 중</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>완료</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>확인이 필요합니다</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>복사됨</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>음성 받아쓰기를 완료하지 못했습니다.</value></data>
+  <data name="HudAgentReadingWindow" xml:space="preserve"><value>현재 창 읽는 중</value></data>
+  <data name="HudAgentListening" xml:space="preserve"><value>듣는 중</value></data>
+  <data name="HudAgentTranscribing" xml:space="preserve"><value>전사 중</value></data>
+  <data name="HudAgentProcessing" xml:space="preserve"><value>생각하는 중</value></data>
+  <data name="HudAgentOperating" xml:space="preserve"><value>작업 중</value></data>
+  <data name="HudAgentWaitingForUser" xml:space="preserve"><value>응답을 기다리는 중</value></data>
+  <data name="HudAgentCompleted" xml:space="preserve"><value>완료됨</value></data>
+  <data name="HudAgentFailed" xml:space="preserve"><value>확인이 필요함</value></data>
+  <data name="HudAgentCopied" xml:space="preserve"><value>복사됨</value></data>
+  <data name="HudAgentRedacted" xml:space="preserve"><value>[숨김]</value></data>
+  <data name="HudAgentPathRemoved" xml:space="preserve"><value>[경로 숨김]</value></data>
+  <data name="HudAgentToolReadFile" xml:space="preserve"><value>파일 읽기</value></data>
+  <data name="HudAgentToolSearchTranscriptions" xml:space="preserve"><value>기록 검색</value></data>
+  <data name="HudAgentToolRespond" xml:space="preserve"><value>응답 준비</value></data>
+  <data name="HudAgentToolAskUserQuestion" xml:space="preserve"><value>응답을 기다리는 중</value></data>
+  <data name="HudAgentToolWriteFile" xml:space="preserve"><value>파일 쓰기</value></data>
+  <data name="HudAgentToolEditFile" xml:space="preserve"><value>파일 편집</value></data>
+  <data name="HudAgentToolNotebookEdit" xml:space="preserve"><value>노트북 편집</value></data>
+  <data name="HudAgentToolListFiles" xml:space="preserve"><value>파일 목록</value></data>
+  <data name="HudAgentToolGlobFiles" xml:space="preserve"><value>파일 찾기</value></data>
+  <data name="HudAgentToolGrepFiles" xml:space="preserve"><value>파일 검색</value></data>
+  <data name="HudAgentToolClipboard" xml:space="preserve"><value>클립보드 사용</value></data>
+  <data name="HudAgentToolKeyboard" xml:space="preserve"><value>키보드 사용</value></data>
+  <data name="HudAgentToolTextField" xml:space="preserve"><value>텍스트 필드 사용</value></data>
+  <data name="HudAgentToolHttpRequest" xml:space="preserve"><value>웹사이트 요청</value></data>
+  <data name="HudAgentToolOpenUrl" xml:space="preserve"><value>웹사이트 열기</value></data>
+  <data name="HudAgentToolWebFetch" xml:space="preserve"><value>웹페이지 읽기</value></data>
+  <data name="HudAgentToolWebSearch" xml:space="preserve"><value>웹 검색</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>관리자 권한 앱에 텍스트를 입력할 수 없습니다. VoxFlow를 관리자 권한으로 다시 시작한 후 다시 시도하세요. 결과가 복사되었습니다.</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>텍스트를 입력할 수 없어 결과를 복사했습니다.</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>입력 대상이 변경되어 결과를 복사했습니다.</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>텍스트를 입력하거나 복사할 수 없습니다. 받아쓰기 기록에서 결과를 복사하세요.</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>인식 언어</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>자동 인식</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>중국어(표준어)</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>영어</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>일본어</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>한국어</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>음성 인식</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>받아쓰기 텍스트 다듬기</value></data>
+  <data name="TrayAgent" xml:space="preserve"><value>VoxFlow 에이전트</value></data>
+  <data name="TrayAgentReady" xml:space="preserve"><value>준비됨</value></data>
+  <data name="TrayAgentRunning" xml:space="preserve"><value>에이전트 작성 실행 중</value></data>
+  <data name="TrayAgentRuntimeUnavailable" xml:space="preserve"><value>에이전트 런타임을 사용할 수 없습니다</value></data>
+  <data name="TrayAgentProviderUnavailable" xml:space="preserve"><value>도구 호출을 지원하는 Provider를 설정하고 테스트하세요</value></data>
+  <data name="TrayAgentStart" xml:space="preserve"><value>에이전트 작성 시작</value></data>
+  <data name="TrayAgentStop" xml:space="preserve"><value>에이전트 작성 중지</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>VoxFlow 열기</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>설정</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub 프로젝트</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>마이크 권한</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>VoxFlow 종료</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>사용 가능한 전사 결과가 준비되면 이 작업을 할 수 있습니다.</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>작업 오류 · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>번역 오류 · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>{0}/{1} 구간 처리 중</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>작업 {0}개</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>없음</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>빈 결과 후 재시도</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>중복 결과 후 재시도</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>서비스 오류 후 재시도</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>원본 파일을 사용할 수 없음</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>지원하지 않는 형식이거나 파일이 손상됨</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>오디오 트랙을 찾을 수 없음</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>미디어 런타임을 사용할 수 없거나 손상됨</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>임시 디스크 공간 부족</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>음성 인식 서비스 처리 실패</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>음성 인식 서비스를 사용할 수 없음</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>음성 인식 서비스 인증 실패</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>음성 인식 서비스 할당량 초과</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>음성 인식 서비스가 오디오 형식을 거부함</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>로컬 음성 모델이 준비되지 않음</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>음성 인식 서비스 네트워크 요청 실패</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>구간 처리 시간 초과</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>전체 번역 실패</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>실행 중인 파일 전사가 없습니다.</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>원본 파일에 접근할 수 있을 때 재생할 수 있습니다.</value></data>
+  <data name="LlmProviderHealthUnknown" xml:space="preserve"><value>테스트하지 않음</value></data>
+  <data name="LlmProviderHealthTesting" xml:space="preserve"><value>테스트 중…</value></data>
+  <data name="LlmProviderHealthAvailable" xml:space="preserve"><value>사용 가능</value></data>
+  <data name="LlmProviderHealthUnavailable" xml:space="preserve"><value>사용 불가</value></data>
+  <data name="LlmProviderAgentUnknown" xml:space="preserve"><value>에이전트 기능을 테스트하지 않음</value></data>
+  <data name="LlmProviderAgentSupported" xml:space="preserve"><value>에이전트 지원</value></data>
+  <data name="LlmProviderAgentUnsupported" xml:space="preserve"><value>에이전트 미지원</value></data>
+  <data name="LlmProviderAgentError" xml:space="preserve"><value>에이전트 테스트 실패</value></data>
+  <data name="LlmProviderTitle" xml:space="preserve"><value>LLM 제공자</value></data>
+  <data name="LlmProviderSubtitle" xml:space="preserve"><value>교정, 번역, 요약 및 내장 에이전트 작업에 사용할 OpenAI 호환 서비스를 설정합니다.</value></data>
+  <data name="LlmProviderAdd" xml:space="preserve"><value>제공자 추가</value></data>
+  <data name="LlmProviderEmpty" xml:space="preserve"><value>아직 모델 제공자가 없습니다</value></data>
+  <data name="LlmProviderBadge" xml:space="preserve"><value>LLM</value></data>
+  <data name="LlmProviderCurrent" xml:space="preserve"><value>현재 사용</value></data>
+  <data name="LlmProviderEnable" xml:space="preserve"><value>사용</value></data>
+  <data name="LlmProviderSetDefault" xml:space="preserve"><value>기본값으로 설정</value></data>
+  <data name="LlmProviderEdit" xml:space="preserve"><value>편집</value></data>
+  <data name="LlmProviderTestConnection" xml:space="preserve"><value>연결 테스트</value></data>
+  <data name="LlmProviderTestAgent" xml:space="preserve"><value>에이전트 테스트</value></data>
+  <data name="LlmProviderDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="LlmProviderEditorAddTitle" xml:space="preserve"><value>제공자 추가</value></data>
+  <data name="LlmProviderEditorEditTitle" xml:space="preserve"><value>제공자 편집</value></data>
+  <data name="LlmProviderEditorHint" xml:space="preserve"><value>제공자를 선택하면 공식 주소가 입력됩니다. 다른 OpenAI 호환 서비스는 사용자 지정을 선택하세요.</value></data>
+  <data name="LlmProviderTemplateLabel" xml:space="preserve"><value>제공자</value></data>
+  <data name="LlmProviderCustomTemplate" xml:space="preserve"><value>사용자 지정</value></data>
+  <data name="LlmProviderName" xml:space="preserve"><value>이름</value></data>
+  <data name="LlmProviderServiceUrl" xml:space="preserve"><value>서비스 URL</value></data>
+  <data name="LlmProviderModel" xml:space="preserve"><value>모델</value></data>
+  <data name="LlmProviderRefreshModels" xml:space="preserve"><value>모델 새로 고침</value></data>
+  <data name="LlmProviderGenerationSettings" xml:space="preserve"><value>생성 설정</value></data>
+  <data name="LlmProviderTemperature" xml:space="preserve"><value>온도</value></data>
+  <data name="LlmProviderTimeout" xml:space="preserve"><value>시간 제한</value></data>
+  <data name="LlmProviderSeconds" xml:space="preserve"><value>초</value></data>
+  <data name="LlmProviderApiKey" xml:space="preserve"><value>API 키</value></data>
+  <data name="LlmProviderRevealApiKey" xml:space="preserve"><value>저장된 키 표시</value></data>
+  <data name="LlmProviderHideApiKey" xml:space="preserve"><value>키 숨기기</value></data>
+  <data name="LlmProviderAddModel" xml:space="preserve"><value>모델 추가</value></data>
+  <data name="LlmProviderNoApiKeyRequired" xml:space="preserve"><value>키 필요 없음</value></data>
+  <data name="LlmProviderCredentialHint" xml:space="preserve"><value>API 키는 현재 Windows 사용자용으로 암호화되어 저장됩니다.</value></data>
+  <data name="LlmProviderAvailability" xml:space="preserve"><value>사용 상태</value></data>
+  <data name="LlmProviderUseAsDefault" xml:space="preserve"><value>기본 제공자로 사용</value></data>
+  <data name="LlmProviderCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="LlmProviderSave" xml:space="preserve"><value>저장</value></data>
+  <data name="LlmProviderDeleteConfirmationTitle" xml:space="preserve"><value>제공자를 삭제할까요?</value></data>
+  <data name="LlmProviderDeleteConfirmationMessage" xml:space="preserve"><value>이 컴퓨터에서 제공자와 저장된 API 키를 삭제합니다.</value></data>
+  <data name="LlmProviderActionFailed" xml:space="preserve"><value>작업에 실패했습니다. 제공자 설정을 확인하고 다시 시도하세요.</value></data>
+  <data name="LlmProviderStatusEnabled" xml:space="preserve"><value>사용 중</value></data>
+  <data name="LlmProviderStatusDisabled" xml:space="preserve"><value>사용 안 함</value></data>
+  <data name="LlmProviderGetApiKey" xml:space="preserve"><value>API 키 받기</value></data>
+  <data name="HistorySourceSelectionTranslation" xml:space="preserve"><value>선택 영역 번역</value></data>
+  <data name="HistorySourceSelectionSummary" xml:space="preserve"><value>선택 영역 요약</value></data>
+  <data name="HistorySourceAgentCompose" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="HistorySourceFileTranscription" xml:space="preserve"><value>파일 전사</value></data>
+  <data name="WorkflowStatusPending" xml:space="preserve"><value>대기 중</value></data>
+  <data name="WorkflowStatusRunning" xml:space="preserve"><value>진행 중</value></data>
+  <data name="WorkflowStatusPartiallyCompleted" xml:space="preserve"><value>부분 완료</value></data>
+  <data name="WorkflowStatusCompleted" xml:space="preserve"><value>완료됨</value></data>
+  <data name="WorkflowStatusFailed" xml:space="preserve"><value>실패</value></data>
+  <data name="WorkflowStatusCancelled" xml:space="preserve"><value>취소됨</value></data>
+  <data name="WorkflowStatusInterrupted" xml:space="preserve"><value>중단됨</value></data>
+  <data name="HistoryDetailWorkflowMetadata" xml:space="preserve"><value>워크플로</value></data>
+  <data name="HistoryDetailStatus" xml:space="preserve"><value>상태</value></data>
+  <data name="HistoryDetailFailure" xml:space="preserve"><value>실패 사유</value></data>
+  <data name="HistoryDetailProvider" xml:space="preserve"><value>제공자</value></data>
+  <data name="HistoryDetailModel" xml:space="preserve"><value>모델</value></data>
+  <data name="HistoryDetailContextSources" xml:space="preserve"><value>컨텍스트 출처</value></data>
+  <data name="HistoryDetailTimeline" xml:space="preserve"><value>이벤트 타임라인</value></data>
+  <data name="HistoryDetailTools" xml:space="preserve"><value>사용한 도구</value></data>
+  <data name="HistoryDetailArtifacts" xml:space="preserve"><value>결과물</value></data>
+  <data name="HistoryDetailResultSummary" xml:space="preserve"><value>결과 요약</value></data>
+  <data name="SettingsNavigationTranslation" xml:space="preserve"><value>번역</value></data>
+  <data name="SettingsTranslationHeading" xml:space="preserve"><value>선택한 텍스트 작업</value></data>
+  <data name="SettingsTranslationSubtitle" xml:space="preserve"><value>다른 앱에서 선택한 텍스트를 바로 번역하거나 요약하는 단축키를 설정합니다.</value></data>
+  <data name="SettingsHotkeyScreenshotTitle" xml:space="preserve"><value>스크린샷 OCR</value></data>
+  <data name="SettingsHotkeyScreenshotDescription" xml:space="preserve"><value>화면을 캡처하고 텍스트를 추출합니다.</value></data>
+  <data name="SettingsHotkeySelectionTranslationTitle" xml:space="preserve"><value>다듬기</value></data>
+  <data name="SettingsHotkeySelectionTranslationDescription" xml:space="preserve"><value>텍스트 선택 후 빠른 작업을 사용합니다.</value></data>
+  <data name="SettingsHotkeySelectionSummaryTitle" xml:space="preserve"><value>요약</value></data>
+  <data name="SettingsHotkeySelectionSummaryDescription" xml:space="preserve"><value>선택한 텍스트를 요약합니다.</value></data>
+  <data name="SettingsHotkeyAgentComposeTitle" xml:space="preserve"><value>스마트 작업대</value></data>
+  <data name="SettingsHotkeyAgentComposeDescription" xml:space="preserve"><value>선택한 텍스트를 작업 도우미로 보냅니다.</value></data>
+  <data name="SettingsHotkeyAgentSectionTitle" xml:space="preserve"><value>VoxFlow Agent 단축키</value></data>
+  <data name="SettingsHotkeyAgentSectionDescription" xml:space="preserve"><value>내장 Agent의 음성 제스처를 설정합니다. 오른쪽 Alt와 AltGr 조합은 사용할 수 없습니다.</value></data>
+  <data name="SettingsHotkeyRecord" xml:space="preserve"><value>기록</value></data>
+  <data name="SettingsHotkeyCancel" xml:space="preserve"><value>기록 취소</value></data>
+  <data name="SettingsHotkeyClear" xml:space="preserve"><value>지우기</value></data>
+  <data name="SettingsHotkeyRestoreDefault" xml:space="preserve"><value>기본값 복원</value></data>
+  <data name="SettingsHotkeyUnbound" xml:space="preserve"><value>지정 안 됨</value></data>
+  <data name="SettingsHotkeyRecordingStatus" xml:space="preserve"><value>단축키를 누르세요…</value></data>
+  <data name="hotkey.conflict.alreadyAssigned" xml:space="preserve"><value>이 단축키는 다른 작업에 이미 지정되어 있습니다.</value></data>
+  <data name="hotkey.conflict.altGrUnsafe" xml:space="preserve"><value>오른쪽 Alt 또는 AltGr는 문자 입력에 사용될 수 있어 이 단축키로 지정할 수 없습니다.</value></data>
+  <data name="hotkey.conflict.systemEditing" xml:space="preserve"><value>이 조합은 일반적인 편집 작업에 사용됩니다.</value></data>
+
+  <data name="FailureAsrUnavailable" xml:space="preserve"><value>No speech recognizer is ready. Configure a cloud provider or download a local model.</value></data>
+  <data name="FailureCloudProvider" xml:space="preserve"><value>The selected cloud speech provider could not complete this dictation. Review its configuration, then retry.</value></data>
+  <data name="FailureLlmFallback" xml:space="preserve"><value>Text refinement was unavailable, so VoxFlow kept the original recognized text.</value></data>
+  <data name="FailureMicrophonePermission" xml:space="preserve"><value>Microphone access is unavailable. Review microphone privacy permissions in Windows Settings.</value></data>
+  <data name="FailureQwenRuntime" xml:space="preserve"><value>The selected Qwen model could not run. Review the model status and retry without changing providers.</value></data>
+  <data name="SettingsActionApply" xml:space="preserve"><value>Apply changes</value></data>
+  <data name="SettingsActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="SettingsActionSave" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsActionTest" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SettingsCloudAudioNotice" xml:space="preserve"><value>Audio is sent directly to this cloud provider during dictation.</value></data>
+  <data name="SettingsCloudDeleteConfirmationMessage" xml:space="preserve"><value>This provider will become unavailable for new dictation. Other providers and local models are not changed.</value></data>
+  <data name="SettingsCloudDeleteConfirmationTitle" xml:space="preserve"><value>Delete cloud credential?</value></data>
+  <data name="SettingsConnectionFailed" xml:space="preserve"><value>Connection failed. Review the model and credential, then retry.</value></data>
+  <data name="SettingsConnectionSucceeded" xml:space="preserve"><value>Connection succeeded.</value></data>
+  <data name="SettingsOperationSaving" xml:space="preserve"><value>자격 증명을 안전하게 저장하는 중…</value></data>
+  <data name="SettingsOperationTesting" xml:space="preserve"><value>연결을 테스트하는 중…</value></data>
+  <data name="SettingsOperationDeleting" xml:space="preserve"><value>자격 증명을 삭제하는 중…</value></data>
+  <data name="SettingsOperationFailed" xml:space="preserve"><value>작업에 실패했습니다. 입력을 확인한 후 다시 시도하세요.</value></data>
+  <data name="SettingsCredentialAccessToken" xml:space="preserve"><value>Access token</value></data>
+  <data name="SettingsCredentialApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsCredentialAppId" xml:space="preserve"><value>App ID</value></data>
+  <data name="SettingsCredentialConfigured" xml:space="preserve"><value>Saved securely</value></data>
+  <data name="SettingsCredentialNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsCredentialSecretId" xml:space="preserve"><value>Secret ID</value></data>
+  <data name="SettingsCredentialSecretKey" xml:space="preserve"><value>Secret key</value></data>
+  <data name="SettingsDeleteConfirmationMessage" xml:space="preserve"><value>Text refinement will be disabled. Speech recognition and deterministic text cleanup will continue to work.</value></data>
+  <data name="SettingsDeleteConfirmationTitle" xml:space="preserve"><value>Delete OpenAI credential?</value></data>
+  <data name="SettingsDeleteSucceeded" xml:space="preserve"><value>Credential deleted.</value></data>
+  <data name="SettingsGeneralAppearance" xml:space="preserve"><value>Appearance and startup</value></data>
+  <data name="SettingsGeneralCopyDiagnostics" xml:space="preserve"><value>Copy sanitized diagnostics</value></data>
+  <data name="SettingsGeneralDarkTheme" xml:space="preserve"><value>다크 모드</value></data>
+  <data name="SettingsGeneralData" xml:space="preserve"><value>Local data and diagnostics</value></data>
+  <data name="SettingsGeneralHeading" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsGeneralLaunchAtLogin" xml:space="preserve"><value>시작 시 자동 실행</value></data>
+  <data name="SettingsGeneralOpenMicrophonePrivacy" xml:space="preserve"><value>Open microphone privacy settings</value></data>
+  <data name="SettingsGeneralPermissions" xml:space="preserve"><value>Windows permissions</value></data>
+  <data name="SettingsGeneralReset" xml:space="preserve"><value>Restore default settings</value></data>
+  <data name="SettingsDiagnosticsCopying" xml:space="preserve"><value>비식별화된 진단 정보를 준비하는 중…</value></data>
+  <data name="SettingsDiagnosticsCopied" xml:space="preserve"><value>비식별화된 진단 정보를 복사했습니다.</value></data>
+  <data name="SettingsDiagnosticsEmpty" xml:space="preserve"><value>아직 기록된 진단 정보가 없습니다.</value></data>
+  <data name="SettingsGeneralActionFailed" xml:space="preserve"><value>작업에 실패했습니다. 다시 시도하거나 Windows 권한을 확인하세요.</value></data>
+  <data name="SettingsGeneralActionUnavailable" xml:space="preserve"><value>현재 빌드에서는 이 설정을 사용할 수 없습니다.</value></data>
+  <data name="SettingsResetting" xml:space="preserve"><value>기본 설정으로 복원하는 중…</value></data>
+  <data name="SettingsResetSucceeded" xml:space="preserve"><value>일반 및 음성 기본 설정을 복원했습니다.</value></data>
+  <data name="DebugTranscriptInjectionTitle" xml:space="preserve"><value>디버그 전사문 주입</value></data>
+  <data name="DebugTranscriptInjectionSubtitle" xml:space="preserve"><value>마이크와 음성 인식을 건너뛰고 실제 교정 또는 Agent 후속 체인을 실행합니다.</value></data>
+  <data name="DebugTranscriptInjectionRun" xml:space="preserve"><value>디버그 체인 실행</value></data>
+  <data name="DebugTranscriptInjectionDefaultText" xml:space="preserve"><value>현재 창을 요약하세요. 내용을 수정하거나 전송하거나 열지 마세요.</value></data>
+  <data name="DebugTranscriptInjectionPlaceholder" xml:space="preserve"><value>주입할 전사문</value></data>
+  <data name="DebugTranscriptInjectionModeDictation" xml:space="preserve"><value>받아쓰기 교정</value></data>
+  <data name="DebugTranscriptInjectionModeAgentCompose" xml:space="preserve"><value>Agent Compose</value></data>
+  <data name="DebugTranscriptInjectionRunning" xml:space="preserve"><value>실제 후속 체인을 실행하는 중…</value></data>
+  <data name="DebugTranscriptInjectionCompleted" xml:space="preserve"><value>디버그 체인이 완료되었습니다.</value></data>
+  <data name="DebugTranscriptInjectionBusy" xml:space="preserve"><value>다른 음성 워크플로가 실행 중입니다.</value></data>
+  <data name="DebugTranscriptInjectionUnavailable" xml:space="preserve"><value>선택한 디버그 체인을 사용할 수 없습니다. Provider와 런타임을 확인하세요.</value></data>
+  <data name="DebugTranscriptInjectionFailed" xml:space="preserve"><value>디버그 체인이 안전하게 실패했습니다. HUD와 비식별화 진단을 확인하세요.</value></data>
+  <data name="SettingsGeneralSubtitle" xml:space="preserve"><value>Manage appearance, permissions, storage, and local diagnostics.</value></data>
+  <data name="SettingsModelsAsrTab" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="SettingsModelsHeading" xml:space="preserve"><value>Models and providers</value></data>
+  <data name="SettingsModelsLlmTab" xml:space="preserve"><value>Text refinement</value></data>
+  <data name="SettingsModelsAgentTab" xml:space="preserve"><value>에이전트</value></data>
+  <data name="SettingsAgentHeading" xml:space="preserve"><value>VoxFlow 에이전트</value></data>
+  <data name="SettingsAgentDescription" xml:space="preserve"><value>앱에 포함되어 검증된 에이전트 런타임과 기본 도구 호출 지원 공급자를 사용합니다.</value></data>
+  <data name="SettingsAgentRuntimeLabel" xml:space="preserve"><value>내장 런타임</value></data>
+  <data name="SettingsAgentRuntimeAvailable" xml:space="preserve"><value>검증됨, 사용 가능</value></data>
+  <data name="SettingsAgentRuntimeMissing" xml:space="preserve"><value>내장 런타임이 없습니다</value></data>
+  <data name="SettingsAgentRuntimeInvalid" xml:space="preserve"><value>런타임 매니페스트가 올바르지 않습니다</value></data>
+  <data name="SettingsAgentRuntimeHashMismatch" xml:space="preserve"><value>런타임 무결성 검사에 실패했습니다</value></data>
+  <data name="SettingsAgentRuntimeDisabled" xml:space="preserve"><value>에이전트 런타임을 사용할 수 없습니다</value></data>
+  <data name="SettingsAgentVersionLabel" xml:space="preserve"><value>버전</value></data>
+  <data name="SettingsAgentHashLabel" xml:space="preserve"><value>매니페스트 SHA-256</value></data>
+  <data name="SettingsAgentProviderLabel" xml:space="preserve"><value>기본 공급자</value></data>
+  <data name="SettingsAgentModelLabel" xml:space="preserve"><value>기본 모델</value></data>
+  <data name="SettingsAgentConnectionHealthLabel" xml:space="preserve"><value>연결 상태</value></data>
+  <data name="SettingsAgentToolCallingHealthLabel" xml:space="preserve"><value>도구 호출 상태</value></data>
+  <data name="SettingsAgentNotAvailable" xml:space="preserve"><value>사용할 수 없음</value></data>
+  <data name="SettingsAgentNoDefaultProvider" xml:space="preserve"><value>활성화된 기본 공급자가 없습니다</value></data>
+  <data name="AgentQuestionWindowTitle" xml:space="preserve"><value>VoxFlow 에이전트</value></data>
+  <data name="AgentQuestionCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="AgentQuestionContinue" xml:space="preserve"><value>계속</value></data>
+  <data name="SettingsModelsSubtitle" xml:space="preserve"><value>Choose a speech recognizer and configure optional text refinement.</value></data>
+  <data name="SettingsNavigationGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsNavigationModels" xml:space="preserve"><value>Models</value></data>
+  <data name="SettingsNavigationText" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsNavigationVoice" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsOpenAiApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsOpenAiBaseUrl" xml:space="preserve"><value>Official API address</value></data>
+  <data name="SettingsOpenAiDescription" xml:space="preserve"><value>Optionally improve completed dictation with conservative streaming text refinement.</value></data>
+  <data name="SettingsOpenAiEnabled" xml:space="preserve"><value>Use OpenAI text refinement</value></data>
+  <data name="SettingsOpenAiHeading" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="SettingsOpenAiModel" xml:space="preserve"><value>Model</value></data>
+  <data name="SettingsProviderAliyunDescription" xml:space="preserve"><value>Streaming speech recognition using your Alibaba Cloud API key.</value></data>
+  <data name="SettingsProviderQwen06Description" xml:space="preserve"><value>Smaller local speech model for faster CPU recognition.</value></data>
+  <data name="SettingsProviderQwen17Description" xml:space="preserve"><value>Larger local speech model for higher-quality final results.</value></data>
+  <data name="SettingsProviderTencentDescription" xml:space="preserve"><value>Streaming speech recognition using your Tencent Cloud credentials.</value></data>
+  <data name="SettingsProviderVolcengineDescription" xml:space="preserve"><value>Streaming speech recognition using your Volcengine credentials.</value></data>
+  <data name="SettingsResetConfirmationMessage" xml:space="preserve"><value>This restores general and voice settings. Saved credentials, downloaded models, history, and the current provider selection remain unchanged.</value></data>
+  <data name="SettingsResetConfirmationTitle" xml:space="preserve"><value>Restore default settings?</value></data>
+  <data name="SettingsSaveSucceeded" xml:space="preserve"><value>Settings saved.</value></data>
+  <data name="SettingsStatusConfigured" xml:space="preserve"><value>Configured; test the connection to enable selection</value></data>
+  <data name="SettingsStatusNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsTextCapitalization" xml:space="preserve"><value>문장 시작 대문자</value></data>
+  <data name="SettingsTextCjkBreakThreshold" xml:space="preserve"><value>CJK characters before a long-sentence break</value></data>
+  <data name="SettingsTextCjkPunctuationThreshold" xml:space="preserve"><value>CJK characters before punctuation</value></data>
+  <data name="SettingsTextCjkSpacing" xml:space="preserve"><value>CJK / 라틴 간격</value></data>
+  <data name="SettingsTextFillerWords" xml:space="preserve"><value>군더더기 단어 필터</value></data>
+  <data name="SettingsTextHeading" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsTextLongSentences" xml:space="preserve"><value>긴 문장 분할</value></data>
+  <data name="SettingsTextMaster" xml:space="preserve"><value>텍스트 처리 사용</value></data>
+  <data name="SettingsTextPunctuation" xml:space="preserve"><value>문장 부호 최적화</value></data>
+  <data name="SettingsTextSmartNumbers" xml:space="preserve"><value>스마트 숫자 인식</value></data>
+  <data name="SettingsTextSubtitle" xml:space="preserve"><value>Apply conservative, predictable cleanup after speech recognition.</value></data>
+  <data name="SettingsTextWordBreakThreshold" xml:space="preserve"><value>Words before a long-sentence break</value></data>
+  <data name="SettingsTextWordPunctuationThreshold" xml:space="preserve"><value>Words before punctuation</value></data>
+  <data name="SettingsVoiceAudioDescription" xml:space="preserve"><value>Control feedback sounds, playback muting, and speech enhancement.</value></data>
+  <data name="SettingsVoiceAudioHeading" xml:space="preserve"><value>Audio</value></data>
+  <data name="SettingsVoiceDefaultMicrophone" xml:space="preserve"><value>Default microphone</value></data>
+  <data name="SettingsVoiceDevice" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SettingsVoiceEnhancement" xml:space="preserve"><value>Enhance speech before recognition</value></data>
+  <data name="SettingsVoiceFeedbackSounds" xml:space="preserve"><value>Play start and stop sounds</value></data>
+  <data name="SettingsVoiceHeading" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsVoiceInputDescription" xml:space="preserve"><value>입력 장치, 인식 언어, 인터페이스 언어를 구성합니다.</value></data>
+  <data name="SettingsVoiceInputHeading" xml:space="preserve"><value>입력 및 언어</value></data>
+  <data name="SettingsVoiceInteraction" xml:space="preserve"><value>Shortcut behavior</value></data>
+  <data name="SettingsVoiceKeepMicrophoneActive" xml:space="preserve"><value>Keep the microphone ready between dictations</value></data>
+  <data name="SettingsVoiceLanguage" xml:space="preserve"><value>Recognition language</value></data>
+  <data name="SettingsVoiceMiddleMouse" xml:space="preserve"><value>Enable middle mouse button</value></data>
+  <data name="SettingsVoiceModeHold" xml:space="preserve"><value>Hold to dictate</value></data>
+  <data name="SettingsVoiceModeHybrid" xml:space="preserve"><value>Hold or tap to toggle</value></data>
+  <data name="SettingsVoiceModeToggle" xml:space="preserve"><value>Press to start or stop</value></data>
+  <data name="SettingsVoiceMutePlayback" xml:space="preserve"><value>Mute playback while recording</value></data>
+  <data name="SettingsVoiceOutputDescription" xml:space="preserve"><value>Choose fast paste or simulated typing for completed text.</value></data>
+  <data name="SettingsVoiceOutputHeading" xml:space="preserve"><value>Output</value></data>
+  <data name="SettingsVoiceQuickPaste" xml:space="preserve"><value>Fast paste</value></data>
+  <data name="SettingsVoiceQuickPasteDescription" xml:space="preserve"><value>Paste completed text and safely restore the clipboard.</value></data>
+  <data name="SettingsVoiceRuntimeDescription" xml:space="preserve"><value>Keep the microphone ready between dictations when desired.</value></data>
+  <data name="SettingsVoiceRuntimeHeading" xml:space="preserve"><value>Runtime</value></data>
+  <data name="SettingsVoiceShortcutDescription" xml:space="preserve"><value>음성 입력과 AI 코딩의 전역 진입점</value></data>
+  <data name="SettingsVoiceShortcutHeading" xml:space="preserve"><value>음성 단축키</value></data>
+  <data name="SettingsVoiceShortcutRightControl" xml:space="preserve"><value>Right Ctrl</value></data>
+  <data name="SettingsVoiceSimulatedTyping" xml:space="preserve"><value>Simulated typing</value></data>
+  <data name="SettingsVoiceSimulatedTypingDescription" xml:space="preserve"><value>Type Unicode text without replacing clipboard contents.</value></data>
+  <data name="SettingsVoiceSubtitle" xml:space="preserve"><value>Configure how dictation starts, listens, and writes text.</value></data>
+
+  <data name="SettingsModelDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="SettingsModelRetry" xml:space="preserve"><value>Retry download</value></data>
+  <data name="SettingsModelSelect" xml:space="preserve"><value>Use this model</value></data>
+  <data name="SettingsModelSelected" xml:space="preserve"><value>Selected</value></data>
+  <data name="SettingsModelStatusDownloadingFormat" xml:space="preserve"><value>Downloading {0:0}%</value></data>
+  <data name="SettingsModelStatusFailed" xml:space="preserve"><value>Download or validation failed</value></data>
+  <data name="SettingsModelActionDownloading" xml:space="preserve"><value>모델을 다운로드하고 확인하는 중입니다…</value></data>
+  <data name="SettingsModelActionSelecting" xml:space="preserve"><value>모델을 선택하는 중입니다…</value></data>
+  <data name="SettingsModelActionDeleting" xml:space="preserve"><value>모델을 삭제하는 중입니다…</value></data>
+  <data name="SettingsModelDownloadSucceeded" xml:space="preserve"><value>모델을 다운로드했으며 사용할 준비가 되었습니다.</value></data>
+  <data name="SettingsModelSelectSucceeded" xml:space="preserve"><value>모델을 선택했습니다.</value></data>
+  <data name="SettingsModelDeleteSucceeded" xml:space="preserve"><value>모델을 삭제했습니다.</value></data>
+  <data name="SettingsModelActionFailed" xml:space="preserve"><value>모델 작업에 실패했습니다. 다시 시도하세요.</value></data>
+  <data name="SettingsModelDeleteConfirmationTitle" xml:space="preserve"><value>모델을 삭제할까요?</value></data>
+  <data name="SettingsModelDeleteConfirmationMessage" xml:space="preserve"><value>다운로드한 모델 파일을 이 컴퓨터에서 삭제합니다. 나중에 다시 다운로드할 수 있습니다.</value></data>
+  <data name="SettingsModelStatusInsufficientSpace" xml:space="preserve"><value>Not enough disk space</value></data>
+  <data name="SettingsModelStatusNotDownloaded" xml:space="preserve"><value>Not downloaded</value></data>
+  <data name="SettingsModelStatusPreparing" xml:space="preserve"><value>Preparing model…</value></data>
+  <data name="SettingsModelStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsModelStatusSelected" xml:space="preserve"><value>In use</value></data>
+  <data name="SelectionFailureNoSelection" xml:space="preserve"><value>다른 앱에서 텍스트를 선택한 후 다시 시도하세요.</value></data>
+  <data name="SelectionFailureSecureField" xml:space="preserve"><value>보안 입력란의 텍스트는 읽을 수 없습니다.</value></data>
+  <data name="SelectionFailureTargetChanged" xml:space="preserve"><value>원래 창이 변경되었습니다. 텍스트를 다시 선택하세요.</value></data>
+  <data name="SelectionFailureClipboardBusy" xml:space="preserve"><value>클립보드를 사용 중입니다. 다시 시도하세요.</value></data>
+  <data name="SelectionFailureTerminal" xml:space="preserve"><value>터미널 선택 영역을 확인할 수 없어 Ctrl+C를 보내지 않았습니다.</value></data>
+  <data name="SelectionFailureCopyFailed" xml:space="preserve"><value>선택한 텍스트를 복사할 수 없습니다.</value></data>
+  <data name="SelectionResultSource" xml:space="preserve"><value>원문</value></data>
+  <data name="SelectionResultResult" xml:space="preserve"><value>결과</value></data>
+  <data name="SelectionResultCopy" xml:space="preserve"><value>복사</value></data>
+  <data name="SelectionResultSpeak" xml:space="preserve"><value>읽어주기</value></data>
+  <data name="SelectionResultStopSpeaking" xml:space="preserve"><value>읽어주기 중지</value></data>
+  <data name="SelectionResultReplace" xml:space="preserve"><value>원문 바꾸기</value></data>
+  <data name="SelectionResultInsertBelow" xml:space="preserve"><value>아래에 삽입</value></data>
+  <data name="SelectionResultProcessing" xml:space="preserve"><value>처리 중…</value></data>
+  <data name="SelectionResultTranslation" xml:space="preserve"><value>선택 영역 번역</value></data>
+  <data name="SelectionResultSummary" xml:space="preserve"><value>선택 영역 요약</value></data>
+  <data name="SelectionResultComplete" xml:space="preserve"><value>완료했습니다.</value></data>
+  <data name="SelectionResultPartial" xml:space="preserve"><value>중지했습니다. 현재까지의 결과는 계속 사용할 수 있습니다.</value></data>
+  <data name="SelectionResultCancelled" xml:space="preserve"><value>취소했습니다.</value></data>
+  <data name="SelectionResultFailed" xml:space="preserve"><value>선택한 텍스트를 처리할 수 없습니다. 기본 LLM 서비스를 확인한 후 다시 시도하세요.</value></data>
+  <data name="SelectionResultNoText" xml:space="preserve"><value>작업할 텍스트가 없습니다.</value></data>
+  <data name="SelectionResultCopyFailed" xml:space="preserve"><value>텍스트를 복사할 수 없습니다.</value></data>
+  <data name="SelectionResultCopied" xml:space="preserve"><value>복사했습니다.</value></data>
+  <data name="SelectionResultWriteUnavailable" xml:space="preserve"><value>원래 앱에 이 텍스트를 다시 쓸 수 없습니다.</value></data>
+  <data name="SelectionResultReplaced" xml:space="preserve"><value>선택한 텍스트를 바꿨습니다.</value></data>
+  <data name="SelectionResultInserted" xml:space="preserve"><value>선택 영역 아래에 삽입했습니다.</value></data>
+  <data name="SelectionResultCopiedFallback" xml:space="preserve"><value>원래 대상이 변경되어 결과를 클립보드에 복사했습니다.</value></data>
+  <data name="SelectionResultWriteFailed" xml:space="preserve"><value>텍스트를 다시 쓸 수 없습니다. 원문은 변경되지 않았습니다.</value></data>
+  <data name="SelectionResultSpeaking" xml:space="preserve"><value>읽는 중…</value></data>
+  <data name="SelectionResultSpeechComplete" xml:space="preserve"><value>읽기를 완료했습니다.</value></data>
+  <data name="SelectionResultSpeechStopped" xml:space="preserve"><value>읽기를 중지했습니다.</value></data>
+  <data name="SelectionResultSpeechUnavailable" xml:space="preserve"><value>Windows에서 사용할 수 있는 음성이 없습니다.</value></data>
+  <data name="SelectionResultSpeechFailed" xml:space="preserve"><value>이 텍스트를 읽을 수 없습니다.</value></data>
+  <data name="SelectionFailureUnexpected" xml:space="preserve"><value>선택 영역 도구를 지금 사용할 수 없습니다. 기본 LLM 서비스를 확인한 후 다시 시도하세요.</value></data>
+  <data name="SelectionUnavailableDuringScreenshot" xml:space="preserve"><value>스크린샷 도구를 완료하거나 닫은 후 선택 영역을 번역하거나 요약하세요.</value></data>
+  <data name="NavigationMedia" xml:space="preserve"><value>미디어</value></data>
+  <data name="ScreenshotMediaHeading" xml:space="preserve"><value>미디어</value></data>
+  <data name="ScreenshotMediaSubtitle" xml:space="preserve"><value>스크린샷을 캡처하고 검색하고 다시 확인하세요.</value></data>
+  <data name="TrayScreenshot" xml:space="preserve"><value>스크린샷 찍기</value></data>
+  <data name="ScreenshotStart" xml:space="preserve"><value>스크린샷 찍기</value></data>
+  <data name="ScreenshotMediaStatsTotal" xml:space="preserve"><value>전체 미디어</value></data>
+  <data name="ScreenshotMediaStatsToday" xml:space="preserve"><value>오늘의 미디어</value></data>
+  <data name="ScreenshotMediaStatsScreenshots" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="ScreenshotMediaStatsFavorites" xml:space="preserve"><value>즐겨찾기</value></data>
+  <data name="ScreenshotMediaSearch" xml:space="preserve"><value>스크린샷 검색</value></data>
+  <data name="ScreenshotMediaFilter" xml:space="preserve"><value>스크린샷 필터</value></data>
+  <data name="ScreenshotMediaPageSize" xml:space="preserve"><value>페이지당 스크린샷 수</value></data>
+  <data name="ScreenshotMediaEmptyTitle" xml:space="preserve"><value>아직 스크린샷이 없습니다</value></data>
+  <data name="ScreenshotMediaEmptyHint" xml:space="preserve"><value>스크린샷을 찍으면 여기에 표시됩니다.</value></data>
+  <data name="ScreenshotMediaPrevious" xml:space="preserve"><value>이전</value></data>
+  <data name="ScreenshotMediaNext" xml:space="preserve"><value>다음</value></data>
+  <data name="ScreenshotCopyImage" xml:space="preserve"><value>이미지 복사</value></data>
+  <data name="ScreenshotCopyText" xml:space="preserve"><value>텍스트 복사</value></data>
+  <data name="ScreenshotFavorite" xml:space="preserve"><value>즐겨찾기 전환</value></data>
+  <data name="ScreenshotDelete" xml:space="preserve"><value>스크린샷 삭제</value></data>
+  <data name="ScreenshotFilterAll" xml:space="preserve"><value>모두</value></data>
+  <data name="ScreenshotFilterScreenshots" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="ScreenshotFilterFavorites" xml:space="preserve"><value>즐겨찾기</value></data>
+  <data name="ScreenshotDetailTitle" xml:space="preserve"><value>스크린샷 세부 정보</value></data>
+  <data name="ScreenshotClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="ScreenshotImageUnavailable" xml:space="preserve"><value>이미지를 사용할 수 없습니다</value></data>
+  <data name="ScreenshotOriginal" xml:space="preserve"><value>원본</value></data>
+  <data name="ScreenshotTranslatedImage" xml:space="preserve"><value>번역 이미지</value></data>
+  <data name="ScreenshotResolution" xml:space="preserve"><value>해상도</value></data>
+  <data name="ScreenshotFileSize" xml:space="preserve"><value>파일 크기</value></data>
+  <data name="ScreenshotCharacters" xml:space="preserve"><value>문자 수</value></data>
+  <data name="ScreenshotFavoriteStatus" xml:space="preserve"><value>즐겨찾기</value></data>
+  <data name="ScreenshotOcrTab" xml:space="preserve"><value>문자 인식</value></data>
+  <data name="ScreenshotRefinedTab" xml:space="preserve"><value>다듬기</value></data>
+  <data name="ScreenshotTranslationTab" xml:space="preserve"><value>번역</value></data>
+  <data name="ScreenshotSummaryTab" xml:space="preserve"><value>요약</value></data>
+  <data name="ScreenshotSaveAs" xml:space="preserve"><value>다른 이름으로 저장</value></data>
+  <data name="ScreenshotReveal" xml:space="preserve"><value>파일 탐색기에서 보기</value></data>
+  <data name="ScreenshotReprocess" xml:space="preserve"><value>다시 인식</value></data>
+  <data name="ScreenshotToolSelect" xml:space="preserve"><value>선택</value></data>
+  <data name="ScreenshotToolPen" xml:space="preserve"><value>펜</value></data>
+  <data name="ScreenshotToolEllipse" xml:space="preserve"><value>원</value></data>
+  <data name="ScreenshotToolRectangle" xml:space="preserve"><value>사각형</value></data>
+  <data name="ScreenshotToolArrow" xml:space="preserve"><value>화살표</value></data>
+  <data name="ScreenshotToolDotMarker" xml:space="preserve"><value>포인트 마커</value></data>
+  <data name="ScreenshotToolNumberedMarker" xml:space="preserve"><value>번호 마커</value></data>
+  <data name="ScreenshotToolText" xml:space="preserve"><value>텍스트</value></data>
+  <data name="ScreenshotToolMosaic" xml:space="preserve"><value>모자이크</value></data>
+  <data name="ScreenshotToolTextRecognition" xml:space="preserve"><value>텍스트 인식</value></data>
+  <data name="ScreenshotToolTranslate" xml:space="preserve"><value>번역</value></data>
+  <data name="ScreenshotToolColor" xml:space="preserve"><value>색상</value></data>
+  <data name="ScreenshotToolLineWidth" xml:space="preserve"><value>선 두께</value></data>
+  <data name="ScreenshotToolFontSize" xml:space="preserve"><value>글자 크기</value></data>
+  <data name="ScreenshotToolCopy" xml:space="preserve"><value>주석 복사</value></data>
+  <data name="ScreenshotToolPaste" xml:space="preserve"><value>주석 붙여넣기</value></data>
+  <data name="ScreenshotToolDuplicate" xml:space="preserve"><value>복제</value></data>
+  <data name="ScreenshotToolUndo" xml:space="preserve"><value>실행 취소</value></data>
+  <data name="ScreenshotToolRedo" xml:space="preserve"><value>다시 실행</value></data>
+  <data name="ScreenshotToolDownload" xml:space="preserve"><value>다운로드</value></data>
+  <data name="ScreenshotToolCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="ScreenshotToolComplete" xml:space="preserve"><value>완료</value></data>
+  <data name="ScreenshotColorGreen" xml:space="preserve"><value>초록색</value></data>
+  <data name="ScreenshotColorRed" xml:space="preserve"><value>빨간색</value></data>
+  <data name="ScreenshotColorWhite" xml:space="preserve"><value>흰색</value></data>
+  <data name="ScreenshotColorBlack" xml:space="preserve"><value>검은색</value></data>
+  <data name="ScreenshotLineWidthThin" xml:space="preserve"><value>얇게(6 px)</value></data>
+  <data name="ScreenshotLineWidthMedium" xml:space="preserve"><value>보통(8 px)</value></data>
+  <data name="ScreenshotLineWidthThick" xml:space="preserve"><value>굵게(10 px)</value></data>
+  <data name="ScreenshotFontSizeSmall" xml:space="preserve"><value>작게(14 pt)</value></data>
+  <data name="ScreenshotFontSizeMedium" xml:space="preserve"><value>보통(24 pt)</value></data>
+  <data name="ScreenshotFontSizeLarge" xml:space="preserve"><value>크게(32 pt)</value></data>
+  <data name="ScreenshotFontSizeSmallLabel" xml:space="preserve"><value>작음</value></data>
+  <data name="ScreenshotFontSizeMediumLabel" xml:space="preserve"><value>보통</value></data>
+  <data name="ScreenshotFontSizeLargeLabel" xml:space="preserve"><value>큼</value></data>
+  <data name="ScreenshotToolbarCurrentValueFormat" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="ScreenshotToolbarSelectedStatus" xml:space="preserve"><value>선택됨</value></data>
+  <data name="ScreenshotFavorited" xml:space="preserve"><value>즐겨찾기에 추가됨</value></data>
+  <data name="ScreenshotNotFavorited" xml:space="preserve"><value>즐겨찾기에 추가되지 않음</value></data>
+  <data name="ScreenshotOverlayName" xml:space="preserve"><value>스크린샷 선택 화면</value></data>
+  <data name="ScreenshotAnnotationTextEditor" xml:space="preserve"><value>스크린샷 주석 텍스트</value></data>
+  <data name="ScreenshotSaveDialogTitle" xml:space="preserve"><value>스크린샷 저장</value></data>
+  <data name="ScreenshotPngFileFilter" xml:space="preserve"><value>PNG 이미지 (*.png)|*.png</value></data>
+  <data name="ScreenshotDefaultFileNamePrefix" xml:space="preserve"><value>VoxFlow스크린샷</value></data>
+  <data name="ScreenshotClipboardBusy" xml:space="preserve"><value>클립보드가 사용 중이어서 스크린샷을 복사하지 못했습니다. 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotClipboardFailed" xml:space="preserve"><value>스크린샷을 복사하지 못했습니다. 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotSaveFailed" xml:space="preserve"><value>스크린샷을 저장하지 못했습니다. 다른 위치를 선택한 후 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotCaptureBusy" xml:space="preserve"><value>다른 음성 또는 스크린샷 작업이 진행 중입니다. 완료된 후 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotCaptureFailed" xml:space="preserve"><value>화면을 캡처하지 못했습니다. 디스플레이 연결을 확인한 후 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotProcessingFailed" xml:space="preserve"><value>스크린샷은 캡처했지만 후속 처리에 실패했습니다. 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotReprocessFailed" xml:space="preserve"><value>이 스크린샷을 다시 인식하지 못했습니다. OCR 런타임을 확인한 후 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotResultTitle" xml:space="preserve"><value>인식 완료</value></data>
+  <data name="ScreenshotResultOpen" xml:space="preserve"><value>스크린샷 결과 보기</value></data>
+  <data name="ScreenshotResultRefine" xml:space="preserve"><value>텍스트 다듬기</value></data>
+  <data name="ScreenshotResultCancelRefinement" xml:space="preserve"><value>다듬기 취소</value></data>
+  <data name="ScreenshotResultTranslate" xml:space="preserve"><value>번역</value></data>
+  <data name="ScreenshotResultCancelTranslation" xml:space="preserve"><value>번역 취소</value></data>
+  <data name="ScreenshotResultSpeak" xml:space="preserve"><value>읽어 주기</value></data>
+  <data name="ScreenshotResultStopSpeaking" xml:space="preserve"><value>읽기 중지</value></data>
+  <data name="ScreenshotResultNoText" xml:space="preserve"><value>인식된 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultOcrEmpty" xml:space="preserve"><value>이 스크린샷에서 인식된 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultOcrRuntimeUnavailable" xml:space="preserve"><value>OCR 런타임이 준비되지 않아 문자 인식을 사용할 수 없습니다.</value></data>
+  <data name="ScreenshotResultOcrInputUnavailable" xml:space="preserve"><value>스크린샷 이미지를 읽지 못해 문자 인식을 완료하지 못했습니다.</value></data>
+  <data name="ScreenshotResultOcrTimedOut" xml:space="preserve"><value>문자 인식 시간이 초과되었습니다. 다시 인식해 주세요.</value></data>
+  <data name="ScreenshotResultOcrFailed" xml:space="preserve"><value>문자 인식에 실패했습니다. 다시 인식해 주세요.</value></data>
+  <data name="ScreenshotResultOcrCancelled" xml:space="preserve"><value>문자 인식을 취소했습니다.</value></data>
+  <data name="ScreenshotResultOcrStale" xml:space="preserve"><value>이 인식 결과는 더 이상 최신 상태가 아닙니다.</value></data>
+  <data name="ScreenshotResultNoRefinement" xml:space="preserve"><value>아직 다듬은 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultNoTranslation" xml:space="preserve"><value>아직 번역이 없습니다.</value></data>
+  <data name="ScreenshotResultNoSummary" xml:space="preserve"><value>아직 요약이 없습니다.</value></data>
+  <data name="ScreenshotResultNoTextToCopy" xml:space="preserve"><value>현재 탭에 복사할 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultCopiedText" xml:space="preserve"><value>텍스트를 복사했습니다.</value></data>
+  <data name="ScreenshotResultCopyTextFailed" xml:space="preserve"><value>텍스트를 복사하지 못했습니다. 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotResultCopiedImage" xml:space="preserve"><value>이미지를 복사했습니다.</value></data>
+  <data name="ScreenshotResultCopyImageFailed" xml:space="preserve"><value>이미지를 복사하지 못했습니다. 다시 시도해 주세요.</value></data>
+  <data name="ScreenshotResultNoTextToSpeak" xml:space="preserve"><value>현재 탭에 읽을 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultSpeaking" xml:space="preserve"><value>읽는 중…</value></data>
+  <data name="ScreenshotResultSpeechComplete" xml:space="preserve"><value>읽기가 완료되었습니다.</value></data>
+  <data name="ScreenshotResultSpeechStopped" xml:space="preserve"><value>읽기를 중지했습니다.</value></data>
+  <data name="ScreenshotResultSpeechUnavailable" xml:space="preserve"><value>사용 가능한 로컬 음성 또는 Windows 시스템 음성이 없습니다.</value></data>
+  <data name="ScreenshotResultSpeechFailed" xml:space="preserve"><value>이 텍스트를 읽지 못했습니다.</value></data>
+  <data name="ScreenshotResultRefining" xml:space="preserve"><value>텍스트 다듬는 중…</value></data>
+  <data name="ScreenshotResultTranslating" xml:space="preserve"><value>번역 중…</value></data>
+  <data name="ScreenshotResultSummarizing" xml:space="preserve"><value>요약 생성 중…</value></data>
+  <data name="ScreenshotResultRefinementComplete" xml:space="preserve"><value>텍스트 다듬기가 완료되었습니다.</value></data>
+  <data name="ScreenshotResultTranslationComplete" xml:space="preserve"><value>번역이 완료되었습니다.</value></data>
+  <data name="ScreenshotResultSummaryComplete" xml:space="preserve"><value>요약이 완료되었습니다.</value></data>
+  <data name="ScreenshotResultRefinementCancelled" xml:space="preserve"><value>텍스트 다듬기를 취소했습니다.</value></data>
+  <data name="ScreenshotResultTranslationCancelled" xml:space="preserve"><value>번역을 취소했습니다.</value></data>
+  <data name="ScreenshotResultSummaryCancelled" xml:space="preserve"><value>요약을 취소했습니다.</value></data>
+  <data name="ScreenshotResultRefinementPartial" xml:space="preserve"><value>텍스트 다듬기를 중지하고 일부 결과를 보관했습니다.</value></data>
+  <data name="ScreenshotResultTranslationPartial" xml:space="preserve"><value>번역을 중지하고 일부 결과를 보관했습니다.</value></data>
+  <data name="ScreenshotResultSummaryPartial" xml:space="preserve"><value>요약을 중지하고 일부 결과를 보관했습니다.</value></data>
+  <data name="ScreenshotResultProviderNotConfigured" xml:space="preserve"><value>이 기능을 사용하기 전에 기본 LLM 제공자를 설정하세요.</value></data>
+  <data name="ScreenshotResultProviderUnavailable" xml:space="preserve"><value>설정된 LLM 제공자를 사용할 수 없습니다.</value></data>
+  <data name="ScreenshotResultEmptyTransform" xml:space="preserve"><value>이 작업에 사용할 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotResultTransformFailed" xml:space="preserve"><value>작업에 실패했습니다. 기존 스크린샷 결과는 변경되지 않았습니다.</value></data>
+  <data name="ScreenshotResultHistoryUpdateFailed" xml:space="preserve"><value>결과는 사용할 수 있지만 스크린샷 기록을 업데이트하지 못했습니다.</value></data>
+  <data name="ScreenshotResultRetry" xml:space="preserve"><value>다시 시도</value></data>
+  <data name="ScreenshotMediaPageSummaryFormat" xml:space="preserve"><value>{0}–{1} / {2}</value></data>
+  <data name="ScreenshotMediaNoResultsTitle" xml:space="preserve"><value>일치하는 스크린샷이 없습니다</value></data>
+  <data name="ScreenshotMediaNoResultsHint" xml:space="preserve"><value>다른 검색어나 필터를 사용해 보세요.</value></data>
+  <data name="ScreenshotMediaLoadFailed" xml:space="preserve"><value>스크린샷을 불러오지 못했습니다. 다시 시도하세요.</value></data>
+  <data name="ScreenshotRecordUnavailable" xml:space="preserve"><value>이 스크린샷은 더 이상 사용할 수 없습니다.</value></data>
+  <data name="ScreenshotAssetUnavailableAction" xml:space="preserve"><value>스크린샷 이미지가 없거나 읽을 수 없습니다.</value></data>
+  <data name="ScreenshotCopyImageSucceeded" xml:space="preserve"><value>이미지를 복사했습니다.</value></data>
+  <data name="ScreenshotTextUnavailable" xml:space="preserve"><value>사용할 수 있는 인식 텍스트가 없습니다.</value></data>
+  <data name="ScreenshotCopyTextSucceeded" xml:space="preserve"><value>텍스트를 복사했습니다.</value></data>
+  <data name="ScreenshotFavoriteRemoved" xml:space="preserve"><value>즐겨찾기에서 제거했습니다.</value></data>
+  <data name="ScreenshotFavoriteAdded" xml:space="preserve"><value>즐겨찾기에 추가했습니다.</value></data>
+  <data name="ScreenshotDeleteConfirmationTitle" xml:space="preserve"><value>스크린샷을 삭제할까요?</value></data>
+  <data name="ScreenshotDeleteConfirmationMessage" xml:space="preserve"><value>{0}의 스크린샷을 삭제할까요? 따로 저장한 사본에는 영향을 주지 않습니다.</value></data>
+  <data name="ScreenshotDeleteSucceeded" xml:space="preserve"><value>스크린샷을 삭제했습니다.</value></data>
+  <data name="ScreenshotActionFailed" xml:space="preserve"><value>스크린샷 작업에 실패했습니다. 다시 시도하세요.</value></data>
+  <data name="ScreenshotAssetMissing" xml:space="preserve"><value>이미지 파일이 없습니다</value></data>
+  <data name="ScreenshotAssetUnreadable" xml:space="preserve"><value>이미지 파일을 열 수 없습니다</value></data>
+  <data name="ScreenshotCardAccessibleNameFormat" xml:space="preserve"><value>{0}의 스크린샷, {1}</value></data>
+  <data name="ScreenshotMediaLoading" xml:space="preserve"><value>스크린샷을 불러오는 중…</value></data>
+  <data name="ScreenshotAssetMissingDetail" xml:space="preserve"><value>앱에서 관리하는 이미지 파일이 없습니다. 텍스트와 기록 작업은 계속 사용할 수 있습니다.</value></data>
+  <data name="ScreenshotDetailLoadFailed" xml:space="preserve"><value>스크린샷 세부 정보를 불러오지 못했습니다. 다시 시도하세요.</value></data>
+  <data name="ScreenshotSaveSucceeded" xml:space="preserve"><value>이미지를 저장했습니다.</value></data>
+  <data name="ScreenshotRevealSucceeded" xml:space="preserve"><value>파일 탐색기에서 이미지를 열었습니다.</value></data>
+  <data name="ScreenshotReprocessUnavailable" xml:space="preserve"><value>원본 이미지가 없어 텍스트 인식을 다시 실행할 수 없습니다.</value></data>
+  <data name="ScreenshotReprocessRequested" xml:space="preserve"><value>텍스트 인식을 다시 시작했습니다.</value></data>
+  <data name="ScreenshotInlineTranslationInProgress" xml:space="preserve"><value>번역 중</value></data>
+  <data name="ScreenshotInlineTranslationProgressFormat" xml:space="preserve"><value>번역 중 {0}/{1}</value></data>
+  <data name="ScreenshotInlineTranslationNotReady" xml:space="preserve"><value>번역 서비스를 사용할 수 없습니다.</value></data>
+  <data name="ScreenshotInlineTranslationFailed" xml:space="preserve"><value>번역에 실패했습니다.</value></data>
+  <data name="ScreenshotInlineTranslationOcrUnavailable" xml:space="preserve"><value>이 이미지의 텍스트를 인식할 수 없습니다.</value></data>
+  <data name="SettingsNavigationScreenshot" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="SettingsNavigationSelectionAssistant" xml:space="preserve"><value>선택 도우미</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrTitle" xml:space="preserve"><value>클립보드 이미지 OCR</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrDescription" xml:space="preserve"><value>클립보드에 복사된 이미지 문자를 인식합니다.</value></data>
+  <data name="SettingsHotkeySelectionAskAiTitle" xml:space="preserve"><value>AI에게 묻기</value></data>
+  <data name="SettingsHotkeySelectionAskAiDescription" xml:space="preserve"><value>선택한 텍스트에 대해 AI에게 묻습니다.</value></data>
+  <data name="SettingsScreenshotHotkeyHeading" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="SettingsScreenshotHotkeyDescription" xml:space="preserve"><value>스크린샷, OCR 및 화면 캡처 워크플로를 구성합니다.</value></data>
+  <data name="SettingsScreenshotClipboardHeading" xml:space="preserve"><value>쓰기 방식</value></data>
+  <data name="SettingsScreenshotClipboardDescription" xml:space="preserve"><value>스크린샷과 클립보드 OCR 동작을 구성합니다.</value></data>
+  <data name="SettingsScreenshotClipboardToggle" xml:space="preserve"><value>클립보드 이미지 OCR</value></data>
+  <data name="SettingsScreenshotClipboardToggleDescription" xml:space="preserve"><value>클립보드 이미지의 텍스트를 인식합니다.</value></data>
+  <data name="SettingsGeneralBasicsHeading" xml:space="preserve"><value>기본</value></data>
+  <data name="SettingsGeneralBasicsDescription" xml:space="preserve"><value>모양, 시작 및 언어 동작을 구성합니다.</value></data>
+  <data name="SettingsGeneralDarkThemeDescription" xml:space="preserve"><value>시스템을 따르거나 어두운 모양을 사용합니다.</value></data>
+  <data name="SettingsGeneralLaunchAtLoginDescription" xml:space="preserve"><value>Windows에 로그인할 때 VoxFlow를 시작합니다.</value></data>
+  <data name="SettingsGeneralPermissionsDescription" xml:space="preserve"><value>마이크 등 Windows 개인 정보 설정을 엽니다.</value></data>
+  <data name="SettingsGeneralDataDescription" xml:space="preserve"><value>익명화된 진단 정보를 복사하거나 로컬 기본값을 복원합니다.</value></data>
+  <data name="ClipboardImageOcrNoImage" xml:space="preserve"><value>클립보드에 인식 가능한 이미지가 없습니다.</value></data>
+  <data name="ClipboardImageOcrNoText" xml:space="preserve"><value>클립보드 이미지에서 텍스트를 인식하지 못했습니다.</value></data>
+  <data name="ClipboardImageOcrDisabled" xml:space="preserve"><value>클립보드 이미지 OCR이 꺼져 있습니다.</value></data>
+  <data name="SettingsScreenshotHeading" xml:space="preserve"><value>스크린샷</value></data>
+  <data name="SettingsScreenshotSubtitle" xml:space="preserve"><value>스크린샷, OCR 및 화면 캡처 워크플로를 구성합니다.</value></data>
+
+  <data name="SettingsTextPunctuationDescription" xml:space="preserve"><value>문장 끝 부호를 보완하고 중국어 문맥에서 반각을 전각으로 변환</value></data>
+
+  <data name="SettingsTextSmartNumbersDescription" xml:space="preserve"><value>수량, 날짜, 시간, 백분율 문맥에서 한자 숫자를 아라비아 숫자로 변환</value></data>
+
+  <data name="SettingsTextMasterDescription" xml:space="preserve"><value>끄면 아래 모든 처리기를 건너뜁니다</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModelsDescription" xml:space="preserve"><value>유휴 시 로컬 모델을 해제하여 메모리를 절약합니다.</value></data>
+
+  <data name="SettingsVoiceTriggerMode" xml:space="preserve"><value>트리거 방식</value></data>
+
+  <data name="SettingsHotkeyModify" xml:space="preserve"><value>단축키 수정</value></data>
+
+  <data name="SettingsGeneralGrayTrayIcon" xml:space="preserve"><value>회색 트레이 아이콘</value></data>
+
+  <data name="SettingsTextDeterministicHeading" xml:space="preserve"><value>결정적 텍스트 처리</value></data>
+
+  <data name="SettingsSelectionAssistantSubtitle" xml:space="preserve"><value>선택한 텍스트의 빠른 작업을 구성합니다.</value></data>
+
+  <data name="SettingsGeneralUiLanguageDescription" xml:space="preserve"><value>시스템 따르기</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicatorDescription" xml:space="preserve"><value>Caps Lock을 녹음 표시기로 표시합니다.</value></data>
+
+  <data name="SettingsVoiceMiddleMouseDescription" xml:space="preserve"><value>마우스 가운데 버튼으로 녹음을 시작하고 다시 눌러 종료 후 입력</value></data>
+
+  <data name="SettingsVoiceModify" xml:space="preserve"><value>수정</value></data>
+
+  <data name="SettingsGeneralStreamPreviewDescription" xml:space="preserve"><value>로컬 모델 사용 시 말하는 동안 부분 인식 결과를 표시합니다.</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicator" xml:space="preserve"><value>CapsLock 녹음 표시기</value></data>
+
+  <data name="SettingsVoiceDictationTitle" xml:space="preserve"><value>음성 받아쓰기</value></data>
+
+  <data name="SettingsVoiceDictationDescription" xml:space="preserve"><value>단축키를 누른 채 말하고 놓으면 변환 후 입력</value></data>
+
+  <data name="SettingsSelectionSectionHeading" xml:space="preserve"><value>선택</value></data>
+
+  <data name="SettingsSelectionAssistantHeading" xml:space="preserve"><value>선택 도우미</value></data>
+
+  <data name="SettingsVoiceTriggerModeHint" xml:space="preserve"><value>음성 단축키의 짧게 누르기/길게 누르기에만 영향</value></data>
+
+  <data name="SettingsTextThresholdSummaryFormat" xml:space="preserve"><value>단어 임계값 {0} · 문자 임계값 {1}</value></data>
+
+  <data name="SettingsGeneralStreamPreview" xml:space="preserve"><value>스트리밍 인식 미리보기</value></data>
+
+  <data name="SettingsGeneralGrayTrayIconDescription" xml:space="preserve"><value>회색 시스템 트레이 아이콘을 사용합니다.</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModels" xml:space="preserve"><value>로컬 모델 자동 해제</value></data>
+
+  <data name="SettingsGeneralLocalModelsHeading" xml:space="preserve"><value>로컬 모델</value></data>
+
+  <data name="SettingsGeneralLocalModelsDescription" xml:space="preserve"><value>로컬 모델 동작과 메모리를 관리합니다.</value></data>
+
+  <data name="SettingsTextDeterministicDescription" xml:space="preserve"><value>LLM 교정 전후에 실행되는 가벼운 텍스트 정리</value></data>
+
+  <data name="SettingsGeneralUiLanguage" xml:space="preserve"><value>인터페이스 언어</value></data>
+
+  <data name="SettingsSelectionSectionDescription" xml:space="preserve"><value>선택한 텍스트 워크플로를 구성합니다.</value></data>
+
+  <data name="SettingsGeneralUiLanguageSystem" xml:space="preserve"><value>시스템 따르기</value></data>
+  <data name="SettingsGeneralUiLanguageTraditionalChinese" xml:space="preserve"><value>중국어(번체)</value></data>
+
+  <data name="HelpFeatureDictationDescription" xml:space="preserve"><value>단축키 또는 가운데 클릭으로 받아쓰기를 시작/중지합니다.</value></data>
+
+  <data name="HelpFeatureAgentHeading" xml:space="preserve"><value>AI 코딩</value></data>
+
+  <data name="HelpFeaturePrivacyDescription" xml:space="preserve"><value>클라우드를 선택하지 않는 한 오디오·스크린샷·텍스트는 로컬에 남습니다.</value></data>
+
+  <data name="HelpSubtitle" xml:space="preserve"><value>사용 팁, 단축키, 권한 및 프로젝트 링크를 확인합니다.</value></data>
+
+  <data name="HelpFeatureConsoleDescription" xml:space="preserve"><value>한 곳에서 자산, 명령, 워크플로를 검색합니다.</value></data>
+
+  <data name="HelpLinkChangelogHeading" xml:space="preserve"><value>변경 로그</value></data>
+
+  <data name="HelpFeatureGlossaryDescription" xml:space="preserve"><value>핫워드와 치환을 관리해 인식을 더 안정적으로 만듭니다.</value></data>
+
+  <data name="HelpFeatureScreenshotHeading" xml:space="preserve"><value>스크린샷 OCR</value></data>
+
+  <data name="HelpFeatureNotesHeading" xml:space="preserve"><value>전사 노트</value></data>
+
+  <data name="HelpLinkUpdateDescription" xml:space="preserve"><value>새 VoxFlow 버전이 있는지 확인합니다.</value></data>
+
+  <data name="HelpLinkUpdateHeading" xml:space="preserve"><value>업데이트 확인</value></data>
+
+  <data name="HelpLinkProjectDescription" xml:space="preserve"><value>브라우저에서 VoxFlow 프로젝트 홈을 엽니다.</value></data>
+
+  <data name="HelpFeatureDictationHeading" xml:space="preserve"><value>단축키 또는 가운데 버튼</value></data>
+
+  <data name="HelpFeatureAgentDescription" xml:space="preserve"><value>음성 명령을 로컬 코딩 도우미 터미널로 보냅니다.</value></data>
+
+  <data name="HelpLinkChangelogDescription" xml:space="preserve"><value>최근 버전 변경 사항을 확인합니다.</value></data>
+
+  <data name="HelpFeatureConsoleHeading" xml:space="preserve"><value>명령 팔레트</value></data>
+
+  <data name="HelpLinkGithubHeading" xml:space="preserve"><value>GitHub 저장소</value></data>
+
+  <data name="HelpFeatureGlossaryHeading" xml:space="preserve"><value>용어 보정</value></data>
+
+  <data name="HelpHeading" xml:space="preserve"><value>도움말</value></data>
+
+  <data name="HelpFeatureFallbackDescription" xml:space="preserve"><value>인식이나 보정이 실패해도 원문을 유지합니다.</value></data>
+
+  <data name="HelpFeaturePrivacyHeading" xml:space="preserve"><value>로컬 우선 개인정보 보호</value></data>
+
+  <data name="HelpFeatureScreenshotDescription" xml:space="preserve"><value>스크린샷에서 텍스트를 추출하고 번역·요약·재사용합니다.</value></data>
+
+  <data name="HelpFeatureFallbackHeading" xml:space="preserve"><value>안전한 폴백</value></data>
+
+  <data name="HelpLinkProjectHeading" xml:space="preserve"><value>프로젝트 홈</value></data>
+
+  <data name="HelpLinkCommunityHeading" xml:space="preserve"><value>커뮤니티 지원</value></data>
+
+  <data name="HelpLinksHeading" xml:space="preserve"><value>빠른 링크</value></data>
+
+  <data name="HelpFeatureNotesDescription" xml:space="preserve"><value>받아쓰기 텍스트, 스크린샷, 녹화를 노트로 보관합니다.</value></data>
+
+  <data name="HelpLinkGithubDescription" xml:space="preserve"><value>소스 코드와 프로젝트 활동을 확인합니다.</value></data>
+
+  <data name="HelpLinkCommunityDescription" xml:space="preserve"><value>지원 및 커뮤니티 링크를 엽니다.</value></data>
+
+  <data name="AgentWorkspaceEmpty" xml:space="preserve"><value>Agent 세션이 아직 없습니다.</value></data>
+
+  <data name="GlossarySourceLabel" xml:space="preserve"><value>찾기</value></data>
+
+  <data name="NavigationNotes" xml:space="preserve"><value>노트</value></data>
+
+  <data name="GlossaryWholeWordLabel" xml:space="preserve"><value>전체 단어</value></data>
+
+  <data name="WritingStyleGeneralDescription" xml:space="preserve"><value>일상 받아쓰기용 기본 정리.</value></data>
+
+  <data name="WritingStylesAddProfileTitle" xml:space="preserve"><value>새 스타일</value></data>
+
+  <data name="GlossaryNoteLabel" xml:space="preserve"><value>메모</value></data>
+
+  <data name="GlossarySubtitle" xml:space="preserve"><value>ASR 핫워드와 LLM 문맥용 치환 규칙을 관리합니다.</value></data>
+
+  <data name="AgentWorkspaceHeading" xml:space="preserve"><value>AI 코딩</value></data>
+
+  <data name="WritingStyleWritingDescription" xml:space="preserve"><value>장문 글쓰기에 맞춘 정리.</value></data>
+
+  <data name="NotesEmpty" xml:space="preserve"><value>노트가 아직 없습니다.</value></data>
+
+  <data name="AgentWorkspaceHistoryHeading" xml:space="preserve"><value>최근 세션</value></data>
+
+  <data name="GlossaryImportFilter" xml:space="preserve"><value>용어 파일|*.json;*.txt;*.csv|모든 파일|*.*</value></data>
+
+  <data name="GlossarySavedMessage" xml:space="preserve"><value>용어집이 저장되었습니다.</value></data>
+
+  <data name="WritingStyleCodingName" xml:space="preserve"><value>코딩</value></data>
+
+  <data name="GlossaryImportCompleteMessage" xml:space="preserve"><value>가져오기가 완료되었습니다.</value></data>
+
+  <data name="WritingStyleCodingDescription" xml:space="preserve"><value>코드 조각과 기술 용어를 유지합니다.</value></data>
+
+  <data name="WritingStylesRestoreTitle" xml:space="preserve"><value>기본값 복원</value></data>
+
+  <data name="NotesSearchPlaceholder" xml:space="preserve"><value>노트 검색</value></data>
+
+  <data name="WritingStylesHeading" xml:space="preserve"><value>스타일</value></data>
+
+  <data name="GlossaryTargetLabel" xml:space="preserve"><value>바꿀 내용</value></data>
+
+  <data name="AgentWorkspaceRuntimeDescription" xml:space="preserve"><value>로컬 코딩 도우미 helper 상태.</value></data>
+
+  <data name="NotesHeading" xml:space="preserve"><value>노트</value></data>
+
+  <data name="GlossaryImportTitle" xml:space="preserve"><value>용어집 가져오기</value></data>
+
+  <data name="NavigationAgentWorkspace" xml:space="preserve"><value>AI 코딩</value></data>
+
+  <data name="WritingStylesDeleteTitle" xml:space="preserve"><value>스타일 삭제</value></data>
+
+  <data name="GlossaryAddReplacementTitle" xml:space="preserve"><value>치환 추가</value></data>
+
+  <data name="AgentWorkspaceHotkeyDescription" xml:space="preserve"><value>Agent 단축키로 음성 명령을 녹음합니다.</value></data>
+
+  <data name="CommonRefresh" xml:space="preserve"><value>새로고침</value></data>
+
+  <data name="AgentWorkspaceSubtitle" xml:space="preserve"><value>음성 기반 코딩 도우미 작업대와 최근 세션.</value></data>
+
+  <data name="GlossaryImportCompleteTitle" xml:space="preserve"><value>가져오기 완료</value></data>
+
+  <data name="WritingStylesRestoredMessage" xml:space="preserve"><value>기본 스타일로 복원했습니다.</value></data>
+
+  <data name="NotesSubtitle" xml:space="preserve"><value>받아쓰기 텍스트, 스크린샷, 관련 자산을 노트로 보관합니다.</value></data>
+
+  <data name="WritingStyleGeneralName" xml:space="preserve"><value>일반</value></data>
+
+  <data name="WritingStyleSocialDescription" xml:space="preserve"><value>채팅과 소셜 게시용 캐주얼 톤.</value></data>
+
+  <data name="NavigationWritingStyles" xml:space="preserve"><value>스타일</value></data>
+
+  <data name="GlossaryHeading" xml:space="preserve"><value>용어집</value></data>
+
+  <data name="NavigationHelp" xml:space="preserve"><value>도움말</value></data>
+
+  <data name="NavigationGlossary" xml:space="preserve"><value>용어집</value></data>
+
+  <data name="WritingStyleWritingName" xml:space="preserve"><value>글쓰기</value></data>
+
+  <data name="GlossaryAddHotwordTitle" xml:space="preserve"><value>핫워드 추가</value></data>
+
+  <data name="GlossaryHotwordLabel" xml:space="preserve"><value>핫워드</value></data>
+
+  <data name="WritingStylesRestoreMessage" xml:space="preserve"><value>이 스타일을 기본값으로 복원할까요?</value></data>
+
+  <data name="AgentWorkspaceHotkeyHeading" xml:space="preserve"><value>음성 진입</value></data>
+
+  <data name="WritingStylesSubtitle" xml:space="preserve"><value>받아쓰기 정리와 스타일 라우팅용 프롬프트 편집기.</value></data>
+
+  <data name="GlossaryDuplicateMessage" xml:space="preserve"><value>이미 존재하는 항목입니다.</value></data>
+
+  <data name="WritingStylesSavedMessage" xml:space="preserve"><value>스타일이 저장되었습니다.</value></data>
+
+  <data name="WritingStylesDeleteMessage" xml:space="preserve"><value>이 문체를 삭제할까요?</value></data>
+
+  <data name="WritingStylesNameLabel" xml:space="preserve"><value>이름</value></data>
+
+  <data name="WritingStyleSocialName" xml:space="preserve"><value>소셜</value></data>
+
+  <data name="AgentWorkspaceRuntimeHeading" xml:space="preserve"><value>런타임</value></data>
+
+  <data name="WritingStylesCustomDescription" xml:space="preserve"><value>사용자 지정 문체</value></data>
+  <data name="HomeStatsClipboard" xml:space="preserve"><value>클립보드</value></data>
+  <data name="HomeStatsReusable" xml:space="preserve"><value>재사용 가능</value></data>
+  <data name="SelectionResultRefine" xml:space="preserve"><value>다듬기</value></data>
+  <data name="SelectionResultAskAi" xml:space="preserve"><value>AI에게 질문</value></data>
+  <data name="HudCapsLock" xml:space="preserve"><value>Caps Lock</value></data>
+  <data name="GlossaryAdd" xml:space="preserve"><value>추가</value></data>
+  <data name="GlossaryImport" xml:space="preserve"><value>가져오기</value></data>
+  <data name="GlossaryOpenFolder" xml:space="preserve"><value>폴더 열기</value></data>
+  <data name="GlossarySearch" xml:space="preserve"><value>용어집 검색</value></data>
+  <data name="GlossarySuggestionAdd" xml:space="preserve"><value>추가</value></data>
+  <data name="GlossarySuggestionIgnore" xml:space="preserve"><value>무시</value></data>
+  <data name="GlossarySuggestionsDescription" xml:space="preserve"><value>사용 기록을 바탕으로 용어집에 추가할 항목을 제안합니다.</value></data>
+  <data name="GlossarySuggestionsHeading" xml:space="preserve"><value>제안</value></data>
+  <data name="GlossaryTabHotwords" xml:space="preserve"><value>핫워드</value></data>
+  <data name="GlossaryTabReplacements" xml:space="preserve"><value>텍스트 치환</value></data>
+  <data name="SettingsCloudSelect" xml:space="preserve"><value>선택</value></data>
+  <data name="SettingsCloudSelectSucceeded" xml:space="preserve"><value>공급자를 선택했습니다.</value></data>
+  <data name="SettingsCredentialHide" xml:space="preserve"><value>숨기기</value></data>
+  <data name="SettingsCredentialShow" xml:space="preserve"><value>표시</value></data>
+  <data name="WritingStylesAddProfile" xml:space="preserve"><value>새 스타일</value></data>
+  <data name="WritingStylesApplicationsLabel" xml:space="preserve"><value>적용 앱</value></data>
+  <data name="WritingStylesAutoMatch" xml:space="preserve"><value>앱 자동 일치</value></data>
+  <data name="WritingStylesDescriptionLabel" xml:space="preserve"><value>설명</value></data>
+  <data name="WritingStylesEditorHeading" xml:space="preserve"><value>스타일 세부 정보</value></data>
+  <data name="WritingStylesInstructionLabel" xml:space="preserve"><value>지침</value></data>
+  <data name="WritingStylesMarkdownLabel" xml:space="preserve"><value>Markdown 템플릿</value></data>
+  <data name="WritingStylesPreviewEmpty" xml:space="preserve"><value>미리 볼 내용이 없습니다.</value></data>
+  <data name="WritingStylesPreviewHeading" xml:space="preserve"><value>미리 보기</value></data>
+  <data name="WritingStylesProfilesHeading" xml:space="preserve"><value>스타일 목록</value></data>
+  <data name="WritingStylesRestore" xml:space="preserve"><value>기본값 복원</value></data>
+  <data name="WritingStylesSave" xml:space="preserve"><value>저장</value></data>
+  <data name="DialogClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="WritingStyleEmailDescription" xml:space="preserve"><value>명확한 업무 이메일 톤.</value></data>
+  <data name="SettingsVoiceDeviceDefaultMarker" xml:space="preserve"><value>시스템 기본</value></data>
+  <data name="HelpUpdateAvailable" xml:space="preserve"><value>새 버전 사용 가능: {0}.</value></data>
+  <data name="WritingStyleMeetingName" xml:space="preserve"><value>회의</value></data>
+  <data name="WritingStylesPreviewSample" xml:space="preserve"><value>샘플 받아쓰기 텍스트.</value></data>
+  <data name="WritingStyleTranslationDescription" xml:space="preserve"><value>이중 언어 정리 시 의미 유지.</value></data>
+  <data name="HelpUpdateOpenRelease" xml:space="preserve"><value>릴리스 페이지 열기</value></data>
+  <data name="HelpUpdateUpToDate" xml:space="preserve"><value>최신 버전입니다({0}).</value></data>
+  <data name="WritingStyleEmailName" xml:space="preserve"><value>이메일</value></data>
+  <data name="WritingStylesRoutesEmpty" xml:space="preserve"><value>앱 경로 없음</value></data>
+  <data name="WritingStylesPerStyleAutoMatch" xml:space="preserve"><value>AI 자동 매칭에 이 스타일 포함</value></data>
+  <data name="NotesHistoryOnlySubtitle" xml:space="preserve"><value>받아쓰기 기록 노트 — 과거 결과를 검색·복사할 수 있습니다. 전체 노트북 편집은 Windows에서 아직 제공되지 않습니다.</value></data>
+  <data name="WritingStyleTranslationName" xml:space="preserve"><value>번역</value></data>
+  <data name="WritingStyleMeetingDescription" xml:space="preserve"><value>간결한 회의 메모.</value></data>
+  <data name="SettingsVoiceDeviceUnavailableMarker" xml:space="preserve"><value>사용 불가</value></data>
+  <data name="WritingStylesBuiltInProtectedMessage" xml:space="preserve"><value>기본 스타일은 삭제할 수 없습니다.</value></data>
+  <data name="HelpUpdateFailed" xml:space="preserve"><value>업데이트를 확인할 수 없습니다. 나중에 다시 시도하거나 릴리스 페이지를 여세요.</value></data>
+  <data name="HelpUpdateIdle" xml:space="preserve"><value>“업데이트 확인”을 눌러 최신 GitHub 릴리스와 비교합니다.</value></data>
+</root>

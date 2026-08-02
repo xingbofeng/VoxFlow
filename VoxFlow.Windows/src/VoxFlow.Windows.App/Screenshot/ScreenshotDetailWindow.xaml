@@ -1,0 +1,222 @@
+<Window x:Class="VoxFlow.Windows.App.Screenshot.ScreenshotDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+        Title="{x:Static l10n:L10n.ScreenshotDetailTitle}"
+        Width="960" Height="720" MinWidth="360" MinHeight="320"
+        WindowStartupLocation="Manual"
+        ShowInTaskbar="False"
+        Background="{DynamicResource PageBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="{DynamicResource AppFontFamily}"
+        Icon="pack://application:,,,/VoxFlow;component/Assets/VoxFlow.png"
+        KeyDown="OnKeyDown" Loaded="OnLoaded" DataContextChanged="OnDataContextChanged"
+        AutomationProperties.AutomationId="screenshot-detail-window"
+        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotDetailTitle}">
+    <Border Background="{DynamicResource PageBackgroundBrush}"
+            BorderBrush="{DynamicResource PanelBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Margin="0"
+            Padding="0">
+    <ScrollViewer x:Name="WindowScrollViewer" x:FieldModifier="public"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  PanningMode="Both" Focusable="False">
+    <Grid x:Name="RootContent" Margin="20" MinWidth="700" MinHeight="520">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding CreatedAtText}" Margin="0,5,0,0"
+                           Foreground="{DynamicResource SecondaryTextBrush}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="×" Width="32" Height="32"
+                    Click="OnClose" ToolTip="{x:Static l10n:L10n.ScreenshotClose}"
+                    AutomationProperties.AutomationId="screenshot-detail-close"
+                    AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotClose}" />
+        </Grid>
+
+        <Grid Grid.Row="2" MinHeight="340">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{DynamicResource ControlBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                <Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PanningMode="Both">
+                        <Image Source="{Binding DisplayedImage}" Stretch="Uniform" />
+                    </ScrollViewer>
+                    <TextBlock Text="{x:Static l10n:L10n.ScreenshotImageUnavailable}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontSize="16">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasImage}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding AssetStatusText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Margin="24,48,24,24" TextAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SecondaryTextBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasImage}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                            Margin="12" Padding="4" CornerRadius="9"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="{x:Static l10n:L10n.ScreenshotOriginal}"
+                                    AutomationProperties.AutomationId="screenshot-detail-original"
+                                    AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotOriginal}"
+                                    Click="OnShowOriginal" />
+                            <Button Content="{x:Static l10n:L10n.ScreenshotTranslatedImage}"
+                                    IsEnabled="{Binding HasTranslatedImage}"
+                                    AutomationProperties.AutomationId="screenshot-detail-translated"
+                                    AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotTranslatedImage}"
+                                    Margin="6,0,0,0" Click="OnShowTranslation" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource PanelBorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{x:Static l10n:L10n.ScreenshotResolution}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding ResolutionText}" Margin="0,3,0,10" FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Static l10n:L10n.ScreenshotFileSize}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding FileSizeText}" Margin="0,3,0,0" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{x:Static l10n:L10n.ScreenshotCharacters}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding CharacterCountText}" Margin="0,3,0,10" FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Static l10n:L10n.ScreenshotFavoriteStatus}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding FavoriteStatusText}" Margin="0,3,0,0" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource PanelBorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="10">
+                    <TabControl x:Name="TextSections" x:FieldModifier="public"
+                                Background="Transparent" BorderThickness="0"
+                                SelectionChanged="OnTextSectionChanged"
+                                AutomationProperties.AutomationId="screenshot-detail-text-tabs">
+                        <TabItem Header="{x:Static l10n:L10n.ScreenshotOcrTab}" Tag="Ocr"
+                                 AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotOcrTab}">
+                            <ScrollViewer Margin="4,10,4,4" VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding OcrDisplayText}" TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </TabItem>
+                        <TabItem Header="{x:Static l10n:L10n.ScreenshotTranslationTab}" Tag="Translation"
+                                 AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotTranslationTab}">
+                            <ScrollViewer Margin="4,10,4,4" VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding TranslatedDisplayText}" TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </TabItem>
+                        <TabItem Header="{x:Static l10n:L10n.ScreenshotSummaryTab}" Tag="Summary"
+                                 AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotSummaryTab}">
+                            <ScrollViewer Margin="4,10,4,4" VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding SummaryDisplayText}" TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="4">
+            <TextBlock Text="{Binding Feedback}" Margin="0,0,0,8"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       AutomationProperties.LiveSetting="Polite"
+                       AutomationProperties.Name="{Binding Feedback}" />
+            <WrapPanel x:Name="DetailActionPanel" x:FieldModifier="public"
+                       HorizontalAlignment="Right">
+                <Button Content="{x:Static l10n:L10n.ScreenshotCopyImage}" Tag="copy-image"
+                        IsEnabled="{Binding CanCopyImage}" Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-copy-image"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotCopyImage}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotCopyText}" Tag="copy-text"
+                        Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-copy-text"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotCopyText}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotSaveAs}" Tag="save-as"
+                        IsEnabled="{Binding CanSaveAs}" Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-save-as"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotSaveAs}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotReveal}" Tag="reveal"
+                        IsEnabled="{Binding CanReveal}" Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-reveal"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotReveal}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotReprocess}" Tag="reprocess"
+                        IsEnabled="{Binding CanReprocess}" Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-reprocess"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotReprocess}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotFavorite}" Tag="favorite"
+                        Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-favorite"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotFavorite}"
+                        AutomationProperties.HelpText="{Binding FavoriteStatusText}"
+                        AutomationProperties.ItemStatus="{Binding FavoriteStatusText}" />
+                <Button Content="{x:Static l10n:L10n.ScreenshotDelete}" Tag="delete"
+                        Click="OnAction" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="screenshot-detail-delete"
+                        AutomationProperties.Name="{x:Static l10n:L10n.ScreenshotDelete}" />
+            </WrapPanel>
+        </StackPanel>
+    </Grid>
+    </ScrollViewer>
+    </Border>
+</Window>
