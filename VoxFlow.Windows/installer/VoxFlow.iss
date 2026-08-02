@@ -55,7 +55,7 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 ; runtime\ffmpeg\ffmpeg.exe
 ; runtime\ffmpeg\ffprobe.exe
 ; runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json
-; runtime\ffmpeg\LICENSE.txt
+; runtime\ffmpeg\THIRD_PARTY_NOTICES.md
 ; runtime\agent\voxflow-agent.exe
 ; runtime\agent\VOXFLOW_AGENT_RUNTIME_MANIFEST.json
 ; runtime\ocr\tesseract.exe

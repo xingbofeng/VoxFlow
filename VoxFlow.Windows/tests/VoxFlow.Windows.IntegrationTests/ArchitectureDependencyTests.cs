@@ -61,6 +61,27 @@ public sealed class ArchitectureDependencyTests
     }
 
     [Fact]
+    public void Generated_WPF_intermediate_projects_are_not_production_projects()
+    {
+        var solutionRoot = FindSolutionRoot();
+        var sourceProject = Path.Combine(
+            solutionRoot,
+            "src",
+            "VoxFlow.Windows.App",
+            "VoxFlow.Windows.App.csproj");
+        var generatedProject = Path.Combine(
+            solutionRoot,
+            "src",
+            "VoxFlow.Windows.App",
+            "obj",
+            "Release",
+            "VoxFlow.Windows.App_random_wpftmp.csproj");
+
+        Assert.True(IsProductionProjectPath(solutionRoot, sourceProject));
+        Assert.False(IsProductionProjectPath(solutionRoot, generatedProject));
+    }
+
+    [Fact]
     public void File_transcription_keeps_platform_and_provider_details_out_of_core_layers()
     {
         var solutionRoot = FindSolutionRoot();
@@ -99,10 +120,23 @@ public sealed class ArchitectureDependencyTests
                 Path.Combine(solutionRoot, "src"),
                 "*.csproj",
                 SearchOption.AllDirectories)
+            .Where(path => IsProductionProjectPath(solutionRoot, path))
             .ToDictionary(
                 path => Path.GetFileNameWithoutExtension(path)!,
                 path => path,
                 StringComparer.Ordinal);
+
+    private static bool IsProductionProjectPath(string solutionRoot, string projectFile)
+    {
+        var sourceRoot = Path.Combine(solutionRoot, "src");
+        var relativePath = Path.GetRelativePath(sourceRoot, projectFile);
+        var segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        return segments.Length == 2 &&
+            string.Equals(Path.GetExtension(projectFile), ".csproj", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static class ApprovedProductionProjectSet
     {

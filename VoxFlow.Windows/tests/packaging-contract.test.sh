@@ -50,6 +50,7 @@ for expected in \
   'HPPH.dll' \
   'runtime\ffmpeg\ffmpeg.exe' \
   'runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json' \
+  'runtime\ffmpeg\THIRD_PARTY_NOTICES.md' \
   'runtime\agent\voxflow-agent.exe' \
   'runtime\agent\VOXFLOW_AGENT_RUNTIME_MANIFEST.json' \
   'runtime\ocr\tesseract.exe' \
@@ -67,6 +68,12 @@ for expected in \
     exit 1
   }
 done
+
+grep -Fq "'runtime/ffmpeg/THIRD_PARTY_NOTICES.md'" "${layout_check}"
+if grep -Fq 'runtime/ffmpeg/LICENSE.txt' "${layout_check}"; then
+  printf '%s\n' 'FFmpeg release layout must follow the manifest notice file, not the retired LICENSE.txt path.' >&2
+  exit 1
+fi
 
 for expected in \
   '<RuntimeIdentifier>win-x64</RuntimeIdentifier>' \

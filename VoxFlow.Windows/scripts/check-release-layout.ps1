@@ -46,7 +46,7 @@ $requiredFiles = @(
     'runtime/agent/VOXFLOW_AGENT_RUNTIME_MANIFEST.json',
     'runtime/agent/voxflow-agent.exe',
     'runtime/ffmpeg/FFMPEG_RUNTIME_MANIFEST.json',
-    'runtime/ffmpeg/LICENSE.txt',
+    'runtime/ffmpeg/THIRD_PARTY_NOTICES.md',
     'runtime/ffmpeg/ffmpeg.exe',
     'runtime/ffmpeg/ffprobe.exe',
     'runtime/ocr/TESSERACT_RUNTIME_MANIFEST.json',
