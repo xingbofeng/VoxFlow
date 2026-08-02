@@ -581,7 +581,7 @@ ios-device-preflight:
 	Apps/VoxFlowiOS/Scripts/verify-device-prereqs.sh
 
 # 打包未签名 IPA，仅用于本地静态检查，不能直接安装到真机。
-ios-ipa-unsigned: ios-build-device
+ios-ipa-unsigned: ios-rime-prebuild-if-needed ios-build-device
 	@mkdir -p "$(IOS_IPA_DIR)"
 	@rm -f "$(IOS_UNSIGNED_IPA)"
 	@rm -rf "$(IOS_BUILD_DIR)/Payload"

@@ -105,7 +105,10 @@ final class MashangxiePackagingContractTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(makefile.contains("ios-ipa-unsigned:"))
+        XCTAssertTrue(
+            makefile.contains("ios-ipa-unsigned: ios-rime-prebuild-if-needed ios-build-device"),
+            "Unsigned IPA packaging must prebuild Rime Ice tables before the device app is built."
+        )
         XCTAssertTrue(makefile.contains("ios-ipa: ios-keyboard-release-archive"))
         XCTAssertTrue(makefile.contains("IOS_IPA"))
         XCTAssertTrue(makefile.contains("Mashangxie-$(IOS_RELEASE_VERSION)-iOS.ipa"))
