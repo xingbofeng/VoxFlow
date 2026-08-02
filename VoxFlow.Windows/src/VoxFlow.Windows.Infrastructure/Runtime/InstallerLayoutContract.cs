@@ -10,7 +10,7 @@ public static class InstallerLayoutContract
     public const string FfmpegManifest = @"runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json";
     public const string FfmpegExecutable = @"runtime\ffmpeg\ffmpeg.exe";
     public const string FfprobeExecutable = @"runtime\ffmpeg\ffprobe.exe";
-    public const string FfmpegLicense = @"runtime\ffmpeg\LICENSE.txt";
+    public const string FfmpegNotices = @"runtime\ffmpeg\THIRD_PARTY_NOTICES.md";
     public const string BuiltinAgentManifest = @"runtime\agent\VOXFLOW_AGENT_RUNTIME_MANIFEST.json";
     public const string BuiltinAgentExecutable = @"runtime\agent\voxflow-agent.exe";
     public const string OcrManifest = @"runtime\ocr\TESSERACT_RUNTIME_MANIFEST.json";
@@ -30,7 +30,7 @@ public static class InstallerLayoutContract
         FfmpegManifest,
         FfmpegExecutable,
         FfprobeExecutable,
-        FfmpegLicense,
+        FfmpegNotices,
         BuiltinAgentManifest,
         BuiltinAgentExecutable,
         OcrManifest,

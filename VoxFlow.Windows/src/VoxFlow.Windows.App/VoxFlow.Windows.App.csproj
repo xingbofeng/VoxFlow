@@ -27,11 +27,11 @@
              Link="runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\..\runtime\ffmpeg\LICENSE.txt"
-             Link="runtime\ffmpeg\LICENSE.txt"
+    <Content Include="..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md"
+             Link="runtime\ffmpeg\THIRD_PARTY_NOTICES.md"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest"
-             Condition="Exists('..\..\runtime\ffmpeg\LICENSE.txt')" />
+             Condition="Exists('..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md')" />
     <Content Include="..\..\runtime\ffmpeg\*.exe;..\..\runtime\ffmpeg\*.dll"
              Link="runtime\ffmpeg\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <Target Name="EnsureVerifiedFfmpegRuntimeForPublish" BeforeTargets="Publish">
-    <Error Condition="!Exists('..\..\runtime\ffmpeg\ffmpeg.exe') Or !Exists('..\..\runtime\ffmpeg\ffprobe.exe') Or !Exists('..\..\runtime\ffmpeg\LICENSE.txt')"
+    <Error Condition="!Exists('..\..\runtime\ffmpeg\ffmpeg.exe') Or !Exists('..\..\runtime\ffmpeg\ffprobe.exe') Or !Exists('..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md')"
            Text="The verified FFmpeg runtime is not staged. Run scripts/stage-ffmpeg-runtime.ps1 before publishing." />
   </Target>
 

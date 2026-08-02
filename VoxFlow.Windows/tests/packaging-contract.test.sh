@@ -167,6 +167,7 @@ grep -Fq 'Get-FileHash -LiteralPath $binary -Algorithm SHA256' "${qwen_runtime_m
 grep -Fq 'ApplicationExecutable = "VoxFlow.exe"' "${installer_contract}"
 grep -Fq 'QWEN_NATIVE_RUNTIME_MANIFEST.json' "${installer_contract}"
 grep -Fq 'runtime\ffmpeg\ffmpeg.exe' "${installer_contract}"
+grep -Fq 'runtime\ffmpeg\THIRD_PARTY_NOTICES.md' "${installer_contract}"
 grep -Fq 'runtime\ffmpeg\ffprobe.exe' "${installer_contract}"
 grep -Fq 'runtime\agent\voxflow-agent.exe' "${installer_contract}"
 grep -Fq 'runtime\ocr\tesseract.exe' "${installer_contract}"
