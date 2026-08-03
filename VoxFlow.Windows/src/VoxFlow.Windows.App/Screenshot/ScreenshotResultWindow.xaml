@@ -1,0 +1,372 @@
+<Window x:Class="VoxFlow.Windows.App.Screenshot.ScreenshotResultWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="440"
+        Height="560"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        AllowsTransparency="True"
+        ShowActivated="True"
+        AutomationProperties.AutomationId="screenshot-result-window"
+        KeyDown="OnKeyDown"
+        Loaded="OnLoaded">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="SegmentTabItemStyle" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="9,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Segment"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Segment" Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentDarkBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Segment" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Segment" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ResultFooterButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="6,7" />
+            <Setter Property="Margin" Value="3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="34" />
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer x:Name="WindowScrollViewer" x:FieldModifier="public"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  PanningMode="Both" Focusable="False">
+        <Border x:Name="Root"
+                MinWidth="340" MinHeight="520"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="14"
+                KeyboardNavigation.TabNavigation="Cycle"
+                AutomationProperties.Name="{Binding Title}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid x:Name="TitleBar" Grid.Row="0" Margin="2,0,0,12"
+                  MouseLeftButtonDown="OnTitleBarMouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="30" Height="30" CornerRadius="8"
+                        Background="{DynamicResource AccentSoftBrush}">
+                    <TextBlock Text="⌗" FontSize="17" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AccentDarkBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               AutomationProperties.IsOffscreenBehavior="Onscreen" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="10,0"
+                           FontSize="{DynamicResource TitleFontSize}"
+                           FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button x:Name="CloseButton" x:FieldModifier="public" Grid.Column="2"
+                        Content="×" Width="30" Height="30" Padding="0"
+                        FontSize="18" Click="OnClose"
+                        ToolTip="{Binding CloseLabel}"
+                        AutomationProperties.Name="{Binding CloseLabel}"
+                        TabIndex="0" />
+            </Grid>
+
+            <Border Grid.Row="1" Background="{DynamicResource ControlBackgroundBrush}"
+                    CornerRadius="9" Padding="3" Margin="0,0,0,12">
+                <TabControl x:Name="ResultTabs"
+                            x:FieldModifier="public"
+                            SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            SelectionChanged="OnTabSelectionChanged"
+                            Background="Transparent" BorderThickness="0"
+                            TabStripPlacement="Top"
+                            AutomationProperties.AutomationId="screenshot-result-tabs"
+                            AutomationProperties.Name="{Binding Title}"
+                            TabIndex="1">
+                    <TabControl.Resources>
+                        <Style TargetType="TabPanel">
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        </Style>
+                    </TabControl.Resources>
+                    <TabItem x:Name="OriginalTab" x:FieldModifier="public"
+                             Header="{Binding OriginalTabLabel}" Style="{StaticResource SegmentTabItemStyle}"
+                             AutomationProperties.AutomationId="screenshot-result-tab-original"
+                             AutomationProperties.Name="{Binding OriginalTabLabel}">
+                        <Grid />
+                    </TabItem>
+                    <TabItem x:Name="OcrTab" x:FieldModifier="public"
+                             Header="{Binding OcrTabLabel}" Style="{StaticResource SegmentTabItemStyle}"
+                             AutomationProperties.AutomationId="screenshot-result-tab-ocr"
+                             AutomationProperties.Name="{Binding OcrTabLabel}">
+                        <Grid />
+                    </TabItem>
+                    <TabItem x:Name="RefinementTab" x:FieldModifier="public"
+                             Header="{Binding RefinementTabLabel}" Style="{StaticResource SegmentTabItemStyle}"
+                             Visibility="Collapsed"
+                             AutomationProperties.AutomationId="screenshot-result-tab-refinement"
+                             AutomationProperties.Name="{Binding RefinementTabLabel}">
+                        <Grid />
+                    </TabItem>
+                    <TabItem x:Name="TranslationTab" x:FieldModifier="public"
+                             Header="{Binding TranslationTabLabel}" Style="{StaticResource SegmentTabItemStyle}"
+                             AutomationProperties.AutomationId="screenshot-result-tab-translation"
+                             AutomationProperties.Name="{Binding TranslationTabLabel}">
+                        <Grid />
+                    </TabItem>
+                    <TabItem x:Name="SummaryTab" x:FieldModifier="public"
+                             Header="{Binding SummaryTabLabel}" Style="{StaticResource SegmentTabItemStyle}"
+                             AutomationProperties.AutomationId="screenshot-result-tab-summary"
+                             AutomationProperties.Name="{Binding SummaryTabLabel}">
+                        <Grid />
+                    </TabItem>
+                </TabControl>
+            </Border>
+
+            <Border Grid.Row="2" Background="{DynamicResource ControlBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1"
+                    CornerRadius="10" ClipToBounds="True">
+                <Grid>
+                    <ScrollViewer x:Name="OriginalScroll" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <Grid MinHeight="300">
+                            <Image Source="{Binding CurrentImage}" Stretch="Uniform"
+                                   Margin="12" AutomationProperties.Name="{Binding OriginalTabLabel}" />
+                            <TextBlock Text="{Binding ImageUnavailableLabel}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasOriginalImage}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedTab}" Value="Original">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="OcrScroll" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding OcrDisplayText, Mode=OneWay}" IsReadOnly="True"
+                                 BorderThickness="0" Background="Transparent" Padding="12"
+                                 TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
+                                 AutomationProperties.Name="{Binding OcrTabLabel}" />
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedTab}" Value="Ocr">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="RefinementScroll" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding RefinementDisplayText, Mode=OneWay}" IsReadOnly="True"
+                                 BorderThickness="0" Background="Transparent" Padding="12"
+                                 TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
+                                 AutomationProperties.Name="{Binding RefinementTabLabel}" />
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedTab}" Value="Refinement">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="TranslationScroll" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Margin="12,12,12,0" MinHeight="150" MaxHeight="190"
+                                    Background="{DynamicResource PanelBackgroundBrush}"
+                                    BorderBrush="{DynamicResource PanelBorderBrush}"
+                                    BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                                <Image x:Name="TranslationImagePreview" x:FieldModifier="public"
+                                       Source="{Binding CurrentImage}" Stretch="Uniform"
+                                       AutomationProperties.Name="{Binding TranslationTabLabel}" />
+                            </Border>
+                            <TextBox x:Name="TranslationTextBox" x:FieldModifier="public"
+                                     Text="{Binding TranslationDisplayText, Mode=OneWay}" IsReadOnly="True"
+                                     BorderThickness="0" Background="Transparent" Padding="12"
+                                     TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
+                                     AutomationProperties.Name="{Binding TranslationTabLabel}" />
+                        </StackPanel>
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedTab}" Value="Translation">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="SummaryScroll" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding SummaryDisplayText, Mode=OneWay}" IsReadOnly="True"
+                                 BorderThickness="0" Background="Transparent" Padding="12"
+                                 TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
+                                 AutomationProperties.Name="{Binding SummaryTabLabel}" />
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedTab}" Value="Summary">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                    </ScrollViewer>
+
+                    <Button x:Name="RetryButton" x:FieldModifier="public"
+                            Content="{Binding RetryLabel}" Padding="10,6" Margin="12"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Click="OnRetryTransform"
+                            AutomationProperties.AutomationId="screenshot-result-retry"
+                            AutomationProperties.Name="{Binding RetryLabel}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CanRetryCurrentTransform}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Margin="0,12,0,0" Padding="10,7" CornerRadius="8"
+                    Background="{DynamicResource AccentSoftBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding CurrentText}" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource AccentDarkBrush}" />
+                    <Button x:Name="StopSpeechButton" x:FieldModifier="public"
+                            Grid.Column="1" Margin="8,0,0,0" Padding="8,4"
+                            Content="{Binding ScreenshotResultStopSpeakingLabel}"
+                            Click="OnStopSpeech"
+                            AutomationProperties.AutomationId="screenshot-result-stop-speech"
+                            AutomationProperties.Name="{Binding ScreenshotResultStopSpeakingLabel}" />
+                </Grid>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSpeaking}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+
+            <TextBlock Grid.Row="4" Text="{Binding CurrentFeedback}" MinHeight="18"
+                       Margin="3,8,3,6" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       AutomationProperties.LiveSetting="Polite"
+                       AutomationProperties.Name="{Binding CurrentFeedback}" />
+
+            <WrapPanel x:Name="ResultActionPanel" x:FieldModifier="public"
+                       Grid.Row="5" HorizontalAlignment="Center">
+                <Button x:Name="RefineButton" x:FieldModifier="public"
+                        Content="{Binding RefineButtonLabel}"
+                        IsEnabled="{Binding CanRefine}" Click="OnRefine"
+                        Visibility="Collapsed"
+                        Style="{StaticResource ResultFooterButtonStyle}"
+                        ToolTip="{Binding RefineButtonLabel}"
+                        AutomationProperties.AutomationId="screenshot-result-refine"
+                        AutomationProperties.Name="{Binding RefineButtonLabel}"
+                        TabIndex="2" />
+                <Button x:Name="TranslateButton" x:FieldModifier="public"
+                        Content="{Binding TranslateButtonLabel}"
+                        IsEnabled="{Binding CanTranslate}" Click="OnTranslate"
+                        Style="{StaticResource ResultFooterButtonStyle}"
+                        ToolTip="{Binding TranslateButtonLabel}"
+                        AutomationProperties.AutomationId="screenshot-result-translate"
+                        AutomationProperties.Name="{Binding TranslateButtonLabel}"
+                        TabIndex="3" />
+                <Button x:Name="SpeakButton" x:FieldModifier="public"
+                        Content="{Binding SpeakButtonLabel}"
+                        IsEnabled="{Binding CanSpeak}" Click="OnSpeak"
+                        Style="{StaticResource ResultFooterButtonStyle}"
+                        ToolTip="{Binding SpeakButtonLabel}"
+                        AutomationProperties.AutomationId="screenshot-result-speak"
+                        AutomationProperties.Name="{Binding SpeakButtonLabel}"
+                        TabIndex="4" />
+                <Button x:Name="CopyTextButton" x:FieldModifier="public"
+                        Content="{Binding CopyTextLabel}"
+                        IsEnabled="{Binding CanCopyText}" Click="OnCopyText"
+                        Style="{StaticResource ResultFooterButtonStyle}"
+                        ToolTip="{Binding CopyTextLabel}"
+                        AutomationProperties.AutomationId="screenshot-result-copy-text"
+                        AutomationProperties.Name="{Binding CopyTextLabel}"
+                        TabIndex="5" />
+                <Button x:Name="CopyImageButton" x:FieldModifier="public"
+                        Content="{Binding CopyImageLabel}"
+                        IsEnabled="{Binding CanCopyImage}" Click="OnCopyImage"
+                        Style="{StaticResource ResultFooterButtonStyle}"
+                        ToolTip="{Binding CopyImageLabel}"
+                        AutomationProperties.AutomationId="screenshot-result-copy-image"
+                        AutomationProperties.Name="{Binding CopyImageLabel}"
+                        TabIndex="6" />
+            </WrapPanel>
+        </Grid>
+        </Border>
+    </ScrollViewer>
+</Window>

@@ -44,8 +44,8 @@ targets:
       path: VoxFlowiOS/Info.plist
       properties:
         CFBundleDisplayName: 码上写
-        CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.15.0"
+        CFBundleVersion: "26"
         UILaunchScreen:
           UIColorName: ""
         NSMicrophoneUsageDescription: "码上写需要麦克风权限以进行语音听写。"
@@ -73,6 +73,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: VoxFlowiOS/Mashangxie.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(MASHANGXIE_APP_PROFILE_SPECIFIER)
         SWIFT_OBJC_BRIDGING_HEADER: VoxFlowiOS/Dictation/DictusApp-Bridging-Header.h
     postBuildScripts:
       - name: Copy Dev Cloud Credentials
@@ -123,8 +124,8 @@ targets:
       path: Keyboard/Info.plist
       properties:
         CFBundleDisplayName: 码上写
-        CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.15.0"
+        CFBundleVersion: "26"
         NSExtension:
           NSExtensionAttributes:
             IsASCIICapable: true
@@ -145,6 +146,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Keyboard/Keyboard.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)
         SKIP_INSTALL: "YES"
         SWIFT_VERSION: "5.0"
         SWIFT_OBJC_BRIDGING_HEADER: Keyboard/DictusKeyboard-Bridging-Header.h

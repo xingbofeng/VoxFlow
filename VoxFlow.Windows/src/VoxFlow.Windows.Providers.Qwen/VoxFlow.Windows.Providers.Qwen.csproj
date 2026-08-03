@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\VoxFlow.Windows.Application\VoxFlow.Windows.Application.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Domain\VoxFlow.Windows.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="VoxFlow.Windows.Providers.Qwen.Tests" />
+  </ItemGroup>
+
+</Project>

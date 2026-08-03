@@ -91,7 +91,7 @@ final class MashangxiePackagingContractTests: XCTestCase {
         XCTAssertTrue(chineseInputTarget.contains("APPLICATION_EXTENSION_API_ONLY: \"YES\""))
     }
 
-    func testMakefileKeepsUnsignedIpaAndPaidSigningEntryPoints() throws {
+    func testMakefileKeepsUnsignedAndInstallableAdHocIpaEntryPoints() throws {
         let makefile = try String(
             contentsOf: iosRoot()
                 .deletingLastPathComponent()
@@ -99,12 +99,27 @@ final class MashangxiePackagingContractTests: XCTestCase {
                 .appendingPathComponent("Makefile"),
             encoding: .utf8
         )
+        let exportScript = try String(
+            contentsOf: iosRoot()
+                .appendingPathComponent("Scripts/export-ad-hoc-ipa.sh"),
+            encoding: .utf8
+        )
 
-        XCTAssertTrue(makefile.contains("ios-ipa:"))
+        XCTAssertTrue(
+            makefile.contains("ios-ipa-unsigned: ios-rime-prebuild-if-needed ios-build-device"),
+            "Unsigned IPA packaging must prebuild Rime Ice tables before the device app is built."
+        )
+        XCTAssertTrue(makefile.contains("ios-ipa: ios-keyboard-release-archive"))
         XCTAssertTrue(makefile.contains("IOS_IPA"))
+        XCTAssertTrue(makefile.contains("Mashangxie-$(IOS_RELEASE_VERSION)-iOS.ipa"))
         XCTAssertTrue(makefile.contains("ios-keyboard-release-archive:"))
         XCTAssertTrue(makefile.contains("MASHANGXIE_DEVELOPMENT_TEAM"))
-        XCTAssertTrue(makefile.contains("CODE_SIGN_STYLE=Automatic"))
+        XCTAssertTrue(makefile.contains("MASHANGXIE_APP_PROFILE_SPECIFIER"))
+        XCTAssertTrue(makefile.contains("MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER"))
+        XCTAssertTrue(makefile.contains("CODE_SIGN_STYLE=Manual"))
+        XCTAssertTrue(exportScript.contains("-exportArchive"))
+        XCTAssertTrue(exportScript.contains("Add :method string ad-hoc"))
+        XCTAssertTrue(exportScript.contains("com.mashangxie.ios.keyboard"))
         XCTAssertTrue(makefile.contains("verify-ios-ipa-contract.sh"))
     }
 

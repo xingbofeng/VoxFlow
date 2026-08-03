@@ -8,6 +8,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLIST = ROOT / "Sources/VoxFlowApp/Resources/Info.plist"
+IOS_PROJECT = ROOT / "Apps/VoxFlowiOS/project.yml"
+IOS_INFO_PLISTS = [
+    ROOT / "Apps/VoxFlowiOS/VoxFlowiOS/Info.plist",
+    ROOT / "Apps/VoxFlowiOS/Keyboard/Info.plist",
+]
 
 
 def read_version() -> tuple[str, str]:
@@ -26,16 +31,60 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
 
 
 def main() -> int:
-    version, _build = read_version()
+    version, build = read_version()
     tag = f"v{version}"
     dmg_name = f"VoxFlow-{version}-macOS.dmg"
+    windows_installer_name = f"VoxFlow-{version}-windows-x64-setup.exe"
+    windows_portable_name = f"VoxFlow-{version}-windows-x64-portable.zip"
+    ios_ipa_name = f"Mashangxie-{version}-iOS.ipa"
+    release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
     failures: list[str] = []
 
+    ios_project = read_text(IOS_PROJECT)
     require(
-        (ROOT / f".github/release-notes/{tag}.md").exists(),
-        f"missing release notes for {tag}",
+        ios_project.count(f'CFBundleShortVersionString: "{version}"') == 2,
+        "Apps/VoxFlowiOS/project.yml versions are stale",
         failures,
     )
+    require(
+        ios_project.count(f'CFBundleVersion: "{build}"') == 2,
+        "Apps/VoxFlowiOS/project.yml builds are stale",
+        failures,
+    )
+    for info_plist in IOS_INFO_PLISTS:
+        with info_plist.open("rb") as handle:
+            ios_plist = plistlib.load(handle)
+        require(
+            str(ios_plist.get("CFBundleShortVersionString")) == version,
+            f"{info_plist.relative_to(ROOT)} version is stale",
+            failures,
+        )
+        require(
+            str(ios_plist.get("CFBundleVersion")) == build,
+            f"{info_plist.relative_to(ROOT)} build is stale",
+            failures,
+        )
+
+    release_notes_path = ROOT / f".github/release-notes/{tag}.md"
+    require(release_notes_path.exists(), f"missing release notes for {tag}", failures)
+    release_notes = ""
+    release_notes_summary = ""
+    if release_notes_path.exists():
+        release_notes = read_text(release_notes_path)
+        release_notes_summary = next(
+            (
+                re.sub(r"^[-*]\s+", "", line.strip())
+                for line in release_notes.splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ),
+            "",
+        )
+        for asset_name in [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]:
+            require(
+                asset_name in release_notes,
+                f"release notes asset reference is stale: {asset_name}",
+                failures,
+            )
 
     docs_script = read_text(ROOT / "docs/script.js")
     require(f'version: "{version}"' in docs_script, "docs/script.js release.version is stale", failures)
@@ -45,6 +94,17 @@ def main() -> int:
         "docs/script.js release.assetName is stale",
         failures,
     )
+    for asset_name in [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]:
+        require(
+            f'name: "{asset_name}"' in docs_script,
+            f"docs/script.js asset reference is stale: {asset_name}",
+            failures,
+        )
+    require(
+        'distribution: "ad-hoc"' in docs_script,
+        "docs/script.js iOS distribution must be ad-hoc",
+        failures,
+    )
 
     docs_index = read_text(ROOT / "docs/index.html")
     require(
@@ -52,11 +112,42 @@ def main() -> int:
         "docs/index.html download fallback is stale",
         failures,
     )
+    require(
+        f"releases/download/{tag}/{windows_installer_name}" in docs_index,
+        "docs/index.html Windows download fallback is stale",
+        failures,
+    )
+    require(
+        f"releases/download/{tag}/{ios_ipa_name}" in docs_index,
+        "docs/index.html iOS download fallback is stale",
+        failures,
+    )
     require(f"{tag} · Free & open source" in docs_index, "docs/index.html release note fallback is stale", failures)
+    release_data_match = re.search(
+        r'<script id="voxflow-release-data" type="application/json">\s*(.*?)\s*</script>',
+        docs_index,
+        re.DOTALL,
+    )
+    require(release_data_match is not None, "docs/index.html release data fallback is missing", failures)
+    if release_data_match is not None:
+        release_data = json.loads(release_data_match.group(1))
+        current_release = next((item for item in release_data if item.get("tag_name") == tag), None)
+        require(current_release is not None, "docs/index.html current release fallback is missing", failures)
+        if current_release is not None:
+            require(
+                current_release.get("body", "").strip() == release_notes.strip(),
+                "docs/index.html current release notes fallback is stale",
+                failures,
+            )
 
     release_json = json.loads(read_text(ROOT / "docs/release.json"))
     require(release_json.get("version") == version, "docs/release.json version is stale", failures)
     require(release_json.get("tag") == tag, "docs/release.json tag is stale", failures)
+    require(
+        release_json.get("releaseNotes") == release_notes_summary,
+        "docs/release.json releaseNotes summary is stale",
+        failures,
+    )
     require(release_json.get("assetName") == dmg_name, "docs/release.json assetName is stale", failures)
     require(
         release_json.get("releasePageURL") == f"https://github.com/xingbofeng/VoxFlow/releases/tag/{tag}",
@@ -64,15 +155,45 @@ def main() -> int:
         failures,
     )
     require(
-        release_json.get("downloadURL") == f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}/{dmg_name}",
+        release_json.get("downloadURL") == f"{release_download_base}/{dmg_name}",
         "docs/release.json downloadURL is stale",
+        failures,
+    )
+    assets = release_json.get("assets", {})
+    expected_assets = {
+        ("macos", "dmg"): dmg_name,
+        ("windows", "installer"): windows_installer_name,
+        ("windows", "portable"): windows_portable_name,
+        ("ios", "ipa"): ios_ipa_name,
+    }
+    for (platform, kind), asset_name in expected_assets.items():
+        asset = assets.get(platform, {}).get(kind, {})
+        require(
+            asset.get("name") == asset_name,
+            f"docs/release.json assets.{platform}.{kind}.name is stale",
+            failures,
+        )
+        require(
+            asset.get("downloadURL") == f"{release_download_base}/{asset_name}",
+            f"docs/release.json assets.{platform}.{kind}.downloadURL is stale",
+            failures,
+        )
+    require(
+        assets.get("ios", {}).get("distribution") == "ad-hoc",
+        "docs/release.json assets.ios.distribution must be ad-hoc",
         failures,
     )
 
     for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
         text = read_text(ROOT / relative)
-        found = re.findall(r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", text)
-        require(found == [dmg_name], f"{relative} DMG reference is stale: {found}", failures)
+        expected_readme_assets = [dmg_name, windows_installer_name, windows_portable_name, ios_ipa_name]
+        for expected_asset in expected_readme_assets:
+            found = re.findall(re.escape(expected_asset), text)
+            require(
+                found == [expected_asset],
+                f"{relative} asset reference is stale: {expected_asset} ({len(found)} found)",
+                failures,
+            )
 
     if os.environ.get("VOXFLOW_RELEASE_CHECK_REQUIRE_SENTRY") == "1":
         sentry_dsn = os.environ.get("VOXFLOW_SENTRY_DSN", "").strip()

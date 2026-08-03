@@ -2,11 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>VoxFlow</h1>
-  <p><strong>A voice keyboard and local context workbench for macOS.</strong></p>
-  <p>Hold a shortcut to speak, release to insert text at the current cursor, and keep voice, screenshots, recordings, and clipboard items searchable on your Mac.</p>
+  <p><strong>Voice input for macOS, Windows, and iOS.</strong></p>
+  <p>Speak to write on all three platforms. The desktop editions add system-wide dictation workflows; macOS also includes the full local context workbench.</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white" alt="Windows x64">
+    <img src="https://img.shields.io/badge/iOS-17%2B-000000?style=flat-square&amp;logo=ios&amp;logoColor=white" alt="iOS 17+">
     <img src="https://img.shields.io/badge/Swift-6%2B-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6+">
     <img src="https://img.shields.io/badge/Native-macOS-147EFB?style=flat-square" alt="Native macOS">
     <img src="https://img.shields.io/badge/Local--first-1F883D?style=flat-square" alt="Local-first">
@@ -78,14 +80,17 @@ It is a voice keyboard first, with a local workbench around the things you captu
 
 Download the latest release from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
 
-1. Open `VoxFlow-1.15.0-macOS.dmg`.
-2. Drag `VoxFlow` into the `Applications` folder.
-3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**.
+| Platform | Package | Installation |
+| --- | --- | --- |
+| macOS | `VoxFlow-1.15.0-macOS.dmg` | Open the DMG and drag VoxFlow to Applications. |
+| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` or `VoxFlow-1.15.0-windows-x64-portable.zip` | Run the per-user installer, or extract the portable package. |
+| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Install the Ad Hoc IPA on a device whose UDID is registered in the bundled profiles. |
 
 ### Requirements
 
-- macOS 15 Sequoia or later
-- A Mac with a microphone
+- macOS 15+, Windows x64, or iOS 17+
+- A microphone
+- iOS IPA installation requires a device registered for this Ad Hoc release
 
 ### First Permissions
 

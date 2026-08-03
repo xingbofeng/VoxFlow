@@ -2,11 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>碼上寫 · VoxFlow</h1>
-  <p><strong>貼在目前工作流程裡的 macOS 語音鍵盤與本機脈絡工作台。</strong></p>
-  <p>按住快捷鍵說話，放開後文字回到目前游標；語音、截圖、錄影和剪貼簿內容會沉澱為可搜尋、可重用的本機資產。</p>
+  <p><strong>支援 macOS、Windows 與 iOS 的語音輸入工具。</strong></p>
+  <p>三個平台都能以語音輸入；桌面版提供全域聽寫，macOS 版另含完整的本機脈絡工作台。</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white" alt="Windows x64">
+    <img src="https://img.shields.io/badge/iOS-17%2B-000000?style=flat-square&amp;logo=ios&amp;logoColor=white" alt="iOS 17+">
     <img src="https://img.shields.io/badge/Swift-6%2B-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6+">
     <img src="https://img.shields.io/badge/Native-macOS-147EFB?style=flat-square" alt="Native macOS">
     <img src="https://img.shields.io/badge/Local--first-1F883D?style=flat-square" alt="Local-first">
@@ -76,16 +78,19 @@ VoxFlow 服務於你正在使用的 App。它不是語音助理：不接管視�
 
 ### 下載與安裝
 
-Download the latest release from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
+從 [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) 下載最新版本：
 
-1. Open `VoxFlow-1.15.0-macOS.dmg`.
-2. Drag `VoxFlow` into the `Applications` folder.
-3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**.
+| 平台 | 安裝包 | 安裝方式 |
+| --- | --- | --- |
+| macOS | `VoxFlow-1.15.0-macOS.dmg` | 開啟 DMG，將 VoxFlow 拖入「應用程式」。 |
+| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 或 `VoxFlow-1.15.0-windows-x64-portable.zip` | 執行目前使用者安裝程式，或解壓縮可攜版。 |
+| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | 僅能安裝至已登記於 Ad Hoc profiles 的 UDID 裝置。 |
 
 ### 系統需求
 
-- macOS 15 Sequoia or later
-- A Mac with a microphone
+- macOS 15+、Windows x64 或 iOS 17+
+- 麥克風
+- 安裝 iOS IPA 的裝置必須已登記於本次 Ad Hoc 發佈
 
 ### 首次授權
 

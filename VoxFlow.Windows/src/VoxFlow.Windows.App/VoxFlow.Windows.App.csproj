@@ -1,0 +1,132 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Content Include="..\..\runtime\agent\voxflow-agent.exe;..\..\runtime\agent\VOXFLOW_AGENT_RUNTIME_MANIFEST.json"
+             Link="runtime\agent\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\..\runtime\agent\voxflow-agent.exe')" />
+    <ProjectReference Include="..\VoxFlow.Windows.Application\VoxFlow.Windows.Application.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Domain\VoxFlow.Windows.Domain.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Infrastructure\VoxFlow.Windows.Infrastructure.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Platform\VoxFlow.Windows.Platform.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Providers.Cloud\VoxFlow.Windows.Providers.Cloud.csproj" />
+    <ProjectReference Include="..\VoxFlow.Windows.Providers.Qwen\VoxFlow.Windows.Providers.Qwen.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="VoxFlow.Windows.App.Tests" />
+  </ItemGroup>
+  <Target Name="RequireBuiltinAgentRuntimeForRelease" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Error Condition="!Exists('..\..\runtime\agent\voxflow-agent.exe') Or !Exists('..\..\runtime\agent\VOXFLOW_AGENT_RUNTIME_MANIFEST.json')"
+           Text="The verified built-in Agent runtime is not staged. Run scripts/stage-builtin-agent-runtime.ps1 before publishing." />
+  </Target>
+
+  <ItemGroup>
+    <Content Include="..\..\runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json"
+             Link="runtime\ffmpeg\FFMPEG_RUNTIME_MANIFEST.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md"
+             Link="runtime\ffmpeg\THIRD_PARTY_NOTICES.md"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md')" />
+    <Content Include="..\..\runtime\ffmpeg\*.exe;..\..\runtime\ffmpeg\*.dll"
+             Link="runtime\ffmpeg\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="EnsureVerifiedFfmpegRuntimeForPublish" BeforeTargets="Publish">
+    <Error Condition="!Exists('..\..\runtime\ffmpeg\ffmpeg.exe') Or !Exists('..\..\runtime\ffmpeg\ffprobe.exe') Or !Exists('..\..\runtime\ffmpeg\THIRD_PARTY_NOTICES.md')"
+           Text="The verified FFmpeg runtime is not staged. Run scripts/stage-ffmpeg-runtime.ps1 before publishing." />
+  </Target>
+
+  <!-- Stage-aware OCR packaging: evaluate the staged tree on every build/publish
+       (not only at project-load ItemGroup evaluation). Explicit Copy is used
+       because Content items added mid-target are unreliable for out-of-project
+       recursive trees under SDK-style copy pipelines. -->
+  <PropertyGroup>
+    <StagedTesseractRuntimeRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\runtime\ocr'))</StagedTesseractRuntimeRoot>
+  </PropertyGroup>
+
+  <Target Name="IncludeStagedTesseractRuntime"
+          AfterTargets="Build"
+          Condition="Exists('$(StagedTesseractRuntimeRoot)\TESSERACT_RUNTIME_MANIFEST.json')">
+    <ItemGroup>
+      <_StagedTesseractRuntimeFiles Include="$(StagedTesseractRuntimeRoot)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_StagedTesseractRuntimeFiles)"
+          DestinationFiles="@(_StagedTesseractRuntimeFiles->'$(TargetDir)runtime\ocr\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="IncludeStagedTesseractRuntimeOnPublish"
+          AfterTargets="Publish"
+          Condition="Exists('$(StagedTesseractRuntimeRoot)\TESSERACT_RUNTIME_MANIFEST.json')">
+    <ItemGroup>
+      <_StagedTesseractRuntimePublishFiles Include="$(StagedTesseractRuntimeRoot)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_StagedTesseractRuntimePublishFiles)"
+          DestinationFiles="@(_StagedTesseractRuntimePublishFiles->'$(PublishDir)runtime\ocr\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="RequireVerifiedTesseractRuntimeForRelease" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Error Condition="!Exists('$(StagedTesseractRuntimeRoot)\tesseract.exe') Or !Exists('$(StagedTesseractRuntimeRoot)\TESSERACT_RUNTIME_MANIFEST.json') Or !Exists('$(StagedTesseractRuntimeRoot)\LICENSE.txt')"
+           Text="The verified Tesseract OCR runtime is not staged. Run scripts/stage-tesseract-runtime.ps1 from a controlled x64 MSVC build before publishing." />
+  </Target>
+
+  <ItemGroup>
+    <!-- The production bridge is generated locally by
+         scripts/build-qwen-production-bridge.ps1. Keep the generated binary out
+         of source control, but make normal Debug builds runnable once it has
+         been audited and staged under artifacts/native. -->
+    <Content Include="..\..\artifacts\native\qwen_asr.dll"
+             Link="qwen_asr.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Never"
+             Condition="Exists('..\..\artifacts\native\qwen_asr.dll')" />
+    <Content Include="..\..\artifacts\native\qwen_asr.dll.manifest.json"
+             Link="Qwen\QWEN_NATIVE_RUNTIME_MANIFEST.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Never"
+             Condition="Exists('..\..\artifacts\native\qwen_asr.dll.manifest.json')" />
+    <Content Include="..\..\native\qwen-asr\MODEL_PROVENANCE.json"
+             Link="Qwen\MODEL_PROVENANCE.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\..\TestResources\ASRSmoke\Audio\zh_short.wav"
+             Link="Qwen\readiness-canary.wav"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>VoxFlow</AssemblyName>
+    <RootNamespace>VoxFlow.Windows.App</RootNamespace>
+    <Version>1.15.0</Version>
+    <AssemblyVersion>1.15.0.0</AssemblyVersion>
+    <FileVersion>1.15.0.0</FileVersion>
+    <ApplicationIcon>Assets\VoxFlow.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\VoxFlow.ico"
+                      LogicalName="VoxFlow.Windows.App.Assets.VoxFlow.ico" />
+    <EmbeddedResource Include="Assets\VoxFlow.png"
+                      LogicalName="VoxFlow.Windows.App.Assets.VoxFlow.png" />
+    <Resource Include="Assets\VoxFlow.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

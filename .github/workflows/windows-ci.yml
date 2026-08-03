@@ -1,0 +1,180 @@
+name: Windows CI
+
+on:
+  push:
+    paths:
+      - "VoxFlow.Windows/**"
+      - "agent-cli/**"
+      - "docs/release.json"
+      - ".github/workflows/windows-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "VoxFlow.Windows/**"
+      - "agent-cli/**"
+      - "docs/release.json"
+      - ".github/workflows/windows-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-windows:
+    name: Offline x64 tests and build
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set up pinned Rust toolchain for the built-in Agent
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --target x86_64-pc-windows-msvc
+          rustup default 1.97.0
+
+      - name: Validate Conventional Commit subjects
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: >-
+          ./VoxFlow.Windows/scripts/check-conventional-commits.ps1
+          -BaseRef "${{ github.event.pull_request.base.sha }}"
+          -HeadRef "${{ github.event.pull_request.head.sha }}"
+
+      - name: Validate Conventional Commit subjects for push
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        shell: pwsh
+        run: >-
+          ./VoxFlow.Windows/scripts/check-conventional-commits.ps1
+          -BaseRef "${{ github.event.before }}"
+          -HeadRef "${{ github.sha }}"
+          -FallbackBaseRef "origin/main"
+
+      - name: Run governance contract tests
+        shell: bash
+        run: |
+          bash VoxFlow.Windows/tests/governance.test.sh
+          bash VoxFlow.Windows/tests/traceability.test.sh
+          bash VoxFlow.Windows/tests/traceability-validator.test.sh
+          bash VoxFlow.Windows/tests/windows-ci-contract.test.sh
+          bash VoxFlow.Windows/tests/solution-build-contract.test.sh
+          bash VoxFlow.Windows/tests/no-generated-placeholders.test.sh
+          bash VoxFlow.Windows/tests/dependency-governance.test.sh
+          bash VoxFlow.Windows/tests/screenshot-architecture.test.sh
+          bash VoxFlow.Windows/tests/check-no-secrets.test.sh
+
+      - name: Validate qwen-asr spike provenance
+        shell: pwsh
+        run: ./VoxFlow.Windows/tests/qwen-upstream-record.test.ps1
+
+      - name: Scan release inputs for credentials
+        shell: bash
+        run: bash VoxFlow.Windows/scripts/check-no-secrets.sh
+
+      - name: Restore offline-test dependencies
+        shell: pwsh
+        run: dotnet restore VoxFlow.Windows/VoxFlow.Windows.sln -p:Platform=x64
+
+      - name: Validate Windows localization resources
+        shell: pwsh
+        run: ./VoxFlow.Windows/scripts/check-localization.ps1
+
+      - name: Audit restored NuGet security metadata
+        shell: pwsh
+        run: >-
+          ./VoxFlow.Windows/scripts/check-nuget-security.ps1
+          -SolutionPath ./VoxFlow.Windows/VoxFlow.Windows.sln
+
+      - name: Validate resolved NuGet license inventory
+        shell: pwsh
+        run: >-
+          ./VoxFlow.Windows/scripts/check-license-inventory.ps1
+          -SolutionPath ./VoxFlow.Windows/VoxFlow.Windows.sln
+          -NoticesPath ./VoxFlow.Windows/THIRD-PARTY-NOTICES.md
+
+      - name: Validate locked Agent Cargo license inventory
+        shell: pwsh
+        run: ./VoxFlow.Windows/scripts/check-cargo-license-inventory.ps1
+
+      - name: Stage and verify locked LGPL FFmpeg runtime
+        shell: pwsh
+        run: ./VoxFlow.Windows/scripts/stage-ffmpeg-runtime.ps1
+
+      - name: Run real FFmpeg media fixture tests
+        shell: pwsh
+        env:
+          VOXFLOW_TEST_FFMPEG_INSTALL_ROOT: ${{ github.workspace }}\VoxFlow.Windows
+        run: >-
+          dotnet test
+          VoxFlow.Windows/tests/VoxFlow.Windows.Infrastructure.Tests/VoxFlow.Windows.Infrastructure.Tests.csproj
+          --configuration Debug -p:Platform=x64 --no-restore
+          --filter FullyQualifiedName~FfmpegRealMediaFixtureTests
+
+      - name: Run x64 Debug offline tests
+        shell: pwsh
+        env:
+          VOXFLOW_VISUAL_EVIDENCE_ROOT: ${{ github.workspace }}\VoxFlow.Windows\artifacts\visual-evidence
+        run: dotnet test VoxFlow.Windows/VoxFlow.Windows.sln --configuration Debug -p:Platform=x64 --no-restore
+
+      - name: Run x64 Release offline tests
+        shell: pwsh
+        run: dotnet test VoxFlow.Windows/VoxFlow.Windows.sln --configuration Release -p:Platform=x64 --no-restore
+
+      - name: Build x64 Debug
+        shell: pwsh
+        run: dotnet build VoxFlow.Windows/VoxFlow.Windows.sln --configuration Debug -p:Platform=x64 --no-restore
+
+      - name: Build x64 Release
+        shell: pwsh
+        run: dotnet build VoxFlow.Windows/VoxFlow.Windows.sln --configuration Release -p:Platform=x64 --no-restore
+
+      - name: Build pinned production Qwen bridge
+        shell: pwsh
+        run: >-
+          ./VoxFlow.Windows/scripts/build-qwen-production-bridge.ps1
+          -OutputPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll
+
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build self-contained portable package and per-user installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content ./docs/release.json | ConvertFrom-Json).version
+          ./VoxFlow.Windows/scripts/prepare-windows-release.ps1 `
+            -Version $version `
+            -NativeDllPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll `
+            -OutputRoot ./VoxFlow.Windows/artifacts/release
+
+      - name: Upload file transcription visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-transcription-visual-evidence
+          path: VoxFlow.Windows/artifacts/visual-evidence/*.png
+          # Evidence is produced by Debug visual regression when tests get that far;
+          # do not mask the primary test failure when the suite aborts earlier.
+          if-no-files-found: warn
+
+      - name: Upload Windows x64 packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoxFlow-windows-x64
+          path: |
+            VoxFlow.Windows/artifacts/release/installer/*.exe
+            VoxFlow.Windows/artifacts/release/*.zip
+          if-no-files-found: error

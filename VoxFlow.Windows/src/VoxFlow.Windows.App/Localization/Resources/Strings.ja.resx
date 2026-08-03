@@ -1,0 +1,1003 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="BrandName" xml:space="preserve"><value>VoxFlow</value></data>
+  <data name="SidebarToggleAccessibleName" xml:space="preserve"><value>サイドバーを切り替える</value></data>
+  <data name="NavigationHome" xml:space="preserve"><value>ホーム</value></data>
+  <data name="NavigationFileTranscription" xml:space="preserve"><value>ファイル文字起こし</value></data>
+  <data name="NavigationSettings" xml:space="preserve"><value>設定</value></data>
+  <data name="FileTranscriptionHeading" xml:space="preserve"><value>ファイル文字起こし</value></data>
+  <data name="FileTranscriptionSubtitle" xml:space="preserve"><value>音声と動画のファイルを再利用できるテキストに変換します。</value></data>
+  <data name="FileTranscriptionBrowse" xml:space="preserve"><value>ファイルを選択</value></data>
+  <data name="FileTranscriptionDropTitle" xml:space="preserve"><value>ここにファイルをドロップするか、選択して読み込みます</value></data>
+  <data name="FileTranscriptionSupportedFormats" xml:space="preserve"><value>MP3、WAV、M4A、AAC、MP4、MOV</value></data>
+  <data name="FileTranscriptionQueueTitle" xml:space="preserve"><value>文字起こしキュー</value></data>
+  <data name="FileTranscriptionQueueEmpty" xml:space="preserve"><value>読み込んだファイルはここに表示されます。</value></data>
+  <data name="FileTranscriptionResultTitle" xml:space="preserve"><value>結果</value></data>
+  <data name="FileTranscriptionResultEmpty" xml:space="preserve"><value>ファイルを選択して文字起こしを表示します。</value></data>
+  <data name="FileTranscriptionStatusReady" xml:space="preserve"><value>ファイルを読み込む準備ができました。</value></data>
+  <data name="FileTranscriptionProviderUnavailable" xml:space="preserve"><value>利用可能な音声認識サービスを選択してからファイルを読み込んでください。</value></data>
+  <data name="FileTranscriptionUnsupportedFormat" xml:space="preserve"><value>このファイル形式には対応していません。</value></data>
+  <data name="FileTranscriptionJobsAdded" xml:space="preserve"><value>ファイルを文字起こしキューに追加しました。</value></data>
+  <data name="FileTranscriptionFileDialogFilter" xml:space="preserve"><value>音声と動画のファイル</value></data>
+  <data name="FileTranscriptionStatusQueued" xml:space="preserve"><value>待機中</value></data>
+  <data name="FileTranscriptionStatusRunning" xml:space="preserve"><value>文字起こし中</value></data>
+  <data name="FileTranscriptionStatusCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="FileTranscriptionStatusPartiallyFailed" xml:space="preserve"><value>一部完了</value></data>
+  <data name="FileTranscriptionStatusInterrupted" xml:space="preserve"><value>中断</value></data>
+  <data name="FileTranscriptionStatusCancelled" xml:space="preserve"><value>キャンセル済み</value></data>
+  <data name="FileTranscriptionStatusFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="FileTranscriptionSegmentPending" xml:space="preserve"><value>待機中</value></data>
+  <data name="FileTranscriptionSegmentRunning" xml:space="preserve"><value>処理中</value></data>
+  <data name="FileTranscriptionSegmentCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="FileTranscriptionSegmentFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="FileTranscriptionSegmentInterrupted" xml:space="preserve"><value>中断</value></data>
+  <data name="FileTranscriptionSegmentCancelled" xml:space="preserve"><value>キャンセル済み</value></data>
+  <data name="FileTranscriptionMetadataFormat" xml:space="preserve"><value>{0} · {1} · {2} · {3}/{4} セグメント完了</value></data>
+  <data name="FileTranscriptionDiagnosticFormat" xml:space="preserve"><value>セグメント {0} · {1}–{2} · {3} · 再試行 {4} 回 · フォールバック {5} · {6}</value></data>
+  <data name="FileTranscriptionDiagnosticNoError" xml:space="preserve"><value>エラーなし</value></data>
+  <data name="FileTranscriptionProviderTencent" xml:space="preserve"><value>テンセントクラウド</value></data>
+  <data name="FileTranscriptionProviderAliyun" xml:space="preserve"><value>アリババクラウド</value></data>
+  <data name="FileTranscriptionProviderVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="FileTranscriptionActionStart" xml:space="preserve"><value>開始</value></data>
+  <data name="FileTranscriptionActionCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="FileTranscriptionActionContinue" xml:space="preserve"><value>続行</value></data>
+  <data name="FileTranscriptionActionRetry" xml:space="preserve"><value>最初から再試行</value></data>
+  <data name="FileTranscriptionActionDelete" xml:space="preserve"><value>削除</value></data>
+  <data name="FileTranscriptionActionCopy" xml:space="preserve"><value>コピー</value></data>
+  <data name="FileTranscriptionActionExport" xml:space="preserve"><value>書き出す</value></data>
+  <data name="FileTranscriptionActionTranslate" xml:space="preserve"><value>全文を翻訳</value></data>
+  <data name="FileTranscriptionActionPlay" xml:space="preserve"><value>元ファイルを再生</value></data>
+  <data name="FileTranscriptionActionPause" xml:space="preserve"><value>再生を一時停止</value></data>
+  <data name="FileTranscriptionOriginalHeading" xml:space="preserve"><value>原文</value></data>
+  <data name="FileTranscriptionTranslationHeading" xml:space="preserve"><value>翻訳</value></data>
+  <data name="FileTranscriptionDiagnosticsHeading" xml:space="preserve"><value>詳細診断</value></data>
+  <data name="FileTranscriptionFeedbackStarted" xml:space="preserve"><value>文字起こしを開始しました。</value></data>
+  <data name="FileTranscriptionFeedbackCancelled" xml:space="preserve"><value>文字起こしをキャンセルしました。</value></data>
+  <data name="FileTranscriptionFeedbackContinued" xml:space="preserve"><value>文字起こしを再開しました。</value></data>
+  <data name="FileTranscriptionFeedbackRetried" xml:space="preserve"><value>最初から文字起こしをやり直しました。</value></data>
+  <data name="FileTranscriptionFeedbackDeleted" xml:space="preserve"><value>文字起こしを削除しました。</value></data>
+  <data name="FileTranscriptionFeedbackDeleteFailed" xml:space="preserve"><value>この文字起こしを削除できませんでした。現在の結果は保持されています。</value></data>
+  <data name="FileTranscriptionFeedbackCopied" xml:space="preserve"><value>結果をコピーしました。</value></data>
+  <data name="FileTranscriptionFeedbackCopyFailed" xml:space="preserve"><value>結果をコピーできませんでした。</value></data>
+  <data name="FileTranscriptionFeedbackExported" xml:space="preserve"><value>書き出しファイルを保存しました。</value></data>
+  <data name="FileTranscriptionFeedbackExportFailed" xml:space="preserve"><value>この結果を書き出せませんでした。</value></data>
+  <data name="FileTranscriptionFeedbackTranslated" xml:space="preserve"><value>全文の翻訳が完了しました。</value></data>
+  <data name="FileTranscriptionFeedbackTranslationFailed" xml:space="preserve"><value>翻訳に失敗しました。元の文字起こしは保持されています。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPreparing" xml:space="preserve"><value>元ファイルの再生を準備しています…</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackStarted" xml:space="preserve"><value>元ファイルの再生を開始しました。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackPaused" xml:space="preserve"><value>再生を一時停止しました。</value></data>
+  <data name="FileTranscriptionFeedbackPlaybackFailed" xml:space="preserve"><value>元ファイルを再生できませんでした。文字起こし結果は変更されていません。</value></data>
+  <data name="FileTranscriptionDeleteConfirmTitle" xml:space="preserve"><value>文字起こしを削除しますか？</value></data>
+  <data name="FileTranscriptionDeleteConfirmMessage" xml:space="preserve"><value>タスクと保存済みセグメントを削除します。元のファイルは削除されません。</value></data>
+  <data name="FileTranscriptionExportText" xml:space="preserve"><value>文字起こし（TXT）</value></data>
+  <data name="FileTranscriptionExportMarkdown" xml:space="preserve"><value>文字起こし（Markdown）</value></data>
+  <data name="FileTranscriptionExportSrt" xml:space="preserve"><value>字幕（SRT）</value></data>
+  <data name="FileTranscriptionExportTranslatedText" xml:space="preserve"><value>翻訳（TXT）</value></data>
+  <data name="FileTranscriptionExportTranslatedMarkdown" xml:space="preserve"><value>翻訳（Markdown）</value></data>
+  <data name="FileTranscriptionExportBilingualMarkdown" xml:space="preserve"><value>対訳 Markdown</value></data>
+  <data name="HomeHeading" xml:space="preserve"><value>ホーム</value></data>
+  <data name="HomeSubtitle" xml:space="preserve"><value>最近の音声入力とアクティビティがここに表示されます。</value></data>
+  <data name="SettingsHeading" xml:space="preserve"><value>設定</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>音声入力、モデル、テキスト処理、プライバシーを設定します。</value></data>
+  <data name="HomeStatsTotal" xml:space="preserve"><value>アセット合計</value></data>
+  <data name="HomeStatsToday" xml:space="preserve"><value>今日</value></data>
+  <data name="HomeStatsCharacters" xml:space="preserve"><value>音声入力</value></data>
+  <data name="HomeStatsDuration" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="HomeActivityTitle" xml:space="preserve"><value>入力アクティビティ</value></data>
+  <data name="HomeActivitySubtitle" xml:space="preserve"><value>過去52週間 · 1マスは1日</value></data>
+  <data name="HomeActivityLess" xml:space="preserve"><value>少</value></data>
+  <data name="HomeActivityMore" xml:space="preserve"><value>多</value></data>
+  <data name="HomeActivityThisWeekFormat" xml:space="preserve"><value>今週 {0} 件</value></data>
+  <data name="HistoryCountFormat" xml:space="preserve"><value>全 {0:N0} 件</value></data>
+  <data name="HistorySelectAll" xml:space="preserve"><value>すべて選択</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>アセット</value></data>
+  <data name="HistorySearchLabel" xml:space="preserve"><value>入力内容を検索</value></data>
+  <data name="HistorySourceLabel" xml:space="preserve"><value>アセットの提供元</value></data>
+  <data name="HistorySourceAll" xml:space="preserve"><value>すべての提供元</value></data>
+  <data name="HistorySourceDictation" xml:space="preserve"><value>音声入力</value></data>
+  <data name="HistorySourceScreenshot" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="HistorySourceQwen" xml:space="preserve"><value>Qwen</value></data>
+  <data name="HistorySourceTencent" xml:space="preserve"><value>Tencent Cloud</value></data>
+  <data name="HistorySourceAliyun" xml:space="preserve"><value>Alibaba Cloud</value></data>
+  <data name="HistorySourceVolcengine" xml:space="preserve"><value>Volcengine</value></data>
+  <data name="HistoryEmpty" xml:space="preserve"><value>現在の条件に一致する履歴はありません。</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>選択</value></data>
+  <data name="HistoryCopy" xml:space="preserve"><value>コピー</value></data>
+  <data name="HistoryDetails" xml:space="preserve"><value>詳細</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>削除</value></data>
+  <data name="HistoryDeleteSelected" xml:space="preserve"><value>選択項目を削除</value></data>
+  <data name="HistoryClearAll" xml:space="preserve"><value>履歴を消去</value></data>
+  <data name="HistoryCopySucceeded" xml:space="preserve"><value>クリップボードにコピーしました。</value></data>
+  <data name="HistoryCopyFailed" xml:space="preserve"><value>この履歴をコピーできませんでした。もう一度お試しください。</value></data>
+  <data name="HistoryDeleteSucceeded" xml:space="preserve"><value>履歴を削除しました。</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>選択した履歴を削除できませんでした。もう一度お試しください。</value></data>
+  <data name="HistorySaveSucceeded" xml:space="preserve"><value>変更を保存しました。</value></data>
+  <data name="HistorySaveFailed" xml:space="preserve"><value>変更を保存できませんでした。もう一度お試しください。</value></data>
+  <data name="HistoryReprocessSucceeded" xml:space="preserve"><value>テキストを再処理しました。</value></data>
+  <data name="HistoryReprocessFailed" xml:space="preserve"><value>テキストを再処理できませんでした。テキスト処理設定を確認して、もう一度お試しください。</value></data>
+  <data name="HistoryActionFailed" xml:space="preserve"><value>履歴の操作に失敗しました。もう一度お試しください。</value></data>
+  <data name="HistoryDeleteConfirmationTitle" xml:space="preserve"><value>履歴を削除</value></data>
+  <data name="HistoryDeleteConfirmationMessage" xml:space="preserve"><value>この履歴を削除しますか？この操作は取り消せません。</value></data>
+  <data name="HistoryDeleteSelectedConfirmationMessage" xml:space="preserve"><value>選択した履歴を削除しますか？この操作は取り消せません。</value></data>
+  <data name="HistoryClearAllConfirmationMessage" xml:space="preserve"><value>すべての履歴を消去しますか？この操作は取り消せません。</value></data>
+  <data name="HistoryDeleteSelectedUnavailable" xml:space="preserve"><value>削除する履歴を1件以上選択してください。</value></data>
+  <data name="HistoryClearAllUnavailable" xml:space="preserve"><value>履歴が1件以上ある場合に消去できます。</value></data>
+  <data name="HistorySaveUnavailable" xml:space="preserve"><value>空でない最終テキストを入力してから保存してください。</value></data>
+  <data name="HistoryReprocessUnavailable" xml:space="preserve"><value>テキスト処理フローを設定すると再処理できます。</value></data>
+  <data name="HistoryPreviousPage" xml:space="preserve"><value>前へ</value></data>
+  <data name="HistoryNextPage" xml:space="preserve"><value>次へ</value></data>
+  <data name="HistoryDetailTitle" xml:space="preserve"><value>音声入力の詳細</value></data>
+  <data name="HistoryNoPreview" xml:space="preserve"><value>プレビューなし</value></data>
+  <data name="HistoryContentTypeVoice" xml:space="preserve"><value>音声</value></data>
+  <data name="HistoryContentTypeImage" xml:space="preserve"><value>画像</value></data>
+  <data name="HistoryContentTypeFile" xml:space="preserve"><value>ファイル</value></data>
+  <data name="HistoryContentTypeWorkflow" xml:space="preserve"><value>ワークフロー</value></data>
+  <data name="HistoryContentTypeText" xml:space="preserve"><value>テキスト</value></data>
+  <data name="HistoryDetailClose" xml:space="preserve"><value>閉じる</value></data>
+  <data name="HistoryDetailRawText" xml:space="preserve"><value>認識テキスト</value></data>
+  <data name="HistoryDetailFinalText" xml:space="preserve"><value>最終テキスト</value></data>
+  <data name="HistoryDetailMetadata" xml:space="preserve"><value>処理メタデータ</value></data>
+  <data name="HistoryDetailLanguage" xml:space="preserve"><value>認識言語</value></data>
+  <data name="HistoryDetailAsr" xml:space="preserve"><value>音声認識： </value></data>
+  <data name="HistoryDetailQwen" xml:space="preserve"><value>Qwen モデル： </value></data>
+  <data name="HistoryDetailLlm" xml:space="preserve"><value>大規模言語モデル： </value></data>
+  <data name="HistoryDetailDuration" xml:space="preserve"><value>音声入力時間</value></data>
+  <data name="HistoryDetailLlmDuration" xml:space="preserve"><value>LLM 処理時間</value></data>
+  <data name="HistoryDetailFrames" xml:space="preserve"><value>音声フレーム（取得 / 破棄）</value></data>
+  <data name="HistoryDetailSave" xml:space="preserve"><value>編集を保存</value></data>
+  <data name="HistoryDetailReprocess" xml:space="preserve"><value>再処理</value></data>
+  <data name="HistoryDetailDiagnostic" xml:space="preserve"><value>機密情報を除いた診断</value></data>
+  <data name="HistoryDetailCopyDiagnostic" xml:space="preserve"><value>診断をコピー</value></data>
+  <data name="HudPreparing" xml:space="preserve"><value>準備中</value></data>
+  <data name="HudListening" xml:space="preserve"><value>聞き取り中</value></data>
+  <data name="HudWaiting" xml:space="preserve"><value>結果を確定中</value></data>
+  <data name="HudImproving" xml:space="preserve"><value>文章を整えています</value></data>
+  <data name="HudWriting" xml:space="preserve"><value>入力中</value></data>
+  <data name="HudCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="HudFailed" xml:space="preserve"><value>確認が必要です</value></data>
+  <data name="HudCopied" xml:space="preserve"><value>コピーしました</value></data>
+  <data name="HudGenericFailure" xml:space="preserve"><value>音声入力を完了できませんでした。</value></data>
+  <data name="HudAgentReadingWindow" xml:space="preserve"><value>現在のウィンドウを読み取り中</value></data>
+  <data name="HudAgentListening" xml:space="preserve"><value>聞き取り中</value></data>
+  <data name="HudAgentTranscribing" xml:space="preserve"><value>文字起こし中</value></data>
+  <data name="HudAgentProcessing" xml:space="preserve"><value>考え中</value></data>
+  <data name="HudAgentOperating" xml:space="preserve"><value>操作中</value></data>
+  <data name="HudAgentWaitingForUser" xml:space="preserve"><value>回答を待っています</value></data>
+  <data name="HudAgentCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="HudAgentFailed" xml:space="preserve"><value>対応が必要です</value></data>
+  <data name="HudAgentCopied" xml:space="preserve"><value>コピーしました</value></data>
+  <data name="HudAgentRedacted" xml:space="preserve"><value>[非表示]</value></data>
+  <data name="HudAgentPathRemoved" xml:space="preserve"><value>[パスを非表示]</value></data>
+  <data name="HudAgentToolReadFile" xml:space="preserve"><value>ファイルを読む</value></data>
+  <data name="HudAgentToolSearchTranscriptions" xml:space="preserve"><value>履歴を検索</value></data>
+  <data name="HudAgentToolRespond" xml:space="preserve"><value>回答を準備</value></data>
+  <data name="HudAgentToolAskUserQuestion" xml:space="preserve"><value>回答を待っています</value></data>
+  <data name="HudAgentToolWriteFile" xml:space="preserve"><value>ファイルに書き込む</value></data>
+  <data name="HudAgentToolEditFile" xml:space="preserve"><value>ファイルを編集</value></data>
+  <data name="HudAgentToolNotebookEdit" xml:space="preserve"><value>ノートブックを編集</value></data>
+  <data name="HudAgentToolListFiles" xml:space="preserve"><value>ファイルを一覧</value></data>
+  <data name="HudAgentToolGlobFiles" xml:space="preserve"><value>ファイルを検索</value></data>
+  <data name="HudAgentToolGrepFiles" xml:space="preserve"><value>ファイル内容を検索</value></data>
+  <data name="HudAgentToolClipboard" xml:space="preserve"><value>クリップボードを使用</value></data>
+  <data name="HudAgentToolKeyboard" xml:space="preserve"><value>キーボードを使用</value></data>
+  <data name="HudAgentToolTextField" xml:space="preserve"><value>テキスト欄を操作</value></data>
+  <data name="HudAgentToolHttpRequest" xml:space="preserve"><value>Web サイトにリクエスト</value></data>
+  <data name="HudAgentToolOpenUrl" xml:space="preserve"><value>Web サイトを開く</value></data>
+  <data name="HudAgentToolWebFetch" xml:space="preserve"><value>Web ページを読む</value></data>
+  <data name="HudAgentToolWebSearch" xml:space="preserve"><value>Web を検索</value></data>
+  <data name="OutputPermissionDenied" xml:space="preserve"><value>管理者権限のアプリにテキストを入力できませんでした。VoxFlow を管理者として再起動してから、もう一度お試しください。結果はコピーされました。</value></data>
+  <data name="OutputInjectionFailed" xml:space="preserve"><value>テキストを入力できませんでした。結果はコピーされました。</value></data>
+  <data name="OutputTargetChanged" xml:space="preserve"><value>入力先が変更されたため、結果をコピーしました。</value></data>
+  <data name="OutputClipboardFailed" xml:space="preserve"><value>テキストを入力またはコピーできませんでした。音声入力履歴から結果をコピーしてください。</value></data>
+  <data name="TrayLanguage" xml:space="preserve"><value>認識言語</value></data>
+  <data name="TrayLanguageAutomatic" xml:space="preserve"><value>自動認識</value></data>
+  <data name="TrayLanguageChinese" xml:space="preserve"><value>中国語（標準語）</value></data>
+  <data name="TrayLanguageEnglish" xml:space="preserve"><value>英語</value></data>
+  <data name="TrayLanguageJapanese" xml:space="preserve"><value>日本語</value></data>
+  <data name="TrayLanguageKorean" xml:space="preserve"><value>韓国語</value></data>
+  <data name="TrayAsr" xml:space="preserve"><value>音声認識</value></data>
+  <data name="TrayAsrQwen06B" xml:space="preserve"><value>Qwen 0.6B</value></data>
+  <data name="TrayAsrQwen17B" xml:space="preserve"><value>Qwen 1.7B</value></data>
+  <data name="TrayOpenAi" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="TrayOpenAiEnabled" xml:space="preserve"><value>音声入力テキストを整える</value></data>
+  <data name="TrayAgent" xml:space="preserve"><value>VoxFlow エージェント</value></data>
+  <data name="TrayAgentReady" xml:space="preserve"><value>準備完了</value></data>
+  <data name="TrayAgentRunning" xml:space="preserve"><value>エージェント作成を実行中</value></data>
+  <data name="TrayAgentRuntimeUnavailable" xml:space="preserve"><value>エージェント実行環境を利用できません</value></data>
+  <data name="TrayAgentProviderUnavailable" xml:space="preserve"><value>ツール呼び出し対応の Provider を設定してテストしてください</value></data>
+  <data name="TrayAgentStart" xml:space="preserve"><value>エージェント作成を開始</value></data>
+  <data name="TrayAgentStop" xml:space="preserve"><value>エージェント作成を停止</value></data>
+  <data name="TrayOpenWindow" xml:space="preserve"><value>VoxFlow を開く</value></data>
+  <data name="TrayOpenSettings" xml:space="preserve"><value>設定</value></data>
+  <data name="TrayOpenGithub" xml:space="preserve"><value>GitHub プロジェクト</value></data>
+  <data name="TrayOpenPermissions" xml:space="preserve"><value>マイクのアクセス許可</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>VoxFlow を終了</value></data>
+  <data name="FileTranscriptionResultSubtitleFormat" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="FileTranscriptionResultUnavailableHelp" xml:space="preserve"><value>利用可能な文字起こし結果が作成されると操作できます。</value></data>
+  <data name="FileTranscriptionJobDiagnosticErrorFormat" xml:space="preserve"><value>タスクエラー · {0}</value></data>
+  <data name="FileTranscriptionTranslationDiagnosticErrorFormat" xml:space="preserve"><value>翻訳エラー · {0}</value></data>
+  <data name="FileTranscriptionProcessingSegment" xml:space="preserve"><value>セグメント {0}/{1} を処理中</value></data>
+  <data name="FileTranscriptionStatusJobCount" xml:space="preserve"><value>{0} 件のタスク</value></data>
+  <data name="FileTranscriptionFallbackNone" xml:space="preserve"><value>なし</value></data>
+  <data name="FileTranscriptionFallbackEmptyResult" xml:space="preserve"><value>空の結果を受けて再試行</value></data>
+  <data name="FileTranscriptionFallbackDuplicateResult" xml:space="preserve"><value>重複した結果を受けて再試行</value></data>
+  <data name="FileTranscriptionFallbackProviderError" xml:space="preserve"><value>サービスエラーを受けて再試行</value></data>
+  <data name="FileTranscriptionErrorSourceUnavailable" xml:space="preserve"><value>元ファイルを利用できません</value></data>
+  <data name="FileTranscriptionErrorUnsupportedMedia" xml:space="preserve"><value>メディア形式が未対応かファイルが破損しています</value></data>
+  <data name="FileTranscriptionErrorNoAudioTrack" xml:space="preserve"><value>音声トラックが見つかりません</value></data>
+  <data name="FileTranscriptionErrorRuntimeUnavailable" xml:space="preserve"><value>メディア実行環境を利用できないか破損しています</value></data>
+  <data name="FileTranscriptionErrorInsufficientDiskSpace" xml:space="preserve"><value>一時ディスクの空き容量が不足しています</value></data>
+  <data name="FileTranscriptionErrorProviderFailure" xml:space="preserve"><value>音声認識サービスの処理に失敗しました</value></data>
+  <data name="FileTranscriptionErrorProviderUnavailable" xml:space="preserve"><value>音声認識サービスを利用できません</value></data>
+  <data name="FileTranscriptionErrorProviderAuthentication" xml:space="preserve"><value>音声認識サービスの認証に失敗しました</value></data>
+  <data name="FileTranscriptionErrorProviderQuota" xml:space="preserve"><value>音声認識サービスの利用枠を超えました</value></data>
+  <data name="FileTranscriptionErrorProviderAudioFormat" xml:space="preserve"><value>音声認識サービスが音声形式を拒否しました</value></data>
+  <data name="FileTranscriptionErrorProviderModelNotReady" xml:space="preserve"><value>ローカル音声モデルの準備が完了していません</value></data>
+  <data name="FileTranscriptionErrorProviderNetwork" xml:space="preserve"><value>音声認識サービスへの通信に失敗しました</value></data>
+  <data name="FileTranscriptionErrorSegmentTimedOut" xml:space="preserve"><value>セグメント処理がタイムアウトしました</value></data>
+  <data name="FileTranscriptionErrorTranslation" xml:space="preserve"><value>全文翻訳に失敗しました</value></data>
+  <data name="FileTranscriptionStatusIdle" xml:space="preserve"><value>実行中のファイル文字起こしはありません。</value></data>
+  <data name="FileTranscriptionPlaybackUnavailableHelp" xml:space="preserve"><value>元ファイルにアクセスできる場合に再生できます。</value></data>
+  <data name="LlmProviderHealthUnknown" xml:space="preserve"><value>未テスト</value></data>
+  <data name="LlmProviderHealthTesting" xml:space="preserve"><value>テスト中…</value></data>
+  <data name="LlmProviderHealthAvailable" xml:space="preserve"><value>利用可能</value></data>
+  <data name="LlmProviderHealthUnavailable" xml:space="preserve"><value>利用不可</value></data>
+  <data name="LlmProviderAgentUnknown" xml:space="preserve"><value>エージェント機能は未テストです</value></data>
+  <data name="LlmProviderAgentSupported" xml:space="preserve"><value>エージェント対応</value></data>
+  <data name="LlmProviderAgentUnsupported" xml:space="preserve"><value>エージェント非対応</value></data>
+  <data name="LlmProviderAgentError" xml:space="preserve"><value>エージェントのテストに失敗しました</value></data>
+  <data name="LlmProviderTitle" xml:space="preserve"><value>LLM プロバイダー</value></data>
+  <data name="LlmProviderSubtitle" xml:space="preserve"><value>校正、翻訳、要約、内蔵エージェントのタスクで使う OpenAI 互換サービスを設定します。</value></data>
+  <data name="LlmProviderAdd" xml:space="preserve"><value>プロバイダーを追加</value></data>
+  <data name="LlmProviderEmpty" xml:space="preserve"><value>モデルプロバイダーはまだありません</value></data>
+  <data name="LlmProviderBadge" xml:space="preserve"><value>LLM</value></data>
+  <data name="LlmProviderCurrent" xml:space="preserve"><value>使用中</value></data>
+  <data name="LlmProviderEnable" xml:space="preserve"><value>有効</value></data>
+  <data name="LlmProviderSetDefault" xml:space="preserve"><value>既定に設定</value></data>
+  <data name="LlmProviderEdit" xml:space="preserve"><value>編集</value></data>
+  <data name="LlmProviderTestConnection" xml:space="preserve"><value>接続テスト</value></data>
+  <data name="LlmProviderTestAgent" xml:space="preserve"><value>エージェントをテスト</value></data>
+  <data name="LlmProviderDelete" xml:space="preserve"><value>削除</value></data>
+  <data name="LlmProviderEditorAddTitle" xml:space="preserve"><value>プロバイダーを追加</value></data>
+  <data name="LlmProviderEditorEditTitle" xml:space="preserve"><value>プロバイダーを編集</value></data>
+  <data name="LlmProviderEditorHint" xml:space="preserve"><value>プロバイダーを選ぶと公式アドレスが入力されます。ほかの OpenAI 互換サービスには「カスタム」を選んでください。</value></data>
+  <data name="LlmProviderTemplateLabel" xml:space="preserve"><value>プロバイダー</value></data>
+  <data name="LlmProviderCustomTemplate" xml:space="preserve"><value>カスタム</value></data>
+  <data name="LlmProviderName" xml:space="preserve"><value>名前</value></data>
+  <data name="LlmProviderServiceUrl" xml:space="preserve"><value>サービス URL</value></data>
+  <data name="LlmProviderModel" xml:space="preserve"><value>モデル</value></data>
+  <data name="LlmProviderRefreshModels" xml:space="preserve"><value>モデルを更新</value></data>
+  <data name="LlmProviderGenerationSettings" xml:space="preserve"><value>生成設定</value></data>
+  <data name="LlmProviderTemperature" xml:space="preserve"><value>温度</value></data>
+  <data name="LlmProviderTimeout" xml:space="preserve"><value>タイムアウト</value></data>
+  <data name="LlmProviderSeconds" xml:space="preserve"><value>秒</value></data>
+  <data name="LlmProviderApiKey" xml:space="preserve"><value>API キー</value></data>
+  <data name="LlmProviderRevealApiKey" xml:space="preserve"><value>保存したキーを表示</value></data>
+  <data name="LlmProviderHideApiKey" xml:space="preserve"><value>キーを隠す</value></data>
+  <data name="LlmProviderAddModel" xml:space="preserve"><value>モデルを追加</value></data>
+  <data name="LlmProviderNoApiKeyRequired" xml:space="preserve"><value>キー不要</value></data>
+  <data name="LlmProviderCredentialHint" xml:space="preserve"><value>API キーは現在の Windows ユーザー用に暗号化して保存されます。</value></data>
+  <data name="LlmProviderAvailability" xml:space="preserve"><value>利用状態</value></data>
+  <data name="LlmProviderUseAsDefault" xml:space="preserve"><value>既定のプロバイダーにする</value></data>
+  <data name="LlmProviderCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="LlmProviderSave" xml:space="preserve"><value>保存</value></data>
+  <data name="LlmProviderDeleteConfirmationTitle" xml:space="preserve"><value>プロバイダーを削除しますか？</value></data>
+  <data name="LlmProviderDeleteConfirmationMessage" xml:space="preserve"><value>このコンピューターからプロバイダーと保存済み API キーを削除します。</value></data>
+  <data name="LlmProviderActionFailed" xml:space="preserve"><value>操作に失敗しました。プロバイダー設定を確認して再試行してください。</value></data>
+  <data name="LlmProviderStatusEnabled" xml:space="preserve"><value>有効</value></data>
+  <data name="LlmProviderStatusDisabled" xml:space="preserve"><value>無効</value></data>
+  <data name="LlmProviderGetApiKey" xml:space="preserve"><value>API キーを取得</value></data>
+  <data name="HistorySourceSelectionTranslation" xml:space="preserve"><value>選択範囲の翻訳</value></data>
+  <data name="HistorySourceSelectionSummary" xml:space="preserve"><value>選択範囲の要約</value></data>
+  <data name="HistorySourceAgentCompose" xml:space="preserve"><value>VoxFlow Agent</value></data>
+  <data name="HistorySourceFileTranscription" xml:space="preserve"><value>ファイル文字起こし</value></data>
+  <data name="WorkflowStatusPending" xml:space="preserve"><value>待機中</value></data>
+  <data name="WorkflowStatusRunning" xml:space="preserve"><value>進行中</value></data>
+  <data name="WorkflowStatusPartiallyCompleted" xml:space="preserve"><value>一部完了</value></data>
+  <data name="WorkflowStatusCompleted" xml:space="preserve"><value>完了</value></data>
+  <data name="WorkflowStatusFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="WorkflowStatusCancelled" xml:space="preserve"><value>キャンセル済み</value></data>
+  <data name="WorkflowStatusInterrupted" xml:space="preserve"><value>中断済み</value></data>
+  <data name="HistoryDetailWorkflowMetadata" xml:space="preserve"><value>ワークフロー</value></data>
+  <data name="HistoryDetailStatus" xml:space="preserve"><value>状態</value></data>
+  <data name="HistoryDetailFailure" xml:space="preserve"><value>失敗理由</value></data>
+  <data name="HistoryDetailProvider" xml:space="preserve"><value>プロバイダー</value></data>
+  <data name="HistoryDetailModel" xml:space="preserve"><value>モデル</value></data>
+  <data name="HistoryDetailContextSources" xml:space="preserve"><value>コンテキスト元</value></data>
+  <data name="HistoryDetailTimeline" xml:space="preserve"><value>イベント履歴</value></data>
+  <data name="HistoryDetailTools" xml:space="preserve"><value>使用したツール</value></data>
+  <data name="HistoryDetailArtifacts" xml:space="preserve"><value>成果物</value></data>
+  <data name="HistoryDetailResultSummary" xml:space="preserve"><value>結果の要約</value></data>
+  <data name="SettingsNavigationTranslation" xml:space="preserve"><value>翻訳</value></data>
+  <data name="SettingsTranslationHeading" xml:space="preserve"><value>選択テキストの操作</value></data>
+  <data name="SettingsTranslationSubtitle" xml:space="preserve"><value>別のアプリで選択したテキストを直接翻訳または要約するショートカットを設定します。</value></data>
+  <data name="SettingsHotkeyScreenshotTitle" xml:space="preserve"><value>スクリーンショット OCR</value></data>
+  <data name="SettingsHotkeyScreenshotDescription" xml:space="preserve"><value>画面をキャプチャして文字を抽出します。</value></data>
+  <data name="SettingsHotkeySelectionTranslationTitle" xml:space="preserve"><value>推敲</value></data>
+  <data name="SettingsHotkeySelectionTranslationDescription" xml:space="preserve"><value>選択後のクイック操作を有効にします。</value></data>
+  <data name="SettingsHotkeySelectionSummaryTitle" xml:space="preserve"><value>要約</value></data>
+  <data name="SettingsHotkeySelectionSummaryDescription" xml:space="preserve"><value>選択したテキストを要約します。</value></data>
+  <data name="SettingsHotkeyAgentComposeTitle" xml:space="preserve"><value>スマートワークスペース</value></data>
+  <data name="SettingsHotkeyAgentComposeDescription" xml:space="preserve"><value>選択したテキストをタスクアシスタントへ送ります。</value></data>
+  <data name="SettingsHotkeyAgentSectionTitle" xml:space="preserve"><value>VoxFlow Agent ショートカット</value></data>
+  <data name="SettingsHotkeyAgentSectionDescription" xml:space="preserve"><value>内蔵 Agent の音声ジェスチャーを設定します。右 Alt と AltGr の組み合わせは使用できません。</value></data>
+  <data name="SettingsHotkeyRecord" xml:space="preserve"><value>記録</value></data>
+  <data name="SettingsHotkeyCancel" xml:space="preserve"><value>記録をキャンセル</value></data>
+  <data name="SettingsHotkeyClear" xml:space="preserve"><value>クリア</value></data>
+  <data name="SettingsHotkeyRestoreDefault" xml:space="preserve"><value>既定値に戻す</value></data>
+  <data name="SettingsHotkeyUnbound" xml:space="preserve"><value>未設定</value></data>
+  <data name="SettingsHotkeyRecordingStatus" xml:space="preserve"><value>ショートカットを押してください…</value></data>
+  <data name="hotkey.conflict.alreadyAssigned" xml:space="preserve"><value>このショートカットは別の操作に割り当てられています。</value></data>
+  <data name="hotkey.conflict.altGrUnsafe" xml:space="preserve"><value>右 Alt または AltGr は文字入力に使われるため、このショートカットには設定できません。</value></data>
+  <data name="hotkey.conflict.systemEditing" xml:space="preserve"><value>この組み合わせは一般的な編集操作で使用されています。</value></data>
+
+  <data name="FailureAsrUnavailable" xml:space="preserve"><value>No speech recognizer is ready. Configure a cloud provider or download a local model.</value></data>
+  <data name="FailureCloudProvider" xml:space="preserve"><value>The selected cloud speech provider could not complete this dictation. Review its configuration, then retry.</value></data>
+  <data name="FailureLlmFallback" xml:space="preserve"><value>Text refinement was unavailable, so VoxFlow kept the original recognized text.</value></data>
+  <data name="FailureMicrophonePermission" xml:space="preserve"><value>Microphone access is unavailable. Review microphone privacy permissions in Windows Settings.</value></data>
+  <data name="FailureQwenRuntime" xml:space="preserve"><value>The selected Qwen model could not run. Review the model status and retry without changing providers.</value></data>
+  <data name="SettingsActionApply" xml:space="preserve"><value>Apply changes</value></data>
+  <data name="SettingsActionDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="SettingsActionSave" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsActionTest" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SettingsCloudAudioNotice" xml:space="preserve"><value>Audio is sent directly to this cloud provider during dictation.</value></data>
+  <data name="SettingsCloudDeleteConfirmationMessage" xml:space="preserve"><value>This provider will become unavailable for new dictation. Other providers and local models are not changed.</value></data>
+  <data name="SettingsCloudDeleteConfirmationTitle" xml:space="preserve"><value>Delete cloud credential?</value></data>
+  <data name="SettingsConnectionFailed" xml:space="preserve"><value>Connection failed. Review the model and credential, then retry.</value></data>
+  <data name="SettingsConnectionSucceeded" xml:space="preserve"><value>Connection succeeded.</value></data>
+  <data name="SettingsOperationSaving" xml:space="preserve"><value>認証情報を安全に保存しています…</value></data>
+  <data name="SettingsOperationTesting" xml:space="preserve"><value>接続をテストしています…</value></data>
+  <data name="SettingsOperationDeleting" xml:space="preserve"><value>認証情報を削除しています…</value></data>
+  <data name="SettingsOperationFailed" xml:space="preserve"><value>操作に失敗しました。入力内容を確認して再試行してください。</value></data>
+  <data name="SettingsCredentialAccessToken" xml:space="preserve"><value>Access token</value></data>
+  <data name="SettingsCredentialApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsCredentialAppId" xml:space="preserve"><value>App ID</value></data>
+  <data name="SettingsCredentialConfigured" xml:space="preserve"><value>Saved securely</value></data>
+  <data name="SettingsCredentialNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsCredentialSecretId" xml:space="preserve"><value>Secret ID</value></data>
+  <data name="SettingsCredentialSecretKey" xml:space="preserve"><value>Secret key</value></data>
+  <data name="SettingsDeleteConfirmationMessage" xml:space="preserve"><value>Text refinement will be disabled. Speech recognition and deterministic text cleanup will continue to work.</value></data>
+  <data name="SettingsDeleteConfirmationTitle" xml:space="preserve"><value>Delete OpenAI credential?</value></data>
+  <data name="SettingsDeleteSucceeded" xml:space="preserve"><value>Credential deleted.</value></data>
+  <data name="SettingsGeneralAppearance" xml:space="preserve"><value>Appearance and startup</value></data>
+  <data name="SettingsGeneralCopyDiagnostics" xml:space="preserve"><value>Copy sanitized diagnostics</value></data>
+  <data name="SettingsGeneralDarkTheme" xml:space="preserve"><value>ダークモード</value></data>
+  <data name="SettingsGeneralData" xml:space="preserve"><value>Local data and diagnostics</value></data>
+  <data name="SettingsGeneralHeading" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsGeneralLaunchAtLogin" xml:space="preserve"><value>スタートアップ起動</value></data>
+  <data name="SettingsGeneralOpenMicrophonePrivacy" xml:space="preserve"><value>Open microphone privacy settings</value></data>
+  <data name="SettingsGeneralPermissions" xml:space="preserve"><value>Windows permissions</value></data>
+  <data name="SettingsGeneralReset" xml:space="preserve"><value>Restore default settings</value></data>
+  <data name="SettingsDiagnosticsCopying" xml:space="preserve"><value>匿名化された診断情報を準備しています…</value></data>
+  <data name="SettingsDiagnosticsCopied" xml:space="preserve"><value>匿名化された診断情報をコピーしました。</value></data>
+  <data name="SettingsDiagnosticsEmpty" xml:space="preserve"><value>診断情報はまだ記録されていません。</value></data>
+  <data name="SettingsGeneralActionFailed" xml:space="preserve"><value>操作に失敗しました。再試行するか Windows の権限を確認してください。</value></data>
+  <data name="SettingsGeneralActionUnavailable" xml:space="preserve"><value>現在のビルドではこの設定を使用できません。</value></data>
+  <data name="SettingsResetting" xml:space="preserve"><value>既定の設定に戻しています…</value></data>
+  <data name="SettingsResetSucceeded" xml:space="preserve"><value>一般設定と音声設定を既定値に戻しました。</value></data>
+  <data name="DebugTranscriptInjectionTitle" xml:space="preserve"><value>デバッグ文字起こし注入</value></data>
+  <data name="DebugTranscriptInjectionSubtitle" xml:space="preserve"><value>マイクと音声認識を省略し、本番の修正または Agent 後続処理を実行します。</value></data>
+  <data name="DebugTranscriptInjectionRun" xml:space="preserve"><value>デバッグ処理を実行</value></data>
+  <data name="DebugTranscriptInjectionDefaultText" xml:space="preserve"><value>現在のウィンドウを要約してください。変更、送信、または何かを開く操作はしないでください。</value></data>
+  <data name="DebugTranscriptInjectionPlaceholder" xml:space="preserve"><value>注入する文字起こし</value></data>
+  <data name="DebugTranscriptInjectionModeDictation" xml:space="preserve"><value>音声入力の修正</value></data>
+  <data name="DebugTranscriptInjectionModeAgentCompose" xml:space="preserve"><value>Agent Compose</value></data>
+  <data name="DebugTranscriptInjectionRunning" xml:space="preserve"><value>本番の後続処理を実行しています…</value></data>
+  <data name="DebugTranscriptInjectionCompleted" xml:space="preserve"><value>デバッグ処理が完了しました。</value></data>
+  <data name="DebugTranscriptInjectionBusy" xml:space="preserve"><value>別の音声ワークフローが実行中です。</value></data>
+  <data name="DebugTranscriptInjectionUnavailable" xml:space="preserve"><value>選択したデバッグ処理を使用できません。Provider とランタイムを確認してください。</value></data>
+  <data name="DebugTranscriptInjectionFailed" xml:space="preserve"><value>デバッグ処理は安全に失敗しました。HUD と匿名化診断を確認してください。</value></data>
+  <data name="SettingsGeneralSubtitle" xml:space="preserve"><value>Manage appearance, permissions, storage, and local diagnostics.</value></data>
+  <data name="SettingsModelsAsrTab" xml:space="preserve"><value>Speech recognition</value></data>
+  <data name="SettingsModelsHeading" xml:space="preserve"><value>Models and providers</value></data>
+  <data name="SettingsModelsLlmTab" xml:space="preserve"><value>Text refinement</value></data>
+  <data name="SettingsModelsAgentTab" xml:space="preserve"><value>エージェント</value></data>
+  <data name="SettingsAgentHeading" xml:space="preserve"><value>VoxFlow エージェント</value></data>
+  <data name="SettingsAgentDescription" xml:space="preserve"><value>アプリに同梱され検証されたエージェント実行環境と、既定のツール呼び出し対応プロバイダーを使用します。</value></data>
+  <data name="SettingsAgentRuntimeLabel" xml:space="preserve"><value>同梱ランタイム</value></data>
+  <data name="SettingsAgentRuntimeAvailable" xml:space="preserve"><value>検証済み、利用可能</value></data>
+  <data name="SettingsAgentRuntimeMissing" xml:space="preserve"><value>同梱ランタイムがありません</value></data>
+  <data name="SettingsAgentRuntimeInvalid" xml:space="preserve"><value>ランタイムマニフェストが無効です</value></data>
+  <data name="SettingsAgentRuntimeHashMismatch" xml:space="preserve"><value>ランタイムの整合性チェックに失敗しました</value></data>
+  <data name="SettingsAgentRuntimeDisabled" xml:space="preserve"><value>エージェントランタイムは利用できません</value></data>
+  <data name="SettingsAgentVersionLabel" xml:space="preserve"><value>バージョン</value></data>
+  <data name="SettingsAgentHashLabel" xml:space="preserve"><value>マニフェスト SHA-256</value></data>
+  <data name="SettingsAgentProviderLabel" xml:space="preserve"><value>既定のプロバイダー</value></data>
+  <data name="SettingsAgentModelLabel" xml:space="preserve"><value>既定のモデル</value></data>
+  <data name="SettingsAgentConnectionHealthLabel" xml:space="preserve"><value>接続状態</value></data>
+  <data name="SettingsAgentToolCallingHealthLabel" xml:space="preserve"><value>ツール呼び出しの状態</value></data>
+  <data name="SettingsAgentNotAvailable" xml:space="preserve"><value>利用できません</value></data>
+  <data name="SettingsAgentNoDefaultProvider" xml:space="preserve"><value>有効な既定プロバイダーがありません</value></data>
+  <data name="AgentQuestionWindowTitle" xml:space="preserve"><value>VoxFlow エージェント</value></data>
+  <data name="AgentQuestionCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="AgentQuestionContinue" xml:space="preserve"><value>続行</value></data>
+  <data name="SettingsModelsSubtitle" xml:space="preserve"><value>Choose a speech recognizer and configure optional text refinement.</value></data>
+  <data name="SettingsNavigationGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsNavigationModels" xml:space="preserve"><value>Models</value></data>
+  <data name="SettingsNavigationText" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsNavigationVoice" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsOpenAiApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="SettingsOpenAiBaseUrl" xml:space="preserve"><value>Official API address</value></data>
+  <data name="SettingsOpenAiDescription" xml:space="preserve"><value>Optionally improve completed dictation with conservative streaming text refinement.</value></data>
+  <data name="SettingsOpenAiEnabled" xml:space="preserve"><value>Use OpenAI text refinement</value></data>
+  <data name="SettingsOpenAiHeading" xml:space="preserve"><value>OpenAI</value></data>
+  <data name="SettingsOpenAiModel" xml:space="preserve"><value>Model</value></data>
+  <data name="SettingsProviderAliyunDescription" xml:space="preserve"><value>Streaming speech recognition using your Alibaba Cloud API key.</value></data>
+  <data name="SettingsProviderQwen06Description" xml:space="preserve"><value>Smaller local speech model for faster CPU recognition.</value></data>
+  <data name="SettingsProviderQwen17Description" xml:space="preserve"><value>Larger local speech model for higher-quality final results.</value></data>
+  <data name="SettingsProviderTencentDescription" xml:space="preserve"><value>Streaming speech recognition using your Tencent Cloud credentials.</value></data>
+  <data name="SettingsProviderVolcengineDescription" xml:space="preserve"><value>Streaming speech recognition using your Volcengine credentials.</value></data>
+  <data name="SettingsResetConfirmationMessage" xml:space="preserve"><value>This restores general and voice settings. Saved credentials, downloaded models, history, and the current provider selection remain unchanged.</value></data>
+  <data name="SettingsResetConfirmationTitle" xml:space="preserve"><value>Restore default settings?</value></data>
+  <data name="SettingsSaveSucceeded" xml:space="preserve"><value>Settings saved.</value></data>
+  <data name="SettingsStatusConfigured" xml:space="preserve"><value>Configured; test the connection to enable selection</value></data>
+  <data name="SettingsStatusNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="SettingsStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsTextCapitalization" xml:space="preserve"><value>文頭の大文字化</value></data>
+  <data name="SettingsTextCjkBreakThreshold" xml:space="preserve"><value>CJK characters before a long-sentence break</value></data>
+  <data name="SettingsTextCjkPunctuationThreshold" xml:space="preserve"><value>CJK characters before punctuation</value></data>
+  <data name="SettingsTextCjkSpacing" xml:space="preserve"><value>CJK / ラテン間隔</value></data>
+  <data name="SettingsTextFillerWords" xml:space="preserve"><value>フィラー語の除去</value></data>
+  <data name="SettingsTextHeading" xml:space="preserve"><value>Text</value></data>
+  <data name="SettingsTextLongSentences" xml:space="preserve"><value>長文の分割</value></data>
+  <data name="SettingsTextMaster" xml:space="preserve"><value>テキスト処理を有効化</value></data>
+  <data name="SettingsTextPunctuation" xml:space="preserve"><value>句読点の最適化</value></data>
+  <data name="SettingsTextSmartNumbers" xml:space="preserve"><value>スマート数字認識</value></data>
+  <data name="SettingsTextSubtitle" xml:space="preserve"><value>Apply conservative, predictable cleanup after speech recognition.</value></data>
+  <data name="SettingsTextWordBreakThreshold" xml:space="preserve"><value>Words before a long-sentence break</value></data>
+  <data name="SettingsTextWordPunctuationThreshold" xml:space="preserve"><value>Words before punctuation</value></data>
+  <data name="SettingsVoiceAudioDescription" xml:space="preserve"><value>Control feedback sounds, playback muting, and speech enhancement.</value></data>
+  <data name="SettingsVoiceAudioHeading" xml:space="preserve"><value>Audio</value></data>
+  <data name="SettingsVoiceDefaultMicrophone" xml:space="preserve"><value>Default microphone</value></data>
+  <data name="SettingsVoiceDevice" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SettingsVoiceEnhancement" xml:space="preserve"><value>Enhance speech before recognition</value></data>
+  <data name="SettingsVoiceFeedbackSounds" xml:space="preserve"><value>Play start and stop sounds</value></data>
+  <data name="SettingsVoiceHeading" xml:space="preserve"><value>Voice</value></data>
+  <data name="SettingsVoiceInputDescription" xml:space="preserve"><value>入力デバイス、認識言語、表示言語を設定します。</value></data>
+  <data name="SettingsVoiceInputHeading" xml:space="preserve"><value>入力と言語</value></data>
+  <data name="SettingsVoiceInteraction" xml:space="preserve"><value>Shortcut behavior</value></data>
+  <data name="SettingsVoiceKeepMicrophoneActive" xml:space="preserve"><value>Keep the microphone ready between dictations</value></data>
+  <data name="SettingsVoiceLanguage" xml:space="preserve"><value>Recognition language</value></data>
+  <data name="SettingsVoiceMiddleMouse" xml:space="preserve"><value>Enable middle mouse button</value></data>
+  <data name="SettingsVoiceModeHold" xml:space="preserve"><value>Hold to dictate</value></data>
+  <data name="SettingsVoiceModeHybrid" xml:space="preserve"><value>Hold or tap to toggle</value></data>
+  <data name="SettingsVoiceModeToggle" xml:space="preserve"><value>Press to start or stop</value></data>
+  <data name="SettingsVoiceMutePlayback" xml:space="preserve"><value>Mute playback while recording</value></data>
+  <data name="SettingsVoiceOutputDescription" xml:space="preserve"><value>Choose fast paste or simulated typing for completed text.</value></data>
+  <data name="SettingsVoiceOutputHeading" xml:space="preserve"><value>Output</value></data>
+  <data name="SettingsVoiceQuickPaste" xml:space="preserve"><value>Fast paste</value></data>
+  <data name="SettingsVoiceQuickPasteDescription" xml:space="preserve"><value>Paste completed text and safely restore the clipboard.</value></data>
+  <data name="SettingsVoiceRuntimeDescription" xml:space="preserve"><value>Keep the microphone ready between dictations when desired.</value></data>
+  <data name="SettingsVoiceRuntimeHeading" xml:space="preserve"><value>Runtime</value></data>
+  <data name="SettingsVoiceShortcutDescription" xml:space="preserve"><value>音声入力と AI コーディングのグローバル入口</value></data>
+  <data name="SettingsVoiceShortcutHeading" xml:space="preserve"><value>音声ショートカット</value></data>
+  <data name="SettingsVoiceShortcutRightControl" xml:space="preserve"><value>Right Ctrl</value></data>
+  <data name="SettingsVoiceSimulatedTyping" xml:space="preserve"><value>Simulated typing</value></data>
+  <data name="SettingsVoiceSimulatedTypingDescription" xml:space="preserve"><value>Type Unicode text without replacing clipboard contents.</value></data>
+  <data name="SettingsVoiceSubtitle" xml:space="preserve"><value>Configure how dictation starts, listens, and writes text.</value></data>
+
+  <data name="SettingsModelDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="SettingsModelRetry" xml:space="preserve"><value>Retry download</value></data>
+  <data name="SettingsModelSelect" xml:space="preserve"><value>Use this model</value></data>
+  <data name="SettingsModelSelected" xml:space="preserve"><value>Selected</value></data>
+  <data name="SettingsModelStatusDownloadingFormat" xml:space="preserve"><value>Downloading {0:0}%</value></data>
+  <data name="SettingsModelStatusFailed" xml:space="preserve"><value>Download or validation failed</value></data>
+  <data name="SettingsModelActionDownloading" xml:space="preserve"><value>モデルをダウンロードして検証しています…</value></data>
+  <data name="SettingsModelActionSelecting" xml:space="preserve"><value>モデルを選択しています…</value></data>
+  <data name="SettingsModelActionDeleting" xml:space="preserve"><value>モデルを削除しています…</value></data>
+  <data name="SettingsModelDownloadSucceeded" xml:space="preserve"><value>モデルをダウンロードし、使用できる状態になりました。</value></data>
+  <data name="SettingsModelSelectSucceeded" xml:space="preserve"><value>モデルを選択しました。</value></data>
+  <data name="SettingsModelDeleteSucceeded" xml:space="preserve"><value>モデルを削除しました。</value></data>
+  <data name="SettingsModelActionFailed" xml:space="preserve"><value>モデルの操作に失敗しました。もう一度お試しください。</value></data>
+  <data name="SettingsModelDeleteConfirmationTitle" xml:space="preserve"><value>モデルを削除しますか？</value></data>
+  <data name="SettingsModelDeleteConfirmationMessage" xml:space="preserve"><value>ダウンロード済みのモデルファイルをこのコンピューターから削除します。後でもう一度ダウンロードできます。</value></data>
+  <data name="SettingsModelStatusInsufficientSpace" xml:space="preserve"><value>Not enough disk space</value></data>
+  <data name="SettingsModelStatusNotDownloaded" xml:space="preserve"><value>Not downloaded</value></data>
+  <data name="SettingsModelStatusPreparing" xml:space="preserve"><value>Preparing model…</value></data>
+  <data name="SettingsModelStatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="SettingsModelStatusSelected" xml:space="preserve"><value>In use</value></data>
+  <data name="SelectionFailureNoSelection" xml:space="preserve"><value>別のアプリでテキストを選択してから、もう一度試してください。</value></data>
+  <data name="SelectionFailureSecureField" xml:space="preserve"><value>セキュアな入力欄のテキストは読み取れません。</value></data>
+  <data name="SelectionFailureTargetChanged" xml:space="preserve"><value>元のウィンドウが変わりました。テキストを選択し直してください。</value></data>
+  <data name="SelectionFailureClipboardBusy" xml:space="preserve"><value>クリップボードを使用中です。もう一度試してください。</value></data>
+  <data name="SelectionFailureTerminal" xml:space="preserve"><value>ターミナル内の選択を確認できないため、Ctrl+C は送信していません。</value></data>
+  <data name="SelectionFailureCopyFailed" xml:space="preserve"><value>選択したテキストをコピーできませんでした。</value></data>
+  <data name="SelectionResultSource" xml:space="preserve"><value>原文</value></data>
+  <data name="SelectionResultResult" xml:space="preserve"><value>結果</value></data>
+  <data name="SelectionResultCopy" xml:space="preserve"><value>コピー</value></data>
+  <data name="SelectionResultSpeak" xml:space="preserve"><value>読み上げ</value></data>
+  <data name="SelectionResultStopSpeaking" xml:space="preserve"><value>読み上げを停止</value></data>
+  <data name="SelectionResultReplace" xml:space="preserve"><value>原文を置換</value></data>
+  <data name="SelectionResultInsertBelow" xml:space="preserve"><value>下に挿入</value></data>
+  <data name="SelectionResultProcessing" xml:space="preserve"><value>処理中…</value></data>
+  <data name="SelectionResultTranslation" xml:space="preserve"><value>選択範囲を翻訳</value></data>
+  <data name="SelectionResultSummary" xml:space="preserve"><value>選択範囲を要約</value></data>
+  <data name="SelectionResultComplete" xml:space="preserve"><value>完了しました。</value></data>
+  <data name="SelectionResultPartial" xml:space="preserve"><value>停止しました。途中までの結果は引き続き利用できます。</value></data>
+  <data name="SelectionResultCancelled" xml:space="preserve"><value>キャンセルしました。</value></data>
+  <data name="SelectionResultFailed" xml:space="preserve"><value>選択範囲を処理できませんでした。既定の LLM サービスを確認して、もう一度お試しください。</value></data>
+  <data name="SelectionResultNoText" xml:space="preserve"><value>操作できるテキストがありません。</value></data>
+  <data name="SelectionResultCopyFailed" xml:space="preserve"><value>テキストをコピーできませんでした。</value></data>
+  <data name="SelectionResultCopied" xml:space="preserve"><value>コピーしました。</value></data>
+  <data name="SelectionResultWriteUnavailable" xml:space="preserve"><value>元のアプリにこのテキストを書き戻せません。</value></data>
+  <data name="SelectionResultReplaced" xml:space="preserve"><value>選択したテキストを置き換えました。</value></data>
+  <data name="SelectionResultInserted" xml:space="preserve"><value>選択範囲の下に挿入しました。</value></data>
+  <data name="SelectionResultCopiedFallback" xml:space="preserve"><value>元の対象が変わったため、結果をクリップボードにコピーしました。</value></data>
+  <data name="SelectionResultWriteFailed" xml:space="preserve"><value>テキストを書き戻せませんでした。元のテキストは変更されていません。</value></data>
+  <data name="SelectionResultSpeaking" xml:space="preserve"><value>読み上げています…</value></data>
+  <data name="SelectionResultSpeechComplete" xml:space="preserve"><value>読み上げが完了しました。</value></data>
+  <data name="SelectionResultSpeechStopped" xml:space="preserve"><value>読み上げを停止しました。</value></data>
+  <data name="SelectionResultSpeechUnavailable" xml:space="preserve"><value>Windows で利用できる音声がありません。</value></data>
+  <data name="SelectionResultSpeechFailed" xml:space="preserve"><value>このテキストを読み上げられませんでした。</value></data>
+  <data name="SelectionFailureUnexpected" xml:space="preserve"><value>選択範囲ツールは現在利用できません。既定の LLM サービスを確認して、もう一度お試しください。</value></data>
+  <data name="SelectionUnavailableDuringScreenshot" xml:space="preserve"><value>スクリーンショットツールを完了または閉じてから、選択範囲を翻訳または要約してください。</value></data>
+  <data name="NavigationMedia" xml:space="preserve"><value>メディア</value></data>
+  <data name="ScreenshotMediaHeading" xml:space="preserve"><value>メディア</value></data>
+  <data name="ScreenshotMediaSubtitle" xml:space="preserve"><value>スクリーンショットを撮影、検索、確認できます。</value></data>
+  <data name="TrayScreenshot" xml:space="preserve"><value>スクリーンショットを撮る</value></data>
+  <data name="ScreenshotStart" xml:space="preserve"><value>スクリーンショットを撮る</value></data>
+  <data name="ScreenshotMediaStatsTotal" xml:space="preserve"><value>すべてのメディア</value></data>
+  <data name="ScreenshotMediaStatsToday" xml:space="preserve"><value>今日のメディア</value></data>
+  <data name="ScreenshotMediaStatsScreenshots" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="ScreenshotMediaStatsFavorites" xml:space="preserve"><value>お気に入り</value></data>
+  <data name="ScreenshotMediaSearch" xml:space="preserve"><value>スクリーンショットを検索</value></data>
+  <data name="ScreenshotMediaFilter" xml:space="preserve"><value>スクリーンショットを絞り込む</value></data>
+  <data name="ScreenshotMediaPageSize" xml:space="preserve"><value>1ページの表示件数</value></data>
+  <data name="ScreenshotMediaEmptyTitle" xml:space="preserve"><value>スクリーンショットはまだありません</value></data>
+  <data name="ScreenshotMediaEmptyHint" xml:space="preserve"><value>撮影したスクリーンショットがここに表示されます。</value></data>
+  <data name="ScreenshotMediaPrevious" xml:space="preserve"><value>前へ</value></data>
+  <data name="ScreenshotMediaNext" xml:space="preserve"><value>次へ</value></data>
+  <data name="ScreenshotCopyImage" xml:space="preserve"><value>画像をコピー</value></data>
+  <data name="ScreenshotCopyText" xml:space="preserve"><value>テキストをコピー</value></data>
+  <data name="ScreenshotFavorite" xml:space="preserve"><value>お気に入りを切り替える</value></data>
+  <data name="ScreenshotDelete" xml:space="preserve"><value>スクリーンショットを削除</value></data>
+  <data name="ScreenshotFilterAll" xml:space="preserve"><value>すべて</value></data>
+  <data name="ScreenshotFilterScreenshots" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="ScreenshotFilterFavorites" xml:space="preserve"><value>お気に入り</value></data>
+  <data name="ScreenshotDetailTitle" xml:space="preserve"><value>スクリーンショットの詳細</value></data>
+  <data name="ScreenshotClose" xml:space="preserve"><value>閉じる</value></data>
+  <data name="ScreenshotImageUnavailable" xml:space="preserve"><value>画像を利用できません</value></data>
+  <data name="ScreenshotOriginal" xml:space="preserve"><value>元画像</value></data>
+  <data name="ScreenshotTranslatedImage" xml:space="preserve"><value>翻訳画像</value></data>
+  <data name="ScreenshotResolution" xml:space="preserve"><value>解像度</value></data>
+  <data name="ScreenshotFileSize" xml:space="preserve"><value>ファイルサイズ</value></data>
+  <data name="ScreenshotCharacters" xml:space="preserve"><value>文字数</value></data>
+  <data name="ScreenshotFavoriteStatus" xml:space="preserve"><value>お気に入り</value></data>
+  <data name="ScreenshotOcrTab" xml:space="preserve"><value>文字認識</value></data>
+  <data name="ScreenshotRefinedTab" xml:space="preserve"><value>整文</value></data>
+  <data name="ScreenshotTranslationTab" xml:space="preserve"><value>翻訳</value></data>
+  <data name="ScreenshotSummaryTab" xml:space="preserve"><value>要約</value></data>
+  <data name="ScreenshotSaveAs" xml:space="preserve"><value>名前を付けて保存</value></data>
+  <data name="ScreenshotReveal" xml:space="preserve"><value>エクスプローラーで表示</value></data>
+  <data name="ScreenshotReprocess" xml:space="preserve"><value>再認識</value></data>
+  <data name="ScreenshotToolSelect" xml:space="preserve"><value>選択</value></data>
+  <data name="ScreenshotToolPen" xml:space="preserve"><value>ペン</value></data>
+  <data name="ScreenshotToolEllipse" xml:space="preserve"><value>円</value></data>
+  <data name="ScreenshotToolRectangle" xml:space="preserve"><value>四角形</value></data>
+  <data name="ScreenshotToolArrow" xml:space="preserve"><value>矢印</value></data>
+  <data name="ScreenshotToolDotMarker" xml:space="preserve"><value>ポイントマーカー</value></data>
+  <data name="ScreenshotToolNumberedMarker" xml:space="preserve"><value>番号マーカー</value></data>
+  <data name="ScreenshotToolText" xml:space="preserve"><value>テキスト</value></data>
+  <data name="ScreenshotToolMosaic" xml:space="preserve"><value>モザイク</value></data>
+  <data name="ScreenshotToolTextRecognition" xml:space="preserve"><value>文字認識</value></data>
+  <data name="ScreenshotToolTranslate" xml:space="preserve"><value>翻訳</value></data>
+  <data name="ScreenshotToolColor" xml:space="preserve"><value>色</value></data>
+  <data name="ScreenshotToolLineWidth" xml:space="preserve"><value>線幅</value></data>
+  <data name="ScreenshotToolFontSize" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="ScreenshotToolCopy" xml:space="preserve"><value>注釈をコピー</value></data>
+  <data name="ScreenshotToolPaste" xml:space="preserve"><value>注釈をペースト</value></data>
+  <data name="ScreenshotToolDuplicate" xml:space="preserve"><value>複製</value></data>
+  <data name="ScreenshotToolUndo" xml:space="preserve"><value>取り消し</value></data>
+  <data name="ScreenshotToolRedo" xml:space="preserve"><value>やり直し</value></data>
+  <data name="ScreenshotToolDownload" xml:space="preserve"><value>ダウンロード</value></data>
+  <data name="ScreenshotToolCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="ScreenshotToolComplete" xml:space="preserve"><value>完了</value></data>
+  <data name="ScreenshotColorGreen" xml:space="preserve"><value>緑</value></data>
+  <data name="ScreenshotColorRed" xml:space="preserve"><value>赤</value></data>
+  <data name="ScreenshotColorWhite" xml:space="preserve"><value>白</value></data>
+  <data name="ScreenshotColorBlack" xml:space="preserve"><value>黒</value></data>
+  <data name="ScreenshotLineWidthThin" xml:space="preserve"><value>細い（6 px）</value></data>
+  <data name="ScreenshotLineWidthMedium" xml:space="preserve"><value>標準（8 px）</value></data>
+  <data name="ScreenshotLineWidthThick" xml:space="preserve"><value>太い（10 px）</value></data>
+  <data name="ScreenshotFontSizeSmall" xml:space="preserve"><value>小（14 pt）</value></data>
+  <data name="ScreenshotFontSizeMedium" xml:space="preserve"><value>中（24 pt）</value></data>
+  <data name="ScreenshotFontSizeLarge" xml:space="preserve"><value>大（32 pt）</value></data>
+  <data name="ScreenshotFontSizeSmallLabel" xml:space="preserve"><value>小</value></data>
+  <data name="ScreenshotFontSizeMediumLabel" xml:space="preserve"><value>中</value></data>
+  <data name="ScreenshotFontSizeLargeLabel" xml:space="preserve"><value>大</value></data>
+  <data name="ScreenshotToolbarCurrentValueFormat" xml:space="preserve"><value>{0}：{1}</value></data>
+  <data name="ScreenshotToolbarSelectedStatus" xml:space="preserve"><value>選択済み</value></data>
+  <data name="ScreenshotFavorited" xml:space="preserve"><value>お気に入り登録済み</value></data>
+  <data name="ScreenshotNotFavorited" xml:space="preserve"><value>お気に入り未登録</value></data>
+  <data name="ScreenshotOverlayName" xml:space="preserve"><value>スクリーンショット選択画面</value></data>
+  <data name="ScreenshotAnnotationTextEditor" xml:space="preserve"><value>スクリーンショット注釈テキスト</value></data>
+  <data name="ScreenshotSaveDialogTitle" xml:space="preserve"><value>スクリーンショットを保存</value></data>
+  <data name="ScreenshotPngFileFilter" xml:space="preserve"><value>PNG 画像 (*.png)|*.png</value></data>
+  <data name="ScreenshotDefaultFileNamePrefix" xml:space="preserve"><value>VoxFlowスクリーンショット</value></data>
+  <data name="ScreenshotClipboardBusy" xml:space="preserve"><value>クリップボードが使用中のため、スクリーンショットをコピーできませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotClipboardFailed" xml:space="preserve"><value>スクリーンショットをコピーできませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotSaveFailed" xml:space="preserve"><value>スクリーンショットを保存できませんでした。別の場所を選んで、もう一度お試しください。</value></data>
+  <data name="ScreenshotCaptureBusy" xml:space="preserve"><value>別の音声またはスクリーンショット処理が実行中です。完了後にもう一度お試しください。</value></data>
+  <data name="ScreenshotCaptureFailed" xml:space="preserve"><value>画面をキャプチャできませんでした。ディスプレイの接続を確認して、もう一度お試しください。</value></data>
+  <data name="ScreenshotProcessingFailed" xml:space="preserve"><value>スクリーンショットは取得されましたが、後処理に失敗しました。もう一度お試しください。</value></data>
+  <data name="ScreenshotReprocessFailed" xml:space="preserve"><value>このスクリーンショットを再認識できませんでした。OCR ランタイムを確認して、もう一度お試しください。</value></data>
+  <data name="ScreenshotResultTitle" xml:space="preserve"><value>認識が完了しました</value></data>
+  <data name="ScreenshotResultOpen" xml:space="preserve"><value>スクリーンショットの結果を表示</value></data>
+  <data name="ScreenshotResultRefine" xml:space="preserve"><value>文章を整える</value></data>
+  <data name="ScreenshotResultCancelRefinement" xml:space="preserve"><value>整文をキャンセル</value></data>
+  <data name="ScreenshotResultTranslate" xml:space="preserve"><value>翻訳</value></data>
+  <data name="ScreenshotResultCancelTranslation" xml:space="preserve"><value>翻訳をキャンセル</value></data>
+  <data name="ScreenshotResultSpeak" xml:space="preserve"><value>読み上げ</value></data>
+  <data name="ScreenshotResultStopSpeaking" xml:space="preserve"><value>読み上げを停止</value></data>
+  <data name="ScreenshotResultNoText" xml:space="preserve"><value>文字を認識できませんでした。</value></data>
+  <data name="ScreenshotResultOcrEmpty" xml:space="preserve"><value>このスクリーンショットから文字は見つかりませんでした。</value></data>
+  <data name="ScreenshotResultOcrRuntimeUnavailable" xml:space="preserve"><value>OCR ランタイムの準備ができていないため、文字認識を利用できません。</value></data>
+  <data name="ScreenshotResultOcrInputUnavailable" xml:space="preserve"><value>スクリーンショット画像を読み取れなかったため、文字認識を完了できませんでした。</value></data>
+  <data name="ScreenshotResultOcrTimedOut" xml:space="preserve"><value>文字認識がタイムアウトしました。再認識してもう一度お試しください。</value></data>
+  <data name="ScreenshotResultOcrFailed" xml:space="preserve"><value>文字認識に失敗しました。再認識してもう一度お試しください。</value></data>
+  <data name="ScreenshotResultOcrCancelled" xml:space="preserve"><value>文字認識をキャンセルしました。</value></data>
+  <data name="ScreenshotResultOcrStale" xml:space="preserve"><value>この認識結果は最新ではありません。</value></data>
+  <data name="ScreenshotResultNoRefinement" xml:space="preserve"><value>整文結果はまだありません。</value></data>
+  <data name="ScreenshotResultNoTranslation" xml:space="preserve"><value>翻訳はまだありません。</value></data>
+  <data name="ScreenshotResultNoSummary" xml:space="preserve"><value>要約はまだありません。</value></data>
+  <data name="ScreenshotResultNoTextToCopy" xml:space="preserve"><value>現在のタブにはコピーできる文字がありません。</value></data>
+  <data name="ScreenshotResultCopiedText" xml:space="preserve"><value>文字をコピーしました。</value></data>
+  <data name="ScreenshotResultCopyTextFailed" xml:space="preserve"><value>文字をコピーできませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotResultCopiedImage" xml:space="preserve"><value>画像をコピーしました。</value></data>
+  <data name="ScreenshotResultCopyImageFailed" xml:space="preserve"><value>画像をコピーできませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotResultNoTextToSpeak" xml:space="preserve"><value>現在のタブには読み上げる文字がありません。</value></data>
+  <data name="ScreenshotResultSpeaking" xml:space="preserve"><value>読み上げています…</value></data>
+  <data name="ScreenshotResultSpeechComplete" xml:space="preserve"><value>読み上げが完了しました。</value></data>
+  <data name="ScreenshotResultSpeechStopped" xml:space="preserve"><value>読み上げを停止しました。</value></data>
+  <data name="ScreenshotResultSpeechUnavailable" xml:space="preserve"><value>ローカル音声または Windows システム音声を利用できません。</value></data>
+  <data name="ScreenshotResultSpeechFailed" xml:space="preserve"><value>この文字を読み上げられませんでした。</value></data>
+  <data name="ScreenshotResultRefining" xml:space="preserve"><value>文章を整えています…</value></data>
+  <data name="ScreenshotResultTranslating" xml:space="preserve"><value>翻訳しています…</value></data>
+  <data name="ScreenshotResultSummarizing" xml:space="preserve"><value>要約を作成しています…</value></data>
+  <data name="ScreenshotResultRefinementComplete" xml:space="preserve"><value>整文が完了しました。</value></data>
+  <data name="ScreenshotResultTranslationComplete" xml:space="preserve"><value>翻訳が完了しました。</value></data>
+  <data name="ScreenshotResultSummaryComplete" xml:space="preserve"><value>要約が完了しました。</value></data>
+  <data name="ScreenshotResultRefinementCancelled" xml:space="preserve"><value>整文をキャンセルしました。</value></data>
+  <data name="ScreenshotResultTranslationCancelled" xml:space="preserve"><value>翻訳をキャンセルしました。</value></data>
+  <data name="ScreenshotResultSummaryCancelled" xml:space="preserve"><value>要約をキャンセルしました。</value></data>
+  <data name="ScreenshotResultRefinementPartial" xml:space="preserve"><value>整文を停止し、途中までの結果を保持しました。</value></data>
+  <data name="ScreenshotResultTranslationPartial" xml:space="preserve"><value>翻訳を停止し、途中までの結果を保持しました。</value></data>
+  <data name="ScreenshotResultSummaryPartial" xml:space="preserve"><value>要約を停止し、途中までの結果を保持しました。</value></data>
+  <data name="ScreenshotResultProviderNotConfigured" xml:space="preserve"><value>この機能を使う前に、既定の LLM プロバイダーを設定してください。</value></data>
+  <data name="ScreenshotResultProviderUnavailable" xml:space="preserve"><value>設定された LLM プロバイダーを利用できません。</value></data>
+  <data name="ScreenshotResultEmptyTransform" xml:space="preserve"><value>この操作に使用できる文字がありません。</value></data>
+  <data name="ScreenshotResultTransformFailed" xml:space="preserve"><value>操作に失敗しました。既存のスクリーンショット結果は変更されていません。</value></data>
+  <data name="ScreenshotResultHistoryUpdateFailed" xml:space="preserve"><value>結果は利用できますが、スクリーンショット履歴を更新できませんでした。</value></data>
+  <data name="ScreenshotResultRetry" xml:space="preserve"><value>再試行</value></data>
+  <data name="ScreenshotMediaPageSummaryFormat" xml:space="preserve"><value>{0}～{1} / {2}</value></data>
+  <data name="ScreenshotMediaNoResultsTitle" xml:space="preserve"><value>一致するスクリーンショットはありません</value></data>
+  <data name="ScreenshotMediaNoResultsHint" xml:space="preserve"><value>別の検索語または絞り込み条件をお試しください。</value></data>
+  <data name="ScreenshotMediaLoadFailed" xml:space="preserve"><value>スクリーンショットを読み込めませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotRecordUnavailable" xml:space="preserve"><value>このスクリーンショットは利用できなくなりました。</value></data>
+  <data name="ScreenshotAssetUnavailableAction" xml:space="preserve"><value>スクリーンショット画像が見つからないか、読み込めません。</value></data>
+  <data name="ScreenshotCopyImageSucceeded" xml:space="preserve"><value>画像をコピーしました。</value></data>
+  <data name="ScreenshotTextUnavailable" xml:space="preserve"><value>利用できる認識文字はありません。</value></data>
+  <data name="ScreenshotCopyTextSucceeded" xml:space="preserve"><value>文字をコピーしました。</value></data>
+  <data name="ScreenshotFavoriteRemoved" xml:space="preserve"><value>お気に入りから削除しました。</value></data>
+  <data name="ScreenshotFavoriteAdded" xml:space="preserve"><value>お気に入りに追加しました。</value></data>
+  <data name="ScreenshotDeleteConfirmationTitle" xml:space="preserve"><value>スクリーンショットを削除しますか？</value></data>
+  <data name="ScreenshotDeleteConfirmationMessage" xml:space="preserve"><value>{0} のスクリーンショットを削除しますか？書き出したコピーには影響しません。</value></data>
+  <data name="ScreenshotDeleteSucceeded" xml:space="preserve"><value>スクリーンショットを削除しました。</value></data>
+  <data name="ScreenshotActionFailed" xml:space="preserve"><value>スクリーンショットの操作に失敗しました。もう一度お試しください。</value></data>
+  <data name="ScreenshotAssetMissing" xml:space="preserve"><value>画像ファイルが見つかりません</value></data>
+  <data name="ScreenshotAssetUnreadable" xml:space="preserve"><value>画像ファイルを開けません</value></data>
+  <data name="ScreenshotCardAccessibleNameFormat" xml:space="preserve"><value>{0} のスクリーンショット、{1}</value></data>
+  <data name="ScreenshotMediaLoading" xml:space="preserve"><value>スクリーンショットを読み込んでいます…</value></data>
+  <data name="ScreenshotAssetMissingDetail" xml:space="preserve"><value>アプリが管理する画像ファイルが見つかりません。文字と記録の操作は引き続き利用できます。</value></data>
+  <data name="ScreenshotDetailLoadFailed" xml:space="preserve"><value>スクリーンショットの詳細を読み込めませんでした。もう一度お試しください。</value></data>
+  <data name="ScreenshotSaveSucceeded" xml:space="preserve"><value>画像を保存しました。</value></data>
+  <data name="ScreenshotRevealSucceeded" xml:space="preserve"><value>エクスプローラーで画像を開きました。</value></data>
+  <data name="ScreenshotReprocessUnavailable" xml:space="preserve"><value>元画像が見つからないため、文字認識をやり直せません。</value></data>
+  <data name="ScreenshotReprocessRequested" xml:space="preserve"><value>文字認識を再開しました。</value></data>
+  <data name="ScreenshotInlineTranslationInProgress" xml:space="preserve"><value>翻訳中</value></data>
+  <data name="ScreenshotInlineTranslationProgressFormat" xml:space="preserve"><value>翻訳中 {0}/{1}</value></data>
+  <data name="ScreenshotInlineTranslationNotReady" xml:space="preserve"><value>翻訳サービスを利用できません。</value></data>
+  <data name="ScreenshotInlineTranslationFailed" xml:space="preserve"><value>翻訳に失敗しました。</value></data>
+  <data name="ScreenshotInlineTranslationOcrUnavailable" xml:space="preserve"><value>この画像の文字を認識できません。</value></data>
+  <data name="SettingsNavigationScreenshot" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="SettingsNavigationSelectionAssistant" xml:space="preserve"><value>選択アシスタント</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrTitle" xml:space="preserve"><value>クリップボード画像 OCR</value></data>
+  <data name="SettingsHotkeyClipboardImageOcrDescription" xml:space="preserve"><value>クリップボードにコピーした画像の文字を認識します。</value></data>
+  <data name="SettingsHotkeySelectionAskAiTitle" xml:space="preserve"><value>AI に尋ねる</value></data>
+  <data name="SettingsHotkeySelectionAskAiDescription" xml:space="preserve"><value>選択したテキストについて AI に尋ねます。</value></data>
+  <data name="SettingsScreenshotHotkeyHeading" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="SettingsScreenshotHotkeyDescription" xml:space="preserve"><value>スクリーンショット、OCR、画面キャプチャのワークフローを設定します。</value></data>
+  <data name="SettingsScreenshotClipboardHeading" xml:space="preserve"><value>書き込み方式</value></data>
+  <data name="SettingsScreenshotClipboardDescription" xml:space="preserve"><value>スクリーンショットとクリップボード OCR の動作を設定します。</value></data>
+  <data name="SettingsScreenshotClipboardToggle" xml:space="preserve"><value>クリップボード画像 OCR</value></data>
+  <data name="SettingsScreenshotClipboardToggleDescription" xml:space="preserve"><value>クリップボード画像の文字を認識します。</value></data>
+  <data name="SettingsGeneralBasicsHeading" xml:space="preserve"><value>基本</value></data>
+  <data name="SettingsGeneralBasicsDescription" xml:space="preserve"><value>外観、起動、言語の動作を設定します。</value></data>
+  <data name="SettingsGeneralDarkThemeDescription" xml:space="preserve"><value>システムに合わせるか、ダーク外観を使用します。</value></data>
+  <data name="SettingsGeneralLaunchAtLoginDescription" xml:space="preserve"><value>Windows にサインインしたときに VoxFlow を起動します。</value></data>
+  <data name="SettingsGeneralPermissionsDescription" xml:space="preserve"><value>マイクなど Windows のプライバシー設定を開きます。</value></data>
+  <data name="SettingsGeneralDataDescription" xml:space="preserve"><value>匿名化した診断情報のコピーやローカル既定値の復元を行います。</value></data>
+  <data name="ClipboardImageOcrNoImage" xml:space="preserve"><value>クリップボードに認識可能な画像がありません。</value></data>
+  <data name="ClipboardImageOcrNoText" xml:space="preserve"><value>クリップボード画像から文字を認識できませんでした。</value></data>
+  <data name="ClipboardImageOcrDisabled" xml:space="preserve"><value>クリップボード画像 OCR は無効です。</value></data>
+  <data name="SettingsScreenshotHeading" xml:space="preserve"><value>スクリーンショット</value></data>
+  <data name="SettingsScreenshotSubtitle" xml:space="preserve"><value>スクリーンショット、OCR、画面キャプチャのワークフローを設定します。</value></data>
+
+  <data name="SettingsTextPunctuationDescription" xml:space="preserve"><value>文末句読点を補完し、中国語文脈では半角を全角に変換</value></data>
+
+  <data name="SettingsTextSmartNumbersDescription" xml:space="preserve"><value>数量・日付・時刻・割合の文脈で漢数字をアラビア数字に変換</value></data>
+
+  <data name="SettingsTextMasterDescription" xml:space="preserve"><value>オフにすると以下のすべての処理をスキップします</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModelsDescription" xml:space="preserve"><value>アイドル時にローカルモデルを解放してメモリを節約します。</value></data>
+
+  <data name="SettingsVoiceTriggerMode" xml:space="preserve"><value>トリガー方式</value></data>
+
+  <data name="SettingsHotkeyModify" xml:space="preserve"><value>ショートカットを変更</value></data>
+
+  <data name="SettingsGeneralGrayTrayIcon" xml:space="preserve"><value>グレーのトレイアイコン</value></data>
+
+  <data name="SettingsTextDeterministicHeading" xml:space="preserve"><value>決定的テキスト処理</value></data>
+
+  <data name="SettingsSelectionAssistantSubtitle" xml:space="preserve"><value>選択テキストのクイック操作を設定します。</value></data>
+
+  <data name="SettingsGeneralUiLanguageDescription" xml:space="preserve"><value>システムに合わせる</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicatorDescription" xml:space="preserve"><value>Caps Lock を録音インジケーターとして表示します。</value></data>
+
+  <data name="SettingsVoiceMiddleMouseDescription" xml:space="preserve"><value>マウス中ボタンで録音開始、もう一度押して終了して入力</value></data>
+
+  <data name="SettingsVoiceModify" xml:space="preserve"><value>変更</value></data>
+
+  <data name="SettingsGeneralStreamPreviewDescription" xml:space="preserve"><value>ローカルモデル使用時、発話中に部分認識結果を表示します。</value></data>
+
+  <data name="SettingsGeneralCapsLockIndicator" xml:space="preserve"><value>CapsLock 録音インジケーター</value></data>
+
+  <data name="SettingsVoiceDictationTitle" xml:space="preserve"><value>音声文字起こし</value></data>
+
+  <data name="SettingsVoiceDictationDescription" xml:space="preserve"><value>ショートカットを押し続けて話し、離すと転写して入力</value></data>
+
+  <data name="SettingsSelectionSectionHeading" xml:space="preserve"><value>選択</value></data>
+
+  <data name="SettingsSelectionAssistantHeading" xml:space="preserve"><value>選択アシスタント</value></data>
+
+  <data name="SettingsVoiceTriggerModeHint" xml:space="preserve"><value>音声ショートカットの短押し/長押しのみに影響</value></data>
+
+  <data name="SettingsTextThresholdSummaryFormat" xml:space="preserve"><value>単語しきい値 {0} · 文字しきい値 {1}</value></data>
+
+  <data name="SettingsGeneralStreamPreview" xml:space="preserve"><value>ストリーミング認識プレビュー</value></data>
+
+  <data name="SettingsGeneralGrayTrayIconDescription" xml:space="preserve"><value>グレーのトレイアイコンを使用します。</value></data>
+
+  <data name="SettingsGeneralAutoReleaseModels" xml:space="preserve"><value>ローカルモデルの自動解放</value></data>
+
+  <data name="SettingsGeneralLocalModelsHeading" xml:space="preserve"><value>ローカルモデル</value></data>
+
+  <data name="SettingsGeneralLocalModelsDescription" xml:space="preserve"><value>ローカルモデルの動作とメモリを管理します。</value></data>
+
+  <data name="SettingsTextDeterministicDescription" xml:space="preserve"><value>LLM 校正の前後で行う軽量なテキスト整形</value></data>
+
+  <data name="SettingsGeneralUiLanguage" xml:space="preserve"><value>表示言語</value></data>
+
+  <data name="SettingsSelectionSectionDescription" xml:space="preserve"><value>選択テキストのワークフローを設定します。</value></data>
+
+  <data name="SettingsGeneralUiLanguageSystem" xml:space="preserve"><value>システムに合わせる</value></data>
+  <data name="SettingsGeneralUiLanguageTraditionalChinese" xml:space="preserve"><value>繁体字中国語</value></data>
+
+  <data name="HelpFeatureDictationDescription" xml:space="preserve"><value>ショートカットまたは中クリックで聞き取りを開始/停止します。</value></data>
+
+  <data name="HelpFeatureAgentHeading" xml:space="preserve"><value>AI コーディング</value></data>
+
+  <data name="HelpFeaturePrivacyDescription" xml:space="preserve"><value>クラウドを選ばない限り、音声・画面・テキストはローカルに残ります。</value></data>
+
+  <data name="HelpSubtitle" xml:space="preserve"><value>使い方、ショートカット、権限、プロジェクトリンクを確認します。</value></data>
+
+  <data name="HelpFeatureConsoleDescription" xml:space="preserve"><value>1 つのパレットから資産、コマンド、ワークフローを検索します。</value></data>
+
+  <data name="HelpLinkChangelogHeading" xml:space="preserve"><value>リリースノート</value></data>
+
+  <data name="HelpFeatureGlossaryDescription" xml:space="preserve"><value>ホットワードと置換を管理して認識を安定させます。</value></data>
+
+  <data name="HelpFeatureScreenshotHeading" xml:space="preserve"><value>スクリーンショット OCR</value></data>
+
+  <data name="HelpFeatureNotesHeading" xml:space="preserve"><value>文字起こしノート</value></data>
+
+  <data name="HelpLinkUpdateDescription" xml:space="preserve"><value>新しい VoxFlow リリースがあるか確認します。</value></data>
+
+  <data name="HelpLinkUpdateHeading" xml:space="preserve"><value>更新を確認</value></data>
+
+  <data name="HelpLinkProjectDescription" xml:space="preserve"><value>ブラウザで VoxFlow プロジェクトページを開きます。</value></data>
+
+  <data name="HelpFeatureDictationHeading" xml:space="preserve"><value>ショートカットまたは中ボタン</value></data>
+
+  <data name="HelpFeatureAgentDescription" xml:space="preserve"><value>音声コマンドをローカルのコーディング助手へ送ります。</value></data>
+
+  <data name="HelpLinkChangelogDescription" xml:space="preserve"><value>最近のバージョン変更を確認します。</value></data>
+
+  <data name="HelpFeatureConsoleHeading" xml:space="preserve"><value>コマンドパレット</value></data>
+
+  <data name="HelpLinkGithubHeading" xml:space="preserve"><value>GitHub リポジトリ</value></data>
+
+  <data name="HelpFeatureGlossaryHeading" xml:space="preserve"><value>用語補正</value></data>
+
+  <data name="HelpHeading" xml:space="preserve"><value>ヘルプ</value></data>
+
+  <data name="HelpFeatureFallbackDescription" xml:space="preserve"><value>認識や補正に失敗しても原文を保持します。</value></data>
+
+  <data name="HelpFeaturePrivacyHeading" xml:space="preserve"><value>ローカル優先のプライバシー</value></data>
+
+  <data name="HelpFeatureScreenshotDescription" xml:space="preserve"><value>画面から文字を抽出し、翻訳・要約して再利用します。</value></data>
+
+  <data name="HelpFeatureFallbackHeading" xml:space="preserve"><value>安全なフォールバック</value></data>
+
+  <data name="HelpLinkProjectHeading" xml:space="preserve"><value>プロジェクトホーム</value></data>
+
+  <data name="HelpLinkCommunityHeading" xml:space="preserve"><value>コミュニティサポート</value></data>
+
+  <data name="HelpLinksHeading" xml:space="preserve"><value>クイックリンク</value></data>
+
+  <data name="HelpFeatureNotesDescription" xml:space="preserve"><value>音声テキスト、スクリーンショット、録画をノートとして保持します。</value></data>
+
+  <data name="HelpLinkGithubDescription" xml:space="preserve"><value>ソースコードとプロジェクトの動きを確認します。</value></data>
+
+  <data name="HelpLinkCommunityDescription" xml:space="preserve"><value>サポートとコミュニティのリンクを開きます。</value></data>
+
+  <data name="AgentWorkspaceEmpty" xml:space="preserve"><value>Agent セッションはまだありません。</value></data>
+
+  <data name="GlossarySourceLabel" xml:space="preserve"><value>検索</value></data>
+
+  <data name="NavigationNotes" xml:space="preserve"><value>ノート</value></data>
+
+  <data name="GlossaryWholeWordLabel" xml:space="preserve"><value>単語全体</value></data>
+
+  <data name="WritingStyleGeneralDescription" xml:space="preserve"><value>日常の音声入力向けの既定整形。</value></data>
+
+  <data name="WritingStylesAddProfileTitle" xml:space="preserve"><value>新しいスタイル</value></data>
+
+  <data name="GlossaryNoteLabel" xml:space="preserve"><value>メモ</value></data>
+
+  <data name="GlossarySubtitle" xml:space="preserve"><value>ASR ホットワードと LLM 文脈用の置換ルールを管理します。</value></data>
+
+  <data name="AgentWorkspaceHeading" xml:space="preserve"><value>AI コーディング</value></data>
+
+  <data name="WritingStyleWritingDescription" xml:space="preserve"><value>長文向けのより丁寧な整形。</value></data>
+
+  <data name="NotesEmpty" xml:space="preserve"><value>ノートはまだありません。</value></data>
+
+  <data name="AgentWorkspaceHistoryHeading" xml:space="preserve"><value>最近のセッション</value></data>
+
+  <data name="GlossaryImportFilter" xml:space="preserve"><value>用語ファイル|*.json;*.txt;*.csv|すべてのファイル|*.*</value></data>
+
+  <data name="GlossarySavedMessage" xml:space="preserve"><value>用語集を保存しました。</value></data>
+
+  <data name="WritingStyleCodingName" xml:space="preserve"><value>コーディング</value></data>
+
+  <data name="GlossaryImportCompleteMessage" xml:space="preserve"><value>インポートが完了しました。</value></data>
+
+  <data name="WritingStyleCodingDescription" xml:space="preserve"><value>コード断片と技術用語を保持します。</value></data>
+
+  <data name="WritingStylesRestoreTitle" xml:space="preserve"><value>既定に戻す</value></data>
+
+  <data name="NotesSearchPlaceholder" xml:space="preserve"><value>ノートを検索</value></data>
+
+  <data name="WritingStylesHeading" xml:space="preserve"><value>スタイル</value></data>
+
+  <data name="GlossaryTargetLabel" xml:space="preserve"><value>置換後</value></data>
+
+  <data name="AgentWorkspaceRuntimeDescription" xml:space="preserve"><value>ローカルコーディング助手 helper の状態。</value></data>
+
+  <data name="NotesHeading" xml:space="preserve"><value>ノート</value></data>
+
+  <data name="GlossaryImportTitle" xml:space="preserve"><value>用語集をインポート</value></data>
+
+  <data name="NavigationAgentWorkspace" xml:space="preserve"><value>AI コーディング</value></data>
+
+  <data name="WritingStylesDeleteTitle" xml:space="preserve"><value>スタイルを削除</value></data>
+
+  <data name="GlossaryAddReplacementTitle" xml:space="preserve"><value>置換を追加</value></data>
+
+  <data name="AgentWorkspaceHotkeyDescription" xml:space="preserve"><value>Agent ショートカットで音声コマンドを録音します。</value></data>
+
+  <data name="CommonRefresh" xml:space="preserve"><value>更新</value></data>
+
+  <data name="AgentWorkspaceSubtitle" xml:space="preserve"><value>音声駆動のコーディング助手ワークスペースと最近のセッション。</value></data>
+
+  <data name="GlossaryImportCompleteTitle" xml:space="preserve"><value>インポート完了</value></data>
+
+  <data name="WritingStylesRestoredMessage" xml:space="preserve"><value>デフォルトに戻しました。</value></data>
+
+  <data name="NotesSubtitle" xml:space="preserve"><value>音声テキスト、スクリーンショット、関連資産をノートとして保持します。</value></data>
+
+  <data name="WritingStyleGeneralName" xml:space="preserve"><value>一般</value></data>
+
+  <data name="WritingStyleSocialDescription" xml:space="preserve"><value>チャットや SNS 向けのカジュアルな口調。</value></data>
+
+  <data name="NavigationWritingStyles" xml:space="preserve"><value>スタイル</value></data>
+
+  <data name="GlossaryHeading" xml:space="preserve"><value>用語集</value></data>
+
+  <data name="NavigationHelp" xml:space="preserve"><value>ヘルプ</value></data>
+
+  <data name="NavigationGlossary" xml:space="preserve"><value>用語集</value></data>
+
+  <data name="WritingStyleWritingName" xml:space="preserve"><value>執筆</value></data>
+
+  <data name="GlossaryAddHotwordTitle" xml:space="preserve"><value>ホットワードを追加</value></data>
+
+  <data name="GlossaryHotwordLabel" xml:space="preserve"><value>ホットワード</value></data>
+
+  <data name="WritingStylesRestoreMessage" xml:space="preserve"><value>このスタイルを組み込み既定に戻しますか？</value></data>
+
+  <data name="AgentWorkspaceHotkeyHeading" xml:space="preserve"><value>音声エントリ</value></data>
+
+  <data name="WritingStylesSubtitle" xml:space="preserve"><value>音声整形とスタイル振り分け用のプロンプト編集。</value></data>
+
+  <data name="GlossaryDuplicateMessage" xml:space="preserve"><value>この項目は既に存在します。</value></data>
+
+  <data name="WritingStylesSavedMessage" xml:space="preserve"><value>スタイルを保存しました。</value></data>
+
+  <data name="WritingStylesDeleteMessage" xml:space="preserve"><value>この文章スタイルを削除しますか？</value></data>
+
+  <data name="WritingStylesNameLabel" xml:space="preserve"><value>名前</value></data>
+
+  <data name="WritingStyleSocialName" xml:space="preserve"><value>ソーシャル</value></data>
+
+  <data name="AgentWorkspaceRuntimeHeading" xml:space="preserve"><value>ランタイム</value></data>
+
+  <data name="WritingStylesCustomDescription" xml:space="preserve"><value>カスタム文章スタイル</value></data>
+  <data name="HomeStatsClipboard" xml:space="preserve"><value>クリップボード</value></data>
+  <data name="HomeStatsReusable" xml:space="preserve"><value>再利用可能</value></data>
+  <data name="SelectionResultRefine" xml:space="preserve"><value>推敲</value></data>
+  <data name="SelectionResultAskAi" xml:space="preserve"><value>AI に質問</value></data>
+  <data name="HudCapsLock" xml:space="preserve"><value>Caps Lock</value></data>
+  <data name="GlossaryAdd" xml:space="preserve"><value>追加</value></data>
+  <data name="GlossaryImport" xml:space="preserve"><value>インポート</value></data>
+  <data name="GlossaryOpenFolder" xml:space="preserve"><value>フォルダーを開く</value></data>
+  <data name="GlossarySearch" xml:space="preserve"><value>用語集を検索</value></data>
+  <data name="GlossarySuggestionAdd" xml:space="preserve"><value>追加</value></data>
+  <data name="GlossarySuggestionIgnore" xml:space="preserve"><value>無視</value></data>
+  <data name="GlossarySuggestionsDescription" xml:space="preserve"><value>使用履歴から用語集への追加候補を表示します。</value></data>
+  <data name="GlossarySuggestionsHeading" xml:space="preserve"><value>候補</value></data>
+  <data name="GlossaryTabHotwords" xml:space="preserve"><value>ホットワード</value></data>
+  <data name="GlossaryTabReplacements" xml:space="preserve"><value>テキスト置換</value></data>
+  <data name="SettingsCloudSelect" xml:space="preserve"><value>選択</value></data>
+  <data name="SettingsCloudSelectSucceeded" xml:space="preserve"><value>プロバイダーを選択しました。</value></data>
+  <data name="SettingsCredentialHide" xml:space="preserve"><value>非表示</value></data>
+  <data name="SettingsCredentialShow" xml:space="preserve"><value>表示</value></data>
+  <data name="WritingStylesAddProfile" xml:space="preserve"><value>新しいスタイル</value></data>
+  <data name="WritingStylesApplicationsLabel" xml:space="preserve"><value>対象アプリ</value></data>
+  <data name="WritingStylesAutoMatch" xml:space="preserve"><value>アプリを自動照合</value></data>
+  <data name="WritingStylesDescriptionLabel" xml:space="preserve"><value>説明</value></data>
+  <data name="WritingStylesEditorHeading" xml:space="preserve"><value>スタイルの詳細</value></data>
+  <data name="WritingStylesInstructionLabel" xml:space="preserve"><value>指示</value></data>
+  <data name="WritingStylesMarkdownLabel" xml:space="preserve"><value>Markdown テンプレート</value></data>
+  <data name="WritingStylesPreviewEmpty" xml:space="preserve"><value>プレビューする内容がありません。</value></data>
+  <data name="WritingStylesPreviewHeading" xml:space="preserve"><value>プレビュー</value></data>
+  <data name="WritingStylesProfilesHeading" xml:space="preserve"><value>スタイル一覧</value></data>
+  <data name="WritingStylesRestore" xml:space="preserve"><value>既定に戻す</value></data>
+  <data name="WritingStylesSave" xml:space="preserve"><value>保存</value></data>
+  <data name="DialogClose" xml:space="preserve"><value>閉じる</value></data>
+  <data name="WritingStyleEmailDescription" xml:space="preserve"><value>明確で丁寧なメール文体。</value></data>
+  <data name="SettingsVoiceDeviceDefaultMarker" xml:space="preserve"><value>システム既定</value></data>
+  <data name="HelpUpdateAvailable" xml:space="preserve"><value>新しいバージョンがあります: {0}。</value></data>
+  <data name="WritingStyleMeetingName" xml:space="preserve"><value>会議</value></data>
+  <data name="WritingStylesPreviewSample" xml:space="preserve"><value>サンプルの音声入力テキスト。</value></data>
+  <data name="WritingStyleTranslationDescription" xml:space="preserve"><value>二言語クリーンアップで意味を保持。</value></data>
+  <data name="HelpUpdateOpenRelease" xml:space="preserve"><value>リリースページを開く</value></data>
+  <data name="HelpUpdateUpToDate" xml:space="preserve"><value>最新バージョンです（{0}）。</value></data>
+  <data name="WritingStyleEmailName" xml:space="preserve"><value>メール</value></data>
+  <data name="WritingStylesRoutesEmpty" xml:space="preserve"><value>アプリ経路なし</value></data>
+  <data name="WritingStylesPerStyleAutoMatch" xml:space="preserve"><value>AI自動マッチにこのスタイルを含める</value></data>
+  <data name="NotesHistoryOnlySubtitle" xml:space="preserve"><value>音声入力履歴メモ — 過去の結果を検索・コピーできます。完全なノート編集は Windows では未対応です。</value></data>
+  <data name="WritingStyleTranslationName" xml:space="preserve"><value>翻訳</value></data>
+  <data name="WritingStyleMeetingDescription" xml:space="preserve"><value>簡潔な会議メモ。</value></data>
+  <data name="SettingsVoiceDeviceUnavailableMarker" xml:space="preserve"><value>利用不可</value></data>
+  <data name="WritingStylesBuiltInProtectedMessage" xml:space="preserve"><value>組み込みスタイルは削除できません。</value></data>
+  <data name="HelpUpdateFailed" xml:space="preserve"><value>更新を確認できませんでした。後でもう一度試すか、リリースページを開いてください。</value></data>
+  <data name="HelpUpdateIdle" xml:space="preserve"><value>「更新を確認」で最新の GitHub リリースと比較します。</value></data>
+</root>

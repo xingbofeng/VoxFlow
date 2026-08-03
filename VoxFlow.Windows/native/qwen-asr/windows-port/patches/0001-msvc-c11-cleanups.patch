@@ -1,0 +1,116 @@
+diff --git a/main.c b/main.c
+index fb4fbba..e2f73b3 100644
+--- a/main.c
++++ b/main.c
+@@ -11,6 +11,10 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#ifdef _WIN32
++#include <fcntl.h>
++#include <io.h>
++#endif
+ 
+ /* Token streaming callback: print each piece as it's decoded */
+ static void stream_token(const char *piece, void *userdata) {
+@@ -155,6 +159,12 @@ int main(int argc, char **argv) {
+         fprintf(stderr, "Error: -i and --stdin are mutually exclusive\n");
+         return 1;
+     }
++#ifdef _WIN32
++    if (use_stdin && _setmode(_fileno(stdin), _O_BINARY) == -1) {
++        fprintf(stderr, "Error: cannot switch stdin to binary mode\n");
++        return 1;
++    }
++#endif
+ 
+     qwen_verbose = verbosity;
+     emit_tokens = (verbosity > 0);
+diff --git a/qwen_asr_audio.c b/qwen_asr_audio.c
+index 403610a..3d0636c 100644
+--- a/qwen_asr_audio.c
++++ b/qwen_asr_audio.c
+@@ -23,6 +23,18 @@
+ #define M_PI 3.14159265358979323846
+ #endif
+ 
++/* Modified Bessel function, first kind, order zero. The power series
++ * converges quickly for the resampler's beta <= 10. Kept as a C11 function
++ * because MSVC does not support GCC statement expressions. */
++static double qwen_bessel_i0(double x) {
++    double sum = 1.0, term = 1.0, xx = x * x;
++    for (int k = 1; k <= 20; k++) {
++        term *= xx / (4.0 * (double)k * (double)k);
++        sum += term;
++    }
++    return sum;
++}
++
+ #define SAMPLE_RATE  16000
+ #define N_MEL        128
+ #define HOP_LENGTH   160
+@@ -109,15 +121,7 @@ float *qwen_parse_wav_buffer(const uint8_t *data, size_t file_size, int *out_n_s
+ 
+         /* Precompute Kaiser window: I0(beta * sqrt(1 - (n/N)^2)) / I0(beta)
+          * I0 approximation via power series (converges fast for beta <= 10). */
+-        /* I0 (modified Bessel, first kind, order 0) */
+-        #define BESSEL_I0(x) ({ \
+-            double _sum = 1.0, _term = 1.0, _xx = (x)*(x); \
+-            for (int _k = 1; _k <= 20; _k++) { \
+-                _term *= _xx / (4.0 * (double)_k * (double)_k); \
+-                _sum += _term; \
+-            } \
+-            _sum; })
+-        double inv_I0_beta = 1.0 / BESSEL_I0(KAISER_BETA);
++        double inv_I0_beta = 1.0 / qwen_bessel_i0(KAISER_BETA);
+ 
+         for (int i = 0; i < new_n; i++) {
+             double src_pos = (double)i / ratio;
+@@ -145,7 +149,7 @@ float *qwen_parse_wav_buffer(const uint8_t *data, size_t file_size, int *out_n_s
+                 if (npos <= -1.0 || npos >= 1.0) {
+                     w = 0.0;
+                 } else {
+-                    w = BESSEL_I0(KAISER_BETA * sqrt(1.0 - npos * npos)) * inv_I0_beta;
++                    w = qwen_bessel_i0(KAISER_BETA * sqrt(1.0 - npos * npos)) * inv_I0_beta;
+                 }
+ 
+                 double coeff = s * w * cutoff;
+@@ -157,7 +161,6 @@ float *qwen_parse_wav_buffer(const uint8_t *data, size_t file_size, int *out_n_s
+             /* Normalize to handle edge effects at boundaries */
+             resampled[i] = (wsum > 1e-9) ? (float)(acc / wsum) : 0.0f;
+         }
+-        #undef BESSEL_I0
+         free(samples);
+         samples = resampled;
+         n_frames = new_n;
+diff --git a/qwen_asr_kernels.c b/qwen_asr_kernels.c
+index c0d9d70..fdcb033 100644
+--- a/qwen_asr_kernels.c
++++ b/qwen_asr_kernels.c
+@@ -1004,6 +1004,7 @@ void qwen_bidirectional_attention(float *out, const float *Q, const float *K,
+                                    const float *V, int seq __attribute__((unused)),
+                                    int n_heads, int head_dim, float scale,
+                                    const int *window_starts, int n_windows) {
++    (void)seq;
+     int hidden = n_heads * head_dim;
+ 
+     for (int h = 0; h < n_heads; h++) {
+diff --git a/qwen_asr_safetensors.c b/qwen_asr_safetensors.c
+index 0bdf272..8286ec7 100644
+--- a/qwen_asr_safetensors.c
++++ b/qwen_asr_safetensors.c
+@@ -321,14 +321,6 @@ multi_safetensors_t *multi_safetensors_open(const char *model_dir) {
+         return ms;
+     }
+ 
+-    /* Try multi-shard: model-00001-of-NNNNN.safetensors */
+-    for (int i = 1; i <= SAFETENSORS_MAX_SHARDS; i++) {
+-        snprintf(path, sizeof(path), "%s/model-%05d-of-%05d.safetensors",
+-                 model_dir, i, i); /* placeholder - need to detect count */
+-        /* We don't know the total count yet, try common patterns */
+-        break;
+-    }
+-
+     /* Scan directory for shard files */
+     DIR *dir = opendir(model_dir);
+     if (!dir) { free(ms); return NULL; }

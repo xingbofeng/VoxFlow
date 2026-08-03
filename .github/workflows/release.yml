@@ -19,10 +19,10 @@ permissions:
   id-token: write
 
 jobs:
-  release:
-    name: Build and publish release
+  macos:
+    name: Build macOS release
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     steps:
       - name: Check out repository
@@ -212,21 +212,199 @@ jobs:
           lipo .build/release/VoxFlow.app/Contents/MacOS/VoxFlow -verify_arch arm64
           shasum -a 256 -c dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
 
+      - name: Upload macOS release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
+            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows release
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set up pinned Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --target x86_64-pc-windows-msvc
+          rustup default 1.97.0
+
+      - name: Restore and validate Windows release inputs
+        shell: pwsh
+        run: |
+          dotnet restore VoxFlow.Windows/VoxFlow.Windows.sln -p:Platform=x64
+          ./VoxFlow.Windows/scripts/check-localization.ps1
+          ./VoxFlow.Windows/scripts/check-nuget-security.ps1 -SolutionPath ./VoxFlow.Windows/VoxFlow.Windows.sln
+          ./VoxFlow.Windows/scripts/check-license-inventory.ps1 `
+            -SolutionPath ./VoxFlow.Windows/VoxFlow.Windows.sln `
+            -NoticesPath ./VoxFlow.Windows/THIRD-PARTY-NOTICES.md
+          ./VoxFlow.Windows/scripts/check-cargo-license-inventory.ps1
+
+      - name: Scan release inputs for credentials
+        shell: bash
+        run: bash VoxFlow.Windows/scripts/check-no-secrets.sh
+
+      - name: Stage Windows native runtimes
+        shell: pwsh
+        run: |
+          ./VoxFlow.Windows/scripts/stage-ffmpeg-runtime.ps1
+          ./VoxFlow.Windows/scripts/build-qwen-production-bridge.ps1 `
+            -OutputPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll
+
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build Windows installer and portable package
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content ./docs/release.json | ConvertFrom-Json).version
+          ./VoxFlow.Windows/scripts/prepare-windows-release.ps1 `
+            -Version $version `
+            -NativeDllPath ./VoxFlow.Windows/artifacts/native/qwen_asr.dll `
+            -OutputRoot ./VoxFlow.Windows/artifacts/release
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            VoxFlow.Windows/artifacts/release/installer/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe
+            VoxFlow.Windows/artifacts/release/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-portable.zip
+          if-no-files-found: error
+
+  ios:
+    name: Build installable iOS release
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Install iOS distribution certificate and profiles
+        id: signing
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD }}
+          APP_PROFILE_BASE64: ${{ secrets.MASHANGXIE_IOS_APP_PROFILE_BASE64 }}
+          KEYBOARD_PROFILE_BASE64: ${{ secrets.MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64 }}
+        run: |
+          require_secret() {
+            name="$1"
+            value="$2"
+            test -n "$value" || { echo "::error::Missing Actions secret: $name"; exit 2; }
+          }
+          require_secret MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64 "$CERTIFICATE_BASE64"
+          require_secret MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD "$CERTIFICATE_PASSWORD"
+          require_secret MASHANGXIE_IOS_APP_PROFILE_BASE64 "$APP_PROFILE_BASE64"
+          require_secret MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64 "$KEYBOARD_PROFILE_BASE64"
+          require_secret MASHANGXIE_IOS_TEAM_ID "${{ secrets.MASHANGXIE_IOS_TEAM_ID }}"
+          keychain_path="$RUNNER_TEMP/mashangxie-ios.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          certificate_path="$RUNNER_TEMP/mashangxie-ios.p12"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profiles_dir"
+          install_profile() {
+            encoded="$1"
+            prefix="$2"
+            source_path="$RUNNER_TEMP/$prefix.mobileprovision"
+            plist_path="$RUNNER_TEMP/$prefix.plist"
+            printf '%s' "$encoded" | base64 --decode > "$source_path"
+            security cms -D -i "$source_path" > "$plist_path"
+            uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist_path")"
+            name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$plist_path")"
+            cp "$source_path" "$profiles_dir/$uuid.mobileprovision"
+            echo "${prefix}_profile=$name" >> "$GITHUB_OUTPUT"
+          }
+          install_profile "$APP_PROFILE_BASE64" app
+          install_profile "$KEYBOARD_PROFILE_BASE64" keyboard
+
+      - name: Build Ad Hoc IPA
+        run: |
+          make ios-ipa \
+            MASHANGXIE_DEVELOPMENT_TEAM="${{ secrets.MASHANGXIE_IOS_TEAM_ID }}" \
+            MASHANGXIE_APP_PROFILE_SPECIFIER="${{ steps.signing.outputs.app_profile }}" \
+            MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER="${{ steps.signing.outputs.keyboard_profile }}"
+
+      - name: Upload iOS release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ios
+          path: |
+            dist/ios/Mashangxie-*-iOS.ipa
+            dist/ios/Mashangxie-*-iOS.ipa.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish multiplatform GitHub Release
+    needs: [macos, windows, ios]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+
+      - name: Verify complete release asset set
+        id: version
+        shell: bash
+        run: |
+          version="$(python3 -c 'import json; print(json.load(open("docs/release.json"))["version"])')"
+          test -f "dist/release/VoxFlow-${version}-macOS.dmg"
+          test -f "dist/release/VoxFlow-${version}-windows-x64-setup.exe"
+          test -f "dist/release/VoxFlow-${version}-windows-x64-portable.zip"
+          test -f "dist/release/Mashangxie-${version}-iOS.ipa"
+          test "$(awk '{print $1}' "dist/release/VoxFlow-${version}-macOS.dmg.sha256")" = \
+            "$(shasum -a 256 "dist/release/VoxFlow-${version}-macOS.dmg" | awk '{print $1}')"
+          test "$(awk '{print $1}' "dist/release/Mashangxie-${version}-iOS.ipa.sha256")" = \
+            "$(shasum -a 256 "dist/release/Mashangxie-${version}-iOS.ipa" | awk '{print $1}')"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           name: VoxFlow ${{ steps.version.outputs.value }}
           body_path: .github/release-notes/v${{ steps.version.outputs.value }}.md
-          files: |
-            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg
-            dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg.sha256
+          files: dist/release/*
           fail_on_unmatched_files: true
           overwrite_files: true
 
   deploy_pages:
     name: Deploy landing page
-    needs: release
+    needs: publish
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 

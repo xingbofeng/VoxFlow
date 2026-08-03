@@ -2,11 +2,13 @@
   <img src="docs/assets/voiceinput-logo.png" alt="VoxFlow logo" width="128">
 
   <h1>VoxFlow</h1>
-  <p><strong>macOS のための音声キーボードとローカルコンテキストワークベンチ。</strong></p>
-  <p>ショートカットを押しながら話し、離すと現在のカーソル位置に入力されます。音声、スクリーンショット、画面収録、クリップボード項目は Mac 上で検索できるローカル資産になります。</p>
+  <p><strong>macOS、Windows、iOS 対応の音声入力ツール。</strong></p>
+  <p>3 つのプラットフォームで音声入力を利用できます。デスクトップ版はグローバル音声入力に対応し、macOS 版にはローカルコンテキストワークベンチも含まれます。</p>
 
   <p>
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white" alt="Windows x64">
+    <img src="https://img.shields.io/badge/iOS-17%2B-000000?style=flat-square&amp;logo=ios&amp;logoColor=white" alt="iOS 17+">
     <img src="https://img.shields.io/badge/Swift-6%2B-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6+">
     <img src="https://img.shields.io/badge/Native-macOS-147EFB?style=flat-square" alt="Native macOS">
     <img src="https://img.shields.io/badge/Local--first-1F883D?style=flat-square" alt="Local-first">
@@ -76,16 +78,19 @@ VoxFlow は、いま使っているアプリの中に留まる音声入力ツー
 
 ### Download And Install
 
-Download the latest release from [GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest):
+[GitHub Releases](https://github.com/xingbofeng/VoxFlow/releases/latest) から最新版をダウンロードします。
 
-1. Open `VoxFlow-1.15.0-macOS.dmg`.
-2. Drag `VoxFlow` into the `Applications` folder.
-3. On first launch, if macOS cannot verify the app, Control-click the app and choose **Open**.
+| プラットフォーム | パッケージ | インストール方法 |
+| --- | --- | --- |
+| macOS | `VoxFlow-1.15.0-macOS.dmg` | DMG を開き、VoxFlow を Applications に移動します。 |
+| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` または `VoxFlow-1.15.0-windows-x64-portable.zip` | インストーラーを実行するか、ポータブル版を展開します。 |
+| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Ad Hoc profile に UDID が登録済みの端末へインストールします。 |
 
 ### Requirements
 
-- macOS 15 Sequoia or later
-- A Mac with a microphone
+- macOS 15+、Windows x64、または iOS 17+
+- マイク
+- iOS IPA は今回の Ad Hoc リリースに登録済みの端末が必要です
 
 ### Permissions
 

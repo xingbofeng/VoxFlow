@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6fbf8">
-  <meta name="description" content="码上写 VoxFlow 把语音输入、截图 OCR、剪贴板历史和本地 Agent 调度收进同一个 macOS 工作台。">
+  <meta name="description" content="码上写 VoxFlow 为 macOS、Windows 与 iOS 提供语音输入，并在桌面端整合截图 OCR、历史与本地 Agent 工作流。">
   <link rel="canonical" href="https://mashangxie.app/?lang=zh&share=20260701">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://mashangxie.app/?lang=zh&share=20260701">
   <meta property="og:site_name" content="码上写 VoxFlow">
   <meta property="og:title" content="码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台">
-  <meta property="og:description" content="把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。">
+  <meta property="og:description" content="VoxFlow 为 macOS、Windows 与 iOS 提供语音输入，并为桌面工作流补充 OCR、历史和本地 Agent 能力。">
   <meta property="og:image" content="https://mashangxie.app/assets/wechat-share-logo.jpg?v=20260701">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="码上写 VoxFlow - 语音、OCR 和本地 Agent 工作流都进工作台">
-  <meta name="twitter:description" content="把语音输入、截图 OCR、翻译总结、剪贴板和 AI 助手调度收进同一个 macOS 工作台。">
+  <meta name="twitter:description" content="VoxFlow 为 macOS、Windows 与 iOS 提供语音输入，并为桌面工作流补充 OCR、历史和本地 Agent 能力。">
   <meta name="twitter:image" content="https://mashangxie.app/assets/wechat-share-logo.jpg?v=20260701">
   <title>VoxFlow 码上写 - 语音、OCR 和本地 Agent 工作流都进工作台</title>
   <link rel="icon" href="assets/optimized/voiceinput-logo-256.png">
@@ -89,7 +89,7 @@
   <main id="top">
     <section class="hero shell">
       <div class="hero-copy motion">
-        <p class="eyebrow" data-i18n="eyebrow">macOS input workspace</p>
+        <p class="eyebrow" data-i18n="eyebrow">VoxFlow for macOS, Windows &amp; iOS</p>
         <h1 data-i18n="headline">Speak, capture, translate, and keep the result.</h1>
         <p class="lead" data-i18n="heroCopy">VoxFlow stays attached to the app you are already using: voice input, screenshot OCR, translation, clipboard history, and AI assistant routing all become searchable local assets.</p>
         <div class="hero-badges" aria-label="VoxFlow highlights">
@@ -100,13 +100,29 @@
           <span data-i18n="heroBadgeAgent">Route AI</span>
         </div>
         <div class="hero-actions">
-          <a class="download-button" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg">
+          <div class="platform-downloads">
+          <a class="download-button" data-download-platform="macos" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg">
             <span class="download-icon" aria-hidden="true">⌘</span>
             <span>
-              <strong data-i18n="download">Download for macOS</strong>
-              <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
+              <strong data-i18n="downloadMacOS">Download for macOS</strong>
+              <small data-i18n="downloadMacOSMeta">macOS 15+ · Universal DMG</small>
             </span>
           </a>
+          <a class="download-button secondary" data-download-platform="windows" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-windows-x64-setup.exe">
+            <span class="download-icon" aria-hidden="true">⊞</span>
+            <span>
+              <strong data-i18n="downloadWindows">Download for Windows</strong>
+              <small data-i18n="downloadWindowsMeta">Windows x64 · Installer</small>
+            </span>
+          </a>
+          <a class="download-button secondary" data-download-platform="ios" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/Mashangxie-1.15.0-iOS.ipa">
+            <span class="download-icon" aria-hidden="true">iOS</span>
+            <span>
+              <strong data-i18n="downloadIOS">Download IPA for iOS</strong>
+              <small data-i18n="downloadIOSMeta">iOS 17+ · Registered devices</small>
+            </span>
+          </a>
+          </div>
           <span class="release-note" data-i18n="releaseNote">v1.15.0 · Free & open source</span>
         </div>
       </div>
@@ -244,18 +260,17 @@
     <section class="final-cta shell">
       <img src="assets/optimized/voiceinput-logo.webp" alt="" loading="lazy" decoding="async">
       <h2 data-i18n="ctaTitle">让下一句话、下一张截图、下一次翻译都进入工作台。</h2>
-      <a class="download-button compact" data-download-link href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg">
-        <span>
-          <strong data-i18n="download">下载 macOS App</strong>
-          <small data-i18n="downloadMeta">macOS 15+ · Apple Silicon</small>
-        </span>
-      </a>
+      <div class="platform-downloads compact">
+        <a class="download-button compact" data-download-platform="macos" href="#"><span><strong data-i18n="downloadMacOS">下载 macOS App</strong><small data-i18n="downloadMacOSMeta">macOS 15+ · Universal DMG</small></span></a>
+        <a class="download-button compact secondary" data-download-platform="windows" href="#"><span><strong data-i18n="downloadWindows">下载 Windows App</strong><small data-i18n="downloadWindowsMeta">Windows x64 · 安装包</small></span></a>
+        <a class="download-button compact secondary" data-download-platform="ios" href="#"><span><strong data-i18n="downloadIOS">下载 iOS IPA</strong><small data-i18n="downloadIOSMeta">iOS 17+ · 已登记设备</small></span></a>
+      </div>
     </section>
   </main>
 
   <footer class="footer shell">
     <span data-i18n="footerBrand">VoxFlow © 2026</span>
-    <span data-i18n="footer">Swift & AppKit · Open source</span>
+    <span data-i18n="footer">macOS · Windows · iOS · Open source</span>
   </footer>
 
   <script id="voxflow-release-data" type="application/json">
@@ -263,7 +278,7 @@
   {
     "tag_name": "v1.15.0",
     "name": "VoxFlow 1.15.0",
-    "body": "# VoxFlow 1.15.0\n\n## 更新摘要\n\n- 新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。\n- 升级文件转写与翻译工作流，补齐本地/云端 Provider 能力判断、音频资产准备、分段持久化和译文展示。\n- 修复笔记页继续听写与全局听写的路由边界，VoxFlow 退到后台后不再把外部 App 的听写写入笔记。\n- 改进 HUD、首页记录和失败状态展示，笔记录制支持流式更新，Agent 失败记录会刷新到首页并标注失败。\n\n## 细节\n\n- 功能：内置 Agent Runtime 新增 `read_file`、`write_file`、`edit_file`、`list_files`、`glob_files`、`grep_files`、`clipboard`、`text_field`、`http_request`、`open_url`、`web_fetch`、`web_search`、`search_transcriptions`、`ask_user_question`、`respond` 等工具，并统一事件归一化与执行 trace。\n- 功能：文件转写新增音频资产准备、Provider 能力判断、worker pipeline、Groq 原生文件转写和转写分段持久化。\n- 功能：笔记页新增详情、继续听写、翻译、导出等状态管理，录制 HUD 可在笔记页流式更新。\n- 修复：右 Option / Agent 失败会保存为首页资产并标注失败；`ask_user_question` 允许单选确认，避免 Groq tool schema 400。\n- 修复：笔记页在后台时不再捕获全局听写快捷键；静音时 HUD 波形与流式文本窗口不再闪动。\n- 体验：模型设置、LLM Provider 图标、默认恢复和多语言文案同步更新。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.15.0\n- `CFBundleVersion`：26\n- DMG：`VoxFlow-1.15.0-macOS.dmg`\n",
+    "body": "# VoxFlow 1.15.0\n\n## 更新摘要\n\n- VoxFlow 现同时提供 macOS、Windows 与 iOS 版本，并通过同一条发布流水线生成三平台安装包。\n- 新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。\n- 升级文件转写与翻译工作流，补齐本地/云端 Provider 能力判断、音频资产准备、分段持久化和译文展示。\n- 修复笔记页继续听写与全局听写的路由边界，VoxFlow 退到后台后不再把外部 App 的听写写入笔记。\n- 改进 HUD、首页记录和失败状态展示，笔记录制支持流式更新，Agent 失败记录会刷新到首页并标注失败。\n\n## 细节\n\n- 功能：内置 Agent Runtime 新增 `read_file`、`write_file`、`edit_file`、`list_files`、`glob_files`、`grep_files`、`clipboard`、`text_field`、`http_request`、`open_url`、`web_fetch`、`web_search`、`search_transcriptions`、`ask_user_question`、`respond` 等工具，并统一事件归一化与执行 trace。\n- 功能：文件转写新增音频资产准备、Provider 能力判断、worker pipeline、Groq 原生文件转写和转写分段持久化。\n- 功能：笔记页新增详情、继续听写、翻译、导出等状态管理，录制 HUD 可在笔记页流式更新。\n- 修复：右 Option / Agent 失败会保存为首页资产并标注失败；`ask_user_question` 允许单选确认，避免 Groq tool schema 400。\n- 修复：笔记页在后台时不再捕获全局听写快捷键；静音时 HUD 波形与流式文本窗口不再闪动。\n- 体验：模型设置、LLM Provider 图标、默认恢复和多语言文案同步更新。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.15.0\n- `CFBundleVersion`：26\n- macOS DMG：`VoxFlow-1.15.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.15.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.15.0-windows-x64-portable.zip`\n- iOS Ad Hoc IPA：`Mashangxie-1.15.0-iOS.ipa`\n",
     "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
     "published_at": ""
   },

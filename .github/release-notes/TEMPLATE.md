@@ -14,4 +14,7 @@
 
 - `CFBundleShortVersionString`：VERSION
 - `CFBundleVersion`：BUILD
-- DMG：`VoxFlow-VERSION-macOS.dmg`
+- macOS DMG：`VoxFlow-VERSION-macOS.dmg`
+- Windows 安装包：`VoxFlow-VERSION-windows-x64-setup.exe`
+- Windows 便携包：`VoxFlow-VERSION-windows-x64-portable.zip`
+- iOS Ad Hoc IPA：`Mashangxie-VERSION-iOS.ipa`

@@ -20,6 +20,7 @@ Apps/VoxFlowiOS/build/
 Apps/VoxFlowiOS/VoxFlowiOS.xcodeproj/
 Apps/VoxFlowiOS/ChineseInput/Resources/Schemas/
 .workbuddy/
+.worktrees/
 .claude/
 .codebuddy/
 .codex/

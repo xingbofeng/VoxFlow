@@ -1,0 +1,49 @@
+<UserControl x:Class="VoxFlow.Windows.App.Settings.TranslationSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l10n="clr-namespace:VoxFlow.Windows.App.Localization"
+             xmlns:settings="clr-namespace:VoxFlow.Windows.App.Settings">
+    <StackPanel HorizontalAlignment="Stretch">
+        <TextBlock Text="{Binding Heading}"
+                   FontSize="{DynamicResource HeadingFontSize}"
+                   FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Subtitle}"
+                   Margin="0,8,0,22"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   TextWrapping="Wrap" />
+        <Border Style="{DynamicResource VoxFlowCardStyle}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#E8F7F0"
+                            VerticalAlignment="Top">
+                        <TextBlock Text="&#xE8C1;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Static l10n:L10n.SettingsSelectionSectionHeading}"
+                                   FontSize="{DynamicResource TitleFontSize}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{x:Static l10n:L10n.SettingsSelectionSectionDescription}"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding HotkeyRows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <settings:InteractiveHotkeyRowView />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

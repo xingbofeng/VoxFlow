@@ -344,7 +344,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(readme.contains("https://mashangxie.app/"))
     }
 
-    func testCIKeepsFastChecksAndReleaseWorkflowVerifiesVoxFlowArtifacts() throws {
+    func testCIRunsFastPRChecksAndPackagesAllPlatformsOutsidePullRequests() throws {
         let root = Self.repositoryRoot()
         let ci = try String(
             contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
@@ -362,12 +362,19 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertTrue(ci.contains("cancel-in-progress: true"))
         XCTAssertTrue(ci.contains("timeout-minutes: 40"))
-        XCTAssertFalse(ci.contains("make dmg"))
+        XCTAssertTrue(ci.contains("package-macos:"))
+        XCTAssertTrue(ci.contains("package-ios:"))
+        XCTAssertTrue(ci.contains("if: github.event_name != 'pull_request'"))
+        XCTAssertTrue(ci.contains("make dmg"))
+        XCTAssertTrue(ci.contains("make ios-ipa"))
         XCTAssertFalse(ci.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertFalse(ci.contains(".build/VoxFlowApp.app"))
 
         XCTAssertTrue(release.contains(".build/release/VoxFlow.app"))
         XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
+        XCTAssertTrue(release.contains("VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe"))
+        XCTAssertTrue(release.contains("Mashangxie-*-iOS.ipa"))
+        XCTAssertTrue(release.contains("needs: [macos, windows, ios]"))
         XCTAssertTrue(release.contains("overwrite_files: true"))
         XCTAssertFalse(release.contains(".build/VoxFlow.app"))
         XCTAssertFalse(release.contains(".build/VoxFlowApp.app"))

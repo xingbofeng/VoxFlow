@@ -548,6 +548,7 @@
 		5E5351757F056206DA4BB64B /* Extensions_String+T9.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Extensions_String+T9.swift"; sourceTree = "<group>"; };
 		5F7120A1BE427311D809C79C /* SuggestionBarViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionBarViewTests.swift; sourceTree = "<group>"; };
 		60B2DBB7FA1659E09E809908 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		74E9F297321FBA612567E57D /* voice-input-method-mac */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "voice-input-method-mac"; path = ../..; sourceTree = SOURCE_ROOT; };
 		60EB5C196420415C56931247 /* dictus_scorer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dictus_scorer.h; sourceTree = "<group>"; };
 		655FDC2D77885BF59E39F106 /* dictus_trie_format.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dictus_trie_format.h; sourceTree = "<group>"; };
 		66221004417F2B7CB5B45CF3 /* KeyboardMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardMetrics.swift; sourceTree = "<group>"; };
@@ -563,7 +564,6 @@
 		6FE233A32E93449E34F81EFC /* ModelManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManagerView.swift; sourceTree = "<group>"; };
 		70FCFA53B019EF08CFDE4532 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
 		7268898806BF580DB515728A /* DictusLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictusLogo.swift; sourceTree = "<group>"; };
-		74E9F297321FBA612567E57D /* voice-input-method-mac */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "voice-input-method-mac"; path = ../..; sourceTree = SOURCE_ROOT; };
 		74EDBAD4EC8447029A90A037 /* OnboardingSuccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSuccessView.swift; sourceTree = "<group>"; };
 		75FBD2B520B4CADA9FB78999 /* SharedKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedKeys.swift; sourceTree = "<group>"; };
 		76FB21B1B6FC6BBA2DD806D8 /* AccentedCharacters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccentedCharacters.swift; sourceTree = "<group>"; };
@@ -2263,6 +2263,7 @@
 				);
 				OTHER_LDFLAGS = "-lstdc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mashangxie.ios.keyboard;
+				PROVISIONING_PROFILE_SPECIFIER = "$(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
@@ -2372,6 +2373,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.mashangxie.ios;
+				PROVISIONING_PROFILE_SPECIFIER = "$(MASHANGXIE_APP_PROFILE_SPECIFIER)";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD = NO;
@@ -2500,6 +2502,7 @@
 				);
 				OTHER_LDFLAGS = "-lstdc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mashangxie.ios.keyboard;
+				PROVISIONING_PROFILE_SPECIFIER = "$(MASHANGXIE_KEYBOARD_PROFILE_SPECIFIER)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
@@ -3003,6 +3006,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.mashangxie.ios;
+				PROVISIONING_PROFILE_SPECIFIER = "$(MASHANGXIE_APP_PROFILE_SPECIFIER)";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IOS_IPAD = NO;

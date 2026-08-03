@@ -4,7 +4,32 @@
   "assetName": "VoxFlow-1.15.0-macOS.dmg",
   "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
   "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg",
-  "releaseNotes": "新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。",
+  "assets": {
+    "macos": {
+      "dmg": {
+        "name": "VoxFlow-1.15.0-macOS.dmg",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg"
+      }
+    },
+    "windows": {
+      "installer": {
+        "name": "VoxFlow-1.15.0-windows-x64-setup.exe",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-windows-x64-setup.exe"
+      },
+      "portable": {
+        "name": "VoxFlow-1.15.0-windows-x64-portable.zip",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-windows-x64-portable.zip"
+      }
+    },
+    "ios": {
+      "ipa": {
+        "name": "Mashangxie-1.15.0-iOS.ipa",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/Mashangxie-1.15.0-iOS.ipa"
+      },
+      "distribution": "ad-hoc"
+    }
+  },
+  "releaseNotes": "VoxFlow 现同时提供 macOS、Windows 与 iOS 版本，并通过同一条发布流水线生成三平台安装包。",
   "draft": false,
   "prerelease": false
 }

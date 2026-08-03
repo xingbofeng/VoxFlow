@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "runtimeId": "devenvy-ffmpeg-lgpl-8.0.1.4-win-x64",
+  "architecture": "x64",
+  "license": "LGPL-2.1-or-later",
+  "licenseFile": {
+    "path": "THIRD_PARTY_NOTICES.md",
+    "size": 2174,
+    "sha256": "39d65c5952106502f000d66c41c3bd23d2c0550a8c3270bb224c7642b3cccf9e"
+  },
+  "archive": {
+    "fileName": "devenvy.ffmpeg.binaries.lgpl.8.0.1.4.nupkg",
+    "size": 195504127,
+    "sha256": "d80010128975b46e1b2b74505c464250a3413e23681cc331c6943a9cf1046fda",
+    "downloadUrl": "https://api.nuget.org/v3-flatcontainer/devenvy.ffmpeg.binaries.lgpl/8.0.1.4/devenvy.ffmpeg.binaries.lgpl.8.0.1.4.nupkg",
+    "runtimePath": "ffmpeg/win-x64",
+    "noticePath": "THIRD_PARTY_NOTICES.md"
+  },
+  "files": [
+    { "path": "avcodec-62.dll", "size": 19073024, "sha256": "2329808efd0bc8e9a0503ccf6bb49a18d8f0f082e83db85dee664ea6a49feca0" },
+    { "path": "avdevice-62.dll", "size": 138240, "sha256": "22a273ce8fc48ba3a6ea3f7b1684c1072bb9a982022954a2989ba82ed7a40887" },
+    { "path": "avfilter-11.dll", "size": 5422592, "sha256": "2810c397ee3be9ca91b071eadeed1f7b34a7020e19287df976240b65268bfd7b" },
+    { "path": "avformat-62.dll", "size": 2689024, "sha256": "2473b92a50499f391a77f4fd3bad46510b39a90c5d84c77dd5693ee8707a9263" },
+    { "path": "avutil-60.dll", "size": 1583104, "sha256": "f449c41dafeaa9d79b9b79802addcd4a8c1ea7d98153b1731b8ecf290a507003" },
+    { "path": "ffmpeg.exe", "size": 448000, "sha256": "a485d921008bea1eb3923c17b64c16f9ac2231d57b41c49dc479a953fecfa867" },
+    { "path": "ffprobe.exe", "size": 209920, "sha256": "266a5b7da88ed1b81822c18888a3cc00bc372815982e056575f5a43ced55fd02" },
+    { "path": "swresample-6.dll", "size": 140288, "sha256": "97d61a29afa853e79418a39fb50ec9808732e066f06cea3daf9da8d58199603b" },
+    { "path": "swscale-9.dll", "size": 1750016, "sha256": "d5ee6dd71c6a6cc49140a0fbf6ffdaba33fed5dc9a8276ff3f6d792a905dccbc" }
+  ]
+}

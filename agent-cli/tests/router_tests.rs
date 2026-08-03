@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
