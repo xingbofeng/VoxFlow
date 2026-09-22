@@ -58,5 +58,6 @@ fi
 grep -Eq '^permissions:[[:space:]]*$' "${workflow}"
 grep -Eq '^[[:space:]]+contents:[[:space:]]+read[[:space:]]*$' "${workflow}"
 grep -Fq 'Conventional Commit' "${commit_check}"
+grep -Fq -- '--no-merges' "${commit_check}"
 
 printf '%s\n' 'PASS: Windows CI is x64-only, offline, security-gated, and commit-convention aware.'
