@@ -354,6 +354,8 @@ final class BrandIdentityTests: XCTestCase {
             contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
             encoding: .utf8
         )
+        let ciIOSJob = try Self.workflowJobBody("package-ios", in: ci)
+        let releaseIOSJob = try Self.workflowJobBody("ios", in: release)
 
         XCTAssertTrue(ci.contains("swift test"))
         XCTAssertTrue(ci.contains("swift_test_workers=8"))
@@ -364,16 +366,41 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("timeout-minutes: 40"))
         XCTAssertTrue(ci.contains("package-macos:"))
         XCTAssertTrue(ci.contains("package-ios:"))
-        XCTAssertTrue(ci.contains("if: github.event_name != 'pull_request'"))
         XCTAssertTrue(ci.contains("make dmg"))
-        XCTAssertTrue(ci.contains("make ios-ipa"))
+        XCTAssertTrue(ciIOSJob.contains("name: Package unsigned iOS IPA contract"))
+        XCTAssertTrue(ciIOSJob.contains("if: github.event_name != 'pull_request'"))
+        XCTAssertTrue(ciIOSJob.contains("make ios-ipa-unsigned"))
+        XCTAssertTrue(ciIOSJob.contains("name: Mashangxie-iOS-unsigned"))
+        XCTAssertTrue(ciIOSJob.contains("path: dist/ios/Mashangxie-unsigned.ipa"))
+        XCTAssertEqual(
+            ciIOSJob.components(separatedBy: "uses: actions/upload-artifact@v4").count,
+            2,
+            "The CI iOS job must upload exactly one artifact."
+        )
+        XCTAssertEqual(
+            ciIOSJob
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.hasPrefix("path:") },
+            ["path: dist/ios/Mashangxie-unsigned.ipa"],
+            "The CI iOS job must upload only the unsigned IPA."
+        )
+        XCTAssertFalse(ciIOSJob.contains("MASHANGXIE_IOS"))
+        XCTAssertFalse(ciIOSJob.contains("dist/ios/Mashangxie-*-iOS.ipa"))
+        XCTAssertFalse(ciIOSJob.contains(".ipa.sha256"))
         XCTAssertFalse(ci.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertFalse(ci.contains(".build/VoxFlowApp.app"))
 
         XCTAssertTrue(release.contains(".build/release/VoxFlow.app"))
         XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertTrue(release.contains("VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe"))
-        XCTAssertTrue(release.contains("Mashangxie-*-iOS.ipa"))
+        XCTAssertTrue(releaseIOSJob.contains("make ios-ipa"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_APP_PROFILE_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_TEAM_ID"))
+        XCTAssertTrue(releaseIOSJob.contains("dist/ios/Mashangxie-*-iOS.ipa"))
         XCTAssertTrue(release.contains("needs: [macos, windows, ios]"))
         XCTAssertTrue(release.contains("overwrite_files: true"))
         XCTAssertFalse(release.contains(".build/VoxFlow.app"))
@@ -450,5 +477,18 @@ final class BrandIdentityTests: XCTestCase {
         let start = try XCTUnwrap(makefile.range(of: "\n\(target):")?.lowerBound)
         let end = try XCTUnwrap(makefile[start...].range(of: "\n\n")?.lowerBound)
         return String(makefile[start..<end])
+    }
+
+    private static func workflowJobBody(_ job: String, in workflow: String) throws -> String {
+        let lines = workflow.split(separator: "\n", omittingEmptySubsequences: false)
+        let heading = "  \(job):"
+        let start = try XCTUnwrap(lines.firstIndex { String($0) == heading })
+        let searchStart = lines.index(after: start)
+        let end = lines[searchStart...].firstIndex { line in
+            let value = String(line)
+            return value.hasPrefix("  ") && !value.hasPrefix("    ") && value.hasSuffix(":")
+        } ?? lines.endIndex
+
+        return lines[start..<end].joined(separator: "\n")
     }
 }
