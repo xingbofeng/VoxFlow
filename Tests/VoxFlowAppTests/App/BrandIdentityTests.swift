@@ -431,6 +431,75 @@ final class BrandIdentityTests: XCTestCase {
         )
     }
 
+    func testLandingDeploymentWaitsForPublishedThreePlatformReleaseAssets() throws {
+        let root = Self.repositoryRoot()
+        let deployLanding = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/deploy-landing.yml"),
+            encoding: .utf8
+        )
+        let release = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+        let legacyPages = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/pages.yml"),
+            encoding: .utf8
+        )
+        let releaseGate = try Self.workflowJobBody("release_ready", in: deployLanding)
+
+        XCTAssertTrue(releaseGate.contains("scripts/check-release-assets-published.py"))
+        XCTAssertTrue(releaseGate.contains("ready: ${{ steps.verify.outputs.ready }}"))
+        XCTAssertTrue(releaseGate.contains("GH_TOKEN: ${{ github.token }}"))
+
+        for job in ["vercel", "lighthouse", "pages"] {
+            let body = try Self.workflowJobBody(job, in: deployLanding)
+            XCTAssertTrue(body.contains("needs: release_ready"), "\(job) must wait for the release gate.")
+            XCTAssertTrue(
+                body.contains("needs.release_ready.outputs.ready == 'true'"),
+                "\(job) must not deploy unpublished platform downloads."
+            )
+        }
+
+        let domains = try Self.workflowJobBody("verify-domains", in: deployLanding)
+        XCTAssertTrue(domains.contains("- release_ready"))
+        XCTAssertTrue(domains.contains("needs.release_ready.outputs.ready == 'true'"))
+        XCTAssertTrue(domains.contains("always()"))
+
+        let dns = try Self.workflowJobBody("dns", in: deployLanding)
+        XCTAssertFalse(dns.contains("needs:"), "DNS maintenance must remain independent of a release.")
+
+        let releaseDeployment = try Self.workflowJobBody("deploy_pages", in: release)
+        XCTAssertTrue(releaseDeployment.contains("needs: publish"))
+        XCTAssertTrue(releaseDeployment.contains("-f target=all"))
+
+        let legacyPagesGate = try Self.workflowJobBody("release_ready", in: legacyPages)
+        XCTAssertTrue(legacyPagesGate.contains("scripts/check-release-assets-published.py"))
+        let legacyPagesDeployment = try Self.workflowJobBody("deploy", in: legacyPages)
+        XCTAssertTrue(legacyPagesDeployment.contains("needs: release_ready"))
+        XCTAssertTrue(legacyPagesDeployment.contains("needs.release_ready.outputs.ready == 'true'"))
+    }
+
+    func testLandingDescribesTheMacDownloadAsAppleSiliconInsteadOfUniversal() throws {
+        let root = Self.repositoryRoot()
+        let index = try String(
+            contentsOf: root.appendingPathComponent("docs/index.html"),
+            encoding: .utf8
+        )
+        let script = try String(
+            contentsOf: root.appendingPathComponent("docs/script.js"),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(index.contains("Universal DMG"))
+        XCTAssertFalse(index.contains("通用 DMG"))
+        XCTAssertFalse(script.contains("Universal DMG"))
+        XCTAssertFalse(script.contains("通用 DMG"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple Silicon"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple 芯片"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple 晶片"))
+        XCTAssertTrue(script.contains("macOS 15+ · Appleシリコン"))
+    }
+
     func testReleaseWorkflowVerifiesTagPlistVersionAndReleaseNotesMatch() throws {
         let root = Self.repositoryRoot()
         let release = try String(

@@ -13,8 +13,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release_ready:
+    name: Verify documented release assets are published
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.verify.outputs.ready }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Verify documented GitHub Release assets
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-release-assets-published.py --github-output "$GITHUB_OUTPUT"
+
   deploy:
     name: Deploy landing page
+    needs: release_ready
+    if: ${{ needs.release_ready.outputs.ready == 'true' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

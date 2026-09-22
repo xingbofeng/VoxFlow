@@ -67,6 +67,9 @@ jobs:
       - name: Check release metadata
         run: make release-check
 
+      - name: Test release asset publication gate
+        run: python3 Tests/ReleaseMetadataTests/test_release_assets_published.py
+
       - name: Show Swift toolchain
         run: swift --version
 
