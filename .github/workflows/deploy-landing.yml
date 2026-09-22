@@ -226,34 +226,13 @@ jobs:
         id: deployed_pages
         run: |
           set -euo pipefail
-          expected_version="$(python3 - <<'PY'
-          import json
-          with open("docs/release.json", "r", encoding="utf-8") as handle:
-              print(json.load(handle)["version"])
-          PY
-          )"
-          expected_download_url="$(python3 - <<'PY'
-          import json
-          with open("docs/release.json", "r", encoding="utf-8") as handle:
-              print(json.load(handle)["downloadURL"])
-          PY
-          )"
           if curl -fsSL --max-time 20 "https://xingbofeng.github.io/VoxFlow/release.json" -o /tmp/pages-release.json &&
-            python3 - /tmp/pages-release.json "${expected_version}" "${expected_download_url}" <<'PY'
-          import json
-          import sys
-
-          path, expected_version, expected_download_url = sys.argv[1:4]
-          with open(path, "r", encoding="utf-8") as handle:
-              release = json.load(handle)
-          if release.get("version") != expected_version:
-              raise SystemExit(1)
-          if release.get("downloadURL") != expected_download_url:
-              raise SystemExit(1)
-          PY
+            python3 scripts/check-deployed-release-metadata.py \
+              --expected docs/release.json \
+              --actual /tmp/pages-release.json
           then
             echo "current=true" >> "${GITHUB_OUTPUT}"
-            echo "GitHub Pages already publishes ${expected_version}"
+            echo "GitHub Pages already publishes the complete documented release metadata"
           else
             echo "current=false" >> "${GITHUB_OUTPUT}"
           fi
@@ -273,7 +252,23 @@ jobs:
         run: |
           set -euo pipefail
           page_url="${{ steps.deployment.outputs.page_url || 'https://xingbofeng.github.io/VoxFlow/' }}"
-          curl -fsS "${page_url%/}/release.json" | python3 -m json.tool >/dev/null
+          verified=false
+          for attempt in $(seq 1 30); do
+            if curl -fsS "${page_url%/}/release.json" -o /tmp/pages-release.json &&
+              python3 scripts/check-deployed-release-metadata.py \
+                --expected docs/release.json \
+                --actual /tmp/pages-release.json
+            then
+              verified=true
+              break
+            fi
+            echo "Waiting for ${page_url%/}/release.json to publish complete release metadata (attempt ${attempt}/30)"
+            sleep 10
+          done
+          if [ "${verified}" != "true" ]; then
+            echo "::error::${page_url%/}/release.json did not publish complete release metadata"
+            exit 1
+          fi
           curl -fsS "${page_url%/}/script.js" >/dev/null
 
   dns:
@@ -380,12 +375,6 @@ jobs:
               print(json.load(handle)["version"])
           PY
           )"
-          expected_download_url="$(python3 - <<'PY'
-          import json
-          with open("docs/release.json", "r", encoding="utf-8") as handle:
-              print(json.load(handle)["downloadURL"])
-          PY
-          )"
 
           verify_domain() {
             local origin="$1"
@@ -393,24 +382,9 @@ jobs:
             tmp="$(mktemp)"
             for attempt in $(seq 1 30); do
               if curl -fsSL --max-time 20 "${origin}/release.json" -o "${tmp}" &&
-                python3 - "${tmp}" "${expected_version}" "${expected_download_url}" <<'PY'
-          import json
-          import sys
-
-          path, expected_version, expected_download_url = sys.argv[1:4]
-          with open(path, "r", encoding="utf-8") as handle:
-              release = json.load(handle)
-
-          if release.get("version") != expected_version:
-              raise SystemExit(
-                  f"expected version {expected_version}, got {release.get('version')}"
-              )
-          if release.get("downloadURL") != expected_download_url:
-              raise SystemExit(
-                  "downloadURL mismatch: "
-                  f"expected {expected_download_url}, got {release.get('downloadURL')}"
-              )
-          PY
+                python3 scripts/check-deployed-release-metadata.py \
+                  --expected docs/release.json \
+                  --actual "${tmp}"
               then
                 echo "${origin} release metadata is current (${expected_version})"
                 rm -f "${tmp}"

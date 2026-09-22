@@ -70,6 +70,9 @@ jobs:
       - name: Test release asset publication gate
         run: python3 Tests/ReleaseMetadataTests/test_release_assets_published.py
 
+      - name: Test deployed landing release metadata verification
+        run: python3 Tests/ReleaseMetadataTests/test_deployed_release_metadata.py
+
       - name: Show Swift toolchain
         run: swift --version
 
