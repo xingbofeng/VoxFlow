@@ -73,6 +73,30 @@ def run_script(
     )
 
 
+def javascript_release_download_state(path: Path) -> dict[str, object]:
+    prelude, _, _ = path.read_text(encoding="utf-8").partition('const siteURL = ')
+    node_program = """
+const fs = require("fs");
+const vm = require("vm");
+const source = fs.readFileSync(0, "utf8");
+const context = { process };
+vm.runInNewContext(
+  source + "\\nprocess.stdout.write(JSON.stringify({ urls: releaseDownloadURLs, iosURL: releaseDownloadURLForPlatform(\\\"ios\\\") }));",
+  context,
+);
+"""
+    completed = subprocess.run(
+        ["node", "-e", node_program],
+        input=prelude,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+    return json.loads(completed.stdout)
+
+
 def plist_values(path: Path) -> tuple[str, str]:
     with path.open("rb") as handle:
         metadata = plistlib.load(handle)
@@ -98,8 +122,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         self,
         fixture_root: Path,
         platforms: str | None = None,
+        version: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        arguments = ("--version", self.version, "--build", self.build)
+        arguments = ("--version", version or self.version, "--build", self.build)
         if platforms is not None:
             arguments += ("--platforms", platforms)
         return run_script(fixture_root, PREPARE_RELEASE, *arguments)
@@ -155,11 +180,18 @@ class ReleaseMetadataTests(unittest.TestCase):
 
             self.assert_source_versions_are_synchronized(fixture_root)
             ios_ipa = f"Mashangxie-{self.version}-iOS.ipa"
+            script = fixture_root / "docs/script.js"
+            index = fixture_root / "docs/index.html"
             release_notes = (fixture_root / f".github/release-notes/v{self.version}.md").read_text(
                 encoding="utf-8"
             )
             self.assertNotIn(ios_ipa, release_notes)
-            self.assertNotIn(ios_ipa, (fixture_root / "docs/index.html").read_text(encoding="utf-8"))
+            self.assertNotIn(ios_ipa, script.read_text(encoding="utf-8"))
+            self.assertNotIn(ios_ipa, index.read_text(encoding="utf-8"))
+            self.assertNotIn('data-download-platform="ios"', index.read_text(encoding="utf-8"))
+            download_state = javascript_release_download_state(script)
+            self.assertNotIn("ios", download_state["urls"])
+            self.assertIsNone(download_state["iosURL"])
             for relative_path in README_PATHS:
                 self.assertNotIn(ios_ipa, (fixture_root / relative_path).read_text(encoding="utf-8"))
 
@@ -170,19 +202,35 @@ class ReleaseMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_root = Path(temporary_directory)
             create_fixture(fixture_root)
+            first_preparation = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(first_preparation.returncode, 0, first_preparation.stderr)
+            restored_version = "9.8.8"
 
-            completed = self.prepare(fixture_root)
+            completed = self.prepare(fixture_root, version=restored_version)
 
             self.assertEqual(completed.returncode, 0, completed.stderr)
             release = json.loads((fixture_root / "docs/release.json").read_text(encoding="utf-8"))
             self.assertEqual(release["publishedPlatforms"], ["macos", "windows", "ios"])
             ios = release["assets"]["ios"]
             self.assertEqual(ios["distribution"], "ad-hoc")
-            self.assertEqual(ios["ipa"]["name"], f"Mashangxie-{self.version}-iOS.ipa")
-            release_notes = (fixture_root / f".github/release-notes/v{self.version}.md").read_text(
+            self.assertEqual(ios["ipa"]["name"], f"Mashangxie-{restored_version}-iOS.ipa")
+            ios_ipa = f"Mashangxie-{restored_version}-iOS.ipa"
+            release_notes = (fixture_root / f".github/release-notes/v{restored_version}.md").read_text(
                 encoding="utf-8"
             )
-            self.assertIn(f"Mashangxie-{self.version}-iOS.ipa", release_notes)
+            self.assertIn(ios_ipa, release_notes)
+            script = fixture_root / "docs/script.js"
+            index = fixture_root / "docs/index.html"
+            self.assertIn(ios_ipa, script.read_text(encoding="utf-8"))
+            self.assertIn(ios_ipa, index.read_text(encoding="utf-8"))
+            self.assertIn('data-download-platform="ios"', index.read_text(encoding="utf-8"))
+            download_state = javascript_release_download_state(script)
+            self.assertEqual(
+                download_state["iosURL"],
+                f"https://github.com/xingbofeng/VoxFlow/releases/download/v{restored_version}/{ios_ipa}",
+            )
+            for relative_path in README_PATHS:
+                self.assertIn(ios_ipa, (fixture_root / relative_path).read_text(encoding="utf-8"))
 
             checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
             self.assertEqual(checked.returncode, 0, checked.stderr)
@@ -218,6 +266,25 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertNotEqual(checked.returncode, 0)
             self.assertIn("VoxFlow.Windows", checked.stderr)
             self.assertIn("<Version>", checked.stderr)
+
+    def test_release_metadata_check_rejects_unselected_ios_download_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_ios_ipa = "Mashangxie-1.15.0-iOS.ipa"
+            index = fixture_root / "docs/index.html"
+            index.write_text(
+                index.read_text(encoding="utf-8")
+                + f'\n<a href="https://github.com/xingbofeng/VoxFlow/releases/download/v{self.version}/{stale_ios_ipa}">iOS</a>\n',
+                encoding="utf-8",
+            )
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -17,11 +19,45 @@ IOS_INFO_PLISTS = [
 WINDOWS_PROJECT = ROOT / "VoxFlow.Windows/src/VoxFlow.Windows.App/VoxFlow.Windows.App.csproj"
 TEMPLATE = ROOT / ".github/release-notes/TEMPLATE.md"
 DEFAULT_PLATFORMS = ("macos", "windows", "ios")
+SCRIPT_IOS_ASSET_BEGIN = "/* RELEASE_IOS_ASSET_BEGIN */"
+SCRIPT_IOS_ASSET_END = "/* RELEASE_IOS_ASSET_END */"
+INDEX_IOS_HERO_CTA_BEGIN = "<!-- RELEASE_IOS_HERO_CTA_BEGIN -->"
+INDEX_IOS_HERO_CTA_END = "<!-- RELEASE_IOS_HERO_CTA_END -->"
+INDEX_IOS_COMPACT_CTA_BEGIN = "<!-- RELEASE_IOS_COMPACT_CTA_BEGIN -->"
+INDEX_IOS_COMPACT_CTA_END = "<!-- RELEASE_IOS_COMPACT_CTA_END -->"
+README_IOS_DOWNLOAD_ROWS = {
+    "README.md": "| iOS 17+ | `{ipa}` | Install the Ad Hoc IPA on a device whose UDID is registered in the bundled profiles. |",
+    "README.zh-CN.md": "| iOS 17+ | `{ipa}` | 仅可安装到已写入 Ad Hoc profiles 的 UDID 设备。 |",
+    "README.zh-TW.md": "| iOS 17+ | `{ipa}` | 僅能安裝至已登記於 Ad Hoc profiles 的 UDID 裝置。 |",
+    "README.ja.md": "| iOS 17+ | `{ipa}` | Ad Hoc profile に UDID が登録済みの端末へインストールします。 |",
+    "README.ko.md": "| iOS 17+ | `{ipa}` | Ad Hoc profile에 UDID가 등록된 기기에 설치합니다. |",
+}
 
 
 def replace(path: Path, pattern: str, replacement: str) -> None:
     text = path.read_text(encoding="utf-8")
     new_text = re.sub(pattern, replacement, text)
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
+
+
+def replace_marker_block(
+    path: Path,
+    begin_marker: str,
+    end_marker: str,
+    content: str,
+) -> None:
+    text = path.read_text(encoding="utf-8")
+    begin = text.find(begin_marker)
+    if begin == -1:
+        raise RuntimeError(f"missing {begin_marker} in {path}")
+    begin_line_end = text.find("\n", begin)
+    end = text.find(end_marker, begin_line_end)
+    if begin_line_end == -1 or end == -1:
+        raise RuntimeError(f"incomplete {begin_marker} block in {path}")
+    end_line_start = text.rfind("\n", 0, end) + 1
+    replacement = content.rstrip() + "\n" if content else ""
+    new_text = text[: begin_line_end + 1] + replacement + text[end_line_start:]
     if new_text != text:
         path.write_text(new_text, encoding="utf-8")
 
@@ -81,6 +117,63 @@ def asset_download_url(assets: dict[str, dict[str, object]], platform: str, kind
     url = asset["downloadURL"]
     assert isinstance(url, str)
     return url
+
+
+def script_ios_asset(version: str) -> str:
+    return "\n".join(
+        (
+            "    ios: {",
+            f'      ipa: {{ name: "Mashangxie-{version}-iOS.ipa" }},',
+            '      distribution: "ad-hoc"',
+            "    }",
+        )
+    )
+
+
+def index_ios_hero_cta(download_url: str) -> str:
+    return "\n".join(
+        (
+            f'          <a class="download-button secondary" data-download-platform="ios" href="{download_url}">',
+            '            <span class="download-icon" aria-hidden="true">iOS</span>',
+            "            <span>",
+            '              <strong data-i18n="downloadIOS">Download IPA for iOS</strong>',
+            '              <small data-i18n="downloadIOSMeta">iOS 17+ · Registered devices</small>',
+            "            </span>",
+            "          </a>",
+        )
+    )
+
+
+def index_ios_compact_cta() -> str:
+    return (
+        '        <a class="download-button compact secondary" data-download-platform="ios" href="#"><span>'
+        '<strong data-i18n="downloadIOS">下载 iOS IPA</strong>'
+        '<small data-i18n="downloadIOSMeta">iOS 17+ · 已登记设备</small></span></a>'
+    )
+
+
+def update_readme_ios_download_row(path: Path, row: str | None) -> None:
+    text = path.read_text(encoding="utf-8")
+    without_ios_row, _ = re.subn(
+        r"^\| iOS 17\+ \| `Mashangxie-[^`]+-iOS\.ipa` \|.*\|\n?",
+        "",
+        text,
+        flags=re.MULTILINE,
+    )
+    if row is None:
+        new_text = without_ios_row
+    else:
+        new_text, count = re.subn(
+            r"^(\| Windows x64 \|.*\|)$",
+            lambda match: f"{match.group(1)}\n{row}",
+            without_ios_row,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if count != 1:
+            raise RuntimeError(f"missing Windows download row in {path}")
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
 
 
 def update_plist(version: str, build: str) -> None:
@@ -205,12 +298,16 @@ def update_docs(version: str, platforms: tuple[str, ...]) -> None:
     dmg = asset_name(assets, "macos", "dmg")
     windows_installer = asset_name(assets, "windows", "installer")
     windows_portable = asset_name(assets, "windows", "portable")
-    ios_ipa = asset_name(assets, "ios", "ipa")
 
     script = ROOT / "docs/script.js"
     replace(script, r'version: "[^"]+"', f'version: "{version}"')
     replace(script, r'tag: "v[^"]+"', f'tag: "{tag}"')
     replace(script, r'assetName: "VoxFlow-[^"]+-macOS\.dmg"', f'assetName: "{dmg}"')
+    replace(
+        script,
+        r'publishedPlatforms: \[[^\]]*\],',
+        f"publishedPlatforms: {json.dumps(list(platforms))},",
+    )
     replace(script, r'name: "VoxFlow-[^"]+-macOS\.dmg"', f'name: "{dmg}"')
     replace(
         script,
@@ -222,8 +319,12 @@ def update_docs(version: str, platforms: tuple[str, ...]) -> None:
         r'name: "VoxFlow-[^"]+-windows-x64-portable\.zip"',
         f'name: "{windows_portable}"',
     )
-    if "ios" in platforms:
-        replace(script, r'name: "Mashangxie-[^"]+-iOS\.ipa"', f'name: "{ios_ipa}"')
+    replace_marker_block(
+        script,
+        SCRIPT_IOS_ASSET_BEGIN,
+        SCRIPT_IOS_ASSET_END,
+        script_ios_asset(version) if "ios" in platforms else "",
+    )
 
     index = ROOT / "docs/index.html"
     replace(
@@ -236,12 +337,19 @@ def update_docs(version: str, platforms: tuple[str, ...]) -> None:
         r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-setup\.exe",
         asset_download_url(assets, "windows", "installer"),
     )
-    if "ios" in platforms:
-        replace(
-            index,
-            r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa",
-            asset_download_url(assets, "ios", "ipa"),
-        )
+    ios_download_url = asset_download_url(assets, "ios", "ipa")
+    replace_marker_block(
+        index,
+        INDEX_IOS_HERO_CTA_BEGIN,
+        INDEX_IOS_HERO_CTA_END,
+        index_ios_hero_cta(ios_download_url) if "ios" in platforms else "",
+    )
+    replace_marker_block(
+        index,
+        INDEX_IOS_COMPACT_CTA_BEGIN,
+        INDEX_IOS_COMPACT_CTA_END,
+        index_ios_compact_cta() if "ios" in platforms else "",
+    )
     replace(index, r"v[0-9]+\.[0-9]+\.[0-9]+ · Free & open source", f"{tag} · Free & open source")
 
     update_index_release_fallback(version)
@@ -281,7 +389,7 @@ def update_readmes(version: str, platforms: tuple[str, ...]) -> None:
     windows_installer = asset_name(assets, "windows", "installer")
     windows_portable = asset_name(assets, "windows", "portable")
     ios_ipa = asset_name(assets, "ios", "ipa")
-    for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
+    for relative, ios_download_row in README_IOS_DOWNLOAD_ROWS.items():
         path = ROOT / relative
         replace(path, r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", dmg)
         replace(
@@ -294,8 +402,10 @@ def update_readmes(version: str, platforms: tuple[str, ...]) -> None:
             r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-portable\.zip",
             windows_portable,
         )
-        if "ios" in platforms:
-            replace(path, r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", ios_ipa)
+        update_readme_ios_download_row(
+            path,
+            ios_download_row.format(ipa=ios_ipa) if "ios" in platforms else None,
+        )
 
 
 def main() -> int:

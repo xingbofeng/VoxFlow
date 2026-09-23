@@ -2,6 +2,7 @@ const release = {
   version: "1.15.0",
   tag: "v1.15.0",
   assetName: "VoxFlow-1.15.0-macOS.dmg",
+  publishedPlatforms: ["macos", "windows", "ios"],
   assets: {
     macos: {
       dmg: { name: "VoxFlow-1.15.0-macOS.dmg" }
@@ -10,10 +11,12 @@ const release = {
       installer: { name: "VoxFlow-1.15.0-windows-x64-setup.exe" },
       portable: { name: "VoxFlow-1.15.0-windows-x64-portable.zip" }
     },
+    /* RELEASE_IOS_ASSET_BEGIN */
     ios: {
       ipa: { name: "Mashangxie-1.15.0-iOS.ipa" },
       distribution: "ad-hoc"
     }
+    /* RELEASE_IOS_ASSET_END */
   }
 };
 
@@ -21,9 +24,12 @@ const releaseAssetURL = (assetName) =>
   `https://github.com/xingbofeng/VoxFlow/releases/download/${release.tag}/${assetName}`;
 const releaseDownloadURLs = {
   macos: releaseAssetURL(release.assets.macos.dmg.name),
-  windows: releaseAssetURL(release.assets.windows.installer.name),
-  ios: releaseAssetURL(release.assets.ios.ipa.name)
+  windows: releaseAssetURL(release.assets.windows.installer.name)
 };
+if (release.assets.ios?.ipa) {
+  releaseDownloadURLs.ios = releaseAssetURL(release.assets.ios.ipa.name);
+}
+const releaseDownloadURLForPlatform = (platform) => releaseDownloadURLs[platform] || null;
 
 const siteURL = "https://mashangxie.app/";
 const releaseNotesURL = "https://api.github.com/repos/xingbofeng/VoxFlow/releases?per_page=3";
@@ -912,7 +918,14 @@ function setLanguage(language, { pushState = true, persist = true } = {}) {
 }
 
 document.querySelectorAll("[data-download-platform]").forEach((element) => {
-  element.href = releaseDownloadURLs[element.dataset.downloadPlatform] || releaseDownloadURLs.macos;
+  const downloadURL = releaseDownloadURLForPlatform(element.dataset.downloadPlatform);
+  if (downloadURL === null) {
+    element.hidden = true;
+    element.removeAttribute("href");
+    return;
+  }
+  element.hidden = false;
+  element.href = downloadURL;
 });
 
 if (languageSwitchButton && languageMenu) {

@@ -67,6 +67,9 @@ jobs:
       - name: Check release metadata
         run: make release-check
 
+      - name: Test release metadata preparation
+        run: python3 Tests/ReleaseMetadataTests/test_release_metadata.py
+
       - name: Test release platform contract
         run: python3 Tests/ReleaseMetadataTests/test_release_platforms.py
 

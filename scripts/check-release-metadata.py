@@ -167,6 +167,12 @@ def main() -> int:
                 f"release notes asset reference is stale: {asset_name}",
                 failures,
             )
+        if "ios" not in platforms:
+            require(
+                re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", release_notes) is None,
+                "release notes have an unselected iOS IPA download reference",
+                failures,
+            )
 
     docs_script = read_text(ROOT / "docs/script.js")
     require(f'version: "{version}"' in docs_script, "docs/script.js release.version is stale", failures)
@@ -188,6 +194,12 @@ def main() -> int:
             "docs/script.js iOS distribution must be ad-hoc",
             failures,
         )
+    else:
+        require(
+            re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", docs_script) is None,
+            "docs/script.js has an unselected iOS IPA download reference",
+            failures,
+        )
 
     docs_index = read_text(ROOT / "docs/index.html")
     for platform, kind, asset_name in expected_assets:
@@ -200,6 +212,23 @@ def main() -> int:
         require(
             f"releases/download/{tag}/{asset_name}" in docs_index,
             f"docs/index.html {platform} download fallback is stale",
+            failures,
+        )
+    if "ios" not in platforms:
+        require(
+            all(
+                not asset_name.endswith("-iOS.ipa")
+                for asset_name in re.findall(
+                    rf"releases/download/{re.escape(tag)}/([^\"'<\s]+)",
+                    docs_index,
+                )
+            ),
+            "docs/index.html has an unselected iOS IPA download reference",
+            failures,
+        )
+        require(
+            'data-download-platform="ios"' not in docs_index,
+            "docs/index.html has an active unselected iOS download CTA",
             failures,
         )
     require(f"{tag} · Free & open source" in docs_index, "docs/index.html release note fallback is stale", failures)
@@ -274,6 +303,12 @@ def main() -> int:
             require(
                 found == [expected_asset],
                 f"{relative} asset reference is stale: {expected_asset} ({len(found)} found)",
+                failures,
+            )
+        if "ios" not in platforms:
+            require(
+                re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", text) is None,
+                f"{relative} has an unselected iOS IPA download reference",
                 failures,
             )
 
