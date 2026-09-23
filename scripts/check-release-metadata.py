@@ -6,6 +6,7 @@ import os
 import plistlib
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,59 @@ IOS_INFO_PLISTS = [
 ]
 WINDOWS_PROJECT = ROOT / "VoxFlow.Windows/src/VoxFlow.Windows.App/VoxFlow.Windows.App.csproj"
 README_PATHS = ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]
+IOS_IPA_REFERENCE_RE = re.compile(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa")
+RELEASE_NOTE_METADATA_HEADING_RE = re.compile(r"^## 发布元数据[ \t]*$", re.MULTILINE)
+RELEASE_NOTE_SECTION_HEADING_RE = re.compile(r"^##\s+", re.MULTILINE)
+RELEASE_NOTE_IOS_ASSET_ROW_RE = re.compile(
+    r"^- iOS Ad Hoc IPA：`Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa`[ \t]*$",
+    re.MULTILINE,
+)
+README_IOS_DOWNLOAD_ROW_RE = re.compile(
+    r"^\| iOS 17\+ \| .*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa.*\|[ \t]*$",
+    re.MULTILINE,
+)
+README_IOS_DOWNLOAD_LINK_RE = re.compile(
+    r"\[[^\]]+\]\(\s*(?:<)?[^)\s]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^)]*\)",
+    re.IGNORECASE,
+)
+README_IOS_AUTOLINK_RE = re.compile(
+    r"<https?://[^>\s]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^>\s]*>",
+    re.IGNORECASE,
+)
+README_IOS_HREF_RE = re.compile(
+    r'<a\b[^>]*\bhref\s*=\s*["\'][^"\']*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^"\']*["\']',
+    re.IGNORECASE,
+)
+README_REFERENCE_LINK_RE = re.compile(r"\[([^\]]+)\]\[([^\]]*)\]")
+README_SHORTCUT_REFERENCE_LINK_RE = re.compile(
+    r"(?<![!\[])\[([^\]\n]+)\](?![\[(:])"
+)
+README_REFERENCE_DEFINITION_RE = re.compile(
+    r"^\s*\[([^\]]+)\]:\s*(?:<)?([^>\s]+)",
+    re.MULTILINE,
+)
+SCRIPT_LINK_ASSIGNMENT_PREFIX = (
+    r"(?:"
+    r"\.\s*href\s*=\s*|"
+    r"\.setAttribute\(\s*[\"']href[\"']\s*,\s*|"
+    r"\b(?:href|downloadURL)\s*:\s*|"
+    r"\breleaseDownloadURLs\s*(?:\.\s*ios|\[\s*[\"']ios[\"']\s*\])\s*=\s*"
+    r")"
+)
+SCRIPT_ACTIVE_IOS_LINK_RE = re.compile(
+    SCRIPT_LINK_ASSIGNMENT_PREFIX
+    + r"[\"'`][^\"'`]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^\"'`]*[\"'`]",
+    re.IGNORECASE,
+)
+SCRIPT_IOS_URL_VARIABLE_RE = re.compile(
+    r"\b([A-Za-z_$][\w$]*)\s*=\s*"
+    r"[\"'`][^\"'`]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^\"'`]*[\"'`]",
+    re.IGNORECASE,
+)
+EMBEDDED_RELEASE_DATA_RE = re.compile(
+    r'<script\b(?=[^>]*\bid=["\']voxflow-release-data["\'])[^>]*>.*?</script\s*>',
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def read_version() -> tuple[str, str]:
@@ -80,6 +134,131 @@ def current_release_data(index: str) -> list[Any] | None:
     except json.JSONDecodeError:
         return None
     return release_data if isinstance(release_data, list) else None
+
+
+class ActivePageLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[tuple[str, str | None]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+        attributes = dict(attrs)
+        platform = attributes.get("data-download-platform")
+        if "href" in attributes or platform is not None:
+            self.links.append((attributes.get("href") or "", platform))
+
+
+def active_page_links(index: str) -> list[tuple[str, str | None]]:
+    parser = ActivePageLinkParser()
+    parser.feed(EMBEDDED_RELEASE_DATA_RE.sub("", index))
+    parser.close()
+    return parser.links
+
+
+def javascript_without_comments(source: str) -> str:
+    result: list[str] = []
+    index = 0
+    quote: str | None = None
+    while index < len(source):
+        character = source[index]
+        if quote is not None:
+            result.append(character)
+            if character == "\\" and index + 1 < len(source):
+                index += 1
+                result.append(source[index])
+            elif character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+            result.append(character)
+            index += 1
+            continue
+        if source.startswith("//", index):
+            newline = source.find("\n", index)
+            if newline == -1:
+                break
+            result.append("\n")
+            index = newline + 1
+            continue
+        if source.startswith("/*", index):
+            comment_end = source.find("*/", index + 2)
+            if comment_end == -1:
+                break
+            result.extend("\n" for character in source[index:comment_end] if character == "\n")
+            index = comment_end + 2
+            continue
+        result.append(character)
+        index += 1
+    return "".join(result)
+
+
+def script_has_active_ios_link(source: str) -> bool:
+    if SCRIPT_ACTIVE_IOS_LINK_RE.search(source) is not None:
+        return True
+    for url_variable in SCRIPT_IOS_URL_VARIABLE_RE.finditer(source):
+        variable_reference = re.compile(
+            SCRIPT_LINK_ASSIGNMENT_PREFIX + rf"{re.escape(url_variable.group(1))}\b",
+            re.IGNORECASE,
+        )
+        if variable_reference.search(source) is not None:
+            return True
+    return False
+
+
+def markdown_reference_key(label: str) -> str:
+    return " ".join(label.casefold().split())
+
+
+def readme_has_active_ios_download(text: str) -> bool:
+    if (
+        README_IOS_DOWNLOAD_ROW_RE.search(text) is not None
+        or README_IOS_DOWNLOAD_LINK_RE.search(text) is not None
+        or README_IOS_AUTOLINK_RE.search(text) is not None
+        or README_IOS_HREF_RE.search(text) is not None
+    ):
+        return True
+    reference_definitions = {
+        markdown_reference_key(definition.group(1)): definition.group(2)
+        for definition in README_REFERENCE_DEFINITION_RE.finditer(text)
+    }
+    reference_labels = [
+        reference_link.group(2) or reference_link.group(1)
+        for reference_link in README_REFERENCE_LINK_RE.finditer(text)
+    ]
+    reference_labels.extend(
+        reference_link.group(1)
+        for reference_link in README_SHORTCUT_REFERENCE_LINK_RE.finditer(text)
+    )
+    for label in reference_labels:
+        destination = reference_definitions.get(markdown_reference_key(label))
+        if destination is not None and IOS_IPA_REFERENCE_RE.search(destination) is not None:
+            return True
+    return False
+
+
+def release_note_metadata_section(release_notes: str) -> str:
+    metadata_heading = RELEASE_NOTE_METADATA_HEADING_RE.search(release_notes)
+    if metadata_heading is None:
+        return ""
+    next_heading = RELEASE_NOTE_SECTION_HEADING_RE.search(release_notes, metadata_heading.end())
+    section_end = next_heading.start() if next_heading is not None else len(release_notes)
+    return release_notes[metadata_heading.end() : section_end]
+
+
+def release_note_asset_rows(version: str, platforms: tuple[str, ...]) -> list[str]:
+    rows = {
+        "macos": [f"- macOS DMG：`VoxFlow-{version}-macOS.dmg`"],
+        "windows": [
+            f"- Windows 安装包：`VoxFlow-{version}-windows-x64-setup.exe`",
+            f"- Windows 便携包：`VoxFlow-{version}-windows-x64-portable.zip`",
+        ],
+        "ios": [f"- iOS Ad Hoc IPA：`Mashangxie-{version}-iOS.ipa`"],
+    }
+    return [row for platform in platforms for row in rows[platform]]
 
 
 def main() -> int:
@@ -161,16 +340,17 @@ def main() -> int:
     expected_asset_names = [name for _, _, name in expected_assets]
 
     if release_notes_path.exists():
-        for asset_name in expected_asset_names:
+        release_note_metadata = release_note_metadata_section(release_notes)
+        for asset_row in release_note_asset_rows(version, platforms):
             require(
-                asset_name in release_notes,
-                f"release notes asset reference is stale: {asset_name}",
+                release_note_metadata.count(asset_row) == 1,
+                f"release notes asset row is stale: {asset_row}",
                 failures,
             )
         if "ios" not in platforms:
             require(
-                re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", release_notes) is None,
-                "release notes have an unselected iOS IPA download reference",
+                RELEASE_NOTE_IOS_ASSET_ROW_RE.search(release_note_metadata) is None,
+                "release notes have an unselected iOS IPA asset row",
                 failures,
             )
 
@@ -195,9 +375,21 @@ def main() -> int:
             failures,
         )
     else:
+        script_without_comments = javascript_without_comments(docs_script)
+        active_script, script_boundary, _ = script_without_comments.partition("const siteURL = ")
         require(
-            re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", docs_script) is None,
-            "docs/script.js has an unselected iOS IPA download reference",
+            bool(script_boundary),
+            "docs/script.js active release configuration boundary is missing",
+            failures,
+        )
+        require(
+            IOS_IPA_REFERENCE_RE.search(active_script) is None,
+            "docs/script.js has an unselected iOS IPA download configuration",
+            failures,
+        )
+        require(
+            not script_has_active_ios_link(script_without_comments),
+            "docs/script.js has an unselected iOS IPA href or download URL",
             failures,
         )
 
@@ -215,19 +407,16 @@ def main() -> int:
             failures,
         )
     if "ios" not in platforms:
+        index_download_links = active_page_links(docs_index)
         require(
             all(
-                not asset_name.endswith("-iOS.ipa")
-                for asset_name in re.findall(
-                    rf"releases/download/{re.escape(tag)}/([^\"'<\s]+)",
-                    docs_index,
-                )
+                IOS_IPA_REFERENCE_RE.search(href) is None for href, _ in index_download_links
             ),
             "docs/index.html has an unselected iOS IPA download reference",
             failures,
         )
         require(
-            'data-download-platform="ios"' not in docs_index,
+            all(platform != "ios" for _, platform in index_download_links),
             "docs/index.html has an active unselected iOS download CTA",
             failures,
         )
@@ -307,8 +496,8 @@ def main() -> int:
             )
         if "ios" not in platforms:
             require(
-                re.search(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", text) is None,
-                f"{relative} has an unselected iOS IPA download reference",
+                not readme_has_active_ios_download(text),
+                f"{relative} has an unselected iOS IPA download link",
                 failures,
             )
 

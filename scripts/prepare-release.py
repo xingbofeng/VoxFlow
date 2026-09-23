@@ -32,6 +32,21 @@ README_IOS_DOWNLOAD_ROWS = {
     "README.ja.md": "| iOS 17+ | `{ipa}` | Ad Hoc profile に UDID が登録済みの端末へインストールします。 |",
     "README.ko.md": "| iOS 17+ | `{ipa}` | Ad Hoc profile에 UDID가 등록된 기기에 설치합니다. |",
 }
+RELEASE_NOTE_METADATA_HEADING_RE = re.compile(r"^## 发布元数据[ \t]*$", re.MULTILINE)
+RELEASE_NOTE_SECTION_HEADING_RE = re.compile(r"^##\s+", re.MULTILINE)
+RELEASE_NOTE_ASSET_ROW_RE = re.compile(
+    r"^- (?:"
+    r"macOS DMG：`VoxFlow-[^`]+-macOS\.dmg`|"
+    r"Windows 安装包：`VoxFlow-[^`]+-windows-x64-setup\.exe`|"
+    r"Windows 便携包：`VoxFlow-[^`]+-windows-x64-portable\.zip`|"
+    r"iOS Ad Hoc IPA：`Mashangxie-[^`]+-iOS\.ipa`"
+    r")[ \t]*(?:\n|\Z)",
+    re.MULTILINE,
+)
+RELEASE_NOTE_BUILD_ROW_RE = re.compile(
+    r"^- `CFBundleVersion`：[^\n]*(?:\n|\Z)",
+    re.MULTILINE,
+)
 
 
 def replace(path: Path, pattern: str, replacement: str) -> None:
@@ -240,9 +255,44 @@ def release_note_asset_lines(version: str, platforms: tuple[str, ...]) -> str:
     return "\n".join(asset_lines[platform] for platform in platforms)
 
 
+def update_release_note_asset_rows(
+    text: str,
+    version: str,
+    platforms: tuple[str, ...],
+) -> str:
+    asset_lines = release_note_asset_lines(version, platforms)
+    metadata_heading = RELEASE_NOTE_METADATA_HEADING_RE.search(text)
+    if metadata_heading is None:
+        separator = "" if not text else ("\n" if text.endswith("\n") else "\n\n")
+        return f"{text}{separator}## 发布元数据\n\n{asset_lines}\n"
+
+    section_start = metadata_heading.end()
+    next_heading = RELEASE_NOTE_SECTION_HEADING_RE.search(text, section_start)
+    section_end = next_heading.start() if next_heading is not None else len(text)
+    metadata_section = text[section_start:section_end]
+    metadata_without_asset_rows = RELEASE_NOTE_ASSET_ROW_RE.sub("", metadata_section)
+    build_row = RELEASE_NOTE_BUILD_ROW_RE.search(metadata_without_asset_rows)
+    if build_row is not None:
+        updated_section = (
+            metadata_without_asset_rows[: build_row.end()]
+            + asset_lines
+            + "\n"
+            + metadata_without_asset_rows[build_row.end() :]
+        )
+    else:
+        separator = "" if not metadata_without_asset_rows or metadata_without_asset_rows.endswith("\n") else "\n"
+        updated_section = f"{metadata_without_asset_rows}{separator}{asset_lines}\n"
+
+    return text[:section_start] + updated_section + text[section_end:]
+
+
 def ensure_release_notes(version: str, build: str, platforms: tuple[str, ...]) -> None:
     target = ROOT / f".github/release-notes/v{version}.md"
     if target.exists():
+        text = target.read_text(encoding="utf-8")
+        updated_text = update_release_note_asset_rows(text, version, platforms)
+        if updated_text != text:
+            target.write_text(updated_text, encoding="utf-8")
         return
     text = TEMPLATE.read_text(encoding="utf-8")
     text = text.replace("VERSION", version).replace("BUILD", build)
