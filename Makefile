@@ -49,6 +49,7 @@ RELEASE_KEYCHAIN_PATH ?=
 CODE_SIGN_IDENTITY ?= $(DEVELOPMENT_CODE_SIGN_IDENTITY)
 CODE_SIGN_KEYCHAIN_OPTION := $(if $(RELEASE_KEYCHAIN_PATH),--keychain "$(RELEASE_KEYCHAIN_PATH)",)
 VERSION := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$(PLIST)")
+RELEASE_PLATFORMS ?= macos,windows,ios
 DMG_NAME := VoxFlow-$(VERSION)-macOS
 DMG_FILE := dist/$(DMG_NAME).dmg
 UPDATE_DEBUG_ENV_KEYS := VOXFLOW_UPDATE_CHECK_MOCK VOXFLOW_UPDATE_CHECK_FIXTURE
@@ -385,7 +386,7 @@ i18n-check:
 prepare-release:
 	@test "$(origin VERSION)" = "command line" || (echo "Set VERSION=x.y.z" && exit 2)
 	@test -n "$(BUILD)" || (echo "Set BUILD=n" && exit 2)
-	python3 scripts/prepare-release.py --version "$(VERSION)" --build "$(BUILD)"
+	python3 scripts/prepare-release.py --version "$(VERSION)" --build "$(BUILD)" --platforms "$(RELEASE_PLATFORMS)"
 	$(MAKE) release-check
 
 clean:

@@ -4,6 +4,9 @@ import json
 import re
 from pathlib import Path
 
+from release_platforms import PlatformContractError, parse_published_platforms
+
+
 ROOT = Path(__file__).resolve().parents[1]
 PLIST = ROOT / "Sources/VoxFlowApp/Resources/Info.plist"
 IOS_PROJECT = ROOT / "Apps/VoxFlowiOS/project.yml"
@@ -11,7 +14,9 @@ IOS_INFO_PLISTS = [
     ROOT / "Apps/VoxFlowiOS/VoxFlowiOS/Info.plist",
     ROOT / "Apps/VoxFlowiOS/Keyboard/Info.plist",
 ]
+WINDOWS_PROJECT = ROOT / "VoxFlow.Windows/src/VoxFlow.Windows.App/VoxFlow.Windows.App.csproj"
 TEMPLATE = ROOT / ".github/release-notes/TEMPLATE.md"
+DEFAULT_PLATFORMS = ("macos", "windows", "ios")
 
 
 def replace(path: Path, pattern: str, replacement: str) -> None:
@@ -19,6 +24,63 @@ def replace(path: Path, pattern: str, replacement: str) -> None:
     new_text = re.sub(pattern, replacement, text)
     if new_text != text:
         path.write_text(new_text, encoding="utf-8")
+
+
+def parse_platforms(value: str) -> tuple[str, ...]:
+    try:
+        return parse_published_platforms(value.split(","), location="--platforms")
+    except PlatformContractError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+
+
+def release_assets(version: str) -> dict[str, dict[str, object]]:
+    tag = f"v{version}"
+    release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
+    dmg = f"VoxFlow-{version}-macOS.dmg"
+    windows_installer = f"VoxFlow-{version}-windows-x64-setup.exe"
+    windows_portable = f"VoxFlow-{version}-windows-x64-portable.zip"
+    ios_ipa = f"Mashangxie-{version}-iOS.ipa"
+    return {
+        "macos": {
+            "dmg": {
+                "name": dmg,
+                "downloadURL": f"{release_download_base}/{dmg}",
+            }
+        },
+        "windows": {
+            "installer": {
+                "name": windows_installer,
+                "downloadURL": f"{release_download_base}/{windows_installer}",
+            },
+            "portable": {
+                "name": windows_portable,
+                "downloadURL": f"{release_download_base}/{windows_portable}",
+            },
+        },
+        "ios": {
+            "ipa": {
+                "name": ios_ipa,
+                "downloadURL": f"{release_download_base}/{ios_ipa}",
+            },
+            "distribution": "ad-hoc",
+        },
+    }
+
+
+def asset_name(assets: dict[str, dict[str, object]], platform: str, kind: str) -> str:
+    asset = assets[platform][kind]
+    assert isinstance(asset, dict)
+    name = asset["name"]
+    assert isinstance(name, str)
+    return name
+
+
+def asset_download_url(assets: dict[str, dict[str, object]], platform: str, kind: str) -> str:
+    asset = assets[platform][kind]
+    assert isinstance(asset, dict)
+    url = asset["downloadURL"]
+    assert isinstance(url, str)
+    return url
 
 
 def update_plist(version: str, build: str) -> None:
@@ -58,22 +120,92 @@ def update_ios_project(version: str, build: str) -> None:
         )
 
 
-def ensure_release_notes(version: str, build: str) -> None:
+def update_windows_project(version: str) -> None:
+    for element, value in (
+        ("Version", version),
+        ("AssemblyVersion", f"{version}.0"),
+        ("FileVersion", f"{version}.0"),
+    ):
+        replace(
+            WINDOWS_PROJECT,
+            rf"(<{element}>)[^<]+(</{element}>)",
+            rf"\g<1>{value}\2",
+        )
+
+
+def release_note_asset_lines(version: str, platforms: tuple[str, ...]) -> str:
+    asset_lines = {
+        "macos": f"- macOS DMG：`VoxFlow-{version}-macOS.dmg`",
+        "windows": "\n".join(
+            (
+                f"- Windows 安装包：`VoxFlow-{version}-windows-x64-setup.exe`",
+                f"- Windows 便携包：`VoxFlow-{version}-windows-x64-portable.zip`",
+            )
+        ),
+        "ios": f"- iOS Ad Hoc IPA：`Mashangxie-{version}-iOS.ipa`",
+    }
+    return "\n".join(asset_lines[platform] for platform in platforms)
+
+
+def ensure_release_notes(version: str, build: str, platforms: tuple[str, ...]) -> None:
     target = ROOT / f".github/release-notes/v{version}.md"
     if target.exists():
         return
     text = TEMPLATE.read_text(encoding="utf-8")
     text = text.replace("VERSION", version).replace("BUILD", build)
+    text = text.replace("ASSET_LINES", release_note_asset_lines(version, platforms))
     target.write_text(text, encoding="utf-8")
 
 
-def update_docs(version: str) -> None:
+def update_index_release_fallback(version: str) -> None:
+    index = ROOT / "docs/index.html"
+    index_text = index.read_text(encoding="utf-8")
+    start_marker = '<script id="voxflow-release-data" type="application/json">'
+    end_marker = "</script>"
+    start = index_text.find(start_marker)
+    if start == -1:
+        raise RuntimeError("docs/index.html release data fallback is missing")
+    start += len(start_marker)
+    end = index_text.find(end_marker, start)
+    if end == -1:
+        raise RuntimeError("docs/index.html release data fallback is incomplete")
+
+    try:
+        historical_releases = json.loads(index_text[start:end])
+    except json.JSONDecodeError as error:
+        raise RuntimeError("docs/index.html release data fallback is invalid JSON") from error
+    if not isinstance(historical_releases, list):
+        raise RuntimeError("docs/index.html release data fallback must be a list")
+
     tag = f"v{version}"
-    dmg = f"VoxFlow-{version}-macOS.dmg"
-    windows_installer = f"VoxFlow-{version}-windows-x64-setup.exe"
-    windows_portable = f"VoxFlow-{version}-windows-x64-portable.zip"
-    ios_ipa = f"Mashangxie-{version}-iOS.ipa"
-    release_download_base = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}"
+    release_notes = (ROOT / f".github/release-notes/{tag}.md").read_text(encoding="utf-8")
+    current_release = {
+        "tag_name": tag,
+        "name": f"VoxFlow {version}",
+        "body": release_notes,
+        "html_url": f"https://github.com/xingbofeng/VoxFlow/releases/tag/{tag}",
+        "published_at": "",
+    }
+    retained_releases = [
+        item
+        for item in historical_releases
+        if isinstance(item, dict) and item.get("tag_name") != tag
+    ]
+    fallback = json.dumps([current_release, *retained_releases][:3], ensure_ascii=False, indent=2)
+    safe_fallback = fallback.replace("</", "<\\/")
+    index.write_text(
+        index_text[:start] + "\n" + safe_fallback + "\n  " + index_text[end:],
+        encoding="utf-8",
+    )
+
+
+def update_docs(version: str, platforms: tuple[str, ...]) -> None:
+    tag = f"v{version}"
+    assets = release_assets(version)
+    dmg = asset_name(assets, "macos", "dmg")
+    windows_installer = asset_name(assets, "windows", "installer")
+    windows_portable = asset_name(assets, "windows", "portable")
+    ios_ipa = asset_name(assets, "ios", "ipa")
 
     script = ROOT / "docs/script.js"
     replace(script, r'version: "[^"]+"', f'version: "{version}"')
@@ -90,60 +222,39 @@ def update_docs(version: str) -> None:
         r'name: "VoxFlow-[^"]+-windows-x64-portable\.zip"',
         f'name: "{windows_portable}"',
     )
-    replace(script, r'name: "Mashangxie-[^"]+-iOS\.ipa"', f'name: "{ios_ipa}"')
+    if "ios" in platforms:
+        replace(script, r'name: "Mashangxie-[^"]+-iOS\.ipa"', f'name: "{ios_ipa}"')
 
     index = ROOT / "docs/index.html"
-    release_url = f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}/{dmg}"
     replace(
         index,
         r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg",
-        release_url,
+        asset_download_url(assets, "macos", "dmg"),
     )
     replace(
         index,
         r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-setup\.exe",
-        f"{release_download_base}/{windows_installer}",
+        asset_download_url(assets, "windows", "installer"),
     )
-    replace(
-        index,
-        r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa",
-        f"https://github.com/xingbofeng/VoxFlow/releases/download/{tag}/{ios_ipa}",
-    )
+    if "ios" in platforms:
+        replace(
+            index,
+            r"https://github\.com/xingbofeng/VoxFlow/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa",
+            asset_download_url(assets, "ios", "ipa"),
+        )
     replace(index, r"v[0-9]+\.[0-9]+\.[0-9]+ · Free & open source", f"{tag} · Free & open source")
 
-    release_notes = release_notes_summary(version)
+    update_index_release_fallback(version)
+
     release_json = {
         "version": version,
         "tag": tag,
         "assetName": dmg,
         "releasePageURL": f"https://github.com/xingbofeng/VoxFlow/releases/tag/{tag}",
-        "downloadURL": release_url,
-        "assets": {
-            "macos": {
-                "dmg": {
-                    "name": dmg,
-                    "downloadURL": f"{release_download_base}/{dmg}",
-                }
-            },
-            "windows": {
-                "installer": {
-                    "name": windows_installer,
-                    "downloadURL": f"{release_download_base}/{windows_installer}",
-                },
-                "portable": {
-                    "name": windows_portable,
-                    "downloadURL": f"{release_download_base}/{windows_portable}",
-                },
-            },
-            "ios": {
-                "ipa": {
-                    "name": ios_ipa,
-                    "downloadURL": f"{release_download_base}/{ios_ipa}",
-                },
-                "distribution": "ad-hoc",
-            },
-        },
-        "releaseNotes": release_notes,
+        "downloadURL": asset_download_url(assets, "macos", "dmg"),
+        "publishedPlatforms": list(platforms),
+        "assets": {platform: assets[platform] for platform in platforms},
+        "releaseNotes": release_notes_summary(version),
         "draft": False,
         "prerelease": False,
     }
@@ -164,30 +275,39 @@ def release_notes_summary(version: str) -> str:
     return ""
 
 
-def update_readmes(version: str) -> None:
-    dmg = f"VoxFlow-{version}-macOS.dmg"
-    windows_installer = f"VoxFlow-{version}-windows-x64-setup.exe"
-    windows_portable = f"VoxFlow-{version}-windows-x64-portable.zip"
-    ios_ipa = f"Mashangxie-{version}-iOS.ipa"
+def update_readmes(version: str, platforms: tuple[str, ...]) -> None:
+    assets = release_assets(version)
+    dmg = asset_name(assets, "macos", "dmg")
+    windows_installer = asset_name(assets, "windows", "installer")
+    windows_portable = asset_name(assets, "windows", "portable")
+    ios_ipa = asset_name(assets, "ios", "ipa")
     for relative in ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]:
-        replace(ROOT / relative, r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", dmg)
+        path = ROOT / relative
+        replace(path, r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-macOS\.dmg", dmg)
         replace(
-            ROOT / relative,
+            path,
             r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-setup\.exe",
             windows_installer,
         )
         replace(
-            ROOT / relative,
+            path,
             r"VoxFlow-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-portable\.zip",
             windows_portable,
         )
-        replace(ROOT / relative, r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", ios_ipa)
+        if "ios" in platforms:
+            replace(path, r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa", ios_ipa)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
     parser.add_argument("--build", required=True)
+    parser.add_argument(
+        "--platforms",
+        type=parse_platforms,
+        default=DEFAULT_PLATFORMS,
+        help="comma-separated release platforms (macos,windows or macos,windows,ios)",
+    )
     args = parser.parse_args()
 
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
@@ -197,10 +317,14 @@ def main() -> int:
 
     update_plist(args.version, args.build)
     update_ios_project(args.version, args.build)
-    ensure_release_notes(args.version, args.build)
-    update_docs(args.version)
-    update_readmes(args.version)
-    print(f"prepared VoxFlow release v{args.version} build {args.build}")
+    update_windows_project(args.version)
+    ensure_release_notes(args.version, args.build, args.platforms)
+    update_docs(args.version, args.platforms)
+    update_readmes(args.version, args.platforms)
+    print(
+        "prepared VoxFlow release "
+        f"v{args.version} build {args.build} for {','.join(args.platforms)}"
+    )
     return 0
 
 
