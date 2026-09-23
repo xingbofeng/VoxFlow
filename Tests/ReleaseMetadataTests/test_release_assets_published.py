@@ -114,6 +114,18 @@ class ReleaseAssetsPublishedTests(unittest.TestCase):
             output = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
             return completed, output
 
+    def test_checked_in_release_metadata_declares_current_platforms(self) -> None:
+        metadata = release_asset_gate.load_json(ROOT / "docs/release.json")
+        self.assertEqual(
+            metadata.get("publishedPlatforms"),
+            ["macos", "windows", "ios"],
+        )
+
+        tag, names = release_asset_gate.documented_release_assets(metadata)
+
+        self.assertEqual(tag, metadata["tag"])
+        self.assertEqual(len(names), 4)
+
     def test_gate_allows_only_a_complete_uploaded_three_platform_release(self) -> None:
         metadata = release_metadata()
         completed, output = self.run_gate(metadata, published_release(metadata))
