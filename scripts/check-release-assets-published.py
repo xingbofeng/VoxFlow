@@ -13,14 +13,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from release_platforms import PlatformContractError, documented_asset_names
+
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSET_PATHS = (
-    ("macos", "dmg"),
-    ("windows", "installer"),
-    ("windows", "portable"),
-    ("ios", "ipa"),
-)
 
 
 class GateError(RuntimeError):
@@ -46,30 +42,16 @@ def required_string(value: Any, location: str) -> str:
 def documented_release_assets(metadata: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
     tag = required_string(metadata.get("tag"), "release.tag")
     top_level_asset = required_string(metadata.get("assetName"), "release.assetName")
-    assets = metadata.get("assets")
-    if not isinstance(assets, dict):
-        raise GateError("release.assets must be an object.")
-
-    names: list[str] = []
-    for platform, kind in ASSET_PATHS:
-        platform_assets = assets.get(platform)
-        if not isinstance(platform_assets, dict):
-            raise GateError(f"release.assets.{platform} must be an object.")
-        asset = platform_assets.get(kind)
-        if not isinstance(asset, dict):
-            raise GateError(f"release.assets.{platform}.{kind} must be an object.")
-        names.append(
-            required_string(
-                asset.get("name"),
-                f"release.assets.{platform}.{kind}.name",
-            )
-        )
+    try:
+        names = documented_asset_names(metadata)
+    except PlatformContractError as error:
+        raise GateError(str(error)) from error
 
     macos_dmg = names[0]
     if top_level_asset != macos_dmg:
         raise GateError("release.assetName must match release.assets.macos.dmg.name.")
 
-    return tag, tuple(dict.fromkeys(names))
+    return tag, names
 
 
 def fetch_release(repository: str, tag: str, token: str) -> dict[str, Any] | None:

@@ -9,23 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
-REQUIRED_FIELDS = (
-    ("version",),
-    ("tag",),
-    ("assetName",),
-    ("releasePageURL",),
-    ("downloadURL",),
-    ("assets", "macos", "dmg", "name"),
-    ("assets", "macos", "dmg", "downloadURL"),
-    ("assets", "windows", "installer", "name"),
-    ("assets", "windows", "installer", "downloadURL"),
-    ("assets", "windows", "portable", "name"),
-    ("assets", "windows", "portable", "downloadURL"),
-    ("assets", "ios", "ipa", "name"),
-    ("assets", "ios", "ipa", "downloadURL"),
-    ("assets", "ios", "distribution"),
+from release_platforms import (
+    PlatformContractError,
+    parse_published_platforms,
+    release_metadata_paths,
+    validate_release_assets,
 )
+
 MISSING = object()
 
 
@@ -62,8 +52,20 @@ def value_at(metadata: dict[str, Any], path: tuple[str, ...]) -> Any:
 
 
 def mismatches(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    try:
+        expected_platforms = parse_published_platforms(
+            expected.get("publishedPlatforms"),
+            location="expected metadata.publishedPlatforms",
+        )
+        required_fields = release_metadata_paths(
+            expected,
+            location="expected metadata",
+        )
+    except PlatformContractError as error:
+        raise MetadataError(str(error)) from error
+
     differences: list[str] = []
-    for path in REQUIRED_FIELDS:
+    for path in required_fields:
         expected_value = value_at(expected, path)
         field = ".".join(path)
         if expected_value is MISSING:
@@ -76,7 +78,38 @@ def mismatches(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
             differences.append(
                 f"{field} mismatch: expected {expected_value!r}, got {actual_value!r}"
             )
+
+    try:
+        actual_platforms = parse_published_platforms(
+            actual.get("publishedPlatforms"),
+            location="actual metadata.publishedPlatforms",
+        )
+        validate_release_assets(
+            actual,
+            actual_platforms,
+            location="actual metadata",
+        )
+    except PlatformContractError as error:
+        differences.append(str(error))
+
+    try:
+        validate_release_assets(
+            actual,
+            expected_platforms,
+            location="actual metadata",
+        )
+    except PlatformContractError as error:
+        if str(error) not in differences:
+            differences.append(str(error))
     return differences
+
+
+def platform_download_summary(platforms: tuple[str, ...]) -> str:
+    names = {"macos": "macOS", "windows": "Windows", "ios": "iOS"}
+    labels = [names[platform] for platform in platforms]
+    if len(labels) == 2:
+        return " and ".join(labels)
+    return ", ".join(labels[:-1]) + f", and {labels[-1]}"
 
 
 def main() -> int:
@@ -95,7 +128,11 @@ def main() -> int:
             print(f"  - {difference}", file=sys.stderr)
         return 1
 
-    print(f"Release metadata matches {expected['version']} with all macOS, Windows, and iOS downloads.")
+    platforms = parse_published_platforms(expected["publishedPlatforms"])
+    print(
+        f"Release metadata matches {expected['version']} with all "
+        f"{platform_download_summary(platforms)} downloads."
+    )
     return 0
 
 
