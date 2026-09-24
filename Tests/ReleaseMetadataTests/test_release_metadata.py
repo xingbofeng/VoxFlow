@@ -481,6 +481,32 @@ class ReleaseMetadataTests(unittest.TestCase):
                 self.assertNotEqual(checked.returncode, 0)
                 self.assertIn("unselected iOS", checked.stderr)
 
+    def test_release_metadata_check_rejects_new_url_ios_download_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            script = fixture_root / "docs/script.js"
+            script.write_text(
+                script.read_text(encoding="utf-8").replace(
+                    "const siteURL = ",
+                    f'releaseDownloadURLs.ios = new URL("{stale_download_url}");\n\nconst siteURL = ',
+                    1,
+                ),
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
     def test_release_metadata_check_allows_historical_ios_references_outside_active_downloads(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_root = Path(temporary_directory)
@@ -503,8 +529,8 @@ class ReleaseMetadataTests(unittest.TestCase):
             script = fixture_root / "docs/script.js"
             script.write_text(
                 script.read_text(encoding="utf-8")
-                + f'\nconst historicalReleaseNote = "{historical_ipa}";\n'
-                + f'// Historical CTA syntax: link.href = "{historical_ipa}"\n',
+                + f'\n// Historical IPA: https://example.invalid/releases/{historical_ipa}\n'
+                + f'/* Historical CTA syntax: link.href = "{historical_ipa}" */\n',
                 encoding="utf-8",
             )
             for relative_path in README_PATHS:
@@ -707,11 +733,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
             self.assertEqual(checked.returncode, 0, checked.stderr)
 
-    def test_release_metadata_check_rejects_runtime_assembled_ios_download_urls(self) -> None:
-        stale_download_url = (
-            "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
-            "Mashangxie-1.15.0-iOS.ipa"
-        )
+    def test_release_metadata_check_rejects_assembled_ios_artifact_references(self) -> None:
         assembled_url = (
             'const staleDownloadBase = "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0";\n'
             'const staleAssetName = "Mashangxie-" + "1.15.0-iOS.ipa";\n'
@@ -780,10 +802,6 @@ class ReleaseMetadataTests(unittest.TestCase):
 
                 script = fixture_root / "docs/script.js"
                 script.write_text(mutate_script(script.read_text(encoding="utf-8")), encoding="utf-8")
-                if location == "releaseDownloadURLs.ios":
-                    download_state = javascript_release_download_state(script)
-                    self.assertEqual(download_state["iosURL"], stale_download_url)
-
                 checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
 
                 self.assertNotEqual(checked.returncode, 0)

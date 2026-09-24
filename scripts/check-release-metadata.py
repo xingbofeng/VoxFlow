@@ -5,7 +5,6 @@ import json
 import os
 import plistlib
 import re
-import subprocess
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -24,6 +23,7 @@ IOS_INFO_PLISTS = [
 WINDOWS_PROJECT = ROOT / "VoxFlow.Windows/src/VoxFlow.Windows.App/VoxFlow.Windows.App.csproj"
 README_PATHS = ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]
 IOS_IPA_REFERENCE_RE = re.compile(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa")
+IOS_IPA_ARTIFACT_PARTS = ("Mashangxie-", "-iOS.ipa")
 RELEASE_NOTE_METADATA_HEADING_RE = re.compile(r"^## 发布元数据[ \t]*$", re.MULTILINE)
 RELEASE_NOTE_SECTION_HEADING_RE = re.compile(r"^##\s+", re.MULTILINE)
 RELEASE_NOTE_IOS_ASSET_ROW_RE = re.compile(
@@ -69,127 +69,6 @@ EMBEDDED_RELEASE_DATA_RE = re.compile(
     r'<script\b(?=[^>]*\bid=["\']voxflow-release-data["\'])[^>]*>.*?</script\s*>',
     re.IGNORECASE | re.DOTALL,
 )
-JAVASCRIPT_RUNTIME_PROBE = r"""
-const fs = require("fs");
-const vm = require("vm");
-const source = fs.readFileSync(0, "utf8");
-const sandbox = Object.create(null);
-const runtimePrelude = String.raw`
-globalThis.hrefs = [];
-globalThis.readyHandlers = { DOMContentLoaded: [], load: [] };
-
-function registerReadyHandler(name, callback) {
-  if (Object.prototype.hasOwnProperty.call(globalThis.readyHandlers, name) && typeof callback === "function") {
-    globalThis.readyHandlers[name].push(callback);
-  }
-}
-
-function createElement() {
-  const element = {
-    dataset: {},
-    classList: { add() {}, remove() {} },
-    append() {},
-    appendChild() {},
-    removeAttribute() {},
-    querySelector() { return createElement(); },
-    querySelectorAll() { return []; },
-    getAttribute() { return null; },
-    setAttribute(name, value) {
-      if (String(name).toLowerCase() === "href") globalThis.hrefs.push(String(value));
-    },
-    addEventListener() {},
-    focus() {},
-    contains() { return false; },
-    closest() { return null; }
-  };
-  Object.defineProperty(element, "href", {
-    get() { return ""; },
-    set(value) { globalThis.hrefs.push(String(value)); }
-  });
-  return element;
-}
-
-class RuntimeURL {
-  constructor(value, base = "") {
-    const input = String(value);
-    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(input)) {
-      this.value = input;
-    } else if (input.startsWith("?")) {
-      this.value = String(base).replace(/[?#].*$/, "") + input;
-    } else {
-      this.value = String(base).replace(/\/?$/, "/") + input.replace(/^\//, "");
-    }
-    this.hash = "";
-  }
-
-  toString() {
-    return this.value;
-  }
-}
-
-class RuntimeURLSearchParams {
-  constructor(value = "") {
-    this.values = new Map();
-    if (typeof value === "string") {
-      value.replace(/^\?/, "").split("&").filter(Boolean).forEach((entry) => {
-        const [key, item = ""] = entry.split("=", 2);
-        this.values.set(decodeURIComponent(key), decodeURIComponent(item));
-      });
-    } else if (value && typeof value === "object") {
-      Object.entries(value).forEach(([key, item]) => this.values.set(key, String(item)));
-    }
-  }
-
-  has(key) { return this.values.has(String(key)); }
-  get(key) { return this.values.get(String(key)) || null; }
-  set(key, value) { this.values.set(String(key), String(value)); }
-  delete(key) { this.values.delete(String(key)); }
-  toString() {
-    return [...this.values.entries()]
-      .map(([key, value]) => encodeURIComponent(key) + "=" + encodeURIComponent(value))
-      .join("&");
-  }
-}
-
-globalThis.document = {
-  documentElement: {},
-  head: createElement(),
-  activeElement: null,
-  title: "",
-  querySelector() { return createElement(); },
-  querySelectorAll() { return [createElement()]; },
-  getElementById() { return createElement(); },
-  createElement() { return createElement(); },
-  addEventListener(name, callback) { registerReadyHandler(name, callback); },
-  dispatchReadyHandlers() {
-    ["DOMContentLoaded", "load"].forEach((name) => {
-      globalThis.readyHandlers[name].forEach((callback) => callback({ type: name }));
-    });
-  }
-};
-globalThis.window = {
-  location: { search: "", pathname: "/", hash: "", href: "https://example.invalid/" },
-  navigator: { userAgent: "" },
-  localStorage: { getItem() { return null; }, setItem() {} },
-  addEventListener(name, callback) { registerReadyHandler(name, callback); }
-};
-globalThis.window.window = globalThis.window;
-globalThis.history = { pushState() {}, replaceState() {} };
-globalThis.IntersectionObserver = class { observe() {} unobserve() {} };
-globalThis.URL = RuntimeURL;
-globalThis.URLSearchParams = RuntimeURLSearchParams;
-globalThis.console = { warn() {} };
-globalThis.fetch = undefined;
-`;
-const options = { timeout: 1000, codeGeneration: { strings: false, wasm: false } };
-vm.runInNewContext(runtimePrelude, sandbox, options);
-const state = vm.runInNewContext(
-  source + "\ndocument.dispatchReadyHandlers();\nJSON.stringify({ release, urls: releaseDownloadURLs, hrefs });",
-  sandbox,
-  options
-);
-process.stdout.write(state);
-"""
 
 
 def read_version() -> tuple[str, str]:
@@ -326,50 +205,68 @@ def has_active_readme_bare_ios_download_url(text: str) -> bool:
     )
 
 
-def javascript_runtime_state(source: str) -> tuple[dict[str, Any] | None, str | None]:
-    try:
-        completed = subprocess.run(
-            ["node", "--experimental-permission", "-e", JAVASCRIPT_RUNTIME_PROBE],
-            input=source,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            env={"PATH": os.environ.get("PATH", "")},
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return None, str(error)
-    if completed.returncode != 0:
-        return None, completed.stderr.strip() or "Node runtime probe failed"
-    try:
-        state = json.loads(completed.stdout)
-    except json.JSONDecodeError as error:
-        return None, str(error)
-    if not isinstance(state, dict):
-        return None, "Node runtime probe did not return an object"
-    return state, None
+def javascript_without_comments(source: str) -> str:
+    """Mask JavaScript comments while preserving strings and line positions.
+
+    This is intentionally a narrow lexer for generated release metadata. It does
+    not execute or evaluate JavaScript; quoted strings are retained so URLs such
+    as ``https://...`` are not mistaken for line comments.
+    """
+
+    result: list[str] = []
+    index = 0
+    quote: str | None = None
+    while index < len(source):
+        character = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+
+        if quote is not None:
+            result.append(character)
+            if character == "\\" and index + 1 < len(source):
+                result.append(source[index + 1])
+                index += 2
+                continue
+            if character == quote:
+                quote = None
+            index += 1
+            continue
+
+        if character in {"'", '"', "`"}:
+            quote = character
+            result.append(character)
+            index += 1
+            continue
+
+        if character == "/" and following == "/":
+            result.extend((" ", " "))
+            index += 2
+            while index < len(source) and source[index] not in {"\r", "\n"}:
+                result.append(" ")
+                index += 1
+            continue
+
+        if character == "/" and following == "*":
+            result.extend((" ", " "))
+            index += 2
+            while index < len(source):
+                character = source[index]
+                following = source[index + 1] if index + 1 < len(source) else ""
+                if character == "*" and following == "/":
+                    result.extend((" ", " "))
+                    index += 2
+                    break
+                result.append(character if character in {"\r", "\n"} else " ")
+                index += 1
+            continue
+
+        result.append(character)
+        index += 1
+    return "".join(result)
 
 
-def runtime_has_unselected_ios_asset(state: dict[str, Any]) -> bool:
-    release = state.get("release")
-    if not isinstance(release, dict):
-        return False
-    assets = release.get("assets")
-    if not isinstance(assets, dict):
-        return False
-    ios_assets = assets.get("ios")
-    return isinstance(ios_assets, dict) and "ipa" in ios_assets
-
-
-def runtime_has_active_ios_download(state: dict[str, Any]) -> bool:
-    urls = state.get("urls")
-    hrefs = state.get("hrefs")
-    candidates = list(urls.values()) if isinstance(urls, dict) else []
-    candidates.extend(hrefs if isinstance(hrefs, list) else [])
-    return any(
-        isinstance(candidate, str) and IOS_IPA_REFERENCE_RE.search(candidate) is not None
-        for candidate in candidates
-    )
+def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
+    active_source = javascript_without_comments(source)
+    return all(part in active_source for part in IOS_IPA_ARTIFACT_PARTS)
 
 
 def markdown_reference_key(label: str) -> str:
@@ -565,23 +462,11 @@ def main() -> int:
             failures,
         )
     else:
-        runtime_state, runtime_error = javascript_runtime_state(docs_script)
         require(
-            runtime_state is not None,
-            f"docs/script.js active runtime probe failed: {runtime_error}",
+            not javascript_has_unselected_ios_artifact_reference(docs_script),
+            "docs/script.js has an unselected iOS IPA artifact reference",
             failures,
         )
-        if runtime_state is not None:
-            require(
-                not runtime_has_unselected_ios_asset(runtime_state),
-                "docs/script.js has an unselected iOS IPA download configuration",
-                failures,
-            )
-            require(
-                not runtime_has_active_ios_download(runtime_state),
-                "docs/script.js has an unselected iOS IPA href or download URL",
-                failures,
-            )
 
     docs_index = read_text(ROOT / "docs/index.html")
     for platform, kind, asset_name in expected_assets:
