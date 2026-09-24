@@ -26,9 +26,11 @@ const releaseDownloadURLs = {
   macos: releaseAssetURL(release.assets.macos.dmg.name),
   windows: releaseAssetURL(release.assets.windows.installer.name)
 };
+/* RELEASE_IOS_DOWNLOAD_BEGIN */
 if (release.assets.ios?.ipa) {
   releaseDownloadURLs.ios = releaseAssetURL(release.assets.ios.ipa.name);
 }
+/* RELEASE_IOS_DOWNLOAD_END */
 const releaseDownloadURLForPlatform = (platform) => releaseDownloadURLs[platform] || null;
 
 const siteURL = "https://mashangxie.app/";

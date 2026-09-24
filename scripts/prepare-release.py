@@ -21,6 +21,8 @@ TEMPLATE = ROOT / ".github/release-notes/TEMPLATE.md"
 DEFAULT_PLATFORMS = ("macos", "windows", "ios")
 SCRIPT_IOS_ASSET_BEGIN = "/* RELEASE_IOS_ASSET_BEGIN */"
 SCRIPT_IOS_ASSET_END = "/* RELEASE_IOS_ASSET_END */"
+SCRIPT_IOS_DOWNLOAD_BEGIN = "/* RELEASE_IOS_DOWNLOAD_BEGIN */"
+SCRIPT_IOS_DOWNLOAD_END = "/* RELEASE_IOS_DOWNLOAD_END */"
 INDEX_IOS_HERO_CTA_BEGIN = "<!-- RELEASE_IOS_HERO_CTA_BEGIN -->"
 INDEX_IOS_HERO_CTA_END = "<!-- RELEASE_IOS_HERO_CTA_END -->"
 INDEX_IOS_COMPACT_CTA_BEGIN = "<!-- RELEASE_IOS_COMPACT_CTA_BEGIN -->"
@@ -145,6 +147,16 @@ def script_ios_asset(version: str) -> str:
             f'      ipa: {{ name: "Mashangxie-{version}-iOS.ipa" }},',
             '      distribution: "ad-hoc"',
             "    }",
+        )
+    )
+
+
+def script_ios_download() -> str:
+    return "\n".join(
+        (
+            "if (release.assets.ios?.ipa) {",
+            "  releaseDownloadURLs.ios = releaseAssetURL(release.assets.ios.ipa.name);",
+            "}",
         )
     )
 
@@ -389,6 +401,12 @@ def update_docs(version: str, platforms: tuple[str, ...]) -> None:
         SCRIPT_IOS_ASSET_BEGIN,
         SCRIPT_IOS_ASSET_END,
         script_ios_asset(version) if "ios" in platforms else "",
+    )
+    replace_marker_block(
+        script,
+        SCRIPT_IOS_DOWNLOAD_BEGIN,
+        SCRIPT_IOS_DOWNLOAD_END,
+        script_ios_download() if "ios" in platforms else "",
     )
 
     index = ROOT / "docs/index.html"

@@ -23,7 +23,6 @@ IOS_INFO_PLISTS = [
 WINDOWS_PROJECT = ROOT / "VoxFlow.Windows/src/VoxFlow.Windows.App/VoxFlow.Windows.App.csproj"
 README_PATHS = ["README.md", "README.zh-CN.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"]
 IOS_IPA_REFERENCE_RE = re.compile(r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa")
-IOS_IPA_ARTIFACT_PARTS = ("Mashangxie-", "-iOS.ipa")
 RELEASE_NOTE_METADATA_HEADING_RE = re.compile(r"^## 发布元数据[ \t]*$", re.MULTILINE)
 RELEASE_NOTE_SECTION_HEADING_RE = re.compile(r"^##\s+", re.MULTILINE)
 RELEASE_NOTE_IOS_ASSET_ROW_RE = re.compile(
@@ -264,9 +263,249 @@ def javascript_without_comments(source: str) -> str:
     return "".join(result)
 
 
+def javascript_statements(source: str) -> list[str]:
+    """Split normal JavaScript statements without evaluating their contents."""
+
+    statements: list[str] = []
+    statement_start = 0
+    index = 0
+    quote: str | None = None
+    while index < len(source):
+        character = source[index]
+        if quote is not None:
+            if character == "\\":
+                index += 2
+                continue
+            if character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+        elif character == ";":
+            statements.append(source[statement_start:index])
+            statement_start = index + 1
+        index += 1
+    statements.append(source[statement_start:])
+    return statements
+
+
+def split_javascript_expression(expression: str, separator: str) -> list[str]:
+    """Split an expression only where the separator is outside literals/brackets."""
+
+    parts: list[str] = []
+    part_start = 0
+    index = 0
+    quote: str | None = None
+    nesting = 0
+    while index < len(expression):
+        character = expression[index]
+        if quote is not None:
+            if character == "\\":
+                index += 2
+                continue
+            if character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+        elif character in "([{":
+            nesting += 1
+        elif character in ")]}":
+            nesting = max(0, nesting - 1)
+        elif character == separator and nesting == 0:
+            parts.append(expression[part_start:index].strip())
+            part_start = index + 1
+        index += 1
+    parts.append(expression[part_start:].strip())
+    return parts
+
+
+def javascript_string_literal(expression: str) -> str | None:
+    expression = expression.strip()
+    if len(expression) < 2 or expression[0] not in {"'", '"'} or expression[-1] != expression[0]:
+        return None
+    value: list[str] = []
+    index = 1
+    while index < len(expression) - 1:
+        character = expression[index]
+        if character == "\\" and index + 1 < len(expression) - 1:
+            value.append(expression[index + 1])
+            index += 2
+            continue
+        value.append(character)
+        index += 1
+    return "".join(value)
+
+
+def javascript_template_literal(
+    expression: str,
+    values: dict[str, str | None],
+) -> str | None:
+    if len(expression) < 2 or expression[0] != "`" or expression[-1] != "`":
+        return None
+    value: list[str] = []
+    index = 1
+    while index < len(expression) - 1:
+        character = expression[index]
+        if character == "\\" and index + 1 < len(expression) - 1:
+            value.append(expression[index + 1])
+            index += 2
+            continue
+        if character == "$" and index + 1 < len(expression) - 1 and expression[index + 1] == "{":
+            closing = expression.find("}", index + 2)
+            if closing == -1:
+                return None
+            interpolation = javascript_static_string(expression[index + 2:closing], values)
+            if interpolation is None:
+                return None
+            value.append(interpolation)
+            index = closing + 1
+            continue
+        value.append(character)
+        index += 1
+    return "".join(value)
+
+
+def javascript_static_string(
+    expression: str,
+    values: dict[str, str | None],
+) -> str | None:
+    expression = expression.strip()
+    parts = split_javascript_expression(expression, "+")
+    if len(parts) > 1:
+        values_to_join = [javascript_static_string(part, values) for part in parts]
+        if any(value is None for value in values_to_join):
+            return None
+        return "".join(value for value in values_to_join if value is not None)
+
+    literal = javascript_string_literal(expression)
+    if literal is not None:
+        return literal
+    template = javascript_template_literal(expression, values)
+    if template is not None:
+        return template
+
+    new_url = re.fullmatch(r"new\s+URL\s*\((.*)\)", expression, re.DOTALL)
+    if new_url is not None:
+        arguments = split_javascript_expression(new_url.group(1), ",")
+        return javascript_static_string(arguments[0], values) if arguments else None
+
+    if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", expression):
+        return values.get(expression)
+    return None
+
+
+def javascript_object_property_string(
+    expression: str,
+    property_name: str,
+    values: dict[str, str | None],
+) -> str | None:
+    expression = expression.strip()
+    if not expression.startswith("{") or not expression.endswith("}"):
+        return None
+    for property_entry in split_javascript_expression(expression[1:-1], ","):
+        property_match = re.fullmatch(
+            r"(?:['\"])?([A-Za-z_$][A-Za-z0-9_$]*)(?:['\"])?\s*:\s*(.+)",
+            property_entry,
+            re.DOTALL,
+        )
+        if property_match is not None and property_match.group(1) == property_name:
+            return javascript_static_string(property_match.group(2), values)
+    return None
+
+
+def javascript_without_strings(source: str) -> str:
+    """Mask string contents after comments have been stripped."""
+
+    result: list[str] = []
+    index = 0
+    quote: str | None = None
+    while index < len(source):
+        character = source[index]
+        if quote is not None:
+            result.append(character if character in {"\r", "\n"} else " ")
+            if character == "\\" and index + 1 < len(source):
+                result.append(" ")
+                index += 2
+                continue
+            if character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+            result.append(" ")
+            index += 1
+            continue
+        result.append(character)
+        index += 1
+    return "".join(result)
+
+
 def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
     active_source = javascript_without_comments(source)
-    return all(part in active_source for part in IOS_IPA_ARTIFACT_PARTS)
+    code_without_strings = javascript_without_strings(active_source)
+    if re.search(
+        r"\brelease\s*\.\s*assets\s*(?:\.\s*ios|\[\s*['\"]ios['\"]\s*\])",
+        code_without_strings,
+    ) is not None:
+        return True
+
+    values: dict[str, str | None] = {}
+    for statement in javascript_statements(active_source):
+        stripped = statement.strip()
+        assignment = re.fullmatch(
+            r"(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(.+)",
+            stripped,
+            re.DOTALL,
+        )
+        if assignment is not None:
+            target, expression = assignment.groups()
+            if target == "releaseDownloadURLs":
+                value = javascript_object_property_string(expression, "ios", values)
+                if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:
+                    return True
+            values[target] = javascript_static_string(
+                expression,
+                values,
+            )
+            continue
+
+        assignment = re.fullmatch(
+            r"([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(.+)",
+            stripped,
+            re.DOTALL,
+        )
+        if assignment is not None:
+            values[assignment.group(1)] = javascript_static_string(
+                assignment.group(2),
+                values,
+            )
+
+        sink_match = re.search(
+            r"\breleaseDownloadURLs\s*(?:\.\s*ios|\[\s*['\"]ios['\"]\s*\])\s*=\s*(.+)",
+            statement,
+            re.DOTALL,
+        )
+        if sink_match is None:
+            sink_match = re.search(r"\.href\s*=\s*(.+)", statement, re.DOTALL)
+        if sink_match is not None:
+            value = javascript_static_string(sink_match.group(1), values)
+            if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:
+                return True
+
+        attribute_match = re.search(
+            r"\.setAttribute\(\s*['\"]href['\"]\s*,\s*(.+)\)\s*$",
+            statement,
+            re.DOTALL,
+        )
+        if attribute_match is not None:
+            value = javascript_static_string(attribute_match.group(1), values)
+            if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:
+                return True
+    return False
 
 
 def markdown_reference_key(label: str) -> str:
