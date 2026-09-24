@@ -82,9 +82,8 @@ VoxFlow는 지금 사용 중인 앱 안에 머무르는 음성 입력 도구입�
 
 | 플랫폼 | 패키지 | 설치 방법 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.15.0-macOS.dmg` | DMG를 열고 VoxFlow를 Applications로 옮깁니다. |
-| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 또는 `VoxFlow-1.15.0-windows-x64-portable.zip` | 설치 프로그램을 실행하거나 포터블 패키지를 압축 해제합니다. |
-| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Ad Hoc profile에 UDID가 등록된 기기에 설치합니다. |
+| macOS | `VoxFlow-1.16.0-macOS.dmg` | DMG를 열고 VoxFlow를 Applications로 옮깁니다. |
+| Windows x64 | `VoxFlow-1.16.0-windows-x64-setup.exe` 또는 `VoxFlow-1.16.0-windows-x64-portable.zip` | 설치 프로그램을 실행하거나 포터블 패키지를 압축 해제합니다. |
 
 ### Requirements
 

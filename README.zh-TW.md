@@ -82,9 +82,8 @@ VoxFlow 服務於你正在使用的 App。它不是語音助理：不接管視�
 
 | 平台 | 安裝包 | 安裝方式 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.15.0-macOS.dmg` | 開啟 DMG，將 VoxFlow 拖入「應用程式」。 |
-| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 或 `VoxFlow-1.15.0-windows-x64-portable.zip` | 執行目前使用者安裝程式，或解壓縮可攜版。 |
-| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | 僅能安裝至已登記於 Ad Hoc profiles 的 UDID 裝置。 |
+| macOS | `VoxFlow-1.16.0-macOS.dmg` | 開啟 DMG，將 VoxFlow 拖入「應用程式」。 |
+| Windows x64 | `VoxFlow-1.16.0-windows-x64-setup.exe` 或 `VoxFlow-1.16.0-windows-x64-portable.zip` | 執行目前使用者安裝程式，或解壓縮可攜版。 |
 
 ### 系統需求
 

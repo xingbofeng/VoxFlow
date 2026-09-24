@@ -118,13 +118,13 @@ class ReleaseAssetsPublishedTests(unittest.TestCase):
         metadata = release_asset_gate.load_json(ROOT / "docs/release.json")
         self.assertEqual(
             metadata.get("publishedPlatforms"),
-            ["macos", "windows", "ios"],
+            ["macos", "windows"],
         )
 
         tag, names = release_asset_gate.documented_release_assets(metadata)
 
         self.assertEqual(tag, metadata["tag"])
-        self.assertEqual(len(names), 4)
+        self.assertEqual(len(names), 3)
 
     def test_gate_allows_only_a_complete_uploaded_three_platform_release(self) -> None:
         metadata = release_metadata()

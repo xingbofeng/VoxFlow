@@ -111,9 +111,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>VoxFlow</AssemblyName>
     <RootNamespace>VoxFlow.Windows.App</RootNamespace>
-    <Version>1.15.0</Version>
-    <AssemblyVersion>1.15.0.0</AssemblyVersion>
-    <FileVersion>1.15.0.0</FileVersion>
+    <Version>1.16.0</Version>
+    <AssemblyVersion>1.16.0.0</AssemblyVersion>
+    <FileVersion>1.16.0.0</FileVersion>
     <ApplicationIcon>Assets\VoxFlow.ico</ApplicationIcon>
   </PropertyGroup>
 

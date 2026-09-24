@@ -82,9 +82,8 @@ Download the latest release from [GitHub Releases](https://github.com/xingbofeng
 
 | Platform | Package | Installation |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.15.0-macOS.dmg` | Open the DMG and drag VoxFlow to Applications. |
-| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` or `VoxFlow-1.15.0-windows-x64-portable.zip` | Run the per-user installer, or extract the portable package. |
-| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Install the Ad Hoc IPA on a device whose UDID is registered in the bundled profiles. |
+| macOS | `VoxFlow-1.16.0-macOS.dmg` | Open the DMG and drag VoxFlow to Applications. |
+| Windows x64 | `VoxFlow-1.16.0-windows-x64-setup.exe` or `VoxFlow-1.16.0-windows-x64-portable.zip` | Run the per-user installer, or extract the portable package. |
 
 ### Requirements
 

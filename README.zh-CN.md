@@ -82,9 +82,8 @@
 
 | 平台 | 安装包 | 安装方式 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.15.0-macOS.dmg` | 打开 DMG，将 VoxFlow 拖入“应用程序”。 |
-| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` 或 `VoxFlow-1.15.0-windows-x64-portable.zip` | 运行当前用户安装包，或解压便携包。 |
-| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | 仅可安装到已写入 Ad Hoc profiles 的 UDID 设备。 |
+| macOS | `VoxFlow-1.16.0-macOS.dmg` | 打开 DMG，将 VoxFlow 拖入“应用程序”。 |
+| Windows x64 | `VoxFlow-1.16.0-windows-x64-setup.exe` 或 `VoxFlow-1.16.0-windows-x64-portable.zip` | 运行当前用户安装包，或解压便携包。 |
 
 ### 系统要求
 

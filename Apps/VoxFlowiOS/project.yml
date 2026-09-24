@@ -44,8 +44,8 @@ targets:
       path: VoxFlowiOS/Info.plist
       properties:
         CFBundleDisplayName: 码上写
-        CFBundleShortVersionString: "1.15.0"
-        CFBundleVersion: "26"
+        CFBundleShortVersionString: "1.16.0"
+        CFBundleVersion: "27"
         UILaunchScreen:
           UIColorName: ""
         NSMicrophoneUsageDescription: "码上写需要麦克风权限以进行语音听写。"
@@ -124,8 +124,8 @@ targets:
       path: Keyboard/Info.plist
       properties:
         CFBundleDisplayName: 码上写
-        CFBundleShortVersionString: "1.15.0"
-        CFBundleVersion: "26"
+        CFBundleShortVersionString: "1.16.0"
+        CFBundleVersion: "27"
         NSExtension:
           NSExtensionAttributes:
             IsASCIICapable: true

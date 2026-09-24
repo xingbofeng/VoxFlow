@@ -82,9 +82,8 @@ VoxFlow は、いま使っているアプリの中に留まる音声入力ツー
 
 | プラットフォーム | パッケージ | インストール方法 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.15.0-macOS.dmg` | DMG を開き、VoxFlow を Applications に移動します。 |
-| Windows x64 | `VoxFlow-1.15.0-windows-x64-setup.exe` または `VoxFlow-1.15.0-windows-x64-portable.zip` | インストーラーを実行するか、ポータブル版を展開します。 |
-| iOS 17+ | `Mashangxie-1.15.0-iOS.ipa` | Ad Hoc profile に UDID が登録済みの端末へインストールします。 |
+| macOS | `VoxFlow-1.16.0-macOS.dmg` | DMG を開き、VoxFlow を Applications に移動します。 |
+| Windows x64 | `VoxFlow-1.16.0-windows-x64-setup.exe` または `VoxFlow-1.16.0-windows-x64-portable.zip` | インストーラーを実行するか、ポータブル版を展開します。 |
 
 ### Requirements
 
