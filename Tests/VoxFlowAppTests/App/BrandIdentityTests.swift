@@ -344,7 +344,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(readme.contains("https://mashangxie.app/"))
     }
 
-    func testCIRunsFastPRChecksAndPackagesAllPlatformsOutsidePullRequests() throws {
+    func testCIRunsFastPRChecksAndPackagesOnlyDeclaredReleasePlatforms() throws {
         let root = Self.repositoryRoot()
         let ci = try String(
             contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
@@ -354,6 +354,12 @@ final class BrandIdentityTests: XCTestCase {
             contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
             encoding: .utf8
         )
+        let ciIOSJob = try Self.workflowJobBody("package-ios", in: ci)
+        let releaseMetadataJob = try Self.workflowJobBody("release_metadata", in: release)
+        let releaseMacOSJob = try Self.workflowJobBody("macos", in: release)
+        let releaseWindowsJob = try Self.workflowJobBody("windows", in: release)
+        let releaseIOSJob = try Self.workflowJobBody("ios", in: release)
+        let publishJob = try Self.workflowJobBody("publish", in: release)
 
         XCTAssertTrue(ci.contains("swift test"))
         XCTAssertTrue(ci.contains("swift_test_workers=8"))
@@ -364,17 +370,59 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("timeout-minutes: 40"))
         XCTAssertTrue(ci.contains("package-macos:"))
         XCTAssertTrue(ci.contains("package-ios:"))
-        XCTAssertTrue(ci.contains("if: github.event_name != 'pull_request'"))
         XCTAssertTrue(ci.contains("make dmg"))
-        XCTAssertTrue(ci.contains("make ios-ipa"))
+        XCTAssertTrue(ciIOSJob.contains("name: Package unsigned iOS IPA contract"))
+        XCTAssertTrue(ciIOSJob.contains("if: github.event_name != 'pull_request'"))
+        XCTAssertTrue(ciIOSJob.contains("make ios-ipa-unsigned"))
+        XCTAssertTrue(ciIOSJob.contains("name: Mashangxie-iOS-unsigned"))
+        XCTAssertTrue(ciIOSJob.contains("path: dist/ios/Mashangxie-unsigned.ipa"))
+        XCTAssertEqual(
+            ciIOSJob.components(separatedBy: "uses: actions/upload-artifact@v4").count,
+            2,
+            "The CI iOS job must upload exactly one artifact."
+        )
+        XCTAssertEqual(
+            ciIOSJob
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.hasPrefix("path:") },
+            ["path: dist/ios/Mashangxie-unsigned.ipa"],
+            "The CI iOS job must upload only the unsigned IPA."
+        )
+        XCTAssertFalse(ciIOSJob.contains("MASHANGXIE_IOS"))
+        XCTAssertFalse(ciIOSJob.contains("dist/ios/Mashangxie-*-iOS.ipa"))
+        XCTAssertFalse(ciIOSJob.contains(".ipa.sha256"))
         XCTAssertFalse(ci.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertFalse(ci.contains(".build/VoxFlowApp.app"))
 
         XCTAssertTrue(release.contains(".build/release/VoxFlow.app"))
         XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertTrue(release.contains("VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe"))
-        XCTAssertTrue(release.contains("Mashangxie-*-iOS.ipa"))
-        XCTAssertTrue(release.contains("needs: [macos, windows, ios]"))
+        XCTAssertTrue(releaseMetadataJob.contains("make release-check"))
+        XCTAssertTrue(releaseMetadataJob.contains("validate_release_assets"))
+        XCTAssertTrue(releaseMetadataJob.contains("ios_enabled"))
+        XCTAssertTrue(releaseMacOSJob.contains("needs: release_metadata"))
+        XCTAssertTrue(releaseWindowsJob.contains("needs: release_metadata"))
+        XCTAssertTrue(releaseIOSJob.contains("make ios-ipa"))
+        XCTAssertTrue(releaseIOSJob.contains("needs: release_metadata"))
+        XCTAssertTrue(releaseIOSJob.contains("needs.release_metadata.outputs.ios_enabled == 'true'"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_APP_PROFILE_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64"))
+        XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_TEAM_ID"))
+        XCTAssertTrue(releaseIOSJob.contains("dist/ios/Mashangxie-*-iOS.ipa"))
+        XCTAssertTrue(publishJob.contains("needs: [release_metadata, macos, windows, ios]"))
+        XCTAssertTrue(publishJob.contains("always()"))
+        XCTAssertTrue(publishJob.contains("needs.release_metadata.outputs.ios_enabled"))
+        XCTAssertTrue(publishJob.contains("name: release-macos"))
+        XCTAssertTrue(publishJob.contains("name: release-windows"))
+        XCTAssertTrue(publishJob.contains("name: release-ios"))
+        XCTAssertTrue(publishJob.contains("Verify selected release asset set"))
+        XCTAssertTrue(publishJob.contains("validate_release_assets"))
+        XCTAssertTrue(publishJob.contains("Remove stale GitHub Release assets"))
+        XCTAssertTrue(publishJob.contains("Verify published GitHub Release asset set"))
+        XCTAssertTrue(publishJob.contains("releases/assets/${asset_id}"))
         XCTAssertTrue(release.contains("overwrite_files: true"))
         XCTAssertFalse(release.contains(".build/VoxFlow.app"))
         XCTAssertFalse(release.contains(".build/VoxFlowApp.app"))
@@ -402,6 +450,76 @@ final class BrandIdentityTests: XCTestCase {
             try XCTUnwrap(release.range(of: "make dmg")?.lowerBound),
             "Release must fail warnings before packaging."
         )
+    }
+
+    func testLandingDeploymentWaitsForPublishedThreePlatformReleaseAssets() throws {
+        let root = Self.repositoryRoot()
+        let deployLanding = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/deploy-landing.yml"),
+            encoding: .utf8
+        )
+        let release = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+        let legacyPages = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/pages.yml"),
+            encoding: .utf8
+        )
+        let releaseGate = try Self.workflowJobBody("release_ready", in: deployLanding)
+
+        XCTAssertTrue(releaseGate.contains("scripts/check-release-assets-published.py"))
+        XCTAssertTrue(releaseGate.contains("ready: ${{ steps.verify.outputs.ready }}"))
+        XCTAssertTrue(releaseGate.contains("GH_TOKEN: ${{ github.token }}"))
+
+        for job in ["vercel", "lighthouse", "pages"] {
+            let body = try Self.workflowJobBody(job, in: deployLanding)
+            XCTAssertTrue(body.contains("needs: release_ready"), "\(job) must wait for the release gate.")
+            XCTAssertTrue(
+                body.contains("needs.release_ready.outputs.ready == 'true'"),
+                "\(job) must not deploy unpublished platform downloads."
+            )
+        }
+
+        let domains = try Self.workflowJobBody("verify-domains", in: deployLanding)
+        XCTAssertTrue(domains.contains("- release_ready"))
+        XCTAssertTrue(domains.contains("needs.release_ready.outputs.ready == 'true'"))
+        XCTAssertTrue(domains.contains("always()"))
+
+        let dns = try Self.workflowJobBody("dns", in: deployLanding)
+        XCTAssertFalse(dns.contains("needs:"), "DNS maintenance must remain independent of a release.")
+
+        let releaseDeployment = try Self.workflowJobBody("deploy_pages", in: release)
+        XCTAssertTrue(releaseDeployment.contains("needs: publish"))
+        XCTAssertTrue(releaseDeployment.contains("needs.publish.result == 'success'"))
+        XCTAssertTrue(releaseDeployment.contains("-f target=all"))
+
+        let legacyPagesGate = try Self.workflowJobBody("release_ready", in: legacyPages)
+        XCTAssertTrue(legacyPagesGate.contains("scripts/check-release-assets-published.py"))
+        let legacyPagesDeployment = try Self.workflowJobBody("deploy", in: legacyPages)
+        XCTAssertTrue(legacyPagesDeployment.contains("needs: release_ready"))
+        XCTAssertTrue(legacyPagesDeployment.contains("needs.release_ready.outputs.ready == 'true'"))
+    }
+
+    func testLandingDescribesTheMacDownloadAsAppleSiliconInsteadOfUniversal() throws {
+        let root = Self.repositoryRoot()
+        let index = try String(
+            contentsOf: root.appendingPathComponent("docs/index.html"),
+            encoding: .utf8
+        )
+        let script = try String(
+            contentsOf: root.appendingPathComponent("docs/script.js"),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(index.contains("Universal DMG"))
+        XCTAssertFalse(index.contains("通用 DMG"))
+        XCTAssertFalse(script.contains("Universal DMG"))
+        XCTAssertFalse(script.contains("通用 DMG"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple Silicon"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple 芯片"))
+        XCTAssertTrue(script.contains("macOS 15+ · Apple 晶片"))
+        XCTAssertTrue(script.contains("macOS 15+ · Appleシリコン"))
     }
 
     func testReleaseWorkflowVerifiesTagPlistVersionAndReleaseNotesMatch() throws {
@@ -450,5 +568,18 @@ final class BrandIdentityTests: XCTestCase {
         let start = try XCTUnwrap(makefile.range(of: "\n\(target):")?.lowerBound)
         let end = try XCTUnwrap(makefile[start...].range(of: "\n\n")?.lowerBound)
         return String(makefile[start..<end])
+    }
+
+    private static func workflowJobBody(_ job: String, in workflow: String) throws -> String {
+        let lines = workflow.split(separator: "\n", omittingEmptySubsequences: false)
+        let heading = "  \(job):"
+        let start = try XCTUnwrap(lines.firstIndex { String($0) == heading })
+        let searchStart = lines.index(after: start)
+        let end = lines[searchStart...].firstIndex { line in
+            let value = String(line)
+            return value.hasPrefix("  ") && !value.hasPrefix("    ") && value.hasSuffix(":")
+        } ?? lines.endIndex
+
+        return lines[start..<end].joined(separator: "\n")
     }
 }

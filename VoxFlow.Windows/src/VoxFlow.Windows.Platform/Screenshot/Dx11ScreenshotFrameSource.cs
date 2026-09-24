@@ -161,7 +161,17 @@ public sealed class Dx11ScreenshotFrameSource : IDisposable, IScreenshotCaptureI
         }
 
         ThrowIfDisposed();
-        await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            throw new ScreenshotCaptureException(
+                ScreenshotCaptureFailureKind.Cancelled,
+                "DX11 screenshot capture was cancelled.",
+                exception);
+        }
         CancellationTokenSource? session = null;
         var stopwatch = Stopwatch.StartNew();
         try

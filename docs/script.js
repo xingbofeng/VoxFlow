@@ -2,6 +2,7 @@ const release = {
   version: "1.15.0",
   tag: "v1.15.0",
   assetName: "VoxFlow-1.15.0-macOS.dmg",
+  publishedPlatforms: ["macos", "windows", "ios"],
   assets: {
     macos: {
       dmg: { name: "VoxFlow-1.15.0-macOS.dmg" }
@@ -10,10 +11,12 @@ const release = {
       installer: { name: "VoxFlow-1.15.0-windows-x64-setup.exe" },
       portable: { name: "VoxFlow-1.15.0-windows-x64-portable.zip" }
     },
+    /* RELEASE_IOS_ASSET_BEGIN */
     ios: {
       ipa: { name: "Mashangxie-1.15.0-iOS.ipa" },
       distribution: "ad-hoc"
     }
+    /* RELEASE_IOS_ASSET_END */
   }
 };
 
@@ -21,9 +24,14 @@ const releaseAssetURL = (assetName) =>
   `https://github.com/xingbofeng/VoxFlow/releases/download/${release.tag}/${assetName}`;
 const releaseDownloadURLs = {
   macos: releaseAssetURL(release.assets.macos.dmg.name),
-  windows: releaseAssetURL(release.assets.windows.installer.name),
-  ios: releaseAssetURL(release.assets.ios.ipa.name)
+  windows: releaseAssetURL(release.assets.windows.installer.name)
 };
+/* RELEASE_IOS_DOWNLOAD_BEGIN */
+if (release.assets.ios?.ipa) {
+  releaseDownloadURLs.ios = releaseAssetURL(release.assets.ios.ipa.name);
+}
+/* RELEASE_IOS_DOWNLOAD_END */
+const releaseDownloadURLForPlatform = (platform) => releaseDownloadURLs[platform] || null;
 
 const siteURL = "https://mashangxie.app/";
 const releaseNotesURL = "https://api.github.com/repos/xingbofeng/VoxFlow/releases?per_page=3";
@@ -77,7 +85,7 @@ const copy = {
     download: "Download for macOS",
     downloadMeta: "macOS 15+ · Apple Silicon",
     downloadMacOS: "Download for macOS",
-    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadMacOSMeta: "macOS 15+ · Apple Silicon",
     downloadWindows: "Download for Windows",
     downloadWindowsMeta: "Windows x64 · Installer",
     downloadIOS: "Download IPA for iOS",
@@ -170,7 +178,7 @@ const copy = {
     download: "下载 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
     downloadMacOS: "下载 macOS App",
-    downloadMacOSMeta: "macOS 15+ · 通用 DMG",
+    downloadMacOSMeta: "macOS 15+ · Apple 芯片",
     downloadWindows: "下载 Windows App",
     downloadWindowsMeta: "Windows x64 · 安装包",
     downloadIOS: "下载 iOS IPA",
@@ -263,7 +271,7 @@ const copy = {
     download: "下載 macOS App",
     downloadMeta: "macOS 15+ · Apple Silicon",
     downloadMacOS: "下載 macOS App",
-    downloadMacOSMeta: "macOS 15+ · 通用 DMG",
+    downloadMacOSMeta: "macOS 15+ · Apple 晶片",
     downloadWindows: "下載 Windows App",
     downloadWindowsMeta: "Windows x64 · 安裝程式",
     downloadIOS: "下載 iOS IPA",
@@ -356,7 +364,7 @@ const copy = {
     download: "macOS 版をダウンロード",
     downloadMeta: "macOS 15+ · Apple Silicon",
     downloadMacOS: "macOS 版をダウンロード",
-    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadMacOSMeta: "macOS 15+ · Appleシリコン",
     downloadWindows: "Windows 版をダウンロード",
     downloadWindowsMeta: "Windows x64 · インストーラー",
     downloadIOS: "iOS IPA をダウンロード",
@@ -449,7 +457,7 @@ const copy = {
     download: "macOS용 다운로드",
     downloadMeta: "macOS 15+ · Apple Silicon",
     downloadMacOS: "macOS용 다운로드",
-    downloadMacOSMeta: "macOS 15+ · Universal DMG",
+    downloadMacOSMeta: "macOS 15+ · Apple Silicon",
     downloadWindows: "Windows용 다운로드",
     downloadWindowsMeta: "Windows x64 · 설치 프로그램",
     downloadIOS: "iOS IPA 다운로드",
@@ -912,7 +920,14 @@ function setLanguage(language, { pushState = true, persist = true } = {}) {
 }
 
 document.querySelectorAll("[data-download-platform]").forEach((element) => {
-  element.href = releaseDownloadURLs[element.dataset.downloadPlatform] || releaseDownloadURLs.macos;
+  const downloadURL = releaseDownloadURLForPlatform(element.dataset.downloadPlatform);
+  if (downloadURL === null) {
+    element.hidden = true;
+    element.removeAttribute("href");
+    return;
+  }
+  element.hidden = false;
+  element.href = downloadURL;
 });
 
 if (languageSwitchButton && languageMenu) {

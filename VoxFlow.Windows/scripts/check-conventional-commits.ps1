@@ -37,7 +37,7 @@ function Invoke-GitLog {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $gitExecutable
     $startInfo.Arguments = ConvertTo-VoxFlowProcessArguments @(
-        'log', '--format=%H%x09%s', $CommitRange)
+        'log', '--no-merges', '--format=%H%x09%s', $CommitRange)
     $startInfo.WorkingDirectory = (Get-Location).ProviderPath
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true

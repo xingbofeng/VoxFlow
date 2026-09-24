@@ -4,6 +4,7 @@
   "assetName": "VoxFlow-1.15.0-macOS.dmg",
   "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
   "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/VoxFlow-1.15.0-macOS.dmg",
+  "publishedPlatforms": ["macos", "windows", "ios"],
   "assets": {
     "macos": {
       "dmg": {

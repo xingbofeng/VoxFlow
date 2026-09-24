@@ -73,8 +73,6 @@ public sealed class ArchitectureDependencyTests
             solutionRoot,
             "src",
             "VoxFlow.Windows.App",
-            "obj",
-            "Release",
             "VoxFlow.Windows.App_random_wpftmp.csproj");
 
         Assert.True(IsProductionProjectPath(solutionRoot, sourceProject));
@@ -135,6 +133,7 @@ public sealed class ArchitectureDependencyTests
             StringSplitOptions.RemoveEmptyEntries);
 
         return segments.Length == 2 &&
+            !Path.GetFileName(projectFile).EndsWith("_wpftmp.csproj", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(Path.GetExtension(projectFile), ".csproj", StringComparison.OrdinalIgnoreCase);
     }
 

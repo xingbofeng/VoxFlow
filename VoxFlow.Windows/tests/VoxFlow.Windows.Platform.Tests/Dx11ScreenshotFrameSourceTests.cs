@@ -66,15 +66,71 @@ public sealed class Dx11ScreenshotFrameSourceTests
         var fixture = SingleDisplayFixture([], SolidBgra(2, 1, 41), defaultOutcome: false);
         using var source = new Dx11ScreenshotFrameSource(fixture.Factory, fixture.PhysicalDisplays);
         using var cancellation = new CancellationTokenSource();
-        cancellation.CancelAfter(TimeSpan.FromMilliseconds(20));
+        var freeze = source.FreezeAllDisplaysAsync(TimeSpan.FromSeconds(1), cancellation.Token);
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Capture.TryCaptureCount > 0,
+            TimeSpan.FromSeconds(1)));
+        cancellation.Cancel();
 
-        var exception = await Assert.ThrowsAsync<ScreenshotCaptureException>(() =>
-            source.FreezeAllDisplaysAsync(TimeSpan.FromSeconds(1), cancellation.Token));
+        var exception = await Assert.ThrowsAsync<ScreenshotCaptureException>(() => freeze);
 
         Assert.Equal(ScreenshotCaptureFailureKind.Cancelled, exception.Kind);
         Assert.Equal(0, fixture.Capture.CopyCount);
         Assert.True(SpinWait.SpinUntil(
             () => fixture.Capture.DisposeCount == 1,
+            TimeSpan.FromSeconds(1)));
+    }
+
+    [Fact]
+    public async Task Cancellation_while_waiting_for_capture_gate_is_normalized_without_disrupting_active_capture()
+    {
+        var adapter = Adapter(0);
+        var display = Display(adapter, "\\\\.\\DISPLAY1", 2, 1);
+        var activeCapture = new BlockingDisplayCapture(display, SolidBgra(2, 1, 41));
+        var backend = BackendWithCapture(adapter, display, activeCapture);
+        using var source = new Dx11ScreenshotFrameSource(
+            new FakeBackendFactory(() => backend),
+            new FakePhysicalDisplayCatalog(
+            [
+                new("\\\\.\\DISPLAY1", new CapturePixelRect(0, 0, 2, 1), true),
+            ]));
+        using var cancellation = new CancellationTokenSource();
+        using var safetyRelease = new Timer(
+            _ => activeCapture.Release(),
+            null,
+            TimeSpan.FromSeconds(2),
+            Timeout.InfiniteTimeSpan);
+
+        try
+        {
+            var activeFreeze = source.FreezeAllDisplaysAsync(
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None);
+            Assert.True(activeCapture.Started.Wait(TimeSpan.FromSeconds(1)));
+
+            var waitingFreeze = source.FreezeAllDisplaysAsync(
+                TimeSpan.FromSeconds(5),
+                cancellation.Token);
+            cancellation.Cancel();
+
+            var exception = await Assert.ThrowsAsync<ScreenshotCaptureException>(() => waitingFreeze);
+
+            Assert.Equal(ScreenshotCaptureFailureKind.Cancelled, exception.Kind);
+            Assert.Equal(0, activeCapture.DisposeCount);
+            Assert.Equal(0, backend.DisposeCount);
+
+            activeCapture.Release();
+            var desktop = await activeFreeze;
+            Assert.Single(desktop.Frames);
+            source.Dispose();
+        }
+        finally
+        {
+            activeCapture.Release();
+        }
+
+        Assert.True(SpinWait.SpinUntil(
+            () => activeCapture.DisposeCount == 1 && backend.DisposeCount == 1,
             TimeSpan.FromSeconds(1)));
     }
 
@@ -588,6 +644,7 @@ public sealed class Dx11ScreenshotFrameSourceTests
         private readonly bool defaultOutcome;
         private readonly byte[] pixels;
         private int disposeCount;
+        private int tryCaptureCount;
 
         public FakeDisplayCapture(
             Dx11DisplayDescriptor display,
@@ -609,7 +666,7 @@ public sealed class Dx11ScreenshotFrameSourceTests
 
         public int Stride => checked(Display.Width * 4);
 
-        public int TryCaptureCount { get; private set; }
+        public int TryCaptureCount => Volatile.Read(ref tryCaptureCount);
 
         public int CopyCount { get; private set; }
 
@@ -617,7 +674,7 @@ public sealed class Dx11ScreenshotFrameSourceTests
 
         public bool TryCapture()
         {
-            TryCaptureCount++;
+            Interlocked.Increment(ref tryCaptureCount);
             return outcomes.Count > 0 ? outcomes.Dequeue() : defaultOutcome;
         }
 
