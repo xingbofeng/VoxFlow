@@ -344,7 +344,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(readme.contains("https://mashangxie.app/"))
     }
 
-    func testCIRunsFastPRChecksAndPackagesAllPlatformsOutsidePullRequests() throws {
+    func testCIRunsFastPRChecksAndPackagesOnlyDeclaredReleasePlatforms() throws {
         let root = Self.repositoryRoot()
         let ci = try String(
             contentsOf: root.appendingPathComponent(".github/workflows/ci.yml"),
@@ -355,7 +355,11 @@ final class BrandIdentityTests: XCTestCase {
             encoding: .utf8
         )
         let ciIOSJob = try Self.workflowJobBody("package-ios", in: ci)
+        let releaseMetadataJob = try Self.workflowJobBody("release_metadata", in: release)
+        let releaseMacOSJob = try Self.workflowJobBody("macos", in: release)
+        let releaseWindowsJob = try Self.workflowJobBody("windows", in: release)
         let releaseIOSJob = try Self.workflowJobBody("ios", in: release)
+        let publishJob = try Self.workflowJobBody("publish", in: release)
 
         XCTAssertTrue(ci.contains("swift test"))
         XCTAssertTrue(ci.contains("swift_test_workers=8"))
@@ -394,14 +398,28 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(release.contains(".build/release/VoxFlow.app"))
         XCTAssertTrue(release.contains("dist/VoxFlow-${{ steps.version.outputs.value }}-macOS.dmg"))
         XCTAssertTrue(release.contains("VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe"))
+        XCTAssertTrue(releaseMetadataJob.contains("make release-check"))
+        XCTAssertTrue(releaseMetadataJob.contains("validate_release_assets"))
+        XCTAssertTrue(releaseMetadataJob.contains("ios_enabled"))
+        XCTAssertTrue(releaseMacOSJob.contains("needs: release_metadata"))
+        XCTAssertTrue(releaseWindowsJob.contains("needs: release_metadata"))
         XCTAssertTrue(releaseIOSJob.contains("make ios-ipa"))
+        XCTAssertTrue(releaseIOSJob.contains("needs: release_metadata"))
+        XCTAssertTrue(releaseIOSJob.contains("needs.release_metadata.outputs.ios_enabled == 'true'"))
         XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_BASE64"))
         XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_DISTRIBUTION_P12_PASSWORD"))
         XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_APP_PROFILE_BASE64"))
         XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_KEYBOARD_PROFILE_BASE64"))
         XCTAssertTrue(releaseIOSJob.contains("MASHANGXIE_IOS_TEAM_ID"))
         XCTAssertTrue(releaseIOSJob.contains("dist/ios/Mashangxie-*-iOS.ipa"))
-        XCTAssertTrue(release.contains("needs: [macos, windows, ios]"))
+        XCTAssertTrue(publishJob.contains("needs: [release_metadata, macos, windows, ios]"))
+        XCTAssertTrue(publishJob.contains("always()"))
+        XCTAssertTrue(publishJob.contains("needs.release_metadata.outputs.ios_enabled"))
+        XCTAssertTrue(publishJob.contains("name: release-macos"))
+        XCTAssertTrue(publishJob.contains("name: release-windows"))
+        XCTAssertTrue(publishJob.contains("name: release-ios"))
+        XCTAssertTrue(publishJob.contains("Verify selected release asset set"))
+        XCTAssertTrue(publishJob.contains("validate_release_assets"))
         XCTAssertTrue(release.contains("overwrite_files: true"))
         XCTAssertFalse(release.contains(".build/VoxFlow.app"))
         XCTAssertFalse(release.contains(".build/VoxFlowApp.app"))
@@ -470,6 +488,7 @@ final class BrandIdentityTests: XCTestCase {
 
         let releaseDeployment = try Self.workflowJobBody("deploy_pages", in: release)
         XCTAssertTrue(releaseDeployment.contains("needs: publish"))
+        XCTAssertTrue(releaseDeployment.contains("needs.publish.result == 'success'"))
         XCTAssertTrue(releaseDeployment.contains("-f target=all"))
 
         let legacyPagesGate = try Self.workflowJobBody("release_ready", in: legacyPages)

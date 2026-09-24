@@ -19,8 +19,58 @@ permissions:
   id-token: write
 
 jobs:
+  release_metadata:
+    name: Validate declared release platforms
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      platforms: ${{ steps.release.outputs.platforms }}
+      ios_enabled: ${{ steps.release.outputs.ios_enabled }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check release metadata
+        run: make release-check
+
+      - name: Read declared release platforms
+        id: release
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from scripts.release_platforms import validate_release_assets
+
+          metadata = json.loads(Path("docs/release.json").read_text(encoding="utf-8"))
+          platforms = validate_release_assets(metadata)
+          version = metadata["version"]
+          if not isinstance(version, str) or not version:
+              raise ValueError("release.version must be a non-empty string.")
+
+          if os.environ.get("GITHUB_REF_TYPE") == "tag":
+              expected_tag = f"v{version}"
+              if os.environ.get("GITHUB_REF_NAME") != expected_tag:
+                  raise ValueError(
+                      f"Release tag must be {expected_tag}, got {os.environ.get('GITHUB_REF_NAME')!r}."
+                  )
+
+          outputs = {
+              "version": version,
+              "platforms": ",".join(platforms),
+              "ios_enabled": "true" if "ios" in platforms else "false",
+          }
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              for key, value in outputs.items():
+                  output.write(f"{key}={value}\n")
+          PY
+
   macos:
     name: Build macOS release
+    needs: release_metadata
     runs-on: macos-15
     timeout-minutes: 60
 
@@ -223,6 +273,7 @@ jobs:
 
   windows:
     name: Build Windows release
+    needs: release_metadata
     runs-on: windows-latest
     timeout-minutes: 90
 
@@ -289,6 +340,8 @@ jobs:
 
   ios:
     name: Build installable iOS release
+    needs: release_metadata
+    if: needs.release_metadata.outputs.ios_enabled == 'true'
     runs-on: macos-15
     timeout-minutes: 60
 
@@ -363,35 +416,96 @@ jobs:
 
   publish:
     name: Publish multiplatform GitHub Release
-    needs: [macos, windows, ios]
-    if: github.ref_type == 'tag'
+    needs: [release_metadata, macos, windows, ios]
+    if: >-
+      ${{
+        always() &&
+        github.ref_type == 'tag' &&
+        needs.release_metadata.result == 'success' &&
+        needs.macos.result == 'success' &&
+        needs.windows.result == 'success' &&
+        (
+          needs.release_metadata.outputs.ios_enabled != 'true' ||
+          needs.ios.result == 'success'
+        )
+      }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download release artifacts
+      - name: Download macOS release artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: release-*
+          name: release-macos
           path: dist/release
-          merge-multiple: true
 
-      - name: Verify complete release asset set
+      - name: Download Windows release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows
+          path: dist/release
+
+      - name: Download iOS release artifacts
+        if: needs.release_metadata.outputs.ios_enabled == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ios
+          path: dist/release
+
+      - name: Verify selected release asset set
         id: version
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.release_metadata.outputs.version }}
+          RELEASE_PLATFORMS: ${{ needs.release_metadata.outputs.platforms }}
         run: |
-          version="$(python3 -c 'import json; print(json.load(open("docs/release.json"))["version"])')"
-          test -f "dist/release/VoxFlow-${version}-macOS.dmg"
-          test -f "dist/release/VoxFlow-${version}-windows-x64-setup.exe"
-          test -f "dist/release/VoxFlow-${version}-windows-x64-portable.zip"
-          test -f "dist/release/Mashangxie-${version}-iOS.ipa"
-          test "$(awk '{print $1}' "dist/release/VoxFlow-${version}-macOS.dmg.sha256")" = \
-            "$(shasum -a 256 "dist/release/VoxFlow-${version}-macOS.dmg" | awk '{print $1}')"
-          test "$(awk '{print $1}' "dist/release/Mashangxie-${version}-iOS.ipa.sha256")" = \
-            "$(shasum -a 256 "dist/release/Mashangxie-${version}-iOS.ipa" | awk '{print $1}')"
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          from scripts.release_platforms import ASSET_KINDS, validate_release_assets
+
+          metadata = json.loads(Path("docs/release.json").read_text(encoding="utf-8"))
+          platforms = validate_release_assets(metadata)
+          version = metadata["version"]
+          if version != os.environ["RELEASE_VERSION"]:
+              raise ValueError("Release metadata output version does not match docs/release.json.")
+          if ",".join(platforms) != os.environ["RELEASE_PLATFORMS"]:
+              raise ValueError("Release metadata output platforms do not match docs/release.json.")
+
+          release_directory = Path("dist/release")
+          expected_names = []
+          for platform in platforms:
+              for kind in ASSET_KINDS[platform]:
+                  asset_name = metadata["assets"][platform][kind]["name"]
+                  asset_path = release_directory / asset_name
+                  if not asset_path.is_file():
+                      raise FileNotFoundError(f"Missing release asset: {asset_path}")
+                  expected_names.append(asset_name)
+
+                  if platform in {"macos", "ios"}:
+                      checksum_path = release_directory / f"{asset_name}.sha256"
+                      if not checksum_path.is_file():
+                          raise FileNotFoundError(f"Missing release checksum: {checksum_path}")
+                      expected_checksum = checksum_path.read_text(encoding="utf-8").split()[0]
+                      actual_checksum = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+                      if expected_checksum != actual_checksum:
+                          raise ValueError(f"Checksum does not match release asset: {asset_path}")
+                      expected_names.append(checksum_path.name)
+
+          published_names = sorted(path.name for path in release_directory.iterdir() if path.is_file())
+          if published_names != sorted(expected_names):
+              raise ValueError(
+                  f"Release artifact set does not match declared platforms: {published_names!r}"
+              )
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"value={version}\n")
+          PY
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -405,7 +519,7 @@ jobs:
   deploy_pages:
     name: Deploy landing page
     needs: publish
-    if: github.ref_type == 'tag'
+    if: needs.publish.result == 'success' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
     steps:
