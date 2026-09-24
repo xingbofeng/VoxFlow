@@ -406,6 +406,19 @@ def javascript_object_property_string(
     if not expression.startswith("{") or not expression.endswith("}"):
         return None
     for property_entry in split_javascript_expression(expression[1:-1], ","):
+        computed_property_match = re.fullmatch(
+            r"\[\s*(.+)\s*\]\s*:\s*(.+)",
+            property_entry,
+            re.DOTALL,
+        )
+        if computed_property_match is not None:
+            property_key = javascript_static_string(
+                computed_property_match.group(1),
+                values,
+            )
+            if property_key == property_name:
+                return javascript_static_string(computed_property_match.group(2), values)
+            continue
         property_match = re.fullmatch(
             r"(?:['\"])?([A-Za-z_$][A-Za-z0-9_$]*)(?:['\"])?\s*:\s*(.+)",
             property_entry,
@@ -442,6 +455,68 @@ def javascript_without_strings(source: str) -> str:
         result.append(character)
         index += 1
     return "".join(result)
+
+
+def javascript_matching_bracket(source: str, opening_index: int) -> int | None:
+    """Find a closing bracket while respecting JavaScript string literals."""
+
+    depth = 0
+    quote: str | None = None
+    index = opening_index
+    while index < len(source):
+        character = source[index]
+        if quote is not None:
+            if character == "\\" and index + 1 < len(source):
+                index += 2
+                continue
+            if character == quote:
+                quote = None
+            index += 1
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+            index += 1
+            continue
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return None
+
+
+def javascript_bracket_property_assignments(
+    source: str,
+    object_pattern: str,
+) -> list[tuple[str, str]]:
+    """Return static candidates for `object[key] = value` outside string literals."""
+
+    masked = javascript_without_strings(source)
+    assignments: list[tuple[str, str]] = []
+    for match in re.finditer(rf"\b{object_pattern}\s*\[", masked):
+        opening_index = masked.find("[", match.start())
+        closing_index = javascript_matching_bracket(source, opening_index)
+        if closing_index is None:
+            continue
+        assignment = re.match(r"\s*=\s*(.+)", source[closing_index + 1 :], re.DOTALL)
+        if assignment is not None:
+            assignments.append((source[opening_index + 1 : closing_index], assignment.group(1)))
+    return assignments
+
+
+def javascript_bracket_property_expressions(source: str, object_pattern: str) -> list[str]:
+    """Return `object[key]` keys that occur in executable code."""
+
+    masked = javascript_without_strings(source)
+    expressions: list[str] = []
+    for match in re.finditer(rf"\b{object_pattern}\s*\[", masked):
+        opening_index = masked.find("[", match.start())
+        closing_index = javascript_matching_bracket(source, opening_index)
+        if closing_index is not None:
+            expressions.append(source[opening_index + 1 : closing_index])
+    return expressions
 
 
 def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
@@ -483,6 +558,25 @@ def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
                 assignment.group(2),
                 values,
             )
+
+        if any(
+            javascript_static_string(property_expression, values) == "ios"
+            for property_expression in javascript_bracket_property_expressions(
+                statement,
+                r"release\s*\.\s*assets",
+            )
+        ):
+            return True
+
+        for property_expression, expression in javascript_bracket_property_assignments(
+            statement,
+            "releaseDownloadURLs",
+        ):
+            if javascript_static_string(property_expression, values) != "ios":
+                continue
+            value = javascript_static_string(expression, values)
+            if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:
+                return True
 
         sink_match = re.search(
             r"\breleaseDownloadURLs\s*(?:\.\s*ios|\[\s*['\"]ios['\"]\s*\])\s*=\s*(.+)",

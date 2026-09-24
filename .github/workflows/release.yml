@@ -505,7 +505,41 @@ jobs:
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               output.write(f"value={version}\n")
+              output.write(f"assets={','.join(sorted(expected_names))}\n")
           PY
+
+      - name: Remove stale GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          EXPECTED_RELEASE_ASSETS: ${{ steps.version.outputs.assets }}
+        run: |
+          set -euo pipefail
+          RELEASE_JSON="$(mktemp)"
+          ERROR_LOG="$(mktemp)"
+          trap 'rm -f "$RELEASE_JSON" "$ERROR_LOG"' EXIT
+
+          if ! gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RELEASE_JSON" 2> "$ERROR_LOG"; then
+            if grep -q 'HTTP 404' "$ERROR_LOG"; then
+              exit 0
+            fi
+            cat "$ERROR_LOG" >&2
+            exit 1
+          fi
+
+          while IFS=$'\t' read -r asset_id asset_name; do
+            if [[ ",${EXPECTED_RELEASE_ASSETS}," != *",${asset_name},"* ]]; then
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"
+            fi
+          done < <(python3 - "$RELEASE_JSON" <<'PY'
+          import json
+          import sys
+
+          for asset in json.load(open(sys.argv[1], encoding="utf-8"))["assets"]:
+              print(f'{asset["id"]}\t{asset["name"]}')
+          PY
+          )
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -515,6 +549,30 @@ jobs:
           files: dist/release/*
           fail_on_unmatched_files: true
           overwrite_files: true
+
+      - name: Verify published GitHub Release asset set
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          EXPECTED_RELEASE_ASSETS: ${{ steps.version.outputs.assets }}
+        run: |
+          set -euo pipefail
+          RELEASE_JSON="$(mktemp)"
+          trap 'rm -f "$RELEASE_JSON"' EXIT
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RELEASE_JSON"
+          python3 - "$RELEASE_JSON" "$EXPECTED_RELEASE_ASSETS" <<'PY'
+          import json
+          import sys
+
+          published_names = sorted(asset["name"] for asset in json.load(open(sys.argv[1], encoding="utf-8"))["assets"])
+          expected_names = sorted(name for name in sys.argv[2].split(",") if name)
+          if published_names != expected_names:
+              raise ValueError(
+                  "Published GitHub Release assets do not match declared platforms: "
+                  f"{published_names!r}"
+              )
+          PY
 
   deploy_pages:
     name: Deploy landing page

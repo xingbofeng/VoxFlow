@@ -508,6 +508,59 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertNotEqual(checked.returncode, 0)
             self.assertIn("unselected iOS", checked.stderr)
 
+    def test_release_metadata_check_rejects_computed_ios_download_map_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            script = fixture_root / "docs/script.js"
+            script.write_text(
+                script.read_text(encoding="utf-8").replace(
+                    "const siteURL = ",
+                    'const iosPlatform = "ios";\n'
+                    f'const staleDownload = "{stale_download_url}";\n'
+                    "releaseDownloadURLs[iosPlatform] = staleDownload;\n\n"
+                    "const siteURL = ",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
+    def test_release_metadata_check_rejects_computed_ios_release_asset_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            script = fixture_root / "docs/script.js"
+            script.write_text(
+                script.read_text(encoding="utf-8").replace(
+                    "const siteURL = ",
+                    'const iosPlatform = "ios";\n'
+                    "release.assets[iosPlatform] = {};\n\n"
+                    "const siteURL = ",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
     def test_release_metadata_check_allows_historical_ios_references_outside_active_downloads(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_root = Path(temporary_directory)
