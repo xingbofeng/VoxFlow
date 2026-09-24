@@ -43,6 +43,10 @@ RELEASE_NOTE_ASSET_ROW_RE = re.compile(
     r")[ \t]*(?:\n|\Z)",
     re.MULTILINE,
 )
+RELEASE_NOTE_VERSION_ROW_RE = re.compile(
+    r"^- `CFBundleShortVersionString`：[^\n]*(?:\n|\Z)",
+    re.MULTILINE,
+)
 RELEASE_NOTE_BUILD_ROW_RE = re.compile(
     r"^- `CFBundleVersion`：[^\n]*(?:\n|\Z)",
     re.MULTILINE,
@@ -255,33 +259,44 @@ def release_note_asset_lines(version: str, platforms: tuple[str, ...]) -> str:
     return "\n".join(asset_lines[platform] for platform in platforms)
 
 
-def update_release_note_asset_rows(
+def release_note_bundle_lines(version: str, build: str) -> str:
+    return "\n".join(
+        (
+            f"- `CFBundleShortVersionString`：{version}",
+            f"- `CFBundleVersion`：{build}",
+        )
+    )
+
+
+def update_release_note_metadata_rows(
     text: str,
     version: str,
+    build: str,
     platforms: tuple[str, ...],
 ) -> str:
     asset_lines = release_note_asset_lines(version, platforms)
+    metadata_lines = f"{release_note_bundle_lines(version, build)}\n{asset_lines}"
     metadata_heading = RELEASE_NOTE_METADATA_HEADING_RE.search(text)
     if metadata_heading is None:
         separator = "" if not text else ("\n" if text.endswith("\n") else "\n\n")
-        return f"{text}{separator}## 发布元数据\n\n{asset_lines}\n"
+        return f"{text}{separator}## 发布元数据\n\n{metadata_lines}\n"
 
     section_start = metadata_heading.end()
     next_heading = RELEASE_NOTE_SECTION_HEADING_RE.search(text, section_start)
     section_end = next_heading.start() if next_heading is not None else len(text)
     metadata_section = text[section_start:section_end]
     metadata_without_asset_rows = RELEASE_NOTE_ASSET_ROW_RE.sub("", metadata_section)
-    build_row = RELEASE_NOTE_BUILD_ROW_RE.search(metadata_without_asset_rows)
-    if build_row is not None:
-        updated_section = (
-            metadata_without_asset_rows[: build_row.end()]
-            + asset_lines
-            + "\n"
-            + metadata_without_asset_rows[build_row.end() :]
-        )
-    else:
-        separator = "" if not metadata_without_asset_rows or metadata_without_asset_rows.endswith("\n") else "\n"
-        updated_section = f"{metadata_without_asset_rows}{separator}{asset_lines}\n"
+    metadata_without_version_rows = RELEASE_NOTE_VERSION_ROW_RE.sub(
+        "",
+        metadata_without_asset_rows,
+    )
+    metadata_without_known_rows = RELEASE_NOTE_BUILD_ROW_RE.sub(
+        "",
+        metadata_without_version_rows,
+    )
+    remaining_metadata = metadata_without_known_rows.strip("\n")
+    suffix = f"\n{remaining_metadata}\n" if remaining_metadata else "\n"
+    updated_section = f"\n\n{metadata_lines}{suffix}"
 
     return text[:section_start] + updated_section + text[section_end:]
 
@@ -290,7 +305,7 @@ def ensure_release_notes(version: str, build: str, platforms: tuple[str, ...]) -
     target = ROOT / f".github/release-notes/v{version}.md"
     if target.exists():
         text = target.read_text(encoding="utf-8")
-        updated_text = update_release_note_asset_rows(text, version, platforms)
+        updated_text = update_release_note_metadata_rows(text, version, build, platforms)
         if updated_text != text:
             target.write_text(updated_text, encoding="utf-8")
         return

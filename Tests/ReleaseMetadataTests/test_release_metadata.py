@@ -114,6 +114,31 @@ def project_value(path: Path, element: str) -> str:
     return match.group(1).strip()
 
 
+def update_current_release_fallback_body(index_path: Path, tag: str, body: str) -> None:
+    index = index_path.read_text(encoding="utf-8")
+    release_data_match = re.search(
+        r'<script id="voxflow-release-data" type="application/json">\s*(.*?)\s*</script>',
+        index,
+        re.DOTALL,
+    )
+    if release_data_match is None:
+        raise AssertionError("release data fallback is missing")
+    releases = json.loads(release_data_match.group(1))
+    if not isinstance(releases, list):
+        raise AssertionError("release data fallback must be a list")
+    for release in releases:
+        if isinstance(release, dict) and release.get("tag_name") == tag:
+            release["body"] = body
+            break
+    else:
+        raise AssertionError(f"release data fallback is missing {tag}")
+    fallback = json.dumps(releases, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    index_path.write_text(
+        index[: release_data_match.start(1)] + fallback + index[release_data_match.end(1) :],
+        encoding="utf-8",
+    )
+
+
 class ReleaseMetadataTests(unittest.TestCase):
     version = "9.8.7"
     build = "42"
@@ -123,8 +148,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         fixture_root: Path,
         platforms: str | None = None,
         version: str | None = None,
+        build: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        arguments = ("--version", version or self.version, "--build", self.build)
+        arguments = ("--version", version or self.version, "--build", build or self.build)
         if platforms is not None:
             arguments += ("--platforms", platforms)
         return run_script(fixture_root, PREPARE_RELEASE, *arguments)
@@ -290,6 +316,76 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertNotIn(f"Mashangxie-{self.version}-iOS.ipa", release_notes)
             checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
             self.assertEqual(checked.returncode, 0, checked.stderr)
+
+    def test_same_version_preparation_normalizes_release_note_bundle_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            first_preparation = self.prepare(fixture_root, "macos,windows", build="41")
+            self.assertEqual(first_preparation.returncode, 0, first_preparation.stderr)
+
+            release_notes_path = fixture_root / f".github/release-notes/v{self.version}.md"
+            user_detail = "- 用户保留的发布说明：这条说明不应被准备脚本覆盖。"
+            release_notes_path.write_text(
+                release_notes_path.read_text(encoding="utf-8")
+                .replace(
+                    "- 体验：",
+                    f"- 体验：\n{user_detail}",
+                    1,
+                )
+                .replace(
+                    f"- `CFBundleShortVersionString`：{self.version}",
+                    "- `CFBundleShortVersionString`：9.8.6",
+                    1,
+                )
+                .replace(
+                    "- `CFBundleVersion`：41",
+                    "- `CFBundleVersion`：40",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+
+            completed = self.prepare(fixture_root, "macos,windows", build=self.build)
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            release_notes = release_notes_path.read_text(encoding="utf-8")
+            self.assertIn(user_detail, release_notes)
+            self.assertEqual(
+                release_notes.count(f"- `CFBundleShortVersionString`：{self.version}"),
+                1,
+            )
+            self.assertEqual(release_notes.count(f"- `CFBundleVersion`：{self.build}"), 1)
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+
+    def test_release_metadata_check_rejects_stale_release_note_bundle_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            release_notes_path = fixture_root / f".github/release-notes/v{self.version}.md"
+            release_notes_path.write_text(
+                release_notes_path.read_text(encoding="utf-8")
+                .replace(
+                    f"- `CFBundleShortVersionString`：{self.version}",
+                    "- `CFBundleShortVersionString`：9.8.6",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            update_current_release_fallback_body(
+                fixture_root / "docs/index.html",
+                f"v{self.version}",
+                release_notes_path.read_text(encoding="utf-8"),
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("release notes bundle version", checked.stderr)
 
     def test_preparation_rejects_noncanonical_platform_order(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -538,6 +634,160 @@ class ReleaseMetadataTests(unittest.TestCase):
 
             self.assertNotEqual(checked.returncode, 0)
             self.assertIn("unselected iOS", checked.stderr)
+
+    def test_release_metadata_check_rejects_bare_readme_ios_download_url(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            readme = fixture_root / "README.md"
+            readme.write_text(
+                readme.read_text(encoding="utf-8") + f"\n{stale_download_url}\n",
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
+    def test_release_metadata_check_rejects_unquoted_html_readme_ios_download_link(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            readme = fixture_root / "README.md"
+            readme.write_text(
+                readme.read_text(encoding="utf-8")
+                + f"\n<a href={stale_download_url}>Download iOS IPA</a>\n",
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
+    def test_release_metadata_check_allows_non_active_readme_ios_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            readme = fixture_root / "README.md"
+            readme.write_text(
+                readme.read_text(encoding="utf-8")
+                + "\nHistorical release artifact Mashangxie-1.15.0-iOS.ipa is not a current download.\n"
+                + f"\n`<{stale_download_url}>`\n"
+                + "\n```markdown\n"
+                + f"[Historical iOS IPA]({stale_download_url})\n"
+                + f'<a href="{stale_download_url}">Historical iOS IPA</a>\n'
+                + "```\n",
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+
+    def test_release_metadata_check_rejects_runtime_assembled_ios_download_urls(self) -> None:
+        stale_download_url = (
+            "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+            "Mashangxie-1.15.0-iOS.ipa"
+        )
+        assembled_url = (
+            'const staleDownloadBase = "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0";\n'
+            'const staleAssetName = "Mashangxie-" + "1.15.0-iOS.ipa";\n'
+        )
+
+        for location, mutate_script in (
+            (
+                "releaseDownloadURLs.ios",
+                lambda text: text.replace(
+                    "const siteURL = ",
+                    assembled_url
+                    + "releaseDownloadURLs.ios = `${staleDownloadBase}/${staleAssetName}`;\n\n"
+                    + "const siteURL = ",
+                    1,
+                ),
+            ),
+            (
+                "anchor.href",
+                lambda text: text
+                + "\n"
+                + assembled_url
+                + 'const staleDownloadLink = document.createElement("a");\n'
+                + "staleDownloadLink.href = `${staleDownloadBase}/${staleAssetName}`;\n",
+            ),
+            (
+                "queried anchor.href",
+                lambda text: text
+                + "\n"
+                + assembled_url
+                + 'const staleDownloadLink = document.querySelector(".download-button");\n'
+                + "if (staleDownloadLink) staleDownloadLink.href = `${staleDownloadBase}/${staleAssetName}`;\n",
+            ),
+            (
+                "queried anchor list href",
+                lambda text: text
+                + "\n"
+                + assembled_url
+                + 'document.querySelectorAll(".download-button").forEach((link) => {\n'
+                + "  link.href = `${staleDownloadBase}/${staleAssetName}`;\n"
+                + "});\n",
+            ),
+            (
+                "DOMContentLoaded anchor.href",
+                lambda text: text
+                + "\n"
+                + assembled_url
+                + 'document.addEventListener("DOMContentLoaded", () => {\n'
+                + '  document.querySelector(".download-button").href = `${staleDownloadBase}/${staleAssetName}`;\n'
+                + "});\n",
+            ),
+            (
+                "load anchor.href",
+                lambda text: text
+                + "\n"
+                + assembled_url
+                + 'window.addEventListener("load", () => {\n'
+                + '  document.querySelector(".download-button").href = `${staleDownloadBase}/${staleAssetName}`;\n'
+                + "});\n",
+            ),
+        ):
+            with self.subTest(location=location), tempfile.TemporaryDirectory() as temporary_directory:
+                fixture_root = Path(temporary_directory)
+                create_fixture(fixture_root)
+                prepared = self.prepare(fixture_root, "macos,windows")
+                self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+                script = fixture_root / "docs/script.js"
+                script.write_text(mutate_script(script.read_text(encoding="utf-8")), encoding="utf-8")
+                if location == "releaseDownloadURLs.ios":
+                    download_state = javascript_release_download_state(script)
+                    self.assertEqual(download_state["iosURL"], stale_download_url)
+
+                checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+                self.assertNotEqual(checked.returncode, 0)
+                self.assertIn("unselected iOS", checked.stderr)
 
 
 if __name__ == "__main__":

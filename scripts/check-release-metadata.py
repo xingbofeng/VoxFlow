@@ -5,6 +5,7 @@ import json
 import os
 import plistlib
 import re
+import subprocess
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -29,6 +30,14 @@ RELEASE_NOTE_IOS_ASSET_ROW_RE = re.compile(
     r"^- iOS Ad Hoc IPA：`Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa`[ \t]*$",
     re.MULTILINE,
 )
+RELEASE_NOTE_VERSION_ROW_RE = re.compile(
+    r"^- `CFBundleShortVersionString`：[^\n]*$",
+    re.MULTILINE,
+)
+RELEASE_NOTE_BUILD_ROW_RE = re.compile(
+    r"^- `CFBundleVersion`：[^\n]*$",
+    re.MULTILINE,
+)
 README_IOS_DOWNLOAD_ROW_RE = re.compile(
     r"^\| iOS 17\+ \| .*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa.*\|[ \t]*$",
     re.MULTILINE,
@@ -41,8 +50,10 @@ README_IOS_AUTOLINK_RE = re.compile(
     r"<https?://[^>\s]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^>\s]*>",
     re.IGNORECASE,
 )
-README_IOS_HREF_RE = re.compile(
-    r'<a\b[^>]*\bhref\s*=\s*["\'][^"\']*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^"\']*["\']',
+README_IOS_BARE_GITHUB_URL_RE = re.compile(
+    r"https://github\.com/xingbofeng/VoxFlow/releases/download/"
+    r"v[0-9]+\.[0-9]+\.[0-9]+/"
+    r"Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa(?:[?#][^\s<]*)?",
     re.IGNORECASE,
 )
 README_REFERENCE_LINK_RE = re.compile(r"\[([^\]]+)\]\[([^\]]*)\]")
@@ -53,28 +64,132 @@ README_REFERENCE_DEFINITION_RE = re.compile(
     r"^\s*\[([^\]]+)\]:\s*(?:<)?([^>\s]+)",
     re.MULTILINE,
 )
-SCRIPT_LINK_ASSIGNMENT_PREFIX = (
-    r"(?:"
-    r"\.\s*href\s*=\s*|"
-    r"\.setAttribute\(\s*[\"']href[\"']\s*,\s*|"
-    r"\b(?:href|downloadURL)\s*:\s*|"
-    r"\breleaseDownloadURLs\s*(?:\.\s*ios|\[\s*[\"']ios[\"']\s*\])\s*=\s*"
-    r")"
-)
-SCRIPT_ACTIVE_IOS_LINK_RE = re.compile(
-    SCRIPT_LINK_ASSIGNMENT_PREFIX
-    + r"[\"'`][^\"'`]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^\"'`]*[\"'`]",
-    re.IGNORECASE,
-)
-SCRIPT_IOS_URL_VARIABLE_RE = re.compile(
-    r"\b([A-Za-z_$][\w$]*)\s*=\s*"
-    r"[\"'`][^\"'`]*Mashangxie-[0-9]+\.[0-9]+\.[0-9]+-iOS\.ipa[^\"'`]*[\"'`]",
-    re.IGNORECASE,
-)
+README_REFERENCE_DEFINITION_LINE_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(?:<)?[^>\s]+")
 EMBEDDED_RELEASE_DATA_RE = re.compile(
     r'<script\b(?=[^>]*\bid=["\']voxflow-release-data["\'])[^>]*>.*?</script\s*>',
     re.IGNORECASE | re.DOTALL,
 )
+JAVASCRIPT_RUNTIME_PROBE = r"""
+const fs = require("fs");
+const vm = require("vm");
+const source = fs.readFileSync(0, "utf8");
+const sandbox = Object.create(null);
+const runtimePrelude = String.raw`
+globalThis.hrefs = [];
+globalThis.readyHandlers = { DOMContentLoaded: [], load: [] };
+
+function registerReadyHandler(name, callback) {
+  if (Object.prototype.hasOwnProperty.call(globalThis.readyHandlers, name) && typeof callback === "function") {
+    globalThis.readyHandlers[name].push(callback);
+  }
+}
+
+function createElement() {
+  const element = {
+    dataset: {},
+    classList: { add() {}, remove() {} },
+    append() {},
+    appendChild() {},
+    removeAttribute() {},
+    querySelector() { return createElement(); },
+    querySelectorAll() { return []; },
+    getAttribute() { return null; },
+    setAttribute(name, value) {
+      if (String(name).toLowerCase() === "href") globalThis.hrefs.push(String(value));
+    },
+    addEventListener() {},
+    focus() {},
+    contains() { return false; },
+    closest() { return null; }
+  };
+  Object.defineProperty(element, "href", {
+    get() { return ""; },
+    set(value) { globalThis.hrefs.push(String(value)); }
+  });
+  return element;
+}
+
+class RuntimeURL {
+  constructor(value, base = "") {
+    const input = String(value);
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(input)) {
+      this.value = input;
+    } else if (input.startsWith("?")) {
+      this.value = String(base).replace(/[?#].*$/, "") + input;
+    } else {
+      this.value = String(base).replace(/\/?$/, "/") + input.replace(/^\//, "");
+    }
+    this.hash = "";
+  }
+
+  toString() {
+    return this.value;
+  }
+}
+
+class RuntimeURLSearchParams {
+  constructor(value = "") {
+    this.values = new Map();
+    if (typeof value === "string") {
+      value.replace(/^\?/, "").split("&").filter(Boolean).forEach((entry) => {
+        const [key, item = ""] = entry.split("=", 2);
+        this.values.set(decodeURIComponent(key), decodeURIComponent(item));
+      });
+    } else if (value && typeof value === "object") {
+      Object.entries(value).forEach(([key, item]) => this.values.set(key, String(item)));
+    }
+  }
+
+  has(key) { return this.values.has(String(key)); }
+  get(key) { return this.values.get(String(key)) || null; }
+  set(key, value) { this.values.set(String(key), String(value)); }
+  delete(key) { this.values.delete(String(key)); }
+  toString() {
+    return [...this.values.entries()]
+      .map(([key, value]) => encodeURIComponent(key) + "=" + encodeURIComponent(value))
+      .join("&");
+  }
+}
+
+globalThis.document = {
+  documentElement: {},
+  head: createElement(),
+  activeElement: null,
+  title: "",
+  querySelector() { return createElement(); },
+  querySelectorAll() { return [createElement()]; },
+  getElementById() { return createElement(); },
+  createElement() { return createElement(); },
+  addEventListener(name, callback) { registerReadyHandler(name, callback); },
+  dispatchReadyHandlers() {
+    ["DOMContentLoaded", "load"].forEach((name) => {
+      globalThis.readyHandlers[name].forEach((callback) => callback({ type: name }));
+    });
+  }
+};
+globalThis.window = {
+  location: { search: "", pathname: "/", hash: "", href: "https://example.invalid/" },
+  navigator: { userAgent: "" },
+  localStorage: { getItem() { return null; }, setItem() {} },
+  addEventListener(name, callback) { registerReadyHandler(name, callback); }
+};
+globalThis.window.window = globalThis.window;
+globalThis.history = { pushState() {}, replaceState() {} };
+globalThis.IntersectionObserver = class { observe() {} unobserve() {} };
+globalThis.URL = RuntimeURL;
+globalThis.URLSearchParams = RuntimeURLSearchParams;
+globalThis.console = { warn() {} };
+globalThis.fetch = undefined;
+`;
+const options = { timeout: 1000, codeGeneration: { strings: false, wasm: false } };
+vm.runInNewContext(runtimePrelude, sandbox, options);
+const state = vm.runInNewContext(
+  source + "\ndocument.dispatchReadyHandlers();\nJSON.stringify({ release, urls: releaseDownloadURLs, hrefs });",
+  sandbox,
+  options
+);
+process.stdout.write(state);
+"""
 
 
 def read_version() -> tuple[str, str]:
@@ -157,56 +272,104 @@ def active_page_links(index: str) -> list[tuple[str, str | None]]:
     return parser.links
 
 
-def javascript_without_comments(source: str) -> str:
+def markdown_without_code(text: str) -> str:
     result: list[str] = []
+    fence_character: str | None = None
+    fence_length = 0
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        line_ending = line[len(content) :]
+        fence_match = re.match(r" {0,3}(`{3,}|~{3,})", content)
+        if fence_character is not None:
+            if re.fullmatch(
+                rf" {{0,3}}{re.escape(fence_character)}{{{fence_length},}}[ \t]*",
+                content,
+            ):
+                fence_character = None
+                fence_length = 0
+            result.append(line_ending)
+            continue
+        if fence_match is not None:
+            fence_character = fence_match.group(1)[0]
+            fence_length = len(fence_match.group(1))
+            result.append(line_ending)
+            continue
+        result.append(line)
+
+    markdown = "".join(result)
+    without_inline_code = list(markdown)
     index = 0
-    quote: str | None = None
-    while index < len(source):
-        character = source[index]
-        if quote is not None:
-            result.append(character)
-            if character == "\\" and index + 1 < len(source):
-                index += 1
-                result.append(source[index])
-            elif character == quote:
-                quote = None
+    while index < len(markdown):
+        if markdown[index] != "`":
             index += 1
             continue
-        if character in {"'", '"', "`"}:
-            quote = character
-            result.append(character)
-            index += 1
+        delimiter_end = index + 1
+        while delimiter_end < len(markdown) and markdown[delimiter_end] == "`":
+            delimiter_end += 1
+        delimiter = markdown[index:delimiter_end]
+        closing_index = markdown.find(delimiter, delimiter_end)
+        if closing_index == -1:
+            index = delimiter_end
             continue
-        if source.startswith("//", index):
-            newline = source.find("\n", index)
-            if newline == -1:
-                break
-            result.append("\n")
-            index = newline + 1
-            continue
-        if source.startswith("/*", index):
-            comment_end = source.find("*/", index + 2)
-            if comment_end == -1:
-                break
-            result.extend("\n" for character in source[index:comment_end] if character == "\n")
-            index = comment_end + 2
-            continue
-        result.append(character)
-        index += 1
-    return "".join(result)
+        for code_index in range(index, closing_index + len(delimiter)):
+            if without_inline_code[code_index] not in {"\r", "\n"}:
+                without_inline_code[code_index] = " "
+        index = closing_index + len(delimiter)
+    return "".join(without_inline_code)
 
 
-def script_has_active_ios_link(source: str) -> bool:
-    if SCRIPT_ACTIVE_IOS_LINK_RE.search(source) is not None:
-        return True
-    for url_variable in SCRIPT_IOS_URL_VARIABLE_RE.finditer(source):
-        variable_reference = re.compile(
-            SCRIPT_LINK_ASSIGNMENT_PREFIX + rf"{re.escape(url_variable.group(1))}\b",
-            re.IGNORECASE,
+def has_active_readme_bare_ios_download_url(text: str) -> bool:
+    return any(
+        README_REFERENCE_DEFINITION_LINE_RE.match(line) is None
+        and README_IOS_BARE_GITHUB_URL_RE.search(line) is not None
+        for line in text.splitlines()
+    )
+
+
+def javascript_runtime_state(source: str) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        completed = subprocess.run(
+            ["node", "--experimental-permission", "-e", JAVASCRIPT_RUNTIME_PROBE],
+            input=source,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={"PATH": os.environ.get("PATH", "")},
         )
-        if variable_reference.search(source) is not None:
-            return True
-    return False
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return None, str(error)
+    if completed.returncode != 0:
+        return None, completed.stderr.strip() or "Node runtime probe failed"
+    try:
+        state = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        return None, str(error)
+    if not isinstance(state, dict):
+        return None, "Node runtime probe did not return an object"
+    return state, None
+
+
+def runtime_has_unselected_ios_asset(state: dict[str, Any]) -> bool:
+    release = state.get("release")
+    if not isinstance(release, dict):
+        return False
+    assets = release.get("assets")
+    if not isinstance(assets, dict):
+        return False
+    ios_assets = assets.get("ios")
+    return isinstance(ios_assets, dict) and "ipa" in ios_assets
+
+
+def runtime_has_active_ios_download(state: dict[str, Any]) -> bool:
+    urls = state.get("urls")
+    hrefs = state.get("hrefs")
+    candidates = list(urls.values()) if isinstance(urls, dict) else []
+    candidates.extend(hrefs if isinstance(hrefs, list) else [])
+    return any(
+        isinstance(candidate, str) and IOS_IPA_REFERENCE_RE.search(candidate) is not None
+        for candidate in candidates
+    )
 
 
 def markdown_reference_key(label: str) -> str:
@@ -214,24 +377,29 @@ def markdown_reference_key(label: str) -> str:
 
 
 def readme_has_active_ios_download(text: str) -> bool:
+    active_text = markdown_without_code(text)
     if (
-        README_IOS_DOWNLOAD_ROW_RE.search(text) is not None
-        or README_IOS_DOWNLOAD_LINK_RE.search(text) is not None
-        or README_IOS_AUTOLINK_RE.search(text) is not None
-        or README_IOS_HREF_RE.search(text) is not None
+        README_IOS_DOWNLOAD_ROW_RE.search(active_text) is not None
+        or README_IOS_DOWNLOAD_LINK_RE.search(active_text) is not None
+        or README_IOS_AUTOLINK_RE.search(active_text) is not None
+        or has_active_readme_bare_ios_download_url(active_text)
+        or any(
+            IOS_IPA_REFERENCE_RE.search(href) is not None
+            for href, _ in active_page_links(active_text)
+        )
     ):
         return True
     reference_definitions = {
         markdown_reference_key(definition.group(1)): definition.group(2)
-        for definition in README_REFERENCE_DEFINITION_RE.finditer(text)
+        for definition in README_REFERENCE_DEFINITION_RE.finditer(active_text)
     }
     reference_labels = [
         reference_link.group(2) or reference_link.group(1)
-        for reference_link in README_REFERENCE_LINK_RE.finditer(text)
+        for reference_link in README_REFERENCE_LINK_RE.finditer(active_text)
     ]
     reference_labels.extend(
         reference_link.group(1)
-        for reference_link in README_SHORTCUT_REFERENCE_LINK_RE.finditer(text)
+        for reference_link in README_SHORTCUT_REFERENCE_LINK_RE.finditer(active_text)
     )
     for label in reference_labels:
         destination = reference_definitions.get(markdown_reference_key(label))
@@ -259,6 +427,21 @@ def release_note_asset_rows(version: str, platforms: tuple[str, ...]) -> list[st
         "ios": [f"- iOS Ad Hoc IPA：`Mashangxie-{version}-iOS.ipa`"],
     }
     return [row for platform in platforms for row in rows[platform]]
+
+
+def release_note_bundle_rows(version: str, build: str) -> list[tuple[str, str, re.Pattern[str]]]:
+    return [
+        (
+            "version",
+            f"- `CFBundleShortVersionString`：{version}",
+            RELEASE_NOTE_VERSION_ROW_RE,
+        ),
+        (
+            "build",
+            f"- `CFBundleVersion`：{build}",
+            RELEASE_NOTE_BUILD_ROW_RE,
+        ),
+    ]
 
 
 def main() -> int:
@@ -341,6 +524,13 @@ def main() -> int:
 
     if release_notes_path.exists():
         release_note_metadata = release_note_metadata_section(release_notes)
+        for field, expected_row, pattern in release_note_bundle_rows(version, build):
+            actual_rows = [match.group(0) for match in pattern.finditer(release_note_metadata)]
+            require(
+                actual_rows == [expected_row],
+                f"release notes bundle {field} row is stale: {expected_row}",
+                failures,
+            )
         for asset_row in release_note_asset_rows(version, platforms):
             require(
                 release_note_metadata.count(asset_row) == 1,
@@ -375,23 +565,23 @@ def main() -> int:
             failures,
         )
     else:
-        script_without_comments = javascript_without_comments(docs_script)
-        active_script, script_boundary, _ = script_without_comments.partition("const siteURL = ")
+        runtime_state, runtime_error = javascript_runtime_state(docs_script)
         require(
-            bool(script_boundary),
-            "docs/script.js active release configuration boundary is missing",
+            runtime_state is not None,
+            f"docs/script.js active runtime probe failed: {runtime_error}",
             failures,
         )
-        require(
-            IOS_IPA_REFERENCE_RE.search(active_script) is None,
-            "docs/script.js has an unselected iOS IPA download configuration",
-            failures,
-        )
-        require(
-            not script_has_active_ios_link(script_without_comments),
-            "docs/script.js has an unselected iOS IPA href or download URL",
-            failures,
-        )
+        if runtime_state is not None:
+            require(
+                not runtime_has_unselected_ios_asset(runtime_state),
+                "docs/script.js has an unselected iOS IPA download configuration",
+                failures,
+            )
+            require(
+                not runtime_has_active_ios_download(runtime_state),
+                "docs/script.js has an unselected iOS IPA href or download URL",
+                failures,
+            )
 
     docs_index = read_text(ROOT / "docs/index.html")
     for platform, kind, asset_name in expected_assets:
