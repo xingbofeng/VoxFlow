@@ -519,6 +519,12 @@ def javascript_bracket_property_expressions(source: str, object_pattern: str) ->
     return expressions
 
 
+JAVASCRIPT_PROPERTY_ACCESSOR_RE = (
+    r"(?:[A-Za-z_$][A-Za-z0-9_$]*"
+    r"(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*|\s*\([^;{}\[\]]*\))*)"
+)
+
+
 def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
     active_source = javascript_without_comments(source)
     code_without_strings = javascript_without_strings(active_source)
@@ -573,6 +579,16 @@ def javascript_has_unselected_ios_artifact_reference(source: str) -> bool:
             "releaseDownloadURLs",
         ):
             if javascript_static_string(property_expression, values) != "ios":
+                continue
+            value = javascript_static_string(expression, values)
+            if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:
+                return True
+
+        for property_expression, expression in javascript_bracket_property_assignments(
+            statement,
+            JAVASCRIPT_PROPERTY_ACCESSOR_RE,
+        ):
+            if javascript_static_string(property_expression, values) != "href":
                 continue
             value = javascript_static_string(expression, values)
             if value is not None and IOS_IPA_REFERENCE_RE.search(value) is not None:

@@ -561,6 +561,35 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertNotEqual(checked.returncode, 0)
             self.assertIn("unselected iOS", checked.stderr)
 
+    def test_release_metadata_check_rejects_computed_href_download_sink(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_root = Path(temporary_directory)
+            create_fixture(fixture_root)
+            prepared = self.prepare(fixture_root, "macos,windows")
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+
+            stale_download_url = (
+                "https://github.com/xingbofeng/VoxFlow/releases/download/v1.15.0/"
+                "Mashangxie-1.15.0-iOS.ipa"
+            )
+            script = fixture_root / "docs/script.js"
+            script.write_text(
+                script.read_text(encoding="utf-8").replace(
+                    "const siteURL = ",
+                    'const linkField = "href";\n'
+                    f'const staleDownload = "{stale_download_url}";\n'
+                    'document.querySelector(".download-button")[linkField] = staleDownload;\n\n'
+                    "const siteURL = ",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+
+            checked = run_script(fixture_root, CHECK_RELEASE_METADATA)
+
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("unselected iOS", checked.stderr)
+
     def test_release_metadata_check_allows_historical_ios_references_outside_active_downloads(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_root = Path(temporary_directory)
