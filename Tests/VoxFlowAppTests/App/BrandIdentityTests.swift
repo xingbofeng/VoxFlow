@@ -367,7 +367,7 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("make architecture-check"))
         XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
         XCTAssertTrue(ci.contains("cancel-in-progress: true"))
-        XCTAssertTrue(ci.contains("timeout-minutes: 40"))
+        XCTAssertTrue(ci.contains("timeout-minutes: 60"))
         XCTAssertTrue(ci.contains("package-macos:"))
         XCTAssertTrue(ci.contains("package-ios:"))
         XCTAssertTrue(ci.contains("make dmg"))
