@@ -18,7 +18,7 @@ jobs:
   checks:
     name: Test and build macOS app
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     steps:
       - name: Check out repository
