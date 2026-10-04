@@ -131,17 +131,21 @@ final class CloudRealtimeASREngineTests: XCTestCase {
         engine.cancel()
     }
 
-    func testTranscribeFailurePropagatesOnError() {
+    func testTranscribeFailurePropagatesOnError() throws {
         let (engine, _) = makeEngine(
             transcribe: { _, _, _ in
                 throw FailureError()
             }
         )
+        let errorReported = expectation(description: "transcribe failure is reported")
         var captured: String?
-        engine.onError = { captured = String(describing: type(of: $0)) }
+        engine.onError = {
+            captured = String(describing: type(of: $0))
+            errorReported.fulfill()
+        }
 
-        try? engine.start()
-        RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.05))
+        try engine.start()
+        wait(for: [errorReported], timeout: 1)
 
         XCTAssertEqual(captured, "FailureError")
         XCTAssertNotNil(engine.asrRuntimeMetadataSnapshot.errorCode)
