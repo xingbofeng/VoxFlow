@@ -495,6 +495,18 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(domains.contains("- release_ready"))
         XCTAssertTrue(domains.contains("needs.release_ready.outputs.ready == 'true'"))
         XCTAssertTrue(domains.contains("always()"))
+        XCTAssertTrue(domains.contains("verify_domain \"https://mashangxie.app\""))
+        XCTAssertTrue(domains.contains("verify_domain \"https://www.mashangxie.app\""))
+
+        let lighthouse = try Self.workflowJobBody("lighthouse", in: deployLanding)
+        XCTAssertFalse(
+            lighthouse.contains("--resolve \"mashangxie.app:443:127.0.0.1\""),
+            "Lighthouse must rely on the public-domain HTTPS verification rather than a stale local certificate cache."
+        )
+        XCTAssertFalse(
+            lighthouse.contains("--resolve \"www.mashangxie.app:443:127.0.0.1\""),
+            "Lighthouse must rely on the public-domain HTTPS verification rather than a stale local certificate cache."
+        )
 
         let dns = try Self.workflowJobBody("dns", in: deployLanding)
         XCTAssertFalse(dns.contains("needs:"), "DNS maintenance must remain independent of a release.")

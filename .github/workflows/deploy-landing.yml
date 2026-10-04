@@ -194,8 +194,6 @@ jobs:
             fi
             ${compose} -f docker-compose.landing.yml exec -T landing wget -qO- http://127.0.0.1:8080/ready
             ${compose} -f docker-compose.landing.yml exec -T caddy caddy validate --config /etc/caddy/Caddyfile
-            curl -fsS --max-time 15 --resolve "mashangxie.app:443:127.0.0.1" https://mashangxie.app/ready
-            curl -fsS --max-time 15 --resolve "www.mashangxie.app:443:127.0.0.1" https://www.mashangxie.app/ready
 
   pages:
     name: GitHub Pages landing page
