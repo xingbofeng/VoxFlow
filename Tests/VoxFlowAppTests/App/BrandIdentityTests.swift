@@ -403,6 +403,16 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(releaseMetadataJob.contains("ios_enabled"))
         XCTAssertTrue(releaseMacOSJob.contains("needs: release_metadata"))
         XCTAssertTrue(releaseWindowsJob.contains("needs: release_metadata"))
+        XCTAssertTrue(
+            releaseWindowsJob.contains(
+                "Copy-Item -Path \"$releaseRoot/installer/VoxFlow-$version-windows-x64-setup.exe\""
+            )
+        )
+        XCTAssertTrue(
+            releaseWindowsJob.contains(
+                "VoxFlow.Windows/artifacts/release/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe"
+            )
+        )
         XCTAssertTrue(releaseIOSJob.contains("make ios-ipa"))
         XCTAssertTrue(releaseIOSJob.contains("needs: release_metadata"))
         XCTAssertTrue(releaseIOSJob.contains("needs.release_metadata.outputs.ios_enabled == 'true'"))

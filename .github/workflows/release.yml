@@ -329,12 +329,21 @@ jobs:
             -OutputRoot ./VoxFlow.Windows/artifacts/release
           "value=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Stage Windows installer for release upload
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          $releaseRoot = "./VoxFlow.Windows/artifacts/release"
+          Copy-Item -Path "$releaseRoot/installer/VoxFlow-$version-windows-x64-setup.exe" `
+            -Destination "$releaseRoot/VoxFlow-$version-windows-x64-setup.exe" `
+            -Force
+
       - name: Upload Windows release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-windows
           path: |
-            VoxFlow.Windows/artifacts/release/installer/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe
+            VoxFlow.Windows/artifacts/release/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-setup.exe
             VoxFlow.Windows/artifacts/release/VoxFlow-${{ steps.version.outputs.value }}-windows-x64-portable.zip
           if-no-files-found: error
 
