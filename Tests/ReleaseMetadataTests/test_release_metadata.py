@@ -115,6 +115,22 @@ def update_current_release_fallback_body(index_path: Path, tag: str, body: str) 
     )
 
 
+def set_release_data_fallback(index_path: Path, releases: list[dict[str, str]]) -> None:
+    index = index_path.read_text(encoding="utf-8")
+    release_data_match = re.search(
+        r'<script id="voxflow-release-data" type="application/json">\s*(.*?)\s*</script>',
+        index,
+        re.DOTALL,
+    )
+    if release_data_match is None:
+        raise AssertionError("release data fallback is missing")
+    fallback = json.dumps(releases, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    index_path.write_text(
+        index[: release_data_match.start(1)] + fallback + index[release_data_match.end(1) :],
+        encoding="utf-8",
+    )
+
+
 class ReleaseMetadataTests(unittest.TestCase):
     version = "9.8.7"
     build = "42"
@@ -164,6 +180,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             fixture_root = Path(temporary_directory)
             create_fixture(fixture_root)
+            # 历史 release-data 条目里的 iOS 资产必须原样保留。这里用合成条目固定该行为，
+            # 避免断言依赖仓库当前保留的最近三次发布窗口。
+            historical_ipa = "Mashangxie-1.15.0-iOS.ipa"
+            set_release_data_fallback(
+                fixture_root / "docs/index.html",
+                [
+                    {
+                        "tag_name": "v1.15.0",
+                        "name": "VoxFlow 1.15.0",
+                        "body": f"- iOS Ad Hoc IPA：`{historical_ipa}`\n",
+                        "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
+                        "published_at": "",
+                    }
+                ],
+            )
 
             completed = self.prepare(fixture_root, "macos,windows")
 
@@ -192,7 +223,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertNotIn(ios_ipa, script_text)
             self.assertNotIn("release.assets.ios", script_text)
             self.assertNotIn(ios_ipa, index.read_text(encoding="utf-8"))
-            self.assertIn("Mashangxie-1.15.0-iOS.ipa", index.read_text(encoding="utf-8"))
+            self.assertIn(historical_ipa, index.read_text(encoding="utf-8"))
             self.assertNotIn('data-download-platform="ios"', index.read_text(encoding="utf-8"))
             for relative_path in README_PATHS:
                 self.assertNotIn(ios_ipa, (fixture_root / relative_path).read_text(encoding="utf-8"))

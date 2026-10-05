@@ -1,0 +1,19 @@
+qwen3-asr-mlx-swift — Swift-MLX port of the Qwen3-ASR architecture.
+
+Port code: MIT (xocialize). The module layout of the audio encoder and text decoder follows
+Blaizzy/mlx-audio-swift, Sources/MLXAudioSTT/Models/Qwen3ASR (MIT License, Copyright (c) 2025
+Prince Canuma), itself a port of Blaizzy/mlx-audio (MIT). The stable-prefix streaming loop is a
+port of netease-youdao/Confucius4-R2T2 r2t2/r2t2_asr.py, example.py and ws_server.py
+(Apache License 2.0, Copyright 2026 The NetEase Youdao team).
+
+Model weights are licensed by their publishers and are NOT part of this package:
+  - Qwen/Qwen3-ASR-0.6B, Qwen/Qwen3-ASR-1.7B: Apache License 2.0 (Alibaba Cloud)
+  - netease-youdao/Confucius4-R2T2: NetEase Youdao Model Use License Agreement
+
+Gate fixtures (Tools/goldens/*/audio.*) are third-party recordings redistributed under their own
+licences — see Tools/goldens/FIXTURES.md:
+  - LibriSpeech ASR corpus (Panayotov et al., 2015): CC BY 4.0
+  - FLEURS (Conneau et al., 2022): CC BY 4.0
+  - netease-youdao/Confucius4-R2T2 resources/test.wav: Apache License 2.0
+
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0

@@ -4,6 +4,7 @@ import VoxFlowASRCore
 import VoxFlowModelStore
 import VoxFlowProviderAliyunDashScope
 import VoxFlowProviderCloudCore
+import VoxFlowProviderFireRedASR
 import VoxFlowProviderFunASR
 import VoxFlowProviderGroq
 import VoxFlowProviderNVIDIA
@@ -11,6 +12,7 @@ import VoxFlowProviderOmnilingual
 import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
+import VoxFlowProviderR2T2
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
 import VoxFlowProviderVolcengine
@@ -57,6 +59,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private let modelInstallationRepository: (any ModelInstallationStateStoring)?
     private let modelInstallationStateService: ASRModelInstallationStateService
     private let qwen3RuntimePreflight: (ModelSize) -> Qwen3RuntimePreflightResult
+    private let r2t2RuntimePreflight: () -> R2T2RuntimePreflightOutcome
+    private let fireRedASRRuntimePreflight: () -> FireRedASRRuntimePreflightOutcome
     private let cloudCredentialService: ASRCloudCredentialService
     private let modelStoreRoot: URL?
 
@@ -111,12 +115,20 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     var isFunASRModelAvailable: Bool {
         isFunASRModelAvailable(for: funASRPrecision)
     }
+
+    var isFireRedASRModelAvailable: Bool {
+        fireRedASRReadyInstallation() != nil
+    }
     var isWhisperModelAvailable: Bool {
         isWhisperModelAvailable(for: whisperVariant)
     }
 
     var isSenseVoiceModelAvailable: Bool {
         senseVoiceReadyInstallation() != nil
+    }
+
+    var isR2T2ModelAvailable: Bool {
+        r2t2ReadyInstallation() != nil
     }
 
     var isParaformerModelAvailable: Bool {
@@ -175,12 +187,50 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         NVIDIANemotronProviderDescriptor.runtimeUnsupportedReason
     }
 
+    var isR2T2RuntimeSupported: Bool {
+        r2t2PreflightBlocker == nil
+    }
+
+    var r2t2PreflightBlocker: R2T2PreflightBlocker? {
+        guard case .blocked(let blocker) = r2t2RuntimePreflight() else {
+            return nil
+        }
+        return blocker
+    }
+
+    func r2t2RuntimeUnsupportedMessage() -> String {
+        r2t2PreflightBlocker.map(R2T2RuntimePresentation.reason(for:)) ?? ""
+    }
+
+    var fireRedASRPreflightBlocker: FireRedASRPreflightBlocker? {
+        guard case .blocked(let blocker) = fireRedASRRuntimePreflight() else {
+            return nil
+        }
+        return blocker
+    }
+
+    func fireRedASRRuntimeUnsupportedMessage() -> String {
+        fireRedASRPreflightBlocker.map(FireRedASRRuntimePresentation.reason(for:)) ?? ""
+    }
+
+    /// 可用但低于推荐内存时的提示；不符合条件时为 nil。
+    var r2t2PreflightCautionNote: String? {
+        guard case .usableWithCaution(let caution) = r2t2RuntimePreflight() else {
+            return nil
+        }
+        return R2T2RuntimePresentation.caution(for: caution)
+    }
+
     init(
         defaults: UserDefaults = .standard,
         modelInstallationRepository: (any ModelInstallationStateStoring)? = nil,
         credentialStore: any CredentialStore = AppLocalCredentialStore.liveDefault(),
         settingsRepository: (any SettingsRepository)? = nil,
         qwen3RuntimePreflight: @escaping (ModelSize) -> Qwen3RuntimePreflightResult = ASRManager.qwen3RuntimePreflightResult(for:),
+        r2t2RuntimePreflight: @escaping () -> R2T2RuntimePreflightOutcome = { R2T2RuntimePreflight.evaluate() },
+        fireRedASRRuntimePreflight: @escaping () -> FireRedASRRuntimePreflightOutcome = {
+            FireRedASRRuntimePreflight.evaluate()
+        },
         modelStoreRoot: URL? = nil
     ) {
         self.defaults = defaults
@@ -192,6 +242,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             settingsRepository: settingsRepository
         )
         self.qwen3RuntimePreflight = qwen3RuntimePreflight
+        self.r2t2RuntimePreflight = r2t2RuntimePreflight
+        self.fireRedASRRuntimePreflight = fireRedASRRuntimePreflight
         self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
     }
 
@@ -450,8 +502,32 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         modelInstallationStateService.markReady(at: path, for: Self.funASRModelInstallKey(for: precision))
     }
 
+    func markFireRedASRModelReady(at path: String) {
+        modelInstallationStateService.markReady(at: path, for: Self.fireRedASRModelInstallKey())
+    }
+
+    func markFireRedASRModelPreparationFailed(message: String) {
+        modelInstallationStateService.markPreparationFailed(
+            for: Self.fireRedASRModelInstallKey(),
+            engineType: .fireRedASR,
+            message: message
+        )
+    }
+
+    func markFireRedASRModelCorrupt(reason: String) {
+        modelInstallationStateService.markCorrupt(
+            for: Self.fireRedASRModelInstallKey(),
+            engineType: .fireRedASR,
+            reason: reason
+        )
+    }
+
     func markSenseVoiceModelReady(at path: String) {
         modelInstallationStateService.markReady(at: path, for: Self.senseVoiceModelInstallKey())
+    }
+
+    func markR2T2ModelReady(at path: String) {
+        modelInstallationStateService.markReady(at: path, for: Self.r2t2ModelInstallKey())
     }
 
     func markParaformerModelReady(at path: String) {
@@ -482,10 +558,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             clearAllQwen3ModelInstallationStates()
         case .funASR:
             modelInstallationStateService.removeState(for: Self.funASRModelInstallKey(for: funASRPrecision))
+        case .fireRedASR:
+            modelInstallationStateService.removeState(for: Self.fireRedASRModelInstallKey())
         case .whisper:
             modelInstallationStateService.removeState(for: Self.whisperModelInstallKey(for: whisperVariant))
         case .senseVoice:
             modelInstallationStateService.removeState(for: Self.senseVoiceModelInstallKey())
+        case .confucius4R2T2:
+            modelInstallationStateService.removeState(for: Self.r2t2ModelInstallKey())
         case .paraformer:
             modelInstallationStateService.removeState(for: Self.paraformerModelInstallKey())
         case .nvidiaNemotron:
@@ -521,10 +601,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return qwen3ModelInstallationState(for: qwen3ModelSize)
         case .funASR:
             return funASRModelInstallationState(for: funASRPrecision)
+        case .fireRedASR:
+            return fireRedASRModelInstallationState()
         case .whisper:
             return whisperModelInstallationState(for: whisperVariant)
         case .senseVoice:
             return senseVoiceModelInstallationState()
+        case .confucius4R2T2:
+            return r2t2ModelInstallationState()
         case .paraformer:
             return paraformerModelInstallationState()
         case .nvidiaNemotron:
@@ -655,6 +739,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
                 return ("funasr-\(funASRPrecision.rawValue.lowercased())", nil)
             }
             return (key.modelID.rawValue, key.version)
+        case .fireRedASR:
+            let key = Self.fireRedASRModelInstallKey()
+            return (key.modelID.rawValue, key.version)
         case .whisper:
             guard let key = Self.whisperModelInstallKey(for: whisperVariant) else {
                 return ("whisper-\(whisperVariant.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))", nil)
@@ -669,6 +756,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return (metadata.modelID.rawValue, metadata.version)
         case .senseVoice:
             let key = Self.senseVoiceModelInstallKey()
+            return (key.modelID.rawValue, key.version)
+        case .confucius4R2T2:
+            let key = Self.r2t2ModelInstallKey()
             return (key.modelID.rawValue, key.version)
         case .paraformer:
             let key = Self.paraformerModelInstallKey()
@@ -703,6 +793,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .funASR:
             available = isFunASRModelAvailable
             reason = available ? nil : "FunASR model unavailable"
+        case .fireRedASR:
+            available = isFireRedASRModelAvailable
+            reason = available ? nil : "FireRedASR2-AED model unavailable"
         case .whisper:
             if !Self.isWhisperRuntimeSupported(variant: whisperVariant) {
                 reason = Self.whisperRuntimeUnsupportedMessage(for: whisperVariant)
@@ -722,6 +815,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .senseVoice:
             available = isSenseVoiceModelAvailable
             reason = available ? nil : "SenseVoice model unavailable"
+        case .confucius4R2T2:
+            if let blocker = r2t2PreflightBlocker {
+                reason = R2T2RuntimePresentation.reason(for: blocker)
+                available = false
+            } else {
+                available = isR2T2ModelAvailable
+                reason = available ? nil : "Confucius4-R2T2 model unavailable"
+            }
         case .paraformer:
             available = isParaformerModelAvailable
             reason = available ? nil : "Paraformer model unavailable"
@@ -880,6 +981,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .funASR:
             AppLogger.general.debug("ASR engine branch: funASR")
             return makeFunASRProviderBackedEngine()
+        case .fireRedASR:
+            AppLogger.general.debug("ASR engine branch: fireRedASR")
+            return makeFireRedASRProviderBackedEngine()
         case .whisper:
             AppLogger.general.debug("ASR engine branch: whisper")
             return makeWhisperProviderBackedEngine()
@@ -889,6 +993,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .senseVoice:
             AppLogger.general.debug("ASR engine branch: senseVoice")
             return makeSenseVoiceProviderBackedEngine()
+        case .confucius4R2T2:
+            AppLogger.general.debug("ASR engine branch: confucius4R2T2")
+            return makeR2T2ProviderBackedEngine()
         case .paraformer:
             AppLogger.general.debug("ASR engine branch: paraformer")
             return makeParaformerProviderBackedEngine()
@@ -1024,6 +1131,38 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    private func makeFireRedASRProviderBackedEngine() -> ASREngine {
+        let installation = fireRedASRReadyInstallation()
+        AppLogger.general.debug(
+            "FireRedASR2-AED provider modelPath=\(installation?.installedRoot.path ?? "<nil>")"
+        )
+        let providerState = Self.asrModelInstallationState(from: fireRedASRModelInstallationState())
+        let provider = FireRedASRASRProvider(
+            descriptor: FireRedASRProviderDescriptor.descriptor(
+                modelInstallationState: providerState
+            ),
+            modelURL: installation?.installedRoot,
+            // 上游在 ~60 s 以上有幻觉风险，所以 provider 会在 50 s 处切段。切点找不到静音时是硬切，
+            // 这会损失一点上下文；spec 要求这种降级必须在处理链路 trace 里留痕，否则线上无从发现。
+            segmentationObserver: { report in
+                guard report.hardCutSegmentCount > 0 else { return }
+                AppLogger.general.warning(
+                    "FireRedASR2-AED segmented audio with hard cut: hardCuts=\(report.hardCutSegmentCount), "
+                        + "segments=\(report.segmentCount), samples=\(report.sampleCount)"
+                )
+            }
+        )
+        let descriptor = provider.descriptor
+        return ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: descriptor.supportedLanguages[0],
+            // 会话语义是 rollingWindowConfirmedSegments：session 会按「≥1 秒新音频」节流地
+            // 重解出预览，所以这里跟随「本地模型实时预览」开关（默认开）。
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .fireRedASR)
+        )
+    }
+
     private func makeSenseVoiceProviderBackedEngine() -> ASREngine {
         let providerState = Self.asrModelInstallationState(
             from: senseVoiceModelInstallationState()
@@ -1043,6 +1182,28 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             defaultLanguage: descriptor.supportedLanguages[0],
             deliversPartialTranscripts: localModelLivePreviewEnabled,
             releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .senseVoice)
+        )
+    }
+
+    private func makeR2T2ProviderBackedEngine() -> ASREngine {
+        let providerState = Self.asrModelInstallationState(
+            from: r2t2ModelInstallationState()
+        )
+        AppLogger.general.debug(
+            "Confucius4-R2T2 provider state=\(providerState), modelPath=\(r2t2ReadyInstallation()?.installedRoot.path ?? "<nil>")"
+        )
+        let provider = R2T2ASRProvider(
+            descriptor: R2T2ProviderDescriptor.descriptor(
+                modelInstallationState: providerState
+            ),
+            modelURL: r2t2ReadyInstallation()?.installedRoot
+        )
+        let descriptor = provider.descriptor
+        return ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: descriptor.supportedLanguages[0],
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: releaseLocalModelResourcesIfNeeded(for: .confucius4R2T2)
         )
     }
 
@@ -1150,8 +1311,11 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             case .qwen3:
                 await SpeechSwiftQwen3StreamingSessionFactory.releaseSharedModels()
                 AppLogger.general.info("Released idle Qwen3 local model cache")
+            case .confucius4R2T2:
+                await VendoredR2T2StreamFactory.releaseSharedModels()
+                AppLogger.general.info("Released idle Confucius4-R2T2 local model cache")
             case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao,
-                 .funASR, .whisper, .senseVoice, .paraformer, .nvidiaNemotron,
+                 .funASR, .fireRedASR, .whisper, .senseVoice, .paraformer, .nvidiaNemotron,
                  .parakeetStreaming, .omnilingualASR:
                 AppLogger.general.debug("No shared local model cache to release for \(engineType.rawValue)")
             }
@@ -1259,8 +1423,70 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         return FunASRModelVariant(precision: precision).defaultDirectoryURL(modelsDirectory: base)
     }
 
+    /// ModelStore 的安装位置：`modelsDirectory/<modelID>/<version>`。
+    ///
+    /// 注意这**不是**既有 sherpa 变体的扁平布局（`modelsDirectory/<directoryName>`）：
+    /// FireRedASR2-AED 走 ModelStore 安装，两者不能混用。
+    func fireRedASRModelDirectoryURL() -> URL {
+        let base = (try? ApplicationSupportPaths.live().modelsDirectory)
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("VoxFlowModels")
+        return FireRedASRModel.installedDirectoryURL(modelsDirectory: base)
+    }
+
+    /// 删除 FireRedASR2-AED 模型时需要清理的目录：安装目录与未完成的暂存目录。
+    func fireRedASRModelDeletionURLs() -> [URL] {
+        var urls: [URL] = []
+        if case let .ready(installation) = fireRedASRModelInstallationState() {
+            urls.append(installation.installedRoot)
+        }
+        let directoryURL = fireRedASRModelDirectoryURL()
+        if !urls.contains(directoryURL) {
+            urls.append(directoryURL)
+        }
+        if let paths = try? ApplicationSupportPaths.live() {
+            urls.append(
+                ResumableModelDownloader.stagingRoot(
+                    for: Self.fireRedASRModelInstallKey(),
+                    storeRoot: paths.modelsDirectory
+                )
+            )
+        }
+        return urls
+    }
+
     func senseVoiceModelDirectoryURL() -> URL {
         SenseVoiceModel.defaultDirectoryURL()
+    }
+
+    /// R2T2 模型的安装目录（尚未安装时也返回将写入的位置）。
+    func r2t2ModelDirectoryURL() -> URL? {
+        guard let paths = try? ApplicationSupportPaths.live() else {
+            return nil
+        }
+        let key = Self.r2t2ModelInstallKey()
+        return paths.modelsDirectory
+            .appendingPathComponent(key.modelID.rawValue, isDirectory: true)
+            .appendingPathComponent(key.version, isDirectory: true)
+    }
+
+    /// 删除 R2T2 模型时需要清理的目录：安装目录与未完成的暂存目录。
+    func r2t2ModelDeletionURLs() -> [URL] {
+        var urls: [URL] = []
+        if case let .ready(installation) = r2t2ModelInstallationState() {
+            urls.append(installation.installedRoot)
+        }
+        if let directoryURL = r2t2ModelDirectoryURL(), !urls.contains(directoryURL) {
+            urls.append(directoryURL)
+        }
+        if let paths = try? ApplicationSupportPaths.live() {
+            urls.append(
+                ResumableModelDownloader.stagingRoot(
+                    for: Self.r2t2ModelInstallKey(),
+                    storeRoot: paths.modelsDirectory
+                )
+            )
+        }
+        return urls
     }
 
     func paraformerModelDirectoryURL() -> URL {
@@ -1308,6 +1534,23 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         }
     }
 
+    func fireRedASRModelInstallationState() -> ModelInstallationState {
+        if let blocker = fireRedASRPreflightBlocker {
+            let reason = FireRedASRRuntimePresentation.reason(for: blocker)
+            return blocker.asrErrorCategory == .hardwareUnsupported
+                ? .hardwareUnsupported(reason: reason)
+                : .runtimeUnsupported(reason: reason)
+        }
+        guard let modelInstallationRepository else {
+            return .notInstalled
+        }
+        let state = (try? modelInstallationRepository.state(for: Self.fireRedASRModelInstallKey()))
+            ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            FireRedASRModel.modelsExist(at: installation.installedRoot)
+        }
+    }
+
     func senseVoiceModelInstallationState() -> ModelInstallationState {
         guard let modelInstallationRepository else {
             return .notInstalled
@@ -1315,6 +1558,22 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         let state = (try? modelInstallationRepository.state(for: Self.senseVoiceModelInstallKey())) ?? .notInstalled
         return Self.validatedReadyState(state) { installation in
             SenseVoiceModel.modelsExist(at: installation.installedRoot)
+        }
+    }
+
+    func r2t2ModelInstallationState() -> ModelInstallationState {
+        if let blocker = r2t2PreflightBlocker {
+            let reason = R2T2RuntimePresentation.reason(for: blocker)
+            return blocker.asrErrorCategory == .hardwareUnsupported
+                ? .hardwareUnsupported(reason: reason)
+                : .runtimeUnsupported(reason: reason)
+        }
+        guard let modelInstallationRepository else {
+            return .notInstalled
+        }
+        let state = (try? modelInstallationRepository.state(for: Self.r2t2ModelInstallKey())) ?? .notInstalled
+        return Self.validatedReadyState(state) { installation in
+            R2T2ManifestCatalog.manifest.modelsExist(at: installation.installedRoot)
         }
     }
 
@@ -1379,10 +1638,28 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         return installation
     }
 
+    private func fireRedASRReadyInstallation() -> ModelInstallation? {
+        guard case let .ready(installation) = fireRedASRModelInstallationState(),
+              FileManager.default.fileExists(atPath: installation.installedRoot.path),
+              FireRedASRModel.modelsExist(at: installation.installedRoot) else {
+            return nil
+        }
+        return installation
+    }
+
     private func senseVoiceReadyInstallation() -> ModelInstallation? {
         guard case let .ready(installation) = senseVoiceModelInstallationState(),
               FileManager.default.fileExists(atPath: installation.installedRoot.path),
               SenseVoiceModel.modelsExist(at: installation.installedRoot) else {
+            return nil
+        }
+        return installation
+    }
+
+    private func r2t2ReadyInstallation() -> ModelInstallation? {
+        guard case let .ready(installation) = r2t2ModelInstallationState(),
+              FileManager.default.fileExists(atPath: installation.installedRoot.path),
+              R2T2ManifestCatalog.manifest.modelsExist(at: installation.installedRoot) else {
             return nil
         }
         return installation
@@ -1490,11 +1767,19 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         )
     }
 
+    private static func fireRedASRModelInstallKey() -> ModelInstallKey {
+        FireRedASRManifestCatalog.modelInstallKey
+    }
+
     private static func senseVoiceModelInstallKey() -> ModelInstallKey {
         ModelInstallKey(
             modelID: ModelID(rawValue: SenseVoiceModel.modelID),
             version: SenseVoiceModel.version
         )
+    }
+
+    private static func r2t2ModelInstallKey() -> ModelInstallKey {
+        R2T2ManifestCatalog.modelInstallKey
     }
 
     private static func paraformerModelInstallKey() -> ModelInstallKey {
@@ -1530,7 +1815,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             + WhisperVariant.allCases.compactMap(whisperModelInstallKey)
             + FunASRPrecision.allCases.compactMap(funASRModelInstallKey)
         return variableKeys + [
+            fireRedASRModelInstallKey(),
             senseVoiceModelInstallKey(),
+            r2t2ModelInstallKey(),
             paraformerModelInstallKey(),
             nvidiaNemotronModelInstallKey(),
             parakeetModelInstallKey(),
@@ -1556,10 +1843,14 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return Self.qwen3ModelInstallKey(for: qwen3ModelSize)
         case .funASR:
             return Self.funASRModelInstallKey(for: funASRPrecision)
+        case .fireRedASR:
+            return Self.fireRedASRModelInstallKey()
         case .whisper:
             return Self.whisperModelInstallKey(for: whisperVariant)
         case .senseVoice:
             return Self.senseVoiceModelInstallKey()
+        case .confucius4R2T2:
+            return Self.r2t2ModelInstallKey()
         case .paraformer:
             return Self.paraformerModelInstallKey()
         case .nvidiaNemotron:
@@ -1630,7 +1921,7 @@ private extension ASREngineType {
         switch self {
         case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return false
-        case .funASR, .whisper, .qwen3, .senseVoice, .paraformer,
+        case .funASR, .fireRedASR, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
              .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:
             return true
         }

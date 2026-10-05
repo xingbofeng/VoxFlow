@@ -133,7 +133,7 @@ internal enum L10n {
           /// Continue Temporarily
           internal static let continueTemporary = L10n.tr("Localizable", "app.startup.storage_failure.continue_temporary", fallback: "Continue Temporarily")
           /// VoxFlow could not open its persistent storage: %@
-          ///
+          /// 
           /// You can continue with temporary storage for this session, but new history, assets, and settings may be lost after restart.
           internal static func message(_ p1: Any) -> String {
             return L10n.tr("Localizable", "app.startup.storage_failure.message", String(describing: p1), fallback: "VoxFlow could not open its persistent storage: %@\n\nYou can continue with temporary storage for this session, but new history, assets, and settings may be lost after restart.")
@@ -202,6 +202,20 @@ internal enum L10n {
         /// The selected recognition language is not supported.
         internal static let unsupportedLanguage = L10n.tr("Localizable", "asr.error.unsupported_language", fallback: "The selected recognition language is not supported.")
       }
+      internal enum Fireredasr {
+        internal enum Unsupported {
+          /// FireRedASR2-AED does not support this Mac's processor architecture.
+          internal static let architecture = L10n.tr("Localizable", "asr.fireredasr.unsupported.architecture", fallback: "FireRedASR2-AED does not support this Mac's processor architecture.")
+          /// FireRedASR2-AED needs at least %d GB of unified memory.
+          internal static func memory(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "asr.fireredasr.unsupported.memory", p1, fallback: "FireRedASR2-AED needs at least %d GB of unified memory.")
+          }
+          /// FireRedASR2-AED requires macOS %d or later.
+          internal static func os(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "asr.fireredasr.unsupported.os", p1, fallback: "FireRedASR2-AED requires macOS %d or later.")
+          }
+        }
+      }
       internal enum Provider {
         /// API key saved
         internal static let apiKeySaved = L10n.tr("Localizable", "asr.provider.api_key_saved", fallback: "API key saved")
@@ -247,6 +261,12 @@ internal enum L10n {
           /// Audio is sent to Alibaba Cloud Bailian. The API key is stored in local credentials and can be shown or hidden with the eye button. The recommended ASR model is used by default.
           internal static let privacyNote = L10n.tr("Localizable", "asr.provider.aliyun.privacy_note", fallback: "Audio is sent to Alibaba Cloud Bailian. The API key is stored in local credentials and can be shown or hidden with the eye button. The recommended ASR model is used by default.")
         }
+        internal enum Fireredasr {
+          /// FireRedASR2-AED Chinese/English offline recognition. Install the local model to use it. Audio stays on this Mac.
+          internal static let missingSummary = L10n.tr("Localizable", "asr.provider.fireredasr.missing_summary", fallback: "FireRedASR2-AED Chinese/English offline recognition. Install the local model to use it. Audio stays on this Mac.")
+          /// FireRedASR2-AED Chinese/English offline recognition. Audio stays on this Mac.
+          internal static let readySummary = L10n.tr("Localizable", "asr.provider.fireredasr.ready_summary", fallback: "FireRedASR2-AED Chinese/English offline recognition. Audio stays on this Mac.")
+        }
         internal enum Groq {
           /// Groq API key
           internal static let apiKeyPlaceholder = L10n.tr("Localizable", "asr.provider.groq.api_key_placeholder", fallback: "Groq API key")
@@ -286,6 +306,12 @@ internal enum L10n {
           internal static let statusResume = L10n.tr("Localizable", "asr.provider.local_model.status_resume", fallback: "Download can resume")
           /// Unavailable
           internal static let statusUnavailable = L10n.tr("Localizable", "asr.provider.local_model.status_unavailable", fallback: "Unavailable")
+        }
+        internal enum R2t2 {
+          /// Confucius4-R2T2 Chinese/English streaming recognition. Install the local model to use it. Audio stays on this Mac.
+          internal static let missingSummary = L10n.tr("Localizable", "asr.provider.r2t2.missing_summary", fallback: "Confucius4-R2T2 Chinese/English streaming recognition. Install the local model to use it. Audio stays on this Mac.")
+          /// Confucius4-R2T2 Chinese/English streaming recognition, fully offline. Audio stays on this Mac.
+          internal static let readySummary = L10n.tr("Localizable", "asr.provider.r2t2.ready_summary", fallback: "Confucius4-R2T2 Chinese/English streaming recognition, fully offline. Audio stays on this Mac.")
         }
         internal enum Scope {
           /// All
@@ -330,6 +356,26 @@ internal enum L10n {
           internal static let secretKey = L10n.tr("Localizable", "asr.provider.volcengine.secret_key", fallback: "Secret Key")
           /// Show Volcengine credentials
           internal static let showCredentials = L10n.tr("Localizable", "asr.provider.volcengine.show_credentials", fallback: "Show Volcengine credentials")
+        }
+      }
+      internal enum R2t2 {
+        internal enum Caution {
+          /// Unified memory is below the recommended %d GB; recognition may be slower.
+          internal static func memory(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "asr.r2t2.caution.memory", p1, fallback: "Unified memory is below the recommended %d GB; recognition may be slower.")
+          }
+        }
+        internal enum Unsupported {
+          /// Confucius4-R2T2 requires an Apple Silicon (arm64) Mac.
+          internal static let architecture = L10n.tr("Localizable", "asr.r2t2.unsupported.architecture", fallback: "Confucius4-R2T2 requires an Apple Silicon (arm64) Mac.")
+          /// Confucius4-R2T2 needs at least %d GB of unified memory.
+          internal static func memory(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "asr.r2t2.unsupported.memory", p1, fallback: "Confucius4-R2T2 needs at least %d GB of unified memory.")
+          }
+          /// Confucius4-R2T2 requires macOS %d or later.
+          internal static func os(_ p1: Int) -> String {
+            return L10n.tr("Localizable", "asr.r2t2.unsupported.os", p1, fallback: "Confucius4-R2T2 requires macOS %d or later.")
+          }
         }
       }
     }
@@ -1080,8 +1126,12 @@ internal enum L10n {
           internal static let appleSpeech = L10n.tr("Localizable", "home.detail.asr.apple_speech", fallback: "Apple Speech")
           /// AssemblyAI ASR
           internal static let assemblyai = L10n.tr("Localizable", "home.detail.asr.assemblyai", fallback: "AssemblyAI ASR")
+          /// Confucius4-R2T2 Local
+          internal static let confucius4R2t2 = L10n.tr("Localizable", "home.detail.asr.confucius4_r2t2", fallback: "Confucius4-R2T2 Local")
           /// ElevenLabs Scribe ASR
           internal static let elevenlabs = L10n.tr("Localizable", "home.detail.asr.elevenlabs", fallback: "ElevenLabs Scribe ASR")
+          /// FireRedASR2-AED Local
+          internal static let fireredasr = L10n.tr("Localizable", "home.detail.asr.fireredasr", fallback: "FireRedASR2-AED Local")
           /// FunASR Local
           internal static let funasr = L10n.tr("Localizable", "home.detail.asr.funasr", fallback: "FunASR Local")
           /// Groq Cloud
@@ -2503,7 +2553,7 @@ internal enum L10n {
         internal static func refreshModelsCountFormat(_ p1: Any, _ p2: Int) -> String {
           return L10n.tr("Localizable", "model.llm_provider.refresh_models_count_format", String(describing: p1), p2, fallback: "%@ (%d models)")
         }
-        /// ,
+        /// , 
         internal static let requiredFieldsSeparator = L10n.tr("Localizable", "model.llm_provider.required_fields_separator", fallback: ", ")
         /// Save
         internal static let save = L10n.tr("Localizable", "model.llm_provider.save", fallback: "Save")
@@ -3654,7 +3704,7 @@ internal enum L10n {
           /// Last report: %@
           /// Last request: %@
           /// Last error: %@
-          ///
+          /// 
           /// %@
           internal static func diagnosticsFormat(_ p1: Any, _ p2: Any, _ p3: Any, _ p4: Any, _ p5: Any, _ p6: Any, _ p7: Any, _ p8: Any, _ p9: Any) -> String {
             return L10n.tr("Localizable", "settings.agent.mcp.diagnostics_format", String(describing: p1), String(describing: p2), String(describing: p3), String(describing: p4), String(describing: p5), String(describing: p6), String(describing: p7), String(describing: p8), String(describing: p9), fallback: "Command: %@\nArgs: %@\nConfig: %@\nLog: %@\nLast seen: %@\nLast report: %@\nLast request: %@\nLast error: %@\n\n%@")

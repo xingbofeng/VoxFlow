@@ -125,6 +125,20 @@ enum ASRProviderExpansionMatrix {
                 requiresAppForegroundInputSmoke: true
             ),
             ASRProviderExpansionEntry(
+                providerID: ASRProviderID.fireRedASR,
+                variantID: "fireredasr2-aed-int8",
+                displayName: "FireRedASR2-AED AED INT8",
+                providerTargetName: "VoxFlowProviderFireRedASR",
+                modelStoreID: "fireredasr-aed-int8",
+                runtimeRoute: "Vendored sherpa-onnx FireRedASR2-AED AED int8 (encoder+decoder) behind the Provider target; rolling re-decode previews throttled to >=1 s of new audio while the authoritative text comes from a full-utterance re-decode, with 50 s silence-aware segmenting.",
+                streamingSemantics: .rollingWindowConfirmedSegments,
+                status: .implemented,
+                requiresModelStoreLifecycle: true,
+                requiresRuntimePrewarmCanary: true,
+                requiresProviderLiveSmoke: true,
+                requiresAppForegroundInputSmoke: true
+            ),
+            ASRProviderExpansionEntry(
                 providerID: ASRProviderID.paraformer,
                 variantID: "paraformer",
                 displayName: "Paraformer",

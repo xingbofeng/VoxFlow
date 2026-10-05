@@ -47,6 +47,8 @@ final class SherpaOnnxRecognizer: @unchecked Sendable {
         let pointers = strings.map { strdup($0) }
         defer { pointers.forEach { free($0) } }
 
+        // 这里只保留 FunASR：FireRedASR2-AED 走 Provider target 的 ModelStore 路径，
+        // 直接构造 VOX_SHERPA_FIRE_RED_ASR，不再经过 App 侧这条历史链路。
         let type: VoxSherpaModelType = switch variant.family {
         case .funASR:
             VOX_SHERPA_FUNASR_NANO

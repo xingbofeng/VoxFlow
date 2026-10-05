@@ -16,6 +16,7 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
                 "parakeet-eou-120m",
                 "omnilingual-asr-300m",
                 "funasr-fp32",
+                "fireredasr2-aed-int8",
                 "paraformer",
             ]
         )

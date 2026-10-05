@@ -15,6 +15,10 @@
 - **ASR Provider**: A descriptor and runtime entry for a speech recognition backend, including capabilities, privacy summary, availability, and fallback behavior.
 - **Provider target**: A SwiftPM target that owns one ASR backend implementation. Provider targets live under the `Sources/VoxFlowProviders/` directory, but they remain separate targets rather than one large provider module.
 - **Capability tag**: A user-facing and filterable ASR Provider label such as local, streaming, cloud, multilingual, or punctuation.
+- **Confucius4-R2T2**: A NetEase Youdao Qwen3-ASR-1.7B fine-tune with a ~160 ms stable-prefix streaming loop, shipped as an optional local Provider. Its runtime comes from a vendored fork of `xocialize/qwen3-asr-mlx-swift` under `Packages/VoxFlowR2T2Core`; the pinned 8-bit MLX weights (`mlx-community/Confucius4-R2T2-8bit`, ~2.31 GiB) are downloaded through ModelStore and are covered by the NetEase Youdao Model Use License, not MIT.
+- **FireRedASR2-AED**: A Xiaohongshu FireRedTeam Chinese/English ASR model, shipped as an optional local Provider behind `VoxFlowProviderFireRedASR`. Inference reuses the already vendored sherpa-onnx runtime; the int8 AED export (`encoder.int8.onnx` + `decoder.int8.onnx`, ~1.15 GiB) is downloaded from a pinned sherpa-onnx release asset rather than bundled. It is a final-only (non-streaming) local engine: no partials, and audio over 50 s is decoded in silence-aware segments.
+- **Offline final-only session**: An ASR session that emits no partial transcript at all and produces exactly one `final` at `finish()`. `offlineFinalOnly` semantics (FireRedASR2-AED, Whisper, Omnilingual) as opposed to `rollingWindowConfirmedSegments` (FunASR) or `chunkedStablePrefix` (R2T2).
+- **Stable-prefix session**: An ASR session whose `stablePrefix` only grows and is never revised; the not-yet-confirmed tail may additionally ride in `unstableSuffix` as a live preview. `chunkedStablePrefix` semantics (R2T2) as opposed to Qwen3's `companionPartialFinal` whole-utterance rereading.
 - **Injection**: Temporarily placing text on the pasteboard and posting ⌘V to the focused application.
 - **Voice HUD / 语音 HUD**: The bottom-centered non-activating capsule shown during voice recording, recognition, refinement, and output status.
 - **Agent Confirmation HUD / 任务助手确认 HUD**: The non-activating confirmation surface that lets a user choose an Agent session or fall back to direct input for an Agent Dispatch request.
@@ -124,6 +128,9 @@
 | `PaletteFavoritesStore` / `PaletteUsageStore` | Lightweight Palette Root Search UI preferences and ranking statistics in UserDefaults | SQLite schema, asset favorite state, screenshot favorite state |
 | `PaletteApplicationLauncher` | Opening installed application paths through `NSWorkspace` behind a testable protocol | Search ranking, favorites persistence |
 | `Sources/VoxFlowProviders/VoxFlowProvider*` | Individual ASR provider runtime, descriptor, manifest/client, and provider-specific tests | AppKit UI, settings view layout, unrelated provider implementations |
+| `Sources/VoxFlowProviders/VoxFlowProviderR2T2` | `confucius4_r2t2` descriptor, preflight (arm64 / macOS 15+ / 16 GB gate, 24 GB hint), ModelStore manifest with pinned revision, stable-prefix session, canary readiness runner | AppKit/SwiftUI, other Providers' runtimes, database primitives |
+| `Sources/VoxFlowProviders/VoxFlowProviderFireRedASR` | `fireredasr` descriptor, FireRedASR2-AED int8 weight layout with pinned URL/size/hash, sherpa-onnx recognizer factory, `offlineFinalOnly` session with a 50 s silence-aware segmenter, ModelStore-backed readiness canary | AppKit/SwiftUI, other Providers' runtimes, database primitives |
+| `Packages/VoxFlowR2T2Core` | Vendored fork of the upstream R2T2/MLX streaming core (`R2T2Stream`, `Qwen3ASR*` model types); source byte-identical to the pinned upstream commit | VoxFlow app logic, ASR Core protocols, model weights |
 
 ## Architecture Decisions
 
@@ -178,6 +185,29 @@ Agent Dispatch sends instructions only to registered Agent sessions through a wr
 ### ADR-013: Style Output Format Overrides Global Formatting
 
 Style output format controls are runtime rules, not user-editable prompt text. When a style is resolved by manual app rule, AI auto-match, or default style, its output-format fields override global deterministic punctuation and capitalization field-by-field. If no effective style exists, the global deterministic settings preserve existing behavior.
+
+### ADR-017: Confucius4-R2T2 Ships As An Independent, Optional Local Provider
+
+R2T2 runs behind its own `VoxFlowProviderR2T2` target plus a separately versioned `Packages/VoxFlowR2T2Core` runtime package. It is never the default engine, and it introduces no cross-Provider dependency: the only shared code it reuses is `VoxFlowModelStore` (download, atomic install, integrity, staging) and `VoxFlowASRCore` contracts.
+
+Three consequences are binding:
+
+- **Stable-prefix contract**: `stablePrefix` carries only committed text and never rolls back, and `finish` emits exactly one final. The step's rolled-back tail rides in `unstableSuffix` as a live preview only: it may be rewritten by later steps, so it must never drive insertion decisions — the inserted text always comes from `final`.
+- **Hardware gate**: the Provider is offered only on arm64 macOS 15+ with at least 16 GB unified memory; 16–24 GB still works but surfaces a "below recommended" note. Blocking is expressed as structured categories, not free text, so the App layer owns the localized copy.
+- **Model license**: the vendored runtime code is MIT, but the weights (`mlx-community/Confucius4-R2T2-8bit`, pinned revision `2d6d997c…`, ~2.31 GiB on disk) fall under the NetEase Youdao Model Use License. Provenance is recorded in `Packages/VoxFlowR2T2Core/PROVENANCE.md` and `docs/resource-ownership.md`; publication thresholds of that license are a release-time decision, not an app-level consent flow.
+
+### ADR-018: FireRedASR2-AED Reuses The Vendored sherpa-onnx Runtime Instead Of Adding A New Inference Stack
+
+FireRedASR2-AED ships behind its own `VoxFlowProviderFireRedASR` target, but its inference goes through the sherpa-onnx static library that FunASR, Paraformer, and SenseVoice already link. No new package, model-conversion step, or Python runtime is introduced; the only shared-code change is two additive branches in the `Vendor/CSherpaOnnx` C shim.
+
+Three consequences are binding:
+
+- **AED over CTC**: the two upstream exports are not interchangeable. The CTC package is a pruned encoder+CTC branch and is smaller and ~2.3× faster, but on the same official test clips it produced visibly worse Chinese and English (`频繁` → `平繁`, `MONDAY TODAY` → `MOAY TOAY`). The AED export is the default despite costing ~2814 MB peak RSS on the reference machine, and the provider therefore carries a 16 GB unified-memory expectation.
+- **Final-only contract**: the model is not a streaming model, so the session declares `offlineFinalOnly` and the engine is created with `deliversPartialTranscripts: { false }`. Recording accumulates PCM only; `finish()` is the single decode point, and it emits exactly one `final`.
+- **Chunking is a provider concern**: upstream warns about hallucination beyond ~60 s. The provider cuts audio at ~50 s on the quietest 20 ms frame within the trailing 20% of each window, and falls back to a hard cut — reported through a segmentation observer so the degradation is visible in the trace — when no quiet frame exists.
+- **Weights go through a ModelStore manifest, not the legacy sherpa downloader**: upstream publishes a single tar.bz2, so `FireRedASRManifestCatalog` splits into an *archive* manifest (one component: the tarball, for resumable download) and an *installed* manifest (three components with per-file size + sha256, for `ModelIntegrityValidator` and `ModelAtomicInstaller`). The downloader verifies the archive before unpacking, flattens the tarball's top-level directory, and checks free space for archive **plus** unpacked result before opening a connection. The 16 GB memory gate lives in the manifest and is enforced by `FireRedASRRuntimePreflight`, which is evaluated *before* stored install state — so a machine below the threshold is never reported as ready.
+
+The weight provenance gap is recorded rather than papered over: the sherpa-onnx release tarball ships no LICENSE/NOTICE, and only the upstream *code* repository's Apache-2.0 license could be verified. See `docs/third-party-licenses.md`.
 
 ## iOS LiveContainer V1
 

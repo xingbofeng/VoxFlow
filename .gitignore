@@ -28,3 +28,5 @@ Apps/VoxFlowiOS/ChineseInput/Resources/Schemas/
 Vendor/sherpa-onnx.xcframework/
 .DS_Store
 .vercel
+__pycache__/
+*.pyc

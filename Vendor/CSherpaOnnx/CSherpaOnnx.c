@@ -52,6 +52,18 @@ VoxSherpaRecognizer *VoxSherpaCreateRecognizer(
       config.model_config.paraformer.model = input->model;
       config.model_config.tokens = input->tokens;
       break;
+    case VOX_SHERPA_FIRE_RED_ASR_CTC:
+      /* sherpa-onnx dispatches on which model sub-config is populated, so
+       * setting only fire_red_asr_ctc.model selects the CTC decoder. */
+      config.model_config.fire_red_asr_ctc.model = input->model;
+      config.model_config.tokens = input->tokens;
+      break;
+    case VOX_SHERPA_FIRE_RED_ASR:
+      /* An encoder/decoder pair selects the attention-based decoder path. */
+      config.model_config.fire_red_asr.encoder = input->encoder;
+      config.model_config.fire_red_asr.decoder = input->decoder;
+      config.model_config.tokens = input->tokens;
+      break;
   }
 
   const SherpaOnnxOfflineRecognizer *recognizer =

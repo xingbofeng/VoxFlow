@@ -1,5 +1,10 @@
 import Foundation
 
+/// 仍走 App 侧 sherpa 下载路径的模型变体。
+///
+/// FireRedASR2-AED 已迁到 `FireRedASRManifestCatalog` + `FireRedASRModelStoreDownloader` 的 ModelStore
+/// 安装路径（逐文件 sha256 校验、磁盘预检、原子换入），因此不再出现在这里：同一份权重元数据
+/// 留在两处会让「从哪下载、校验什么」出现两个事实来源。
 enum SherpaASRModelVariant: String, CaseIterable, Sendable {
     case funASRInt8
     case funASRFP32
@@ -117,7 +122,10 @@ enum SherpaASRModelVariant: String, CaseIterable, Sendable {
     }
 
     var tokensPath: String? {
-        nil
+        switch self {
+        case .funASRInt8, .funASRFP32:
+            return nil
+        }
     }
 
     var embeddingPath: String? {
@@ -130,6 +138,9 @@ enum SherpaASRModelVariant: String, CaseIterable, Sendable {
     }
 
     var tokenizerPath: String? {
-        "Qwen3-0.6B"
+        switch self {
+        case .funASRInt8, .funASRFP32:
+            return "Qwen3-0.6B"
+        }
     }
 }

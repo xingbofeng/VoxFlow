@@ -5,8 +5,10 @@ import VoxFlowASRRuntime
 enum ASREngineType: String, CaseIterable, Equatable, Hashable {
     case apple = "Apple Speech"
     case funASR = "FunASR"
+    case fireRedASR = "FireRedASR2-AED"
     case whisper = "Whisper"
     case qwen3 = "Qwen3-ASR"
+    case confucius4R2T2 = "Confucius4-R2T2"
     case senseVoice = "SenseVoice Small"
     case paraformer = "Paraformer"
     case nvidiaNemotron = "NVIDIA Nemotron ASR 0.6B"
@@ -23,10 +25,14 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
             return "系统自带"
         case .funASR:
             return "FunASR"
+        case .fireRedASR:
+            return "FireRedASR2-AED"
         case .whisper:
             return "Whisper"
         case .qwen3:
             return "Qwen3-ASR"
+        case .confucius4R2T2:
+            return "Confucius4-R2T2"
         case .senseVoice:
             return "SenseVoice Small"
         case .paraformer:

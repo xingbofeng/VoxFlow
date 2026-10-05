@@ -19,8 +19,8 @@ enum RecordingPermissionPolicy {
             switch engineType {
         case .apple:
             return speechPermission == .granted
-        case .funASR, .whisper, .qwen3, .senseVoice, .paraformer, .nvidiaNemotron,
-             .parakeetStreaming, .omnilingualASR:
+        case .funASR, .fireRedASR, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
+             .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:
             return true
         case .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return true

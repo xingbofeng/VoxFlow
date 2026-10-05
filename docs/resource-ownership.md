@@ -18,6 +18,7 @@
 | `Resources/AppIcon.iconset/icon_512x512.png` | App 图标源资产 | `VoxFlowApp` | 重新生成 `AppIcon.icns` 用的源图。 |
 | `Resources/AppIcon.iconset/icon_512x512@2x.png` | App 图标源资产 | `VoxFlowApp` | 重新生成 `AppIcon.icns` 用的源图。 |
 | `Sources/VoxFlowApp/Resources/Info.plist` | `Makefile` app bundle 打包 | `VoxFlowApp` | 不进入 SwiftPM resources，作为 bundle `Info.plist` 单独复制。 |
+| `Packages/VoxFlowR2T2Core/LICENSE`、`Packages/VoxFlowR2T2Core/NOTICE` | `Makefile` app bundle 打包（`COPY_THIRD_PARTY_NOTICES`） | 同左 | 复制到 `VoxFlow.app/Contents/Resources/ThirdPartyNotices/VoxFlowR2T2Core-{LICENSE,NOTICE}.txt`；源文件只在 package 内保留一份，`make build` / `build-native` / `build-dev` 都会复制并断言存在。完整第三方归属见 `docs/third-party-licenses.md`。 |
 
 ## 运行时 UI 资源
 
@@ -43,6 +44,17 @@
 | `Sources/VoxFlowApp/Resources/ASRSenseVoice.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderSenseVoice` | SenseVoice Provider 卡片图标。 |
 | `Sources/VoxFlowApp/Resources/ASRTencentCloud.png` | `VoxFlowApp` SwiftPM resource bundle | 在线 ASR 目录 | 腾讯云 ASR Provider 卡片图标。 |
 | `Sources/VoxFlowApp/Resources/ASRWhisper.png` | `VoxFlowApp` SwiftPM resource bundle | `VoxFlowProviderWhisper` | Whisper Provider 卡片图标。 |
+
+## 下载的模型权重（不打包）
+
+以下权重由用户在设置页显式发起后经 `VoxFlowModelStore` 下载到 `~/Library/Application Support/VoxFlow/models/`，**不进入 App bundle、仓库或测试 fixture**。删除 App 或清理模型时按各自许可与 ModelStore 的删除流程处理。
+
+| 模型 | 来源（固定 revision） | 磁盘占用 | 许可 | 备注 |
+| --- | --- | --- | --- | --- |
+| FireRedASR2-AED int8 | `sherpa-onnx` release 资产 `sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26.tar.bz2`（固定 tag 资产，转换自 ModelScope `FireRedTeam/FireRedASR2-AED`） | 1,234,657,933 B（≈1.15 GiB），3 个必需文件（`encoder.int8.onnx` / `decoder.int8.onnx` / `tokens.txt`） | 上游代码仓库为 Apache-2.0；**权重资产本身不含 LICENSE，条款待发布前确认** | 语音仅在本机推理，不联网；内存门槛 16 GB。安装位置 `~/Library/Application Support/VoxFlow/models/fireredasr-aed-int8/<版本目录>/`，经 ModelStore 清单校验（归档 sha256 + 逐组件 sha256）与原子换入。URL、大小与 hash 见 `Sources/VoxFlowProviders/VoxFlowProviderFireRedASR/Runtime/FireRedASRModel.swift` 与同目录 `Manifest/FireRedASRManifestCatalog.swift`，接入说明见 `docs/third-party-licenses.md`。 |
+| Confucius4-R2T2-8bit | `mlx-community/Confucius4-R2T2-8bit` @ `2d6d997c3e09c65a65b1b2576b6b9b7728df8eab` | 2,479,303,980 B（≈2.31 GiB），10 个文件（含 `LICENSE` / `MODEL_LICENSE_zh` / `NOTICE`） | NetEase Youdao Model Use License Agreement | 只支持 arm64 + macOS 15+；清单与 hash 见 `Sources/VoxFlowProviders/VoxFlowProviderR2T2/Manifest/R2T2ManifestCatalog.swift`，上游与衍化说明见 `Packages/VoxFlowR2T2Core/PROVENANCE.md`。权重许可与归属文件随权重一起安装到模型目录，缺失会被 readiness 判定为需要修复。 |
+
+注意：R2T2 的**推理代码**（`Packages/VoxFlowR2T2Core`）是 MIT，与上述**权重许可互相独立**。发布前需单独确认权重许可的规模门槛与使用限制。
 
 ## 迁移规则
 

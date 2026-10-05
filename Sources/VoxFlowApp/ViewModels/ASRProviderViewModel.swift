@@ -3,6 +3,7 @@ import VoxFlowASRRuntime
 import Foundation
 import VoxFlowModelStore
 import VoxFlowProviderAliyunDashScope
+import VoxFlowProviderFireRedASR
 import VoxFlowProviderFunASR
 import VoxFlowProviderGroq
 import VoxFlowProviderNVIDIA
@@ -10,6 +11,7 @@ import VoxFlowProviderOmnilingual
 import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
+import VoxFlowProviderR2T2
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
 import VoxFlowProviderVolcengine
@@ -212,6 +214,10 @@ final class ASRProviderViewModel: ObservableObject {
     private let nvidiaNemotronModelDownloader: any NVIDIANemotronModelDownloading
     private let parakeetModelDownloader: any ParakeetModelDownloading
     private let omnilingualModelDownloader: any OmnilingualModelDownloading
+    private let r2t2ModelDownloader: any R2T2ModelDownloading
+    private let r2t2ReadinessPreparer: any R2T2ModelReadinessPreparing
+    private let fireRedASRReadinessPreparer: any FireRedASRModelReadinessPreparing
+    private let fireRedASRModelDownloader: any FireRedASRModelDownloading
     private let qwenReadinessPreparer: any Qwen3ModelReadinessPreparing
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
@@ -236,6 +242,10 @@ final class ASRProviderViewModel: ObservableObject {
         nvidiaNemotronModelDownloader: any NVIDIANemotronModelDownloading = NVIDIANemotronModelDownloader(),
         parakeetModelDownloader: any ParakeetModelDownloading = ParakeetModelDownloader(),
         omnilingualModelDownloader: any OmnilingualModelDownloading = OmnilingualModelDownloader(),
+        r2t2ModelDownloader: any R2T2ModelDownloading = R2T2LiveModelDownloader(),
+        r2t2ReadinessPreparer: any R2T2ModelReadinessPreparing = R2T2ModelReadinessPreparer(),
+        fireRedASRReadinessPreparer: any FireRedASRModelReadinessPreparing = FireRedASRModelReadinessPreparer(),
+        fireRedASRModelDownloader: any FireRedASRModelDownloading = FireRedASRLiveModelDownloader(),
         qwenReadinessPreparer: any Qwen3ModelReadinessPreparing = Qwen3ModelReadinessPreparer(),
         fileManager: FileManager = .default
     ) {
@@ -255,6 +265,10 @@ final class ASRProviderViewModel: ObservableObject {
         self.nvidiaNemotronModelDownloader = nvidiaNemotronModelDownloader
         self.parakeetModelDownloader = parakeetModelDownloader
         self.omnilingualModelDownloader = omnilingualModelDownloader
+        self.r2t2ModelDownloader = r2t2ModelDownloader
+        self.r2t2ReadinessPreparer = r2t2ReadinessPreparer
+        self.fireRedASRReadinessPreparer = fireRedASRReadinessPreparer
+        self.fireRedASRModelDownloader = fireRedASRModelDownloader
         self.qwenReadinessPreparer = qwenReadinessPreparer
         self.fileManager = fileManager
         Self.logger.debug("asr_provider_vm_init")
@@ -683,12 +697,39 @@ final class ASRProviderViewModel: ObservableObject {
         volcengineSecretKeyInput = state.secretKeyInput
     }
 
+    /// 只有仍走 App 侧 sherpa 下载路径的 Provider 才有变体。
+    ///
+    /// FireRedASR2-AED 已改为 ModelStore 安装（`FireRedASRModelDownloading`），不再属于这里；
+    /// 把它的权重元数据留在两处会让「从哪下载、校验什么」出现两个事实来源。
     func sherpaVariant(for id: String) -> SherpaASRModelVariant? {
         switch id {
         case ASRProviderID.funASR:
             return asrManager.funASRModelVariant
         default:
             return nil
+        }
+    }
+
+    /// 校验刚解包出来的 sherpa 变体，并对大模型跑一次预热 canary。
+    private func prepareSherpaModel(
+        variant: SherpaASRModelVariant,
+        installedURL: URL
+    ) async throws {
+        switch variant {
+        case .funASRInt8, .funASRFP32:
+            guard FunASRModelVariant(precision: asrManager.funASRPrecision).modelsExist(
+                at: installedURL,
+                fileManager: fileManager
+            ) else {
+                throw ASREngineError.modelNotLoaded
+            }
+        }
+    }
+
+    private func markSherpaModelReady(variant: SherpaASRModelVariant, at path: String) {
+        switch variant {
+        case .funASRInt8, .funASRFP32:
+            asrManager.markFunASRModelReady(at: path, precision: asrManager.funASRPrecision)
         }
     }
 
@@ -883,6 +924,11 @@ final class ASRProviderViewModel: ObservableObject {
                 return installation.installedRoot.path
             }
             return asrManager.funASRModelDirectoryURL(for: asrManager.funASRPrecision).path
+        case ASRProviderID.fireRedASR:
+            if case let .ready(installation) = asrManager.fireRedASRModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.fireRedASRModelDirectoryURL().path
         case ASRProviderID.whisper:
             if case let .ready(installation) = asrManager.whisperModelInstallationState(
                 for: asrManager.whisperVariant
@@ -895,6 +941,11 @@ final class ASRProviderViewModel: ObservableObject {
                 return installation.installedRoot.path
             }
             return asrManager.senseVoiceModelDirectoryURL().path
+        case ASRProviderID.confucius4R2T2:
+            if case let .ready(installation) = asrManager.r2t2ModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.r2t2ModelDirectoryURL()?.path
         case ASRProviderID.paraformer:
             if case let .ready(installation) = asrManager.paraformerModelInstallationState() {
                 return installation.installedRoot.path
@@ -925,6 +976,7 @@ final class ASRProviderViewModel: ObservableObject {
         case ASRProviderID.funASR: return .funASR
         case ASRProviderID.whisper: return .whisper
         case ASRProviderID.senseVoice: return .senseVoice
+        case ASRProviderID.confucius4R2T2: return .confucius4R2T2
         case ASRProviderID.paraformer: return .paraformer
         case ASRProviderID.nvidiaNemotron: return .nvidiaNemotron
         case ASRProviderID.parakeetStreaming: return .parakeetStreaming
@@ -1080,6 +1132,10 @@ final class ASRProviderViewModel: ObservableObject {
             }
         case ASRProviderID.senseVoice:
             return 1_649_994_200
+        case ASRProviderID.confucius4R2T2:
+            return R2T2ManifestCatalog.expectedDownloadBytes
+        case ASRProviderID.fireRedASR:
+            return FireRedASRManifestCatalog.expectedDownloadBytes
         case ASRProviderID.paraformer:
             return 653_174_435
         case ASRProviderID.nvidiaNemotron:
@@ -1099,6 +1155,8 @@ final class ASRProviderViewModel: ObservableObject {
             return "Qwen3 0.6B \(asrManager.funASRPrecision.rawValue.uppercased())"
         case ASRProviderID.senseVoice:
             return "SenseVoice Small FP16"
+        case ASRProviderID.confucius4R2T2:
+            return "Confucius4-R2T2 1.7B MLX 8bit"
         case ASRProviderID.paraformer:
             return "Paraformer Large zh INT8"
         case ASRProviderID.nvidiaNemotron:
@@ -1187,6 +1245,42 @@ final class ASRProviderViewModel: ObservableObject {
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
+            } else if id == ASRProviderID.fireRedASR {
+                let installedURL = try await fireRedASRModelDownloader.download { [weak self] update in
+                    await self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: "",
+                        statusText: L10n.localize(
+                            "asr.provider.local_model.status_downloading",
+                            comment: "Local model downloading status"
+                        ),
+                        fractionCompleted: update.fractionCompleted,
+                        bytesWritten: update.bytesWritten,
+                        totalBytes: update.totalBytes
+                    )
+                }
+                guard FireRedASRModel.modelsExist(at: installedURL, fileManager: fileManager) else {
+                    // 下载成功但文件不全：落成 corrupt，卡片才会给 repair 而不是再次「下载」。
+                    asrManager.markFireRedASRModelCorrupt(reason: "缺少必需文件")
+                    throw ASREngineError.modelNotLoaded
+                }
+                do {
+                    try await fireRedASRReadinessPreparer.prepare(modelURL: installedURL)
+                } catch {
+                    // 权重在盘上但跑不起来。同样要变成可修复状态，否则用户会一直重下 1.24 GB。
+                    asrManager.markFireRedASRModelPreparationFailed(
+                        message: error.localizedDescription
+                    )
+                    throw error
+                }
+                guard shouldApplyDownloadResult(operation) else {
+                    return
+                }
+                asrManager.markFireRedASRModelReady(at: installedURL.path)
+                load()
+                lastError = nil
+                lastActionMessage = "本地模型下载完成"
             } else if let variant = sherpaVariant(for: id) {
                 let installedURL = try await sherpaModelDownloader.download(variant: variant) { [weak self] update in
                     self?.setDownloadProgress(
@@ -1199,16 +1293,11 @@ final class ASRProviderViewModel: ObservableObject {
                         totalBytes: update.totalBytes
                     )
                 }
-                guard FunASRModelVariant(precision: asrManager.funASRPrecision).modelsExist(
-                    at: installedURL,
-                    fileManager: fileManager
-                ) else {
-                    throw ASREngineError.modelNotLoaded
-                }
+                try await prepareSherpaModel(variant: variant, installedURL: installedURL)
                 guard shouldApplyDownloadResult(operation) else {
                     return
                 }
-                asrManager.markFunASRModelReady(at: installedURL.path, precision: asrManager.funASRPrecision)
+                markSherpaModelReady(variant: variant, at: installedURL.path)
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
@@ -1232,6 +1321,34 @@ final class ASRProviderViewModel: ObservableObject {
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
+            } else if id == ASRProviderID.confucius4R2T2 {
+                let installedURL = try await r2t2ModelDownloader.download { [weak self] update in
+                    await self?.setDownloadProgress(
+                        operation: operation,
+                        providerID: id,
+                        componentName: update.fileName,
+                        statusText: L10n.format("settings.window.asr.status.downloading_format",
+                            comment: "Downloading component status", update.fileName),
+                        fractionCompleted: update.overallProgress,
+                        bytesWritten: update.bytesWritten,
+                        totalBytes: update.totalBytes
+                    )
+                }
+                guard R2T2ManifestCatalog.manifest.modelsExist(
+                    at: installedURL,
+                    fileManager: fileManager
+                ) else {
+                    throw ASREngineError.modelNotLoaded
+                }
+                try await r2t2ReadinessPreparer.prepare(modelURL: installedURL)
+                guard shouldApplyDownloadResult(operation) else {
+                    return
+                }
+                asrManager.markR2T2ModelReady(at: installedURL.path)
+                load()
+                lastError = nil
+                lastActionMessage = L10n.localize("model.capability.action_download_completed",
+                    comment: "Local model download completed")
             } else if id == ASRProviderID.paraformer {
                 let installedURL = try await paraformerModelDownloader.download { [weak self] update in
                     self?.setDownloadProgress(
@@ -1322,6 +1439,10 @@ final class ASRProviderViewModel: ObservableObject {
             if shouldIgnoreDownloadFailure(operation) {
                 return
             }
+            // 先把刚落盘的状态读回卡片再写错误：下载/预热失败会被记成 failed 或 corrupt，
+            // 不 reload 的话卡片还停在加载时的旧状态，用户看到的仍然是「下载」而不是「修复」，
+            // 于是会反复重下 1.24 GB 权重。load() 会清空 lastError，所以必须在它之后赋值。
+            load()
             lastError = error.localizedDescription
             Self.logger.error("asr_provider_vm_download_model_failed id=\(id) error=\(error.localizedDescription)")
             failDownloadTracking(providerID: id, error: error)
@@ -1418,8 +1539,11 @@ final class ASRProviderViewModel: ObservableObject {
         switch id {
         case ASRProviderID.qwen3:
             await downloader.cancelDownload()
+        case ASRProviderID.confucius4R2T2:
+            await r2t2ModelDownloader.cancelDownload()
         case ASRProviderID.funASR:
             await sherpaModelDownloader.cancelDownload()
+            await fireRedASRModelDownloader.cancelDownload()
         default:
             break
         }
@@ -1466,6 +1590,12 @@ final class ASRProviderViewModel: ObservableObject {
                     guard !result.contains(url) else { return }
                     result.append(url)
                 }
+        }
+        if id == ASRProviderID.confucius4R2T2 {
+            return asrManager.r2t2ModelDeletionURLs()
+        }
+        if id == ASRProviderID.fireRedASR {
+            return asrManager.fireRedASRModelDeletionURLs()
         }
         var urls = modelPath(id: id).map { [URL(fileURLWithPath: $0, isDirectory: true)] } ?? []
         if let sherpaVariant = sherpaVariant(for: id) {

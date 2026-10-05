@@ -56,4 +56,12 @@ final class ASRProviderIconTests: XCTestCase {
     func testAppleProviderDoesNotUseSystemSymbolWhenBundledIconExists() {
         XCTAssertNil(ASRProviderIcon.systemSymbolName(providerID: ASRProviderID.appleSpeech))
     }
+
+    func testR2T2FallsBackToSystemSymbolUntilABrandedIconExists() {
+        XCTAssertEqual(
+            ASRProviderIcon.systemSymbolName(providerID: ASRProviderID.confucius4R2T2),
+            "waveform.circle"
+        )
+        XCTAssertNil(ASRProviderIcon.load(providerID: ASRProviderID.confucius4R2T2))
+    }
 }

@@ -1,10 +1,12 @@
 import XCTest
 import VoxFlowASRRuntime
 import VoxFlowModelStore
+import VoxFlowProviderFireRedASR
 import VoxFlowProviderFunASR
 import VoxFlowProviderOmnilingual
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
+import VoxFlowProviderR2T2
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderWhisper
 @testable import VoxFlowApp
@@ -48,7 +50,7 @@ final class ASRProviderViewModelTests: XCTestCase {
             viewModel.providers.first { $0.id == ASRProviderID.funASR }?.statusMessage,
             "尚未安装本地模型"
         )
-        XCTAssertEqual(try environment.asrProviderRepository.list().count, 16)
+        XCTAssertEqual(try environment.asrProviderRepository.list().count, 18)
     }
 
     func testInitializationReadsProviderCatalogWithoutPersistingRecords() throws {
@@ -236,6 +238,7 @@ final class ASRProviderViewModelTests: XCTestCase {
             [
                 ASRProviderID.appleSpeech,
                 ASRProviderID.funASR,
+                ASRProviderID.fireRedASR,
                 ASRProviderID.whisper,
                 ASRProviderID.qwen3,
                 ASRProviderID.senseVoice,
@@ -243,6 +246,7 @@ final class ASRProviderViewModelTests: XCTestCase {
                 ASRProviderID.nvidiaNemotron,
                 ASRProviderID.parakeetStreaming,
                 ASRProviderID.omnilingualASR,
+                ASRProviderID.confucius4R2T2,
             ]
         )
     }
@@ -877,6 +881,46 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.nvidiaNemotron), "约 642.2 MB")
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.parakeetStreaming), "约 118.1 MB")
         XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.omnilingualASR), "约 326.9 MB")
+        // 曾经漏了这个 case，卡片显示「下载时检测」——安装前就应给出传输量，与其余本地 Provider 同口径。
+        XCTAssertEqual(viewModel.localModelSizeSummary(providerID: ASRProviderID.fireRedASR), "约 838.6 MB")
+    }
+
+    /// 本地 Provider 的「模型大小」必须在安装前就有具体数字。
+    ///
+    /// 这条不针对单个 Provider，而是防止将来新增本地 Provider 时漏掉 size case：
+    /// `expectedLocalModelDownloadBytes` 没有对应分支时会静默回落到「下载时检测」。
+    func testEveryLocalASRProviderShowsAConcreteSizeBeforeDownload() throws {
+        let manager = makeManager()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager)
+        )
+        let localProviderIDs = [
+            ASRProviderID.funASR,
+            ASRProviderID.fireRedASR,
+            ASRProviderID.nvidiaNemotron,
+            ASRProviderID.parakeetStreaming,
+            ASRProviderID.omnilingualASR,
+            ASRProviderID.paraformer,
+            ASRProviderID.qwen3,
+            ASRProviderID.senseVoice,
+            ASRProviderID.confucius4R2T2,
+            ASRProviderID.whisper,
+        ]
+
+        for providerID in localProviderIDs {
+            let summary = viewModel.localModelSizeSummary(providerID: providerID)
+            XCTAssertFalse(
+                summary.contains("下载时检测"),
+                "\(providerID) 没有具体的下载体积，回落到「\(summary)」"
+            )
+            XCTAssertTrue(
+                summary.contains("约"),
+                "\(providerID) 的体积文案缺少「约」前缀：\(summary)"
+            )
+        }
     }
 
     func testOmnilingualDefaultDirectoryMatchesSpeechSwiftHubRepoLayout() {
@@ -1395,11 +1439,238 @@ final class ASRProviderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
     }
 
+    func testDownloadR2T2MarksModelStoreReadyStateAfterPrewarm() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("R2T2Tests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableR2T2ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = StubR2T2ModelDownloader(downloadedURL: modelURL)
+        let preparer = CapturingR2T2ViewModelReadinessPreparer()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            r2t2ModelDownloader: downloader,
+            r2t2ReadinessPreparer: preparer
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.confucius4R2T2)
+
+        let requestCount = await downloader.requestCount
+        let preparedPaths = await preparer.preparedPaths
+        XCTAssertEqual(requestCount, 1)
+        XCTAssertEqual(preparedPaths, [modelURL])
+        XCTAssertTrue(manager.isR2T2ModelAvailable)
+        XCTAssertTrue(
+            viewModel.providers.first(where: { $0.id == ASRProviderID.confucius4R2T2 })?.isAvailable ?? false
+        )
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
+    }
+
+    func testDownloadR2T2DoesNotMarkReadyWhenPrewarmFails() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("R2T2Tests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableR2T2ModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = StubR2T2ModelDownloader(downloadedURL: modelURL)
+        let preparer = CapturingR2T2ViewModelReadinessPreparer(
+            result: .failure(R2T2ViewModelReadinessTestError.canaryFailed)
+        )
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            r2t2ModelDownloader: downloader,
+            r2t2ReadinessPreparer: preparer
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.confucius4R2T2)
+
+        XCTAssertFalse(manager.isR2T2ModelAvailable)
+        XCTAssertFalse(
+            viewModel.providers.first(where: { $0.id == ASRProviderID.confucius4R2T2 })?.isAvailable ?? true
+        )
+        XCTAssertNil(viewModel.lastActionMessage)
+        XCTAssertEqual(viewModel.lastError, "Canary failed")
+    }
+
+    // MARK: - FireRedASR2-AED (ModelStore 安装路径)
+
+    func testDownloadFireRedASRUsesModelStoreDownloaderAndMarksReadyAfterPrewarm() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FireRedASRTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFireRedASRModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let downloader = StubFireRedASRModelDownloader(downloadedURL: modelURL)
+        let preparer = CapturingFireRedASRViewModelReadinessPreparer()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            fireRedASRReadinessPreparer: preparer,
+            fireRedASRModelDownloader: downloader
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.fireRedASR)
+
+        let requestCount = await downloader.requestCount
+        let preparedPaths = await preparer.preparedPaths
+        XCTAssertEqual(requestCount, 1, "FireRedASR2-AED 必须走 ModelStore 下载器")
+        XCTAssertEqual(preparedPaths, [modelURL])
+        XCTAssertTrue(manager.isFireRedASRModelAvailable)
+        XCTAssertNil(viewModel.lastError)
+        XCTAssertEqual(viewModel.lastActionMessage, "本地模型下载完成")
+    }
+
+    func testDownloadFireRedASRDoesNotMarkReadyWhenPrewarmFails() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FireRedASRTests-\(UUID().uuidString)", isDirectory: true)
+        try createLoadableFireRedASRModelDirectory(at: modelURL)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            fireRedASRReadinessPreparer: CapturingFireRedASRViewModelReadinessPreparer(
+                result: .failure(FireRedASRViewModelReadinessTestError.canaryFailed)
+            ),
+            fireRedASRModelDownloader: StubFireRedASRModelDownloader(downloadedURL: modelURL)
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.fireRedASR)
+
+        XCTAssertFalse(manager.isFireRedASRModelAvailable, "canary 失败不得标记为 ready")
+        XCTAssertNotNil(viewModel.lastError)
+
+        // spec：canary 失败时用户要看到 repair 入口。停在 notInstalled 只会显示「下载」，
+        // 用户会以为再点一次就能解决，然后反复重下 1.24 GB。
+        let card = viewModel.providers.first { $0.id == ASRProviderID.fireRedASR }
+        XCTAssertEqual(card?.localModelAction, .repair)
+        XCTAssertEqual(card?.healthStatus, .repairRequired)
+        XCTAssertFalse(card?.isAvailable ?? true)
+    }
+
+    func testDownloadFireRedASRDoesNotMarkReadyWhenInstalledFilesAreMissing() async throws {
+        let manager = makeManager()
+        let modelURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FireRedASRTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: modelURL)
+        }
+        let preparer = CapturingFireRedASRViewModelReadinessPreparer()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            fireRedASRReadinessPreparer: preparer,
+            fireRedASRModelDownloader: StubFireRedASRModelDownloader(downloadedURL: modelURL)
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.fireRedASR)
+
+        XCTAssertFalse(manager.isFireRedASRModelAvailable)
+        let preparedPaths = await preparer.preparedPaths
+        XCTAssertEqual(preparedPaths, [], "文件不全时不应进入预热")
+        XCTAssertEqual(
+            viewModel.providers.first { $0.id == ASRProviderID.fireRedASR }?.localModelAction,
+            .repair,
+            "文件不全也要给出 repair 入口"
+        )
+    }
+
+    func testDownloadFireRedASRSurfacesInsufficientDiskAsAStructuredFailure() async throws {
+        let manager = makeManager()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let downloader = StubFireRedASRModelDownloader(
+            error: ModelDownloadError.insufficientDisk(requiredBytes: 2_073_247_001, availableBytes: 1)
+        )
+        let viewModel = ASRProviderViewModel(
+            environment: environment,
+            asrManager: manager,
+            registry: ASRProviderRegistry(asrManager: manager),
+            fireRedASRModelDownloader: downloader
+        )
+
+        await viewModel.downloadModel(id: ASRProviderID.fireRedASR)
+
+        XCTAssertFalse(manager.isFireRedASRModelAvailable)
+        let lastError = try XCTUnwrap(viewModel.lastError)
+        XCTAssertTrue(
+            lastError.contains("磁盘空间"),
+            "空间不足要复用既有 ModelStore 文案，实际：\(lastError)"
+        )
+    }
+
+    func testFireRedASRMemoryBlockerMarksTheProviderUnavailableWithoutLoadingWeights() async throws {
+        let manager = makeManagerWithFireRedASRPreflight(
+            .blocked(.insufficientMemory(requiredBytes: 16 * 1_024 * 1_024 * 1_024, actualBytes: 8 * 1_024 * 1_024 * 1_024))
+        )
+
+        // spec：内存不足时必须是结构化原因，且不得加载权重。
+        guard case .hardwareUnsupported(let reason) = manager.fireRedASRModelInstallationState() else {
+            return XCTFail("expected hardwareUnsupported, got \(manager.fireRedASRModelInstallationState())")
+        }
+        XCTAssertFalse(reason.isEmpty)
+        XCTAssertFalse(manager.isFireRedASRModelAvailable)
+    }
+
+    func testFireRedASRPreflightBlockerWinsOverAStoredReadyState() async throws {
+        // 即使 states 文件里写着 ready，内存不足也不能让 Provider 变成可用。
+        let (manager, repository) = makeManagerAndRepository(
+            fireRedASRPreflight: .blocked(
+                .insufficientMemory(requiredBytes: 16 * 1_024 * 1_024 * 1_024, actualBytes: 8 * 1_024 * 1_024 * 1_024)
+            )
+        )
+        try repository.save(
+            .ready(
+                ModelInstallation(
+                    modelID: FireRedASRManifestCatalog.modelInstallKey.modelID,
+                    version: FireRedASRManifestCatalog.modelInstallKey.version,
+                    installedRoot: FileManager.default.temporaryDirectory
+                        .appendingPathComponent("FireRedASRStale-\(UUID().uuidString)", isDirectory: true)
+                )
+            ),
+            for: FireRedASRManifestCatalog.modelInstallKey
+        )
+
+        XCTAssertFalse(manager.isFireRedASRModelAvailable)
+        guard case .hardwareUnsupported = manager.fireRedASRModelInstallationState() else {
+            return XCTFail("expected hardwareUnsupported")
+        }
+    }
+
+    private func makeManagerWithFireRedASRPreflight(
+        _ outcome: FireRedASRRuntimePreflightOutcome
+    ) -> ASRManager {
+        makeManagerAndRepository(fireRedASRPreflight: outcome).manager
+    }
+
     private func makeManager() -> ASRManager {
         makeManagerAndRepository().manager
     }
 
-    private func makeManagerAndRepository() -> (
+    private func makeManagerAndRepository(
+        fireRedASRPreflight: FireRedASRRuntimePreflightOutcome = .usable
+    ) -> (
         manager: ASRManager,
         repository: FileModelInstallationStateRepository
     ) {
@@ -1422,7 +1693,9 @@ final class ASRProviderViewModelTests: XCTestCase {
                 defaults: defaults,
                 modelInstallationRepository: repository,
                 credentialStore: ASRProviderViewModelTestCredentialStore(),
-                qwen3RuntimePreflight: { _ in .supported }
+                qwen3RuntimePreflight: { _ in .supported },
+                r2t2RuntimePreflight: { .usable },
+                fireRedASRRuntimePreflight: { fireRedASRPreflight }
             ),
             repository
         )
@@ -1523,6 +1796,28 @@ final class ASRProviderViewModelTests: XCTestCase {
                 withIntermediateDirectories: true
             )
             try Data([1]).write(to: fileURL)
+        }
+    }
+
+    private func createLoadableFireRedASRModelDirectory(at modelURL: URL) throws {
+        for relativePath in FireRedASRModel.requiredPaths {
+            let fileURL = modelURL.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try Data([1]).write(to: fileURL)
+        }
+    }
+
+    private func createLoadableR2T2ModelDirectory(at modelURL: URL) throws {
+        for relativePath in R2T2ManifestCatalog.manifest.requiredLocalPaths {
+            let fileURL = modelURL.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         }
     }
 
@@ -1856,6 +2151,109 @@ private actor CapturingQwen3ViewModelReadinessPreparer: Qwen3ModelReadinessPrepa
     }
 
     func prepare(modelURL: URL, size: ASRManager.ModelSize) async throws {
+        try result.get()
+    }
+}
+
+private actor StubR2T2ModelDownloader: R2T2ModelDownloading {
+    private let downloadedURL: URL
+    private(set) var requestCount = 0
+
+    init(downloadedURL: URL) {
+        self.downloadedURL = downloadedURL
+    }
+
+    func download(
+        progress: @escaping R2T2ModelDownloadProgressHandler
+    ) async throws -> URL {
+        requestCount += 1
+        await progress(
+            R2T2ModelDownloadProgress(
+                fileIndex: 0,
+                fileCount: 1,
+                fileName: "model.safetensors",
+                fileProgress: 1,
+                bytesWritten: 1,
+                totalBytes: 1
+            )
+        )
+        return downloadedURL
+    }
+}
+
+private enum R2T2ViewModelReadinessTestError: Error, LocalizedError, Equatable {
+    case canaryFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .canaryFailed:
+            return "Canary failed"
+        }
+    }
+}
+
+private actor CapturingR2T2ViewModelReadinessPreparer: R2T2ModelReadinessPreparing {
+    private let result: Result<Void, Error>
+    private(set) var preparedPaths: [URL] = []
+
+    init(result: Result<Void, Error> = .success(())) {
+        self.result = result
+    }
+
+    func prepare(modelURL: URL) async throws {
+        preparedPaths.append(modelURL)
+        try result.get()
+    }
+}
+
+private actor StubFireRedASRModelDownloader: FireRedASRModelDownloading {
+    private let result: Result<URL, Error>
+    private(set) var requestCount = 0
+
+    init(downloadedURL: URL) {
+        self.result = .success(downloadedURL)
+    }
+
+    init(error: Error) {
+        self.result = .failure(error)
+    }
+
+    func download(
+        progress: @escaping FireRedASRModelDownloadProgressHandler
+    ) async throws -> URL {
+        requestCount += 1
+        await progress(
+            FireRedASRModelDownloadProgress(
+                fractionCompleted: 1,
+                bytesWritten: 1,
+                totalBytes: 1
+            )
+        )
+        return try result.get()
+    }
+}
+
+private enum FireRedASRViewModelReadinessTestError: Error, LocalizedError, Equatable {
+    case canaryFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .canaryFailed:
+            return "Canary failed"
+        }
+    }
+}
+
+private actor CapturingFireRedASRViewModelReadinessPreparer: FireRedASRModelReadinessPreparing {
+    private let result: Result<Void, Error>
+    private(set) var preparedPaths: [URL] = []
+
+    init(result: Result<Void, Error> = .success(())) {
+        self.result = result
+    }
+
+    func prepare(modelURL: URL) async throws {
+        preparedPaths.append(modelURL)
         try result.get()
     }
 }

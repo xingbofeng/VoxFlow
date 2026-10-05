@@ -27,7 +27,8 @@ let package = Package(
         .package(url: "https://github.com/getsentry/sentry-cocoa.git", from: "9.19.0"),
         .package(path: "Packages/TextDiffing"),
         .package(path: "Packages/VoxFlowContextBoostKit"),
-        .package(path: "Packages/VoxFlowVoiceCorrectionKit")
+        .package(path: "Packages/VoxFlowVoiceCorrectionKit"),
+        .package(path: "Packages/VoxFlowR2T2Core")
     ],
     targets: [
         .target(
@@ -99,6 +100,16 @@ let package = Package(
             path: "Sources/VoxFlowProviders/VoxFlowProviderQwen3"
         ),
         .target(
+            name: "VoxFlowProviderR2T2",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                "VoxFlowModelStore",
+                .product(name: "VoxFlowR2T2Core", package: "VoxFlowR2T2Core")
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderR2T2"
+        ),
+        .target(
             name: "VoxFlowProviderNVIDIA",
             dependencies: [
                 "VoxFlowASRCore",
@@ -144,6 +155,16 @@ let package = Package(
                 "CSherpaOnnx"
             ],
             path: "Sources/VoxFlowProviders/VoxFlowProviderFunASR"
+        ),
+        .target(
+            name: "VoxFlowProviderFireRedASR",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                "VoxFlowModelStore",
+                "CSherpaOnnx"
+            ],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderFireRedASR"
         ),
         .target(
             name: "VoxFlowProviderSenseVoice",
@@ -263,12 +284,14 @@ let package = Package(
                 "VoxFlowProviderParakeet",
                 "VoxFlowProviderOmnilingual",
                 "VoxFlowProviderFunASR",
+                "VoxFlowProviderFireRedASR",
                 "VoxFlowProviderAliyunDashScope",
                 "VoxFlowProviderCloudCore",
                 "VoxFlowProviderGroq",
                 "VoxFlowProviderVolcengine",
                 "VoxFlowProviderParaformer",
                 "VoxFlowProviderQwen3",
+                "VoxFlowProviderR2T2",
                 "VoxFlowProviderSenseVoice",
                 "VoxFlowProviderTencentCloud",
                 "VoxFlowProviderWhisper",
@@ -458,6 +481,16 @@ let package = Package(
             path: "Tests/VoxFlowProviders/VoxFlowProviderQwen3Tests"
         ),
         .testTarget(
+            name: "VoxFlowProviderR2T2Tests",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                "VoxFlowModelStore",
+                "VoxFlowProviderR2T2"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderR2T2Tests"
+        ),
+        .testTarget(
             name: "VoxFlowProviderWhisperTests",
             dependencies: [
                 "VoxFlowASRCore",
@@ -474,6 +507,16 @@ let package = Package(
                 "VoxFlowProviderFunASR"
             ],
             path: "Tests/VoxFlowProviders/VoxFlowProviderFunASRTests"
+        ),
+        .testTarget(
+            name: "VoxFlowProviderFireRedASRTests",
+            dependencies: [
+                "VoxFlowASRCore",
+                "VoxFlowAudio",
+                "VoxFlowModelStore",
+                "VoxFlowProviderFireRedASR"
+            ],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderFireRedASRTests"
         ),
         .testTarget(
             name: "VoxFlowProviderSenseVoiceTests",
@@ -534,6 +577,7 @@ let package = Package(
                 "VoxFlowAudio",
                 "VoxFlowProviderApple",
                 "VoxFlowProviderFunASR",
+                "VoxFlowProviderFireRedASR",
                 "VoxFlowProviderNVIDIA",
                 "VoxFlowProviderParakeet",
                 "VoxFlowProviderOmnilingual",
@@ -560,6 +604,7 @@ let package = Package(
                 "VoxFlowModelStore",
                 "VoxFlowPromptKit",
                 "VoxFlowProviderFunASR",
+                "VoxFlowProviderFireRedASR",
                 "VoxFlowProviderNVIDIA",
                 "VoxFlowProviderParakeet",
                 "VoxFlowProviderOmnilingual",

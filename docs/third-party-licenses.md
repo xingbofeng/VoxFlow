@@ -260,3 +260,68 @@ SOFTWARE.
   - `Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotHUDPanel.swift`
   - `Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotAutoScroller.swift`
   - `Sources/VoxFlowScreenshotKit/Capture/ScrollingScreenshotFrameAnalysis.swift`
+
+## xocialize/qwen3-asr-mlx-swift（Confucius4-R2T2 本机流式 runtime）
+
+- 上游项目：xocialize/qwen3-asr-mlx-swift
+- 上游 URL：https://github.com/xocialize/qwen3-asr-mlx-swift
+- 上游 commit：`7c8768ead04c886489e62929f2c23902b99631ab`（2026-10-01）
+- 许可证：MIT（Copyright (c) 2026 xocialize）
+- 引入方式：整体 vendored 到项目内隔离包 `Packages/VoxFlowR2T2Core`，不是 SwiftPM 远程依赖
+- 许可证与归属文件：
+  - `Packages/VoxFlowR2T2Core/LICENSE`
+  - `Packages/VoxFlowR2T2Core/NOTICE`
+  - `Packages/VoxFlowR2T2Core/PROVENANCE.md`（上游来源、本地全部改动、整改理由）
+- 本地改动：
+  - 包定义：`swift-tools-version` 6.2 → 6.1；`mlx-swift` 收敛到项目现有 `0.31.4`；丢弃上游 `qwen3asr-gates` 可执行 target。
+  - 命名：module / product / 目录 `Qwen3ASR` → `VoxFlowR2T2Core`（上游同名 module 与项目既有 `speech-swift` 冲突）。
+  - 源码：仅 `R2T2Stream.finish()` 的尾部冲刷条件与诊断 `steps` 的记录上限两处，其余与上游逐字节一致；细节见 `PROVENANCE.md`。
+  - 新增 `R2T2StreamPolicy`（把上述两处决策抽成可脱离模型权重测试的纯函数）。
+- 打包：`LICENSE` / `NOTICE` 经 `make build` / `make build-native` / `make build-dev` 复制到 `VoxFlow.app/Contents/Resources/ThirdPartyNotices/VoxFlowR2T2Core-{LICENSE,NOTICE}.txt`。
+- 上游衍化来源（上游 `NOTICE` 原文声明）：
+  - Blaizzy/mlx-audio-swift（MIT，Copyright (c) 2025 Prince Canuma）
+  - netease-youdao/Confucius4-R2T2 `r2t2/r2t2_asr.py`、`example.py`、`ws_server.py`（Apache-2.0，Copyright 2026 The NetEase Youdao team）
+- 与权重许可的关系：以上只覆盖**推理代码**。`mlx-community/Confucius4-R2T2-8bit` 权重适用 **NetEase Youdao Model Use License Agreement**，不由本项目再分发；`LICENSE`、`MODEL_LICENSE_zh`、`NOTICE` 由 ModelStore 随权重下载到用户本机，见 `docs/resource-ownership.md`。
+- 验证：
+  - `make test-r2t2-core`
+  - `swift test --filter VoxFlowProviderR2T2Tests`
+  - `make build-dev`（确认 `Contents/Resources/ThirdPartyNotices/` 已生成）
+
+## k2-fsa/sherpa-onnx（本地 ASR 运行时，含 FireRedASR2-AED 接入）
+
+- 上游项目：k2-fsa/sherpa-onnx
+- 上游 URL：https://github.com/k2-fsa/sherpa-onnx
+- 许可证：Apache License 2.0（`https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE`，2026-10-05 取回校验）
+- 引入方式：
+  - 预编译静态库 `Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/`（`libsherpa-onnx.a`、`libonnxruntime.a`、`Headers/`），由 `Package.swift` 的 `CSherpaOnnx` target 通过 `-LVendor/sherpa-onnx.xcframework/macos-arm64_x86_64 -lsherpa-onnx` 链接。归档内可检出的最高版本标记为 `1.13.3`，仓库内没有独立版本清单文件。
+  - C 桥接层 `Vendor/CSherpaOnnx/CSherpaOnnx.c` + `include/vox-sherpa.h` 是本项目自有的薄封装（`VoxSherpaModelConfig` → `SherpaOnnxOfflineRecognizerConfig`），不是上游文件。
+- 使用范围：`VoxFlowProviderFunASR`、`VoxFlowProviderParaformer`、`VoxFlowProviderSenseVoice`、`VoxFlowProviderFireRedASR` 四个本机 Provider；此外 App 壳层仍保留已停止使用的 `SherpaOnnxRecognizer`/`SherpaBatchASREngine` 历史路径。
+- 本地改动（FireRedASR2-AED 接入新增，仅追加、不改动既有分支）：
+  - `vox-sherpa.h`：新增 `VOX_SHERPA_FIRE_RED_ASR_CTC = 3`、`VOX_SHERPA_FIRE_RED_ASR = 4` 两个模型类型枚举值（原有 0/1/2 不变）。
+  - `CSherpaOnnx.c`：新增两个 `switch` 分支，分别填充 `model_config.fire_red_asr_ctc.{model,tokens}` 与 `model_config.fire_red_asr.{encoder,decoder,tokens}`；既有 `VOX_SHERPA_FUNASR_NANO` / `VOX_SHERPA_PARAFORMER` / `VOX_SHERPA_SENSE_VOICE` 分支未改动。
+- 验证：
+  - `make architecture-check`
+  - `xcrun swift build --target VoxFlowProviderFireRedASR`
+  - `swift test --filter VoxFlowProviderFireRedASRTests`
+
+## FireRedASR2-AED 权重的完整性与磁盘门槛
+
+- 归档自身 sha256：`43015b3f1643a5688b4821e8ed323473d38b798c4ec291471fe00df1bcfc4f1c`（838,589,068 B），在解包**之前**校验。
+- 解包产物逐文件 size + sha256：见 `FireRedASRModel.componentDigests`，由共享的 `ModelIntegrityValidator` 在 `ModelAtomicInstaller` 换入前校验。
+- 磁盘门槛：归档 + 解包结果需**同时**存在，即 `FireRedASRManifestCatalog.requiredDiskBytes`（≈2.07 GB）。空间不足时在发起任何网络请求之前失败，复用 `ModelDownloadError.insufficientDisk` 的既有文案。
+- 内存门槛：`FireRedASRManifestCatalog.minimumMemoryBytes = 16 GB`，由 `FireRedASRRuntimePreflight` 拦截；不足时 Provider 报结构化 `.hardwareUnsupported`，不加载权重。
+
+## FireRedASR2-AED 权重（上游 FireRedTeam）
+
+- 上游模型仓库：https://www.modelscope.cn/models/FireRedTeam/FireRedASR2-AED
+- 上游代码仓库：https://github.com/FireRedTeam/FireRedASR
+- 许可证：Apache License 2.0（`https://raw.githubusercontent.com/FireRedTeam/FireRedASR/main/LICENSE`，2026-10-05 取回校验，为标准 Apache-2.0 全文）
+- 分发方式：**既不再分发也不再打包**。权重由用户在设置页显式发起下载后，经 `FireRedASRManifestCatalog`（固定 URL + 逐组件 sha256）与 `FireRedASRModelStoreDownloader`（下载 → 归档 sha256 → 解包 → 逐组件校验 → 原子换入）安装到 `~/Library/Application Support/VoxFlow/models/fireredasr-aed-int8/<版本目录>/`；进入 App bundle 或仓库的只有 URL、文件大小与 hash 常量。
+- 本项目使用的资产：`sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26.tar.bz2`
+  - 来源：`https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26.tar.bz2`
+  - SHA-256：`43015b3f1643a5688b4821e8ed323473d38b798c4ec291471fe00df1bcfc4f1c`（838,589,068 B）
+  - 解包后必需文件：`encoder.int8.onnx`（817,286,833 B，`54048d66b6e8f3c80ea7ce95efe794587b0fd81d7271651d0decd3803852ae82`）、`decoder.int8.onnx`（417,291,928 B，`b840ce7196ae4a14d05ae84bbf56082b6b61ccec5610fda907dddbcea37354ff`）、`tokens.txt`（79,172 B，`1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b`）
+  - 该 tar.bz2 **不包含任何 LICENSE / NOTICE 文件**，唯一的说明文件是 107 B 的 `README.md`，内容只是「Model files are converted from <ModelScope 链接>」。因此「FireRedASR2-AED 权重适用 Apache-2.0」目前是基于上游代码仓库许可证的推断，不是权重资产自带声明。
+- 与代码许可的关系：`FireRedTeam/FireRedASR` 代码仓库的 Apache-2.0 只覆盖上游代码；权重资产的许可条款需要在发布前单独确认（见下）。
+- 发布前待确认：权重资产的实际许可条款与再分发条件。若结论是无法随 App 分发，当前实现不受影响（权重由用户在运行时自行下载）；若结论是需要在应用内展示许可，则需要在设置页补充归属展示。
+- 详见 `docs/fireredasr-integration-research.md`（选型、实测数据与拒绝的备选路线）。

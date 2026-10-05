@@ -145,7 +145,8 @@ struct ASRHotwordPayload: Sendable, Equatable {
 
     /// For Qwen3 speech-swift, the context string.
     var contextString: String? {
-        guard supportMode == .promptContext, engineType == .qwen3 else { return nil }
+        guard supportMode == .promptContext,
+              engineType == .qwen3 || engineType == .confucius4R2T2 else { return nil }
         return delivered.joined(separator: ", ")
     }
 
@@ -211,6 +212,17 @@ enum ASRHotwordCapabilityMatrix {
         .qwen3: ASRHotwordCapability(
             providerID: ASREngineType.qwen3.providerID,
             engineType: .qwen3,
+            supportMode: .promptContext,
+            maxCount: 0,
+            maxBudget: 500,
+            budgetUnit: .characters,
+            requiresConfiguration: false,
+            unsupportedReason: nil
+        ),
+        // Confucius4-R2T2: same prompt-context path as Qwen3
+        .confucius4R2T2: ASRHotwordCapability(
+            providerID: ASREngineType.confucius4R2T2.providerID,
+            engineType: .confucius4R2T2,
             supportMode: .promptContext,
             maxCount: 0,
             maxBudget: 500,
@@ -295,6 +307,17 @@ enum ASRHotwordCapabilityMatrix {
         .funASR: ASRHotwordCapability(
             providerID: ASREngineType.funASR.providerID,
             engineType: .funASR,
+            supportMode: .unsupported,
+            maxCount: 0,
+            maxBudget: 0,
+            budgetUnit: .count,
+            requiresConfiguration: false,
+            unsupportedReason: "provider_no_hotword_api"
+        ),
+        // sherpa-onnx 的 FireRedASR2-AED 路径没有热词接口（CTC/AED 都不接受 hotwords 文件）。
+        .fireRedASR: ASRHotwordCapability(
+            providerID: ASREngineType.fireRedASR.providerID,
+            engineType: .fireRedASR,
             supportMode: .unsupported,
             maxCount: 0,
             maxBudget: 0,

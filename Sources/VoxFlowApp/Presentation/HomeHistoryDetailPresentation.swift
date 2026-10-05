@@ -78,6 +78,8 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.asr.apple_speech", comment: "Apple Speech provider")
         case ASRProviderID.funASR:
             return L10n.localize("home.detail.asr.funasr", comment: "FunASR provider")
+        case ASRProviderID.fireRedASR:
+            return L10n.localize("home.detail.asr.fireredasr", comment: "FireRedASR2-AED provider")
         case ASRProviderID.whisper:
             return L10n.localize("home.detail.asr.whisper", comment: "Whisper provider")
         case ASRProviderID.qwen3:
@@ -86,6 +88,8 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.asr.paraformer", comment: "Paraformer provider")
         case ASRProviderID.senseVoice:
             return L10n.localize("home.detail.asr.sense_voice", comment: "SenseVoice provider")
+        case ASRProviderID.confucius4R2T2:
+            return L10n.localize("home.detail.asr.confucius4_r2t2", comment: "Confucius4-R2T2 provider")
         case ASRProviderID.nvidiaNemotron:
             return L10n.localize("home.detail.asr.nvidia_nemotron", comment: "NVIDIA Nemotron provider")
         case ASRProviderID.parakeetStreaming:

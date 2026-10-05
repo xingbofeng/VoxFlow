@@ -2,21 +2,25 @@ import Foundation
 import VoxFlowASRRuntime
 import VoxFlowASRCore
 import VoxFlowModelStore
+import VoxFlowProviderFireRedASR
 import VoxFlowProviderFunASR
 import VoxFlowProviderNVIDIA
 import VoxFlowProviderOmnilingual
 import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
+import VoxFlowProviderR2T2
 import VoxFlowProviderSenseVoice
 
 enum ASRProviderID {
     static let appleSpeech = "apple_speech"
     static let funASR = "funasr"
+    static let fireRedASR = "fireredasr"
     static let whisper = "whisper"
     static let qwen3 = "qwen3_asr"
     static let paraformer = "paraformer"
     static let senseVoice = "sense_voice"
+    static let confucius4R2T2 = "confucius4_r2t2"
     static let nvidiaNemotron = "nvidia_nemotron_3_5_asr_streaming_0_6b"
     static let parakeetStreaming = "parakeet_streaming"
     static let omnilingualASR = "omnilingual_asr"
@@ -133,12 +137,14 @@ struct ASRProviderDescriptor: Equatable, Identifiable {
     var supportsLocalModelControls: Bool {
         [
             ASRProviderID.funASR,
+            ASRProviderID.fireRedASR,
             ASRProviderID.nvidiaNemotron,
             ASRProviderID.parakeetStreaming,
             ASRProviderID.omnilingualASR,
             ASRProviderID.paraformer,
             ASRProviderID.qwen3,
             ASRProviderID.senseVoice,
+            ASRProviderID.confucius4R2T2,
             ASRProviderID.whisper,
         ].contains(id)
     }
@@ -227,10 +233,12 @@ final class ASRProviderRegistry {
     private static let builtInProviderIDs: Set<String> = [
         ASRProviderID.appleSpeech,
         ASRProviderID.funASR,
+        ASRProviderID.fireRedASR,
         ASRProviderID.whisper,
         ASRProviderID.qwen3,
         ASRProviderID.paraformer,
         ASRProviderID.senseVoice,
+        ASRProviderID.confucius4R2T2,
         ASRProviderID.nvidiaNemotron,
         ASRProviderID.parakeetStreaming,
         ASRProviderID.omnilingualASR,
@@ -246,11 +254,13 @@ final class ASRProviderRegistry {
         ASRProviderID.appleSpeech,
         ASRProviderID.qwen3,
         ASRProviderID.funASR,
+        ASRProviderID.fireRedASR,
         ASRProviderID.nvidiaNemotron,
         ASRProviderID.parakeetStreaming,
         ASRProviderID.omnilingualASR,
         ASRProviderID.paraformer,
         ASRProviderID.senseVoice,
+        ASRProviderID.confucius4R2T2,
         ASRProviderID.whisper,
     ]
     private static let onlineProviderDisplayOrder = [
@@ -448,6 +458,37 @@ final class ASRProviderRegistry {
             modelSize: nil,
             engineType: .funASR
         )
+        let fireRedASRState = asrManager.fireRedASRModelInstallationState()
+        let fireRedASRCoreDescriptor = FireRedASRProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: fireRedASRState)
+        )
+        let fireRedASRPresentation = speechSwiftLocalModelPresentation(
+            state: fireRedASRState,
+            isAvailable: Self.isReady(fireRedASRState),
+            readySummary: L10n.localize(
+                "asr.provider.fireredasr.ready_summary",
+                comment: "FireRedASR2-AED local model summary when installed"
+            ),
+            missingSummary: L10n.localize(
+                "asr.provider.fireredasr.missing_summary",
+                comment: "FireRedASR2-AED local model summary when not installed"
+            )
+        )
+        let fireRedASR = ASRProviderDescriptor(
+            id: fireRedASRCoreDescriptor.id.rawValue,
+            displayName: fireRedASRCoreDescriptor.displayName,
+            providerType: "fireredasr",
+            capabilities: [.fileTranscription, .local, .accurate, .multilingual, .punctuation],
+            tags: ["本地", "离线", "非流式"] + languageTags(from: fireRedASRCoreDescriptor) + ["AED", "INT8"],
+            isAvailable: fireRedASRPresentation.isAvailable,
+            localModelAction: fireRedASRPresentation.localModelAction,
+            healthStatus: fireRedASRPresentation.healthStatus,
+            isDefault: selectedID == ASRProviderID.fireRedASR,
+            statusMessage: fireRedASRPresentation.statusMessage,
+            privacySummary: fireRedASRPresentation.privacySummary,
+            modelSize: nil,
+            engineType: .fireRedASR
+        )
         let whisperState = asrManager.whisperModelInstallationState(for: asrManager.whisperVariant)
         let whisperPresentation = whisperLocalModelPresentation(
             variant: asrManager.whisperVariant,
@@ -563,6 +604,34 @@ final class ASRProviderRegistry {
             modelSize: nil,
             engineType: .parakeetStreaming
         )
+        let r2t2State = asrManager.r2t2ModelInstallationState()
+        let r2t2CoreDescriptor = R2T2ProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: r2t2State)
+        )
+        let r2t2Presentation = speechSwiftLocalModelPresentation(
+            state: r2t2State,
+            isAvailable: Self.isReady(r2t2State),
+            readySummary: L10n.localize("asr.provider.r2t2.ready_summary", comment: "R2T2 local model summary"),
+            missingSummary: L10n.localize("asr.provider.r2t2.missing_summary", comment: "R2T2 local model missing summary")
+        )
+        let r2t2StatusMessage = [r2t2Presentation.statusMessage, asrManager.r2t2PreflightCautionNote]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        let r2t2 = ASRProviderDescriptor(
+            id: r2t2CoreDescriptor.id.rawValue,
+            displayName: r2t2CoreDescriptor.displayName,
+            providerType: "confucius4R2T2",
+            capabilities: [.streaming, .local, .accurate, .multilingual],
+            tags: ["本地", "离线", "流式"] + languageTags(from: r2t2CoreDescriptor) + ["MLX", "8bit"],
+            isAvailable: r2t2Presentation.isAvailable,
+            localModelAction: r2t2Presentation.localModelAction,
+            healthStatus: r2t2Presentation.healthStatus,
+            isDefault: selectedID == ASRProviderID.confucius4R2T2,
+            statusMessage: r2t2StatusMessage,
+            privacySummary: r2t2Presentation.privacySummary,
+            modelSize: nil,
+            engineType: .confucius4R2T2
+        )
         let omnilingualState = asrManager.omnilingualModelInstallationState()
         let omnilingualCoreDescriptor = OmnilingualProviderDescriptor.descriptor(
             modelInstallationState: Self.asrCoreInstallationState(from: omnilingualState)
@@ -591,11 +660,13 @@ final class ASRProviderRegistry {
         let localDescriptors = [
             apple,
             funASR,
+            fireRedASR,
             nvidia,
             parakeet,
             omnilingual,
             paraformer,
             qwen,
+            r2t2,
             senseVoice,
             whisper,
         ].map { applyingSelectedUnavailableRecovery(to: $0) }

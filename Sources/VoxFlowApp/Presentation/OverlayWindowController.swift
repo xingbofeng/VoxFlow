@@ -242,7 +242,7 @@ final class OverlayWindowController: NSWindowController {
         textLabel.isEditable = false
         textLabel.drawsBackground = false
         textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
-        textLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+        textLabel.font = OverlayLayout.textFont
         textLabel.lineBreakMode = OverlayLayout.textLineBreakMode
         textLabel.maximumNumberOfLines = OverlayLayout.maxVisibleLines
         textLabel.alignment = .left
@@ -1339,7 +1339,12 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         }
-        let visibleText = OverlayLayout.visibleTranscriptionText(displayText)
+        // 精修阶段窗口是按文本实测宽度撑开的（最宽 420pt），所以按「最宽文本区」而不是
+        // 口述时的 240pt 固定宽度算可见量，避免把本来放得下的内容截短。
+        let visibleText = OverlayLayout.visibleTranscriptionText(
+            displayText,
+            width: OverlayLayout.maximumTextWidth
+        )
         textLabel.stringValue = visibleText
 
         if isRefining {

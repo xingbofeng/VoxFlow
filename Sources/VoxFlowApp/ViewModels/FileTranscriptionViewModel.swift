@@ -171,6 +171,8 @@ extension ASRFileTranscriptionWorker: PromptAwareFileTranscriptionWorking {
             return .apple
         case ASRProviderID.funASR:
             return .funASR
+        case ASRProviderID.fireRedASR:
+            return .fireRedASR
         case ASRProviderID.whisper:
             return .whisper
         case ASRProviderID.qwen3:

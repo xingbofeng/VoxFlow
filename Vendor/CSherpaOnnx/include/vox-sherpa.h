@@ -11,6 +11,10 @@ typedef enum VoxSherpaModelType {
   VOX_SHERPA_FUNASR_NANO = 0,
   VOX_SHERPA_WHISPER = 1,
   VOX_SHERPA_PARAFORMER = 2,
+  /* FireRedASR2 CTC export: single self-contained model file (`model`). */
+  VOX_SHERPA_FIRE_RED_ASR_CTC = 3,
+  /* FireRedASR2 AED export: encoder + decoder pair. */
+  VOX_SHERPA_FIRE_RED_ASR = 4,
 } VoxSherpaModelType;
 
 typedef struct VoxSherpaModelConfig {

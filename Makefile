@@ -11,6 +11,19 @@ COPY_RESOURCE_BUNDLES = for bundle in "$(1)"/*.bundle; do \
 		case "$$(basename "$$bundle")" in *Tests.bundle) continue ;; esac; \
 		cp -R "$$bundle" "$(2)/Contents/Resources/"; \
 	done
+# vendored 第三方源码的许可与归属说明。源文件只在对应 package 内保留一份，打包时复制进
+# App bundle，避免仓库里出现第二份会漂移的副本。每项格式为 <源文件>:<bundle 内文件名>。
+THIRD_PARTY_NOTICES := \
+	Packages/VoxFlowR2T2Core/LICENSE:VoxFlowR2T2Core-LICENSE.txt \
+	Packages/VoxFlowR2T2Core/NOTICE:VoxFlowR2T2Core-NOTICE.txt
+# 说明：`#` 在 Make 变量赋值里会开始注释，所以 shell 参数展开的 `##` 必须写成 `\#\#`。
+COPY_THIRD_PARTY_NOTICES = mkdir -p "$(1)/Contents/Resources/ThirdPartyNotices" && \
+	for entry in $(THIRD_PARTY_NOTICES); do \
+		cp "$${entry%%:*}" "$(1)/Contents/Resources/ThirdPartyNotices/$${entry\#\#*:}"; \
+	done
+VERIFY_THIRD_PARTY_NOTICES = for entry in $(THIRD_PARTY_NOTICES); do \
+		test -f "$(1)/Contents/Resources/ThirdPartyNotices/$${entry\#\#*:}" || exit 1; \
+	done
 VOXFLOW_DEVELOPER_DIR ?= $(HOME)/Applications/Xcode-16.4.0.app/Contents/Developer
 ifneq ($(wildcard $(VOXFLOW_DEVELOPER_DIR)),)
 export DEVELOPER_DIR := $(VOXFLOW_DEVELOPER_DIR)
@@ -69,7 +82,7 @@ export SENTRY_PROJECT
 SWIFT_RELEASE_FLAGS := -c release -Xswiftc -Osize
 SWIFT_DEBUG_FLAGS := -c debug -Xswiftc -warnings-as-errors
 
-.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-signing-preflight ios-ipa ios-ipa-unsigned ios-keyboard-release-archive ios-clean
+.PHONY: all prepare-release prepare-runtime prepare-agent-helper require-release-signing-identity test test-r2t2-core architecture-check smoke-asr-provider smoke-asr-live build build-native build-dev run run-native run-dev sentry-upload-dev-dsym install dmg release release-check apply-launch-env clean debug prelaunch-cleanup clean-ls-cache reset-dev-state gen-l10n lint i18n-check xcode-toolchain-check ios-bootstrap ios-rime-schemas ios-rime-prebuild ios-rime-prebuild-if-needed ios-gen-project ios-dev-cloud-resource ios-build-sim ios-build-device ios-run-sim ios-test-sim ios-ui-test-sim ios-device-preflight ios-signing-preflight ios-ipa ios-ipa-unsigned ios-keyboard-release-archive ios-clean
 
 all: build
 
@@ -86,6 +99,9 @@ $(SHERPA_ONNX_LIB) $(ONNXRUNTIME_LIB):
 
 test: prepare-runtime
 	$(SWIFT) test $(SWIFT_PACKAGE_FLAGS)
+
+test-r2t2-core:
+	$(SWIFT) test --package-path Packages/VoxFlowR2T2Core
 
 architecture-check:
 	python3 scripts/architecture_check.py --package Package.swift --source-root Sources
@@ -115,6 +131,7 @@ build: prepare-runtime prepare-agent-helper
 	@test -d "$(ARM_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@test -d "$(ARM_RELEASE_BIN_DIR)/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)"
 	@$(call COPY_RESOURCE_BUNDLES,$(ARM_RELEASE_BIN_DIR),$(BUNDLE_DIR))
+	@$(call COPY_THIRD_PARTY_NOTICES,$(BUNDLE_DIR))
 	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch arm64
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
@@ -129,6 +146,7 @@ build: prepare-runtime prepare-agent-helper
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)/en.lproj/ScreenshotKit.strings"
+	@$(call VERIFY_THIRD_PARTY_NOTICES,$(BUNDLE_DIR))
 	@bash "$(VERIFY_RUNTIME_BUNDLES_SCRIPT)" "$(ARM_RELEASE_BIN_DIR)" "$(BUNDLE_DIR)"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
@@ -159,6 +177,7 @@ build-native: prepare-runtime prepare-agent-helper
 	@test -d "$(NATIVE_RELEASE_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@test -d "$(NATIVE_RELEASE_BIN_DIR)/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)"
 	@$(call COPY_RESOURCE_BUNDLES,$(NATIVE_RELEASE_BIN_DIR),$(BUNDLE_DIR))
+	@$(call COPY_THIRD_PARTY_NOTICES,$(BUNDLE_DIR))
 	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
@@ -173,6 +192,7 @@ build-native: prepare-runtime prepare-agent-helper
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@test -f "$(BUNDLE_DIR)/Contents/Resources/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)/en.lproj/ScreenshotKit.strings"
+	@$(call VERIFY_THIRD_PARTY_NOTICES,$(BUNDLE_DIR))
 	@bash "$(VERIFY_RUNTIME_BUNDLES_SCRIPT)" "$(NATIVE_RELEASE_BIN_DIR)" "$(BUNDLE_DIR)"
 	@plutil -lint "$(BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"
@@ -203,6 +223,7 @@ build-dev: prepare-runtime prepare-agent-helper
 	@test -d "$(NATIVE_DEBUG_BIN_DIR)/$(RESOURCE_BUNDLE_NAME)"
 	@test -d "$(NATIVE_DEBUG_BIN_DIR)/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)"
 	@$(call COPY_RESOURCE_BUNDLES,$(NATIVE_DEBUG_BIN_DIR),$(DEV_BUNDLE_DIR))
+	@$(call COPY_THIRD_PARTY_NOTICES,$(DEV_BUNDLE_DIR))
 	@for dir in $(LOCALE_LPROJ_DIRS); do cp -R "$$dir" "$(DEV_BUNDLE_DIR)/Contents/Resources/"; done
 	@lipo "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(APP_NAME)" -verify_arch $(SWIFT_NATIVE_ARCH)
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/MacOS/$(MLX_METALLIB)"
@@ -219,6 +240,7 @@ build-dev: prepare-runtime prepare-agent-helper
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/AuthorWeChatQRCode.jpg"
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/Resources/$(RESOURCE_BUNDLE_NAME)/GitHubMark.png"
 	@test -f "$(DEV_BUNDLE_DIR)/Contents/Resources/$(SCREENSHOT_RESOURCE_BUNDLE_NAME)/en.lproj/ScreenshotKit.strings"
+	@$(call VERIFY_THIRD_PARTY_NOTICES,$(DEV_BUNDLE_DIR))
 	@bash "$(VERIFY_RUNTIME_BUNDLES_SCRIPT)" "$(NATIVE_DEBUG_BIN_DIR)" "$(DEV_BUNDLE_DIR)"
 	@plutil -lint "$(DEV_BUNDLE_DIR)/Contents/Info.plist"
 	@echo "🔏 Signing with: $(CODE_SIGN_IDENTITY)"

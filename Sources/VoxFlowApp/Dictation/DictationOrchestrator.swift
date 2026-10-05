@@ -561,8 +561,9 @@ final class DictationOrchestrator {
             return finalTimeoutNanoseconds
         }
         switch currentConfiguration.engineType {
-        case .funASR, .senseVoice, .paraformer, .groqWhisper, .tencentCloud,
-             .aliyunDashScope, .volcengineDoubao, .parakeetStreaming, .omnilingualASR:
+        case .funASR, .fireRedASR, .senseVoice, .confucius4R2T2, .paraformer, .groqWhisper,
+             .tencentCloud, .aliyunDashScope, .volcengineDoubao, .parakeetStreaming,
+             .omnilingualASR:
             return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
         case .apple, .whisper, .qwen3, .nvidiaNemotron:
             return finalTimeoutNanoseconds
@@ -1277,12 +1278,16 @@ extension ASREngineType {
             return ASRProviderID.appleSpeech
         case .funASR:
             return ASRProviderID.funASR
+        case .fireRedASR:
+            return ASRProviderID.fireRedASR
         case .whisper:
             return ASRProviderID.whisper
         case .qwen3:
             return ASRProviderID.qwen3
         case .senseVoice:
             return ASRProviderID.senseVoice
+        case .confucius4R2T2:
+            return ASRProviderID.confucius4R2T2
         case .paraformer:
             return ASRProviderID.paraformer
         case .nvidiaNemotron:

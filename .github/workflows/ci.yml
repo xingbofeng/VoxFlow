@@ -34,6 +34,7 @@ jobs:
             echo "rust_agent=true" >> "$GITHUB_OUTPUT"
             echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
             echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
+            echo "r2t2_core_tests=true" >> "$GITHUB_OUTPUT"
             echo "ios=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -62,6 +63,12 @@ jobs:
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -E '^(Packages/VoxFlowR2T2Core/|Sources/VoxFlowProviders/VoxFlowProviderR2T2/|Makefile$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
+            echo "r2t2_core_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "r2t2_core_tests=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check release metadata
@@ -124,6 +131,10 @@ jobs:
           echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
           echo "| swift test --parallel --num-workers $swift_test_workers --jobs $swift_build_jobs | $duration |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run R2T2 core tests
+        if: steps.changes.outputs.r2t2_core_tests == 'true'
+        run: make test-r2t2-core
 
       - name: Run voice correction benchmark
         if: steps.changes.outputs.voice_correction_benchmark == 'true'
