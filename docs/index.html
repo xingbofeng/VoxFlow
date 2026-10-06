@@ -274,7 +274,7 @@
   {
     "tag_name": "v1.18.1",
     "name": "VoxFlow 1.18.1",
-    "body": "# VoxFlow 1.18.1\n\n## 更新摘要\n\n- 请用 2-4 条面向用户的语言说明本次主要变化。\n\n## 细节\n\n- 功能：\n- 修复：\n- 体验：\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.18.1\n- `CFBundleVersion`：30\n- macOS DMG：`VoxFlow-1.18.1-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.18.1-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.18.1-windows-x64-portable.zip`\n",
+    "body": "# VoxFlow 1.18.1\n\n## 更新摘要\n\n- 工程维护版本：应用功能与 1.18.0 保持一致，主要改进发布流水线与 CI 测试稳定性，无需急于更新。\n- 发布流水线提速：Windows 与 macOS 发布构建引入 Rust 运行时、vcpkg 与 NuGet 构建缓存，后续版本发布耗时更短。\n\n## 细节\n\n- 发布流水线：Tesseract 原生库改走 vcpkg 二进制缓存（命中时直接解包预编译包，仅脚本或依赖基线变化才重新编译）；agent 运行时与 helper 的 Rust 构建缓存化；测试流水线按模块分片并行执行。\n- 稳定性：修复 CI 中 iOS 模拟器键盘剪贴板桥接测试偶发超时（异步回调等待窗口与固定回调延迟不匹配），仅影响 CI，不影响应用行为。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.18.1\n- `CFBundleVersion`：30\n- macOS DMG：`VoxFlow-1.18.1-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.18.1-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.18.1-windows-x64-portable.zip`\n",
     "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.1",
     "published_at": ""
   },

@@ -26,7 +26,7 @@
       }
     }
   },
-  "releaseNotes": "请用 2-4 条面向用户的语言说明本次主要变化。",
+  "releaseNotes": "工程维护版本：应用功能与 1.18.0 保持一致，主要改进发布流水线与 CI 测试稳定性，无需急于更新。",
   "draft": false,
   "prerelease": false
 }
