@@ -1,15 +1,15 @@
 const release = {
-  version: "1.18.0",
-  tag: "v1.18.0",
-  assetName: "VoxFlow-1.18.0-macOS.dmg",
+  version: "1.18.1",
+  tag: "v1.18.1",
+  assetName: "VoxFlow-1.18.1-macOS.dmg",
   publishedPlatforms: ["macos", "windows"],
   assets: {
     macos: {
-      dmg: { name: "VoxFlow-1.18.0-macOS.dmg" }
+      dmg: { name: "VoxFlow-1.18.1-macOS.dmg" }
     },
     windows: {
-      installer: { name: "VoxFlow-1.18.0-windows-x64-setup.exe" },
-      portable: { name: "VoxFlow-1.18.0-windows-x64-portable.zip" }
+      installer: { name: "VoxFlow-1.18.1-windows-x64-setup.exe" },
+      portable: { name: "VoxFlow-1.18.1-windows-x64-portable.zip" }
     },
     /* RELEASE_IOS_ASSET_BEGIN */
     /* RELEASE_IOS_ASSET_END */
