@@ -146,6 +146,7 @@
 "asr.error.download_cancelled" = "다운로드가 취소되었습니다.";
 "asr.error.download_interrupted" = "다운로드가 중단되었습니다. 네트워크를 확인 후 다시 시도하세요.";
 "asr.error.empty_transcript" = "음성 인식 결과가 생성되지 않았습니다. 다시 시도하세요.";
+"asr.error.no_effective_speech" = "음성이 감지되지 않았습니다. 마이크에 더 가까이 대고 다시 시도하세요.";
 "asr.error.hardware_unsupported" = "현재 기기는 선택한 ASR 엔진을 지원하지 않습니다.";
 "asr.error.connection_timeout" = "인식 서비스 응답 시간 초과입니다. 다시 시도하세요.";
 "asr.error.api_key_missing" = "API 키가 설정되지 않았습니다. 설정에서 입력하세요.";
@@ -2365,3 +2366,23 @@
 "notes.source.file_transcription" = "파일 전사";
 "notes.source.history" = "받아쓰기";
 "notes.source.manual" = "수동";
+
+// X-ASR native streaming
+"asr.provider.xasr.name" = "X-ASR-zh-en";
+"asr.provider.xasr.ready_summary" = "중국어, 영어 및 두 언어가 섞인 음성을 지원하는 로컬 네이티브 스트리밍 인식입니다. 문장 부호를 유지하며 핫워드는 지원하지 않습니다. 초기 모델 테스트에서는 약 1.2–1.6초 후 첫 텍스트가 표시되었습니다. 소요 시간은 기기에 따라 다릅니다.";
+"asr.provider.xasr.missing_summary" = "중국어·영어 네이티브 스트리밍 모델을 다운로드합니다(약 615 MB). Apple Silicon, macOS 15 이상 및 8 GB 이상의 메모리가 필요합니다. 음성을 업로드하지 않고 이 Mac에서 인식합니다.";
+"asr.xasr.unsupported.architecture" = "X-ASR에는 Apple Silicon(arm64) 네이티브 프로세스가 필요합니다. Intel Mac 및 Rosetta 프로세스는 지원하지 않습니다.";
+"asr.xasr.unsupported.os" = "X-ASR에는 macOS %d 이상이 필요합니다.";
+"asr.xasr.unsupported.memory" = "X-ASR에는 %d GB 이상의 메모리가 필요합니다.";
+"asr.xasr.preparing" = "짧은 진단용 음성으로 X-ASR을 확인하는 중…";
+"asr.xasr.canary_failed" = "X-ASR이 진단용 음성을 인식하지 못했습니다. 모델을 복구한 후 다시 시도하세요.";
+"asr.xasr.files_missing" = "X-ASR 모델 파일이 없거나 불완전합니다. 모델을 복구하세요.";
+"asr.xasr.installed" = "X-ASR 모델이 설치되어 사용할 수 있습니다.";
+"asr.xasr.deleted" = "X-ASR 모델을 삭제했습니다.";
+"menu.provider_tag.punctuation" = "문장 부호";
+"asr.xasr.start_failed" = "X-ASR을 시작하지 못했습니다. 모델을 준비하거나 복구한 후 다시 시도하세요.";
+"asr.xasr.busy" = "X-ASR이 사용 중입니다. 현재 녹음을 끝낸 후 다시 시도하세요.";
+"asr.xasr.unsupported_language" = "X-ASR은 중국어, 영어 및 두 언어가 섞인 음성을 지원합니다.";
+"asr.xasr.invalid_audio" = "X-ASR이 음성을 처리하지 못했습니다. 다시 녹음하세요.";
+"asr.xasr.invalidated" = "X-ASR이 해제되거나 변경되었습니다. 새 녹음을 시작하세요.";
+"asr.xasr.download_failed" = "X-ASR 모델 다운로드에 실패했습니다. 다시 시도하면 다운로드를 이어서 진행합니다.";

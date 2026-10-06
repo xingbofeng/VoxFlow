@@ -11,11 +11,13 @@ import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderR2T2
 import VoxFlowProviderSenseVoice
+import VoxFlowProviderXASR
 
 enum ASRProviderID {
     static let appleSpeech = "apple_speech"
     static let funASR = "funasr"
     static let fireRedASR = "fireredasr"
+    static let xasr = "xasr"
     static let whisper = "whisper"
     static let qwen3 = "qwen3_asr"
     static let paraformer = "paraformer"
@@ -138,6 +140,7 @@ struct ASRProviderDescriptor: Equatable, Identifiable {
         [
             ASRProviderID.funASR,
             ASRProviderID.fireRedASR,
+            ASRProviderID.xasr,
             ASRProviderID.nvidiaNemotron,
             ASRProviderID.parakeetStreaming,
             ASRProviderID.omnilingualASR,
@@ -234,6 +237,7 @@ final class ASRProviderRegistry {
         ASRProviderID.appleSpeech,
         ASRProviderID.funASR,
         ASRProviderID.fireRedASR,
+        ASRProviderID.xasr,
         ASRProviderID.whisper,
         ASRProviderID.qwen3,
         ASRProviderID.paraformer,
@@ -262,6 +266,7 @@ final class ASRProviderRegistry {
         ASRProviderID.senseVoice,
         ASRProviderID.confucius4R2T2,
         ASRProviderID.whisper,
+        ASRProviderID.xasr,
     ]
     private static let onlineProviderDisplayOrder = [
         ASRProviderID.groqWhisper,
@@ -489,6 +494,31 @@ final class ASRProviderRegistry {
             modelSize: nil,
             engineType: .fireRedASR
         )
+        let xasrState = asrManager.xasrModelInstallationState()
+        let xasrCoreDescriptor = XASRProviderDescriptor.descriptor(
+            modelInstallationState: Self.asrCoreInstallationState(from: xasrState)
+        )
+        let xasrPresentation = speechSwiftLocalModelPresentation(
+            state: xasrState,
+            isAvailable: Self.isReady(xasrState),
+            readySummary: L10n.localize("asr.provider.xasr.ready_summary", comment: "X-ASR local model summary"),
+            missingSummary: L10n.localize("asr.provider.xasr.missing_summary", comment: "X-ASR model installation summary")
+        )
+        let xasr = ASRProviderDescriptor(
+            id: xasrCoreDescriptor.id.rawValue,
+            displayName: xasrCoreDescriptor.displayName,
+            providerType: "xasr",
+            capabilities: [.streaming, .local, .multilingual, .punctuation],
+            tags: ["本地", "离线", "流式"] + languageTags(from: xasrCoreDescriptor),
+            isAvailable: xasrPresentation.isAvailable,
+            localModelAction: xasrPresentation.localModelAction,
+            healthStatus: xasrPresentation.healthStatus,
+            isDefault: selectedID == ASRProviderID.xasr,
+            statusMessage: xasrPresentation.statusMessage,
+            privacySummary: xasrPresentation.privacySummary,
+            modelSize: nil,
+            engineType: .xasr
+        )
         let whisperState = asrManager.whisperModelInstallationState(for: asrManager.whisperVariant)
         let whisperPresentation = whisperLocalModelPresentation(
             variant: asrManager.whisperVariant,
@@ -669,6 +699,7 @@ final class ASRProviderRegistry {
             r2t2,
             senseVoice,
             whisper,
+            xasr,
         ].map { applyingSelectedUnavailableRecovery(to: $0) }
         return Dictionary(uniqueKeysWithValues: localDescriptors.map { ($0.id, $0) })
             .merging(onlineCatalogDescriptors()) { local, _ in local }

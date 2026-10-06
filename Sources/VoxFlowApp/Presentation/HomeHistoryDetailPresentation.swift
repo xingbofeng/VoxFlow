@@ -80,6 +80,8 @@ enum HomeHistoryDetailPresentation {
             return L10n.localize("home.detail.asr.funasr", comment: "FunASR provider")
         case ASRProviderID.fireRedASR:
             return L10n.localize("home.detail.asr.fireredasr", comment: "FireRedASR2-AED provider")
+        case ASRProviderID.xasr:
+            return L10n.localize("asr.provider.xasr.name", comment: "X-ASR history provider")
         case ASRProviderID.whisper:
             return L10n.localize("home.detail.asr.whisper", comment: "Whisper provider")
         case ASRProviderID.qwen3:

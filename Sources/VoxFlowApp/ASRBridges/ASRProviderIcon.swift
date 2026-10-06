@@ -2,14 +2,7 @@ import AppKit
 
 enum ASRProviderIcon {
     static func systemSymbolName(providerID: String) -> String? {
-        switch providerID {
-        // 尚无品牌图：用系统符号占位，避免卡片出现空白图标块。
-        // 补上 ASRConfucius.png 后应删掉这条，改为 load() 的 bundle 图。
-        case ASRProviderID.confucius4R2T2, ASRProviderID.fireRedASR:
-            return "waveform.circle"
-        default:
-            return nil
-        }
+        providerID == ASRProviderID.xasr ? "waveform" : nil
     }
 
     static func textBadge(providerID: String) -> String? {
@@ -25,8 +18,12 @@ enum ASRProviderIcon {
         switch providerID {
         case ASRProviderID.appleSpeech:
             resourceName = "ASRAppleSpeech"
+        case ASRProviderID.confucius4R2T2:
+            resourceName = "ASRConfucius"
         case ASRProviderID.funASR:
             resourceName = "ASRFunASR"
+        case ASRProviderID.fireRedASR:
+            resourceName = "ASRFireRedASR"
         case ASRProviderID.whisper:
             resourceName = "ASRWhisper"
         case ASRProviderID.qwen3:

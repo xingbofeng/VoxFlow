@@ -7,6 +7,9 @@ import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderWhisper
+import VoxFlowProviderXASR
+import VoxFlowProviderFireRedASR
+import VoxFlowProviderR2T2
 
 final class ASRProviderLiveSmokeTests: XCTestCase {
     func testConfiguredProviderRunsMinimalSmokeCorpus() async throws {
@@ -108,6 +111,24 @@ final class ASRProviderLiveSmokeTests: XCTestCase {
             let modelURL = try modelURL(environment["VOICEINPUT_TEST_SENSEVOICE_MODEL_PATH"], providerID: providerID)
             return SenseVoiceASRProvider(
                 descriptor: SenseVoiceProviderDescriptor.descriptor(modelInstallationState: .ready),
+                modelURL: modelURL
+            )
+        case "xasr":
+            let modelURL = try modelURL(environment["VOICEINPUT_TEST_XASR_MODEL_DIR"], providerID: providerID)
+            return XASRASRProvider(
+                descriptor: XASRProviderDescriptor.descriptor(modelInstallationState: .ready),
+                modelURL: modelURL
+            )
+        case "fireredasr":
+            let modelURL = try modelURL(environment["VOICEINPUT_TEST_FIREREDASR_MODEL_DIR"], providerID: providerID)
+            return FireRedASRASRProvider(
+                descriptor: FireRedASRProviderDescriptor.descriptor(modelInstallationState: .ready),
+                modelURL: modelURL
+            )
+        case "r2t2", "confucius4_r2t2":
+            let modelURL = try modelURL(environment["VOICEINPUT_TEST_R2T2_MODEL_DIR"], providerID: providerID)
+            return R2T2ASRProvider(
+                descriptor: R2T2ProviderDescriptor.descriptor(modelInstallationState: .ready),
                 modelURL: modelURL
             )
         default:

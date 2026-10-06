@@ -18,6 +18,7 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
                 "funasr-fp32",
                 "fireredasr2-aed-int8",
                 "paraformer",
+                "xasr-zh-en-480ms",
             ]
         )
     }

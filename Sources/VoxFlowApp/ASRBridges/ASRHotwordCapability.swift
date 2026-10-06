@@ -274,6 +274,16 @@ enum ASRHotwordCapabilityMatrix {
             unsupportedReason: "provider_no_hotword_api"
         ),
         // Unsupported providers
+        .xasr: ASRHotwordCapability(
+            providerID: ASREngineType.xasr.providerID,
+            engineType: .xasr,
+            supportMode: .unsupported,
+            maxCount: 0,
+            maxBudget: 0,
+            budgetUnit: .count,
+            requiresConfiguration: false,
+            unsupportedReason: "provider_no_hotword_api"
+        ),
         .parakeetStreaming: ASRHotwordCapability(
             providerID: ASREngineType.parakeetStreaming.providerID,
             engineType: .parakeetStreaming,

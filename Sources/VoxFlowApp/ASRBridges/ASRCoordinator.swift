@@ -73,7 +73,7 @@ final class ASRCoordinator: @preconcurrency ASREngineFactory {
 
     static func requiresFinalRecognitionIndicator(for engineType: ASREngineType) -> Bool {
         switch engineType {
-        case .qwen3, .whisper, .senseVoice, .confucius4R2T2, .funASR, .fireRedASR, .paraformer,
+        case .qwen3, .whisper, .senseVoice, .confucius4R2T2, .funASR, .fireRedASR, .xasr, .paraformer,
              .nvidiaNemotron, .parakeetStreaming, .omnilingualASR, .groqWhisper, .tencentCloud,
              .aliyunDashScope, .volcengineDoubao:
             return true

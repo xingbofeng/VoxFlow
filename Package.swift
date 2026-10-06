@@ -167,6 +167,12 @@ let package = Package(
             path: "Sources/VoxFlowProviders/VoxFlowProviderFireRedASR"
         ),
         .target(
+            name: "VoxFlowProviderXASR",
+            dependencies: ["VoxFlowASRCore", "VoxFlowAudio", "VoxFlowModelStore", "CSherpaOnnx"],
+            path: "Sources/VoxFlowProviders/VoxFlowProviderXASR",
+            resources: [.copy("Resources/xasr-canary.f32")]
+        ),
+        .target(
             name: "VoxFlowProviderSenseVoice",
             dependencies: [
                 "VoxFlowASRCore",
@@ -286,6 +292,7 @@ let package = Package(
                 "VoxFlowProviderFunASR",
                 "VoxFlowProviderFireRedASR",
                 "VoxFlowProviderAliyunDashScope",
+                "VoxFlowProviderXASR",
                 "VoxFlowProviderCloudCore",
                 "VoxFlowProviderGroq",
                 "VoxFlowProviderVolcengine",
@@ -322,8 +329,10 @@ let package = Package(
                 .copy("Resources/GitHubMark.png"),
                 .copy("Resources/ASRAppleSpeech.png"),
                 .copy("Resources/ASRAssemblyAI.png"),
+                .copy("Resources/ASRConfucius.png"),
                 .copy("Resources/ASRDoubao.png"),
                 .copy("Resources/ASRElevenLabs.png"),
+                .copy("Resources/ASRFireRedASR.png"),
                 .copy("Resources/ASRFunASR.png"),
                 .copy("Resources/ASRGroqWhisper.png"),
                 .copy("Resources/ASRMistralVoxtral.png"),
@@ -519,6 +528,11 @@ let package = Package(
             path: "Tests/VoxFlowProviders/VoxFlowProviderFireRedASRTests"
         ),
         .testTarget(
+            name: "VoxFlowProviderXASRTests",
+            dependencies: ["VoxFlowASRCore", "VoxFlowAudio", "VoxFlowModelStore", "VoxFlowProviderXASR"],
+            path: "Tests/VoxFlowProviders/VoxFlowProviderXASRTests"
+        ),
+        .testTarget(
             name: "VoxFlowProviderSenseVoiceTests",
             dependencies: [
                 "VoxFlowASRCore",
@@ -578,6 +592,8 @@ let package = Package(
                 "VoxFlowProviderApple",
                 "VoxFlowProviderFunASR",
                 "VoxFlowProviderFireRedASR",
+                "VoxFlowProviderXASR",
+                "VoxFlowProviderR2T2",
                 "VoxFlowProviderNVIDIA",
                 "VoxFlowProviderParakeet",
                 "VoxFlowProviderOmnilingual",

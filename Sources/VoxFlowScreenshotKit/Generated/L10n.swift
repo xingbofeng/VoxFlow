@@ -199,6 +199,8 @@ internal enum ScreenshotL10n {
         internal static let modelCorrupt = ScreenshotL10n.tr("Localizable", "asr.error.model_corrupt", fallback: "ASR model file is corrupted. Please re-download.")
         /// ===== ASR Provider error message mapping =====
         internal static let modelNotInstalled = ScreenshotL10n.tr("Localizable", "asr.error.model_not_installed", fallback: "ASR model is not installed. Please download it in Settings.")
+        /// No speech was detected. Move closer to the microphone and try again.
+        internal static let noEffectiveSpeech = ScreenshotL10n.tr("Localizable", "asr.error.no_effective_speech", fallback: "No speech was detected. Move closer to the microphone and try again.")
         /// The selected recognition language is not supported.
         internal static let unsupportedLanguage = ScreenshotL10n.tr("Localizable", "asr.error.unsupported_language", fallback: "The selected recognition language is not supported.")
       }
@@ -357,6 +359,14 @@ internal enum ScreenshotL10n {
           /// Show Volcengine credentials
           internal static let showCredentials = ScreenshotL10n.tr("Localizable", "asr.provider.volcengine.show_credentials", fallback: "Show Volcengine credentials")
         }
+        internal enum Xasr {
+          /// Download the Chinese–English native streaming model (about 615 MB). Requires Apple Silicon, macOS 15 or later, and at least 8 GB of memory. Recognition runs on this Mac without uploading audio.
+          internal static let missingSummary = ScreenshotL10n.tr("Localizable", "asr.provider.xasr.missing_summary", fallback: "Download the Chinese–English native streaming model (about 615 MB). Requires Apple Silicon, macOS 15 or later, and at least 8 GB of memory. Recognition runs on this Mac without uploading audio.")
+          /// X-ASR-zh-en
+          internal static let name = ScreenshotL10n.tr("Localizable", "asr.provider.xasr.name", fallback: "X-ASR-zh-en")
+          /// Local native streaming for Chinese, English and mixed speech, with punctuation. Hotwords are not supported. Initial model tests produced the first text in about 1.2–1.6 seconds; timing varies by device.
+          internal static let readySummary = ScreenshotL10n.tr("Localizable", "asr.provider.xasr.ready_summary", fallback: "Local native streaming for Chinese, English and mixed speech, with punctuation. Hotwords are not supported. Initial model tests produced the first text in about 1.2–1.6 seconds; timing varies by device.")
+        }
       }
       internal enum R2t2 {
         internal enum Caution {
@@ -375,6 +385,42 @@ internal enum ScreenshotL10n {
           /// Confucius4-R2T2 requires macOS %d or later.
           internal static func os(_ p1: Int) -> String {
             return ScreenshotL10n.tr("Localizable", "asr.r2t2.unsupported.os", p1, fallback: "Confucius4-R2T2 requires macOS %d or later.")
+          }
+        }
+      }
+      internal enum Xasr {
+        /// X-ASR is already in use. Finish the current recording and try again.
+        internal static let busy = ScreenshotL10n.tr("Localizable", "asr.xasr.busy", fallback: "X-ASR is already in use. Finish the current recording and try again.")
+        /// X-ASR could not transcribe the diagnostic sample. Repair the model and try again.
+        internal static let canaryFailed = ScreenshotL10n.tr("Localizable", "asr.xasr.canary_failed", fallback: "X-ASR could not transcribe the diagnostic sample. Repair the model and try again.")
+        /// X-ASR model deleted.
+        internal static let deleted = ScreenshotL10n.tr("Localizable", "asr.xasr.deleted", fallback: "X-ASR model deleted.")
+        /// X-ASR model download failed. Try again to resume the download.
+        internal static let downloadFailed = ScreenshotL10n.tr("Localizable", "asr.xasr.download_failed", fallback: "X-ASR model download failed. Try again to resume the download.")
+        /// X-ASR model files are missing or incomplete. Repair the model.
+        internal static let filesMissing = ScreenshotL10n.tr("Localizable", "asr.xasr.files_missing", fallback: "X-ASR model files are missing or incomplete. Repair the model.")
+        /// X-ASR is installed and ready.
+        internal static let installed = ScreenshotL10n.tr("Localizable", "asr.xasr.installed", fallback: "X-ASR is installed and ready.")
+        /// X-ASR could not process the audio. Try recording again.
+        internal static let invalidAudio = ScreenshotL10n.tr("Localizable", "asr.xasr.invalid_audio", fallback: "X-ASR could not process the audio. Try recording again.")
+        /// X-ASR was unloaded or changed. Start a new recording.
+        internal static let invalidated = ScreenshotL10n.tr("Localizable", "asr.xasr.invalidated", fallback: "X-ASR was unloaded or changed. Start a new recording.")
+        /// Checking X-ASR with a short diagnostic speech sample…
+        internal static let preparing = ScreenshotL10n.tr("Localizable", "asr.xasr.preparing", fallback: "Checking X-ASR with a short diagnostic speech sample…")
+        /// X-ASR could not start. Prepare or repair the model and try again.
+        internal static let startFailed = ScreenshotL10n.tr("Localizable", "asr.xasr.start_failed", fallback: "X-ASR could not start. Prepare or repair the model and try again.")
+        /// X-ASR supports Chinese, English and mixed Chinese–English speech.
+        internal static let unsupportedLanguage = ScreenshotL10n.tr("Localizable", "asr.xasr.unsupported_language", fallback: "X-ASR supports Chinese, English and mixed Chinese–English speech.")
+        internal enum Unsupported {
+          /// X-ASR requires a native Apple Silicon (arm64) process. Intel Macs and Rosetta processes are not supported.
+          internal static let architecture = ScreenshotL10n.tr("Localizable", "asr.xasr.unsupported.architecture", fallback: "X-ASR requires a native Apple Silicon (arm64) process. Intel Macs and Rosetta processes are not supported.")
+          /// X-ASR requires at least %d GB of memory.
+          internal static func memory(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "asr.xasr.unsupported.memory", p1, fallback: "X-ASR requires at least %d GB of memory.")
+          }
+          /// X-ASR requires macOS %d or later.
+          internal static func os(_ p1: Int) -> String {
+            return ScreenshotL10n.tr("Localizable", "asr.xasr.unsupported.os", p1, fallback: "X-ASR requires macOS %d or later.")
           }
         }
       }
@@ -2309,6 +2355,8 @@ internal enum ScreenshotL10n {
         internal static let offline = ScreenshotL10n.tr("Localizable", "menu.provider_tag.offline", fallback: "Offline")
         /// Online
         internal static let online = ScreenshotL10n.tr("Localizable", "menu.provider_tag.online", fallback: "Online")
+        /// Punctuation
+        internal static let punctuation = ScreenshotL10n.tr("Localizable", "menu.provider_tag.punctuation", fallback: "Punctuation")
         /// Streaming
         internal static let streaming = ScreenshotL10n.tr("Localizable", "menu.provider_tag.streaming", fallback: "Streaming")
       }

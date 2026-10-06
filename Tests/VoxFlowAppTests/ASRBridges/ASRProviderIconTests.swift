@@ -6,7 +6,9 @@ final class ASRProviderIconTests: XCTestCase {
         let providerIDs = [
             ASRProviderID.appleSpeech,
             ASRProviderID.assemblyAI,
+            ASRProviderID.confucius4R2T2,
             ASRProviderID.elevenLabsScribe,
+            ASRProviderID.fireRedASR,
             ASRProviderID.funASR,
             ASRProviderID.groqWhisper,
             ASRProviderID.mistralVoxtral,
@@ -57,11 +59,12 @@ final class ASRProviderIconTests: XCTestCase {
         XCTAssertNil(ASRProviderIcon.systemSymbolName(providerID: ASRProviderID.appleSpeech))
     }
 
-    func testR2T2FallsBackToSystemSymbolUntilABrandedIconExists() {
-        XCTAssertEqual(
-            ASRProviderIcon.systemSymbolName(providerID: ASRProviderID.confucius4R2T2),
-            "waveform.circle"
-        )
-        XCTAssertNil(ASRProviderIcon.load(providerID: ASRProviderID.confucius4R2T2))
+    func testNewLocalProvidersUseBundledBrandedIcons() throws {
+        for providerID in [ASRProviderID.confucius4R2T2, ASRProviderID.fireRedASR] {
+            let image = try XCTUnwrap(ASRProviderIcon.load(providerID: providerID))
+            XCTAssertTrue(image.isTemplate, "\(providerID) icon must accept the app tint")
+            XCTAssertEqual(image.size, CGSize(width: 128, height: 128))
+            XCTAssertNil(ASRProviderIcon.systemSymbolName(providerID: providerID))
+        }
     }
 }

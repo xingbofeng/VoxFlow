@@ -27,6 +27,20 @@ enum ASRProviderExpansionMatrix {
     static let task11Entries: [ASRProviderExpansionEntry] = {
         let entries = [
             ASRProviderExpansionEntry(
+                providerID: ASRProviderID.xasr,
+                variantID: "xasr-zh-en-480ms",
+                displayName: "X-ASR-zh-en",
+                providerTargetName: "VoxFlowProviderXASR",
+                modelStoreID: "xasr-zh-en-480ms",
+                runtimeRoute: "Vendored sherpa-onnx online Zipformer2 with a cached recognizer and isolated per-recording streams on Apple Silicon.",
+                streamingSemantics: .nativeStreaming,
+                status: .implemented,
+                requiresModelStoreLifecycle: true,
+                requiresRuntimePrewarmCanary: true,
+                requiresProviderLiveSmoke: true,
+                requiresAppForegroundInputSmoke: true
+            ),
+            ASRProviderExpansionEntry(
                 providerID: ASRProviderID.qwen3,
                 variantID: "qwen3-asr-0.6b",
                 displayName: "Qwen3-ASR 0.6B",

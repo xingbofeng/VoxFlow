@@ -6,6 +6,7 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
     case apple = "Apple Speech"
     case funASR = "FunASR"
     case fireRedASR = "FireRedASR2-AED"
+    case xasr = "X-ASR-zh-en"
     case whisper = "Whisper"
     case qwen3 = "Qwen3-ASR"
     case confucius4R2T2 = "Confucius4-R2T2"
@@ -27,6 +28,8 @@ enum ASREngineType: String, CaseIterable, Equatable, Hashable {
             return "FunASR"
         case .fireRedASR:
             return "FireRedASR2-AED"
+        case .xasr:
+            return L10n.localize("asr.provider.xasr.name", comment: "X-ASR provider name")
         case .whisper:
             return "Whisper"
         case .qwen3:

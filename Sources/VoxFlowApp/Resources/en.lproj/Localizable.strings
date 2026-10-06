@@ -143,6 +143,7 @@
 "asr.error.download_cancelled" = "Download cancelled.";
 "asr.error.download_interrupted" = "Download interrupted. Please check your network and try again.";
 "asr.error.empty_transcript" = "No transcription result was produced. Please try again.";
+"asr.error.no_effective_speech" = "No speech was detected. Move closer to the microphone and try again.";
 "asr.error.hardware_unsupported" = "This device does not support the selected ASR engine.";
 "asr.error.connection_timeout" = "Recognition service timed out. Please try again.";
 "asr.error.api_key_missing" = "API key is not configured. Please set it up in Settings.";
@@ -2365,3 +2366,23 @@
 "notes.source.file_transcription" = "File transcription";
 "notes.source.history" = "Dictation";
 "notes.source.manual" = "Manual";
+
+// X-ASR native streaming
+"asr.provider.xasr.name" = "X-ASR-zh-en";
+"asr.provider.xasr.ready_summary" = "Local native streaming for Chinese, English and mixed speech, with punctuation. Hotwords are not supported. Initial model tests produced the first text in about 1.2–1.6 seconds; timing varies by device.";
+"asr.provider.xasr.missing_summary" = "Download the Chinese–English native streaming model (about 615 MB). Requires Apple Silicon, macOS 15 or later, and at least 8 GB of memory. Recognition runs on this Mac without uploading audio.";
+"asr.xasr.unsupported.architecture" = "X-ASR requires a native Apple Silicon (arm64) process. Intel Macs and Rosetta processes are not supported.";
+"asr.xasr.unsupported.os" = "X-ASR requires macOS %d or later.";
+"asr.xasr.unsupported.memory" = "X-ASR requires at least %d GB of memory.";
+"asr.xasr.preparing" = "Checking X-ASR with a short diagnostic speech sample…";
+"asr.xasr.canary_failed" = "X-ASR could not transcribe the diagnostic sample. Repair the model and try again.";
+"asr.xasr.files_missing" = "X-ASR model files are missing or incomplete. Repair the model.";
+"asr.xasr.installed" = "X-ASR is installed and ready.";
+"asr.xasr.deleted" = "X-ASR model deleted.";
+"menu.provider_tag.punctuation" = "Punctuation";
+"asr.xasr.start_failed" = "X-ASR could not start. Prepare or repair the model and try again.";
+"asr.xasr.busy" = "X-ASR is already in use. Finish the current recording and try again.";
+"asr.xasr.unsupported_language" = "X-ASR supports Chinese, English and mixed Chinese–English speech.";
+"asr.xasr.invalid_audio" = "X-ASR could not process the audio. Try recording again.";
+"asr.xasr.invalidated" = "X-ASR was unloaded or changed. Start a new recording.";
+"asr.xasr.download_failed" = "X-ASR model download failed. Try again to resume the download.";

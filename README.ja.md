@@ -143,6 +143,10 @@ See [Agent workflows](docs/agent-workflows.md) for setup and safety boundaries.
 
 VoxFlow supports Apple Speech out of the box, local providers such as Qwen3-ASR, Whisper, FunASR, SenseVoice, Paraformer, NVIDIA Nemotron, Parakeet, and Omnilingual, plus optional cloud providers such as Groq, Tencent Cloud, Alibaba Cloud, and future provider slots.
 
+macOS 版には、ローカルで逐次認識する **Confucius4-R2T2** と、中国語の認識を重視し、蓄積した音声の再認識でライブプレビューを表示する **FireRedASR2-AED** も組み込まれています。どちらもモデルの別途ダウンロードと16 GB以上のメモリが必要です。R2T2はApple Silicon専用です。**X-ASR-zh-en** はApple Silicon向けの開発ソースに統合され、8 GiBのメモリ要件を設けています。受け入れ検証は継続中で、先に準備したv1.17.0のリリース内容には含まれません。
+
+「設定 → モデル」から明示的にダウンロードしてください。選択済みのモデルは自動変更されません。FireRedASR のプレビューはネイティブストリーミングではなく、X-ASR のファイル文字起こしはまだ公開していません。
+
 See [Speech models](docs/speech-models.md) for the full provider matrix.
 
 ## Privacy Summary

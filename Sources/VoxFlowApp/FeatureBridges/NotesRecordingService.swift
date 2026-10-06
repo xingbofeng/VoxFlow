@@ -276,7 +276,7 @@ final class NotesRecordingService: NSObject, NotesTranscribing {
             return finalTimeoutNanoseconds
         }
         switch currentEngineType {
-        case .funASR, .fireRedASR, .senseVoice, .confucius4R2T2, .paraformer, .groqWhisper,
+        case .funASR, .fireRedASR, .xasr, .senseVoice, .confucius4R2T2, .paraformer, .groqWhisper,
              .parakeetStreaming, .omnilingualASR, .volcengineDoubao:
             return max(finalTimeoutNanoseconds, Self.coldLocalModelFinalTimeoutNanoseconds)
         case .apple, .whisper, .qwen3, .nvidiaNemotron, .tencentCloud,

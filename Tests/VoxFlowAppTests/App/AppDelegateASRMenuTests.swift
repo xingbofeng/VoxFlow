@@ -27,6 +27,7 @@ final class AppDelegateASRMenuTests: XCTestCase {
                 "NVIDIA Nemotron ASR 0.6B",
                 "Parakeet Streaming",
                 "Omnilingual ASR",
+                "X-ASR-zh-en",
             ]
         )
     }

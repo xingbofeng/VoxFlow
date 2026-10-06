@@ -99,7 +99,7 @@ final class ASRMenuStateResolver {
             let variant = asrManager.whisperVariant
             AppLogger.dictation.debug("ASRMenuStateResolver current whisper variant=\(variant)")
             return ASRManager.isWhisperRuntimeSupported(variant: variant) && whisperAvailable(variant)
-        case .fireRedASR, .senseVoice, .confucius4R2T2, .paraformer, .nvidiaNemotron, .parakeetStreaming,
+        case .fireRedASR, .xasr, .senseVoice, .confucius4R2T2, .paraformer, .nvidiaNemotron, .parakeetStreaming,
              .omnilingualASR, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return asrManager.canSelectEngine(asrManager.selectedEngineType)
         }

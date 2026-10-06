@@ -275,8 +275,8 @@ SOFTWARE.
 - 本地改动：
   - 包定义：`swift-tools-version` 6.2 → 6.1；`mlx-swift` 收敛到项目现有 `0.31.4`；丢弃上游 `qwen3asr-gates` 可执行 target。
   - 命名：module / product / 目录 `Qwen3ASR` → `VoxFlowR2T2Core`（上游同名 module 与项目既有 `speech-swift` 冲突）。
-  - 源码：仅 `R2T2Stream.finish()` 的尾部冲刷条件与诊断 `steps` 的记录上限两处，其余与上游逐字节一致；细节见 `PROVENANCE.md`。
-  - 新增 `R2T2StreamPolicy`（把上述两处决策抽成可脱离模型权重测试的纯函数）。
+  - 源码有三处改动：`R2T2Stream.finish()` 的尾部冲刷条件、诊断 `steps` 的记录上限，以及暴露 `pendingText` / `R2T2Text.pendingTail` 供未确认尾部预览；其余与上游逐字节一致，细节见 `PROVENANCE.md`。
+  - 新增 `R2T2StreamPolicy` 和对应 model-free 测试；`PendingTailTests` 覆盖尾部预览行为。
 - 打包：`LICENSE` / `NOTICE` 经 `make build` / `make build-native` / `make build-dev` 复制到 `VoxFlow.app/Contents/Resources/ThirdPartyNotices/VoxFlowR2T2Core-{LICENSE,NOTICE}.txt`。
 - 上游衍化来源（上游 `NOTICE` 原文声明）：
   - Blaizzy/mlx-audio-swift（MIT，Copyright (c) 2025 Prince Canuma）
@@ -293,12 +293,12 @@ SOFTWARE.
 - 上游 URL：https://github.com/k2-fsa/sherpa-onnx
 - 许可证：Apache License 2.0（`https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE`，2026-10-05 取回校验）
 - 引入方式：
-  - 预编译静态库 `Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/`（`libsherpa-onnx.a`、`libonnxruntime.a`、`Headers/`），由 `Package.swift` 的 `CSherpaOnnx` target 通过 `-LVendor/sherpa-onnx.xcframework/macos-arm64_x86_64 -lsherpa-onnx` 链接。归档内可检出的最高版本标记为 `1.13.3`，仓库内没有独立版本清单文件。
+  - 预编译静态库 `Vendor/sherpa-onnx.xcframework/macos-arm64_x86_64/`（`libsherpa-onnx.a`、`libonnxruntime.a`、`Headers/`），由 `Package.swift` 的 `CSherpaOnnx` target 链接；`scripts/bootstrap-sherpa-onnx.sh` 固定版本 `1.13.3` 和下载校验值。
   - C 桥接层 `Vendor/CSherpaOnnx/CSherpaOnnx.c` + `include/vox-sherpa.h` 是本项目自有的薄封装（`VoxSherpaModelConfig` → `SherpaOnnxOfflineRecognizerConfig`），不是上游文件。
-- 使用范围：`VoxFlowProviderFunASR`、`VoxFlowProviderParaformer`、`VoxFlowProviderSenseVoice`、`VoxFlowProviderFireRedASR` 四个本机 Provider；此外 App 壳层仍保留已停止使用的 `SherpaOnnxRecognizer`/`SherpaBatchASREngine` 历史路径。
+- 当前独立 Provider 的使用范围：`VoxFlowProviderFunASR`、`VoxFlowProviderFireRedASR` 和开发中的 `VoxFlowProviderXASR`；Paraformer、SenseVoice 的当前 targets 使用 FluidAudio/CoreML。X-ASR 直接使用已由 modulemap 导出的官方 Online C API，不扩展离线 C shim。
 - 本地改动（FireRedASR2-AED 接入新增，仅追加、不改动既有分支）：
   - `vox-sherpa.h`：新增 `VOX_SHERPA_FIRE_RED_ASR_CTC = 3`、`VOX_SHERPA_FIRE_RED_ASR = 4` 两个模型类型枚举值（原有 0/1/2 不变）。
-  - `CSherpaOnnx.c`：新增两个 `switch` 分支，分别填充 `model_config.fire_red_asr_ctc.{model,tokens}` 与 `model_config.fire_red_asr.{encoder,decoder,tokens}`；既有 `VOX_SHERPA_FUNASR_NANO` / `VOX_SHERPA_PARAFORMER` / `VOX_SHERPA_SENSE_VOICE` 分支未改动。
+  - `CSherpaOnnx.c`：新增两个 `switch` 分支，分别填充 `model_config.fire_red_asr_ctc.model` 与 `model_config.fire_red_asr.{encoder,decoder}`，共用 `model_config.tokens`；既有 `VOX_SHERPA_FUNASR_NANO` / `VOX_SHERPA_WHISPER` / `VOX_SHERPA_PARAFORMER` 分支保持原路径。
 - 验证：
   - `make architecture-check`
   - `xcrun swift build --target VoxFlowProviderFireRedASR`
@@ -324,4 +324,11 @@ SOFTWARE.
   - 该 tar.bz2 **不包含任何 LICENSE / NOTICE 文件**，唯一的说明文件是 107 B 的 `README.md`，内容只是「Model files are converted from <ModelScope 链接>」。因此「FireRedASR2-AED 权重适用 Apache-2.0」目前是基于上游代码仓库许可证的推断，不是权重资产自带声明。
 - 与代码许可的关系：`FireRedTeam/FireRedASR` 代码仓库的 Apache-2.0 只覆盖上游代码；权重资产的许可条款需要在发布前单独确认（见下）。
 - 发布前待确认：权重资产的实际许可条款与再分发条件。若结论是无法随 App 分发，当前实现不受影响（权重由用户在运行时自行下载）；若结论是需要在应用内展示许可，则需要在设置页补充归属展示。
-- 详见 `docs/fireredasr-integration-research.md`（选型、实测数据与拒绝的备选路线）。
+
+## X-ASR-zh-en（开发版接入与固定权重）
+
+- 上游项目：[Gilgamesh-J/X-ASR](https://github.com/Gilgamesh-J/X-ASR)；候选权重页：[GilgameshWind/X-ASR-zh-en](https://huggingface.co/GilgameshWind/X-ASR-zh-en)。
+- 当前状态：`VoxFlowProviderXASR` 与固定 ModelStore manifest 已实现；模型由用户主动下载，权重不打包。没有新增第三方推理 runtime，继续复用 sherpa-onnx1.13.3。
+- 权重固定 revision：`689ff18c584d29910da37b6fe904db0c1489c9d1`，四文件路径 `deployment/models/chunk-480ms-model/`。精确大小与 SHA256 见 `XASRManifestCatalog`。
+- 权重许可来源：[固定版本官方模型卡](https://huggingface.co/GilgameshWind/X-ASR-zh-en/blob/689ff18c584d29910da37b6fe904db0c1489c9d1/README.md)，其模型 metadata 明确声明 `apache-2.0`；此记录来自权重页，不从 sherpa 的代码许可推导。安装路径与诊断音频归属见资源归属文档。
+- 小型 canary 为本机系统TTS生成的诊断语音，不含用户录音或模型权重；用于真实加载/解码验收，不作为准确率数据集。

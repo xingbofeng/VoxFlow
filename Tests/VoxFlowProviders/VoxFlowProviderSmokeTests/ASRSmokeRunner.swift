@@ -224,7 +224,7 @@ struct ASRSmokeRunner {
 
     private static func providerNeedsMLXMetallib(_ providerID: ASRProviderID) -> Bool {
         let rawValue = providerID.rawValue.lowercased()
-        return rawValue.contains("qwen3") || rawValue.contains("nvidia")
+        return rawValue.contains("qwen3") || rawValue.contains("nvidia") || rawValue.contains("confucius")
     }
 
     private static func currentBinaryDirectory() -> URL {

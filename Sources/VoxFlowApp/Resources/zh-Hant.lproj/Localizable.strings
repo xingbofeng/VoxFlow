@@ -147,6 +147,7 @@
 "asr.error.download_cancelled" = "模型下載已取消。";
 "asr.error.download_interrupted" = "模型下載中斷，請檢查網路後重試。";
 "asr.error.empty_transcript" = "語音識別未產生結果，請重試。";
+"asr.error.no_effective_speech" = "沒有偵測到有效語音，請靠近麥克風再試一次。";
 "asr.error.hardware_unsupported" = "目前裝置不支援此語音識別引擎。";
 "asr.error.connection_timeout" = "語音識別服務逾時，請重試。";
 "asr.error.api_key_missing" = "API 金鑰未設定，請在設定中填寫。";
@@ -2365,3 +2366,23 @@
 "notes.source.file_transcription" = "檔案轉寫";
 "notes.source.history" = "聽寫";
 "notes.source.manual" = "手動";
+
+// X-ASR native streaming
+"asr.provider.xasr.name" = "X-ASR-zh-en";
+"asr.provider.xasr.ready_summary" = "本機原生串流辨識，支援中文、英文及中英混合語音，保留標點。不支援熱詞。初步模型實測約 1.2–1.6 秒出現首段文字，實際時間因裝置而異。";
+"asr.provider.xasr.missing_summary" = "下載中英原生串流模型（約 615 MB）。需要 Apple Silicon、macOS 15 或更新版本及至少 8 GB 記憶體。辨識在本機完成，不上傳錄音。";
+"asr.xasr.unsupported.architecture" = "X-ASR 需要原生 Apple Silicon（arm64）程序，不支援 Intel Mac 或 Rosetta 程序。";
+"asr.xasr.unsupported.os" = "X-ASR 需要 macOS %d 或更新版本。";
+"asr.xasr.unsupported.memory" = "X-ASR 需要至少 %d GB 記憶體。";
+"asr.xasr.preparing" = "正在以簡短診斷語音驗證 X-ASR…";
+"asr.xasr.canary_failed" = "X-ASR 未能辨識診斷語音，請修復模型後再試。";
+"asr.xasr.files_missing" = "X-ASR 模型檔案遺失或不完整，請修復模型。";
+"asr.xasr.installed" = "X-ASR 模型已安裝，可以使用。";
+"asr.xasr.deleted" = "已刪除 X-ASR 模型。";
+"menu.provider_tag.punctuation" = "標點";
+"asr.xasr.start_failed" = "X-ASR 未能啟動，請準備或修復模型後再試。";
+"asr.xasr.busy" = "X-ASR 正在使用中，請結束目前錄音後再試。";
+"asr.xasr.unsupported_language" = "X-ASR 支援中文、英文及中英混合語音。";
+"asr.xasr.invalid_audio" = "X-ASR 未能處理音訊，請重新錄音。";
+"asr.xasr.invalidated" = "X-ASR 已卸載或切換，請開始新的錄音。";
+"asr.xasr.download_failed" = "X-ASR 模型下載失敗，請重試以繼續下載。";

@@ -68,7 +68,7 @@ final class ASRProviderRegistryTests: XCTestCase {
         XCTAssertEqual(providerIDs.first, ASRProviderID.appleSpeech)
         XCTAssertEqual(providerIDs.dropFirst().first, ASRProviderID.qwen3)
         XCTAssertEqual(
-            Array(providerIDs.prefix(11)),
+            Array(providerIDs.prefix(12)),
             [
                 ASRProviderID.appleSpeech,
                 ASRProviderID.qwen3,
@@ -81,6 +81,7 @@ final class ASRProviderRegistryTests: XCTestCase {
                 ASRProviderID.senseVoice,
                 ASRProviderID.confucius4R2T2,
                 ASRProviderID.whisper,
+                ASRProviderID.xasr,
             ]
         )
         XCTAssertEqual(
@@ -164,7 +165,7 @@ final class ASRProviderRegistryTests: XCTestCase {
                        [ASRProviderID.funASR, ASRProviderID.fireRedASR, ASRProviderID.whisper,
                         ASRProviderID.qwen3, ASRProviderID.senseVoice, ASRProviderID.paraformer,
                         ASRProviderID.nvidiaNemotron, ASRProviderID.parakeetStreaming,
-                        ASRProviderID.omnilingualASR, ASRProviderID.confucius4R2T2])
+                        ASRProviderID.omnilingualASR, ASRProviderID.confucius4R2T2, ASRProviderID.xasr])
     }
 
     func testOfflineDescriptorsIncludeSystemProviderBeforeDownloadableLocalModels() {

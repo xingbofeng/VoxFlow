@@ -28,7 +28,7 @@ enum ASRErrorUserMessage {
     static func message(for error: ASRError) -> String {
         switch error.category {
         case .emptyTranscript:
-            return "没有检测到有效语音，请靠近麦克风再试一次。"
+            return L10n.localize("asr.error.no_effective_speech", comment: "Empty speech feedback")
         default:
             return error.message
         }

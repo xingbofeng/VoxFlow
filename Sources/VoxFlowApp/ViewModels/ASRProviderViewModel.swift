@@ -12,6 +12,7 @@ import VoxFlowProviderParakeet
 import VoxFlowProviderParaformer
 import VoxFlowProviderQwen3
 import VoxFlowProviderR2T2
+import VoxFlowProviderXASR
 import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
 import VoxFlowProviderVolcengine
@@ -218,6 +219,8 @@ final class ASRProviderViewModel: ObservableObject {
     private let r2t2ReadinessPreparer: any R2T2ModelReadinessPreparing
     private let fireRedASRReadinessPreparer: any FireRedASRModelReadinessPreparing
     private let fireRedASRModelDownloader: any FireRedASRModelDownloading
+    private let xasrModelDownloader: any XASRModelDownloading
+    private let xasrReadinessPreparer: any XASRModelReadinessPreparing
     private let qwenReadinessPreparer: any Qwen3ModelReadinessPreparing
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
@@ -246,6 +249,8 @@ final class ASRProviderViewModel: ObservableObject {
         r2t2ReadinessPreparer: any R2T2ModelReadinessPreparing = R2T2ModelReadinessPreparer(),
         fireRedASRReadinessPreparer: any FireRedASRModelReadinessPreparing = FireRedASRModelReadinessPreparer(),
         fireRedASRModelDownloader: any FireRedASRModelDownloading = FireRedASRLiveModelDownloader(),
+        xasrModelDownloader: any XASRModelDownloading = XASRLiveModelDownloader(),
+        xasrReadinessPreparer: (any XASRModelReadinessPreparing)? = nil,
         qwenReadinessPreparer: any Qwen3ModelReadinessPreparing = Qwen3ModelReadinessPreparer(),
         fileManager: FileManager = .default
     ) {
@@ -269,6 +274,10 @@ final class ASRProviderViewModel: ObservableObject {
         self.r2t2ReadinessPreparer = r2t2ReadinessPreparer
         self.fireRedASRReadinessPreparer = fireRedASRReadinessPreparer
         self.fireRedASRModelDownloader = fireRedASRModelDownloader
+        self.xasrModelDownloader = xasrModelDownloader
+        self.xasrReadinessPreparer = xasrReadinessPreparer ?? XASRModelReadinessPreparer(
+            streamFactory: resolvedASRManager.xasrStreamFactory()
+        )
         self.qwenReadinessPreparer = qwenReadinessPreparer
         self.fileManager = fileManager
         Self.logger.debug("asr_provider_vm_init")
@@ -924,6 +933,11 @@ final class ASRProviderViewModel: ObservableObject {
                 return installation.installedRoot.path
             }
             return asrManager.funASRModelDirectoryURL(for: asrManager.funASRPrecision).path
+        case ASRProviderID.xasr:
+            if case let .ready(installation) = asrManager.xasrModelInstallationState() {
+                return installation.installedRoot.path
+            }
+            return asrManager.xasrModelDirectoryURL().path
         case ASRProviderID.fireRedASR:
             if case let .ready(installation) = asrManager.fireRedASRModelInstallationState() {
                 return installation.installedRoot.path
@@ -974,6 +988,7 @@ final class ASRProviderViewModel: ObservableObject {
         switch id {
         case ASRProviderID.qwen3: return .qwen3
         case ASRProviderID.funASR: return .funASR
+        case ASRProviderID.xasr: return .xasr
         case ASRProviderID.whisper: return .whisper
         case ASRProviderID.senseVoice: return .senseVoice
         case ASRProviderID.confucius4R2T2: return .confucius4R2T2
@@ -1136,6 +1151,8 @@ final class ASRProviderViewModel: ObservableObject {
             return R2T2ManifestCatalog.expectedDownloadBytes
         case ASRProviderID.fireRedASR:
             return FireRedASRManifestCatalog.expectedDownloadBytes
+        case ASRProviderID.xasr:
+            return xasrModelDownloader.expectedDownloadBytes()
         case ASRProviderID.paraformer:
             return 653_174_435
         case ASRProviderID.nvidiaNemotron:
@@ -1151,6 +1168,8 @@ final class ASRProviderViewModel: ObservableObject {
 
     private func localModelSpecification(providerID: String) -> String? {
         switch providerID {
+        case ASRProviderID.xasr:
+            return L10n.localize("asr.provider.xasr.name", comment: "X-ASR model specification")
         case ASRProviderID.funASR:
             return "Qwen3 0.6B \(asrManager.funASRPrecision.rawValue.uppercased())"
         case ASRProviderID.senseVoice:
@@ -1245,6 +1264,51 @@ final class ASRProviderViewModel: ObservableObject {
                 load()
                 lastError = nil
                 lastActionMessage = "本地模型下载完成"
+            } else if id == ASRProviderID.xasr {
+                if let blocker = asrManager.xasrPreflightBlocker {
+                    lastError = XASRRuntimePresentation.reason(for: blocker)
+                    failDownloadTracking(providerID: id, error: ASREngineError.modelNotLoaded)
+                    return
+                }
+                await asrManager.invalidateXASRRuntime()
+                guard shouldApplyDownloadResult(operation) else { return }
+                let installedURL = try await xasrModelDownloader.download { [weak self] update in
+                    await self?.setDownloadProgress(
+                        operation: operation, providerID: id,
+                        componentName: update.fileName,
+                        statusText: L10n.format("settings.window.asr.status.downloading_format",
+                            comment: "Downloading component status", update.fileName),
+                        fractionCompleted: update.overallProgress,
+                        bytesWritten: update.bytesWritten, totalBytes: update.totalBytes
+                    )
+                }
+                guard shouldApplyDownloadResult(operation) else { return }
+                guard XASRModel.modelsExist(at: installedURL, fileManager: fileManager) else {
+                    asrManager.markXASRModelCorrupt(reason: L10n.localize(
+                        "asr.xasr.files_missing", comment: "X-ASR model files missing"
+                    ))
+                    throw ASREngineError.modelNotLoaded
+                }
+                downloadProgress = ModelDownloadProgressViewState(
+                    providerID: id, componentName: "",
+                    statusText: L10n.localize("asr.xasr.preparing", comment: "X-ASR canary in progress"),
+                    fractionCompleted: nil, bytesWritten: nil, totalBytes: nil,
+                    totalModelBytes: xasrModelDownloader.expectedDownloadBytes(), speedBytesPerSecond: nil
+                )
+                do {
+                    try await xasrReadinessPreparer.prepare(modelURL: installedURL)
+                } catch {
+                    guard shouldApplyDownloadResult(operation) else { return }
+                    await asrManager.invalidateXASRRuntime()
+                    asrManager.markXASRModelPreparationFailed(message: error.localizedDescription)
+                    throw error
+                }
+                guard shouldApplyDownloadResult(operation) else { return }
+                asrManager.markXASRModelReady(at: installedURL.path)
+                await asrManager.xasrRuntime.releaseIdleResources()
+                load()
+                lastError = nil
+                lastActionMessage = L10n.localize("asr.xasr.installed", comment: "X-ASR model ready")
             } else if id == ASRProviderID.fireRedASR {
                 let installedURL = try await fireRedASRModelDownloader.download { [weak self] update in
                     await self?.setDownloadProgress(
@@ -1500,6 +1564,26 @@ final class ASRProviderViewModel: ObservableObject {
         }
         Self.logger.info("asr_provider_vm_delete_local_model_start id=\(id) engine=\(fallbackEngine.rawValue)")
         let urlsToDelete = modelDeletionURLs(id: id)
+        if id == ASRProviderID.xasr {
+            // Invalidate the canary/active stream before removing its backing files.
+            if let operation = activeDownloadOperation, operation.providerID == id {
+                cleanupRequestedDownloadIDs.insert(operation.id)
+                activeDownloadOperation = nil
+            }
+            isDownloading = true
+            downloadingProviderID = id
+            asrManager.markModelDeleting(for: .xasr)
+            load()
+            Task { @MainActor in
+                await xasrModelDownloader.cancelDownload()
+                await asrManager.invalidateXASRRuntime()
+                completeLocalModelDeletion(id: id, fallbackEngine: .xasr, urlsToDelete: urlsToDelete)
+                isDownloading = false
+                downloadingProviderID = nil
+                downloadProgress = nil
+            }
+            return
+        }
         if isDownloading, downloadingProviderID == id {
             if let operation = activeDownloadOperation, operation.providerID == id {
                 cleanupRequestedDownloadIDs.insert(operation.id)
@@ -1541,6 +1625,8 @@ final class ASRProviderViewModel: ObservableObject {
             await downloader.cancelDownload()
         case ASRProviderID.confucius4R2T2:
             await r2t2ModelDownloader.cancelDownload()
+        case ASRProviderID.xasr:
+            await xasrModelDownloader.cancelDownload()
         case ASRProviderID.funASR:
             await sherpaModelDownloader.cancelDownload()
             await fireRedASRModelDownloader.cancelDownload()
@@ -1571,7 +1657,8 @@ final class ASRProviderViewModel: ObservableObject {
             }
             load()
             lastError = nil
-            lastActionMessage = "已删除本地模型"
+            lastActionMessage = id == ASRProviderID.xasr
+                ? L10n.localize("asr.xasr.deleted", comment: "X-ASR model deleted") : "已删除本地模型"
             Self.logger.info("asr_provider_vm_delete_local_model_success id=\(id) pathCount=\(urlsToDelete.count)")
         } catch {
             asrManager.markModelDeletionFailed(for: fallbackEngine, message: error.localizedDescription)
@@ -1590,6 +1677,9 @@ final class ASRProviderViewModel: ObservableObject {
                     guard !result.contains(url) else { return }
                     result.append(url)
                 }
+        }
+        if id == ASRProviderID.xasr {
+            return asrManager.xasrModelDeletionURLs()
         }
         if id == ASRProviderID.confucius4R2T2 {
             return asrManager.r2t2ModelDeletionURLs()

@@ -16,7 +16,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
 
     var onError: ((Error) -> Void)? {
         get { callbacks.onError }
-        set { callbacks.onError = newValue }
+        set {
+            let presentError = errorPresentation
+            callbacks.onError = newValue.map { callback in
+                { error in callback(presentError(error)) }
+            }
+        }
     }
 
     var isAvailable: Bool {
@@ -31,6 +36,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     private let defaultLanguage: ASRLanguageCapability
     private let deliversPartialTranscripts: @Sendable () -> Bool
     private let releaseIdleResources: @Sendable () async -> Void
+    private let errorPresentation: @Sendable (Error) -> Error
     private let callbacks = ASRCoreBackedCallbackBox()
     private let lifecycleLock = NSLock()
     private let metadataLock = NSLock()
@@ -43,6 +49,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     private var isFinishing = false
     private var hasAcceptedAudioFrame = false
     private var generation: UInt64 = 0
+    private var hasReportedFailure = false
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
     private var startedAt: ContinuousClock.Instant?
 
@@ -50,12 +57,14 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         provider: any ASRProvider,
         defaultLanguage: ASRLanguageCapability,
         deliversPartialTranscripts: @escaping @Sendable () -> Bool = { true },
-        releaseIdleResources: @escaping @Sendable () async -> Void = {}
+        releaseIdleResources: @escaping @Sendable () async -> Void = {},
+        errorPresentation: @escaping @Sendable (Error) -> Error = { $0 }
     ) {
         self.provider = provider
         self.defaultLanguage = defaultLanguage
         self.deliversPartialTranscripts = deliversPartialTranscripts
         self.releaseIdleResources = releaseIdleResources
+        self.errorPresentation = errorPresentation
     }
 
     func configure(locale: Locale) {
@@ -88,13 +97,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         }
         let language = configuration.0
         let prompt = configuration.1
-        let callbacks = callbacks
-        let deliversPartialTranscripts = deliversPartialTranscripts
         metadataLock.withLock {
             runtimeMetadata = ASRRuntimeMetadataSnapshot()
         }
         let generation = lifecycleLock.withLock {
             self.generation &+= 1
+            hasReportedFailure = false
             isFinishing = false
             hasAcceptedAudioFrame = false
             startedAt = ContinuousClock.now
@@ -128,9 +136,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
                     "ASRCoreBackedASREngine frame consumer failed generation=\(generation) reason=\(error.localizedDescription)"
                 )
                 guard self.isCurrentGeneration(generation) else { return }
-                await MainActor.run {
-                    callbacks.onError?(error)
-                }
+                await self.reportFailure(error, expectedGeneration: generation)
             }
         }
         let eventTask = Task {
@@ -139,11 +145,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
                 for await event in session.events {
                     guard self.isCurrentGeneration(generation) else { break }
                     self.record(event)
-                    await Self.deliver(
-                        event,
-                        callbacks: callbacks,
-                        deliversPartialTranscripts: deliversPartialTranscripts
-                    )
+                    await self.deliver(event, expectedGeneration: generation)
                 }
             } catch is CancellationError {
             } catch {
@@ -151,9 +153,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
                     "ASRCoreBackedASREngine event loop failed generation=\(generation) reason=\(error.localizedDescription)"
                 )
                 guard self.isCurrentGeneration(generation) else { return }
-                await MainActor.run {
-                    callbacks.onError?(error)
-                }
+                await self.reportFailure(error, expectedGeneration: generation)
             }
         }
         lifecycleLock.withLock {
@@ -244,9 +244,7 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
                     "ASRCoreBackedASREngine endAudio failed generation=\(snapshot.generation) reason=\(error.localizedDescription)"
                 )
                 guard self.isCurrentGeneration(snapshot.generation) else { return }
-                await MainActor.run {
-                    callbacks.onError?(error)
-                }
+                await self.reportFailure(error, expectedGeneration: snapshot.generation)
             }
         }
     }
@@ -362,11 +360,8 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     }
 
     @MainActor
-    private static func deliver(
-        _ event: ASREvent,
-        callbacks: ASRCoreBackedCallbackBox,
-        deliversPartialTranscripts: @Sendable () -> Bool
-    ) {
+    private func deliver(_ event: ASREvent, expectedGeneration: UInt64) {
+        guard isCurrentGeneration(expectedGeneration) else { return }
         switch event {
         case .partial(_, let transcript):
             guard deliversPartialTranscripts() else { return }
@@ -376,10 +371,20 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         case .final(_, _, let text):
             callbacks.onTranscription?(text, true)
         case .failure(_, _, let error):
-            callbacks.onError?(ASRCoreBackedASREngineError.failure(error))
+            reportFailure(ASRCoreBackedASREngineError.failure(error), expectedGeneration: expectedGeneration)
         case .preparing, .ready, .speechStarted, .endpoint, .metrics:
             break
         }
+    }
+
+    @MainActor
+    private func reportFailure(_ error: Error, expectedGeneration: UInt64) {
+        let shouldReport = lifecycleLock.withLock {
+            guard generation == expectedGeneration, sessionTask != nil, !hasReportedFailure else { return false }
+            hasReportedFailure = true
+            return true
+        }
+        if shouldReport { callbacks.onError?(error) }
     }
 }
 

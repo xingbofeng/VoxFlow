@@ -17,6 +17,7 @@ import VoxFlowProviderSenseVoice
 import VoxFlowProviderTencentCloud
 import VoxFlowProviderVolcengine
 import VoxFlowProviderWhisper
+import VoxFlowProviderXASR
 
 enum LocalModelDeletionError: LocalizedError, Equatable {
     case modelOperationInProgress
@@ -63,6 +64,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
     private let fireRedASRRuntimePreflight: () -> FireRedASRRuntimePreflightOutcome
     private let cloudCredentialService: ASRCloudCredentialService
     private let modelStoreRoot: URL?
+    private let xasrRuntimePreflight: () -> XASRRuntimePreflightOutcome
+    let xasrRuntime: XASRRuntime
+    private let xasrLifecycleLock = NSLock()
+    private var xasrInvalidationTask: Task<Void, Never>?
 
     private enum Keys {
         static let selectedEngineType = "ASRManager.selectedEngineType"
@@ -231,7 +236,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         fireRedASRRuntimePreflight: @escaping () -> FireRedASRRuntimePreflightOutcome = {
             FireRedASRRuntimePreflight.evaluate()
         },
-        modelStoreRoot: URL? = nil
+        modelStoreRoot: URL? = nil,
+        xasrRuntimePreflight: @escaping () -> XASRRuntimePreflightOutcome = { XASRRuntimePreflight.evaluate() },
+        xasrRuntime: XASRRuntime = XASRRuntime()
     ) {
         self.defaults = defaults
         self.settingsRepository = settingsRepository
@@ -245,6 +252,125 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         self.r2t2RuntimePreflight = r2t2RuntimePreflight
         self.fireRedASRRuntimePreflight = fireRedASRRuntimePreflight
         self.modelStoreRoot = modelStoreRoot ?? Self.defaultModelStoreRoot(for: defaults)
+        self.xasrRuntimePreflight = xasrRuntimePreflight
+        self.xasrRuntime = xasrRuntime
+    }
+
+    var isXASRModelAvailable: Bool {
+        if case .ready = xasrModelInstallationState() { return true }
+        return false
+    }
+
+    var xasrPreflightBlocker: XASRPreflightBlocker? {
+        guard case .blocked(let blocker) = xasrRuntimePreflight() else { return nil }
+        return blocker
+    }
+
+    func xasrModelInstallationState() -> ModelInstallationState {
+        if let blocker = xasrPreflightBlocker {
+            let reason = XASRRuntimePresentation.reason(for: blocker)
+            return blocker.asrErrorCategory == .hardwareUnsupported
+                ? .hardwareUnsupported(reason: reason) : .runtimeUnsupported(reason: reason)
+        }
+        let state = (try? modelInstallationRepository?.state(for: XASRManifestCatalog.modelInstallKey))
+            ?? .notInstalled
+        return Self.validatedReadyState(state) {
+            XASRModel.modelsExist(at: $0.installedRoot)
+        }
+    }
+
+    func markXASRModelReady(at path: String) {
+        modelInstallationStateService.markReady(at: path, for: XASRManifestCatalog.modelInstallKey)
+    }
+
+    func markXASRModelPreparationFailed(message: String) {
+        modelInstallationStateService.markPreparationFailed(
+            for: XASRManifestCatalog.modelInstallKey, engineType: .xasr, message: message
+        )
+    }
+
+    func markXASRModelCorrupt(reason: String) {
+        modelInstallationStateService.markCorrupt(
+            for: XASRManifestCatalog.modelInstallKey, engineType: .xasr, reason: reason
+        )
+    }
+
+    func xasrModelDirectoryURL() -> URL {
+        let base = modelStoreRoot ?? (try? ApplicationSupportPaths.live().modelsDirectory)
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("VoxFlowModels")
+        return XASRModel.defaultDirectoryURL(modelsDirectory: base)
+    }
+
+    func xasrModelDeletionURLs() -> [URL] {
+        var urls = [xasrModelDirectoryURL()]
+        // Read the persisted installation even on an unsupported machine.
+        if case let .ready(installation) = try? modelInstallationRepository?.state(for: XASRManifestCatalog.modelInstallKey),
+           !urls.contains(installation.installedRoot) {
+            urls.append(installation.installedRoot)
+        }
+        let root = modelStoreRoot ?? (try? ApplicationSupportPaths.live().modelsDirectory)
+        if let root {
+            urls.append(ResumableModelDownloader.stagingRoot(
+                for: XASRManifestCatalog.modelInstallKey, storeRoot: root
+            ))
+        }
+        return urls
+    }
+
+    @discardableResult
+    private func requestXASRInvalidation() -> Task<Void, Never> {
+        xasrLifecycleLock.withLock {
+            let previous = xasrInvalidationTask
+            let runtime = xasrRuntime
+            let task = Task {
+                await previous?.value
+                await runtime.invalidate()
+            }
+            xasrInvalidationTask = task
+            return task
+        }
+    }
+
+    func invalidateXASRRuntime() async {
+        await requestXASRInvalidation().value
+    }
+
+    func xasrStreamFactory() -> any XASRStreamMaking {
+        XASRAppStreamFactory(runtime: xasrRuntime, beforeStart: { [self] in
+            let pending = xasrLifecycleLock.withLock { xasrInvalidationTask }
+            await pending?.value
+        })
+    }
+
+    private func makeXASRProviderBackedEngine() -> ASREngine {
+        let state = xasrModelInstallationState()
+        let modelURL: URL?
+        if case let .ready(installation) = state {
+            modelURL = installation.installedRoot
+        } else {
+            modelURL = nil
+        }
+        let provider = XASRASRProvider(
+            descriptor: XASRProviderDescriptor.descriptor(
+                modelInstallationState: Self.asrModelInstallationState(from: state)
+            ),
+            modelURL: modelURL,
+            streamFactory: xasrStreamFactory()
+        )
+        let runtime = xasrRuntime
+        return ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-Hans"),
+            deliversPartialTranscripts: localModelLivePreviewEnabled,
+            releaseIdleResources: { await runtime.releaseIdleResources() },
+            errorPresentation: { [weak self] error in
+                let presented = XASRErrorPresentation.localizedError(error)
+                if case .failure(let failure) = presented as? ASRCoreBackedASREngineError, failure.category == .modelCorrupt {
+                    self?.markXASRModelCorrupt(reason: presented.localizedDescription)
+                }
+                return presented
+            }
+        )
     }
 
     // MARK: - Engine Selection
@@ -258,6 +384,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return type
         }
         set {
+            if selectedEngineType == .xasr, newValue != .xasr {
+                requestXASRInvalidation()
+            }
             defaults.set(newValue.rawValue, forKey: Keys.selectedEngineType)
         }
     }
@@ -560,6 +689,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             modelInstallationStateService.removeState(for: Self.funASRModelInstallKey(for: funASRPrecision))
         case .fireRedASR:
             modelInstallationStateService.removeState(for: Self.fireRedASRModelInstallKey())
+        case .xasr:
+            modelInstallationStateService.removeState(for: XASRManifestCatalog.modelInstallKey)
         case .whisper:
             modelInstallationStateService.removeState(for: Self.whisperModelInstallKey(for: whisperVariant))
         case .senseVoice:
@@ -603,6 +734,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return funASRModelInstallationState(for: funASRPrecision)
         case .fireRedASR:
             return fireRedASRModelInstallationState()
+        case .xasr:
+            return xasrModelInstallationState()
         case .whisper:
             return whisperModelInstallationState(for: whisperVariant)
         case .senseVoice:
@@ -742,6 +875,9 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .fireRedASR:
             let key = Self.fireRedASRModelInstallKey()
             return (key.modelID.rawValue, key.version)
+        case .xasr:
+            let key = XASRManifestCatalog.modelInstallKey
+            return (key.modelID.rawValue, key.version)
         case .whisper:
             guard let key = Self.whisperModelInstallKey(for: whisperVariant) else {
                 return ("whisper-\(whisperVariant.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))", nil)
@@ -796,6 +932,10 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .fireRedASR:
             available = isFireRedASRModelAvailable
             reason = available ? nil : "FireRedASR2-AED model unavailable"
+        case .xasr:
+            available = isXASRModelAvailable
+            reason = xasrPreflightBlocker.map(XASRRuntimePresentation.reason(for:))
+                ?? (available ? nil : L10n.localize("asr.provider.xasr.missing_summary", comment: "X-ASR unavailable"))
         case .whisper:
             if !Self.isWhisperRuntimeSupported(variant: whisperVariant) {
                 reason = Self.whisperRuntimeUnsupportedMessage(for: whisperVariant)
@@ -984,6 +1124,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
         case .fireRedASR:
             AppLogger.general.debug("ASR engine branch: fireRedASR")
             return makeFireRedASRProviderBackedEngine()
+        case .xasr:
+            return makeXASRProviderBackedEngine()
         case .whisper:
             AppLogger.general.debug("ASR engine branch: whisper")
             return makeWhisperProviderBackedEngine()
@@ -1314,6 +1456,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             case .confucius4R2T2:
                 await VendoredR2T2StreamFactory.releaseSharedModels()
                 AppLogger.general.info("Released idle Confucius4-R2T2 local model cache")
+            case .xasr:
+                await self.xasrRuntime.releaseIdleResources()
             case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao,
                  .funASR, .fireRedASR, .whisper, .senseVoice, .paraformer, .nvidiaNemotron,
                  .parakeetStreaming, .omnilingualASR:
@@ -1815,6 +1959,7 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             + WhisperVariant.allCases.compactMap(whisperModelInstallKey)
             + FunASRPrecision.allCases.compactMap(funASRModelInstallKey)
         return variableKeys + [
+            XASRManifestCatalog.modelInstallKey,
             fireRedASRModelInstallKey(),
             senseVoiceModelInstallKey(),
             r2t2ModelInstallKey(),
@@ -1845,6 +1990,8 @@ final class ASRManager: ASREngineFactory, @unchecked Sendable {
             return Self.funASRModelInstallKey(for: funASRPrecision)
         case .fireRedASR:
             return Self.fireRedASRModelInstallKey()
+        case .xasr:
+            return XASRManifestCatalog.modelInstallKey
         case .whisper:
             return Self.whisperModelInstallKey(for: whisperVariant)
         case .senseVoice:
@@ -1921,7 +2068,7 @@ private extension ASREngineType {
         switch self {
         case .apple, .groqWhisper, .tencentCloud, .aliyunDashScope, .volcengineDoubao:
             return false
-        case .funASR, .fireRedASR, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
+        case .funASR, .fireRedASR, .xasr, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
              .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:
             return true
         }

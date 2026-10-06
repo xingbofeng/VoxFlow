@@ -47,6 +47,7 @@ enum ASRMenuOptions {
             ASRMenuModel(engineType: .nvidiaNemotron, title: "NVIDIA Nemotron ASR 0.6B"),
             ASRMenuModel(engineType: .parakeetStreaming, title: "Parakeet Streaming"),
             ASRMenuModel(engineType: .omnilingualASR, title: "Omnilingual ASR"),
+            ASRMenuModel(engineType: .xasr, title: L10n.localize("asr.provider.xasr.name", comment: "X-ASR menu title")),
         ]
     }
 }

@@ -50,7 +50,7 @@ final class ASRProviderViewModelTests: XCTestCase {
             viewModel.providers.first { $0.id == ASRProviderID.funASR }?.statusMessage,
             "尚未安装本地模型"
         )
-        XCTAssertEqual(try environment.asrProviderRepository.list().count, 18)
+        XCTAssertEqual(try environment.asrProviderRepository.list().count, 19)
     }
 
     func testInitializationReadsProviderCatalogWithoutPersistingRecords() throws {
@@ -247,6 +247,7 @@ final class ASRProviderViewModelTests: XCTestCase {
                 ASRProviderID.parakeetStreaming,
                 ASRProviderID.omnilingualASR,
                 ASRProviderID.confucius4R2T2,
+                ASRProviderID.xasr,
             ]
         )
     }

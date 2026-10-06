@@ -5,6 +5,19 @@ import XCTest
 @testable import VoxFlowApp
 
 final class ASRCoreBackedASREngineTests: XCTestCase {
+    func testFailureEventAndThrownFinishErrorProduceOneErrorCallback() async throws {
+        let engine = ASRCoreBackedASREngine(provider: FailingFinishProvider(), defaultLanguage: .init(bcp47Tag: "zh-CN"))
+        let failed = expectation(description: "one terminal error")
+        let count = CapturingTerminalFailureCount()
+        engine.onError = { _ in if count.increment() == 1 { failed.fulfill() } }
+        try engine.start()
+        engine.appendAudioFrame(Self.frame(sequenceNumber: 0))
+        engine.endAudio()
+        await fulfillment(of: [failed], timeout: 2)
+        try await Task.sleep(for: .milliseconds(30))
+        XCTAssertEqual(count.value, 1)
+        engine.stop()
+    }
     func testMapsASRCoreSessionEventsToLegacyCallbacks() async throws {
         let session = CapturingCoreSession()
         let provider = CapturingCoreProvider(
@@ -348,6 +361,36 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
             capturedAt: ContinuousClock.now
         )
     }
+}
+
+private struct FailingFinishProvider: VoxFlowASRCore.ASRProvider {
+    let descriptor = VoxFlowASRCore.ASRProviderDescriptor(id: .init(rawValue: "finish-error"), displayName: "finish error", modelInstallationState: .ready, supportedLanguages: [.init(bcp47Tag: "zh-CN")], streamingSemantics: .nativeStreaming)
+    func install() async throws {}
+    func delete() async throws {}
+    func prepare() async throws {}
+    func healthCheck() async -> VoxFlowASRCore.ASRProviderHealth { .healthy }
+    func makeSession(language: VoxFlowASRCore.ASRLanguageCapability) async throws -> any VoxFlowASRCore.ASRSession { FailingFinishSession() }
+}
+private final class CapturingTerminalFailureCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.withLock { count } }
+    func increment() -> Int { lock.withLock { count += 1; return count } }
+}
+private final class FailingFinishSession: VoxFlowASRCore.ASRSession, @unchecked Sendable {
+    struct FinishError: Error {}
+    let sessionID = VoxFlowASRCore.ASRSessionID(rawValue: UUID().uuidString)
+    let revision: UInt64 = 0
+    private let channel = VoxFlowASRCore.ASREventStream()
+    var events: AsyncStream<VoxFlowASRCore.ASREvent> { channel.stream }
+    func start() async throws {}
+    func accept(_ frame: AudioFrame) async throws {}
+    func finish() async throws {
+        channel.yield(.failure(sessionID: sessionID, revision: 1, error: .init(category: .emptyTranscript, message: "empty")))
+        channel.finish()
+        throw FinishError()
+    }
+    func cancel() async { channel.finish() }
 }
 
 private final class CapturingCoreProvider: ASRProvider, @unchecked Sendable {

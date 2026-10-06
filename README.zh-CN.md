@@ -143,6 +143,16 @@
 
 码上写支持开箱可用的 Apple Speech，也支持 Qwen3-ASR、Whisper、FunASR、SenseVoice、Paraformer、NVIDIA Nemotron、Parakeet、Omnilingual 等本地 Provider，以及 Groq、腾讯云、阿里云和未来 Provider 预留位。
 
+macOS 版最近新增了三个独立的本地 Provider，均需在「设置 → 模型」中主动下载模型；接入不会自动替换你已选择的模型。
+
+| 模型 | 识别与预览 | 硬件要求 | 当前状态 |
+| --- | --- | --- | --- |
+| Confucius4-R2T2 | 稳定前缀流式识别，可修订尾部预览 | Apple Silicon；至少 16 GiB 内存，推荐 24 GiB | 已接入；模型约 2.31 GiB |
+| FireRedASR2-AED | 离线 AED，滚动重解预览，结束后权威重解 | 至少 16 GiB 内存；Intel 真机未验收 | 已接入；模型约 1.15 GiB，不是原生流式 |
+| X-ASR-zh-en | 原生增量解码，中英混说 | Apple Silicon；至少 8 GiB 内存，低配机型未实测 | 开发源码已接入，完整验收中；模型约 586 MiB |
+
+三者均要求 macOS 15+。X-ASR 不属于此前准备的 v1.17.0 发布说明。
+
 完整矩阵见 [语音模型](docs/zh-CN/speech-models.md)。
 
 ## 隐私摘要

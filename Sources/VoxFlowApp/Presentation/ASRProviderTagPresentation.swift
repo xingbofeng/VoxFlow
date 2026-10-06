@@ -12,6 +12,7 @@ enum ASRProviderCardTag: String, CaseIterable {
     case multilingual
     case coreML
     case hotwords
+    case punctuation
 
     var localizedTitle: String {
         switch self {
@@ -35,6 +36,8 @@ enum ASRProviderCardTag: String, CaseIterable {
             return L10n.localize("menu.provider_tag.multilingual", comment: "")
         case .coreML:
             return L10n.localize("menu.provider_tag.coreml", comment: "")
+        case .punctuation:
+            return L10n.localize("menu.provider_tag.punctuation", comment: "Punctuation support")
         case .hotwords:
             return L10n.localize("provider.tag.hotwords", comment: "")
         }
@@ -53,7 +56,8 @@ enum ASRProviderTagPresentation {
         .english,
         .multilingual,
         .hotwords,
-        .coreML
+        .coreML,
+        .punctuation
     ]
 
     static func cardTags(for provider: ASRProviderDescriptor) -> [String] {
@@ -74,6 +78,9 @@ enum ASRProviderTagPresentation {
         }
         if provider.capabilities.contains(.accurate) || provider.tags.contains("准确") {
             append(.accurate, to: &tags)
+        }
+        if provider.id == ASRProviderID.xasr, provider.capabilities.contains(.punctuation) {
+            append(.punctuation, to: &tags)
         }
         if containsChineseTag(provider.tags) {
             append(.chinese, to: &tags)

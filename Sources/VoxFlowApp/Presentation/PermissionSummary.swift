@@ -23,7 +23,7 @@ enum PermissionSummary {
                 L10n.localize("permission.alert.title.audio_and_speech", comment: "Permission alert title for Apple engine"),
                 L10n.localize("permission.alert.body.apple", comment: "Permission body for Apple engine")
             )
-        case .funASR, .fireRedASR, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
+        case .funASR, .fireRedASR, .xasr, .whisper, .qwen3, .senseVoice, .confucius4R2T2, .paraformer,
              .nvidiaNemotron, .parakeetStreaming, .omnilingualASR:
             return (
                 L10n.localize("permission.alert.title.microphone_only", comment: "Permission alert title for microphone-only engine"),

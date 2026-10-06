@@ -143,6 +143,10 @@ See [Agent workflows](docs/agent-workflows.md) for setup and safety boundaries.
 
 VoxFlow supports Apple Speech out of the box, local providers such as Qwen3-ASR, Whisper, FunASR, SenseVoice, Paraformer, NVIDIA Nemotron, Parakeet, and Omnilingual, plus optional cloud providers such as Groq, Tencent Cloud, Alibaba Cloud, and future provider slots.
 
+macOS 버전에는 로컬 스트리밍 받아쓰기를 제공하는 **Confucius4-R2T2**와, 중국어 인식을 중심으로 누적 음성을 다시 분석해 실시간 미리보기를 보여 주는 **FireRedASR2-AED**도 통합되어 있습니다. 두 모델 모두 별도 다운로드와 16 GiB 이상의 메모리가 필요하며, R2T2는 Apple Silicon 전용입니다. **X-ASR-zh-en**은 Apple Silicon용 개발 소스에 통합되었으며 8 GiB 메모리 기준을 적용합니다. 전체 검증은 진행 중이고, 앞서 준비한 v1.17.0 릴리스 내용에는 포함되지 않습니다.
+
+「설정 → 모델」에서 직접 다운로드하세요. 선택한 모델은 자동으로 바뀌지 않습니다. FireRedASR의 미리보기는 네이티브 스트리밍이 아니며, X-ASR의 파일 전사는 아직 제공하지 않습니다.
+
 See [Speech models](docs/speech-models.md) for the full provider matrix.
 
 ## Privacy Summary
