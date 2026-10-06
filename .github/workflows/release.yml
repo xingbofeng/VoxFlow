@@ -99,6 +99,12 @@ jobs:
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
+      # prepare-agent-helper（cargo build --release agent-cli）此前每次全量冷编译。
+      - name: Cache Rust agent helper build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent-cli
+
       - name: Check release metadata
         env:
           VOXFLOW_RELEASE_CHECK_REQUIRE_SENTRY: "1"
@@ -285,12 +291,20 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: VoxFlow.Windows/src/VoxFlow.Windows.Platform/packages.lock.json
 
       - name: Set up pinned Rust toolchain
         shell: pwsh
         run: |
           rustup toolchain install 1.97.0 --profile minimal --target x86_64-pc-windows-msvc
           rustup default 1.97.0
+
+      # stage-builtin-agent-runtime 的 cargo build --release（voxflow-agent）此前每次全量冷编译。
+      - name: Cache Rust agent runtime build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent-cli
 
       - name: Restore and validate Windows release inputs
         shell: pwsh
@@ -307,6 +321,15 @@ jobs:
         shell: bash
         run: bash VoxFlow.Windows/scripts/check-no-secrets.sh
 
+      # Tesseract 由 pinned vcpkg 从源码编译，实测约占 Windows job 一半时长。
+      # vcpkg 内建二进制缓存 + actions/cache：命中时直接解包预编译包，
+      # 只有 pinned baseline/脚本变化才重新编译。
+      - name: Cache vcpkg built packages
+        uses: actions/cache@v4
+        with:
+          path: .build/vcpkg-bincache
+          key: ${{ runner.os }}-vcpkg-tesseract-${{ hashFiles('VoxFlow.Windows/scripts/build-tesseract-runtime.ps1') }}
+
       - name: Stage Windows native runtimes
         shell: pwsh
         run: |
@@ -320,8 +343,11 @@ jobs:
 
       - name: Build Windows installer and portable package
         id: version
+        env:
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.build/vcpkg-bincache
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
           $version = (Get-Content ./docs/release.json | ConvertFrom-Json).version
           ./VoxFlow.Windows/scripts/prepare-windows-release.ps1 `
             -Version $version `

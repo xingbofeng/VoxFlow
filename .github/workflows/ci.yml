@@ -68,9 +68,6 @@ jobs:
       - name: Show Swift toolchain
         run: swift --version
 
-      - name: Install lint and localization tools
-        run: brew install swiftlint bartycrouch swiftgen
-
       - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
         with:
@@ -126,6 +123,12 @@ jobs:
           cargo --version
           rustup component add rustfmt clippy
 
+      - name: Cache Rust agent router build
+        if: needs.changes.outputs.rust_agent == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent-cli
+
       - name: Check Rust agent router
         if: needs.changes.outputs.rust_agent == 'true'
         working-directory: agent-cli
@@ -144,6 +147,21 @@ jobs:
 
       - name: Check architecture boundaries
         run: make architecture-check
+
+  # lint/i18n 从 checks 拆出：brew install（2-5 分钟）不再挡在 swift test 前面，
+  # 与测试作业并行执行。
+  lint:
+    name: Lint and i18n
+    needs: changes
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install lint and localization tools
+        run: brew install swiftlint bartycrouch swiftgen
 
       - name: Run SwiftLint
         run: make lint
