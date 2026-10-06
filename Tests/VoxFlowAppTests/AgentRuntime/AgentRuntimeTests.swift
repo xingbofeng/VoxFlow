@@ -182,6 +182,35 @@ final class AgentRuntimeTests: XCTestCase {
         XCTAssertEqual(result.stdout, "stable-path")
     }
 
+    func testLocalAgentProcessRunnerCapturesLargeOutputWithoutDeadlock() throws {
+        // 输出约 130KB，超过 64KB 管道缓冲：验证读端与子进程并发排空，不卡死且不丢尾。
+        let result = try LocalAgentProcessRunner.run(
+            "/bin/sh",
+            arguments: ["-c", "i=1; while [ $i -le 20000 ]; do echo \"line-$i\"; i=$((i+1)); done; echo err-payload >&2; exit 7"],
+            timeoutSeconds: 30
+        )
+
+        XCTAssertEqual(result.exitCode, 7)
+        XCTAssertFalse(result.timedOut)
+        XCTAssertTrue(result.stdout.hasPrefix("line-1\n"))
+        XCTAssertTrue(result.stdout.hasSuffix("line-20000\n"))
+        XCTAssertEqual(result.stderr, "err-payload\n")
+    }
+
+    func testLocalAgentProcessRunnerCapturesStdinAndOutputWrittenAfterDelay() throws {
+        // 末段输出在子进程退出前 0.3s 才写：锁定了"退出瞬间数据已取走但未落账"的竞态形态。
+        let result = try LocalAgentProcessRunner.run(
+            "/bin/sh",
+            arguments: ["-c", "read line; echo \"got:$line\"; sleep 0.3; echo tail-payload; exit 0"],
+            stdin: "hello-xasr\n",
+            timeoutSeconds: 30
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(result.timedOut)
+        XCTAssertEqual(result.stdout, "got:hello-xasr\ntail-payload\n")
+    }
+
     func testLocalAgentProcessRunnerTerminatesChildProcessOnTimeout() throws {
         let root = try makeTemporaryDirectory()
         let childPIDFile = root.appendingPathComponent("child.pid")

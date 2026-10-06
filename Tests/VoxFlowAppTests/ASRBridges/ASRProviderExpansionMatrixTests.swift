@@ -59,13 +59,6 @@ final class ASRProviderExpansionMatrixTests: XCTestCase {
         }
     }
 
-    func testExpansionMatrixIsDocumented() {
-        XCTAssertEqual(
-            ASRProviderExpansionMatrix.documentationPath,
-            "docs/asr-provider-expansion-matrix.md"
-        )
-    }
-
     func testQwen17MatrixRecordsSpeechSwiftSharedModelAndSessionIsolation() throws {
         let qwen06 = try XCTUnwrap(
             ASRProviderExpansionMatrix.task11Entries.first { $0.variantID == "qwen3-asr-0.6b" }

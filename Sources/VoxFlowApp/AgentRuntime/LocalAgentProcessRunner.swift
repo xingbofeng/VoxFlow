@@ -29,18 +29,24 @@ enum LocalAgentProcessRunner {
         let stderrPipe = Pipe()
         let stdoutAccumulator = DataAccumulator()
         let stderrAccumulator = DataAccumulator()
-        stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty {
-                stdoutAccumulator.append(data)
-            }
-        }
-        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty {
-                stderrAccumulator.append(data)
-            }
-        }
+        // 读端必须与子进程并发排空：管道缓冲约 64KB，不读会把写满的子进程卡死。
+        // readDataToEndOfFile 只在 EOF 返回，EOF 即输出完整，
+        // 消除退出瞬间 readabilityHandler 已取走数据但尚未落账的竞态。
+        let drained = DispatchGroup()
+        let stdoutReader = OutputPipeReader(
+            handle: stdoutPipe.fileHandleForReading,
+            accumulator: stdoutAccumulator,
+            finished: drained
+        )
+        let stderrReader = OutputPipeReader(
+            handle: stderrPipe.fileHandleForReading,
+            accumulator: stderrAccumulator,
+            finished: drained
+        )
+        drained.enter()
+        DispatchQueue.global().async { stdoutReader.drainToEndOfFile() }
+        drained.enter()
+        DispatchQueue.global().async { stderrReader.drainToEndOfFile() }
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
@@ -53,7 +59,18 @@ enum LocalAgentProcessRunner {
             stdinPipe = nil
         }
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // 读者线程仍在等 EOF；关闭父进程写端让其立即返回，再抛出原始错误。
+            try? stdoutPipe.fileHandleForWriting.close()
+            try? stderrPipe.fileHandleForWriting.close()
+            _ = drained.wait(timeout: .now() + 2)
+            throw error
+        }
+        // 父进程写端必须在 spawn 成功后关闭：所有写端都关闭，读端才会见到 EOF。
+        try? stdoutPipe.fileHandleForWriting.close()
+        try? stderrPipe.fileHandleForWriting.close()
         let processGroupCreated = setpgid(process.processIdentifier, process.processIdentifier) == 0
         if let stdinPipe {
             if let data = stdin?.data(using: .utf8) {
@@ -71,10 +88,9 @@ enum LocalAgentProcessRunner {
             }
         }
 
-        stdoutPipe.fileHandleForReading.readabilityHandler = nil
-        stderrPipe.fileHandleForReading.readabilityHandler = nil
-        stdoutAccumulator.append(stdoutPipe.fileHandleForReading.availableData)
-        stderrAccumulator.append(stderrPipe.fileHandleForReading.availableData)
+        // 正常情况下子进程退出后读端立即 EOF；超时只兜底孙进程继承写端的病态场景，
+        // 此时按锁保护下已落账的部分输出返回，不让调用方挂死。
+        _ = drained.wait(timeout: .now() + 5)
 
         return LocalAgentProcessResult(
             exitCode: process.terminationStatus,
@@ -163,5 +179,25 @@ private final class DataAccumulator: @unchecked Sendable {
         let snapshot = data
         lock.unlock()
         return String(data: snapshot, encoding: .utf8) ?? ""
+    }
+}
+
+/// 阻塞读一个子进程输出管道到 EOF；必须跑在后台队列，读到 EOF 前不会返回。
+/// `@unchecked Sendable`：FileHandle 与 DispatchGroup 自身线程安全，
+/// @Sendable 闭包只捕获本类型实例。
+private final class OutputPipeReader: @unchecked Sendable {
+    private let handle: FileHandle
+    private let accumulator: DataAccumulator
+    private let finished: DispatchGroup
+
+    init(handle: FileHandle, accumulator: DataAccumulator, finished: DispatchGroup) {
+        self.handle = handle
+        self.accumulator = accumulator
+        self.finished = finished
+    }
+
+    func drainToEndOfFile() {
+        accumulator.append(handle.readDataToEndOfFile())
+        finished.leave()
     }
 }

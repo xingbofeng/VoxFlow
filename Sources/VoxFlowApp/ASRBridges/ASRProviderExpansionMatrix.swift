@@ -22,8 +22,6 @@ struct ASRProviderExpansionEntry: Equatable {
 }
 
 enum ASRProviderExpansionMatrix {
-    static let documentationPath = "docs/asr-provider-expansion-matrix.md"
-
     static let task11Entries: [ASRProviderExpansionEntry] = {
         let entries = [
             ASRProviderExpansionEntry(
