@@ -3,9 +3,13 @@ import VoxFlowModelStore
 
 public struct XASRModelReadinessRunner: Sendable {
     private let streamFactory: any XASRStreamMaking
-    public init(streamFactory: any XASRStreamMaking = XASRRuntime()) { self.streamFactory = streamFactory }
+    private let environment: XASRRuntimePreflight.Environment
+    public init(streamFactory: any XASRStreamMaking = XASRRuntime(), environment: XASRRuntimePreflight.Environment = .current()) {
+        self.streamFactory = streamFactory
+        self.environment = environment
+    }
     public func prepare(modelURL: URL) async throws -> ModelPrewarmReport {
-        if case .blocked(let blocker) = XASRRuntimePreflight.evaluate() {
+        if case .blocked(let blocker) = XASRRuntimePreflight.evaluate(environment: environment) {
             throw XASRProviderError.preflightBlocked(blocker)
         }
         let audio = try Self.canaryAudio()
