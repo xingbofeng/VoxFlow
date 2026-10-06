@@ -1,23 +1,23 @@
 window.VOXFLOW_RELEASES = [
   {
-    "tag_name": "v1.15.0",
-    "name": "VoxFlow 1.15.0",
-    "body": "# VoxFlow 1.15.0\n\n## 更新摘要\n\n- 新增内置 Agent 工具运行时，支持文件读写、搜索、剪贴板、网页请求、历史检索和用户确认等受控工具调用。\n- 升级文件转写与翻译工作流，补齐本地/云端 Provider 能力判断、音频资产准备、分段持久化和译文展示。\n- 修复笔记页继续听写与全局听写的路由边界，VoxFlow 退到后台后不再把外部 App 的听写写入笔记。\n- 改进 HUD、首页记录和失败状态展示，笔记录制支持流式更新，Agent 失败记录会刷新到首页并标注失败。\n\n## 细节\n\n- 功能：内置 Agent Runtime 新增 `read_file`、`write_file`、`edit_file`、`list_files`、`glob_files`、`grep_files`、`clipboard`、`text_field`、`http_request`、`open_url`、`web_fetch`、`web_search`、`search_transcriptions`、`ask_user_question`、`respond` 等工具，并统一事件归一化与执行 trace。\n- 功能：文件转写新增音频资产准备、Provider 能力判断、worker pipeline、Groq 原生文件转写和转写分段持久化。\n- 功能：笔记页新增详情、继续听写、翻译、导出等状态管理，录制 HUD 可在笔记页流式更新。\n- 修复：右 Option / Agent 失败会保存为首页资产并标注失败；`ask_user_question` 允许单选确认，避免 Groq tool schema 400。\n- 修复：笔记页在后台时不再捕获全局听写快捷键；静音时 HUD 波形与流式文本窗口不再闪动。\n- 体验：模型设置、LLM Provider 图标、默认恢复和多语言文案同步更新。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.15.0\n- `CFBundleVersion`：26\n- DMG：`VoxFlow-1.15.0-macOS.dmg`\n",
-    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.15.0",
-    "published_at": ""
+    "tag_name": "v1.18.0",
+    "name": "VoxFlow 1.18.0",
+    "body": "# VoxFlow 1.18.0\n\n## 更新摘要\n\n- 新增本地流式识别 Provider **X-ASR-zh-en**：中英混合口述，边说边出字，适合连续听写与即时反馈。\n- 修复本地 agent 进程偶发读到空输出的问题：模型列表与 CLI 检测不再偶发为空。\n\n## 细节\n\n- 功能：新增 X-ASR-zh-en 本地 Provider（中英混合流式识别），可在设置页与菜单栏切换；识别走原生流式解码，预览与最终文本来自同一路识别，模型下载、校验、修复、预热与卸载复用既有模型管理流程，权重不进安装包。\n- 注意：X-ASR-zh-en 模型约 586 MB，仅支持 Apple Silicon（M 系列）、macOS 15 及以上、8 GB 及以上内存的设备，首次使用前需先下载模型。\n- 修复：本地 agent 进程（AI 编程助手的模型列表与 CLI 检测）偶发读到空输出——根因是子进程退出瞬间输出读取存在竞态；现改为读者线程读到 EOF 的确定性并发排空，并确保父进程写端及时关闭，输出完整可读。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.18.0\n- `CFBundleVersion`：29\n- macOS DMG：`VoxFlow-1.18.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.18.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.18.0-windows-x64-portable.zip`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.0",
+    "published_at": "2026-10-06T09:44:49Z"
   },
   {
-    "tag_name": "v1.14.0",
-    "name": "VoxFlow 1.14.0",
-    "body": "# VoxFlow 1.14.0\n\n## 更新摘要\n\n- 扩展本地 Agent Provider：除了 Codex，现在可以检测并选择 Opencode、Claude Code、CodeBuddy 和 Pi Agent，并为 Agent Compose 选择对应模型。\n- 纠错链路更保守可靠：新增普通听写专用的 LLM 纠错保护，避免模型把口述内容扩写成回答、丢掉 URL / 版本号 / 路径等关键 token。\n- 词汇表与热词策略继续完善：热词只维护正确写法，Provider 热词能力、命中统计和删除屏蔽表更清晰，减少误学习和重复加入。\n- 设置页重新整理为语音、文本、截图、划词助手、智能工作台、模型和通用入口，模型页也拆出本地 Agent 与自定义 LLM Provider。\n\n## 细节\n\n- 功能：新增通用本地 Agent CLI 适配层，支持检测 CLI 可用性、拉取模型列表、执行本地 Agent runtime，并记录输出、失败原因和生成 artifact。\n- 功能：LLM Provider 设置新增本地 Agent Provider 区域，可分别启用 Opencode、Claude Code、CodeBuddy、Pi Agent 和 Codex，并同步到 Agent Compose 使用。\n- 功能：普通听写 LLM 纠错新增 refinement guard 诊断，首页详情可展示接受/拒绝原因、相似度、fallback 来源和受保护 token 类型。\n- 功能：热词、文本替换和 ASR Provider 热词能力矩阵补齐领域定义，Groq ASR 可复用已有 Groq LLM Provider 的 API Key。\n- 修复：Agent Dispatch 复用文本处理链路时可显式跳过普通听写纠错保护，避免任务指令被当成普通听写结果误判。\n- 修复：本地模型流式预览和空闲资源释放改为读取设置仓库，Qwen3 本地模型可在空闲时释放共享缓存。\n- 体验：设置页侧边栏和模型页重新分组，减少旧版设置中模型、纠错、快捷键和隐私入口交叉分散的问题。\n- 体验：README、官网、应用内更新元数据和静态最近版本 fallback 同步到 1.14.0。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.14.0\n- `CFBundleVersion`：25\n- DMG：`VoxFlow-1.14.0-macOS.dmg`\n",
-    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.14.0",
-    "published_at": "2026-07-03T05:39:05Z"
+    "tag_name": "v1.17.0",
+    "name": "VoxFlow 1.17.0",
+    "body": "# VoxFlow 1.17.0\n\n## 更新摘要\n\n- 新增本地语音识别模型 **Confucius4-R2T2**：边说边出字，适合连续口述和需要即时反馈的场景。\n- 新增本地语音识别模型 **FireRedASR2-AED**：主打中文准确率与方言覆盖，并支持录音期间的实时预览。\n- 悬浮窗实时文本重写显示逻辑：长句不再丢掉最后说出的字，始终显示最新内容。\n- 修复整段无语音时把 `<sil>` 当成正文上屏的问题。\n\n## 细节\n\n- 功能：新增两个本地 ASR Provider，可在设置页与菜单栏切换；两者的模型下载、校验、修复、预热与卸载都复用既有模型管理流程，权重不进安装包。\n- 功能：Confucius4-R2T2 走原生流式解码，预览与最终文本来自同一路识别；FireRedASR2-AED 是离线自回归模型，预览由「按至少 1 秒新音频节流」的重解得到，而最终文本仍由整段重解产出，因此开启预览不会改变识别结果。\n- 功能：设置页「本地模型实时预览」开关现在同样作用于 FireRedASR2-AED（默认开启）。\n- 修复：悬浮窗实时文本改为按行测量，长中文句子不再因为字符数上限被裁掉尾部——此前被裁掉的恰好是最新说出的字。\n- 修复：识别结果里的 `<sil>`、`<unk>` 这类功能性 token 会被剥离，不再作为正文插入。\n- 体验：Provider 名称统一为 `FireRedASR2-AED` 与 `Confucius4-R2T2`；模型体积在未下载时显示为「下载时检测」，不再展示可能误导的估值。\n- 注意：FireRedASR2-AED 模型约 1.24 GB，常驻内存较高，需要 16 GB 及以上内存，首次使用前需先下载模型。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.17.0\n- `CFBundleVersion`：28\n- macOS DMG：`VoxFlow-1.17.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.17.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.17.0-windows-x64-portable.zip`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.17.0",
+    "published_at": "2026-10-05T21:29:57Z"
   },
   {
-    "tag_name": "v1.13.0",
-    "name": "VoxFlow 1.13.0",
-    "body": "# VoxFlow 1.13.0\n\n## 更新摘要\n\n- 新增 Codex Runtime Agent 工作流：语音指令可以直接交给本机 Codex 执行，支持页面总结、文件生成和过程事件回写。\n- 升级 LLM / Agent Provider 设置：Codex Runtime 可检测、选择模型，并可作为文本纠错和 Agent Compose 的执行提供方。\n- 改进工作台资产与任务详情：历史记录、Agent 执行轨迹、诊断导出和 HUD 状态展示更完整。\n- 官网迁移到 `mashangxie.app`，README、官网元数据和应用内更新检测地址同步更新。\n\n## 细节\n\n- 功能：接入 Codex app-server runtime，新增受控工作区、屏幕上下文截图、事件归一化、token 用量和失败原因记录。\n- 功能：Agent Dispatch / Agent Compose 会保留文本处理 trace，任务详情页可展示 LLM 修正、Agent 输出和执行轨迹。\n- 功能：LLM Provider 设置新增 Codex Runtime 检测、模型列表刷新、启用后可作为默认 LLM Provider 的能力。\n- 修复：Agent Dispatch 确认前补齐文本处理流程，避免发给助手的内容绕过纠错和上下文处理。\n- 体验：首页资产列表、历史详情、HUD 浮层和多语言文案更新，便于区分语音、截图、录屏、剪贴板与 Agent 资产。\n- 体验：官网 canonical / OG / 更新检测从 GitHub Pages 切换到 `https://mashangxie.app/`。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.13.0\n- `CFBundleVersion`：24\n- DMG：`VoxFlow-1.13.0-macOS.dmg`\n",
-    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.13.0",
-    "published_at": "2026-07-01T17:36:38Z"
+    "tag_name": "v1.16.0",
+    "name": "VoxFlow 1.16.0",
+    "body": "# VoxFlow 1.16.0\n\n## 更新摘要\n\n- Windows x64 现提供官方安装包和便携包，可与 macOS 版本从同一发布页下载。\n- 官网和五种语言 README 已同步本次 macOS、Windows 安装包及其下载入口。\n- 发布流程会校验官网、Release 资产和安装包版本一致，避免错误平台或旧文件继续出现在下载页。\n\n## 细节\n\n- 功能：Windows 发布产物包含每用户安装包与免安装便携包，便于按使用场景选择。\n- 修复：发布任务会清理同一标签下不属于当前平台声明的旧资产，并在上传后核对远端资产集合。\n- 体验：macOS 和 Windows 下载入口统一使用当前版本号；未配置 iOS 签名时不会展示或发布 IPA。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.16.0\n- `CFBundleVersion`：27\n- macOS DMG：`VoxFlow-1.16.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.16.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.16.0-windows-x64-portable.zip`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.16.0",
+    "published_at": "2026-10-04T04:57:26Z"
   }
 ];

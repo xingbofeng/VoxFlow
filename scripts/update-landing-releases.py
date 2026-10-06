@@ -2,6 +2,8 @@
 import json
 import os
 import subprocess
+import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -43,8 +45,14 @@ def main() -> int:
         API_URL,
         headers=headers,
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        releases = json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            releases = json.load(response)
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as error:
+        # 官网构建跑在 CI/Vercel 构建机上，匿名 GitHub API 有速率限制；
+        # 拉取失败时退回纯本地数据（旧条目 published_at 留空），不要让整个构建失败。
+        print(f"warning: skip GitHub releases sync: {error}", file=sys.stderr)
+        releases = []
 
     payload = []
     if CURRENT_RELEASE.exists():
@@ -61,6 +69,15 @@ def main() -> int:
                 "published_at": current.get("publishedAt", ""),
             }
         )
+
+    published_at_by_tag = {
+        item.get("tag_name", ""): item.get("published_at", "")
+        for item in releases
+        if item.get("tag_name")
+    }
+    for release in payload:
+        if not release.get("published_at"):
+            release["published_at"] = published_at_by_tag.get(release["tag_name"], "")
 
     payload.extend(
         {
