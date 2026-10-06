@@ -82,8 +82,8 @@ VoxFlow は、いま使っているアプリの中に留まる音声入力ツー
 
 | プラットフォーム | パッケージ | インストール方法 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.17.0-macOS.dmg` | DMG を開き、VoxFlow を Applications に移動します。 |
-| Windows x64 | `VoxFlow-1.17.0-windows-x64-setup.exe` または `VoxFlow-1.17.0-windows-x64-portable.zip` | インストーラーを実行するか、ポータブル版を展開します。 |
+| macOS | `VoxFlow-1.18.0-macOS.dmg` | DMG を開き、VoxFlow を Applications に移動します。 |
+| Windows x64 | `VoxFlow-1.18.0-windows-x64-setup.exe` または `VoxFlow-1.18.0-windows-x64-portable.zip` | インストーラーを実行するか、ポータブル版を展開します。 |
 
 ### Requirements
 

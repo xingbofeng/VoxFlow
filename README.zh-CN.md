@@ -82,8 +82,8 @@
 
 | 平台 | 安装包 | 安装方式 |
 | --- | --- | --- |
-| macOS | `VoxFlow-1.17.0-macOS.dmg` | 打开 DMG，将 VoxFlow 拖入“应用程序”。 |
-| Windows x64 | `VoxFlow-1.17.0-windows-x64-setup.exe` 或 `VoxFlow-1.17.0-windows-x64-portable.zip` | 运行当前用户安装包，或解压便携包。 |
+| macOS | `VoxFlow-1.18.0-macOS.dmg` | 打开 DMG，将 VoxFlow 拖入“应用程序”。 |
+| Windows x64 | `VoxFlow-1.18.0-windows-x64-setup.exe` 或 `VoxFlow-1.18.0-windows-x64-portable.zip` | 运行当前用户安装包，或解压便携包。 |
 
 ### 系统要求
 

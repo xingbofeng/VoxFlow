@@ -1,9 +1,9 @@
 {
-  "version": "1.17.0",
-  "tag": "v1.17.0",
-  "assetName": "VoxFlow-1.17.0-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.17.0",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.17.0/VoxFlow-1.17.0-macOS.dmg",
+  "version": "1.18.0",
+  "tag": "v1.18.0",
+  "assetName": "VoxFlow-1.18.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.0/VoxFlow-1.18.0-macOS.dmg",
   "publishedPlatforms": [
     "macos",
     "windows"
@@ -11,22 +11,22 @@
   "assets": {
     "macos": {
       "dmg": {
-        "name": "VoxFlow-1.17.0-macOS.dmg",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.17.0/VoxFlow-1.17.0-macOS.dmg"
+        "name": "VoxFlow-1.18.0-macOS.dmg",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.0/VoxFlow-1.18.0-macOS.dmg"
       }
     },
     "windows": {
       "installer": {
-        "name": "VoxFlow-1.17.0-windows-x64-setup.exe",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.17.0/VoxFlow-1.17.0-windows-x64-setup.exe"
+        "name": "VoxFlow-1.18.0-windows-x64-setup.exe",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.0/VoxFlow-1.18.0-windows-x64-setup.exe"
       },
       "portable": {
-        "name": "VoxFlow-1.17.0-windows-x64-portable.zip",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.17.0/VoxFlow-1.17.0-windows-x64-portable.zip"
+        "name": "VoxFlow-1.18.0-windows-x64-portable.zip",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.0/VoxFlow-1.18.0-windows-x64-portable.zip"
       }
     }
   },
-  "releaseNotes": "新增本地语音识别模型 **Confucius4-R2T2**：边说边出字，适合连续口述和需要即时反馈的场景。",
+  "releaseNotes": "新增本地流式识别 Provider **X-ASR-zh-en**：中英混合口述，边说边出字，适合连续听写与即时反馈。",
   "draft": false,
   "prerelease": false
 }
