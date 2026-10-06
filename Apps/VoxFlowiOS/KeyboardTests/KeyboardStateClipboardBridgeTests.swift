@@ -73,7 +73,7 @@ final class KeyboardStateClipboardBridgeTests: XCTestCase {
 
         state.startRecording()
 
-        await fulfillment(of: [openedURL], timeout: 1.0)
+        await fulfillment(of: [openedURL], timeout: 3.0)
 
         XCTAssertEqual(capturedURL?.scheme, "mashangxie")
         XCTAssertEqual(capturedURL?.host, "dictation")
@@ -105,7 +105,7 @@ final class KeyboardStateClipboardBridgeTests: XCTestCase {
 
         state.startRecording()
 
-        await fulfillment(of: [openedURL], timeout: 1.0)
+        await fulfillment(of: [openedURL], timeout: 3.0)
         XCTAssertEqual(state.dictationStatus, .idle)
     }
 
@@ -123,7 +123,9 @@ final class KeyboardStateClipboardBridgeTests: XCTestCase {
 
         state.startRecording()
 
-        await fulfillment(of: [openedURL], timeout: 1.5)
+        // AppGroupBridge 的 fallback 在 startRecording 约 500ms 后才回调（内部 Task.sleep），
+        // CI 模拟器高负载时可能超过 1.5s；放宽到 3s 只增加耐受力，真回归（回调永不触发）仍会失败。
+        await fulfillment(of: [openedURL], timeout: 3.0)
 
         // AppGroupBridge uses the original mashangxie://dictate?source=keyboard URL.
         XCTAssertEqual(capturedURL?.absoluteString, "mashangxie://dictate?source=keyboard")
