@@ -251,17 +251,40 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Cache SwiftPM dependencies
+      # make build / make dmg 走 --scratch-path .build/swiftpm-xcode16（见 Makefile SWIFT_PACKAGE_FLAGS），
+      # 依赖会被解析到该 scratch 下面。这里以前缓存的却是 .build/{artifacts,checkouts,plugins,repositories}，
+      # 与真实 scratch 不一致：restore 出来的 1.6G 构建从不读取，于是每次仍然重新拉取 106 个依赖
+      # （实测 153 秒，03:34:03→03:36:36）。key 用独立的 -xcode16-swiftpm- 前缀：既不与 checks job 的
+      # .build 缓存互相覆盖内容，也不落进它的 restore-keys 前缀（macOS-swiftpm-）里被误 restore。
+      - name: Cache SwiftPM dependencies for xcode16 scratch
         uses: actions/cache@v4
         with:
           path: |
-            .build/artifacts
-            .build/checkouts
-            .build/plugins
-            .build/repositories
-          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+            .build/swiftpm-xcode16/artifacts
+            .build/swiftpm-xcode16/checkouts
+            .build/swiftpm-xcode16/plugins
+            .build/swiftpm-xcode16/repositories
+          key: ${{ runner.os }}-xcode16-swiftpm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-swiftpm-
+            ${{ runner.os }}-xcode16-swiftpm-
+
+      # MLX 的 33 个 Metal 源每次都由 build-mlx-metallib.sh 重新编译，实测 248 秒
+      # （03:48:18→03:52:26）。该脚本自己会把 kernels 下 .metal/.h 的内容哈希写进 .mlx.metallib.sha，
+      # 命中就早退并重新 cp 出 default.metallib，所以只缓存 mlx.metallib 与哈希戳即可：
+      # 既省掉一半缓存体积，也让 MLX 版本变化时缓存在脚本内部自动失效。
+      - name: Cache MLX metallib
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/swiftpm-xcode16/*-apple-macosx/release/mlx.metallib
+            .build/swiftpm-xcode16/*-apple-macosx/release/.mlx.metallib.sha
+          key: ${{ runner.os }}-mlx-metallib-${{ hashFiles('scripts/build-mlx-metallib.sh', 'Package.resolved') }}
+
+      - name: Cache sherpa-onnx runtime
+        uses: actions/cache@v4
+        with:
+          path: Vendor/sherpa-onnx.xcframework
+          key: ${{ runner.os }}-sherpa-onnx-${{ hashFiles('scripts/bootstrap-sherpa-onnx.sh') }}
 
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
