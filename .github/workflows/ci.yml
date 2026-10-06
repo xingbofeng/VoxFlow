@@ -89,20 +89,19 @@ jobs:
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
-      # -warnings-as-errors 直接加在 swift test 上，合并掉原来单独的一次 debug 构建：
-      # 之前 Run tests 已经 debug 编译过一遍，再单独编一次只为了检查 warning。
-      # 注意这同时把测试 target 也纳入 warning 门禁。
-      - name: Run tests
+      # 测试按 target 拆两个并行作业（App 主 target 在本作业，模块 target 在
+      # tests-modules）。两者都以 -warnings-as-errors 全量编译，warning 门禁覆盖不变。
+      - name: Run tests (app target)
         run: |
           start=$(date +%s)
           swift_build_jobs="$(sysctl -n hw.logicalcpu)"
           swift_test_workers=8
-          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs" -Xswiftc -warnings-as-errors
+          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs" -Xswiftc -warnings-as-errors --filter VoxFlowAppTests
           duration=$(( $(date +%s) - start ))
           echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
           echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| swift test --parallel --num-workers $swift_test_workers --jobs $swift_build_jobs -Xswiftc -warnings-as-errors | $duration |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| app-target shard | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run voice correction benchmark
         if: needs.changes.outputs.voice_correction_benchmark == 'true'
@@ -168,6 +167,51 @@ jobs:
 
       - name: Run i18n checks
         run: make i18n-check
+
+  # swift test 的模块 target 分片：与 checks（App 主 target）并行，两片合计 = 全量 3353 项。
+  # 两个作业都会全量编译（-warnings-as-errors 门禁不变），只是各跑一半测试。
+  tests-modules:
+    name: Test module targets
+    needs: changes
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/artifacts
+            .build/checkouts
+            .build/plugins
+            .build/repositories
+          key: ${{ runner.os }}-swiftpm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-
+
+      - name: Cache sherpa-onnx runtime
+        uses: actions/cache@v4
+        with:
+          path: Vendor/sherpa-onnx.xcframework
+          key: ${{ runner.os }}-sherpa-onnx-${{ hashFiles('scripts/bootstrap-sherpa-onnx.sh') }}
+
+      - name: Prepare sherpa-onnx runtime
+        run: ./scripts/bootstrap-sherpa-onnx.sh
+
+      - name: Run tests (module targets)
+        run: |
+          start=$(date +%s)
+          swift_build_jobs="$(sysctl -n hw.logicalcpu)"
+          swift_test_workers=8
+          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs" -Xswiftc -warnings-as-errors --skip VoxFlowAppTests
+          duration=$(( $(date +%s) - start ))
+          echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| module-targets shard | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
   ios-sim:
     name: iOS simulator tests
