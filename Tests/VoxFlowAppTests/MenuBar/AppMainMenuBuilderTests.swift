@@ -41,8 +41,8 @@ final class AppMainMenuBuilderTests: XCTestCase {
         ])
         XCTAssertEqual(applicationMenu.items[0].action, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         XCTAssertEqual(applicationMenu.items[1].action, #selector(AppDelegate.checkForUpdates(_:)))
-        XCTAssertEqual(applicationMenu.items[3].action, Selector(("openWorkbenchFromMainMenu:")))
-        XCTAssertEqual(applicationMenu.items[4].action, Selector(("openSettingsFromMainMenu:")))
+        XCTAssertEqual(applicationMenu.items[3].action, #selector(AppDelegate.openWorkbenchFromMainMenu(_:)))
+        XCTAssertEqual(applicationMenu.items[4].action, #selector(AppDelegate.openSettingsFromMainMenu(_:)))
         XCTAssertEqual(applicationMenu.items[4].keyEquivalent, ",")
         XCTAssertEqual(applicationMenu.items[4].keyEquivalentModifierMask, .command)
         XCTAssertEqual(applicationMenu.items[6].action, #selector(NSApplication.hide(_:)))
@@ -98,10 +98,10 @@ final class AppMainMenuBuilderTests: XCTestCase {
             "",
             mainMenuTitle("start_dictation"),
         ])
-        XCTAssertEqual(actionsMenu.items[0].action, Selector(("showPaletteFromMainMenu:")))
+        XCTAssertEqual(actionsMenu.items[0].action, #selector(AppDelegate.showPaletteFromMainMenu(_:)))
         XCTAssertEqual(actionsMenu.items[1].action, #selector(AppDelegate.performScreenshotOCRFromMenu(_:)))
-        XCTAssertEqual(actionsMenu.items[2].action, Selector(("requestSelectionActionFromMainMenu:")))
-        XCTAssertEqual(actionsMenu.items[4].action, Selector(("startDictationFromMainMenu:")))
+        XCTAssertEqual(actionsMenu.items[2].action, #selector(AppDelegate.requestSelectionActionFromMainMenu(_:)))
+        XCTAssertEqual(actionsMenu.items[4].action, #selector(AppDelegate.startDictationFromMainMenu(_:)))
     }
 
     @MainActor
@@ -123,7 +123,7 @@ final class AppMainMenuBuilderTests: XCTestCase {
         XCTAssertEqual(windowMenu.items[1].action, #selector(NSWindow.performMiniaturize(_:)))
         XCTAssertEqual(windowMenu.items[2].action, #selector(NSWindow.performZoom(_:)))
         XCTAssertEqual(windowMenu.items[4].action, #selector(NSApplication.arrangeInFront(_:)))
-        XCTAssertEqual(windowMenu.items[6].action, Selector(("openWorkbenchFromMainMenu:")))
+        XCTAssertEqual(windowMenu.items[6].action, #selector(AppDelegate.openWorkbenchFromMainMenu(_:)))
 
         XCTAssertNil(menu.item(withSubmenuTitle: mainMenuTitle("diagnostics")))
 
@@ -133,8 +133,8 @@ final class AppMainMenuBuilderTests: XCTestCase {
             mainMenuTitle("check_permissions"),
             mainMenuTitle("check_updates"),
         ])
-        XCTAssertEqual(helpMenu.items[0].action, Selector(("openGitHubFromMainMenu:")))
-        XCTAssertEqual(helpMenu.items[2].action, Selector(("checkPermissionsFromMainMenu:")))
+        XCTAssertEqual(helpMenu.items[0].action, #selector(AppDelegate.openGitHubFromMainMenu(_:)))
+        XCTAssertEqual(helpMenu.items[2].action, #selector(AppDelegate.checkPermissionsFromMainMenu(_:)))
         XCTAssertEqual(helpMenu.items[3].action, #selector(AppDelegate.checkForUpdates(_:)))
     }
 

@@ -15,10 +15,16 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    name: Test and build macOS app
-    runs-on: macos-15
-    timeout-minutes: 60
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      rust_agent: ${{ steps.detect.outputs.rust_agent }}
+      voice_correction_benchmark: ${{ steps.detect.outputs.voice_correction_benchmark }}
+      context_boost_benchmark: ${{ steps.detect.outputs.context_boost_benchmark }}
+      r2t2_core_tests: ${{ steps.detect.outputs.r2t2_core_tests }}
+      ios: ${{ steps.detect.outputs.ios }}
 
     steps:
       - name: Check out repository
@@ -27,49 +33,22 @@ jobs:
           fetch-depth: 2
 
       - name: Detect changed paths
-        id: changes
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "rust_agent=true" >> "$GITHUB_OUTPUT"
-            echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
-            echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
-            echo "r2t2_core_tests=true" >> "$GITHUB_OUTPUT"
-            echo "ios=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+        id: detect
+        run: bash scripts/ci-detect-changed-paths.sh
 
-          git diff --name-only --diff-filter=ACMRT HEAD^1 HEAD > "$RUNNER_TEMP/changed-files.txt"
+  # 单元测试与静态检查。iOS 模拟器测试和 R2T2 子包测试已拆到独立 job 并行执行：
+  # 这三块互不依赖，之前串在同一个 job 里，46 分钟的关键路径有 86% 耗在三个测试步骤上。
+  checks:
+    name: Test and build macOS app
+    needs: changes
+    runs-on: macos-15
+    timeout-minutes: 60
 
-          if grep -E '^(agent-cli/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
-            echo "rust_agent=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "rust_agent=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -E '^(Packages/VoxFlowVoiceCorrectionKit/|Package\.(swift|resolved)$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
-            echo "voice_correction_benchmark=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "voice_correction_benchmark=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -E '^(Packages/VoxFlowContextBoostKit/|Package\.(swift|resolved)$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
-            echo "context_boost_benchmark=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "context_boost_benchmark=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -E '^(Apps/VoxFlowiOS/|Makefile$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
-            echo "ios=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ios=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -E '^(Packages/VoxFlowR2T2Core/|Sources/VoxFlowProviders/VoxFlowProviderR2T2/|Makefile$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-files.txt" >/dev/null; then
-            echo "r2t2_core_tests=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "r2t2_core_tests=false" >> "$GITHUB_OUTPUT"
-          fi
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Check release metadata
         run: make release-check
@@ -90,7 +69,7 @@ jobs:
         run: swift --version
 
       - name: Install lint and localization tools
-        run: brew install swiftlint bartycrouch swiftgen xcodegen
+        run: brew install swiftlint bartycrouch swiftgen
 
       - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
@@ -113,31 +92,23 @@ jobs:
       - name: Prepare sherpa-onnx runtime
         run: ./scripts/bootstrap-sherpa-onnx.sh
 
-      - name: Cache iOS Rime Ice schemas
-        if: steps.changes.outputs.ios == 'true'
-        uses: actions/cache@v4
-        with:
-          path: .build/ios-rime-ice
-          key: ${{ runner.os }}-ios-rime-ice-${{ hashFiles('Apps/VoxFlowiOS/Scripts/bootstrap-rime-ice-schemas.sh') }}
-
+      # -warnings-as-errors 直接加在 swift test 上，合并掉原来单独的一次 debug 构建：
+      # 之前 Run tests 已经 debug 编译过一遍，再单独编一次只为了检查 warning。
+      # 注意这同时把测试 target 也纳入 warning 门禁。
       - name: Run tests
         run: |
           start=$(date +%s)
           swift_build_jobs="$(sysctl -n hw.logicalcpu)"
           swift_test_workers=8
-          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs"
+          VOXFLOW_TEST_INTERFACE_LANGUAGE=zh-Hans swift test --parallel --num-workers "$swift_test_workers" --jobs "$swift_build_jobs" -Xswiftc -warnings-as-errors
           duration=$(( $(date +%s) - start ))
           echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
           echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| swift test --parallel --num-workers $swift_test_workers --jobs $swift_build_jobs | $duration |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Run R2T2 core tests
-        if: steps.changes.outputs.r2t2_core_tests == 'true'
-        run: make test-r2t2-core
+          echo "| swift test --parallel --num-workers $swift_test_workers --jobs $swift_build_jobs -Xswiftc -warnings-as-errors | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run voice correction benchmark
-        if: steps.changes.outputs.voice_correction_benchmark == 'true'
+        if: needs.changes.outputs.voice_correction_benchmark == 'true'
         run: |
           swift run --package-path Packages/VoxFlowVoiceCorrectionKit VoxFlowVoiceCorrectionBench \
             --fixtures Packages/VoxFlowVoiceCorrectionKit/Benchmarks/Fixtures \
@@ -145,18 +116,18 @@ jobs:
             --output .build/voice-correction-benchmark
 
       - name: Run context boost benchmark
-        if: steps.changes.outputs.context_boost_benchmark == 'true'
+        if: needs.changes.outputs.context_boost_benchmark == 'true'
         run: swift run --package-path Packages/VoxFlowContextBoostKit VoxFlowContextBoostBench
 
       - name: Show Rust toolchain
-        if: steps.changes.outputs.rust_agent == 'true'
+        if: needs.changes.outputs.rust_agent == 'true'
         run: |
           rustc --version
           cargo --version
           rustup component add rustfmt clippy
 
       - name: Check Rust agent router
-        if: steps.changes.outputs.rust_agent == 'true'
+        if: needs.changes.outputs.rust_agent == 'true'
         working-directory: agent-cli
         run: |
           start=$(date +%s)
@@ -169,6 +140,7 @@ jobs:
       - name: Check helper script syntax
         run: |
           bash -n agent-cli/vox
+          bash -n scripts/ci-detect-changed-paths.sh
 
       - name: Check architecture boundaries
         run: make architecture-check
@@ -176,19 +148,98 @@ jobs:
       - name: Run SwiftLint
         run: make lint
 
-      - name: Run iOS simulator tests
-        if: steps.changes.outputs.ios == 'true'
-        run: make ios-test-sim
-
       - name: Run i18n checks
         run: make i18n-check
 
-      - name: Build with warnings as errors
+  ios-sim:
+    name: iOS simulator tests
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # rime-ice 源码克隆缓存。Schemas 缓存未命中时（首次运行、或 rime revision 变更）仍可用，
+      # 避免从 GitHub 重新克隆；key 跟着脚本走，脚本里写着 RIME_ICE_REVISION 与 BOOTSTRAP_VERSION。
+      - name: Cache iOS Rime Ice clone
+        uses: actions/cache@v4
+        with:
+          path: .build/ios-rime-ice
+          key: ${{ runner.os }}-ios-rime-ice-${{ hashFiles('Apps/VoxFlowiOS/Scripts/bootstrap-rime-ice-schemas.sh') }}
+
+      # 把物化后的整个 Schemas 目录一起缓存（121M）：里面既有 .rime-ice-revision 戳，也有预编译的
+      # build/（含 rime_ice.table.bin，占 73M）。两者必须同进同出——bootstrap 脚本只有在戳匹配时
+      # 才早退，否则会 rm -rf 整个 Schemas 目录，把刚 restore 出来的预编译产物一起删掉，缓存就白做了。
+      # 又因为 Makefile 只按 rime_ice.table.bin 是否存在来决定要不要重建，这里必须用精确 key、
+      # 不能配 restore-keys：一旦 restore 到旧表，会跳过重建并让测试跑在过期 schema 上。
+      # 命中后 ios-rime-prebuild-if-needed 直接跳过，省掉一次完整的 RimeNativeRuntimeTests 构建+运行
+      # （实测约 400 秒，且 ios-sim 与 package-ios 两个 job 各跑一遍）。
+      - name: Cache iOS Rime schemas and prebuilt runtime
+        uses: actions/cache@v4
+        with:
+          path: Apps/VoxFlowiOS/ChineseInput/Resources/Schemas
+          key: ${{ runner.os }}-ios-rime-schemas-${{ hashFiles('Apps/VoxFlowiOS/Scripts/bootstrap-rime-ice-schemas.sh', 'Apps/VoxFlowiOS/project.yml', 'Apps/VoxFlowiOS/ChineseInput/Sources/**', 'Apps/VoxFlowiOS/ChineseInput/RimeKitObjC/**', 'Apps/VoxFlowiOS/ChineseInput/NativeProbe/**', 'Apps/VoxFlowiOS/ChineseInput/Upstream/**', 'Apps/VoxFlowiOS/ChineseInput/Frameworks/librime.xcframework/Info.plist') }}
+
+      # DerivedData 里只有这三块值得缓存（完整目录 6.3G，其中 SourcePackages 占 4.2G）。
+      # Xcode 的增量构建按内容判断，复用旧 DerivedData 是安全的；用 sha + 前缀 restore-keys
+      # 拿到增量编译而不是冷编译。
+      - name: Cache iOS DerivedData
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/ios/DerivedData/Build/Intermediates.noindex
+            .build/ios/DerivedData/Build/Products
+            .build/ios/DerivedData/ModuleCache.noindex
+          key: ${{ runner.os }}-ios-deriveddata-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ios-deriveddata-
+
+      - name: Run iOS simulator tests
         run: |
           start=$(date +%s)
-          swift build -c debug -Xswiftc -warnings-as-errors
+          make ios-test-sim
           duration=$(( $(date +%s) - start ))
-          echo "| debug warnings-as-errors build | $duration |" >> "$GITHUB_STEP_SUMMARY"
+          echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| make ios-test-sim | $duration |" >> "$GITHUB_STEP_SUMMARY"
+
+  r2t2-core:
+    name: R2T2 core tests
+    needs: changes
+    if: needs.changes.outputs.r2t2_core_tests == 'true'
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # 子包有自己的 .build（含 mlx-swift、swift-transformers），不在根目录 SwiftPM 缓存覆盖范围内，
+      # 之前每次都是冷编译。编译产物（.build/arm64-apple-macosx）占大头，缓存整个 .build。
+      - name: Cache R2T2 package build
+        uses: actions/cache@v4
+        with:
+          path: Packages/VoxFlowR2T2Core/.build
+          key: ${{ runner.os }}-r2t2-package-${{ hashFiles('Packages/VoxFlowR2T2Core/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-r2t2-package-
+
+      - name: Run R2T2 core tests
+        run: |
+          start=$(date +%s)
+          make test-r2t2-core
+          duration=$(( $(date +%s) - start ))
+          echo "### CI timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Seconds |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| make test-r2t2-core | $duration |" >> "$GITHUB_STEP_SUMMARY"
 
   package-macos:
     name: Package signed macOS DMG

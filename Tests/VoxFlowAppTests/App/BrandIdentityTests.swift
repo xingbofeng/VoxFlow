@@ -365,7 +365,10 @@ final class BrandIdentityTests: XCTestCase {
         XCTAssertTrue(ci.contains("swift_test_workers=8"))
         XCTAssertTrue(ci.contains("swift_build_jobs=\"$(sysctl -n hw.logicalcpu)\""))
         XCTAssertTrue(ci.contains("make architecture-check"))
-        XCTAssertTrue(ci.contains("swift build -c debug -Xswiftc -warnings-as-errors"))
+        XCTAssertTrue(
+            ci.contains("-Xswiftc -warnings-as-errors"),
+            "CI must build with warnings-as-errors. It is folded into the swift test build so the test targets are covered too."
+        )
         XCTAssertTrue(ci.contains("cancel-in-progress: true"))
         XCTAssertTrue(ci.contains("timeout-minutes: 60"))
         XCTAssertTrue(ci.contains("package-macos:"))
