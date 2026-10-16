@@ -11,6 +11,10 @@ final class ShortcutManager: @unchecked Sendable {
     static let shared = ShortcutManager()
     static let defaultShortcutKeyCode: Int64 = 54
     static let defaultAgentComposeShortcutKeyCode: Int64 = 61
+    static let defaultCommandShortcutKeyCode: Int64 = encodeShortcut(
+        keyCode: HotKeyShortcutRouting.eKeyCode,
+        modifierMask: commandModifierMask | shiftModifierMask
+    )
     static let defaultPaletteShortcutKeyCode: Int64 = encodeShortcut(
         keyCode: HotKeyShortcutRouting.spaceKeyCode,
         modifierMask: optionModifierMask
@@ -194,6 +198,8 @@ final class ShortcutManager: @unchecked Sendable {
         static let dictationShortcutKeyCode = "DictationShortcutKeyCode"
         static let agentComposeShortcutKeyCode = "AgentComposeShortcutKeyCode"
         static let agentComposeShortcutDisabled = "AgentComposeShortcutDisabled"
+        static let commandShortcutKeyCode = "CommandShortcutKeyCode"
+        static let commandShortcutDisabled = "CommandShortcutDisabled"
         static let paletteShortcutKeyCode = "PaletteShortcutKeyCode"
         static let paletteShortcutDisabled = "PaletteShortcutDisabled"
         static let clipboardImageOCRShortcutKeyCode = "ClipboardImageOCRShortcutKeyCode"
@@ -323,6 +329,24 @@ final class ShortcutManager: @unchecked Sendable {
         }
     }
 
+    var commandShortcutKeyCode: Int64? {
+        get {
+            guard defaults.object(forKey: Keys.commandShortcutKeyCode) != nil else {
+                return nil
+            }
+            return Int64(defaults.integer(forKey: Keys.commandShortcutKeyCode))
+        }
+        set {
+            if let value = newValue {
+                defaults.set(false, forKey: Keys.commandShortcutDisabled)
+                defaults.set(value, forKey: Keys.commandShortcutKeyCode)
+            } else {
+                defaults.set(true, forKey: Keys.commandShortcutDisabled)
+                defaults.removeObject(forKey: Keys.commandShortcutKeyCode)
+            }
+        }
+    }
+
     func shortcutKeyCode(for action: VoiceAction) -> Int64? {
         switch action {
         case .dictation:
@@ -340,6 +364,17 @@ final class ShortcutManager: @unchecked Sendable {
                 : Self.defaultAgentComposeShortcutKeyCode
         case .agentDispatch:
             return nil
+        case .command:
+            guard !defaults.bool(forKey: Keys.commandShortcutDisabled) else {
+                return nil
+            }
+            if let commandShortcutKeyCode {
+                return commandShortcutKeyCode
+            }
+            let effectiveDictationKeyCode = dictationShortcutKeyCode ?? Self.defaultShortcutKeyCode
+            return effectiveDictationKeyCode == Self.defaultCommandShortcutKeyCode
+                ? nil
+                : Self.defaultCommandShortcutKeyCode
         }
     }
 
@@ -425,6 +460,8 @@ final class ShortcutManager: @unchecked Sendable {
             agentComposeShortcutKeyCode = keyCode
         case .agentDispatch:
             break
+        case .command:
+            commandShortcutKeyCode = keyCode
         }
     }
 
@@ -509,6 +546,8 @@ final class ShortcutManager: @unchecked Sendable {
         shortPressBehavior = .toggleListening
         defaults.removeObject(forKey: Keys.agentComposeShortcutKeyCode)
         defaults.removeObject(forKey: Keys.agentComposeShortcutDisabled)
+        defaults.removeObject(forKey: Keys.commandShortcutKeyCode)
+        defaults.removeObject(forKey: Keys.commandShortcutDisabled)
         defaults.removeObject(forKey: Keys.paletteShortcutKeyCode)
         defaults.removeObject(forKey: Keys.paletteShortcutDisabled)
         defaults.removeObject(forKey: Keys.clipboardImageOCRShortcutKeyCode)
@@ -612,6 +651,8 @@ final class ShortcutManager: @unchecked Sendable {
             return "agentCompose"
         case .agentDispatch:
             return "agentDispatch"
+        case .command:
+            return "command"
         }
     }
 

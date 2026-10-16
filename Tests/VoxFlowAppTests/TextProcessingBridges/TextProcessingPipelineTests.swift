@@ -297,6 +297,116 @@ final class TextProcessingPipelineTests: XCTestCase {
         XCTAssertEqual(result.trace?.contextRounds?.contextHistoryIDs, ["same-new", "same-old"])
     }
 
+    func testPipelineInjectsInputContextIntoLLMRequestText() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: []),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(
+                        enabled: true, maxRounds: 3, ttlHours: 6, inputContextEnabled: true
+                    )
+                )
+            },
+            inputContextProvider: { _ in "光标前已有的草稿内容" }
+        )
+
+        let result = await pipeline.process(
+            "补充一段结论",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
+
+        let requestText = refiner.requests.first?.text ?? ""
+        XCTAssertEqual(result.finalText, "修正文本")
+        XCTAssertTrue(requestText.contains("Existing input text"), "input-context wrapper must appear, got: \(requestText)")
+        XCTAssertTrue(requestText.contains("光标前已有的草稿内容"))
+        XCTAssertEqual(result.trace?.contextRounds?.inputContextUsed, true)
+    }
+
+    func testPipelineSkipsInputContextWhenDisabled() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: []),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(
+                        enabled: true, maxRounds: 3, ttlHours: 6, inputContextEnabled: false
+                    )
+                )
+            }
+        )
+
+        let result = await pipeline.process(
+            "补充一段结论",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
+
+        let requestText = refiner.requests.first?.text ?? ""
+        XCTAssertFalse(requestText.contains("光标前已有的草稿内容"))
+        XCTAssertEqual(result.trace?.contextRounds?.inputContextUsed, false)
+    }
+
+    func testPipelineSkipsInputContextForSecureField() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: []),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(
+                        enabled: true, maxRounds: 3, ttlHours: 6, inputContextEnabled: true
+                    )
+                )
+            },
+            inputContextProvider: { _ in "密码框附近的内容" }
+        )
+
+        let result = await pipeline.process(
+            "敏感输入",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext(isSecureField: true)
+        )
+
+        let requestText = refiner.requests.first?.text ?? ""
+        XCTAssertEqual(refiner.requests.first?.text, "敏感输入")
+        XCTAssertFalse(requestText.contains("密码框附近的内容"))
+        XCTAssertEqual(result.trace?.contextRounds?.inputContextUsed, false)
+    }
+
+    func testPipelineSkipsInputContextWhenProviderReturnsNilOrEmpty() async {
+        let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
+        let pipeline = DefaultTextProcessingPipeline(
+            refiner: refiner,
+            historyRepository: StubHistoryRepository(entries: []),
+            autoMatchSettingsProvider: {
+                StyleAutoMatchSettings(
+                    globalEnabled: true,
+                    contextRounds: ContextRoundsSettings(
+                        enabled: true, maxRounds: 3, ttlHours: 6, inputContextEnabled: true
+                    )
+                )
+            },
+            inputContextProvider: { _ in "   " }
+        )
+
+        let result = await pipeline.process(
+            "普通输入",
+            target: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            correctionContext: Self.dictationContext(appliesDictationRefinementGuard: false)
+        )
+
+        let requestText = refiner.requests.first?.text ?? ""
+        XCTAssertFalse(requestText.contains("Existing input text"))
+        XCTAssertEqual(result.trace?.contextRounds?.inputContextUsed, false)
+    }
+
     func testPipelineSkipsContextRoundsForSecureField() async {
         let refiner = PromptAwareStubTextRefiner(result: .success("修正文本"))
         let pipeline = DefaultTextProcessingPipeline(

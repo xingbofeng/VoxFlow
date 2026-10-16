@@ -169,6 +169,129 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertFalse(recorder.isRecording)
     }
 
+    func testConfigurationChangeWhileRecordingRestartsEngineWithSameTapOrder() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        let recorder = AudioRecorder(
+            engine: engine,
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { true }
+        )
+
+        try recorder.start()
+        order.removeAll()
+
+        recorder.handleAudioEngineConfigurationChange()
+
+        XCTAssertEqual(order.events, [
+            "engine.stop",
+            "input.removeTap",
+            "engine.reset",
+            "input.installTap",
+            "engine.prepare",
+            "engine.start"
+        ])
+        XCTAssertTrue(recorder.isRecording)
+    }
+
+    func testConfigurationChangeAfterStopDoesNotTouchEngine() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        let recorder = AudioRecorder(
+            engine: engine,
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { true }
+        )
+        try recorder.start()
+        recorder.stop()
+        order.removeAll()
+
+        recorder.handleAudioEngineConfigurationChange()
+
+        XCTAssertTrue(order.events.isEmpty)
+        XCTAssertFalse(recorder.isRecording)
+    }
+
+    func testConfigurationChangeWhenRestartDeviceVanishedStopsRecordingCleanly() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        let deviceAvailability = AudioRecorderDeviceAvailabilityProbe()
+        let recorder = AudioRecorder(
+            engine: engine,
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { deviceAvailability.isAvailable }
+        )
+        try recorder.start()
+        order.removeAll()
+        deviceAvailability.isAvailable = false
+
+        recorder.handleAudioEngineConfigurationChange()
+
+        XCTAssertEqual(order.events, [
+            "engine.stop",
+            "input.removeTap",
+            "engine.reset"
+        ])
+        XCTAssertFalse(recorder.isRecording)
+    }
+
+    func testConfigurationChangeWhenRestartFailsStopsRecordingAndReportsError() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        let dispatcher = AudioRecorderDispatchProbe()
+        let recorder = AudioRecorder(
+            engine: engine,
+            eventDispatcher: dispatcher.makeDispatcher(),
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { true }
+        )
+        let delegate = AudioRecorderFailureDelegateProbe()
+        recorder.delegate = delegate
+        try recorder.start()
+        order.removeAll()
+        engine.errorToThrowOnStart = AudioRecorder.AudioRecorderError.microphoneUnavailable
+
+        recorder.handleAudioEngineConfigurationChange()
+        dispatcher.runNext()
+
+        XCTAssertFalse(recorder.isRecording)
+        XCTAssertTrue(delegate.receivedUnavailableFailure)
+    }
+
+    func testConfigurationChangeNotificationRestartsCaptureOnMainThread() throws {
+        let order = AudioRecorderEngineCallOrder()
+        let engine = AudioRecorderEngineProbe(callOrder: order)
+        let recorder = AudioRecorder(
+            engine: engine,
+            permissionStatus: { .granted },
+            inputDeviceAvailability: { true }
+        )
+        let center = NotificationCenter()
+        let delivered = expectation(description: "configuration change handled")
+        engine.onStop = { delivered.fulfill() }
+        let observer = recorder.observeConfigurationChanges(in: center)
+        defer { center.removeObserver(observer) }
+
+        try recorder.start()
+        order.removeAll()
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            center.post(name: .AVAudioEngineConfigurationChange, object: nil)
+        }
+        wait(for: [delivered], timeout: 5)
+
+        XCTAssertEqual(order.events, [
+            "engine.stop",
+            "input.removeTap",
+            "engine.reset",
+            "input.installTap",
+            "engine.prepare",
+            "engine.start"
+        ])
+        XCTAssertFalse(order.sawOffMainThreadCall)
+        XCTAssertTrue(recorder.isRecording)
+    }
+
     private func makeBuffer(samples: [Float]) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(
             AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)
@@ -246,10 +369,30 @@ private final class AudioRecorderDelegateProbe: AudioRecorder.Delegate {
     }
 }
 
+private final class AudioRecorderFailureDelegateProbe: AudioRecorder.Delegate {
+    private(set) var receivedUnavailableFailure = false
+
+    func audioRecorder(_ recorder: AudioRecorder, didReceiveBuffer buffer: AVAudioPCMBuffer) {}
+
+    func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float) {}
+
+    func audioRecorderDidBecomeUnavailable(_ recorder: AudioRecorder) {
+        receivedUnavailableFailure = true
+    }
+}
+
+private final class AudioRecorderDeviceAvailabilityProbe: @unchecked Sendable {
+    var isAvailable = true
+}
+
 private final class AudioRecorderEngineCallOrder: @unchecked Sendable {
     private(set) var events: [String] = []
+    private(set) var sawOffMainThreadCall = false
 
     func append(_ event: String) {
+        if !Thread.isMainThread {
+            sawOffMainThreadCall = true
+        }
         events.append(event)
     }
 
@@ -261,6 +404,7 @@ private final class AudioRecorderEngineCallOrder: @unchecked Sendable {
 private final class AudioRecorderEngineProbe: AudioEngineControlling, @unchecked Sendable {
     let inputNode: any AudioInputNodeControlling
     var onStop: (() -> Void)?
+    var errorToThrowOnStart: Error?
     private let callOrder: AudioRecorderEngineCallOrder
 
     init(callOrder: AudioRecorderEngineCallOrder) {
@@ -273,6 +417,9 @@ private final class AudioRecorderEngineProbe: AudioEngineControlling, @unchecked
     }
 
     func start() throws {
+        if let errorToThrowOnStart {
+            throw errorToThrowOnStart
+        }
         callOrder.append("engine.start")
     }
 

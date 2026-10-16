@@ -988,3 +988,48 @@ final class DeterministicTextPipelineSmartNumberTests: XCTestCase {
         XCTAssertEqual(pre, "百分之三十的进度")
     }
 }
+
+final class DeterministicTextPipelineUnitNormalizationTests: XCTestCase {
+    func testUnitNormalizationRunsInPostLLMWhenEnabled() {
+        let settings = DeterministicTextProcessingSettings(
+            enabled: true, unitNormalization: true
+        )
+        let pipeline = DeterministicTextPipeline(settings: settings)
+        let post = pipeline.postLLM("这条路有5公里长")
+        XCTAssertTrue(post.contains("5km"), "unit normalization must convert 公里→km, got: \(post)")
+        XCTAssertFalse(post.contains("公里"))
+    }
+
+    func testUnitNormalizationSkippedWhenDisabled() {
+        // Default is off: no rewrite without explicit opt-in.
+        let settings = DeterministicTextProcessingSettings(enabled: true)
+        let pipeline = DeterministicTextPipeline(settings: settings)
+        XCTAssertTrue(pipeline.postLLM("这条路有5公里长").contains("公里"))
+    }
+
+    func testUnitNormalizationRespectsMasterSwitch() {
+        let settings = DeterministicTextProcessingSettings(
+            enabled: false, unitNormalization: true
+        )
+        let pipeline = DeterministicTextPipeline(settings: settings)
+        XCTAssertTrue(pipeline.postLLM("这条路有5公里长").contains("公里"))
+    }
+
+    func testLegacyPayloadMissingUnitNormalizationKeepsOtherToggles() throws {
+        // A payload saved before unitNormalization existed must decode with
+        // unitNormalization=false but preserve the user's explicit toggles.
+        let legacy = """
+        {"schemaVersion":1,"enabled":true,"smartNumberRecognition":false,"punctuationOptimization":true,"longSentenceBreaking":false,"fillerWordFiltering":false,"cjkLatinSpacing":true,"autoCapitalization":false,"longSentenceWordThreshold":8,"longSentenceCJKThreshold":12,"punctuationCJKThreshold":3,"punctuationWordThreshold":4}
+        """
+        struct StubStorage: KeyValueSettingsStorage {
+            let value: String?
+            func value(forKey key: String) throws -> String? { value }
+            func set(_ key: String, jsonValue: String) throws {}
+        }
+        let settings = DeterministicTextProcessingSettingsStore.load(storage: StubStorage(value: legacy))
+        XCTAssertTrue(settings.enabled)
+        XCTAssertFalse(settings.smartNumberRecognition)
+        XCTAssertTrue(settings.cjkLatinSpacing)
+        XCTAssertFalse(settings.unitNormalization, "Missing field must fall back to its default (off)")
+    }
+}

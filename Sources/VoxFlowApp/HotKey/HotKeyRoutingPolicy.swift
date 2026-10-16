@@ -75,6 +75,7 @@ enum HotKeyRouter {
         dictationKeyCode: Int64?,
         agentComposeKeyCode: Int64?,
         agentDispatchKeyCode: Int64? = nil,
+        commandKeyCode: Int64? = nil,
         paletteKeyCode: Int64? = ShortcutManager.defaultPaletteShortcutKeyCode,
         clipboardImageOCRKeyCode: Int64? = ShortcutManager.defaultClipboardImageOCRShortcutKeyCode,
         screenshotOCRKeyCode: Int64? = ShortcutManager.defaultScreenshotOCRShortcutKeyCode,
@@ -104,7 +105,8 @@ enum HotKeyRouter {
             flags: flags,
             dictationKeyCode: dictationKeyCode,
             agentComposeKeyCode: agentComposeKeyCode,
-            agentDispatchKeyCode: agentDispatchKeyCode
+            agentDispatchKeyCode: agentDispatchKeyCode,
+            commandKeyCode: commandKeyCode
         ) else {
             return .passThrough
         }
@@ -118,6 +120,7 @@ enum HotKeyShortcutRouting {
     static let dKeyCode: Int64 = 0x02
     static let fKeyCode: Int64 = 0x03
     static let vKeyCode: Int64 = 0x09
+    static let eKeyCode: Int64 = 0x0E
     static let lKeyCode: Int64 = 0x25
     static let pKeyCode: Int64 = 0x23
     static let jKeyCode: Int64 = 0x26

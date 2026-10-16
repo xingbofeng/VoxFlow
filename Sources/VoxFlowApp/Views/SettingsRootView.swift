@@ -659,6 +659,15 @@ struct SettingsRootView: View {
 
                 Divider().padding(.leading, 70)
 
+                actionShortcutRow(
+                    action: .command,
+                    title: L10n.localize("settings.general.voice_command.title", comment: "Voice command action row title"),
+                    subtitle: L10n.localize("settings.general.voice_command.subtitle", comment: "Voice command action row subtitle"),
+                    buttonTitle: L10n.localize("settings.general.voice_command.button_title", comment: "Voice command action row button")
+                )
+
+                Divider().padding(.leading, 70)
+
                 SettingsToggleRow(
                     title: L10n.localize("settings.general.middle_mouse.title", comment: "Middle mouse button recording title"),
                     subtitle: L10n.localize("settings.general.middle_mouse.subtitle", comment: "Middle mouse button recording subtitle"),
@@ -744,6 +753,24 @@ struct SettingsRootView: View {
                     }
                 }
             )
+            Divider().padding(.leading, 70)
+            SettingsOutputMethodRulesRow(
+                rules: viewModel.outputMethodRules,
+                onAdd: { app, mode in
+                    perform {
+                        try viewModel.saveOutputMethodRule(
+                            bundleID: app.bundleID ?? app.id,
+                            appName: app.name,
+                            inputMode: mode
+                        )
+                    }
+                },
+                onDelete: { ruleID in
+                    perform {
+                        viewModel.deleteOutputMethodRule(id: ruleID)
+                    }
+                }
+            )
         }
     }
 
@@ -759,6 +786,14 @@ struct SettingsRootView: View {
                 L10n.localize("settings.system.keep_microphone_active.title", comment: ""),
                 L10n.localize("settings.system.keep_microphone_active.subtitle", comment: ""),
                 "bolt",
+                tint: .yellow
+            )
+            Divider().padding(.leading, 70)
+            systemToggle(
+                .pausePreOutput,
+                L10n.localize("settings.system.pause_pre_output.title", comment: ""),
+                L10n.localize("settings.system.pause_pre_output.subtitle", comment: ""),
+                "text.append",
                 tint: .yellow
             )
         }
@@ -1352,9 +1387,11 @@ struct SettingsRootView: View {
                             .tag(VoiceTaskMode.dictation)
                         Text(L10n.localize("debug.transcript_injection.mode.agent_compose", comment: "Agent compose debug injection mode"))
                             .tag(VoiceTaskMode.agentCompose)
+                        Text(L10n.localize("debug.transcript_injection.mode.command", comment: "Voice command debug injection mode"))
+                            .tag(VoiceTaskMode.command)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 260)
+                    .frame(width: 360)
 
                     Spacer(minLength: 12)
 
@@ -1662,6 +1699,18 @@ struct SettingsRootView: View {
                                 try viewModel.updateDeterministicTextProcessing(autoCapitalization: newValue)
                             }
                         )
+
+                        SettingsToggleRow(
+                            title: L10n.localize("settings.text_processing.unit_normalization.title", comment: "Unit normalization toggle title"),
+                            subtitle: L10n.localize("settings.text_processing.unit_normalization.subtitle", comment: "Unit normalization toggle subtitle"),
+                            systemImage: "ruler",
+                            tint: .mint,
+                            isOn: deterministicSubToggleBinding(
+                                value: viewModel.deterministicUnitNormalization
+                            ) { newValue in
+                                try viewModel.updateDeterministicTextProcessing(unitNormalization: newValue)
+                            }
+                        )
                     }
                     .disabled(!viewModel.deterministicTextProcessingEnabled)
                     .opacity(viewModel.deterministicTextProcessingEnabled ? 1.0 : 0.5)
@@ -1961,6 +2010,8 @@ struct SettingsRootView: View {
             return viewModel.agentComposeShortcutKeyCode
         case .agentDispatch:
             return nil
+        case .command:
+            return viewModel.commandShortcutKeyCode
         }
     }
 
@@ -2589,6 +2640,199 @@ private struct SettingsTextInputModeRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct SettingsOutputMethodRulesRow: View {
+    let rules: [OutputMethodRule]
+    let onAdd: (InstalledApplication, TextInputMode) -> Void
+    let onDelete: (String) -> Void
+
+    @State private var installedApps: [InstalledApplication] = []
+    @State private var showingAppSelector = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            SettingsRowIcon(systemImage: "app.badge.checkmark", tint: .indigo)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.localize("settings.output.app_rules.subtitle", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                if rules.isEmpty {
+                    Text(L10n.localize("settings.output.app_rules.empty", comment: ""))
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText.opacity(0.8))
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(rules) { rule in
+                            ruleRow(rule)
+                        }
+                    }
+                    // 规则行显示应用图标需要已安装应用扫描结果。
+                    .onAppear { loadInstalledAppsIfNeeded() }
+                }
+                Button {
+                    loadInstalledAppsIfNeeded()
+                    showingAppSelector = true
+                } label: {
+                    Label(
+                        L10n.localize("settings.output.app_rules.add", comment: ""),
+                        systemImage: "plus.circle"
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .settingsRow()
+        .sheet(isPresented: $showingAppSelector) {
+            appSelectorSheet
+        }
+    }
+
+    private func ruleRow(_ rule: OutputMethodRule) -> some View {
+        HStack(spacing: 10) {
+            ApplicationIconView(
+                name: rule.appName,
+                iconPath: installedApps.first { $0.bundleID == rule.bundleID }?.iconPath,
+                size: 30
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rule.appName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(rule.bundleID)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(rule.bundleID)
+            }
+            Spacer(minLength: 8)
+            Picker(
+                L10n.localize("settings.output.app_rules.subtitle", comment: ""),
+                selection: Binding(
+                    get: { rule.inputMode },
+                    set: { newMode in
+                        // 分段选择器切换写入方式:同 bundleID 重新保存即覆盖旧规则。
+                        guard newMode != rule.inputMode else { return }
+                        onAdd(
+                            InstalledApplication(
+                                id: rule.bundleID,
+                                name: rule.appName,
+                                bundleID: rule.bundleID,
+                                iconPath: nil,
+                                path: "",
+                                systemCategory: .userApplication
+                            ),
+                            newMode
+                        )
+                    }
+                )
+            ) {
+                Text(modeLabel(.fastPaste)).tag(TextInputMode.fastPaste)
+                Text(modeLabel(.simulatedTyping)).tag(TextInputMode.simulatedTyping)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 190)
+            Button {
+                onDelete(rule.id)
+            } label: {
+                Image(systemName: "minus.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 2)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(AppTheme.ColorToken.panelBackground.opacity(0.7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+
+    private var appSelectorSheet: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.localize("settings.output.app_rules.pick_title", comment: ""))
+                        .font(.system(size: 18, weight: .semibold))
+                    Text(L10n.localize("settings.output.app_rules.pick_subtitle", comment: ""))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                }
+                Spacer()
+                Button {
+                    showingAppSelector = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 16)
+
+            Divider()
+
+            InstalledAppSelectorView(
+                installedApps: installedApps,
+                selectedBundleIDs: Set(rules.map(\.bundleID)),
+                onSelect: { app in
+                    // 选中即创建:默认快速粘贴,模式可在规则行上的分段选择器里改。
+                    onAdd(app, .fastPaste)
+                    showingAppSelector = false
+                },
+                onRemove: { _ in }
+            )
+            .padding(20)
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button(L10n.localize("style.action.done", comment: "")) {
+                    showingAppSelector = false
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
+        }
+        .frame(width: 520)
+        .frame(minHeight: 420)
+        .background(AppTheme.ColorToken.pageBackground)
+    }
+
+    private func modeLabel(_ mode: TextInputMode) -> String {
+        switch mode {
+        case .fastPaste:
+            return L10n.localize("settings.output.fast_paste.title", comment: "")
+        case .simulatedTyping:
+            return L10n.localize("settings.output.avoid_clipboard.title", comment: "")
+        case .automatic:
+            return L10n.localize("settings.output.text_input_mode.title", comment: "")
+        }
+    }
+
+    private func loadInstalledAppsIfNeeded() {
+        guard installedApps.isEmpty else { return }
+        Task {
+            let apps = await Task.detached {
+                FileSystemInstalledApplicationProvider().scanInstalledApplications()
+            }.value
+            installedApps = apps.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
     }
 }
 

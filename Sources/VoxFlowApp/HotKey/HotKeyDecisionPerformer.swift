@@ -59,6 +59,8 @@ final class HotKeyDecisionPerformer {
             return "agentCompose"
         case .agentDispatch:
             return "agentDispatch"
+        case .command:
+            return "command"
         }
     }
 }

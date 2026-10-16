@@ -80,6 +80,10 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
     protocol Delegate: AnyObject {
         func audioRecorder(_ recorder: AudioRecorder, didReceiveBuffer buffer: AVAudioPCMBuffer)
         func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float)
+        /// The capture device changed (or vanished) mid-recording and the
+        /// recorder could not recover automatically. Optional; the recorder
+        /// has already stopped itself cleanly.
+        func audioRecorderDidBecomeUnavailable(_ recorder: AudioRecorder)
     }
 
     struct EventDispatcher: Sendable {
@@ -252,7 +256,9 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             AppLogger.audio.error("AudioRecorder start failed: microphone unavailable")
             throw AudioRecorderError.microphoneUnavailable
         }
-        AppLogger.audio.info("AudioRecorder started")
+        AppLogger.audio.notice(
+            "AudioRecorder started sampleRate=\(inputFormat.sampleRate) channels=\(inputFormat.channelCount)"
+        )
     }
 
     static func performCatchingObjectiveCException(_ action: () -> Void) -> Bool {
@@ -328,6 +334,54 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         engine.inputNode.removeTap(onBus: 0)
         engine.reset()
         AppLogger.audio.debug("AudioRecorder stopped")
+    }
+
+    /// Observes `AVAudioEngineConfigurationChange` so capture follows the new
+    /// default input device. The returned token stays registered until the
+    /// caller removes it.
+    ///
+    /// AVAudioEngine posts this notification on its own internal queue, so the
+    /// observer has to hop through `queue: .main`: the restart below touches
+    /// engine lifecycle state and must not run on the posting thread.
+    func observeConfigurationChanges(in center: NotificationCenter = .default) -> NSObjectProtocol {
+        center.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleAudioEngineConfigurationChange()
+        }
+    }
+
+    /// Reacts to an AVAudioEngineConfigurationChange notification: the input
+    /// device changed (or vanished) while recording. Restarting the engine
+    /// re-attaches to the system's new default input device, so an in-flight
+    /// dictation keeps capturing instead of silently dying. The pre-change
+    /// audio stays in the ASR pipeline; the restart only affects future
+    /// frames.
+    func handleAudioEngineConfigurationChange() {
+        lifecycleLock.lock()
+        guard isRecording else {
+            lifecycleLock.unlock()
+            return
+        }
+        let previousFormat = engine.inputNode.outputFormat(forBus: 0)
+        lifecycleLock.unlock()
+
+        AppLogger.audio.notice(
+            "AudioRecorder input configuration changed; restarting capture fromRate=\(previousFormat.sampleRate) fromChannels=\(previousFormat.channelCount)"
+        )
+        stop()
+
+        do {
+            try start()
+        } catch {
+            AppLogger.audio.error("AudioRecorder restart after device change failed: \(error.localizedDescription)")
+            eventDispatcher.dispatch { [weak self] in
+                guard let self else { return }
+                self.delegate?.audioRecorderDidBecomeUnavailable(self)
+            }
+        }
     }
 
     func drain() {
@@ -439,4 +493,8 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             }
         }
     }
+}
+
+extension AudioRecorder.Delegate {
+    func audioRecorderDidBecomeUnavailable(_ recorder: AudioRecorder) {}
 }

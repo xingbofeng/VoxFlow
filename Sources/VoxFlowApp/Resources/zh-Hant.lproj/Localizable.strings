@@ -23,6 +23,9 @@
 "settings.general.dictation.title" = "語音轉錄";
 "settings.general.dictation.subtitle" = "按住快捷鍵說話，放開後轉寫並輸入";
 "settings.general.dictation.button_title" = "修改";
+"settings.general.voice_command.title" = "語音指令";
+"settings.general.voice_command.subtitle" = "說出指令，依指令改寫目前輸入框裡的文字";
+"settings.general.voice_command.button_title" = "修改";
 "settings.general.agent_compose.title" = "召喚 Agent";
 "settings.general.agent_compose.subtitle" = "結合目前視窗上下文與口述生成文字，完成後直接寫入目前輸入框";
 "settings.general.agent_compose.button_title" = "設定快捷鍵";
@@ -89,6 +92,7 @@
 "debug.transcript_injection.placeholder" = "輸入模擬識別文字";
 "debug.transcript_injection.mode.dictation" = "普通聽寫";
 "debug.transcript_injection.mode.agent_compose" = "Agent Compose";
+"debug.transcript_injection.mode.command" = "語音指令";
 "menu.status.llm_service_unavailable" = "未設定智慧模型服務";
 "menu.status.agent_model_unavailable" = "未設定 Agent 模型";
 
@@ -106,6 +110,7 @@
 /* ===== 任務與紀錄 ===== */
 "dictation.error.agent_compose_unavailable" = "任務助手尚未完成初始化，請重啟碼上寫後重試。";
 "dictation.error.agent_dispatch_unavailable" = "AI 程式控制台尚未完成初始化，請重啟碼上寫後重試。";
+"dictation.error.command_unavailable" = "語音指令尚未就緒，請重新啟動 VoxFlow 後再試。";
 "notes_recording.error.microphone_permission_denied" = "未取得麥克風權限，請在系統設定中允許碼上寫使用麥克風。";
 "notes_recording.error.speech_permission_denied" = "未取得語音識別權限，請在系統設定中允許碼上寫使用語音識別。";
 
@@ -135,6 +140,7 @@
 /* ===== 通用字串 ===== */
 "app.agent_dispatch.failure" = "AI 任務助手請求傳送失敗，請重試。";
 "app.dictation.setup_ai_model_required" = "請先設定 AI 模型，然後重啟碼上寫並重試。";
+"app.dictation.no_editable_text" = "語音指令需要輸入框裡有文字，請先輸入或選取內容。";
 "app.learning.undo_failed" = "復原失敗。";
 
 /* ===== ASR 錯誤訊息 ===== */
@@ -250,6 +256,9 @@
 "hud.feedback.target_window_changed_copied" = "目標視窗已切換，內容已複製。";
 "hud.feedback.permission_denied_copied" = "輔助功能權限被拒，內容已複製。";
 "hud.feedback.input_failed_copied" = "輸入失敗，內容已複製。";
+"hud.feedback.voice_command_applied" = "已依指令改寫輸入框內容";
+"hud.feedback.voice_command_input_changed" = "輸入框內容已變更，結果已複製。";
+"hud.feedback.voice_command_input_required" = "沒有可改寫的文字，請先將游標放到有內容的輸入框裡。";
 "hud.feedback.copy_failed_prompt" = "生成完成，但複製失敗。點擊手動複製。";
 "hud.feedback.no_copyable_result" = "沒有可複製的結果";
 "hud.feedback.manual_copy_succeeded" = "結果已手動複製";
@@ -351,6 +360,7 @@
 "dictation.coordinator.llm_call_failed_format" = "LLM 呼叫失敗：%@";
 "dictation.coordinator.workflow_already_running_format" = "%@ 任務正在執行中，請先完成後再試。";
 "dictation.hud.context_fusion" = "正在基於上下文組織回應…";
+"dictation.hud.applying_command" = "正在依指令改寫…";
 "dictation.asset.default_title" = "聽寫紀錄";
 "dictation.error.already_running" = "聽寫任務已在進行中。";
 "dictation.error.final_result_timed_out" = "未在逾時前收到最終轉寫結果。";
@@ -367,6 +377,7 @@
 "llm.refiner.error.github_models_access" = "GitHub Models 拒絕了目前模型。請使用有 GitHub Models 模型存取權限的 token/帳號，或選擇該帳號可用的模型。";
 "llm.refiner.error.huggingface_inference_permission" = "這個 Hugging Face token 只能讀取資訊，不能呼叫 Inference Providers。請重新建立或編輯 token，並開啟 Inference Providers 權限。";
 "llm.refiner.error.opencode_balance" = "OpenCode Zen 帳號餘額不足。請儲值後再測試。";
+"llm.refiner.error.account_balance" = "模型服務帳號餘額不足或已欠費，請儲值後再試。";
 "llm.refiner.error.network_error_format" = "LLM 網路錯誤：%@";
 "llm.text_transform.unavailable_message" = "請先在設定中配置模型。";
 
@@ -528,6 +539,7 @@
 "menu.provider_tag.streaming" = "串流";
 "menu.voice_action.agent_compose" = "任務助手";
 "menu.voice_action.agent_dispatch" = "任務下發";
+"menu.voice_action.command" = "語音指令";
 "menu.voice_action.dictation" = "聽寫";
 
 /* ===== Selection ===== */
@@ -1251,6 +1263,8 @@
 "settings.message.mcp_log_path_missing" = "缺少 MCP 日誌路徑";
 "settings.message.mcp_log_read_failed" = "讀取 MCP 日誌失敗";
 "settings.message.middle_mouse_recording_disabled" = "已停用滑鼠中鍵錄音";
+"settings.message.output_rule_deleted" = "已刪除應用程式寫入規則";
+"settings.message.output_rule_updated" = "已更新應用程式寫入規則";
 "settings.message.settings_imported" = "設定匯入";
 "settings.message.settings_reset" = "設定重置";
 "settings.message.shortcuts_updated" = "已更新快捷鍵";
@@ -1266,6 +1280,11 @@
 "settings.message.voice_correction_enabled" = "語音糾錯已啟用";
 "settings.message.voice_correction_shadow_mode_disabled" = "語音糾錯影子模式已停用";
 "settings.message.voice_correction_shadow_mode_enabled" = "語音糾錯影子模式已啟用";
+"settings.output.app_rules.add" = "加入應用程式規則";
+"settings.output.app_rules.empty" = "還沒有應用程式規則，所有應用程式都使用全域寫入方式。";
+"settings.output.app_rules.pick_subtitle" = "選擇應用程式即可新增規則，預設快速貼上，可在規則列上切換寫入方式。";
+"settings.output.app_rules.pick_title" = "選擇應用程式";
+"settings.output.app_rules.subtitle" = "為特定應用程式覆蓋寫入方式。";
 "settings.output.avoid_clipboard.subtitle" = "透過模擬鍵盤輸入寫入文字，盡量不占用系統剪貼簿。";
 "settings.output.avoid_clipboard.title" = "模擬鍵盤輸入";
 "settings.output.clipboard_image_ocr.subtitle" = "識別剪貼簿圖片中的文字。";
@@ -1333,6 +1352,8 @@
 "settings.system.auto_release_local_model.subtitle" = "空閒時釋放本地模型以節省記憶體。";
 "settings.system.auto_release_local_model.title" = "自動釋放本地模型";
 "settings.system.keep_microphone_active.subtitle" = "保持麥克風預熱以加快啟動。";
+"settings.system.pause_pre_output.title" = "停頓預輸出";
+"settings.system.pause_pre_output.subtitle" = "說話停頓時先上屏已識別文本，可繼續接著說。";
 "settings.system.keep_microphone_active.title" = "保持麥克風活躍";
 "settings.system.local_model_live_preview.subtitle" = "使用本地模型時，說話過程中顯示流式識別結果。";
 "settings.system.local_model_live_preview.title" = "流式識別預覽";
@@ -1861,6 +1882,7 @@
 "home.detail.title.agent_compose" = "任務助手詳情";
 "home.detail.title.agent_dispatch" = "AI 編程詳情";
 "home.detail.title.dictation" = "轉寫詳情";
+"home.detail.title.command" = "語音指令詳情";
 "home.detail.subtitle.agent_compose" = "查看語音意圖、生成結果和本次處理資訊";
 "home.detail.subtitle.agent_dispatch" = "查看語音指令、任務助手投遞結果和失敗資訊";
 "home.detail.subtitle.with_trace" = "對比識別原文與最終文字，並查看本次處理鏈路";
@@ -2386,3 +2408,10 @@
 "asr.xasr.invalid_audio" = "X-ASR 未能處理音訊，請重新錄音。";
 "asr.xasr.invalidated" = "X-ASR 已卸載或切換，請開始新的錄音。";
 "asr.xasr.download_failed" = "X-ASR 模型下載失敗，請重試以繼續下載。";
+"settings.text_processing.unit_normalization.title" = "單位規整";
+"settings.text_processing.unit_normalization.subtitle" = "將數字後的中文單位轉換為國際符號，如 5公里 轉 5km";
+"app.dictation.bluetooth_quality_hint" = "目前藍牙麥克風音質有限，可能影響辨識準確率。建議使用有線或內建麥克風。";
+"style.automatch.input_context.title" = "攜帶輸入框內容";
+"style.automatch.input_context.description" = "讀取目標輸入框目前文字（需輔助功能權限），讓潤色貼合正在編輯的內容。密碼框一律跳過。";
+
+"dictation.hud.pause_pre_output_revised_copied" = "辨識結果已修訂，完整結果已複製。請手動取代先前輸入的文字。";

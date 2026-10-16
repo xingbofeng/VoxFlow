@@ -232,6 +232,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 duration: 3.0
             )
         },
+        isVoiceCommandConfigured: { [weak self] in
+            self?.commandHandler?.isConfigured ?? false
+        },
+        hasEditableVoiceCommandText: { [weak self] in
+            self?.commandHandler?.hasEditableText() ?? false
+        },
+        showVoiceCommandRequirement: { [weak self] requirement in
+            switch requirement {
+            case .model:
+                self?.hudFeatureController.showTemporaryMessage(
+                    L10n.localize("app.dictation.setup_ai_model_required", comment: "Setup AI model guidance"),
+                    duration: 3.0
+                )
+            case .inputText:
+                self?.hudFeatureController.handleWorkflowFeedback(.voiceCommandInputRequired)
+            }
+        },
         refreshRecordingPermissionSnapshot: { [weak self] in
             guard let self else {
                 return RecordingPermissionSnapshot(
@@ -271,6 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     mode: mode
                 )
                 self.pendingASRSelectionFallbackNotice = nil
+                self.maybeShowBluetoothQualityHint()
             } catch {
                 self.pendingASRSelectionFallbackNotice = nil
                 throw error
@@ -294,15 +312,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     private var recordingFeedbackController: RecordingAudioFeedbackController!
     private var capsLockRecordingIndicator: CapsLockRecordingIndicator!
+    private var bluetoothQualityChecker: BluetoothInputDeviceQualityChecker!
     private var permissionGuideController: PermissionGuideWindowController?
     private var dictationOrchestrator: DictationOrchestrator!
     private var agentComposeHandler: DefaultAgentComposeHandler!
     private var agentDispatchHandler: DefaultAgentDispatchHandler?
+    private var commandHandler: DefaultCommandHandler!
     private let logger = AppLogger.general
     private let pendingCorrectionFallback = PendingCorrectionFallbackController()
     private var lastExternalSelectionTarget: DictationTarget?
     private var selectionTargetActivationObserver: NSObjectProtocol?
     private var correctionLearningObserver: NSObjectProtocol?
+    private var audioEngineConfigurationObserver: NSObjectProtocol?
     private var agentDefaultOutputTask: Task<Void, Never>?
     private lazy var updateCheckCoordinator = UpdateCheckCoordinator.live(
         currentVersion: AppVersionInfo.current().version,
@@ -389,6 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
         startCorrectionLearningFeedback()
+        startAudioEngineConfigurationMonitoring()
         windowCoordinator.onCheckForUpdates = { [weak self] in
             self?.checkForUpdates(nil)
         }
@@ -497,6 +519,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         agentHelperManager?.stopRouter()
     }
 
+    /// Pause pre-output triggers when the partial transcript stops changing
+    /// for the silence threshold; segments shorter than the minimum character
+    /// count stay buffered until the next pause or release.
+    private static let defaultPausePreOutputConfiguration = PausePreOutputConfiguration(
+        silenceThresholdNanoseconds: 700_000_000,
+        minimumSegmentCharacterCount: 2
+    )
+
     private func setupDictationOrchestrator() {
         logger.debug("setup_dictation_orchestrator")
         let targetProvider = runtime!.dictationTargetProvider
@@ -513,6 +543,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         agentComposeHandler.onRuntimeCompleted = { [weak self] taskID in
             self?.openHistoryDetail(taskID)
         }
+        let accessibilityProvider = SystemAccessibilityProvider()
+        commandHandler = DefaultCommandHandler(
+            coordinator: voiceTaskCoordinator,
+            refiner: llmRefiner,
+            inputAreaTextProvider: { pid in
+                accessibilityProvider.inputAreaText(pid: pid)
+            },
+            isSecureTextField: { pid in
+                accessibilityProvider.isSecureTextField(pid: pid)
+            },
+            currentTarget: { [weak self] in
+                self?.runtime?.dictationTargetProvider.currentTarget()
+            }
+        )
         overlayController.onSelectionActionSelected = { [weak self] action, selectedText in
             self?.handleSelectionActionSelected(action: action, selectedText: selectedText)
         }
@@ -596,6 +640,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             outputService: outputService,
             agentComposeHandler: agentComposeHandler,
             agentDispatchHandler: agentDispatchHandler,
+            commandHandler: commandHandler,
             audioCaptureCoordinator: runtime!.audioCaptureCoordinator,
             correctionObservationScheduler: runtime!.correctionObservationScheduler,
             asrTermPromptProvider: CorrectionTargetASRTermPromptProvider(
@@ -614,7 +659,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hotwordHitCounter: HotwordHitCounter(
                 repository: appEnvironment.correctionTargetRepository,
                 clock: appEnvironment.clock
-            )
+            ),
+            pausePreOutputConfiguration: Self.defaultPausePreOutputConfiguration,
+            isPausePreOutputEnabled: { [weak self] in
+                self?.isSettingEnabled(
+                    SettingsSystemOption.pausePreOutput.rawValue,
+                    defaultValue: SettingsSystemOption.pausePreOutput.defaultValue
+                ) ?? SettingsSystemOption.pausePreOutput.defaultValue
+            }
         )
         dictationOrchestrator.onStateChange = { [weak self] state in
             self?.handleDictationStateChange(state)
@@ -630,9 +682,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dictationOrchestrator.onHistorySaved = { [weak self] in
             self?.appEnvironment.notifyHistoryDidChange()
         }
+        dictationOrchestrator.onPausePreOutputRecovery = { [weak self] result in
+            guard let self else { return }
+            if result == .copied {
+                self.hudFeatureController.showTemporaryMessage(
+                    L10n.localize("dictation.hud.pause_pre_output_revised_copied", comment: "Full revised transcript copied after pause output"),
+                    duration: 6.0
+                )
+            } else if case .copyFailed = result {
+                self.hudFeatureController.handleWorkflowFeedback(.agentComposeCopyFailed { [weak self] in
+                    self?.copyLastResultToClipboardForRecovery()
+                })
+            }
+        }
         dictationOrchestrator.onAgentComposeCompleted = { [weak self] result in
             self?.appEnvironment.notifyHistoryDidChange()
             self?.showAgentComposeResult(result)
+        }
+        dictationOrchestrator.onCommandCompleted = { [weak self] result in
+            self?.appEnvironment.notifyHistoryDidChange()
+            self?.showCommandResult(result)
         }
         dictationOrchestrator.onAgentDispatchPresentation = { [weak self] presentation in
             self?.hudFeatureController.handleAgentDispatch(presentation)
@@ -736,6 +805,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .injected, .copied, .handledExternally, .cancelled:
             return "none"
         case let .targetChanged(reason),
+             let .inputChanged(reason),
              let .permissionDenied(reason),
              let .injectionFailed(reason),
              let .copyFailed(reason):
@@ -862,6 +932,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await runDebugAgentComposeTranscriptInjection(transcript)
         case .agentDispatch:
             AppLogger.general.warning("debug_transcript_injection_ignored unsupported mode=agentDispatch")
+        case .command:
+            await runDebugCommandTranscriptInjection(transcript)
         }
     }
 
@@ -914,6 +986,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppLogger.general.info("debug_transcript_injection_completed mode=agentCompose")
         } catch {
             agentComposeHandler.fail(error)
+            appEnvironment.notifyHistoryDidChange()
+            showRecognitionError(error)
+        }
+    }
+
+    private func runDebugCommandTranscriptInjection(_ transcript: String) async {
+        let target = runtime?.dictationTargetProvider.currentTarget()
+        do {
+            try commandHandler.start(target: target, asrMetadata: debugASRMetadata())
+            hudFeatureController.processingStarted(transcript)
+            let result = try await commandHandler.finish(rawTranscript: transcript)
+            appEnvironment.notifyHistoryDidChange()
+            showCommandResult(result)
+            AppLogger.general.info("debug_transcript_injection_completed mode=command")
+        } catch {
+            commandHandler.fail(error)
             appEnvironment.notifyHistoryDidChange()
             showRecognitionError(error)
         }
@@ -1140,7 +1228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch result {
         case .copied:
             hudFeatureController.handleWorkflowFeedback(.agentComposeCopied)
-        case .targetChanged:
+        case .targetChanged, .inputChanged:
             hudFeatureController.handleWorkflowFeedback(.agentComposeTargetChangedCopied)
         case .permissionDenied:
             hudFeatureController.handleWorkflowFeedback(.agentComposePermissionDeniedCopied)
@@ -1155,6 +1243,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .handledExternally:
             break
         case .cancelled:
+            break
+        }
+    }
+
+    private func showCommandResult(_ result: OutputResult) {
+        switch result {
+        case .injected:
+            hudFeatureController.handleWorkflowFeedback(.voiceCommandApplied)
+        case .inputChanged:
+            hudFeatureController.handleWorkflowFeedback(.voiceCommandInputChanged)
+        case .targetChanged:
+            hudFeatureController.handleWorkflowFeedback(.agentComposeTargetChangedCopied)
+        case .copied:
+            hudFeatureController.handleWorkflowFeedback(.agentComposeCopied)
+        case .permissionDenied:
+            hudFeatureController.handleWorkflowFeedback(.agentComposePermissionDeniedCopied)
+        case .injectionFailed:
+            hudFeatureController.handleWorkflowFeedback(.agentComposeInjectionFailedCopied)
+        case .copyFailed:
+            hudFeatureController.handleWorkflowFeedback(.agentComposeCopyFailed { [weak self] in
+                self?.copyLastResultToClipboardForRecovery()
+            })
+        case .handledExternally, .cancelled:
             break
         }
     }
@@ -1517,6 +1628,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.removeObserver(correctionLearningObserver)
             self.correctionLearningObserver = nil
         }
+    }
+
+    /// The engine posts this whenever input hardware changes (headphones
+    /// plugged/unplugged, default mic switched). The recorder restarts its
+    /// capture so an in-flight dictation follows the new device instead of
+    /// silently dying.
+    private func startAudioEngineConfigurationMonitoring() {
+        audioEngineConfigurationObserver = audioRecorder.observeConfigurationChanges()
     }
 
     private func undoCorrectionLearningBatch(_ event: CorrectionObservationLearningEvent) {
@@ -2017,6 +2136,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data).value) ?? defaultValue
     }
 
+    private func setSettingBool(_ key: String, value: Bool) {
+        guard let repo = runtime?.environment.settingsRepository else { return }
+        guard let data = try? JSONEncoder().encode(EncodedSettingValue(value: value)),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return
+        }
+        try? repo.set(key, jsonValue: jsonString)
+    }
+
+    /// One-time low-quality Bluetooth microphone hint (E3): on the first
+    /// dictation start over an HFP-profile Bluetooth input, warn that
+    /// recognition accuracy may suffer. Persisted "already shown" flag keeps
+    /// it from repeating.
+    private func maybeShowBluetoothQualityHint() {
+        if bluetoothQualityChecker == nil {
+            bluetoothQualityChecker = BluetoothInputDeviceQualityChecker(
+                provideDeviceQuality: { BluetoothInputDeviceQualityChecker.liveDeviceQuality() },
+                hasShownHint: { [weak self] in
+                    guard let self else { return true }
+                    return self.isSettingEnabled(SettingsKey.audioBluetoothQualityHintShown, defaultValue: false)
+                },
+                setHasShownHint: { [weak self] in
+                    self?.setSettingBool(SettingsKey.audioBluetoothQualityHintShown, value: $0)
+                }
+            )
+        }
+        guard bluetoothQualityChecker.evaluateForRecordingStart() else { return }
+        hudFeatureController.updateTranscription(
+            L10n.localize("app.dictation.bluetooth_quality_hint", comment: "One-time low-quality Bluetooth microphone warning"),
+            isRefining: false
+        )
+    }
+
     private func settingString(_ key: String, defaultValue: String) -> String {
         let repo = appEnvironment.settingsRepository
         guard let jsonString = try? repo.value(forKey: key),
@@ -2039,6 +2191,14 @@ extension AppDelegate: AudioRecorder.Delegate {
     nonisolated func audioRecorder(_ recorder: AudioRecorder, didUpdateRMS rms: Float) {
         Task { @MainActor [weak self] in
             self?.hudFeatureController.updateRMS(rms)
+        }
+    }
+
+    nonisolated func audioRecorderDidBecomeUnavailable(_ recorder: AudioRecorder) {
+        Task { @MainActor [weak self] in
+            guard let self, !recorder.isRecording else { return }
+            AppLogger.dictation.error("Recording ended: input device unavailable after change")
+            self.dictationOrchestrator.handleAudioCaptureFailure(AudioRecorder.AudioRecorderError.microphoneUnavailable)
         }
     }
 }

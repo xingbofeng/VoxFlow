@@ -4,6 +4,9 @@ public enum VoiceTaskMode: String, Codable, Equatable, Sendable {
     case dictation
     case agentCompose
     case agentDispatch
+    /// Spoken instruction that rewrites the focused input area's existing text
+    /// in place. The raw transcript is the instruction, not the content.
+    case command
 }
 
 public enum VoiceTaskStage: String, Codable, CaseIterable, Equatable, Comparable, Sendable {
@@ -102,6 +105,9 @@ public enum OutputResult: Codable, Equatable, Sendable {
     case injected
     case copied
     case targetChanged(reason: String)
+    /// Voice command delivery refused to rewrite the input area because its
+    /// contents changed between reading and writing.
+    case inputChanged(reason: String)
     case permissionDenied(reason: String)
     case injectionFailed(reason: String)
     case copyFailed(reason: String)
@@ -135,6 +141,10 @@ public extension OutputResult {
         case .copied:
             return .copied
         case .targetChanged:
+            return .targetChanged
+        case .inputChanged:
+            // Same persisted bucket as `targetChanged`: the deliverable was not
+            // written to the target and the text was retained for the user.
             return .targetChanged
         case .permissionDenied:
             return .permissionDenied

@@ -65,6 +65,9 @@ final class VoiceHUDFeatureController {
         case agentComposePermissionDeniedCopied
         case agentComposeInjectionFailedCopied
         case agentComposeCopyFailed(recovery: () -> Void)
+        case voiceCommandApplied
+        case voiceCommandInputChanged
+        case voiceCommandInputRequired
         case noCopyableResult
         case manualCopySucceeded
         case manualCopyFailed
@@ -374,6 +377,22 @@ final class VoiceHUDFeatureController {
                 duration: 8.0,
                 action: recovery
             )
+        case .voiceCommandApplied:
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.voice_command_applied", comment: ""),
+                duration: 2.5,
+                tone: .success
+            )
+        case .voiceCommandInputChanged:
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.voice_command_input_changed", comment: ""),
+                duration: 3.0
+            )
+        case .voiceCommandInputRequired:
+            showTemporaryMessage(
+                L10n.localize("hud.feedback.voice_command_input_required", comment: ""),
+                duration: 3.0
+            )
         case .noCopyableResult:
             showTemporaryMessage(
                 L10n.localize("hud.feedback.no_copyable_result", comment: ""),
@@ -482,6 +501,9 @@ final class VoiceHUDFeatureController {
         case .agentComposePermissionDeniedCopied: return "agentComposePermissionDeniedCopied"
         case .agentComposeInjectionFailedCopied: return "agentComposeInjectionFailedCopied"
         case .agentComposeCopyFailed: return "agentComposeCopyFailed"
+        case .voiceCommandApplied: return "voiceCommandApplied"
+        case .voiceCommandInputChanged: return "voiceCommandInputChanged"
+        case .voiceCommandInputRequired: return "voiceCommandInputRequired"
         case .noCopyableResult: return "noCopyableResult"
         case .manualCopySucceeded: return "manualCopySucceeded"
         case .manualCopyFailed: return "manualCopyFailed"

@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 import VoxFlowModelStore
 
@@ -166,6 +167,119 @@ final class ResumableModelDownloaderTests: XCTestCase {
         XCTAssertEqual(attempts, 1)
     }
 
+    func testUnchangedComponentsAreReusedFromPreviousInstalledVersion() async throws {
+        let root = try makeTemporaryDirectory()
+        let transport = FakeDownloadTransport(data: Data("hello".utf8), chunkSize: 2)
+        let firstDownloader = ResumableModelDownloader(transport: transport)
+        let firstStaging = try await firstDownloader.download(manifest: manifest(), storeRoot: root)
+        _ = try ModelAtomicInstaller().install(
+            manifest: manifest(),
+            stagingRoot: firstStaging,
+            storeRoot: root,
+            runtimeVersion: "coreml-8"
+        )
+        let attemptsAfterFirst = await transport.attemptCount()
+        XCTAssertGreaterThan(attemptsAfterFirst, 0)
+
+        // New version, same content: every component is unchanged.
+        let newVersionManifest = ModelManifest(
+            schemaVersion: 1,
+            components: [manifest().components[0].newVersion("2026.07.01")]
+        )
+        let secondDownloader = ResumableModelDownloader(transport: transport)
+        let secondStaging = try await secondDownloader.download(
+            manifest: newVersionManifest,
+            storeRoot: root
+        )
+
+        let attempts = await transport.attemptCount()
+        XCTAssertEqual(attempts, attemptsAfterFirst, "Unchanged components must not hit the transport again")
+        XCTAssertEqual(
+            try Data(contentsOf: secondStaging.appendingPathComponent("encoder.bin")),
+            Data("hello".utf8)
+        )
+    }
+
+    func testChangedComponentsStillDownloadWhenContentDiffers() async throws {
+        let root = try makeTemporaryDirectory()
+        let transport = FakeDownloadTransport(data: Data("hello".utf8), chunkSize: 2)
+        let firstDownloader = ResumableModelDownloader(transport: transport)
+        let firstStaging = try await firstDownloader.download(manifest: manifest(), storeRoot: root)
+        _ = try ModelAtomicInstaller().install(
+            manifest: manifest(),
+            stagingRoot: firstStaging,
+            storeRoot: root,
+            runtimeVersion: "coreml-8"
+        )
+        // New version whose payload actually changed.
+        let changedData = Data("world".utf8)
+        let changedManifest = ModelManifest(
+            schemaVersion: 1,
+            components: [manifest().components[0]
+                .newVersion("2026.07.01")
+                .withContent(changedData)]
+        )
+        let changedTransport = FakeDownloadTransport(data: changedData, chunkSize: 2)
+        let secondDownloader = ResumableModelDownloader(transport: changedTransport)
+        let secondStaging = try await secondDownloader.download(
+            manifest: changedManifest,
+            storeRoot: root
+        )
+
+        let attempts = await changedTransport.attemptCount()
+        XCTAssertEqual(attempts, 1, "Changed component must be downloaded")
+        XCTAssertEqual(
+            try Data(contentsOf: secondStaging.appendingPathComponent("encoder.bin")),
+            changedData
+        )
+    }
+
+    func testCancelFromReusedComponentProgressKeepsStagingState() async throws {
+        let root = try makeTemporaryDirectory()
+        let previousVersion = root.appendingPathComponent("qwen3-asr-0.6b/2026.05.01", isDirectory: true)
+        try FileManager.default.createDirectory(at: previousVersion, withIntermediateDirectories: true)
+        try Data("hello".utf8).write(to: previousVersion.appendingPathComponent("encoder.bin"))
+        let transport = FakeDownloadTransport(data: Data("hello".utf8))
+        let downloader = ResumableModelDownloader(transport: transport)
+
+        await XCTAssertThrowsModelDownloadError(.cancelled) {
+            _ = try await downloader.download(manifest: manifest(), storeRoot: root) { _ in
+                await downloader.cancel()
+            }
+        }
+
+        let stagingRoot = ResumableModelDownloader.stagingRoot(
+            for: ModelInstallKey(modelID: ModelID(rawValue: "qwen3-asr-0.6b"), version: "2026.06.01"),
+            storeRoot: root
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagingRoot.appendingPathComponent(".download-state.json").path))
+        let attempts = await transport.attemptCount()
+        XCTAssertEqual(attempts, 0)
+    }
+
+    func testPauseFromReusedComponentProgressKeepsStagingState() async throws {
+        let root = try makeTemporaryDirectory()
+        let previousVersion = root.appendingPathComponent("qwen3-asr-0.6b/2026.05.01", isDirectory: true)
+        try FileManager.default.createDirectory(at: previousVersion, withIntermediateDirectories: true)
+        try Data("hello".utf8).write(to: previousVersion.appendingPathComponent("encoder.bin"))
+        let transport = FakeDownloadTransport(data: Data("hello".utf8))
+        let downloader = ResumableModelDownloader(transport: transport)
+
+        await XCTAssertThrowsModelDownloadError(.paused) {
+            _ = try await downloader.download(manifest: manifest(), storeRoot: root) { _ in
+                await downloader.pause()
+            }
+        }
+
+        let stagingRoot = ResumableModelDownloader.stagingRoot(
+            for: ModelInstallKey(modelID: ModelID(rawValue: "qwen3-asr-0.6b"), version: "2026.06.01"),
+            storeRoot: root
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagingRoot.appendingPathComponent(".download-state.json").path))
+        let attempts = await transport.attemptCount()
+        XCTAssertEqual(attempts, 0)
+    }
+
     private func manifest(downloadURL: URL = URL(string: "https://example.com/encoder.bin")!) -> ModelManifest {
         ModelManifest(
             schemaVersion: 1,
@@ -197,6 +311,48 @@ final class ResumableModelDownloaderTests: XCTestCase {
             try? FileManager.default.removeItem(at: url)
         }
         return url
+    }
+}
+
+private extension ModelComponentManifest {
+    func newVersion(_ version: String) -> ModelComponentManifest {
+        ModelComponentManifest(
+            providerID: providerID,
+            modelID: modelID,
+            version: version,
+            runtimeVersion: runtimeVersion,
+            downloadURL: downloadURL,
+            expectedSizeBytes: expectedSizeBytes,
+            sha256: sha256,
+            localPath: localPath,
+            requirement: requirement,
+            supportedArchitectures: supportedArchitectures,
+            minimumOSVersion: minimumOSVersion,
+            minimumMemoryBytes: minimumMemoryBytes,
+            license: license
+        )
+    }
+
+    /// Rewrites expectedSizeBytes/sha256 to match the given payload so the
+    /// manifest honestly describes changed content.
+    func withContent(_ data: Data) -> ModelComponentManifest {
+        let digest = CryptoKit.SHA256.hash(data: data)
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return ModelComponentManifest(
+            providerID: providerID,
+            modelID: modelID,
+            version: version,
+            runtimeVersion: runtimeVersion,
+            downloadURL: downloadURL,
+            expectedSizeBytes: Int64(data.count),
+            sha256: SHA256Digest(rawValue: hex),
+            localPath: localPath,
+            requirement: requirement,
+            supportedArchitectures: supportedArchitectures,
+            minimumOSVersion: minimumOSVersion,
+            minimumMemoryBytes: minimumMemoryBytes,
+            license: license
+        )
     }
 }
 

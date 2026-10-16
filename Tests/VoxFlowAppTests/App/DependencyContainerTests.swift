@@ -122,4 +122,67 @@ final class DependencyContainerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: fresh.path))
     }
+
+    func testStartupCleanupRemovesStaleVoiceTaskAudio() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DependencyContainerVoiceAudioCleanup-\(UUID().uuidString)", isDirectory: true)
+        let paths = ApplicationSupportPaths(applicationSupportDirectory: root)
+        try paths.ensureDirectories()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let databaseQueue = try DatabaseQueue(connection: .inMemory())
+        try AppDatabase.migrator(clock: SystemClock()).migrate(databaseQueue)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let clock = StartupCleanupFixedClock(now: now)
+        let repository = VoiceTaskRepository(databaseQueue: databaseQueue, clock: clock)
+
+        func makeTask(id: String, status: VoiceTaskStatus, updatedAt: Date) -> VoiceTask {
+            VoiceTask(
+                id: id,
+                mode: .dictation,
+                stage: .transcribing,
+                status: status,
+                audioRelativePath: "voice-task-audio/\(id).m4a",
+                createdAt: updatedAt,
+                updatedAt: updatedAt
+            )
+        }
+
+        // Expired failed-task audio (older than the 24h retention) is removed.
+        try repository.create(makeTask(id: "task-expired", status: .failed, updatedAt: now.addingTimeInterval(-25 * 60 * 60)))
+        let expiredAudio = paths.voiceTaskAudioURL(forTaskID: "task-expired")
+        try Data("expired".utf8).write(to: expiredAudio)
+
+        // Fresh failed-task audio within retention is kept.
+        try repository.create(makeTask(id: "task-fresh", status: .failed, updatedAt: now.addingTimeInterval(-3600)))
+        let freshAudio = paths.voiceTaskAudioURL(forTaskID: "task-fresh")
+        try Data("fresh".utf8).write(to: freshAudio)
+
+        // Orphan audio with no task record is removed.
+        let orphanAudio = paths.voiceTaskAudioURL(forTaskID: "task-orphan")
+        try Data("orphan".utf8).write(to: orphanAudio)
+
+        // Completed-task audio is outside this cleanup's contract (handled by
+        // cleanupAfterSuccessfulTranscription) and must be kept.
+        try repository.create(makeTask(id: "task-completed", status: .completed, updatedAt: now.addingTimeInterval(-48 * 60 * 60)))
+        let completedAudio = paths.voiceTaskAudioURL(forTaskID: "task-completed")
+        try Data("completed".utf8).write(to: completedAudio)
+
+        DependencyContainer.cleanupStaleVoiceTaskAudio(
+            paths: paths,
+            repository: repository,
+            clock: clock
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: expiredAudio.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: freshAudio.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: orphanAudio.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: completedAudio.path))
+    }
+}
+
+private struct StartupCleanupFixedClock: AppClock {
+    let now: Date
+
+    func sleep(nanoseconds: UInt64) async throws {}
 }

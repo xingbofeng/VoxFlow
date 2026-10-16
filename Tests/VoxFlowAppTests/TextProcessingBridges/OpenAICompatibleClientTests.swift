@@ -151,6 +151,43 @@ final class OpenAICompatibleClientTests: XCTestCase {
         }
     }
 
+    func testArrearsErrorIsReportedAsAccountBalance() async throws {
+        // 真实报文：DeepSeek 系模型在腾讯 tokenhub 欠费时返回 402，正文带 "API Key" 字样，
+        // 上层曾据此把它误判成「未配置 API 密钥」。
+        let client = OpenAICompatibleClient(
+            session: StubOpenAISession(
+                data: Data(#"{"error":{"message":"The account associated with the API Key is in arrears and the accessed service ID has been isolated. Please top up the account and re-enable the service in the console."}}"#.utf8),
+                statusCode: 402
+            )
+        )
+        do {
+            _ = try await client.testConnection(
+                baseURL: "https://tokenhub.tencentmaas.com/v1",
+                apiKey: "secret",
+                model: "deepseek-v4-flash-202605",
+                timeoutSeconds: 3
+            )
+            XCTFail("Expected account balance error")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("余额不足"))
+            XCTAssertFalse(error.localizedDescription.contains("API Key"))
+        }
+    }
+
+    func testPaymentRequiredWithoutStandardErrorBodyStillExplainsAccountBalance() async throws {
+        for body in [Data(), Data("Payment required".utf8), Data(#"{"message":"quota depleted"}"#.utf8)] {
+            let client = OpenAICompatibleClient(session: StubOpenAISession(data: body, statusCode: 402))
+            do {
+                _ = try await client.testConnection(
+                    baseURL: "https://provider.example/v1", apiKey: "secret", model: "model", timeoutSeconds: 3
+                )
+                XCTFail("Expected payment-required error")
+            } catch {
+                XCTAssertTrue(error.localizedDescription.contains(L10n.localize("llm.refiner.error.account_balance")))
+            }
+        }
+    }
+
     func testNormalizesGoogleModelPrefix() {
         XCTAssertEqual(OpenAICompatibleClient.normalizedModelID(" models/gemini-2.5-flash "), "gemini-2.5-flash")
         XCTAssertEqual(OpenAICompatibleClient.normalizedModelID("openai/gpt-oss-120b"), "openai/gpt-oss-120b")

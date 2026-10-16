@@ -31,9 +31,47 @@ protocol ActiveLLMProviderIdentifying {
     var activeProviderID: String? { get }
 }
 
+// MARK: - UnsupportedFieldRetryPolicy
+
+/// Field-level degradation for OpenAI-compatible endpoints that reject
+/// individual request fields (e.g. reasoning-only models refusing
+/// `temperature`, newer gateways requiring `max_completion_tokens`). Matches
+/// error messages against known signatures and rewrites the request body,
+/// instead of failing the whole request and dropping to raw-text fallback.
+enum UnsupportedFieldRetryPolicy {
+    static let maxRetryCount = 2
+
+    /// Returns the degraded request body for the given API error message,
+    /// or nil when the error does not match a known unsupported-field signature.
+    static func degradedBody(for body: [String: Any], errorMessage: String) -> [String: Any]? {
+        let lowered = errorMessage.lowercased()
+
+        if lowered.contains("max_tokens"),
+           lowered.contains("max_completion_tokens"),
+           let maxTokens = body["max_tokens"] {
+            var degraded = body
+            degraded.removeValue(forKey: "max_tokens")
+            degraded["max_completion_tokens"] = maxTokens
+            return degraded
+        }
+
+        if lowered.contains("temperature"),
+           ["unsupported", "not support", "does not support", "only the default", "doesn't support"]
+               .contains(where: { lowered.contains($0) }),
+           body["temperature"] != nil {
+            var degraded = body
+            degraded.removeValue(forKey: "temperature")
+            return degraded
+        }
+
+        return nil
+    }
+}
+
 final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, TraceableStreamingPromptAwareTextRefining, TraceablePromptAwareTextRefining, ActiveLLMProviderIdentifying, RefinementTraceProviding, @unchecked Sendable {
     static let enabledDefaultsKey = "LLMRefiner_Enabled"
     static let agentProviderIDSettingsKey = "agent.compose.provider.id"
+    private static let maxFieldRetryCount = UnsupportedFieldRetryPolicy.maxRetryCount
 
     private let providerRepository: any LLMProviderRepository
     private let credentialStore: CredentialStore
@@ -129,72 +167,99 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
             "temperature": selectedTemperature,
             "stream": false,
         ]
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-        var trace = LLMRefinementTrace(
-            providerID: provider.id,
-            providerName: provider.displayName,
-            endpoint: url.absoluteString,
-            model: selectedModel,
-            temperature: selectedTemperature,
-            timeoutSeconds: provider.timeoutSeconds,
-            requestBodyJSON: Self.prettyJSONString(from: body),
-            responseText: nil,
-            statusCode: nil,
-            durationMS: nil,
-            errorMessage: nil,
-            completedAt: nil,
-            promptMetadata: request.promptMetadata
-        )
 
         let startedAt = Date()
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: urlRequest)
-        } catch {
-            AppLogger.network.error("LLM 修正请求失败：provider=\(provider.id), error=\(error.localizedDescription)")
-            trace = finishedTrace(
-                trace,
-                durationMS: Self.durationMS(since: startedAt),
-                errorMessage: error.localizedDescription
+        var degradedBody = body
+        var retryCount = 0
+
+        while true {
+            urlRequest.httpBody = try JSONSerialization.data(withJSONObject: degradedBody)
+            var trace = LLMRefinementTrace(
+                providerID: provider.id,
+                providerName: provider.displayName,
+                endpoint: url.absoluteString,
+                model: selectedModel,
+                temperature: selectedTemperature,
+                timeoutSeconds: provider.timeoutSeconds,
+                requestBodyJSON: Self.prettyJSONString(from: degradedBody),
+                responseText: nil,
+                statusCode: nil,
+                durationMS: nil,
+                errorMessage: nil,
+                completedAt: nil,
+                promptMetadata: request.promptMetadata
             )
-            lastTrace = trace
-            throw error
-        }
-        guard let httpResponse = response as? HTTPURLResponse else {
-            AppLogger.network.error("LLM 响应类型无效：provider=\(provider.id)")
+
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await session.data(for: urlRequest)
+            } catch {
+                AppLogger.network.error("LLM 修正请求失败：provider=\(provider.id), error=\(error.localizedDescription)")
+                trace = finishedTrace(
+                    trace,
+                    durationMS: Self.durationMS(since: startedAt),
+                    errorMessage: error.localizedDescription
+                )
+                lastTrace = trace
+                throw error
+            }
+            guard let httpResponse = response as? HTTPURLResponse else {
+                AppLogger.network.error("LLM 响应类型无效：provider=\(provider.id)")
+                trace = finishedTrace(
+                    trace,
+                    durationMS: Self.durationMS(since: startedAt),
+                    errorMessage: LLMRefiner.Error.invalidResponse.localizedDescription
+                )
+                lastTrace = trace
+                throw LLMRefiner.Error.invalidResponse
+            }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let apiMessage = OpenAICompatibleClient.apiErrorMessage(from: data)
+                // Field-level degradation: some endpoints reject individual
+                // request fields; retry with the offending field rewritten
+                // instead of failing the whole refinement.
+                if httpResponse.statusCode == 400,
+                   let apiMessage,
+                   retryCount < Self.maxFieldRetryCount,
+                   let next = UnsupportedFieldRetryPolicy.degradedBody(
+                       for: degradedBody,
+                       errorMessage: apiMessage
+                   ) {
+                    retryCount += 1
+                    AppLogger.network.info(
+                        "LLM 请求字段被拒，降级重试 #\(retryCount)：provider=\(provider.id), message=\(apiMessage)"
+                    )
+                    degradedBody = next
+                    continue
+                }
+                let error = OpenAICompatibleClient.responseError(
+                    baseURL: provider.baseURL, statusCode: httpResponse.statusCode, message: apiMessage
+                )
+                AppLogger.network.warning("LLM 返回失败码：provider=\(provider.id), code=\(httpResponse.statusCode)")
+                trace = finishedTrace(
+                    trace,
+                    statusCode: httpResponse.statusCode,
+                    durationMS: Self.durationMS(since: startedAt),
+                    errorMessage: error.localizedDescription
+                )
+                lastTrace = trace
+                throw error
+            }
+            activeProviderID = provider.id
+            let refined = try LLMRefiner.parseChatCompletion(data)
+            AppLogger.network.debug("LLM 返回文本长度：provider=\(provider.id), len=\(refined.count)")
+            let finalText = refined.isEmpty ? request.text : refined
             trace = finishedTrace(
                 trace,
-                durationMS: Self.durationMS(since: startedAt),
-                errorMessage: LLMRefiner.Error.invalidResponse.localizedDescription
-            )
-            lastTrace = trace
-            throw LLMRefiner.Error.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            AppLogger.network.warning("LLM 返回失败码：provider=\(provider.id), code=\(httpResponse.statusCode)")
-            trace = finishedTrace(
-                trace,
+                responseText: refined,
                 statusCode: httpResponse.statusCode,
                 durationMS: Self.durationMS(since: startedAt),
-                errorMessage: LLMRefiner.Error.httpError(code: httpResponse.statusCode).localizedDescription
+                errorMessage: nil
             )
             lastTrace = trace
-            throw LLMRefiner.Error.httpError(code: httpResponse.statusCode)
+            return TextRefinementTraceResult(text: finalText, providerID: provider.id, trace: trace)
         }
-        activeProviderID = provider.id
-        let refined = try LLMRefiner.parseChatCompletion(data)
-        AppLogger.network.debug("LLM 返回文本长度：provider=\(provider.id), len=\(refined.count)")
-        let finalText = refined.isEmpty ? request.text : refined
-        trace = finishedTrace(
-            trace,
-            responseText: refined,
-            statusCode: httpResponse.statusCode,
-            durationMS: Self.durationMS(since: startedAt),
-            errorMessage: nil
-        )
-        lastTrace = trace
-        return TextRefinementTraceResult(text: finalText, providerID: provider.id, trace: trace)
     }
 
     func clearLastTrace() {
@@ -274,7 +339,9 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
                     }
                     guard (200...299).contains(httpResponse.statusCode) else {
                         AppLogger.network.warning("流式 LLM 返回失败码：provider=\(provider.id), code=\(httpResponse.statusCode)")
-                        throw LLMRefiner.Error.httpError(code: httpResponse.statusCode)
+                        throw OpenAICompatibleClient.responseError(
+                            baseURL: provider.baseURL, statusCode: httpResponse.statusCode, message: nil
+                        )
                     }
                     let parsedStream = SSEParser.parse(byteStream: asyncBytes)
 
@@ -447,6 +514,8 @@ final class RepositoryBackedLLMRefiner: TextRefining, AgentComposeConfiguring, T
         case .agentCompose:
             return request.text
         case .directTask:
+            return request.text
+        case .commandEdit:
             return request.text
         case .dictationCorrection:
             break

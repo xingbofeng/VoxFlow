@@ -367,6 +367,8 @@ private extension VoiceAction {
             return "agentCompose"
         case .agentDispatch:
             return "agentDispatch"
+        case .command:
+            return "command"
         }
     }
 }

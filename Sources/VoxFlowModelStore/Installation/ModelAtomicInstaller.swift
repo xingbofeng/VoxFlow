@@ -63,12 +63,35 @@ public struct ModelAtomicInstaller {
             .appendingPathComponent(firstComponent.modelID.rawValue, isDirectory: true)
             .appendingPathComponent(firstComponent.version, isDirectory: true)
         try moveValidatedStaging(stagingRoot, to: destinationRoot)
+        try removeOutdatedVersions(of: firstComponent.modelID.rawValue, keeping: destinationRoot, in: storeRoot)
 
         return ModelInstallation(
             modelID: firstComponent.modelID,
             version: firstComponent.version,
             installedRoot: destinationRoot
         )
+    }
+
+    /// Deletes other installed versions of the same model after a successful
+    /// install. Version upgrades would otherwise leave multi-GB directories
+    /// behind; the just-installed version is the only one the app resolves.
+    private func removeOutdatedVersions(
+        of modelID: String,
+        keeping installedRoot: URL,
+        in storeRoot: URL
+    ) throws {
+        let modelRoot = storeRoot.appendingPathComponent(modelID, isDirectory: true)
+        let contents = try? fileManager.contentsOfDirectory(
+            at: modelRoot,
+            includingPropertiesForKeys: nil,
+            options: []
+        )
+        // Scoped inside the model root, so the version directory name alone
+        // identifies an entry (raw path comparison breaks on /var vs
+        // /private/var symlink resolution in temporary directories).
+        for url in contents ?? [] where url.lastPathComponent != installedRoot.lastPathComponent {
+            try? fileManager.removeItem(at: url)
+        }
     }
 
     @discardableResult

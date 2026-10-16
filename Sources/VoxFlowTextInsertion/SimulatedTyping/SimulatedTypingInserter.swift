@@ -89,7 +89,7 @@ public final class SimulatedTypingInserter: TextInserting {
         }
 
         for cluster in encoder.graphemeClusters(in: text) {
-            if cancellationMonitor.isCancelled {
+            if Task.isCancelled || cancellationMonitor.isCancelled {
                 return .cancelled
             }
 
@@ -97,12 +97,16 @@ public final class SimulatedTypingInserter: TextInserting {
                 return .eventCreationFailed
             }
 
-            if cancellationMonitor.isCancelled {
+            if Task.isCancelled || cancellationMonitor.isCancelled {
                 return .cancelled
             }
 
             if interClusterDelayNanoseconds > 0 {
-                try? await Task.sleep(nanoseconds: interClusterDelayNanoseconds)
+                do {
+                    try await Task.sleep(nanoseconds: interClusterDelayNanoseconds)
+                } catch {
+                    return .cancelled
+                }
             }
         }
 

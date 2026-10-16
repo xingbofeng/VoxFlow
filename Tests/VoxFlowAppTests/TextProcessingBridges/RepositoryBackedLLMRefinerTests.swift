@@ -4,6 +4,38 @@ import XCTest
 @testable import VoxFlowApp
 
 final class RepositoryBackedLLMRefinerTests: XCTestCase {
+    func testEmptyPaymentRequiredResponsePreservesBalanceReasonInRefinementAndStreaming() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory(credentialStore: credentials))
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let suiteName = "RepositoryBackedLLMRefinerTests.balance.\(UUID())"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository, credentialStore: credentials,
+            defaults: defaults, session: CapturingCompletionSession(response: Data(), statusCode: 402)
+        )
+        let balanceMessage = L10n.localize("llm.refiner.error.account_balance")
+        let request = TextRefinementRequest(text: "text", systemPrompt: "edit", model: nil, temperature: nil)
+
+        for streaming in [false, true] {
+            do {
+                if streaming {
+                    for try await _ in refiner.refineStream(request) {}
+                } else {
+                    _ = try await refiner.refine(request)
+                }
+                XCTFail("Expected payment-required error")
+            } catch {
+                XCTAssertTrue(error.localizedDescription.contains(balanceMessage))
+                XCTAssertTrue(refiner.lastTrace?.errorMessage?.contains(balanceMessage) == true)
+            }
+        }
+    }
+
     func testCodexRuntimeProviderConfiguresAgentComposeButDoesNotRefineText() async throws {
         let environment = AppEnvironment(container: try DependencyContainer.inMemory())
         let now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -890,6 +922,131 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         XCTAssertTrue(refiner.isConfigured)
     }
 
+    func testRetryPolicyRewritesMaxTokensToMaxCompletionTokens() {
+        let body: [String: Any] = [
+            "model": "gpt-5",
+            "messages": [["role": "user", "content": "hi"]],
+            "max_tokens": 32,
+            "temperature": 0.25,
+        ]
+
+        let degraded = UnsupportedFieldRetryPolicy.degradedBody(
+            for: body,
+            errorMessage: "max_tokens is not supported by this model, use max_completion_tokens"
+        )
+
+        XCTAssertEqual(degraded?["max_completion_tokens"] as? Int, 32)
+        XCTAssertNil(degraded?["max_tokens"])
+        XCTAssertEqual(degraded?["temperature"] as? Double, 0.25, "不相关的字段应原样保留")
+        XCTAssertEqual(degraded?["model"] as? String, "gpt-5")
+    }
+
+    func testRefineRetriesWithoutTemperatureWhenTemperatureUnsupported() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let responses: [Data] = [
+            Self.errorResponse(
+                code: 400,
+                message: #"temperature does not support 0.25 with this model. Only the default (1) value is supported"#
+            ),
+            Self.completionResponse("修正后"),
+        ]
+        let session = SequencedCompletionSession(responses: responses)
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.fieldRetry.temperature")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.fieldRetry.temperature")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        let result = try await refiner.refine("原文")
+
+        XCTAssertEqual(result, "修正后")
+        XCTAssertEqual(session.requests.count, 2)
+        let retryBody = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(session.requests[1].httpBody)) as? [String: Any]
+        )
+        XCTAssertNil(retryBody["temperature"], "不支持 temperature 时应移除该字段重试")
+        XCTAssertNil(retryBody["max_tokens"], "与错误无关的字段不应被移除")
+    }
+
+    func testRefineDoesNotRetryWhenErrorMessageDoesNotMatchFieldSignatures() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = SequencedCompletionSession(responses: [
+            Self.errorResponse(code: 401, message: "invalid api key"),
+        ])
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.fieldRetry.noMatch")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.fieldRetry.noMatch")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        do {
+            _ = try await refiner.refine("原文")
+            XCTFail("不匹配字段签名的错误应直接抛出")
+        } catch LLMRefiner.Error.apiError {
+            // Expected: no retry for unrelated errors.
+        } catch {
+            XCTFail("Expected apiError, got \(error)")
+        }
+        XCTAssertEqual(session.requests.count, 1, "非字段类错误不应触发重试")
+    }
+
+    func testRefineGivesUpWhenFieldAlreadyRemovedAndErrorPersists() async throws {
+        let credentials = TestCredentialStore()
+        let environment = AppEnvironment(
+            container: try DependencyContainer.inMemory(credentialStore: credentials)
+        )
+        let provider = makeProvider(isDefault: true)
+        try environment.llmProviderRepository.save(provider)
+        try credentials.saveCredential("secret", account: provider.apiKeyRef)
+        let session = SequencedCompletionSession(responses: [
+            Self.errorResponse(code: 400, message: "temperature 0.25 does not support this model"),
+            Self.errorResponse(code: 400, message: "temperature 0.25 does not support this model"),
+        ])
+        let defaults = UserDefaults(suiteName: "RepositoryBackedLLMRefinerTests.fieldRetry.exhausted")!
+        defaults.removePersistentDomain(forName: "RepositoryBackedLLMRefinerTests.fieldRetry.exhausted")
+        defaults.set(true, forKey: RepositoryBackedLLMRefiner.enabledDefaultsKey)
+        let refiner = RepositoryBackedLLMRefiner(
+            providerRepository: environment.llmProviderRepository,
+            credentialStore: credentials,
+            defaults: defaults,
+            session: session
+        )
+
+        do {
+            _ = try await refiner.refine("原文")
+            XCTFail("字段已移除后错误仍存在时应抛出错误")
+        } catch LLMRefiner.Error.apiError {
+            // Expected: the field is already gone, no further degradation possible.
+        } catch {
+            XCTFail("Expected apiError, got \(error)")
+        }
+        XCTAssertEqual(session.requests.count, 2, "初次请求 + 一次降级重试后停止")
+        let lastBody = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(session.requests[1].httpBody)) as? [String: Any]
+        )
+        XCTAssertNil(lastBody["temperature"], "重试后的请求不应再携带被拒字段")
+    }
+
     private func makeProvider(
         isDefault: Bool,
         baseURL: String = "https://api.example.com/v1",
@@ -921,6 +1078,12 @@ final class RepositoryBackedLLMRefinerTests: XCTestCase {
         ])
     }
 
+    private static func errorResponse(code: Int, message: String) -> Data {
+        try! JSONSerialization.data(withJSONObject: [
+            "error": ["message": message]
+        ])
+    }
+
     private static func hotword(_ text: String, score: Double) -> TemporaryHotword {
         TemporaryHotword(
             text: text,
@@ -946,14 +1109,16 @@ private final class CapturingCompletionSession: LLMCompletionSession, @unchecked
     private(set) var streamRequests: [URLRequest] = []
     let response: Data
     let streamChunks: [String]
+    let statusCode: Int
 
     var usedStreamingEndpoint: Bool {
         !streamRequests.isEmpty
     }
 
-    init(response: Data, streamChunks: [String] = []) {
+    init(response: Data, streamChunks: [String] = [], statusCode: Int = 200) {
         self.response = response
         self.streamChunks = streamChunks
+        self.statusCode = statusCode
     }
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
@@ -962,7 +1127,7 @@ private final class CapturingCompletionSession: LLMCompletionSession, @unchecked
             response,
             HTTPURLResponse(
                 url: request.url!,
-                statusCode: 200,
+                statusCode: statusCode,
                 httpVersion: nil,
                 headerFields: nil
             )!
@@ -986,7 +1151,7 @@ private final class CapturingCompletionSession: LLMCompletionSession, @unchecked
             stream,
             HTTPURLResponse(
                 url: request.url!,
-                statusCode: 200,
+                statusCode: statusCode,
                 httpVersion: nil,
                 headerFields: nil
             )!
@@ -1001,5 +1166,35 @@ private final class FailingLLMSession: LLMCompletionSession, @unchecked Sendable
 
     func byteStream(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
         throw LLMRefiner.Error.apiError(code: 599, message: "OpenAI-compatible fallback should not be called")
+    }
+}
+
+private final class SequencedCompletionSession: LLMCompletionSession, @unchecked Sendable {
+    private(set) var requests: [URLRequest] = []
+    private let responses: [Data]
+
+    init(responses: [Data]) {
+        self.responses = responses
+    }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let index = requests.count
+        requests.append(request)
+        let response = responses[min(index, responses.count - 1)]
+        let statusCode = (try? JSONSerialization.jsonObject(with: response) as? [String: Any])
+            .flatMap { $0["error"] } != nil ? 400 : 200
+        return (
+            response,
+            HTTPURLResponse(
+                url: request.url!,
+                statusCode: statusCode,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+        )
+    }
+
+    func byteStream(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        fatalError("SequencedCompletionSession does not support streaming")
     }
 }

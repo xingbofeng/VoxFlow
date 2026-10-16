@@ -8,6 +8,20 @@ private final class ASRCoreBackedCallbackBox: @unchecked Sendable {
     var onError: ((Error) -> Void)?
 }
 
+/// 录音期间真正进入 ASR 的音频统计。
+///
+/// `dictation_history.duration_ms` 是墙钟时长，证明不了音频真的到了识别器；出问题时只有
+/// 「收了多少帧/多少毫秒音频、会话多久就绪、帧之间最大间隔、丢了多少帧」能把「设备没采到声音」
+/// 和「音频在管线里被丢了」分开。
+private struct ASRIngestStats {
+    var frameCount = 0
+    var audioDurationMs = 0
+    var droppedFrameCount = 0
+    var firstFrameDelayMs: Int?
+    var maxFrameGapMs = 0
+    var sessionReadyAfterMs: Int?
+}
+
 final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRTermPromptConfiguring, @unchecked Sendable {
     var onTranscription: ((String, Bool) -> Void)? {
         get { callbacks.onTranscription }
@@ -32,6 +46,11 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         metadataLock.withLock { runtimeMetadata }
     }
 
+    /// 待识别帧的缓冲上限。帧消费者只在会话就绪后才开始取帧，FireRedASR 这类每次录音都要重新
+    /// 加载权重的 provider 会让这段等待长达数秒，所以上限按「几分钟音频」而不是「几秒」来定，
+    /// 保证启动等待期间一帧都不丢，同时仍然给异常 provider 留一个内存安全阀。
+    static let audioFrameBufferLimit = 4096
+
     private let provider: any ASRProvider
     private let defaultLanguage: ASRLanguageCapability
     private let deliversPartialTranscripts: @Sendable () -> Bool
@@ -52,6 +71,8 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     private var hasReportedFailure = false
     private var runtimeMetadata = ASRRuntimeMetadataSnapshot()
     private var startedAt: ContinuousClock.Instant?
+    private var ingest = ASRIngestStats()
+    private var lastFrameAt: ContinuousClock.Instant?
 
     init(
         provider: any ASRProvider,
@@ -99,6 +120,8 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         let prompt = configuration.1
         metadataLock.withLock {
             runtimeMetadata = ASRRuntimeMetadataSnapshot()
+            ingest = ASRIngestStats()
+            lastFrameAt = nil
         }
         let generation = lifecycleLock.withLock {
             self.generation &+= 1
@@ -110,9 +133,14 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         }
         AppLogger.audio.debug("ASRCoreBackedASREngine start generation=\(generation)")
         var frameContinuation: AsyncStream<AudioFrame>.Continuation?
-        let frameStream = AsyncStream<AudioFrame>(bufferingPolicy: .bufferingNewest(96)) { continuation in
+        // 缓冲上限必须远大于会话就绪等待期间的帧量，否则最旧的帧会被静默丢掉，
+        // 直接吃掉用户开头说的话。见 `audioFrameBufferLimit`。
+        let frameStream = AsyncStream<AudioFrame>(
+            bufferingPolicy: .bufferingNewest(Self.audioFrameBufferLimit)
+        ) { continuation in
             frameContinuation = continuation
         }
+        let requestedAt = ContinuousClock.now
         let sessionTask = Task<any ASRSession, Error> {
             let session = try await provider.makeSession(language: language)
             try await session.configurePrompt(prompt)
@@ -126,6 +154,13 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         let frameConsumerTask = Task {
             do {
                 let session = try await sessionTask.value
+                let readyAt = ContinuousClock.now
+                self.metadataLock.withLock {
+                    self.ingest.sessionReadyAfterMs = Self.milliseconds(from: requestedAt.duration(to: readyAt))
+                }
+                AppLogger.audio.notice(
+                    "ASR session ready generation=\(generation) afterMs=\(Self.milliseconds(from: requestedAt.duration(to: readyAt)))"
+                )
                 for await frame in frameStream {
                     guard self.isCurrentGeneration(generation) else { break }
                     try await session.accept(frame)
@@ -179,7 +214,9 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
             return frameContinuation
         }
         guard let continuation else { return }
-        switch continuation.yield(frame) {
+        let yieldResult = continuation.yield(frame)
+        recordIngest(frame, at: .now)
+        switch yieldResult {
         case .dropped:
             recordDroppedFrame()
         case .enqueued, .terminated:
@@ -216,9 +253,12 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
         }
         guard let snapshot else { return }
         let callbacks = callbacks
+        logIngestSummary(generation: snapshot.generation)
         snapshot.frameContinuation?.finish()
         guard snapshot.hasAcceptedAudioFrame else {
-            AppLogger.audio.debug("ASRCoreBackedASREngine endAudio with no accepted frames generation=\(snapshot.generation)")
+            AppLogger.audio.warning(
+                "ASRCoreBackedASREngine endAudio with no accepted frames generation=\(snapshot.generation)"
+            )
             snapshot.frameConsumerTask?.cancel()
             snapshot.eventTask?.cancel()
             callbacks.onTranscription?("", true)
@@ -342,9 +382,51 @@ final class ASRCoreBackedASREngine: ASREngine, ASRRuntimeMetadataProviding, ASRT
     }
 
     private func recordDroppedFrame() {
-        metadataLock.withLock {
+        let total = metadataLock.withLock { () -> Int in
+            ingest.droppedFrameCount += 1
             runtimeMetadata.droppedFrameCount = (runtimeMetadata.droppedFrameCount ?? 0) + 1
+            return ingest.droppedFrameCount
         }
+        // 丢帧意味着用户说的话永远进不了转写。正常路径下这里一次都不该触发。
+        if total == 1 || total % 50 == 0 {
+            AppLogger.audio.warning("ASR audio frame dropped (pipeline lagging) droppedFrames=\(total)")
+        }
+    }
+
+    /// 记录一帧真正交给 ASR 的音频。`maxFrameGapMs` 是相邻两帧进入管线的时间间隔：采集侧断流
+    /// （切换输入设备、设备失效）会在这里留下几十毫秒以上的台阶，而墙钟时长看不出来。
+    private func recordIngest(_ frame: AudioFrame, at now: ContinuousClock.Instant) {
+        let startedAt = lifecycleLock.withLock { self.startedAt }
+        metadataLock.withLock {
+            if let lastFrameAt {
+                ingest.maxFrameGapMs = max(
+                    ingest.maxFrameGapMs,
+                    Self.milliseconds(from: lastFrameAt.duration(to: now))
+                )
+            } else if let startedAt {
+                ingest.firstFrameDelayMs = Self.milliseconds(from: startedAt.duration(to: now))
+            }
+            lastFrameAt = now
+            ingest.frameCount += 1
+            if frame.sampleRate > 0 {
+                ingest.audioDurationMs += frame.samples.count * 1_000 / frame.sampleRate
+            }
+        }
+    }
+
+    private func logIngestSummary(generation: UInt64) {
+        let stats = metadataLock.withLock { ingest }
+        let wallClockMs = lifecycleLock.withLock {
+            startedAt.map { Self.milliseconds(from: $0.duration(to: .now)) }
+        }
+        AppLogger.audio.notice(
+            "ASR audio ingest generation=\(generation) wallClockMs=\(wallClockMs.map(String.init) ?? "n/a") "
+                + "frames=\(stats.frameCount) audioMs=\(stats.audioDurationMs) "
+                + "droppedFrames=\(stats.droppedFrameCount) "
+                + "firstFrameDelayMs=\(stats.firstFrameDelayMs.map(String.init) ?? "n/a") "
+                + "maxFrameGapMs=\(stats.maxFrameGapMs) "
+                + "sessionReadyMs=\(stats.sessionReadyAfterMs.map(String.init) ?? "n/a")"
+        )
     }
 
     private func isCurrentGeneration(_ expectedGeneration: UInt64) -> Bool {

@@ -250,9 +250,8 @@ private final class CorrectionObservationWakeCoordinator: @unchecked Sendable {
 final class CorrectionObservationCoordinator {
     private let tracker: FocusedTextObservationTracker
     private let clock: any CorrectionObservationClock
-    private let repository: any CorrectionRuleRepository
-    private let targetRepository: any CorrectionTargetRepository
     private let extractor: HighConfidenceCorrectionExtractor
+    private let learningService: PostEditLearningService
     private let pollOffsets: [Duration]
     private let baselineCaptureDelays: [Duration]
     private let commitObserver: (any CorrectionObservationCommitObserving)?
@@ -266,9 +265,8 @@ final class CorrectionObservationCoordinator {
     init(
         observer: any FocusedTextObserving,
         clock: any CorrectionObservationClock = ContinuousCorrectionObservationClock(),
-        repository: any CorrectionRuleRepository,
-        targetRepository: any CorrectionTargetRepository,
         extractor: HighConfidenceCorrectionExtractor = HighConfidenceCorrectionExtractor(),
+        learningService: PostEditLearningService,
         pollOffsets: [Duration] = CorrectionObservationPollSchedule.defaultOffsets,
         baselineCaptureDelays: [Duration] = [.milliseconds(150), .milliseconds(150), .milliseconds(200)],
         commitObserver: (any CorrectionObservationCommitObserving)? = nil,
@@ -282,9 +280,8 @@ final class CorrectionObservationCoordinator {
     ) {
         self.tracker = FocusedTextObservationTracker(observer: observer)
         self.clock = clock
-        self.repository = repository
-        self.targetRepository = targetRepository
         self.extractor = extractor
+        self.learningService = learningService
         self.pollOffsets = pollOffsets
         self.baselineCaptureDelays = baselineCaptureDelays
         self.commitObserver = commitObserver
@@ -309,7 +306,7 @@ final class CorrectionObservationCoordinator {
         guard context.mode == .dictation,
               context.isFinalTranscript,
               !context.isSecureField,
-              let bundleIdentifier = context.bundleIdentifier
+              context.bundleIdentifier != nil
         else {
             reportDiagnostic(.unsupportedContext, insertedText: insertedText, context: context)
             return
@@ -421,34 +418,19 @@ final class CorrectionObservationCoordinator {
 
         var learnedItems: [CorrectionObservationLearningItem] = []
         for pair in pairs {
-            let activeImmediately = autoLearningAppliesImmediately()
-            let now = Date()
             do {
-                let scope = RuleScope.application(bundleIdentifier: bundleIdentifier)
-                let target = try targetTerm(
-                    text: pair.replacement,
-                    scope: scope,
-                    activeImmediately: activeImmediately,
-                    now: now
+                // Unified post-edit learning path: aggregation, retirement of
+                // superseded rules, and evidence persistence all live in the
+                // shared service (same path as Home history manual edits).
+                let result = try learningService.learn(
+                    pair: pair,
+                    context: context,
+                    appliesImmediately: autoLearningAppliesImmediately(),
+                    now: Date()
                 )
-                let rule = CorrectionRule(
-                    targetID: target.id,
-                    original: pair.original,
-                    replacement: target.text,
-                    matchPolicy: .boundary,
-                    scope: scope,
-                    lifecycle: activeImmediately ? .active : .candidate,
-                    source: .automaticLearning,
-                    confidence: activeImmediately ? 0.90 : 0.40,
-                    observedCount: 1,
-                    providerID: context.providerID,
-                    modelID: context.modelID,
-                    language: context.language,
-                    createdAt: now,
-                    updatedAt: now
-                )
-                try repository.save(rule)
-                learnedItems.append(CorrectionObservationLearningItem(rule: rule, targetID: target.id))
+                if let item = result.item {
+                    learnedItems.append(item)
+                }
             } catch {
                 reportDiagnostic(.saveFailed, insertedText: insertedText, context: context)
                 onSaveFailure(error)
@@ -512,36 +494,5 @@ final class CorrectionObservationCoordinator {
 
     func recaptureBaselineForObservation(matching baseline: FocusedTextObservation) -> FocusedTextObservation? {
         tracker.recapture(matching: baseline)
-    }
-
-    private func targetTerm(
-        text: String,
-        scope: RuleScope,
-        activeImmediately: Bool,
-        now: Date
-    ) throws -> CorrectionTargetTerm {
-        let normalizedText = CorrectionTargetTerm.normalize(text)
-        if var existing = try targetRepository.list().first(where: {
-            $0.normalizedText.caseInsensitiveCompare(normalizedText) == .orderedSame &&
-                $0.scope == scope
-        }) {
-            existing.observedCount += 1
-            existing.updatedAt = now
-            try targetRepository.save(existing)
-            return existing
-        }
-
-        let target = CorrectionTargetTerm(
-            text: text,
-            normalizedText: normalizedText,
-            scope: scope,
-            lifecycle: activeImmediately ? .active : .candidate,
-            source: .automaticLearning,
-            observedCount: 1,
-            createdAt: now,
-            updatedAt: now
-        )
-        try targetRepository.save(target)
-        return target
     }
 }

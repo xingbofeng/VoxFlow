@@ -338,7 +338,7 @@ final class OutputServiceTests: XCTestCase {
                 simulatedTypingInserter: simulatedTyping
             ),
             clipboardService: clipboard,
-            textInputMode: { mode }
+            textInputMode: { _ in mode }
         )
 
         _ = await service.deliver(text: "first", mode: .dictation, target: nil, originalTarget: nil)
@@ -347,6 +347,158 @@ final class OutputServiceTests: XCTestCase {
 
         XCTAssertEqual(fastPaste.injectedTexts, ["first"])
         XCTAssertEqual(simulatedTyping.injectedTexts, ["second"])
+    }
+
+    // MARK: - Per-app output method override
+
+    func testOutputPolicyResolvesTextInputModeFromAppRuleBeforeGlobalMode() async {
+        let fastPaste = StubTextInjector(result: .success)
+        let simulatedTyping = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let environment = AppEnvironment(container: try! DependencyContainer.inMemory())
+        let ruleStore = OutputMethodRuleStore(settingsRepository: environment.settingsRepository)
+        try! ruleStore.save(
+            OutputMethodRule(
+                id: "rule-xcode",
+                bundleID: "com.apple.dt.Xcode",
+                appName: "Xcode",
+                inputMode: .simulatedTyping
+            )
+        )
+        let service = DefaultOutputService(
+            textInsertionCoordinator: TextInsertionCoordinator(
+                fastPasteInserter: fastPaste,
+                simulatedTypingInserter: simulatedTyping
+            ),
+            clipboardService: clipboard,
+            textInputMode: { target in
+                SettingsBackedTextOutputConfiguration(
+                    settingsRepository: environment.settingsRepository
+                )
+                .textInputMode(for: target)
+            }
+        )
+        let target = DictationTarget(bundleID: "com.apple.dt.Xcode", appName: "Xcode")
+
+        _ = await service.deliver(
+            text: "typed text",
+            mode: .dictation,
+            target: target,
+            originalTarget: target
+        )
+        // 无规则的其它应用继续走全局默认（automatic → fastPaste）。
+        _ = await service.deliver(
+            text: "pasted text",
+            mode: .dictation,
+            target: DictationTarget(bundleID: "com.example.notes", appName: "Notes"),
+            originalTarget: DictationTarget(bundleID: "com.example.notes", appName: "Notes")
+        )
+
+        XCTAssertEqual(simulatedTyping.injectedTexts, ["typed text"])
+        XCTAssertEqual(fastPaste.injectedTexts, ["pasted text"])
+    }
+
+    func testOutputPolicyAppRuleDoesNotAffectAgentComposeCopy() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let environment = AppEnvironment(container: try! DependencyContainer.inMemory())
+        try! OutputMethodRuleStore(settingsRepository: environment.settingsRepository).save(
+            OutputMethodRule(
+                id: "rule-safari",
+                bundleID: "com.apple.Safari",
+                appName: "Safari",
+                inputMode: .simulatedTyping
+            )
+        )
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            textInputMode: { target in
+                SettingsBackedTextOutputConfiguration(
+                    settingsRepository: environment.settingsRepository
+                )
+                .textInputMode(for: target)
+            }
+        )
+        let target = DictationTarget(bundleID: "com.apple.Safari", appName: "Safari")
+
+        let result = await service.deliver(
+            text: "agent text",
+            mode: .agentCompose,
+            target: target,
+            originalTarget: target
+        )
+
+        XCTAssertEqual(result, .copied)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+    }
+
+    func testOutputPolicyKeepsGlobalModeWhenNoRuleMatchesTarget() async {
+        let fastPaste = StubTextInjector(result: .success)
+        let simulatedTyping = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let environment = AppEnvironment(container: try! DependencyContainer.inMemory())
+        try! OutputMethodRuleStore(settingsRepository: environment.settingsRepository).save(
+            OutputMethodRule(
+                id: "rule-xcode",
+                bundleID: "com.apple.dt.Xcode",
+                appName: "Xcode",
+                inputMode: .simulatedTyping
+            )
+        )
+        let service = DefaultOutputService(
+            textInsertionCoordinator: TextInsertionCoordinator(
+                fastPasteInserter: fastPaste,
+                simulatedTypingInserter: simulatedTyping
+            ),
+            clipboardService: clipboard,
+            textInputMode: { target in
+                SettingsBackedTextOutputConfiguration(
+                    settingsRepository: environment.settingsRepository
+                )
+                .textInputMode(for: target)
+            }
+        )
+        let otherApp = DictationTarget(bundleID: "com.apple.Terminal", appName: "Terminal")
+
+        let result = await service.deliver(
+            text: "hello",
+            mode: .dictation,
+            target: otherApp,
+            originalTarget: otherApp
+        )
+
+        XCTAssertEqual(result, .injected)
+        XCTAssertEqual(fastPaste.injectedTexts, ["hello"])
+        XCTAssertTrue(simulatedTyping.injectedTexts.isEmpty)
+    }
+
+    func testOutputMethodRuleStoreSaveWithSameBundleIDReplacesExistingRule() throws {
+        let environment = AppEnvironment(container: try! DependencyContainer.inMemory())
+        let store = OutputMethodRuleStore(settingsRepository: environment.settingsRepository)
+        try store.save(
+            OutputMethodRule(
+                id: "rule-old",
+                bundleID: "com.apple.dt.Xcode",
+                appName: "Xcode",
+                inputMode: .simulatedTyping
+            )
+        )
+
+        // 模式胶囊点击切换走的就是"同 bundleID 重新 save"路径:旧 id 被替换,只剩新模式。
+        try store.save(
+            OutputMethodRule(
+                id: "rule-new",
+                bundleID: "com.apple.dt.Xcode",
+                appName: "Xcode",
+                inputMode: .fastPaste
+            )
+        )
+
+        let rules = try store.list()
+        XCTAssertEqual(rules.count, 1)
+        XCTAssertEqual(rules.first?.id, "rule-new")
+        XCTAssertEqual(rules.first?.inputMode, .fastPaste)
     }
 
     // MARK: - Dictation mode: app changed -> copy
@@ -720,6 +872,169 @@ final class OutputServiceTests: XCTestCase {
         XCTAssertTrue(source.contains("fallbackReason="))
     }
 
+    // MARK: - Voice command: replace the focused input area
+
+    func testCancelledVoiceCommandDoesNotSelectOrReplaceInputArea() async {
+        let injector = StubTextInjector(result: .success)
+        let poster = StubSelectAllShortcutPoster()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: StubClipboardService(),
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "original" }
+        )
+        let task = Task { @MainActor in
+            await service.deliverReplacingInputArea(
+                text: "edited", mode: .command, target: nil,
+                originalTarget: nil, expectedInputText: "original"
+            )
+        }
+        task.cancel()
+
+        let result = await task.value
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(poster.postCount, 0)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+    }
+
+    func testVoiceCommandCancelledWhileSelectionSettlesDoesNotInsert() async {
+        let injector = StubTextInjector(result: .success)
+        let poster = StubSelectAllShortcutPoster()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: StubClipboardService(),
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "original" }
+        )
+        var task: Task<OutputResult, Never>?
+        poster.onPost = { task?.cancel() }
+        task = Task { @MainActor in
+            await service.deliverReplacingInputArea(
+                text: "edited", mode: .command, target: nil,
+                originalTarget: nil, expectedInputText: "original"
+            )
+        }
+
+        let result = await task!.value
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(poster.postCount, 1)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+    }
+
+    func testVoiceCommandSelectsWholeFieldBeforeInsertingEditedText() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let poster = StubSelectAllShortcutPoster()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "原文内容" },
+            selectAllSettleNanoseconds: 0
+        )
+
+        let result = await service.deliverReplacingInputArea(
+            text: "改写后的内容",
+            mode: .command,
+            target: target,
+            originalTarget: target,
+            expectedInputText: "原文内容"
+        )
+
+        XCTAssertEqual(result, .injected)
+        XCTAssertEqual(poster.postCount, 1)
+        XCTAssertEqual(injector.injectedTexts, ["改写后的内容"])
+        XCTAssertTrue(clipboard.copiedTexts.isEmpty)
+    }
+
+    func testVoiceCommandRefusesRewriteWhenInputAreaChangedAfterSnapshot() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let poster = StubSelectAllShortcutPoster()
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "用户手动改过的内容" },
+            selectAllSettleNanoseconds: 0
+        )
+
+        let result = await service.deliverReplacingInputArea(
+            text: "改写后的内容",
+            mode: .command,
+            target: target,
+            originalTarget: target,
+            expectedInputText: "原文内容"
+        )
+
+        guard case .inputChanged = result else {
+            return XCTFail("Expected inputChanged, got \(result)")
+        }
+        XCTAssertEqual(poster.postCount, 0)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["改写后的内容"])
+    }
+
+    func testVoiceCommandCopiesWhenTargetChangedInsteadOfReplacingField() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let poster = StubSelectAllShortcutPoster()
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "原文内容" },
+            selectAllSettleNanoseconds: 0
+        )
+
+        let result = await service.deliverReplacingInputArea(
+            text: "改写后的内容",
+            mode: .command,
+            target: DictationTarget(bundleID: "com.example.other", appName: "Other"),
+            originalTarget: DictationTarget(bundleID: "com.example.editor", appName: "Editor"),
+            expectedInputText: "原文内容"
+        )
+
+        guard case .targetChanged = result else {
+            return XCTFail("Expected targetChanged, got \(result)")
+        }
+        XCTAssertEqual(poster.postCount, 0)
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["改写后的内容"])
+    }
+
+    func testVoiceCommandReportsInjectionFailureWhenSelectAllEventCannotBePosted() async {
+        let injector = StubTextInjector(result: .success)
+        let clipboard = StubClipboardService()
+        let poster = StubSelectAllShortcutPoster(error: .eventCreationFailed)
+        let target = DictationTarget(bundleID: "com.example.editor", appName: "Editor")
+        let service = DefaultOutputService(
+            textInjector: injector,
+            clipboardService: clipboard,
+            selectAllShortcutPoster: poster,
+            inputAreaTextProvider: { _ in "原文内容" },
+            selectAllSettleNanoseconds: 0
+        )
+
+        let result = await service.deliverReplacingInputArea(
+            text: "改写后的内容",
+            mode: .command,
+            target: target,
+            originalTarget: target,
+            expectedInputText: "原文内容"
+        )
+
+        guard case .injectionFailed = result else {
+            return XCTFail("Expected injectionFailed, got \(result)")
+        }
+        XCTAssertTrue(injector.injectedTexts.isEmpty)
+        XCTAssertEqual(clipboard.copiedTexts, ["改写后的内容"])
+    }
+
     private static func repositoryRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.path != "/" {
@@ -761,5 +1076,24 @@ private final class StubClipboardService: ClipboardSetting {
     func setString(_ text: String) -> Bool {
         copiedTexts.append(text)
         return succeeds
+    }
+}
+
+@MainActor
+private final class StubSelectAllShortcutPoster: SelectAllShortcutPosting {
+    private(set) var postCount = 0
+    var onPost: (() -> Void)?
+    private let error: SelectAllShortcutPostingError?
+
+    init(error: SelectAllShortcutPostingError? = nil) {
+        self.error = error
+    }
+
+    func postSelectAllShortcut() throws {
+        postCount += 1
+        onPost?()
+        if let error {
+            throw error
+        }
     }
 }

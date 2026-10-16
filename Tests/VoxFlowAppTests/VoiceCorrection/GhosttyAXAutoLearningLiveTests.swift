@@ -54,8 +54,12 @@ final class GhosttyAXAutoLearningLiveTests: XCTestCase {
         var diagnostics: [CorrectionObservationDiagnostic] = []
         let coordinator = CorrectionObservationCoordinator(
             observer: observer,
-            repository: ruleRepository,
-            targetRepository: targetRepository,
+            learningService: PostEditLearningService(
+                ruleRepository: ruleRepository,
+                targetRepository: targetRepository,
+                evidenceRepository: nil,
+                snapshotProvider: CorrectionRuleSnapshotProvider(loader: ruleRepository)
+            ),
             pollOffsets: [.milliseconds(300), .milliseconds(600), .milliseconds(900)],
             isAutoLearningEnabled: { true },
             autoLearningAppliesImmediately: { true },

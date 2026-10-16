@@ -62,6 +62,12 @@ struct DependencyContainer {
         try AppDatabase.ensureRequiredRuntimeTables(databaseQueue)
         AppLogger.general.debug("DependencyContainer runtime tables verified")
 
+        cleanupStaleVoiceTaskAudio(
+            paths: paths,
+            repository: VoiceTaskRepository(databaseQueue: databaseQueue, clock: clock),
+            clock: clock
+        )
+
         return try make(
             databaseQueue: databaseQueue,
             clock: clock,
@@ -113,6 +119,23 @@ struct DependencyContainer {
     ) {
         ScreenRecordingFileStorage(paths: paths)
             .cleanupStaleTemporaryFiles(olderThan: now.addingTimeInterval(-staleAge))
+    }
+
+    /// Startup sweep for voice-task audio: removes orphan files and expired
+    /// failed/cancelled task audio (24h retention). Live recording sessions
+    /// do not persist audio yet, so this mainly guards against future
+    /// persistence wiring leaking storage.
+    static func cleanupStaleVoiceTaskAudio(
+        paths: ApplicationSupportPaths,
+        repository: VoiceTaskRepository,
+        clock: any AppClock
+    ) {
+        do {
+            try VoiceTaskAudioService(paths: paths, repository: repository, clock: clock)
+                .cleanupStaleAudio()
+        } catch {
+            AppLogger.audio.warning("启动语音任务音频清理失败: \(error)")
+        }
     }
 
     private static func make(

@@ -231,18 +231,22 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         }
         guard (200...299).contains(httpResponse.statusCode) else {
             AppLogger.network.warning("LLM API 非成功响应：code=\(httpResponse.statusCode)")
-            if let message = Self.apiErrorMessage(from: data) {
-                throw LLMRefiner.Error.apiError(
-                    code: httpResponse.statusCode,
-                    message: Self.actionableErrorMessage(
-                        baseURL: baseURL,
-                        statusCode: httpResponse.statusCode,
-                        message: message
-                    )
-                )
-            }
-            throw LLMRefiner.Error.httpError(code: httpResponse.statusCode)
+            throw Self.responseError(
+                baseURL: baseURL,
+                statusCode: httpResponse.statusCode,
+                message: Self.apiErrorMessage(from: data)
+            )
         }
+    }
+
+    static func responseError(baseURL: String, statusCode: Int, message: String?) -> LLMRefiner.Error {
+        let actionableMessage = actionableErrorMessage(
+            baseURL: baseURL, statusCode: statusCode, message: message ?? ""
+        )
+        if message != nil || !actionableMessage.isEmpty {
+            return .apiError(code: statusCode, message: actionableMessage)
+        }
+        return .httpError(code: statusCode)
     }
 
     static func apiErrorMessage(from data: Data) -> String? {
@@ -262,10 +266,8 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
 
     static func actionableErrorMessage(baseURL: String, statusCode: Int, message: String) -> String {
         let lowercasedMessage = message.lowercased()
-        guard let normalizedURL = try? normalizedBaseURL(baseURL),
-              let host = URLComponents(string: normalizedURL)?.host?.lowercased() else {
-            return message
-        }
+        let host = (try? normalizedBaseURL(baseURL))
+            .flatMap { URLComponents(string: $0)?.host?.lowercased() }
         if host == "router.huggingface.co",
            lowercasedMessage.contains("inference providers") &&
            lowercasedMessage.contains("permissions") {
@@ -278,6 +280,15 @@ final class OpenAICompatibleClient: LLMProviderConnecting, @unchecked Sendable {
         if host == "opencode.ai",
            lowercasedMessage.contains("insufficient balance") {
             return L10n.localize("llm.refiner.error.opencode_balance", comment: "")
+        }
+        // 欠费与额度耗尽不绑定 host。报文可能提及 "API Key"，仍应提示账号余额，
+        // 不能将这个短语当成「未配置密钥」。402 本身也足以提供行动指引。
+        if statusCode == 402
+            || lowercasedMessage.contains("in arrears")
+            || lowercasedMessage.contains("insufficient balance")
+            || lowercasedMessage.contains("insufficient_quota")
+            || lowercasedMessage.contains("exceeded your current quota") {
+            return L10n.localize("llm.refiner.error.account_balance", comment: "")
         }
         return message
     }

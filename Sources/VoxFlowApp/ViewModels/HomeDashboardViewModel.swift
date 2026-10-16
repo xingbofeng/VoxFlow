@@ -1488,40 +1488,23 @@ final class HomeDashboardViewModel: ObservableObject {
         )
         guard !pairs.isEmpty else { return false }
 
-        let scope: RuleScope = entry.targetAppBundleID
-            .map { .application(bundleIdentifier: $0) } ?? .global
-        let existingRules = try environment.correctionRuleRepository.list()
-        let now = environment.clock.now
+        let service = PostEditLearningService(
+            ruleRepository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
+            evidenceRepository: environment.correctionEvidenceRepository,
+            snapshotProvider: environment.correctionSnapshotProvider
+        )
         var didSaveRule = false
-
-        for pair in pairs where !hasExistingCorrection(pair, scope: scope, in: existingRules) {
-            let target = try correctionTarget(
-                text: pair.replacement,
-                scope: scope,
-                now: now
+        for pair in pairs {
+            let result = try service.learn(
+                pair: pair,
+                context: correctionContext(for: entry),
+                appliesImmediately: true,
+                now: environment.clock.now
             )
-            let rule = CorrectionRule(
-                targetID: target.id,
-                original: pair.original,
-                replacement: target.text,
-                matchPolicy: .boundary,
-                scope: scope,
-                lifecycle: .active,
-                source: .automaticLearning,
-                confidence: 0.90,
-                observedCount: 1,
-                providerID: entry.asrProviderID,
-                modelID: nil,
-                language: entry.language,
-                createdAt: now,
-                updatedAt: now
-            )
-            try environment.correctionRuleRepository.save(rule)
-            didSaveRule = true
-        }
-
-        if didSaveRule {
-            _ = environment.correctionSnapshotProvider.refresh()
+            if result.status == .learned || result.status == .aggregated {
+                didSaveRule = true
+            }
         }
         return didSaveRule
     }
@@ -1546,47 +1529,6 @@ final class HomeDashboardViewModel: ObservableObject {
             isFinalTranscript: true,
             isSecureField: false
         )
-    }
-
-    private func hasExistingCorrection(
-        _ pair: LearnedCorrectionPair,
-        scope: RuleScope,
-        in existingRules: [CorrectionRule]
-    ) -> Bool {
-        existingRules.contains {
-            $0.scope == scope &&
-                $0.original.caseInsensitiveCompare(pair.original) == .orderedSame
-        }
-    }
-
-    private func correctionTarget(
-        text: String,
-        scope: RuleScope,
-        now: Date
-    ) throws -> CorrectionTargetTerm {
-        let normalizedText = CorrectionTargetTerm.normalize(text)
-        if var existing = try environment.correctionTargetRepository.list().first(where: {
-            $0.normalizedText.caseInsensitiveCompare(normalizedText) == .orderedSame &&
-                $0.scope == scope
-        }) {
-            existing.observedCount += 1
-            existing.updatedAt = now
-            try environment.correctionTargetRepository.save(existing)
-            return existing
-        }
-
-        let target = CorrectionTargetTerm(
-            text: text,
-            normalizedText: normalizedText,
-            scope: scope,
-            lifecycle: .active,
-            source: .automaticLearning,
-            observedCount: 1,
-            createdAt: now,
-            updatedAt: now
-        )
-        try environment.correctionTargetRepository.save(target)
-        return target
     }
 
     private func warningsJSON(_ warnings: [String]) -> String? {

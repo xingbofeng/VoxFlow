@@ -2035,6 +2035,7 @@ private struct HomeHistoryDetailModal: View {
         switch detail.taskMode {
         case .agentCompose: return L10n.localize("home.detail.title.agent_compose", comment: "Agent compose detail title")
         case .agentDispatch: return L10n.localize("home.detail.title.agent_dispatch", comment: "Agent dispatch detail title")
+        case .command: return L10n.localize("home.detail.title.command", comment: "Voice command detail title")
         case .dictation, nil: return L10n.localize("home.detail.title.dictation", comment: "Dictation detail title")
         }
     }

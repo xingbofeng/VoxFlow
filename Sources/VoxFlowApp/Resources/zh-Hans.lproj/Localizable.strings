@@ -21,6 +21,9 @@
 "settings.general.dictation.title" = "语音转录";
 "settings.general.dictation.subtitle" = "按住快捷键说话，松开后转写并输入";
 "settings.general.dictation.button_title" = "修改";
+"settings.general.voice_command.title" = "语音指令";
+"settings.general.voice_command.subtitle" = "说出指令，按指令改写当前输入框里的文字";
+"settings.general.voice_command.button_title" = "修改";
 "settings.general.agent_compose.title" = "召唤 Agent";
 "settings.general.agent_compose.subtitle" = "结合当前窗口上下文与口述生成文本，完成后直接写入当前输入框";
 "settings.general.agent_compose.button_title" = "设置快捷键";
@@ -86,6 +89,7 @@
 "debug.transcript_injection.placeholder" = "输入模拟识别文本";
 "debug.transcript_injection.mode.dictation" = "普通听写";
 "debug.transcript_injection.mode.agent_compose" = "Agent Compose";
+"debug.transcript_injection.mode.command" = "语音指令";
 "menu.status.llm_service_unavailable" = "未配置智能模型服务";
 "menu.status.agent_model_unavailable" = "未配置 Agent 模型";
 "menu.status.capability.not_configured" = "未配置";
@@ -102,6 +106,7 @@
 /* ===== 任务与记录 ===== */
 "dictation.error.agent_compose_unavailable" = "任务助手尚未完成初始化，请重启码上写后重试。";
 "dictation.error.agent_dispatch_unavailable" = "AI 编程控制台尚未完成初始化，请重启码上写后重试。";
+"dictation.error.command_unavailable" = "语音指令尚未就绪，请重启 VoxFlow 后重试。";
 "notes_recording.error.microphone_permission_denied" = "未获得麦克风权限，请在系统设置中允许码上写使用麦克风。";
 "notes_recording.error.speech_permission_denied" = "未获得语音识别权限，请在系统设置中允许码上写使用语音识别。";
 
@@ -131,6 +136,7 @@
 /* ===== App-wide copy ===== */
 "app.agent_dispatch.failure" = "AI 任务助手请求发送失败，请重试。";
 "app.dictation.setup_ai_model_required" = "请先配置 AI 模型，然后重启码上写并重试。";
+"app.dictation.no_editable_text" = "语音指令需要输入框里有文字，请先输入或选中内容。";
 "app.learning.undo_failed" = "撤销失败。";
 
 /* ===== ASR Provider 错误消息集中映射 ===== */
@@ -240,6 +246,7 @@
 "menu.voice_action.dictation" = "听写";
 "menu.voice_action.agent_compose" = "任务助手";
 "menu.voice_action.agent_dispatch" = "任务下发";
+"menu.voice_action.command" = "语音指令";
 "menu.provider_tag.offline" = "离线";
 "menu.provider_tag.online" = "在线";
 "menu.provider_tag.streaming" = "流式";
@@ -346,6 +353,9 @@
 "hud.feedback.target_window_changed_copied" = "目标窗口已切换，内容已复制。";
 "hud.feedback.permission_denied_copied" = "辅助功能权限被拒，内容已复制。";
 "hud.feedback.input_failed_copied" = "输入失败，内容已复制。";
+"hud.feedback.voice_command_applied" = "已按指令改写输入框内容";
+"hud.feedback.voice_command_input_changed" = "输入框内容已变化，结果已复制。";
+"hud.feedback.voice_command_input_required" = "没有可改写的文字，请先把光标放到有内容的输入框里。";
 "hud.feedback.copy_failed_prompt" = "生成完成，但复制失败。点击手动复制。";
 "hud.feedback.no_copyable_result" = "没有可复制的结果";
 "hud.feedback.manual_copy_succeeded" = "结果已手动复制";
@@ -447,6 +457,7 @@
 "dictation.coordinator.llm_call_failed_format" = "模型调用失败：%@";
 "dictation.coordinator.workflow_already_running_format" = "%@ 任务正在运行中，请先完成后再试。";
 "dictation.hud.context_fusion" = "正在基于上下文组织响应…";
+"dictation.hud.applying_command" = "正在按指令改写…";
 "dictation.asset.default_title" = "听写记录";
 "dictation.error.already_running" = "听写任务已在转写中。";
 "dictation.error.final_result_timed_out" = "未在超时前拿到最终转写结果。";
@@ -463,6 +474,7 @@
 "llm.refiner.error.github_models_access" = "GitHub Models 拒绝了当前模型。请使用有 GitHub Models 模型访问权限的 token/账号，或选择该账号可用的模型。";
 "llm.refiner.error.huggingface_inference_permission" = "这个 Hugging Face token 只能读取信息，不能调用 Inference Providers。请重新创建或编辑 token，并开启 Inference Providers 权限。";
 "llm.refiner.error.opencode_balance" = "OpenCode Zen 账号余额不足。请充值后再测试。";
+"llm.refiner.error.account_balance" = "模型服务账号余额不足或已欠费，请充值后再试。";
 "llm.refiner.error.network_error_format" = "LLM 网络错误：%@";
 "llm.text_transform.unavailable_message" = "请先在设置中配置模型。";
 
@@ -1251,6 +1263,8 @@
 "settings.message.mcp_log_path_missing" = "缺少 MCP 日志路径";
 "settings.message.mcp_log_read_failed" = "读取 MCP 日志失败";
 "settings.message.middle_mouse_recording_disabled" = "已停用鼠标中键录音";
+"settings.message.output_rule_deleted" = "已删除应用写入规则";
+"settings.message.output_rule_updated" = "已更新应用写入规则";
 "settings.message.settings_imported" = "设置导入";
 "settings.message.settings_reset" = "已重置设置";
 "settings.message.shortcuts_updated" = "已更新快捷键";
@@ -1266,6 +1280,11 @@
 "settings.message.voice_correction_enabled" = "语音纠错已启用";
 "settings.message.voice_correction_shadow_mode_disabled" = "语音纠错影子模式已禁用";
 "settings.message.voice_correction_shadow_mode_enabled" = "语音纠错影子模式已启用";
+"settings.output.app_rules.add" = "添加应用规则";
+"settings.output.app_rules.empty" = "还没有应用规则，所有应用都使用全局写入方式。";
+"settings.output.app_rules.pick_subtitle" = "选择应用即可添加规则，默认快速粘贴，可在规则行上切换写入方式。";
+"settings.output.app_rules.pick_title" = "选择应用";
+"settings.output.app_rules.subtitle" = "为特定应用覆盖写入方式。";
 "settings.output.avoid_clipboard.subtitle" = "通过模拟键盘输入写入文字，尽量不占用系统剪贴板。";
 "settings.output.avoid_clipboard.title" = "模拟键盘输入";
 "settings.output.clipboard_image_ocr.subtitle" = "识别剪贴板图片中的文字。";
@@ -1333,6 +1352,8 @@
 "settings.system.auto_release_local_model.subtitle" = "空闲时释放本地模型以节省内存。";
 "settings.system.auto_release_local_model.title" = "自动释放本地模型";
 "settings.system.keep_microphone_active.subtitle" = "保持麦克风预热以加快启动。";
+"settings.system.pause_pre_output.title" = "停顿预输出";
+"settings.system.pause_pre_output.subtitle" = "说话停顿时先上屏已识别文本，可继续接着说。";
 "settings.system.keep_microphone_active.title" = "保持麦克风活跃";
 "settings.system.local_model_live_preview.subtitle" = "使用本地模型时，说话过程中显示流式识别结果。";
 "settings.system.local_model_live_preview.title" = "流式识别预览";
@@ -1861,6 +1882,7 @@
 "home.detail.title.agent_compose" = "任务助手详情";
 "home.detail.title.agent_dispatch" = "AI 编程详情";
 "home.detail.title.dictation" = "转写详情";
+"home.detail.title.command" = "语音指令详情";
 "home.detail.subtitle.agent_compose" = "查看语音意图、生成结果和本次处理信息";
 "home.detail.subtitle.agent_dispatch" = "查看语音指令、任务助手投递结果和失败信息";
 "home.detail.subtitle.with_trace" = "对比识别原文与最终文本，并查看本次处理链路";
@@ -2386,3 +2408,10 @@
 "asr.xasr.invalid_audio" = "X-ASR 未能处理音频，请重新录音。";
 "asr.xasr.invalidated" = "X-ASR 已卸载或切换，请开始新的录音。";
 "asr.xasr.download_failed" = "X-ASR 模型下载失败，请重试以继续下载。";
+"settings.text_processing.unit_normalization.title" = "单位规整";
+"settings.text_processing.unit_normalization.subtitle" = "将数字后的中文单位转换为国际符号，如 5公里 转 5km";
+"app.dictation.bluetooth_quality_hint" = "当前蓝牙麦克风音质有限，可能影响识别准确率。建议使用有线或内置麦克风。";
+"style.automatch.input_context.title" = "携带输入框内容";
+"style.automatch.input_context.description" = "读取目标输入框当前文本（需辅助功能权限），让润色贴合正在编辑的内容。密码框始终跳过。";
+
+"dictation.hud.pause_pre_output_revised_copied" = "识别结果已修订，完整结果已复制。请手动替换此前上屏的文字。";

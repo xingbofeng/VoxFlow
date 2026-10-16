@@ -21,6 +21,9 @@
 "settings.general.dictation.title" = "Dictation";
 "settings.general.dictation.subtitle" = "Hold the shortcut to speak, release to transcribe and input";
 "settings.general.dictation.button_title" = "Modify";
+"settings.general.voice_command.title" = "Voice Command";
+"settings.general.voice_command.subtitle" = "Speak an instruction to rewrite the text in the current input field";
+"settings.general.voice_command.button_title" = "Modify";
 "settings.general.agent_compose.title" = "Summon Agent";
 "settings.general.agent_compose.subtitle" = "Compose text with current window context and voice, write directly to the current input field";
 "settings.general.agent_compose.button_title" = "Set Shortcut";
@@ -86,6 +89,7 @@
 "debug.transcript_injection.placeholder" = "Enter simulated transcript";
 "debug.transcript_injection.mode.dictation" = "Dictation";
 "debug.transcript_injection.mode.agent_compose" = "Agent Compose";
+"debug.transcript_injection.mode.command" = "Voice Command";
 "menu.status.llm_service_unavailable" = "No LLM model service configured";
 "menu.status.agent_model_unavailable" = "No Agent model configured";
 "menu.status.capability.not_configured" = "Not configured";
@@ -102,6 +106,7 @@
 /* ===== Dictation and notes ===== */
 "dictation.error.agent_compose_unavailable" = "Task assistant is not ready yet. Restart VoxFlow and try again.";
 "dictation.error.agent_dispatch_unavailable" = "AI coding console is not ready yet. Restart VoxFlow and try again.";
+"dictation.error.command_unavailable" = "Voice command is not ready yet. Restart VoxFlow and try again.";
 "notes_recording.error.microphone_permission_denied" = "Microphone access is missing. Please allow VoxFlow to use the microphone in System Settings.";
 "notes_recording.error.speech_permission_denied" = "Speech recognition access is missing. Please allow VoxFlow to use speech recognition in System Settings.";
 
@@ -131,6 +136,7 @@
 /* ===== App-wide copy ===== */
 "app.agent_dispatch.failure" = "Unable to dispatch the AI assistant request. Please try again.";
 "app.dictation.setup_ai_model_required" = "Please configure an AI model first, then restart VoxFlow and try again.";
+"app.dictation.no_editable_text" = "Voice command needs text in the focused input field. Type or select some text first.";
 "app.learning.undo_failed" = "Failed to undo the last correction.";
 
 /* ===== ASR Provider error message mapping ===== */
@@ -246,6 +252,9 @@
 "hud.feedback.target_window_changed_copied" = "Target window changed; content copied.";
 "hud.feedback.permission_denied_copied" = "Accessibility permission denied; content copied.";
 "hud.feedback.input_failed_copied" = "Input failed; content copied.";
+"hud.feedback.voice_command_applied" = "Input field rewritten with your instruction";
+"hud.feedback.voice_command_input_changed" = "Input field changed; result copied instead.";
+"hud.feedback.voice_command_input_required" = "No editable text found. Click into a text field with content first.";
 "hud.feedback.copy_failed_prompt" = "Generation completed, but copy failed. Click to copy manually.";
 "hud.feedback.no_copyable_result" = "No copyable result";
 "hud.feedback.manual_copy_succeeded" = "Result manually copied";
@@ -347,6 +356,7 @@
 "dictation.coordinator.llm_call_failed_format" = "LLM request failed: %@";
 "dictation.coordinator.workflow_already_running_format" = "%@ workflow is already running.";
 "dictation.hud.context_fusion" = "Composing response from context...";
+"dictation.hud.applying_command" = "Applying your instruction...";
 "dictation.asset.default_title" = "Dictation note";
 "dictation.error.already_running" = "Dictation is already running.";
 "dictation.error.final_result_timed_out" = "Timed out while waiting for the final transcription result.";
@@ -363,6 +373,7 @@
 "llm.refiner.error.github_models_access" = "GitHub Models rejected this model. Use a GitHub token/account with Models access for the selected model, or choose a model available to your account.";
 "llm.refiner.error.huggingface_inference_permission" = "The Hugging Face token can read metadata but cannot call Inference Providers. Create or edit the token and enable the Inference Providers permission.";
 "llm.refiner.error.opencode_balance" = "OpenCode Zen rejected the request because the account balance is insufficient. Add billing credit, then test again.";
+"llm.refiner.error.account_balance" = "The model service account is out of credit or in arrears. Top up the account, then try again.";
 "llm.refiner.error.network_error_format" = "LLM network error: %@";
 "llm.text_transform.unavailable_message" = "Please configure a model in Settings first.";
 
@@ -520,6 +531,7 @@
 "menu.voice_action.dictation" = "Dictation";
 "menu.voice_action.agent_compose" = "Task Assistant";
 "menu.voice_action.agent_dispatch" = "Task Dispatch";
+"menu.voice_action.command" = "Voice Command";
 "menu.provider_tag.offline" = "Offline";
 "menu.provider_tag.online" = "Online";
 "menu.provider_tag.streaming" = "Streaming";
@@ -1251,6 +1263,8 @@
 "settings.message.mcp_log_path_missing" = "MCP log path is missing";
 "settings.message.mcp_log_read_failed" = "Failed to read MCP log";
 "settings.message.middle_mouse_recording_disabled" = "Middle mouse recording disabled";
+"settings.message.output_rule_deleted" = "Output rule deleted";
+"settings.message.output_rule_updated" = "Output rule updated";
 "settings.message.settings_imported" = "settings imported";
 "settings.message.settings_reset" = "settings reset";
 "settings.message.shortcuts_updated" = "shortcuts Updated";
@@ -1266,6 +1280,11 @@
 "settings.message.voice_correction_enabled" = "voice correction enabled";
 "settings.message.voice_correction_shadow_mode_disabled" = "voice correction shadow mode disabled";
 "settings.message.voice_correction_shadow_mode_enabled" = "voice correction shadow mode enabled";
+"settings.output.app_rules.add" = "Add app rule";
+"settings.output.app_rules.empty" = "No app rules yet. All apps use the global input method.";
+"settings.output.app_rules.pick_subtitle" = "Pick an app to add a rule for it. It starts with fast paste; switch the mode on the rule row.";
+"settings.output.app_rules.pick_title" = "Choose an app";
+"settings.output.app_rules.subtitle" = "Override the input method for specific apps.";
 "settings.output.avoid_clipboard.subtitle" = "Write text by simulating keyboard input and avoid using the system clipboard when possible.";
 "settings.output.avoid_clipboard.title" = "Simulated keyboard input";
 "settings.output.clipboard_image_ocr.subtitle" = "Recognize text from clipboard images.";
@@ -1333,6 +1352,8 @@
 "settings.system.auto_release_local_model.subtitle" = "Release local models when idle to save memory.";
 "settings.system.auto_release_local_model.title" = "Auto-release local models";
 "settings.system.keep_microphone_active.subtitle" = "Keep the microphone warm for faster startup.";
+"settings.system.pause_pre_output.title" = "Pause pre-output";
+"settings.system.pause_pre_output.subtitle" = "Insert text as soon as you pause speaking, then keep dictating.";
 "settings.system.keep_microphone_active.title" = "Keep microphone active";
 "settings.system.local_model_live_preview.subtitle" = "Show streaming partial results while speaking with local models.";
 "settings.system.local_model_live_preview.title" = "Streaming recognition preview";
@@ -1861,6 +1882,7 @@
 "home.detail.title.agent_compose" = "Task Assistant Details";
 "home.detail.title.agent_dispatch" = "AI Coding Details";
 "home.detail.title.dictation" = "Transcription Details";
+"home.detail.title.command" = "Voice Command Details";
 "home.detail.subtitle.agent_compose" = "View voice intent, generated result, and processing details.";
 "home.detail.subtitle.agent_dispatch" = "View the voice command, assistant dispatch result, and failure details.";
 "home.detail.subtitle.with_trace" = "Compare raw recognition with final text and inspect this processing pipeline.";
@@ -2386,3 +2408,10 @@
 "asr.xasr.invalid_audio" = "X-ASR could not process the audio. Try recording again.";
 "asr.xasr.invalidated" = "X-ASR was unloaded or changed. Start a new recording.";
 "asr.xasr.download_failed" = "X-ASR model download failed. Try again to resume the download.";
+"settings.text_processing.unit_normalization.title" = "Unit normalization";
+"settings.text_processing.unit_normalization.subtitle" = "Convert Chinese units after numbers to international symbols, e.g. 5公里 to 5km";
+"app.dictation.bluetooth_quality_hint" = "Bluetooth microphone quality is limited, which may reduce recognition accuracy. Consider a wired or built-in microphone.";
+"style.automatch.input_context.title" = "Include input box content";
+"style.automatch.input_context.description" = "Read the target input box's current text (requires Accessibility) so corrections fit what you are editing. Password fields are always skipped.";
+
+"dictation.hud.pause_pre_output_revised_copied" = "The transcript was revised. The full result was copied; replace the earlier text manually.";

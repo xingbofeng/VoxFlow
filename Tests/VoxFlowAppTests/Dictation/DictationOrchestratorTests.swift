@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import VoxFlowASRRuntime
 import VoxFlowAudio
@@ -1213,6 +1214,164 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(agentHandler.updatedASRMetadata?.droppedFrameCount, 2)
     }
 
+    func testVoiceCommandStartPassesTargetAndASRMetadataToHandler() throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+
+        XCTAssertEqual(commandHandler.startedASRMetadata?.providerID, "apple_speech")
+        XCTAssertEqual(commandHandler.startedASRMetadata?.language, "zh-CN")
+        XCTAssertEqual(orchestrator.state, .recording)
+    }
+
+    func testVoiceCommandFinishRoutesTranscriptToHandlerAndEmitsCompletion() async throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+        var completionResults: [OutputResult] = []
+        var transcriptionUpdates: [(text: String, isRefining: Bool)] = []
+        orchestrator.onCommandCompleted = { completionResults.append($0) }
+        orchestrator.onTranscriptionUpdate = { transcriptionUpdates.append(($0, $1)) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+        orchestrator.release()
+        engine.emit(text: "改成过去时", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(commandHandler.finishedTranscript, "改成过去时")
+        XCTAssertEqual(completionResults, [.injected])
+        XCTAssertEqual(
+            transcriptionUpdates.last?.text,
+            L10n.localize("dictation.hud.applying_command", comment: "HUD hint while applying a voice command")
+        )
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testVoiceCommandFinishFailureReportsRecognitionError() async throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        commandHandler.finishError = DictationOrchestratorTestError.generic
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+        var errors: [Error] = []
+        var states: [DictationState] = []
+        orchestrator.onError = { errors.append($0) }
+        orchestrator.onStateChange = { states.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+        orchestrator.release()
+        engine.emit(text: "加个表情", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(errors.count, 1)
+        XCTAssertTrue(states.contains(.failed("generic")))
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testVoiceCommandBalanceFailureHUDSurvivesIdleCleanupAndOffersRecovery() async throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        let balanceMessage = OpenAICompatibleClient.actionableErrorMessage(
+            baseURL: "https://provider.example/v1", statusCode: 402,
+            message: "The account associated with the API Key is in arrears."
+        )
+        commandHandler.finishError = CoordinatorError.llmCallFailed(
+            LLMRefiner.Error.apiError(code: 402, message: balanceMessage).localizedDescription
+        )
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+        let overlay = OverlayWindowController()
+        defer { overlay.window?.orderOut(nil) }
+        let hud = VoiceHUDFeatureController(overlay: overlay)
+        var feedback: RecognitionErrorHUDFeedback?
+        var didRecover = false
+        orchestrator.onStateChange = { state in
+            hud.handleState(state, activeVoiceAction: .command, shouldShowWaitingIndicator: false)
+        }
+        orchestrator.onError = { error in
+            let presentation = RecognitionErrorHUDPresentation.feedback(for: error, recovery: .openMainWindow)
+            feedback = presentation
+            hud.handleRecognitionErrorFeedback(presentation) { didRecover = true }
+        }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+        orchestrator.release()
+        engine.emit(text: "改成过去时", isFinal: true)
+        await drainMainActorTasks()
+        // Wait past the overlay's 230 ms dismissal animation: a callback alone
+        // does not prove that idle cleanup left the error visible.
+        try await Task.sleep(for: .milliseconds(350))
+
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertTrue(overlay.window?.isVisible == true)
+        XCTAssertTrue(overlay.currentText.contains(balanceMessage))
+        XCTAssertEqual(feedback?.duration, 8.0)
+        XCTAssertEqual(feedback?.isActionable, true)
+        overlay.performTemporaryMessageClickForTesting()
+        XCTAssertTrue(didRecover)
+    }
+
+    func testArrearsFailureMessageIsNotReportedAsMissingAPIKey() async throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        // 欠费报文里带 "API Key" 字样，曾被整条匹配成「未配置 API 密钥」。
+        let rawMessage = "模型调用失败：LLM API 错误（402）：The account associated with the API Key is in arrears."
+        commandHandler.finishError = DictationOrchestratorTestError.message(rawMessage)
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+        var states: [DictationState] = []
+        orchestrator.onStateChange = { states.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+        orchestrator.release()
+        engine.emit(text: "加个表情", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertFalse(
+            states.contains(.failed(L10n.localize("asr.error.api_key_missing", comment: ""))),
+            "欠费报文不应被当成未配置 API 密钥"
+        )
+        XCTAssertTrue(states.contains(.failed(rawMessage)), "无法归类的 provider 报文应原样透出")
+    }
+
+    func testVoiceCommandCancelledResultDoesNotEmitCompletionResult() async throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .cancelled)
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+        var completionResults: [OutputResult] = []
+        orchestrator.onCommandCompleted = { completionResults.append($0) }
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+        orchestrator.release()
+        engine.emit(text: "取消这次改写", isFinal: true)
+        await drainMainActorTasks()
+
+        XCTAssertTrue(completionResults.isEmpty)
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testEscapeDuringVoiceCommandRecordingCancelsHandler() throws {
+        let engine = FakeASREngine()
+        let commandHandler = FakeCommandHandler(result: .injected)
+        let orchestrator = makeOrchestrator(engine: engine, commandHandler: commandHandler)
+
+        try orchestrator.start(configuration: .appleChinese, mode: .command)
+
+        XCTAssertFalse(orchestrator.handleEscapeKey())
+
+        XCTAssertTrue(commandHandler.didCancel)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
+    func testVoiceCommandStartWithoutHandlerIsRejected() {
+        let orchestrator = makeOrchestrator()
+
+        XCTAssertThrowsError(try orchestrator.start(configuration: .appleChinese, mode: .command)) { error in
+            XCTAssertEqual(error as? DictationOrchestratorError, .commandUnavailable)
+        }
+        XCTAssertEqual(orchestrator.state, .idle)
+    }
+
     func testTextCorrectionStreamingUpdateAfterCancelDoesNotUpdateHUD() async throws {
         let engine = FakeASREngine()
         let pipeline = CancellingRefinementPipeline(finalText: "stale corrected text")
@@ -1252,6 +1411,7 @@ final class DictationOrchestratorTests: XCTestCase {
         clock: any AppClock = MutableClock(now: Date(timeIntervalSince1970: 1_800_000_000)),
         agentComposeHandler: (any AgentComposeHandling)? = nil,
         agentDispatchHandler: (any AgentDispatchHandling)? = nil,
+        commandHandler: (any CommandHandling)? = nil,
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
         targetProvider: any DictationTargetProviding = StaticDictationTargetProvider(
@@ -1272,6 +1432,7 @@ final class DictationOrchestratorTests: XCTestCase {
             targetProvider: targetProvider,
             agentComposeHandler: agentComposeHandler,
             agentDispatchHandler: agentDispatchHandler,
+            commandHandler: commandHandler,
             audioCaptureCoordinator: audioCaptureCoordinator,
             correctionObservationScheduler: correctionObservationScheduler,
             asrTermPromptProvider: asrTermPromptProvider,
@@ -1279,6 +1440,28 @@ final class DictationOrchestratorTests: XCTestCase {
             finalTimeoutNanoseconds: finalTimeoutNanoseconds,
             assetRepository: assetRepository
         )
+    }
+
+    func testAudioCaptureFailureStopsSessionAndReleasesCaptureLease() throws {
+        let engine = FakeASREngine()
+        let recorder = FakeAudioRecorder()
+        let captureCoordinator = AudioCaptureCoordinator()
+        let orchestrator = makeOrchestrator(
+            engine: engine, audioRecorder: recorder,
+            audioCaptureCoordinator: captureCoordinator
+        )
+        var errors: [Error] = []
+        orchestrator.onError = { errors.append($0) }
+        try orchestrator.start(configuration: .whisperChinese)
+
+        orchestrator.handleAudioCaptureFailure(AudioRecorder.AudioRecorderError.microphoneUnavailable)
+
+        XCTAssertEqual(orchestrator.state, .idle)
+        XCTAssertFalse(recorder.isRecording)
+        XCTAssertTrue(engine.didCancel)
+        XCTAssertEqual(errors.count, 1)
+        let lease = try captureCoordinator.begin(kind: .notes)
+        captureCoordinator.end(lease)
     }
 
     func testStartConfiguresASRTermPromptBeforeStartingEngine() throws {
@@ -1913,6 +2096,51 @@ private final class FakeAgentComposeHandler: AgentComposeHandling {
 }
 
 @MainActor
+private final class FakeCommandHandler: CommandHandling {
+    let result: OutputResult
+    private(set) var startedTarget: DictationTarget?
+    private(set) var startedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var updatedASRMetadata: VoiceTaskASRMetadata?
+    private(set) var finishedTranscript: String?
+    private(set) var didCancel = false
+    private(set) var failedErrors: [Error] = []
+    var finishError: Error?
+
+    init(result: OutputResult) {
+        self.result = result
+    }
+
+    var isConfigured: Bool { true }
+
+    func hasEditableText() -> Bool { true }
+
+    func start(target: DictationTarget?, asrMetadata: VoiceTaskASRMetadata?) throws {
+        startedTarget = target
+        startedASRMetadata = asrMetadata
+    }
+
+    func updateASRMetadata(_ metadata: VoiceTaskASRMetadata) throws {
+        updatedASRMetadata = metadata
+    }
+
+    func finish(rawTranscript: String) async throws -> OutputResult {
+        finishedTranscript = rawTranscript
+        if let finishError {
+            throw finishError
+        }
+        return result
+    }
+
+    func cancel() {
+        didCancel = true
+    }
+
+    func fail(_ error: Error) {
+        failedErrors.append(error)
+    }
+}
+
+@MainActor
 private final class FakeAgentDispatchHandler: AgentDispatchHandling {
     let presentation: AgentDispatchHUDPresentation
     private(set) var startedTarget: DictationTarget?
@@ -2044,11 +2272,14 @@ private final class CapturingSleepClock: AppClock, @unchecked Sendable {
 
 private enum DictationOrchestratorTestError: LocalizedError {
     case generic
+    case message(String)
 
     var errorDescription: String? {
         switch self {
         case .generic:
             return "generic"
+        case .message(let text):
+            return text
         }
     }
 }

@@ -216,7 +216,7 @@ final class DictationPersistenceWriter {
         switch outputResult {
         case .injected:
             return .dictationCompleted
-        case .copied, .targetChanged, .permissionDenied, .injectionFailed:
+        case .copied, .targetChanged, .inputChanged, .permissionDenied, .injectionFailed:
             return .fallbackCopied
         case .copyFailed, .handledExternally, .cancelled:
             return .dictationCompleted

@@ -1,10 +1,21 @@
 import Foundation
 
+/// What a voice command needs before recording can start.
+enum VoiceCommandRequirement: Equatable {
+    /// No model is configured to edit the text.
+    case model
+    /// The focused input area holds no text to edit.
+    case inputText
+}
+
 @MainActor
 final class DictationFeatureController {
     typealias CurrentState = () -> DictationState
     typealias IsAgentComposeConfigured = () -> Bool
     typealias VoidAction = () -> Void
+    typealias IsVoiceCommandConfigured = () -> Bool
+    typealias HasEditableVoiceCommandText = () -> Bool
+    typealias ShowVoiceCommandRequirement = (VoiceCommandRequirement) -> Void
     typealias PermissionSnapshotProvider = () -> RecordingPermissionSnapshot
     typealias BoolProvider = () -> Bool
     typealias SetVoiceEnhancementEnabled = (Bool) -> Void
@@ -17,6 +28,9 @@ final class DictationFeatureController {
     private let currentState: CurrentState
     private let isAgentComposeConfigured: IsAgentComposeConfigured
     private let showAgentComposeSetupRequired: VoidAction
+    private let isVoiceCommandConfigured: IsVoiceCommandConfigured
+    private let hasEditableVoiceCommandText: HasEditableVoiceCommandText
+    private let showVoiceCommandRequirement: ShowVoiceCommandRequirement
     private let refreshRecordingPermissionSnapshot: PermissionSnapshotProvider
     private let showRecordingPermissionsAlert: VoidAction
     private let voiceEnhancementEnabled: BoolProvider
@@ -34,6 +48,9 @@ final class DictationFeatureController {
         currentState: @escaping CurrentState,
         isAgentComposeConfigured: @escaping IsAgentComposeConfigured,
         showAgentComposeSetupRequired: @escaping VoidAction,
+        isVoiceCommandConfigured: @escaping IsVoiceCommandConfigured,
+        hasEditableVoiceCommandText: @escaping HasEditableVoiceCommandText,
+        showVoiceCommandRequirement: @escaping ShowVoiceCommandRequirement,
         refreshRecordingPermissionSnapshot: @escaping PermissionSnapshotProvider,
         showRecordingPermissionsAlert: @escaping VoidAction,
         voiceEnhancementEnabled: @escaping BoolProvider,
@@ -48,6 +65,9 @@ final class DictationFeatureController {
         self.currentState = currentState
         self.isAgentComposeConfigured = isAgentComposeConfigured
         self.showAgentComposeSetupRequired = showAgentComposeSetupRequired
+        self.isVoiceCommandConfigured = isVoiceCommandConfigured
+        self.hasEditableVoiceCommandText = hasEditableVoiceCommandText
+        self.showVoiceCommandRequirement = showVoiceCommandRequirement
         self.refreshRecordingPermissionSnapshot = refreshRecordingPermissionSnapshot
         self.showRecordingPermissionsAlert = showRecordingPermissionsAlert
         self.voiceEnhancementEnabled = voiceEnhancementEnabled
@@ -68,6 +88,19 @@ final class DictationFeatureController {
             AppLogger.dictation.warning("handlePress blocked: agentCompose not configured")
             showAgentComposeSetupRequired()
             return
+        }
+
+        if action == .command {
+            guard isVoiceCommandConfigured() else {
+                AppLogger.dictation.warning("handlePress blocked: voice command not configured")
+                showVoiceCommandRequirement(.model)
+                return
+            }
+            guard hasEditableVoiceCommandText() else {
+                AppLogger.dictation.warning("handlePress blocked: no editable text for voice command")
+                showVoiceCommandRequirement(.inputText)
+                return
+            }
         }
 
         let permissionSnapshot = refreshRecordingPermissionSnapshot()
@@ -130,6 +163,8 @@ final class DictationFeatureController {
             return .agentCompose
         case .agentDispatch:
             return .agentDispatch
+        case .command:
+            return .command
         }
     }
 }

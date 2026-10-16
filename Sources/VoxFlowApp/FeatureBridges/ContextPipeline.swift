@@ -544,13 +544,25 @@ struct SystemAccessibilityProvider: AccessibilityProviding {
     }
 
     func inputAreaText(pid: Int?) -> String? {
-        guard let pid, let element = focusedElement(pid: pid) else { return nil }
+        guard let pid else {
+            AppLogger.dictation.notice("inputAreaText 缺少目标进程 pid")
+            return nil
+        }
+        guard let element = focusedElement(pid: pid) else { return nil }
         // Check if the element is a text field or text area
         let role = axAttribute(element, kAXRoleAttribute) as? String
         guard role == kAXTextFieldRole || role == kAXTextAreaRole else {
+            let subrole = axAttribute(element, kAXSubroleAttribute) as? String
+            AppLogger.dictation.notice(
+                "inputAreaText 焦点元素不是文本控件 pid=\(pid) role=\(role ?? "-") subrole=\(subrole ?? "-")"
+            )
             return nil
         }
-        return axAttribute(element, kAXValueAttribute) as? String
+        guard let value = axAttribute(element, kAXValueAttribute) as? String else {
+            AppLogger.dictation.notice("inputAreaText 读取文本值失败 pid=\(pid) role=\(role ?? "-")")
+            return nil
+        }
+        return value
     }
 
     func isSecureTextField(pid: Int?) -> Bool {
@@ -575,7 +587,12 @@ struct SystemAccessibilityProvider: AccessibilityProviding {
             kAXFocusedUIElementAttribute as CFString,
             &focused
         )
-        guard result == .success else { return nil }
+        guard result == .success else {
+            // debug 级日志会随 OSLog 内存缓冲滚动消失，而「读不到焦点元素」正是
+            // 语音指令拿不到原文时的首要怀疑对象，所以这里用 notice 确保落盘可查。
+            AppLogger.dictation.notice("读取焦点元素失败 pid=\(pid) axError=\(result.rawValue)")
+            return nil
+        }
         return (focused as! AXUIElement)
     }
 

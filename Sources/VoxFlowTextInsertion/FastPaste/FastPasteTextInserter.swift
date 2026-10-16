@@ -48,6 +48,7 @@ public final class FastPasteTextInserter: TextInserting {
     }
 
     public func insert(_ text: String) async -> TextInsertionResult {
+        guard !Task.isCancelled else { return .cancelled }
         guard !text.isEmpty else { return .success }
         guard allowsSystemInteraction() else {
             return .unavailable(reason: "Fast paste system interaction is disabled during tests")
@@ -62,7 +63,16 @@ public final class FastPasteTextInserter: TextInserting {
 
         let switchedInputSource = wasCJK && switchToASCIIInputSource()
         if switchedInputSource {
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            do {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            } catch {
+                if let savedInputSource { restoreInputSource(savedInputSource) }
+                return .cancelled
+            }
+        }
+        guard !Task.isCancelled else {
+            if switchedInputSource, let savedInputSource { restoreInputSource(savedInputSource) }
+            return .cancelled
         }
 
         let pasteboard = NSPasteboard.general

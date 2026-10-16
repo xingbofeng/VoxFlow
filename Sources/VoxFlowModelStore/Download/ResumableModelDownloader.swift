@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public typealias ModelDownloadProgressSink = @Sendable (ModelDownloadProgress) async throws -> Void
@@ -133,9 +134,31 @@ public actor ResumableModelDownloader {
         let stagingRoot = Self.stagingRoot(for: key, storeRoot: storeRoot)
         try fileManager.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
         let stateURL = stagingRoot.appendingPathComponent(".download-state.json")
+        let reusableSourceRoots = installedVersionRoots(
+            modelID: key.modelID.rawValue,
+            excluding: key.version,
+            storeRoot: storeRoot
+        )
 
         for component in manifest.components {
+            try checkForInterruption()
             let destinationURL = stagingRoot.appendingPathComponent(component.localPath)
+            if try reuseUnchangedComponent(
+                component,
+                from: reusableSourceRoots,
+                to: destinationURL
+            ) {
+                try await handleProgress(
+                    ModelDownloadProgress(
+                        bytesWritten: component.expectedSizeBytes,
+                        totalBytes: component.expectedSizeBytes,
+                        componentID: ModelComponentID(rawValue: component.localPath)
+                    ),
+                    stateURL: stateURL,
+                    progress: progress
+                )
+                continue
+            }
             try await downloadComponent(
                 component,
                 to: destinationURL,
@@ -144,10 +167,91 @@ public actor ResumableModelDownloader {
             )
         }
 
+        try checkForInterruption()
         if fileManager.fileExists(atPath: stateURL.path) {
             try fileManager.removeItem(at: stateURL)
         }
         return stagingRoot
+    }
+
+    /// Content-addressed component reuse: a component whose size and SHA256
+    /// already match a file inside another installed version of the same
+    /// model is hard-linked into staging instead of being re-downloaded.
+    /// Reuse is verified by content hash, so it is exactly as trustworthy as
+    /// the download path's own integrity validation.
+    func reuseUnchangedComponent(
+        _ component: ModelComponentManifest,
+        from sourceRoots: [URL],
+        to destinationURL: URL
+    ) throws -> Bool {
+        for sourceRoot in sourceRoots {
+            let candidateURL = sourceRoot.appendingPathComponent(component.localPath)
+            guard fileManager.fileExists(atPath: candidateURL.path) else { continue }
+            let fileSize = try Self.fileSizeIfPresent(at: candidateURL, fileManager: fileManager)
+            guard fileSize == component.expectedSizeBytes else { continue }
+            let digest = try Self.sha256Digest(at: candidateURL)
+            guard digest == component.sha256 else { continue }
+
+            try fileManager.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.linkItem(at: candidateURL, to: destinationURL)
+            return true
+        }
+        return false
+    }
+
+    /// Every installed version directory of the model, newest modification
+    /// date first; reuse prefers the most recently installed content.
+    private func installedVersionRoots(
+        modelID: String,
+        excluding version: String,
+        storeRoot: URL
+    ) -> [URL] {
+        let modelRoot = storeRoot.appendingPathComponent(modelID, isDirectory: true)
+        let contents = (try? fileManager.contentsOfDirectory(
+            at: modelRoot,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
+            options: []
+        )) ?? []
+        return contents
+            .filter { $0.lastPathComponent != version }
+            .filter { url in
+                (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+            }
+            .sorted { lhs, rhs in
+                let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                return lhsDate > rhsDate
+            }
+    }
+
+    static func fileSizeIfPresent(at url: URL, fileManager: FileManager) throws -> Int64? {
+        guard fileManager.fileExists(atPath: url.path) else { return nil }
+        let attributes = try fileManager.attributesOfItem(atPath: url.path)
+        let size = attributes[.size] as? NSNumber
+        return size?.int64Value
+    }
+
+    static func sha256Digest(at url: URL) throws -> SHA256Digest {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        var hasher = CryptoKit.SHA256()
+        while let data = try handle.read(upToCount: 1_048_576), !data.isEmpty {
+            hasher.update(data: data)
+        }
+
+        let hex = hasher.finalize()
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return SHA256Digest(rawValue: hex)
     }
 
     private func downloadComponent(
@@ -199,7 +303,11 @@ public actor ResumableModelDownloader {
         if let progress {
             await progress(update)
         }
-        if cancelRequested {
+        try checkForInterruption()
+    }
+
+    private func checkForInterruption() throws {
+        if cancelRequested || Task.isCancelled {
             throw ModelDownloadError.cancelled
         }
         if pauseRequested {

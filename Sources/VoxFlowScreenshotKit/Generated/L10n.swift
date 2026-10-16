@@ -85,6 +85,10 @@ internal enum ScreenshotL10n {
         }
       }
       internal enum Dictation {
+        /// Bluetooth microphone quality is limited, which may reduce recognition accuracy. Consider a wired or built-in microphone.
+        internal static let bluetoothQualityHint = ScreenshotL10n.tr("Localizable", "app.dictation.bluetooth_quality_hint", fallback: "Bluetooth microphone quality is limited, which may reduce recognition accuracy. Consider a wired or built-in microphone.")
+        /// Voice command needs text in the focused input field. Type or select some text first.
+        internal static let noEditableText = ScreenshotL10n.tr("Localizable", "app.dictation.no_editable_text", fallback: "Voice command needs text in the focused input field. Type or select some text first.")
         /// Please configure an AI model first, then restart VoxFlow and try again.
         internal static let setupAiModelRequired = ScreenshotL10n.tr("Localizable", "app.dictation.setup_ai_model_required", fallback: "Please configure an AI model first, then restart VoxFlow and try again.")
       }
@@ -804,6 +808,8 @@ internal enum ScreenshotL10n {
         internal enum Mode {
           /// Agent Compose
           internal static let agentCompose = ScreenshotL10n.tr("Localizable", "debug.transcript_injection.mode.agent_compose", fallback: "Agent Compose")
+          /// Voice Command
+          internal static let command = ScreenshotL10n.tr("Localizable", "debug.transcript_injection.mode.command", fallback: "Voice Command")
           /// Dictation
           internal static let dictation = ScreenshotL10n.tr("Localizable", "debug.transcript_injection.mode.dictation", fallback: "Dictation")
         }
@@ -837,6 +843,8 @@ internal enum ScreenshotL10n {
         internal static let agentDispatchUnavailable = ScreenshotL10n.tr("Localizable", "dictation.error.agent_dispatch_unavailable", fallback: "AI coding console is not ready yet. Restart VoxFlow and try again.")
         /// Dictation is already running.
         internal static let alreadyRunning = ScreenshotL10n.tr("Localizable", "dictation.error.already_running", fallback: "Dictation is already running.")
+        /// Voice command is not ready yet. Restart VoxFlow and try again.
+        internal static let commandUnavailable = ScreenshotL10n.tr("Localizable", "dictation.error.command_unavailable", fallback: "Voice command is not ready yet. Restart VoxFlow and try again.")
         /// Timed out while waiting for the final transcription result.
         internal static let finalResultTimedOut = ScreenshotL10n.tr("Localizable", "dictation.error.final_result_timed_out", fallback: "Timed out while waiting for the final transcription result.")
         /// Unsupported dictation language: %@.
@@ -845,8 +853,12 @@ internal enum ScreenshotL10n {
         }
       }
       internal enum Hud {
+        /// Applying your instruction...
+        internal static let applyingCommand = ScreenshotL10n.tr("Localizable", "dictation.hud.applying_command", fallback: "Applying your instruction...")
         /// Composing response from context...
         internal static let contextFusion = ScreenshotL10n.tr("Localizable", "dictation.hud.context_fusion", fallback: "Composing response from context...")
+        /// The transcript was revised. The full result was copied; replace the earlier text manually.
+        internal static let pausePreOutputRevisedCopied = ScreenshotL10n.tr("Localizable", "dictation.hud.pause_pre_output_revised_copied", fallback: "The transcript was revised. The full result was copied; replace the earlier text manually.")
       }
     }
     internal enum Help {
@@ -1826,6 +1838,8 @@ internal enum ScreenshotL10n {
           internal static let agentCompose = ScreenshotL10n.tr("Localizable", "home.detail.title.agent_compose", fallback: "Task Assistant Details")
           /// AI Coding Details
           internal static let agentDispatch = ScreenshotL10n.tr("Localizable", "home.detail.title.agent_dispatch", fallback: "AI Coding Details")
+          /// Voice Command Details
+          internal static let command = ScreenshotL10n.tr("Localizable", "home.detail.title.command", fallback: "Voice Command Details")
           /// Transcription Details
           internal static let dictation = ScreenshotL10n.tr("Localizable", "home.detail.title.dictation", fallback: "Transcription Details")
         }
@@ -2149,6 +2163,12 @@ internal enum ScreenshotL10n {
         internal static func undoPromptFormat(_ p1: Any) -> String {
           return ScreenshotL10n.tr("Localizable", "hud.feedback.undo_prompt_format", String(describing: p1), fallback: "%@, click to undo")
         }
+        /// Input field rewritten with your instruction
+        internal static let voiceCommandApplied = ScreenshotL10n.tr("Localizable", "hud.feedback.voice_command_applied", fallback: "Input field rewritten with your instruction")
+        /// Input field changed; result copied instead.
+        internal static let voiceCommandInputChanged = ScreenshotL10n.tr("Localizable", "hud.feedback.voice_command_input_changed", fallback: "Input field changed; result copied instead.")
+        /// No editable text found. Click into a text field with content first.
+        internal static let voiceCommandInputRequired = ScreenshotL10n.tr("Localizable", "hud.feedback.voice_command_input_required", fallback: "No editable text found. Click into a text field with content first.")
       }
       internal enum Label {
         /// Confidence
@@ -2242,6 +2262,8 @@ internal enum ScreenshotL10n {
       }
       internal enum Refiner {
         internal enum Error {
+          /// The model service account is out of credit or in arrears. Top up the account, then try again.
+          internal static let accountBalance = ScreenshotL10n.tr("Localizable", "llm.refiner.error.account_balance", fallback: "The model service account is out of credit or in arrears. Top up the account, then try again.")
           /// LLM API error (%d): %@
           internal static func apiErrorFormat(_ p1: Int, _ p2: Any) -> String {
             return ScreenshotL10n.tr("Localizable", "llm.refiner.error.api_error_format", p1, String(describing: p2), fallback: "LLM API error (%d): %@")
@@ -2403,6 +2425,8 @@ internal enum ScreenshotL10n {
         internal static let agentCompose = ScreenshotL10n.tr("Localizable", "menu.voice_action.agent_compose", fallback: "Task Assistant")
         /// Task Dispatch
         internal static let agentDispatch = ScreenshotL10n.tr("Localizable", "menu.voice_action.agent_dispatch", fallback: "Task Dispatch")
+        /// Voice Command
+        internal static let command = ScreenshotL10n.tr("Localizable", "menu.voice_action.command", fallback: "Voice Command")
         /// ===== Menu =====
         internal static let dictation = ScreenshotL10n.tr("Localizable", "menu.voice_action.dictation", fallback: "Dictation")
       }
@@ -3974,6 +3998,14 @@ internal enum ScreenshotL10n {
           /// Toggle
           internal static let toggle = ScreenshotL10n.tr("Localizable", "settings.general.trigger_mode.toggle", fallback: "Toggle")
         }
+        internal enum VoiceCommand {
+          /// Modify
+          internal static let buttonTitle = ScreenshotL10n.tr("Localizable", "settings.general.voice_command.button_title", fallback: "Modify")
+          /// Speak an instruction to rewrite the text in the current input field
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.general.voice_command.subtitle", fallback: "Speak an instruction to rewrite the text in the current input field")
+          /// Voice Command
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.general.voice_command.title", fallback: "Voice Command")
+        }
         internal enum VoiceShortcut {
           /// Global entry for voice input and AI coding
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.general.voice_shortcut.subtitle", fallback: "Global entry for voice input and AI coding")
@@ -4088,6 +4120,10 @@ internal enum ScreenshotL10n {
         internal static let middleMouseRecordingDisabled = ScreenshotL10n.tr("Localizable", "settings.message.middle_mouse_recording_disabled", fallback: "Middle mouse recording disabled")
         /// Middle mouse recording enabled
         internal static let middleMouseRecordingEnabled = ScreenshotL10n.tr("Localizable", "settings.message.middle_mouse_recording_enabled", fallback: "Middle mouse recording enabled")
+        /// Output rule deleted
+        internal static let outputRuleDeleted = ScreenshotL10n.tr("Localizable", "settings.message.output_rule_deleted", fallback: "Output rule deleted")
+        /// Output rule updated
+        internal static let outputRuleUpdated = ScreenshotL10n.tr("Localizable", "settings.message.output_rule_updated", fallback: "Output rule updated")
         /// Recognition language updated
         internal static let recognitionLanguageUpdated = ScreenshotL10n.tr("Localizable", "settings.message.recognition_language_updated", fallback: "Recognition language updated")
         /// settings imported
@@ -4166,6 +4202,18 @@ internal enum ScreenshotL10n {
         internal static let groupSubtitle = ScreenshotL10n.tr("Localizable", "settings.output.group_subtitle", fallback: "Choose how VoxFlow inserts text.")
         /// Text insertion
         internal static let groupTitle = ScreenshotL10n.tr("Localizable", "settings.output.group_title", fallback: "Text insertion")
+        internal enum AppRules {
+          /// Add app rule
+          internal static let add = ScreenshotL10n.tr("Localizable", "settings.output.app_rules.add", fallback: "Add app rule")
+          /// No app rules yet. All apps use the global input method.
+          internal static let empty = ScreenshotL10n.tr("Localizable", "settings.output.app_rules.empty", fallback: "No app rules yet. All apps use the global input method.")
+          /// Pick an app to add a rule for it. It starts with fast paste; switch the mode on the rule row.
+          internal static let pickSubtitle = ScreenshotL10n.tr("Localizable", "settings.output.app_rules.pick_subtitle", fallback: "Pick an app to add a rule for it. It starts with fast paste; switch the mode on the rule row.")
+          /// Choose an app
+          internal static let pickTitle = ScreenshotL10n.tr("Localizable", "settings.output.app_rules.pick_title", fallback: "Choose an app")
+          /// Override the input method for specific apps.
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.output.app_rules.subtitle", fallback: "Override the input method for specific apps.")
+        }
         internal enum AvoidClipboard {
           /// Write text by simulating keyboard input and avoid using the system clipboard when possible.
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.output.avoid_clipboard.subtitle", fallback: "Write text by simulating keyboard input and avoid using the system clipboard when possible.")
@@ -4395,6 +4443,12 @@ internal enum ScreenshotL10n {
           internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.system.local_model_live_preview.subtitle", fallback: "Show streaming partial results while speaking with local models.")
           /// Streaming recognition preview
           internal static let title = ScreenshotL10n.tr("Localizable", "settings.system.local_model_live_preview.title", fallback: "Streaming recognition preview")
+        }
+        internal enum PausePreOutput {
+          /// Insert text as soon as you pause speaking, then keep dictating.
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.system.pause_pre_output.subtitle", fallback: "Insert text as soon as you pause speaking, then keep dictating.")
+          /// Pause pre-output
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.system.pause_pre_output.title", fallback: "Pause pre-output")
         }
       }
       internal enum Task {
@@ -4760,6 +4814,12 @@ internal enum ScreenshotL10n {
           /// words
           internal static let unitWords = ScreenshotL10n.tr("Localizable", "settings.text_processing.thresholds.unit_words", fallback: "words")
         }
+        internal enum UnitNormalization {
+          /// Convert Chinese units after numbers to international symbols, e.g. 5公里 to 5km
+          internal static let subtitle = ScreenshotL10n.tr("Localizable", "settings.text_processing.unit_normalization.subtitle", fallback: "Convert Chinese units after numbers to international symbols, e.g. 5公里 to 5km")
+          /// Unit normalization
+          internal static let title = ScreenshotL10n.tr("Localizable", "settings.text_processing.unit_normalization.title", fallback: "Unit normalization")
+        }
       }
       internal enum Window {
         /// VoxFlow Settings
@@ -5073,6 +5133,12 @@ internal enum ScreenshotL10n {
           internal static let description = ScreenshotL10n.tr("Localizable", "style.automatch.global.description", fallback: "Allow VoxFlow to choose a fitting style based on what you say and the active app, when no manual rule applies.")
           /// AI smart selection
           internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.global.title", fallback: "AI smart selection")
+        }
+        internal enum InputContext {
+          /// Read the target input box's current text (requires Accessibility) so corrections fit what you are editing. Password fields are always skipped.
+          internal static let description = ScreenshotL10n.tr("Localizable", "style.automatch.input_context.description", fallback: "Read the target input box's current text (requires Accessibility) so corrections fit what you are editing. Password fields are always skipped.")
+          /// Include input box content
+          internal static let title = ScreenshotL10n.tr("Localizable", "style.automatch.input_context.title", fallback: "Include input box content")
         }
         internal enum Sheet {
           /// Configure this style's auto-match eligibility, description, and same-app context. Manual app rules always take priority.

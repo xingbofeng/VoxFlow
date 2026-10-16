@@ -18,6 +18,7 @@ public enum PromptKind: String, Sendable, Equatable, Codable {
     case styleAutoMatchDescription
     case textTransform
     case agentTargetResolution
+    case commandEdit
 }
 
 /// Semantic version of a built-in prompt template.

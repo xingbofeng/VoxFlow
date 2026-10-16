@@ -27,6 +27,12 @@ struct AppLogger {
         logger.info("\(Self.redact(message), privacy: .public)")
     }
 
+    /// `.notice` 是 os_log 的默认持久化级别：debug/info 只在内存里存活，排查历史问题时
+    /// 查不到，所以设备切换、丢帧、音频摄入汇总这类事故现场必须走这里。
+    func notice(_ message: String) {
+        logger.notice("\(Self.redact(message), privacy: .public)")
+    }
+
     func error(_ message: String) {
         logger.error("\(Self.redact(message), privacy: .public)")
     }

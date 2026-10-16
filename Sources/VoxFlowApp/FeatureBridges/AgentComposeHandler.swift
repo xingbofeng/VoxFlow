@@ -114,7 +114,7 @@ final class DefaultAgentComposeHandler: AgentComposeHandling {
         switch result {
         case .injected:
             emitStage(.inserted, taskID: taskID, requireActiveWorkflow: false)
-        case .copied, .targetChanged, .permissionDenied, .injectionFailed:
+        case .copied, .targetChanged, .inputChanged, .permissionDenied, .injectionFailed:
             emitStage(.copied, taskID: taskID, requireActiveWorkflow: false)
         case .copyFailed:
             AppLogger.dictation.warning("AgentComposeHandler finish copyFailed")

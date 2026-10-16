@@ -6,6 +6,7 @@ final class VoxFlowDomainVoiceTaskTests: XCTestCase {
     func testVoiceTaskTypesAreAvailableFromDomainTarget() throws {
         XCTAssertEqual(VoiceTaskMode.dictation.rawValue, "dictation")
         XCTAssertEqual(VoiceTaskMode.agentCompose.rawValue, "agentCompose")
+        XCTAssertEqual(VoiceTaskMode.command.rawValue, "command")
 
         XCTAssertLessThan(VoiceTaskStage.recording, VoiceTaskStage.transcribing)
         XCTAssertLessThan(VoiceTaskStage.transcribing, VoiceTaskStage.collectingContext)

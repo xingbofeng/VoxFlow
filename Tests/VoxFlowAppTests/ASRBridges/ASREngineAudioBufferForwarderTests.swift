@@ -98,6 +98,25 @@ final class ASREngineAudioBufferForwarderTests: XCTestCase {
         ])
     }
 
+    /// 录音中途切换输入设备会让采集格式变化（采样率/声道数）。转换器锁定首个 buffer 的源格式，
+    /// 遇到新格式必须重建后继续转发——否则切换设备之后的整段录音会被全部丢掉。
+    func testAppendAudioBufferKeepsForwardingAfterSourceFormatChange() throws {
+        let forwarder = ASREngineAudioFrameForwarder()
+        let engine = CapturingAudioFrameEngine()
+        forwarder.attach(engine)
+
+        forwarder.appendAudioBuffer(try makePCMBuffer(sampleCount: 4_096))
+        forwarder.appendAudioBuffer(
+            try makePCMBuffer(sampleCount: 4_096, sampleRate: 44_100, channels: 2)
+        )
+
+        let frames = engine.appendedFrames
+        XCTAssertEqual(frames.map(\.sequenceNumber), [0, 1])
+        XCTAssertTrue(frames.allSatisfy { !$0.samples.isEmpty }, "格式变化后必须继续产出音频帧")
+        XCTAssertEqual(frames[1].startSample, UInt64(frames[0].samples.count))
+        XCTAssertTrue(frames.allSatisfy { $0.sampleRate == 16_000 })
+    }
+
     private func makeFrame(samples: [Float]) -> AudioFrame {
         AudioFrame(
             sequenceNumber: 0,
@@ -108,10 +127,14 @@ final class ASREngineAudioBufferForwarderTests: XCTestCase {
         )
     }
 
-    private func makePCMBuffer(sampleCount: Int) throws -> AVAudioPCMBuffer {
+    private func makePCMBuffer(
+        sampleCount: Int,
+        sampleRate: Double = 48_000,
+        channels: AVAudioChannelCount = 1
+    ) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(AVAudioFormat(
-            standardFormatWithSampleRate: 48_000,
-            channels: 1
+            standardFormatWithSampleRate: sampleRate,
+            channels: channels
         ))
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(
             pcmFormat: format,

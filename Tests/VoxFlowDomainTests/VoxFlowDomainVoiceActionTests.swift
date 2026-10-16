@@ -3,14 +3,22 @@ import VoxFlowDomain
 
 final class VoxFlowDomainVoiceActionTests: XCTestCase {
     func testVoiceActionIsAvailableFromDomainTarget() throws {
-        XCTAssertEqual(VoiceAction.allCases, [.dictation, .agentCompose, .agentDispatch])
+        XCTAssertEqual(VoiceAction.allCases, [.dictation, .agentCompose, .agentDispatch, .command])
         XCTAssertEqual(VoiceAction.dictation.rawValue, "dictation")
         XCTAssertEqual(VoiceAction.agentCompose.rawValue, "agentCompose")
         XCTAssertEqual(VoiceAction.agentDispatch.rawValue, "agentDispatch")
+        XCTAssertEqual(VoiceAction.command.rawValue, "command")
 
         let encoded = try JSONEncoder().encode(VoiceAction.agentDispatch)
         let decoded = try JSONDecoder().decode(VoiceAction.self, from: encoded)
 
         XCTAssertEqual(decoded, .agentDispatch)
+    }
+
+    func testVoiceCommandActionRoundTripsFromDomainTarget() throws {
+        let encoded = try JSONEncoder().encode(VoiceAction.command)
+        let decoded = try JSONDecoder().decode(VoiceAction.self, from: encoded)
+
+        XCTAssertEqual(decoded, .command)
     }
 }

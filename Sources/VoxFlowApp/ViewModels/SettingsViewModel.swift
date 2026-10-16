@@ -84,6 +84,7 @@ enum SettingsKey {
     static let audioSoundFeedbackEnabled = "settings.audio.soundFeedbackEnabled"
     static let audioVoiceEnhancementEnabled = "settings.audio.voiceEnhancementEnabled"
     static let audioMuteWhileRecordingEnabled = "settings.audio.muteWhileRecordingEnabled"
+    static let audioBluetoothQualityHintShown = "settings.audio.bluetoothQualityHintShown"
     static let performanceOptimizationEnabled = "settings.performance.optimizationEnabled"
     static let outputTextInputMode = "settings.output.textInputMode"
     static let agentDispatchEnabled = "settings.agentDispatch.enabled"
@@ -109,6 +110,7 @@ enum SettingsSystemOption: String, CaseIterable, Sendable {
     case keepMicrophoneActive = "settings.system.keepMicrophoneActive"
     case localModelLivePreview = "settings.system.localModelLivePreview"
     case autoReleaseLocalModel = "settings.system.autoReleaseLocalModel"
+    case pausePreOutput = "settings.system.pausePreOutput"
     case avoidClipboard = "settings.output.avoidClipboard"
     case restoreClipboard = "settings.output.restoreClipboard"
     case clipboardImageOCR = "settings.output.clipboardImageOCR"
@@ -308,6 +310,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var shortPressBehavior: ShortPressBehavior = .toggleListening
     @Published private(set) var dictationShortcutKeyCode: Int64? = nil
     @Published private(set) var agentComposeShortcutKeyCode: Int64? = nil
+    @Published private(set) var commandShortcutKeyCode: Int64? = nil
     @Published private(set) var paletteShortcutKeyCode: Int64? = nil
     @Published private(set) var clipboardImageOCRShortcutKeyCode: Int64? = nil
     @Published private(set) var screenshotOCRShortcutKeyCode: Int64? = nil
@@ -335,6 +338,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var muteWhileRecordingEnabled = false
     @Published private(set) var performanceOptimizationEnabled = false
     @Published private(set) var textInputMode: TextInputMode = .automatic
+    @Published private(set) var outputMethodRules: [OutputMethodRule] = []
     @Published private(set) var recognitionLanguages: [RecognitionLanguage] = RecognitionLanguage.allCases
     @Published private(set) var selectedRecognitionLanguage: RecognitionLanguage = .default
     @Published private(set) var interfaceLanguage: AppLanguage = .default
@@ -364,6 +368,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var deterministicFillerWordFiltering = false
     @Published private(set) var deterministicCjkLatinSpacing = false
     @Published private(set) var deterministicAutoCapitalization = false
+    @Published private(set) var deterministicUnitNormalization = false
     // Thresholds exposed for advanced tuning. Bound to Steppers in the UI.
     @Published private(set) var deterministicLongSentenceWordThreshold = DeterministicTextProcessingSettings.defaults.longSentenceWordThreshold
     @Published private(set) var deterministicLongSentenceCJKThreshold = DeterministicTextProcessingSettings.defaults.longSentenceCJKThreshold
@@ -461,6 +466,7 @@ final class SettingsViewModel: ObservableObject {
             shortPressBehavior = shortcutManager.shortPressBehavior
             dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
             agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+            commandShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .command)
             paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
             clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
             screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
@@ -513,6 +519,7 @@ final class SettingsViewModel: ObservableObject {
             deterministicFillerWordFiltering = dtpSettings.fillerWordFiltering
             deterministicCjkLatinSpacing = dtpSettings.cjkLatinSpacing
             deterministicAutoCapitalization = dtpSettings.autoCapitalization
+            deterministicUnitNormalization = dtpSettings.unitNormalization
             deterministicLongSentenceWordThreshold = dtpSettings.longSentenceWordThreshold
             deterministicLongSentenceCJKThreshold = dtpSettings.longSentenceCJKThreshold
             deterministicPunctuationWordThreshold = dtpSettings.punctuationWordThreshold
@@ -535,6 +542,9 @@ final class SettingsViewModel: ObservableObject {
             )
             try syncLaunchAtLoginOptionWithSystem()
             textInputMode = try readTextInputMode()
+            outputMethodRules = try OutputMethodRuleStore(
+                settingsRepository: environment.settingsRepository
+            ).list()
             microphonePermission = permissionProvider.microphonePermission()
             speechPermission = permissionProvider.speechPermission()
             accessibilityGranted = AXIsProcessTrusted()
@@ -586,6 +596,7 @@ final class SettingsViewModel: ObservableObject {
         self.shortPressBehavior = shortPressBehavior
         self.dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         self.agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        self.commandShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .command)
         self.paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
         self.clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
         self.screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
@@ -617,6 +628,7 @@ final class SettingsViewModel: ObservableObject {
         shortcutKeyCode = shortcutManager.shortcutKeyCode
         dictationShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .dictation)
         agentComposeShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .agentCompose)
+        commandShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .command)
         paletteShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .palette)
         clipboardImageOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .clipboardImageOCR)
         screenshotOCRShortcutKeyCode = shortcutManager.shortcutKeyCode(for: .screenshotOCR)
@@ -749,7 +761,8 @@ final class SettingsViewModel: ObservableObject {
         longSentenceBreaking: Bool? = nil,
         fillerWordFiltering: Bool? = nil,
         cjkLatinSpacing: Bool? = nil,
-        autoCapitalization: Bool? = nil
+        autoCapitalization: Bool? = nil,
+        unitNormalization: Bool? = nil
     ) throws {
         var current = DeterministicTextProcessingSettingsStore.load(
             storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
@@ -761,6 +774,7 @@ final class SettingsViewModel: ObservableObject {
         if let fillerWordFiltering { current.fillerWordFiltering = fillerWordFiltering }
         if let cjkLatinSpacing { current.cjkLatinSpacing = cjkLatinSpacing }
         if let autoCapitalization { current.autoCapitalization = autoCapitalization }
+        if let unitNormalization { current.unitNormalization = unitNormalization }
         try DeterministicTextProcessingSettingsStore.save(
             current,
             storage: SettingsRepositoryKeyValueAdapter(repository: environment.settingsRepository)
@@ -772,6 +786,7 @@ final class SettingsViewModel: ObservableObject {
         deterministicFillerWordFiltering = current.fillerWordFiltering
         deterministicCjkLatinSpacing = current.cjkLatinSpacing
         deterministicAutoCapitalization = current.autoCapitalization
+        deterministicUnitNormalization = current.unitNormalization
         Self.logger.debug("settings_vm_set_deterministic_text_processing saved")
         lastError = nil
     }
@@ -1245,6 +1260,42 @@ final class SettingsViewModel: ObservableObject {
         lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.text_input_mode_updated", comment: ""))
     }
 
+    func saveOutputMethodRule(
+        bundleID: String,
+        appName: String,
+        inputMode: TextInputMode
+    ) throws {
+        Self.logger.debug("settings_vm_save_output_method_rule bundleID=\(bundleID) mode=\(inputMode.rawValue)")
+        try OutputMethodRuleStore(settingsRepository: environment.settingsRepository).save(
+            OutputMethodRule(
+                id: UUID().uuidString,
+                bundleID: bundleID,
+                appName: appName,
+                inputMode: inputMode
+            )
+        )
+        outputMethodRules = try OutputMethodRuleStore(
+            settingsRepository: environment.settingsRepository
+        ).list()
+        lastError = nil
+        lastActionMessage = persistentWriteMessage(L10n.localize("settings.message.output_rule_updated", comment: ""))
+    }
+
+    func deleteOutputMethodRule(id: String) {
+        do {
+            try OutputMethodRuleStore(settingsRepository: environment.settingsRepository).delete(id: id)
+            outputMethodRules = try OutputMethodRuleStore(
+                settingsRepository: environment.settingsRepository
+            ).list()
+            lastError = nil
+            lastActionMessage = L10n.localize("settings.message.output_rule_deleted", comment: "")
+        } catch {
+            Self.logger.error("settings_vm_delete_output_method_rule_failed error=\(error.localizedDescription)")
+            lastError = error.localizedDescription
+            lastActionMessage = nil
+        }
+    }
+
     func setRecognitionLanguage(_ language: RecognitionLanguage) throws {
         Self.logger.debug("settings_vm_set_recognition_language language=\(language.rawValue)")
         languageManager.setLanguage(language)
@@ -1647,19 +1698,12 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func wouldConflict(action: VoiceAction, keyCode: Int64?) -> Bool {
-        guard let keyCode else { return false }
-        switch action {
-        case .dictation:
-            return [.agentCompose].contains {
-                shortcutManager.shortcutKeyCode(for: $0) == keyCode
-            } || currentWorkflowShortcutKeyCodes(excluding: nil).contains(keyCode)
-        case .agentCompose:
-            return [.dictation].contains {
-                shortcutManager.shortcutKeyCode(for: $0) == keyCode
-            } || currentWorkflowShortcutKeyCodes(excluding: nil).contains(keyCode)
-        case .agentDispatch:
-            return false
-        }
+        guard let keyCode, action != .agentDispatch else { return false }
+        let otherVoiceShortcutKeyCodes = VoiceAction.allCases
+            .filter { $0 != action && $0 != .agentDispatch }
+            .compactMap { shortcutManager.shortcutKeyCode(for: $0) }
+        return otherVoiceShortcutKeyCodes.contains(keyCode)
+            || currentWorkflowShortcutKeyCodes(excluding: nil).contains(keyCode)
     }
 
     private func wouldConflict(workflowShortcut: HotKeyWorkflowShortcut, keyCode: Int64?) -> Bool {
@@ -1668,10 +1712,9 @@ final class SettingsViewModel: ObservableObject {
            keyCode == ShortcutManager.defaultClipboardImageOCRShortcutKeyCode {
             return true
         }
-        let voiceShortcutKeyCodes = [
-            shortcutManager.shortcutKeyCode(for: .dictation),
-            shortcutManager.shortcutKeyCode(for: .agentCompose),
-        ]
+        let voiceShortcutKeyCodes = VoiceAction.allCases.compactMap {
+            shortcutManager.shortcutKeyCode(for: $0)
+        }
         if voiceShortcutKeyCodes.contains(keyCode) {
             return true
         }

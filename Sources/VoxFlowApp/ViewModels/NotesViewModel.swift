@@ -577,6 +577,7 @@ final class NotesViewModel: ObservableObject {
     private func outputFailureMessage(for result: OutputResult) -> String {
         switch result {
         case .targetChanged(let reason),
+             .inputChanged(let reason),
              .permissionDenied(let reason),
              .injectionFailed(let reason),
              .copyFailed(let reason):

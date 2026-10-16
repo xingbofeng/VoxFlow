@@ -196,7 +196,8 @@ enum ShortcutActionRouting {
         flags: CGEventFlags = [],
         dictationKeyCode: Int64?,
         agentComposeKeyCode: Int64?,
-        agentDispatchKeyCode: Int64? = nil
+        agentDispatchKeyCode: Int64? = nil,
+        commandKeyCode: Int64? = nil
     ) -> VoiceAction? {
         if let dictationKeyCode,
            ShortcutManager.shortcutMatches(dictationKeyCode, keyCode: keyCode, flags: flags) {
@@ -209,6 +210,10 @@ enum ShortcutActionRouting {
         if let agentDispatchKeyCode,
            ShortcutManager.shortcutMatches(agentDispatchKeyCode, keyCode: keyCode, flags: flags) {
             return .agentDispatch
+        }
+        if let commandKeyCode,
+           ShortcutManager.shortcutMatches(commandKeyCode, keyCode: keyCode, flags: flags) {
+            return .command
         }
         return nil
     }
@@ -376,6 +381,7 @@ final class KeyMonitor: @unchecked Sendable {
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
             agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            commandKeyCode: shortcutManager.shortcutKeyCode(for: .command),
             paletteKeyCode: shortcutManager.shortcutKeyCode(for: .palette),
             clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
             screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR),
@@ -473,6 +479,7 @@ final class KeyMonitor: @unchecked Sendable {
             dictationKeyCode: shortcutManager.shortcutKeyCode(for: .dictation),
             agentComposeKeyCode: shortcutManager.shortcutKeyCode(for: .agentCompose),
             agentDispatchKeyCode: shortcutManager.shortcutKeyCode(for: .agentDispatch),
+            commandKeyCode: shortcutManager.shortcutKeyCode(for: .command),
             paletteKeyCode: shortcutManager.shortcutKeyCode(for: .palette),
             clipboardImageOCRKeyCode: shortcutManager.shortcutKeyCode(for: .clipboardImageOCR),
             screenshotOCRKeyCode: shortcutManager.shortcutKeyCode(for: .screenshotOCR),
@@ -614,6 +621,8 @@ final class KeyMonitor: @unchecked Sendable {
             return "agentCompose"
         case .agentDispatch:
             return "agentDispatch"
+        case .command:
+            return "command"
         }
     }
 

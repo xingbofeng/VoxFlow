@@ -71,12 +71,45 @@ extension SystemClipboardService: ScreenshotOCRResultClipboard {}
 
 @MainActor
 protocol OutputService: AnyObject {
+    func copy(text: String, mode: VoiceTaskMode) async -> OutputResult
+
     func deliver(
         text: String,
         mode: VoiceTaskMode,
         target: DictationTarget?,
         originalTarget: DictationTarget?
     ) async -> OutputResult
+
+    /// Replaces the whole content of the focused input area with `text`.
+    ///
+    /// Only used by voice commands: `expectedInputText` is the snapshot taken
+    /// when recording started, and delivery is refused (the result is copied
+    /// instead) when the field no longer holds it.
+    func deliverReplacingInputArea(
+        text: String,
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?,
+        expectedInputText: String
+    ) async -> OutputResult
+}
+
+extension OutputService {
+    func copy(text: String, mode: VoiceTaskMode) async -> OutputResult {
+        await deliver(text: text, mode: .agentCompose, target: nil, originalTarget: nil)
+    }
+
+    /// Delivery that cannot replace field contents (test doubles, in-app
+    /// targets) falls back to a plain insertion.
+    func deliverReplacingInputArea(
+        text: String,
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?,
+        expectedInputText: String
+    ) async -> OutputResult {
+        await deliver(text: text, mode: mode, target: target, originalTarget: originalTarget)
+    }
 }
 
 @MainActor
@@ -103,20 +136,25 @@ protocol NotesOutputDelivering: AnyObject {
 @MainActor
 struct SettingsBackedTextOutputConfiguration {
     private let settingsRepository: any SettingsRepository
+    private let outputMethodRuleStore: OutputMethodRuleStore
 
     init(settingsRepository: any SettingsRepository) {
         self.settingsRepository = settingsRepository
+        self.outputMethodRuleStore = OutputMethodRuleStore(settingsRepository: settingsRepository)
     }
 
-    func textInputMode() -> TextInputMode {
+    func textInputMode(for target: DictationTarget?) -> TextInputMode {
+        let globalMode: TextInputMode
         if let rawValue = string(forKey: SettingsKey.outputTextInputMode),
            let mode = TextInputMode(rawValue: rawValue) {
-            return mode
+            globalMode = mode
+        } else {
+            globalMode = bool(
+                forKey: SettingsSystemOption.avoidClipboard.rawValue,
+                defaultValue: SettingsSystemOption.avoidClipboard.defaultValue
+            ) ? .simulatedTyping : .automatic
         }
-        return bool(
-            forKey: SettingsSystemOption.avoidClipboard.rawValue,
-            defaultValue: SettingsSystemOption.avoidClipboard.defaultValue
-        ) ? .simulatedTyping : .automatic
+        return outputMethodRuleStore.inputMode(for: target, fallback: globalMode)
     }
 
     func shouldRestoreClipboard() -> Bool {
@@ -140,6 +178,76 @@ struct SettingsBackedTextOutputConfiguration {
             return defaultValue
         }
         return (try? JSONDecoder().decode(DecodedSettingValue<Bool>.self, from: data).value) ?? defaultValue
+    }
+}
+
+// MARK: - OutputMethodRule
+
+struct OutputMethodRule: Codable, Equatable, Identifiable {
+    let id: String
+    let bundleID: String
+    let appName: String
+    let inputMode: TextInputMode
+}
+
+final class OutputMethodRuleStore {
+    private struct Payload: Codable {
+        let rules: [OutputMethodRule]
+    }
+
+    static let settingsKey = "output.appMethodRules"
+
+    private let settingsRepository: any SettingsRepository
+
+    init(settingsRepository: any SettingsRepository) {
+        self.settingsRepository = settingsRepository
+    }
+
+    func list() throws -> [OutputMethodRule] {
+        guard let json = try settingsRepository.value(forKey: Self.settingsKey),
+              let data = json.data(using: .utf8) else {
+            return []
+        }
+        return (try? JSONDecoder().decode(Payload.self, from: data).rules) ?? []
+    }
+
+    func save(_ rule: OutputMethodRule) throws {
+        var rules = try list().filter { $0.id != rule.id }
+        let ruleBundleID = Self.normalized(rule.bundleID)
+        if let ruleBundleID {
+            rules.removeAll { Self.normalized($0.bundleID) == ruleBundleID }
+        }
+        rules.append(rule)
+        try write(rules)
+    }
+
+    func delete(id: String) throws {
+        try write(try list().filter { $0.id != id })
+    }
+
+    func inputMode(for target: DictationTarget?, fallback: TextInputMode) -> TextInputMode {
+        guard let target else { return fallback }
+        let rules = (try? list()) ?? []
+        if let bundleID = Self.normalized(target.bundleID),
+           let rule = rules.first(where: { Self.normalized($0.bundleID) == bundleID }) {
+            return rule.inputMode
+        }
+        if let appName = Self.normalized(target.appName),
+           let rule = rules.first(where: { Self.normalized($0.appName) == appName }) {
+            return rule.inputMode
+        }
+        return fallback
+    }
+
+    private func write(_ rules: [OutputMethodRule]) throws {
+        let data = try JSONEncoder().encode(Payload(rules: rules))
+        try settingsRepository.set(Self.settingsKey, jsonValue: String(data: data, encoding: .utf8) ?? #"{"rules":[]}"#)
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
     }
 }
 
@@ -187,38 +295,55 @@ struct DefaultOutputPolicy {
 
 @MainActor
 final class DefaultOutputService: OutputService, NotesOutputDelivering {
+    /// Settle time between selecting the field's contents and pasting over
+    /// them, so apps that apply the selection asynchronously do not paste at
+    /// the old caret position.
+    static let selectAllSettleNanoseconds: UInt64 = 50_000_000
+
     private let textInsertionCoordinator: any TextInsertionCoordinating
     private let clipboardService: any ClipboardSetting
-    private let textInputModeProvider: () -> TextInputMode
+    private let textInputModeProvider: (DictationTarget?) -> TextInputMode
     private let outputPolicy: DefaultOutputPolicy
     private let lastResultStore: (any LastResultStoring)?
     private let recentTextOutputRecorder: ((String, DictationTarget?) -> Void)?
+    private let selectAllShortcutPoster: any SelectAllShortcutPosting
+    private let inputAreaTextProvider: (@MainActor (DictationTarget?) -> String?)?
+    private let selectAllSettleNanoseconds: UInt64
 
     init(
         textInsertionCoordinator: any TextInsertionCoordinating,
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
-        textInputMode: (() -> TextInputMode)? = nil,
+        textInputMode: ((DictationTarget?) -> TextInputMode)? = nil,
         outputPolicy: DefaultOutputPolicy = DefaultOutputPolicy(),
         lastResultStore: (any LastResultStoring)? = nil,
-        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
+        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil,
+        selectAllShortcutPoster: any SelectAllShortcutPosting = SystemSelectAllShortcutPoster(),
+        inputAreaTextProvider: (@MainActor (DictationTarget?) -> String?)? = nil,
+        selectAllSettleNanoseconds: UInt64 = DefaultOutputService.selectAllSettleNanoseconds
     ) {
         self.textInsertionCoordinator = textInsertionCoordinator
         self.clipboardService = clipboardService
-        self.textInputModeProvider = textInputMode ?? { defaultTextInputMode }
+        self.textInputModeProvider = textInputMode ?? { _ in defaultTextInputMode }
         self.outputPolicy = outputPolicy
         self.lastResultStore = lastResultStore
         self.recentTextOutputRecorder = recentTextOutputRecorder
+        self.selectAllShortcutPoster = selectAllShortcutPoster
+        self.inputAreaTextProvider = inputAreaTextProvider
+        self.selectAllSettleNanoseconds = selectAllSettleNanoseconds
     }
 
     convenience init(
         textInjector: any TextInserting,
         clipboardService: any ClipboardSetting,
         defaultTextInputMode: TextInputMode = .automatic,
-        textInputMode: (() -> TextInputMode)? = nil,
+        textInputMode: ((DictationTarget?) -> TextInputMode)? = nil,
         outputPolicy: DefaultOutputPolicy = DefaultOutputPolicy(),
         lastResultStore: (any LastResultStoring)? = nil,
-        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil
+        recentTextOutputRecorder: ((String, DictationTarget?) -> Void)? = nil,
+        selectAllShortcutPoster: any SelectAllShortcutPosting = SystemSelectAllShortcutPoster(),
+        inputAreaTextProvider: (@MainActor (DictationTarget?) -> String?)? = nil,
+        selectAllSettleNanoseconds: UInt64 = DefaultOutputService.selectAllSettleNanoseconds
     ) {
         self.init(
             textInsertionCoordinator: TextInsertionCoordinator(fastPasteInserter: textInjector),
@@ -227,7 +352,22 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             textInputMode: textInputMode,
             outputPolicy: outputPolicy,
             lastResultStore: lastResultStore,
-            recentTextOutputRecorder: recentTextOutputRecorder
+            recentTextOutputRecorder: recentTextOutputRecorder,
+            selectAllShortcutPoster: selectAllShortcutPoster,
+            inputAreaTextProvider: inputAreaTextProvider,
+            selectAllSettleNanoseconds: selectAllSettleNanoseconds
+        )
+    }
+
+    func copy(text: String, mode: VoiceTaskMode) async -> OutputResult {
+        guard !Task.isCancelled else { return .cancelled }
+        let result: OutputResult = clipboardService.setString(text)
+            ? .copied
+            : .copyFailed(reason: "Clipboard write failed")
+        rememberLastResult(text, mode: mode, result: result)
+        return logged(
+            result, mode: mode, textInputMode: textInputModeProvider(nil),
+            originalTarget: nil, currentTarget: nil
         )
     }
 
@@ -242,7 +382,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             mode: mode,
             target: target,
             originalTarget: originalTarget,
-            textInputMode: textInputModeProvider()
+            textInputMode: textInputModeProvider(target)
         )
     }
 
@@ -295,6 +435,114 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             break
         }
 
+        return await insertIntoFocusedField(
+            text,
+            mode: mode,
+            textInputMode: textInputMode,
+            target: target,
+            originalTarget: originalTarget
+        )
+    }
+
+    func deliverReplacingInputArea(
+        text: String,
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?,
+        expectedInputText: String
+    ) async -> OutputResult {
+        await deliverReplacingInputArea(
+            text: text,
+            mode: mode,
+            target: target,
+            originalTarget: originalTarget,
+            expectedInputText: expectedInputText,
+            textInputMode: textInputModeProvider(target)
+        )
+    }
+
+    func deliverReplacingInputArea(
+        text: String,
+        mode: VoiceTaskMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?,
+        expectedInputText: String,
+        textInputMode: TextInputMode
+    ) async -> OutputResult {
+        guard !Task.isCancelled else { return .cancelled }
+        switch outputPolicy.action(mode: mode, target: target, originalTarget: originalTarget) {
+        case .copy:
+            // The destination is not the one we read from: never replace
+            // anything, fall back to the regular copy delivery.
+            return await deliver(
+                text: text,
+                mode: mode,
+                target: target,
+                originalTarget: originalTarget,
+                textInputMode: textInputMode
+            )
+        case .insert:
+            break
+        }
+
+        if let inputAreaTextProvider,
+           inputAreaTextProvider(target) != expectedInputText {
+            let reason = "Input area text changed since it was read"
+            let outputResult: OutputResult = clipboardService.setString(text)
+                ? .inputChanged(reason: reason)
+                : .copyFailed(reason: "\(reason) and clipboard write failed")
+            rememberLastResult(text, mode: mode, result: outputResult)
+            return logged(
+                outputResult,
+                mode: mode,
+                textInputMode: textInputMode,
+                originalTarget: originalTarget,
+                currentTarget: target
+            )
+        }
+
+        do {
+            try selectAllShortcutPoster.postSelectAllShortcut()
+        } catch {
+            let reason = "Failed to create select-all event"
+            let outputResult: OutputResult = clipboardService.setString(text)
+                ? .injectionFailed(reason: reason)
+                : .copyFailed(reason: "\(reason) and clipboard write failed")
+            rememberLastResult(text, mode: mode, result: outputResult)
+            return logged(
+                outputResult,
+                mode: mode,
+                textInputMode: textInputMode,
+                originalTarget: originalTarget,
+                currentTarget: target
+            )
+        }
+
+        if selectAllSettleNanoseconds > 0 {
+            do {
+                try await Task.sleep(nanoseconds: selectAllSettleNanoseconds)
+            } catch {
+                return .cancelled
+            }
+        }
+        guard !Task.isCancelled else { return .cancelled }
+        return await insertIntoFocusedField(
+            text,
+            mode: mode,
+            textInputMode: textInputMode,
+            target: target,
+            originalTarget: originalTarget
+        )
+    }
+
+    private func insertIntoFocusedField(
+        _ text: String,
+        mode: VoiceTaskMode,
+        textInputMode: TextInputMode,
+        target: DictationTarget?,
+        originalTarget: DictationTarget?
+    ) async -> OutputResult {
+        guard !Task.isCancelled else { return .cancelled }
         let result = await textInsertionCoordinator.insert(text, mode: textInputMode)
         let outputResult: OutputResult = switch result {
         case .success:
@@ -332,7 +580,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         await deliverInputOnly(
             text: text,
             mode: mode,
-            textInputMode: textInputModeProvider()
+            textInputMode: textInputModeProvider(nil)
         )
     }
 
@@ -416,6 +664,8 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
             return "copied"
         case .targetChanged:
             return "targetChanged"
+        case .inputChanged:
+            return "inputChanged"
         case .permissionDenied:
             return "permissionDenied"
         case .injectionFailed:
@@ -434,6 +684,7 @@ final class DefaultOutputService: OutputService, NotesOutputDelivering {
         case .injected, .copied, .handledExternally, .cancelled:
             return "none"
         case let .targetChanged(reason),
+             let .inputChanged(reason),
              let .permissionDenied(reason),
              let .injectionFailed(reason),
              let .copyFailed(reason):

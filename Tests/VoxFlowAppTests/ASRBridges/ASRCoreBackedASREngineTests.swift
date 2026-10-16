@@ -324,7 +324,47 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         XCTAssertEqual(session.cancelCallCount(), 1)
     }
 
-    func testAudioFramesUseBoundedBufferWhenProviderIsBackPressured() async throws {
+    /// 会话就绪（FireRedASR 这类 provider 要重新加载权重，耗时可达数秒）之前采集到的音频
+    /// 必须全部送达，一帧都不能丢——丢了就是「我最开始说的话没了」。
+    func testAudioFramesBufferedDuringSessionStartupAreAllDelivered() async throws {
+        let session = CapturingCoreSession()
+        let provider = CapturingCoreProvider(
+            descriptor: VoxFlowASRCore.ASRProviderDescriptor(
+                id: ASRProviderID(rawValue: "test-provider"),
+                displayName: "Test Provider",
+                modelInstallationState: .ready,
+                supportedLanguages: [ASRLanguageCapability(bcp47Tag: "zh-CN")],
+                streamingSemantics: .nativeStreaming
+            ),
+            session: session,
+            sessionCreationDelayNanoseconds: 300_000_000
+        )
+        let engine = ASRCoreBackedASREngine(
+            provider: provider,
+            defaultLanguage: ASRLanguageCapability(bcp47Tag: "zh-CN")
+        )
+        let final = expectation(description: "final callback")
+        engine.onTranscription = { _, isFinal in
+            if isFinal {
+                final.fulfill()
+            }
+        }
+
+        try engine.start()
+        let bufferedFrameCount = 200
+        for sequenceNumber in 0..<bufferedFrameCount {
+            engine.appendAudioFrame(Self.frame(sequenceNumber: UInt64(sequenceNumber)))
+        }
+        engine.endAudio()
+
+        await fulfillment(of: [final], timeout: 2)
+        XCTAssertEqual(
+            session.acceptedSequenceNumbers(),
+            (0..<UInt64(bufferedFrameCount)).map { $0 }
+        )
+    }
+
+    func testFramesBeyondBufferLimitAreDroppedWhenProviderIsBackPressured() async throws {
         let session = CapturingCoreSession(acceptDelayNanoseconds: 500_000_000)
         let provider = CapturingCoreProvider(
             descriptor: VoxFlowASRCore.ASRProviderDescriptor(
@@ -342,7 +382,8 @@ final class ASRCoreBackedASREngineTests: XCTestCase {
         )
 
         try engine.start()
-        for sequenceNumber in 0..<220 {
+        let frameCount = ASRCoreBackedASREngine.audioFrameBufferLimit + 100
+        for sequenceNumber in 0..<frameCount {
             engine.appendAudioFrame(Self.frame(sequenceNumber: UInt64(sequenceNumber)))
         }
         try await Task.sleep(nanoseconds: 100_000_000)
@@ -397,10 +438,16 @@ private final class CapturingCoreProvider: ASRProvider, @unchecked Sendable {
     let descriptor: VoxFlowASRCore.ASRProviderDescriptor
     let session: CapturingCoreSession
     private(set) var requestedLanguages: [ASRLanguageCapability] = []
+    private let sessionCreationDelayNanoseconds: UInt64
 
-    init(descriptor: VoxFlowASRCore.ASRProviderDescriptor, session: CapturingCoreSession) {
+    init(
+        descriptor: VoxFlowASRCore.ASRProviderDescriptor,
+        session: CapturingCoreSession,
+        sessionCreationDelayNanoseconds: UInt64 = 0
+    ) {
         self.descriptor = descriptor
         self.session = session
+        self.sessionCreationDelayNanoseconds = sessionCreationDelayNanoseconds
     }
 
     func install() async throws {}
@@ -409,6 +456,9 @@ private final class CapturingCoreProvider: ASRProvider, @unchecked Sendable {
     func healthCheck() async -> ASRProviderHealth { .healthy }
 
     func makeSession(language: ASRLanguageCapability) async throws -> any ASRSession {
+        if sessionCreationDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: sessionCreationDelayNanoseconds)
+        }
         requestedLanguages.append(language)
         return session
     }

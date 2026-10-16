@@ -133,6 +133,17 @@ public struct DeterministicTextPipeline: Sendable {
             }
         }
 
+        if s.unitNormalization {
+            let input = result
+            let output = UnitNormalizer.process(result)
+            result = output
+            steps.append(DeterministicProcessorStep(
+                id: "unit_normalization",
+                input: input,
+                output: output
+            ))
+        }
+
         if shouldRunPunctuation {
             let input = result
             let output = PunctuationOptimizer.process(

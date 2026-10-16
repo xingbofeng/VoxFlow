@@ -605,6 +605,14 @@ struct StyleView: View {
                     range: 1...24,
                     step: 1
                 )
+                Toggle(isOn: autoMatchInputContextEnabledBinding) {
+                    Text(L10n.localize("style.automatch.input_context.title", comment: ""))
+                        .font(.system(size: 13, weight: .medium))
+                }
+                Text(L10n.localize("style.automatch.input_context.description", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.ColorToken.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, 4)
             .disabled(!autoMatchContextEnabledBinding.wrappedValue)
@@ -663,7 +671,8 @@ struct StyleView: View {
                 contextRounds: ContextRoundsSettings(
                     enabled: draft.contextRoundsEnabled,
                     maxRounds: draft.contextRounds,
-                    ttlHours: draft.contextTTLHours
+                    ttlHours: draft.contextTTLHours,
+                    inputContextEnabled: draft.inputContextEnabled
                 ),
                 autoMatchDescription: draft.description
             )
@@ -750,6 +759,13 @@ struct StyleView: View {
         Binding(
             get: { autoMatchSheetDraft?.contextTTLHours ?? 6 },
             set: { autoMatchSheetDraft?.contextTTLHours = $0 }
+        )
+    }
+
+    private var autoMatchInputContextEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { autoMatchSheetDraft?.inputContextEnabled ?? false },
+            set: { autoMatchSheetDraft?.inputContextEnabled = $0 }
         )
     }
 
@@ -979,6 +995,7 @@ struct StyleAutoMatchSheetDraft: Identifiable {
     var contextRoundsEnabled: Bool = true
     var contextRounds: Int = 3
     var contextTTLHours: Int = 6
+    var inputContextEnabled: Bool = false
 
     init() {}
 
@@ -987,6 +1004,7 @@ struct StyleAutoMatchSheetDraft: Identifiable {
         self.contextRoundsEnabled = settings.contextRounds.enabled
         self.contextRounds = settings.contextRounds.maxRounds
         self.contextTTLHours = settings.contextRounds.ttlHours
+        self.inputContextEnabled = settings.contextRounds.inputContextEnabled
     }
 }
 

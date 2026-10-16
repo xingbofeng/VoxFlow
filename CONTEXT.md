@@ -8,6 +8,7 @@
 - **Final result**: The authoritative transcription emitted by an ASR Provider when its input and decoding are finished.
 - **Bounded timeout**: The 15 second fallback after right Command release that accepts the latest partial result if no final result arrives.
 - **Refinement**: Optional conservative correction through an OpenAI-compatible API.
+- **Post-edit learning**: Rule aggregation and supersession keyed by scope, original text, provider, model, and language. Only enabled automatic active/candidate rules participate; retired history and other contexts remain separate. Repeated observations update evidence without creating an undo item that could delete a previously learned rule.
 - **Text processing pipeline**: The post-ASR path that applies conservative refinement and future glossary/style rules while preserving fallback to raw text.
 - **Refinement guard**: A post-processing safety check for ordinary dictation refinement that rejects LLM outputs which answer, execute, expand, or drop protected spoken tokens instead of conservatively correcting the ASR text.
 - **PromptBuilder**: The pure builder that combines conservative correction rules, selected style guidance, and enabled glossary terms into an LLM system prompt.
@@ -148,6 +149,8 @@ CJK input methods can intercept or transform synthetic keyboard events. VoxFlow 
 ### ADR-003: Final Result With Timeout Fallback
 
 Apple Speech and local ASR final-result latency is not fixed. VoxFlow completes immediately on a final result and otherwise waits up to 15 seconds before accepting the latest partial result. If ASR errors after partial text has arrived, the latest partial is used instead of dropping the dictation.
+
+Pause pre-output applies only to dictation and tracks a watermark in the cumulative transcript. Segment boundaries retain their original whitespace. If ASR revises an already-output prefix, the complete final result is saved to history and copied for manual replacement, with visible feedback. Escape while waiting for a final result uses the same watermark and recovery flow, commits the latest transcript, and ignores later final callbacks.
 
 ### ADR-004: LLM Is Conservative And Optional
 

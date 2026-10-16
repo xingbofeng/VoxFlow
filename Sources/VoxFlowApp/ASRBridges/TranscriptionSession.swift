@@ -4,6 +4,10 @@ struct TranscriptionSession {
     private var released = false
     private var completed = false
 
+    var latestTranscriptText: String {
+        latestText
+    }
+
     mutating func update(text: String, isFinal: Bool) -> String? {
         AppLogger.general.debug("TranscriptionSession update textLen=\(text.count) isFinal=\(isFinal)")
         guard !completed else { return nil }

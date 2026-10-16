@@ -61,8 +61,8 @@ final class AppTextRuntime {
         outputService = DefaultOutputService(
             textInsertionCoordinator: textInsertionCoordinator,
             clipboardService: clipboardService,
-            textInputMode: {
-                outputConfiguration.textInputMode()
+            textInputMode: { target in
+                outputConfiguration.textInputMode(for: target)
             },
             lastResultStore: lastResultStore,
             recentTextOutputRecorder: { text, target in
@@ -71,6 +71,9 @@ final class AppTextRuntime {
                     sourceAppName: target?.appName,
                     sourceAppBundleID: target?.bundleID
                 )
+            },
+            inputAreaTextProvider: { target in
+                SystemAccessibilityProvider().inputAreaText(pid: target?.pid)
             }
         )
         styleSelector = SettingsBackedStyleSelector(
@@ -114,6 +117,9 @@ final class AppTextRuntime {
             },
             autoMatchSettingsProvider: {
                 StyleAutoMatchSettingsStore(settingsRepository: environment.settingsRepository).load()
+            },
+            inputContextProvider: { pid in
+                SystemAccessibilityProvider().inputAreaText(pid: pid)
             }
         )
     }
@@ -282,10 +288,15 @@ struct AppRuntime {
         let focusedTextObserver = AccessibilityFocusedTextObserver()
         let correctionCommitObserver = AppKitCorrectionObservationCommitObserver()
         AppLogger.general.debug("AppRuntime observers created")
+        let correctionLearningService = PostEditLearningService(
+            ruleRepository: environment.correctionRuleRepository,
+            targetRepository: environment.correctionTargetRepository,
+            evidenceRepository: environment.correctionEvidenceRepository,
+            snapshotProvider: environment.correctionSnapshotProvider
+        )
         let correctionObservationCoordinator = CorrectionObservationCoordinator(
             observer: focusedTextObserver,
-            repository: environment.correctionRuleRepository,
-            targetRepository: environment.correctionTargetRepository,
+            learningService: correctionLearningService,
             commitObserver: correctionCommitObserver,
             isAutoLearningEnabled: {
                 (try? VoiceCorrectionSettingsStore.bool(

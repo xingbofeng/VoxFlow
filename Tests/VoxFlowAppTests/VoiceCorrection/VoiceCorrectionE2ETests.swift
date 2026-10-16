@@ -115,14 +115,11 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             observation(value: "use Qwen today"),
         ]
         let clock = FakeCorrectionObservationClock()
-        let coordinator = CorrectionObservationCoordinator(
+        let coordinator = makeCoordinator(
+            environment: environment,
             observer: observer,
             clock: clock,
-            repository: environment.correctionRuleRepository,
-            targetRepository: environment.correctionTargetRepository,
-            pollOffsets: [.seconds(2), .seconds(3), .seconds(5)],
-            isAutoLearningEnabled: { true },
-            autoLearningAppliesImmediately: { true }
+            pollOffsets: [.seconds(2), .seconds(3), .seconds(5)]
         )
 
         await coordinator.observeInsertedText(
@@ -145,14 +142,10 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         let observer = FakeFocusedTextObserver()
         observer.captureResult = observation(value: "投康 Hub is ready")
         observer.recaptureResults = [observation(value: "tokenhub is ready")]
-        let coordinator = CorrectionObservationCoordinator(
+        let coordinator = makeCoordinator(
+            environment: environment,
             observer: observer,
-            clock: FakeCorrectionObservationClock(),
-            repository: environment.correctionRuleRepository,
-            targetRepository: environment.correctionTargetRepository,
-            pollOffsets: [.seconds(1)],
-            isAutoLearningEnabled: { true },
-            autoLearningAppliesImmediately: { true }
+            pollOffsets: [.seconds(1)]
         )
 
         await coordinator.observeInsertedText(
@@ -190,13 +183,9 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             bundleIdentifier: "com.cursor.Cursor",
             isSecureField: false
         )
-        let cancelledCoordinator = CorrectionObservationCoordinator(
-            observer: focusChangedObserver,
-            clock: FakeCorrectionObservationClock(),
-            repository: environment.correctionRuleRepository,
-            targetRepository: environment.correctionTargetRepository,
-            isAutoLearningEnabled: { true },
-            autoLearningAppliesImmediately: { true }
+        let cancelledCoordinator = makeCoordinator(
+            environment: environment,
+            observer: focusChangedObserver
         )
 
         await cancelledCoordinator.observeInsertedText(
@@ -213,14 +202,11 @@ final class VoiceCorrectionE2ETests: XCTestCase {
             observation(value: "use queue win today"),
             observation(value: "use Qwen today"),
         ]
-        let candidateCoordinator = CorrectionObservationCoordinator(
+        let candidateCoordinator = makeCoordinator(
+            environment: environment,
             observer: candidateObserver,
-            clock: FakeCorrectionObservationClock(),
-            repository: environment.correctionRuleRepository,
-            targetRepository: environment.correctionTargetRepository,
             pollOffsets: [.seconds(2), .seconds(3), .seconds(5)],
-            isAutoLearningEnabled: { true },
-            autoLearningAppliesImmediately: { false }
+            appliesImmediately: false
         )
 
         await candidateCoordinator.observeInsertedText(
@@ -233,6 +219,28 @@ final class VoiceCorrectionE2ETests: XCTestCase {
         XCTAssertEqual(candidate.lifecycle, .candidate)
         XCTAssertEqual(candidate.original, "queue win")
         XCTAssertEqual(candidate.replacement, "Qwen")
+    }
+
+    private func makeCoordinator(
+        environment: AppEnvironment,
+        observer: FakeFocusedTextObserver,
+        clock: any CorrectionObservationClock = FakeCorrectionObservationClock(),
+        pollOffsets: [Duration] = [.seconds(1)],
+        appliesImmediately: Bool = true
+    ) -> CorrectionObservationCoordinator {
+        CorrectionObservationCoordinator(
+            observer: observer,
+            clock: clock,
+            learningService: PostEditLearningService(
+                ruleRepository: environment.correctionRuleRepository,
+                targetRepository: environment.correctionTargetRepository,
+                evidenceRepository: environment.correctionEvidenceRepository,
+                snapshotProvider: environment.correctionSnapshotProvider
+            ),
+            pollOffsets: pollOffsets,
+            isAutoLearningEnabled: { true },
+            autoLearningAppliesImmediately: { appliesImmediately }
+        )
     }
 
     private func context(mode: CorrectionInputMode) -> CorrectionContext {

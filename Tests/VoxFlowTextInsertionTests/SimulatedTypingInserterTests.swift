@@ -85,6 +85,23 @@ final class SimulatedTypingInserterTests: XCTestCase {
         XCTAssertEqual(poster.postedTexts, ["a"])
     }
 
+    func testTaskCancellationStopsTypingWithoutSeparateCancellationToken() async {
+        var task: Task<Void, Never>?
+        var result: TextInsertionResult?
+        let poster = CapturingTypingEventPoster { task?.cancel() }
+        let inserter = SimulatedTypingInserter(
+            eventPoster: poster,
+            permissionChecker: { true },
+            interClusterDelayNanoseconds: 0
+        )
+        task = Task { @MainActor in result = await inserter.insert("abc") }
+
+        await task!.value
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertEqual(poster.postedTexts, ["a"])
+    }
+
     func testPermissionFailureReturnsPermissionDeniedWithoutPosting() async {
         let poster = CapturingTypingEventPoster()
         let inserter = SimulatedTypingInserter(

@@ -6,6 +6,37 @@ import VoxFlowVoiceCorrection
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
+    func testPausePreOutputOptionIsOffByDefault() throws {
+        let viewModel = makeViewModelWithInMemoryEnvironment()
+
+        XCTAssertFalse(viewModel.systemOption(.pausePreOutput))
+    }
+
+    func testPausePreOutputOptionPersistsInRepository() throws {
+        let environment = AppEnvironment(container: try DependencyContainer.inMemory())
+        let viewModel = makeViewModelWithInMemoryEnvironment(environment: environment)
+
+        try viewModel.setSystemOption(.pausePreOutput, enabled: true)
+        XCTAssertTrue(viewModel.systemOption(.pausePreOutput))
+
+        let reloadedViewModel = makeViewModelWithInMemoryEnvironment(environment: environment)
+        XCTAssertTrue(reloadedViewModel.systemOption(.pausePreOutput))
+    }
+
+    private func makeViewModelWithInMemoryEnvironment(
+        environment: AppEnvironment? = nil
+    ) -> SettingsViewModel {
+        let resolvedEnvironment = environment ?? AppEnvironment(
+            container: try! DependencyContainer.inMemory()
+        )
+        return SettingsViewModel(
+            environment: resolvedEnvironment,
+            shortcutManager: makeShortcutManager(),
+            audioDeviceProvider: StubAudioDeviceProvider(),
+            permissionProvider: StubPermissionProvider(),
+            launchAtLoginManager: FakeLaunchAtLoginManager(isEnabled: false)
+        )
+    }
     func testSettingsDestinationsUseGeneralModelsFirstOrderAndStableIDs() {
         XCTAssertEqual(
             SettingsDestination.allCases,

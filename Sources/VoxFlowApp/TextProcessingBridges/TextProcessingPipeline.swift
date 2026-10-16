@@ -102,6 +102,41 @@ struct ContextRoundsTrace: Equatable, Codable, Sendable {
     let contextHistoryIDs: [String]
     let excludedReasons: [String]
     let wrapperVersion: String
+    /// Whether the target input box's cursor context was injected this run.
+    /// Defaults to false for persisted payloads saved before the field
+    /// existed.
+    var inputContextUsed: Bool
+
+    init(
+        enabled: Bool,
+        requestedRounds: Int,
+        usedRounds: Int,
+        contextHistoryIDs: [String],
+        excludedReasons: [String],
+        wrapperVersion: String,
+        inputContextUsed: Bool = false
+    ) {
+        self.enabled = enabled
+        self.requestedRounds = requestedRounds
+        self.usedRounds = usedRounds
+        self.contextHistoryIDs = contextHistoryIDs
+        self.excludedReasons = excludedReasons
+        self.wrapperVersion = wrapperVersion
+        self.inputContextUsed = inputContextUsed
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            enabled: try c.decode(Bool.self, forKey: .enabled),
+            requestedRounds: try c.decode(Int.self, forKey: .requestedRounds),
+            usedRounds: try c.decode(Int.self, forKey: .usedRounds),
+            contextHistoryIDs: try c.decode([String].self, forKey: .contextHistoryIDs),
+            excludedReasons: try c.decode([String].self, forKey: .excludedReasons),
+            wrapperVersion: try c.decode(String.self, forKey: .wrapperVersion),
+            inputContextUsed: try c.decodeIfPresent(Bool.self, forKey: .inputContextUsed) ?? false
+        )
+    }
 
     func safeForPersistence() -> ContextRoundsTrace {
         self
@@ -568,6 +603,11 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     /// behavior for existing users and for pipelines without a settings store.
     private let deterministicSettingsProvider: @MainActor () -> DeterministicTextProcessingSettings
     private let autoMatchSettingsProvider: @MainActor () -> StyleAutoMatchSettings
+    /// Reads the target input box's current content (cursor context) for
+    /// dictation refinement. Production wiring resolves through the same
+    /// Accessibility provider the agentCompose ContextPipeline uses; tests
+    /// stub it. Nil provider or nil return → feature silently absent.
+    private let inputContextProvider: (@Sendable (Int?) -> String?)?
     private let contextBoostCoordinator: ContextBoostPrefetchCoordinator?
     private let contextBoostEnabled: @Sendable () -> Bool
     private let contextBoostSuppressed: @Sendable () -> Bool
@@ -606,7 +646,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 autoCapitalization: false
             )
         },
-        autoMatchSettingsProvider: @escaping @MainActor () -> StyleAutoMatchSettings = { StyleAutoMatchSettings() }
+        autoMatchSettingsProvider: @escaping @MainActor () -> StyleAutoMatchSettings = { StyleAutoMatchSettings() },
+        inputContextProvider: (@Sendable (Int?) -> String?)? = nil
     ) {
         self.refiner = refiner
         self.styleRepository = styleRepository
@@ -627,6 +668,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         self.contextBoostTimeoutNanoseconds = contextBoostTimeoutNanoseconds
         self.deterministicSettingsProvider = deterministicSettingsProvider
         self.autoMatchSettingsProvider = autoMatchSettingsProvider
+        self.inputContextProvider = inputContextProvider
     }
 
     func prepareContextBoost(target: DictationTarget?) {
@@ -1045,42 +1087,68 @@ final class DefaultTextProcessingPipeline: TextProcessing {
     ) -> (requestText: String, trace: ContextRoundsTrace?) {
         let settings = autoMatchSettingsProvider().contextRounds
         let requestedRounds = settings.enabled ? settings.maxRounds : 0
+
+        // Input-context (cursor text) injection: independent of history
+        // rounds, gated on its own toggle and the secure-field guard.
+        var inputContextUsed = false
+        var requestText = currentText
+        if settings.enabled, settings.inputContextEnabled,
+           correctionContext?.isSecureField != true,
+           let inputContextProvider {
+            let raw = inputContextProvider(target?.pid) ?? ""
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                let wrapper = PromptRenderer().render(
+                    ContextRoundsPromptCatalog.inputContextWrapper,
+                    context: PromptRenderContext(variables: [
+                        "inputContext": trimmed,
+                        "currentInput": requestText
+                    ])
+                )
+                requestText = wrapper.renderedText
+                inputContextUsed = true
+            }
+        }
+
         guard settings.enabled, requestedRounds > 0 else {
             return (
-                currentText,
+                requestText,
                 ContextRoundsTrace(
                     enabled: settings.enabled,
                     requestedRounds: requestedRounds,
                     usedRounds: 0,
                     contextHistoryIDs: [],
                     excludedReasons: settings.enabled ? ["disabled_by_zero_rounds"] : ["disabled"],
-                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue,
+                    inputContextUsed: inputContextUsed
                 )
             )
         }
         guard correctionContext?.isSecureField != true else {
             return (
-                currentText,
+                requestText,
                 ContextRoundsTrace(
                     enabled: true,
                     requestedRounds: requestedRounds,
                     usedRounds: 0,
                     contextHistoryIDs: [],
                     excludedReasons: ["secure_field"],
-                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue,
+                    inputContextUsed: inputContextUsed
                 )
             )
         }
         guard let historyRepository, let target else {
             return (
-                currentText,
+                requestText,
                 ContextRoundsTrace(
                     enabled: true,
                     requestedRounds: requestedRounds,
                     usedRounds: 0,
                     contextHistoryIDs: [],
                     excludedReasons: ["missing_history_or_target"],
-                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue,
+                    inputContextUsed: inputContextUsed
                 )
             )
         }
@@ -1109,14 +1177,15 @@ final class DefaultTextProcessingPipeline: TextProcessing {
         let selected = Array(candidates.prefix(requestedRounds))
         guard !selected.isEmpty else {
             return (
-                currentText,
+                requestText,
                 ContextRoundsTrace(
                     enabled: true,
                     requestedRounds: requestedRounds,
                     usedRounds: 0,
                     contextHistoryIDs: [],
                     excludedReasons: Array(Set(excludedReasons)).sorted(),
-                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                    wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue,
+                    inputContextUsed: inputContextUsed
                 )
             )
         }
@@ -1127,7 +1196,7 @@ final class DefaultTextProcessingPipeline: TextProcessing {
             ContextRoundsPromptCatalog.wrapper,
             context: PromptRenderContext(variables: [
                 "previousContext": previousContext,
-                "currentInput": currentText
+                "currentInput": requestText
             ])
         )
         return (
@@ -1138,7 +1207,8 @@ final class DefaultTextProcessingPipeline: TextProcessing {
                 usedRounds: selected.count,
                 contextHistoryIDs: selected.map(\.id),
                 excludedReasons: Array(Set(excludedReasons)).sorted(),
-                wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue
+                wrapperVersion: ContextRoundsPromptCatalog.wrapper.version.stringValue,
+                inputContextUsed: inputContextUsed
             )
         )
     }

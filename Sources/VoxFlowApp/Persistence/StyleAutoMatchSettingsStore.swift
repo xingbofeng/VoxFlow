@@ -53,11 +53,17 @@ struct ContextRoundsSettings: Equatable, Codable, Sendable {
     var enabled: Bool
     var maxRounds: Int
     var ttlHours: Int
+    /// Include the target input box's current content (cursor context) in the
+    /// refinement prompt, in addition to same-app history rounds. Privacy
+    /// sensitive: reads the focused element through Accessibility, so it
+    /// defaults to off and never applies to secure fields.
+    var inputContextEnabled: Bool
 
-    init(enabled: Bool = true, maxRounds: Int = 3, ttlHours: Int = 6) {
+    init(enabled: Bool = true, maxRounds: Int = 3, ttlHours: Int = 6, inputContextEnabled: Bool = false) {
         self.enabled = enabled
         self.maxRounds = max(0, min(maxRounds, 5))
         self.ttlHours = max(1, min(ttlHours, 24))
+        self.inputContextEnabled = inputContextEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -65,7 +71,8 @@ struct ContextRoundsSettings: Equatable, Codable, Sendable {
         self.init(
             enabled: try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true,
             maxRounds: try c.decodeIfPresent(Int.self, forKey: .maxRounds) ?? 3,
-            ttlHours: try c.decodeIfPresent(Int.self, forKey: .ttlHours) ?? 6
+            ttlHours: try c.decodeIfPresent(Int.self, forKey: .ttlHours) ?? 6,
+            inputContextEnabled: try c.decodeIfPresent(Bool.self, forKey: .inputContextEnabled) ?? false
         )
     }
 }

@@ -44,6 +44,10 @@ public struct DeterministicTextProcessingSettings: Sendable, Equatable, Codable 
     /// Capitalize the first letter of natural English sentences. Disabled in
     /// coding/identifier contexts to avoid breaking variable names/commands.
     public var autoCapitalization: Bool
+    /// Convert Chinese units after Arabic digits to international symbols
+    /// (公里 → km, 千克 → kg). Defaults to off (opt-in rewrite, matching
+    /// Chatterfly's `keyVoiceUnitToInternational = 0` runtime default).
+    public var unitNormalization: Bool
     /// Maximum English words per line before long-sentence breaking triggers.
     public var longSentenceWordThreshold: Int
     /// Maximum CJK characters per line before long-sentence breaking triggers.
@@ -63,6 +67,7 @@ public struct DeterministicTextProcessingSettings: Sendable, Equatable, Codable 
         fillerWordFiltering: Bool = true,
         cjkLatinSpacing: Bool = true,
         autoCapitalization: Bool = true,
+        unitNormalization: Bool = false,
         longSentenceWordThreshold: Int = 8,
         longSentenceCJKThreshold: Int = 12,
         punctuationCJKThreshold: Int = 3,
@@ -76,6 +81,7 @@ public struct DeterministicTextProcessingSettings: Sendable, Equatable, Codable 
         self.fillerWordFiltering = fillerWordFiltering
         self.cjkLatinSpacing = cjkLatinSpacing
         self.autoCapitalization = autoCapitalization
+        self.unitNormalization = unitNormalization
         self.longSentenceWordThreshold = longSentenceWordThreshold
         self.longSentenceCJKThreshold = longSentenceCJKThreshold
         self.punctuationCJKThreshold = punctuationCJKThreshold
@@ -86,6 +92,26 @@ public struct DeterministicTextProcessingSettings: Sendable, Equatable, Codable 
     /// Current schema version. Bump when the default values or shape changes
     /// in a way that requires migrating existing on-disk payloads.
     public static let currentSchemaVersion = 1
+
+    /// Custom decoding so payloads saved before a field existed keep decoding
+    /// (missing bool → the field's default) instead of failing wholesale and
+    /// resetting the user's explicitly configured toggles.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        smartNumberRecognition = try container.decodeIfPresent(Bool.self, forKey: .smartNumberRecognition) ?? true
+        punctuationOptimization = try container.decodeIfPresent(Bool.self, forKey: .punctuationOptimization) ?? true
+        longSentenceBreaking = try container.decodeIfPresent(Bool.self, forKey: .longSentenceBreaking) ?? false
+        fillerWordFiltering = try container.decodeIfPresent(Bool.self, forKey: .fillerWordFiltering) ?? true
+        cjkLatinSpacing = try container.decodeIfPresent(Bool.self, forKey: .cjkLatinSpacing) ?? true
+        autoCapitalization = try container.decodeIfPresent(Bool.self, forKey: .autoCapitalization) ?? true
+        unitNormalization = try container.decodeIfPresent(Bool.self, forKey: .unitNormalization) ?? false
+        longSentenceWordThreshold = try container.decodeIfPresent(Int.self, forKey: .longSentenceWordThreshold) ?? 8
+        longSentenceCJKThreshold = try container.decodeIfPresent(Int.self, forKey: .longSentenceCJKThreshold) ?? 12
+        punctuationCJKThreshold = try container.decodeIfPresent(Int.self, forKey: .punctuationCJKThreshold) ?? 3
+        punctuationWordThreshold = try container.decodeIfPresent(Int.self, forKey: .punctuationWordThreshold) ?? 4
+    }
 
     /// Default settings. Master switch is on; all processors are enabled
     /// except `longSentenceBreaking` (the most intrusive one). Thresholds
@@ -108,6 +134,7 @@ public extension DeterministicTextProcessingSettings {
                 fillerWordFiltering: false,
                 cjkLatinSpacing: false,
                 autoCapitalization: false,
+                unitNormalization: false,
                 longSentenceWordThreshold: longSentenceWordThreshold,
                 longSentenceCJKThreshold: longSentenceCJKThreshold,
                 punctuationCJKThreshold: punctuationCJKThreshold,

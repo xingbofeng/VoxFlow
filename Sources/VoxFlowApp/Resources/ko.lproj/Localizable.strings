@@ -23,6 +23,9 @@
 "settings.general.dictation.title" = "음성 인식";
 "settings.general.dictation.subtitle" = "단축키를 누르고 말한 뒤, 떼면 필기 변환 후 입력됩니다";
 "settings.general.dictation.button_title" = "수정";
+"settings.general.voice_command.title" = "음성 명령";
+"settings.general.voice_command.subtitle" = "명령을 말하면 현재 입력란의 텍스트를 명령대로 고쳐 씁니다";
+"settings.general.voice_command.button_title" = "변경";
 "settings.general.agent_compose.title" = "Agent 호출";
 "settings.general.agent_compose.subtitle" = "현재 창 맥락과 음성 입력으로 텍스트를 생성해 현재 입력창에 직접 입력";
 "settings.general.agent_compose.button_title" = "단축키 설정";
@@ -89,6 +92,7 @@
 "debug.transcript_injection.placeholder" = "모의 인식 텍스트 입력";
 "debug.transcript_injection.mode.dictation" = "일반 받아쓰기";
 "debug.transcript_injection.mode.agent_compose" = "Agent Compose";
+"debug.transcript_injection.mode.command" = "음성 명령";
 "menu.status.llm_service_unavailable" = "LLM 모델 서비스가 설정되지 않았습니다";
 "menu.status.agent_model_unavailable" = "Agent 모델이 설정되지 않았습니다";
 "menu.status.capability.not_configured" = "미설정";
@@ -105,6 +109,7 @@
 /* ===== 기록 ===== */
 "dictation.error.agent_compose_unavailable" = "작업 어시스턴트 준비가 아직 완료되지 않았습니다. VoxFlow를 재시작하고 다시 시도하세요.";
 "dictation.error.agent_dispatch_unavailable" = "AI 코딩 콘솔 준비가 아직 완료되지 않았습니다. VoxFlow를 재시작하고 다시 시도하세요.";
+"dictation.error.command_unavailable" = "음성 명령을 아직 사용할 수 없습니다. VoxFlow를 다시 실행한 뒤 시도해 주세요.";
 "notes_recording.error.microphone_permission_denied" = "마이크 접근 권한이 없습니다. 시스템 설정에서 VoxFlow의 마이크 사용을 허용하세요.";
 "notes_recording.error.speech_permission_denied" = "음성 인식 권한이 없습니다. 시스템 설정에서 VoxFlow의 음성 인식 사용을 허용하세요.";
 
@@ -134,6 +139,7 @@
 /* ===== 앱 공통 ===== */
 "app.agent_dispatch.failure" = "AI 어시스턴트 요청을 전송할 수 없습니다. 다시 시도하세요.";
 "app.dictation.setup_ai_model_required" = "먼저 AI 모델을 설정한 다음 VoxFlow를 재시작하고 다시 시도하세요.";
+"app.dictation.no_editable_text" = "음성 명령을 쓰려면 입력란에 텍스트가 있어야 합니다. 먼저 내용을 입력하거나 선택해 주세요.";
 "app.learning.undo_failed" = "되돌리기 실패.";
 
 /* ===== ASR 오류 메시지 ===== */
@@ -249,6 +255,9 @@
 "hud.feedback.target_window_changed_copied" = "대상 창이 변경됨. 내용이 복사됨.";
 "hud.feedback.permission_denied_copied" = "접근성 권한이 거부됨. 내용이 복사됨.";
 "hud.feedback.input_failed_copied" = "입력 실패. 내용이 복사됨.";
+"hud.feedback.voice_command_applied" = "명령대로 입력란을 고쳐 썼습니다";
+"hud.feedback.voice_command_input_changed" = "입력란 내용이 바뀌어 결과를 복사했습니다.";
+"hud.feedback.voice_command_input_required" = "고쳐 쓸 텍스트가 없습니다. 내용이 있는 입력란에 커서를 두세요.";
 "hud.feedback.copy_failed_prompt" = "생성 완료되었으나 복사 실패. 클릭하여 수동 복사.";
 "hud.feedback.no_copyable_result" = "복사 가능한 결과가 없음";
 "hud.feedback.manual_copy_succeeded" = "결과가 수동 복사됨";
@@ -351,6 +360,7 @@
 "dictation.coordinator.llm_call_failed_format" = "LLM 호출 실패: %@";
 "dictation.coordinator.workflow_already_running_format" = "%@ 작업이 실행 중입니다. 먼저 완료한 후 시도하세요.";
 "dictation.hud.context_fusion" = "컨텍스트 기반 응답 구성 중…";
+"dictation.hud.applying_command" = "명령대로 고쳐 쓰는 중…";
 "dictation.asset.default_title" = "받아쓰기 기록";
 "dictation.error.already_running" = "받아쓰기 작업이 이미 진행 중입니다.";
 "dictation.error.final_result_timed_out" = "제한 시간 내에 최종 전사 결과를 받지 못했습니다.";
@@ -367,6 +377,7 @@
 "llm.refiner.error.github_models_access" = "GitHub Models가 현재 모델 요청을 거부했습니다. 선택한 모델에 접근할 수 있는 GitHub token/계정을 사용하거나, 이 계정에서 사용할 수 있는 모델을 선택하세요.";
 "llm.refiner.error.huggingface_inference_permission" = "이 Hugging Face token은 메타데이터만 읽을 수 있고 Inference Providers를 호출할 수 없습니다. token을 만들거나 수정해서 Inference Providers 권한을 켜세요.";
 "llm.refiner.error.opencode_balance" = "OpenCode Zen 계정 잔액이 부족합니다. 충전한 뒤 다시 테스트하세요.";
+"llm.refiner.error.account_balance" = "모델 서비스 계정 잔액이 부족하거나 미납 상태입니다. 충전한 뒤 다시 시도하세요.";
 "llm.refiner.error.network_error_format" = "LLM 네트워크 오류: %@";
 "llm.text_transform.unavailable_message" = "먼저 설정에서 모델을 구성하세요.";
 
@@ -528,6 +539,7 @@
 "menu.provider_tag.streaming" = "스트리밍";
 "menu.voice_action.agent_compose" = "작업 도우미";
 "menu.voice_action.agent_dispatch" = "작업 전달";
+"menu.voice_action.command" = "음성 명령";
 "menu.voice_action.dictation" = "받아쓰기";
 
 /* ===== Selection ===== */
@@ -1251,6 +1263,8 @@
 "settings.message.mcp_log_path_missing" = "MCP 로그 경로가 없습니다";
 "settings.message.mcp_log_read_failed" = "MCP 로그 읽기 실패";
 "settings.message.middle_mouse_recording_disabled" = "가운데 마우스 버튼 녹음 비활성화됨";
+"settings.message.output_rule_deleted" = "출력 규칙이 삭제되었습니다";
+"settings.message.output_rule_updated" = "출력 규칙이 업데이트되었습니다";
 "settings.message.settings_imported" = "설정 가져옴";
 "settings.message.settings_reset" = "설정 재설정";
 "settings.message.shortcuts_updated" = "단축키가 업데이트되었습니다";
@@ -1266,6 +1280,11 @@
 "settings.message.voice_correction_enabled" = "음성 보정 활성화됨";
 "settings.message.voice_correction_shadow_mode_disabled" = "음성 보정 섀도 모드 비활성화됨";
 "settings.message.voice_correction_shadow_mode_enabled" = "음성 보정 섀도 모드 활성화됨";
+"settings.output.app_rules.add" = "앱 규칙 추가";
+"settings.output.app_rules.empty" = "아직 앱 규칙이 없습니다. 모든 앱은 전역 입력 방식을 사용합니다.";
+"settings.output.app_rules.pick_subtitle" = "앱을 선택하면 규칙이 추가됩니다. 기본값은 빠른 붙여너기이며, 행에서 입력 방식을 바꿀 수 있습니다.";
+"settings.output.app_rules.pick_title" = "앱 선택";
+"settings.output.app_rules.subtitle" = "특정 앱에서 입력 방식을 재정의합니다.";
 "settings.output.avoid_clipboard.subtitle" = "키보드 입력을 시뮬레이션해 텍스트를 입력하고, 가능하면 시스템 클립보드를 사용하지 않습니다.";
 "settings.output.avoid_clipboard.title" = "키보드 입력 시뮬레이션";
 "settings.output.clipboard_image_ocr.subtitle" = "클립보드 이미지에서 텍스트를 인식합니다.";
@@ -1333,6 +1352,8 @@
 "settings.system.auto_release_local_model.subtitle" = "유휴 상태일 때 로컬 모델을 해제하여 메모리를 절약합니다.";
 "settings.system.auto_release_local_model.title" = "로컬 모델 자동 해제";
 "settings.system.keep_microphone_active.subtitle" = "더 빠른 시작을 위해 마이크를 활성 상태로 유지합니다.";
+"settings.system.pause_pre_output.title" = "멈춤 미리 출력";
+"settings.system.pause_pre_output.subtitle" = "말이 끊기면 인식된 텍스트를 먼저 입력하고 계속 받아쓸 수 있습니다.";
 "settings.system.keep_microphone_active.title" = "마이크 활성 상태 유지";
 "settings.system.local_model_live_preview.subtitle" = "로컬 모델을 사용할 때 말하는 동안 스트리밍 인식 결과를 표시합니다.";
 "settings.system.local_model_live_preview.title" = "스트리밍 인식 미리보기";
@@ -1861,6 +1882,7 @@
 "home.detail.title.agent_compose" = "작업 도우미 상세";
 "home.detail.title.agent_dispatch" = "AI 코딩 상세";
 "home.detail.title.dictation" = "전사 상세";
+"home.detail.title.command" = "음성 명령 상세";
 "home.detail.subtitle.agent_compose" = "음성 의도, 생성 결과 및 처리 세부 정보를 확인합니다.";
 "home.detail.subtitle.agent_dispatch" = "음성 명령, 도우미 전송 결과 및 실패 세부 정보를 확인합니다.";
 "home.detail.subtitle.with_trace" = "원본 인식 결과와 최종 텍스트를 비교하고 처리 파이프라인을 검사합니다.";
@@ -2386,3 +2408,10 @@
 "asr.xasr.invalid_audio" = "X-ASR이 음성을 처리하지 못했습니다. 다시 녹음하세요.";
 "asr.xasr.invalidated" = "X-ASR이 해제되거나 변경되었습니다. 새 녹음을 시작하세요.";
 "asr.xasr.download_failed" = "X-ASR 모델 다운로드에 실패했습니다. 다시 시도하면 다운로드를 이어서 진행합니다.";
+"settings.text_processing.unit_normalization.title" = "단위 정규화";
+"settings.text_processing.unit_normalization.subtitle" = "숫자 뒤의 중국어 단위를 국제 기호로 변환합니다 (예: 5公里 → 5km)";
+"app.dictation.bluetooth_quality_hint" = "현재 블루투스 마이크의 음질이 제한되어 인식 정확도가 떨어질 수 있습니다. 유선 또는 내장 마이크 사용을 권장합니다.";
+"style.automatch.input_context.title" = "입력 상자 내용 포함";
+"style.automatch.input_context.description" = "대상 입력 상자의 현재 텍스트를 읽어(손쉬운 사용 권한 필요) 편집 중인 내용에 맞게 교정합니다. 암호 필드는 항상 건너뜁니다.";
+
+"dictation.hud.pause_pre_output_revised_copied" = "인식 결과가 수정되어 전체 내용을 복사했습니다. 앞서 입력된 텍스트를 직접 바꿔 주세요.";

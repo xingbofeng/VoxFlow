@@ -99,6 +99,42 @@ final class ModelAtomicInstallerTests: XCTestCase {
         XCTAssertEqual(installCount, 1)
     }
 
+    func testInstallRemovesOutdatedVersionsOfSameModel() throws {
+        let root = try makeTemporaryDirectory()
+        let storeRoot = root.appendingPathComponent("installed", isDirectory: true)
+        let oldVersion = storeRoot
+            .appendingPathComponent("qwen3-asr-0.6b", isDirectory: true)
+            .appendingPathComponent("2026.05.01", isDirectory: true)
+        try FileManager.default.createDirectory(at: oldVersion, withIntermediateDirectories: true)
+        try Data("stale".utf8).write(to: oldVersion.appendingPathComponent("encoder.bin"))
+        let otherModel = storeRoot
+            .appendingPathComponent("whisper-large", isDirectory: true)
+            .appendingPathComponent("2026.01.01", isDirectory: true)
+        try FileManager.default.createDirectory(at: otherModel, withIntermediateDirectories: true)
+
+        let staging = root.appendingPathComponent("qwen3.partial", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("hello".utf8).write(to: staging.appendingPathComponent("encoder.bin"))
+
+        _ = try ModelAtomicInstaller().install(
+            manifest: manifest(),
+            stagingRoot: staging,
+            storeRoot: storeRoot,
+            runtimeVersion: "coreml-8"
+        )
+
+        // Outdated version of the same model is gone; other models untouched.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldVersion.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: otherModel.path))
+        // The newly installed version is present.
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: storeRoot
+                .appendingPathComponent("qwen3-asr-0.6b", isDirectory: true)
+                .appendingPathComponent("2026.06.01", isDirectory: true)
+                .appendingPathComponent("encoder.bin").path
+        ))
+    }
+
     private func manifest() -> ModelManifest {
         ModelManifest(
             schemaVersion: 1,

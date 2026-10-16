@@ -70,7 +70,7 @@ final class XASRDownloaderTests: XCTestCase {
                 guard case .integrityFailed(let report) = error else { return XCTFail("unexpected \(error)") }
                 XCTAssertFalse(report.isValid)
             }
-            XCTAssertEqual(try Data(contentsOf: oldRoot.appendingPathComponent(XASRModel.encoderPath)), XASRFixtureTransport.content(XASRModel.encoderPath))
+            XCTAssertEqual(try Data(contentsOf: oldRoot.appendingPathComponent(XASRModel.encoderPath)), XASRFixtureTransport.content(XASRModel.encoderPath, version: "old-revision"))
             XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("fixture-model/revision").path))
         }
     }
@@ -167,7 +167,7 @@ final class XASRDownloaderTests: XCTestCase {
         } catch let error as ModelDownloadError {
             guard case .networkFailure = error else { return XCTFail("unexpected \(error)") }
         }
-        XCTAssertEqual(try Data(contentsOf: oldRoot.appendingPathComponent(XASRModel.encoderPath)), XASRFixtureTransport.content(XASRModel.encoderPath))
+        XCTAssertEqual(try Data(contentsOf: oldRoot.appendingPathComponent(XASRModel.encoderPath)), XASRFixtureTransport.content(XASRModel.encoderPath, version: "old-revision"))
     }
 
     func testCompletedStagedComponentIsNotRequestedAsAnEmptyRange() async throws {
@@ -223,7 +223,7 @@ final class XASRDownloaderTests: XCTestCase {
 
     private func fixtureManifest(version: String = "revision") -> ModelManifest {
         ModelManifest(schemaVersion: 1, components: XASRModel.requiredPaths.map { path in
-            let data = XASRFixtureTransport.content(path)
+            let data = XASRFixtureTransport.content(path, version: version)
             return ModelComponentManifest(providerID: .init(rawValue: "xasr"), modelID: .init(rawValue: "fixture-model"),
                 version: version, runtimeVersion: "fixture-runtime", downloadURL: URL(string: "https://example.com/\(path)")!,
                 expectedSizeBytes: Int64(data.count), sha256: .init(rawValue: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()),
@@ -240,7 +240,7 @@ final class XASRDownloaderTests: XCTestCase {
         let stage = ResumableModelDownloader.stagingRoot(for: key(manifest), storeRoot: root)
         try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
         for component in manifest.components {
-            try XASRFixtureTransport.content(component.localPath).write(to: stage.appendingPathComponent(component.localPath))
+            try XASRFixtureTransport.content(component.localPath, version: component.version).write(to: stage.appendingPathComponent(component.localPath))
         }
         return try ModelAtomicInstaller().install(manifest: manifest, stagingRoot: stage, storeRoot: root, runtimeVersion: "fixture-runtime").installedRoot
     }
@@ -266,7 +266,11 @@ private actor XASRFixtureTransport: ModelDownloadTransport {
         self.holdFirstRequest = holdFirstRequest
     }
 
-    static func content(_ path: String) -> Data { Data("fixture-content-for-\(path)".utf8) }
+    /// 内容按版本加盐：不同版本的内容（及 SHA256）必须不同，
+    /// 否则跨版本组件复用会合法地跳过 transport，损坏路径永远无法触发。
+    static func content(_ path: String, version: String = "revision") -> Data {
+        Data("fixture-content-for-\(path)@\(version)".utf8)
+    }
     func requests() -> [Request] { captured }
     func waitForFirstRequest() async {
         if !captured.isEmpty { return }
@@ -285,7 +289,7 @@ private actor XASRFixtureTransport: ModelDownloadTransport {
             }
         }
         if damage == .network { throw ModelDownloadError.networkFailure("fixture connection closed") }
-        var data = Self.content(component.localPath)
+        var data = Self.content(component.localPath, version: component.version)
         if component.localPath == XASRModel.encoderPath {
             if damage == .hash { data[0] = 0 }
             if damage == .size { data = data.dropLast() }

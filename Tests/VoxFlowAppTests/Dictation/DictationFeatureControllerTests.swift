@@ -62,6 +62,45 @@ final class DictationFeatureControllerTests: XCTestCase {
         XCTAssertTrue(recorder.startCalls.isEmpty)
     }
 
+    func testVoiceCommandPressStartsCommandModeWhenConfiguredAndTextIsEditable() {
+        let recorder = DictationFeatureRecorder()
+        let controller = recorder.makeController()
+
+        controller.handlePress(action: .command)
+
+        XCTAssertEqual(controller.activeVoiceAction, .command)
+        XCTAssertEqual(recorder.startCalls, [
+            .init(configuration: recorder.configuration, mode: .command)
+        ])
+        XCTAssertTrue(recorder.voiceCommandRequirements.isEmpty)
+    }
+
+    func testVoiceCommandPressWithoutModelReportsModelRequirementBeforePermissionChecks() {
+        let recorder = DictationFeatureRecorder()
+        recorder.isVoiceCommandConfigured = false
+        let controller = recorder.makeController()
+
+        controller.handlePress(action: .command)
+
+        XCTAssertNil(controller.activeVoiceAction)
+        XCTAssertEqual(recorder.voiceCommandRequirements, [.model])
+        XCTAssertEqual(recorder.permissionRefreshCount, 0)
+        XCTAssertTrue(recorder.startCalls.isEmpty)
+    }
+
+    func testVoiceCommandPressWithoutEditableTextReportsInputTextRequirement() {
+        let recorder = DictationFeatureRecorder()
+        recorder.hasEditableVoiceCommandText = false
+        let controller = recorder.makeController()
+
+        controller.handlePress(action: .command)
+
+        XCTAssertNil(controller.activeVoiceAction)
+        XCTAssertEqual(recorder.voiceCommandRequirements, [.inputText])
+        XCTAssertEqual(recorder.permissionRefreshCount, 0)
+        XCTAssertTrue(recorder.startCalls.isEmpty)
+    }
+
     func testPressWithoutRecordingPermissionsShowsPermissionAlertAndDoesNotStart() {
         let recorder = DictationFeatureRecorder()
         recorder.permissionSnapshot = .deniedApple
@@ -153,6 +192,8 @@ final class DictationFeatureControllerTests: XCTestCase {
 private final class DictationFeatureRecorder {
     var state: DictationState = .idle
     var isAgentComposeConfigured = true
+    var isVoiceCommandConfigured = true
+    var hasEditableVoiceCommandText = true
     var permissionSnapshot = RecordingPermissionSnapshot.grantedApple
     var voiceEnhancementEnabled = false
     var startError: Error?
@@ -160,6 +201,7 @@ private final class DictationFeatureRecorder {
     var presentationResult = DictationStatePresentationResult(shouldClearActiveVoiceAction: false)
 
     private(set) var agentComposeSetupPromptCount = 0
+    private(set) var voiceCommandRequirements: [VoiceCommandRequirement] = []
     private(set) var permissionRefreshCount = 0
     private(set) var permissionAlertCount = 0
     private(set) var voiceEnhancementUpdates: [Bool] = []
@@ -180,6 +222,15 @@ private final class DictationFeatureRecorder {
             isAgentComposeConfigured: { [weak self] in self?.isAgentComposeConfigured ?? false },
             showAgentComposeSetupRequired: { [weak self] in
                 self?.agentComposeSetupPromptCount += 1
+            },
+            isVoiceCommandConfigured: { [weak self] in
+                self?.isVoiceCommandConfigured ?? false
+            },
+            hasEditableVoiceCommandText: { [weak self] in
+                self?.hasEditableVoiceCommandText ?? false
+            },
+            showVoiceCommandRequirement: { [weak self] requirement in
+                self?.voiceCommandRequirements.append(requirement)
             },
             refreshRecordingPermissionSnapshot: { [weak self] in
                 self?.permissionRefreshCount += 1

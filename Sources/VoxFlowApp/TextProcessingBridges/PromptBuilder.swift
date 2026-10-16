@@ -6,6 +6,9 @@ enum TextRefinementPurpose: Equatable {
     case dictationCorrection
     case agentCompose
     case directTask
+    /// Voice command: the user's transcript is an instruction that rewrites
+    /// the text already in the focused input area.
+    case commandEdit
 }
 
 struct TextRefinementRequest: Equatable {

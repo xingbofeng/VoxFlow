@@ -624,8 +624,12 @@ final class CorrectionObservationCoordinatorTests: XCTestCase {
         CorrectionObservationCoordinator(
             observer: observer,
             clock: clock,
-            repository: repository,
-            targetRepository: targetRepository,
+            learningService: PostEditLearningService(
+                ruleRepository: repository,
+                targetRepository: targetRepository,
+                evidenceRepository: nil,
+                snapshotProvider: CorrectionRuleSnapshotProvider(loader: repository)
+            ),
             pollOffsets: pollOffsets,
             commitObserver: commitObserver,
             isAutoLearningEnabled: { autoLearningEnabled },

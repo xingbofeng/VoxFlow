@@ -193,7 +193,27 @@ enum StyleOutputFormatPreviewText {
         let toneKey = "style.output_format.preview.output.\(format.tone.rawValue)"
         let toneText = L10n.format(toneKey, comment: "", englishClause(for: format.capitalization))
         let withEmoji = toneText + emojiSuffix(for: format.emoji)
-        return applyPunctuation(format.punctuation, to: withEmoji)
+        return applyPunctuationPolicy(format.punctuation, to: withEmoji)
+    }
+
+    /// Punctuation preview must mirror the deterministic pipeline's
+    /// `StyleOutputFormatter` semantics: complete appends the ending mark,
+    /// less strips ordinary ending punctuation, preserve keeps the text as-is.
+    static func applyPunctuationPolicy(
+        _ punctuation: StyleOutputPunctuation,
+        to text: String
+    ) -> String {
+        switch punctuation {
+        case .complete:
+            return text + L10n.localize("style.output_format.preview.period", comment: "")
+        case .less:
+            return StyleOutputFormatter.process(
+                text,
+                policy: StyleOutputFormatPolicy(punctuation: .noEnding)
+            )
+        case .preserve:
+            return text
+        }
     }
 
     private static func englishClause(for capitalization: StyleOutputCapitalization) -> String {
@@ -215,21 +235,6 @@ enum StyleOutputFormatPreviewText {
             return L10n.localize("style.output_format.preview.emoji.natural", comment: "")
         case .required:
             return L10n.localize("style.output_format.preview.emoji.required", comment: "")
-        }
-    }
-
-    private static func applyPunctuation(
-        _ punctuation: StyleOutputPunctuation,
-        to text: String
-    ) -> String {
-        switch punctuation {
-        case .complete:
-            return text + L10n.localize("style.output_format.preview.period", comment: "")
-        case .less, .preserve:
-            return StyleOutputFormatter.process(
-                text,
-                policy: StyleOutputFormatPolicy(punctuation: .noEnding)
-            )
         }
     }
 }

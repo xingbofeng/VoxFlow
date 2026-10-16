@@ -23,6 +23,9 @@
 "settings.general.dictation.title" = "音声文字変換";
 "settings.general.dictation.subtitle" = "ショートカットを押し続けて話し、離すと文字に変換して入力";
 "settings.general.dictation.button_title" = "変更";
+"settings.general.voice_command.title" = "音声コマンド";
+"settings.general.voice_command.subtitle" = "指示を話すと、現在の入力欄のテキストを指示どおりに書き換えます";
+"settings.general.voice_command.button_title" = "変更";
 "settings.general.agent_compose.title" = "Agent を呼び出す";
 "settings.general.agent_compose.subtitle" = "現在のウィンドウコンテキストと言葉を組み合わせて文章を作成し、入力欄へ直接書き込みます";
 "settings.general.agent_compose.button_title" = "ショートカットを設定";
@@ -89,6 +92,7 @@
 "debug.transcript_injection.placeholder" = "模擬認識テキストを入力";
 "debug.transcript_injection.mode.dictation" = "通常の音声入力";
 "debug.transcript_injection.mode.agent_compose" = "Agent Compose";
+"debug.transcript_injection.mode.command" = "音声コマンド";
 "menu.status.llm_service_unavailable" = "LLMモデルサービスが未設定です";
 "menu.status.agent_model_unavailable" = "Agentモデルが未設定です";
 
@@ -106,6 +110,7 @@
 /* ===== タスクとノート ===== */
 "dictation.error.agent_compose_unavailable" = "タスクアシスタントの初期化が完了していません。VoxFlowを再起動して再試行してください。";
 "dictation.error.agent_dispatch_unavailable" = "AIコーディングコンソールの準備が完了していません。VoxFlowを再起動して再試行してください。";
+"dictation.error.command_unavailable" = "音声コマンドの準備ができていません。VoxFlow を再起動してからお試しください。";
 "notes_recording.error.microphone_permission_denied" = "マイク権限がありません。システム設定でVoxFlowのマイク利用を許可してください。";
 "notes_recording.error.speech_permission_denied" = "音声認識権限がありません。システム設定でVoxFlowの音声認識利用を許可してください。";
 
@@ -135,6 +140,7 @@
 /* ===== アプリ全体 ===== */
 "app.agent_dispatch.failure" = "AIアシスタントの要求を送信できません。再試行してください。";
 "app.dictation.setup_ai_model_required" = "先にAIモデルを設定してから VoxFlow を再起動し、再試行してください。";
+"app.dictation.no_editable_text" = "音声コマンドには入力欄のテキストが必要です。先に文字を入力するか選択してください。";
 "app.learning.undo_failed" = "元に戻すことができませんでした。";
 
 /* ===== ASRエラーマッピング ===== */
@@ -250,6 +256,9 @@
 "hud.feedback.target_window_changed_copied" = "対象ウィンドウが変更されました。内容をコピーしました。";
 "hud.feedback.permission_denied_copied" = "アクセシビリティ権限が拒否されました。内容をコピーしました。";
 "hud.feedback.input_failed_copied" = "入力に失敗しました。内容をコピーしました。";
+"hud.feedback.voice_command_applied" = "指示どおりに入力欄を書き換えました";
+"hud.feedback.voice_command_input_changed" = "入力欄の内容が変わったため、結果をコピーしました。";
+"hud.feedback.voice_command_input_required" = "書き換えられるテキストがありません。内容のある入力欄にカーソルを置いてください。";
 "hud.feedback.copy_failed_prompt" = "生成は完了しましたが、コピーに失敗しました。クリックして手動コピー。";
 "hud.feedback.no_copyable_result" = "コピー可能な結果はありません";
 "hud.feedback.manual_copy_succeeded" = "結果を手動コピーしました";
@@ -351,6 +360,7 @@
 "dictation.coordinator.llm_call_failed_format" = "LLM 呼び出しに失敗しました: %@";
 "dictation.coordinator.workflow_already_running_format" = "%@ タスクが実行中です。先に完了してください。";
 "dictation.hud.context_fusion" = "コンテキストから応答を構成中…";
+"dictation.hud.applying_command" = "指示どおりに書き換えています…";
 "dictation.asset.default_title" = "音声入力記録";
 "dictation.error.already_running" = "音声入力はすでに実行中です。";
 "dictation.error.final_result_timed_out" = "タイムアウトまでに最終文字起こし結果を取得できませんでした。";
@@ -367,6 +377,7 @@
 "llm.refiner.error.github_models_access" = "GitHub Models がこのモデルを拒否しました。選択したモデルにアクセスできる GitHub token またはアカウントを使用するか、このアカウントで使えるモデルを選択してください。";
 "llm.refiner.error.huggingface_inference_permission" = "この Hugging Face token はメタデータの読み取りのみ可能で、Inference Providers を呼び出せません。token を作成または編集し、Inference Providers 権限を有効にしてください。";
 "llm.refiner.error.opencode_balance" = "OpenCode Zen のアカウント残高が不足しています。残高を追加してから再度テストしてください。";
+"llm.refiner.error.account_balance" = "モデルサービスのアカウント残高が不足しているか、未払いがあります。チャージしてから再試行してください。";
 "llm.refiner.error.network_error_format" = "LLM ネットワークエラー: %@";
 "llm.text_transform.unavailable_message" = "先に設定でモデルを構成してください。";
 
@@ -528,6 +539,7 @@
 "menu.provider_tag.streaming" = "ストリーミング";
 "menu.voice_action.agent_compose" = "タスクアシスタント";
 "menu.voice_action.agent_dispatch" = "タスクディスパッチ";
+"menu.voice_action.command" = "音声コマンド";
 "menu.voice_action.dictation" = "音声入力";
 
 /* ===== Selection ===== */
@@ -1251,6 +1263,8 @@
 "settings.message.mcp_log_path_missing" = "MCP ログパスがありません";
 "settings.message.mcp_log_read_failed" = "MCP ログの読み取りに失敗しました";
 "settings.message.middle_mouse_recording_disabled" = "マウス中ボタン録音を無効にしました";
+"settings.message.output_rule_deleted" = "出力ルールを削除しました";
+"settings.message.output_rule_updated" = "出力ルールを更新しました";
 "settings.message.settings_imported" = "設定インポート";
 "settings.message.settings_reset" = "設定リセット";
 "settings.message.shortcuts_updated" = "ショートカットを更新しました";
@@ -1266,6 +1280,11 @@
 "settings.message.voice_correction_enabled" = "音声補正有効";
 "settings.message.voice_correction_shadow_mode_disabled" = "音声補正シャドウモード無効";
 "settings.message.voice_correction_shadow_mode_enabled" = "音声補正シャドウモード有効";
+"settings.output.app_rules.add" = "アプリルールを追加";
+"settings.output.app_rules.empty" = "アプリルールはまだありません。すべてのアプリはグローバルな入力方法を使います。";
+"settings.output.app_rules.pick_subtitle" = "アプリを選ぶとルールを追加します。初期値は高速ペーストで、行上で入力方式を切り替えられます。";
+"settings.output.app_rules.pick_title" = "アプリを選択";
+"settings.output.app_rules.subtitle" = "特定のアプリで入力方法を上書きします。";
 "settings.output.avoid_clipboard.subtitle" = "キーボード入力を再現して文字を書き込み、できるだけシステムのクリップボードを使いません。";
 "settings.output.avoid_clipboard.title" = "キーボード入力を再現";
 "settings.output.clipboard_image_ocr.subtitle" = "クリップボードの画像からテキストを認識します。";
@@ -1333,6 +1352,8 @@
 "settings.system.auto_release_local_model.subtitle" = "アイドル時にローカルモデルを解放してメモリを節約します。";
 "settings.system.auto_release_local_model.title" = "ローカルモデルの自動解放";
 "settings.system.keep_microphone_active.subtitle" = "マイクを温存して起動を高速化します。";
+"settings.system.pause_pre_output.title" = "ポーズ先出力";
+"settings.system.pause_pre_output.subtitle" = "発話の区切りで認識済みテキストを先に入力し、続けて話せます。";
 "settings.system.keep_microphone_active.title" = "マイクをアクティブに保つ";
 "settings.system.local_model_live_preview.subtitle" = "ローカルモデル使用時に、発話中のストリーミング認識結果を表示します。";
 "settings.system.local_model_live_preview.title" = "ストリーミング認識プレビュー";
@@ -1861,6 +1882,7 @@
 "home.detail.title.agent_compose" = "タスクアシスタント詳細";
 "home.detail.title.agent_dispatch" = "AI コーディング詳細";
 "home.detail.title.dictation" = "文字起こし詳細";
+"home.detail.title.command" = "音声コマンドの詳細";
 "home.detail.subtitle.agent_compose" = "音声インテント、生成結果、処理の詳細を表示します。";
 "home.detail.subtitle.agent_dispatch" = "音声コマンド、アシスタントのディスパッチ結果、失敗の詳細を表示します。";
 "home.detail.subtitle.with_trace" = "認識原文と最終テキストを比較し、処理パイプラインを確認します。";
@@ -2386,3 +2408,10 @@
 "asr.xasr.invalid_audio" = "X-ASRが音声を処理できませんでした。もう一度録音してください。";
 "asr.xasr.invalidated" = "X-ASRが解放または切り替えられました。新しい録音を開始してください。";
 "asr.xasr.download_failed" = "X-ASRのモデルをダウンロードできませんでした。再試行するとダウンロードを再開できます。";
+"settings.text_processing.unit_normalization.title" = "単位の正規化";
+"settings.text_processing.unit_normalization.subtitle" = "数値の後ろの中国語単位を国際記号に変換します（例：5公里 → 5km）";
+"app.dictation.bluetooth_quality_hint" = "Bluetoothマイクの音質が制限されており、認識精度が低下する可能性があります。有線または内蔵マイクの使用をおすすめします。";
+"style.automatch.input_context.title" = "入力ボックスの内容を含める";
+"style.automatch.input_context.description" = "対象の入力ボックスの現在のテキストを読み取り（アクセシビリティ権限が必要）、編集中の内容に合わせて校正します。パスワード欄は常にスキップします。";
+
+"dictation.hud.pause_pre_output_revised_copied" = "認識結果が修正されたため、全文をコピーしました。先に入力された文字を手動で置き換えてください。";

@@ -46,7 +46,9 @@ final class DictationOrchestrator {
     var onTranscriptionUpdate: (String, Bool) -> Void = { _, _ in }
     var onProcessingStarted: (String) -> Void = { _ in }
     var onHistorySaved: () -> Void = {}
+    var onPausePreOutputRecovery: (OutputResult) -> Void = { _ in }
     var onAgentComposeCompleted: (OutputResult) -> Void = { _ in }
+    var onCommandCompleted: (OutputResult) -> Void = { _ in }
     var onAgentDispatchPresentation: (AgentDispatchHUDPresentation) -> Void = { _ in }
     var onError: (Error) -> Void = { _ in }
 
@@ -60,6 +62,7 @@ final class DictationOrchestrator {
     private let targetProvider: any DictationTargetProviding
     private let agentComposeHandler: (any AgentComposeHandling)?
     private let agentDispatchHandler: (any AgentDispatchHandling)?
+    private let commandHandler: (any CommandHandling)?
     private let audioCaptureCoordinator: any AudioCaptureCoordinating
     private let correctionObservationScheduler: (any CorrectionObservationScheduling)?
     private let asrTermPromptProvider: (any ASRTermPromptProviding)?
@@ -67,8 +70,14 @@ final class DictationOrchestrator {
     private let assetRepository: (any AssetRepository)?
     private let hotwordHitCounter: HotwordHitCounter?
     private let finalTimeoutNanoseconds: UInt64
+    private let pausePreOutputBaseConfiguration: PausePreOutputConfiguration?
+    private let isPausePreOutputEnabled: (@MainActor () -> Bool)?
     private var stateMachine = DictationStateMachine()
     private var transcriptionSession = TranscriptionSession()
+    private var pausePreOutputSession: PausePreOutputSession?
+    private var pausePreOutputRecoveryResult: OutputResult?
+    private var pauseSilenceTask: Task<Void, Never>?
+    private var pauseSegmentTask: Task<Void, Never>?
     private var currentEngine: ASREngine?
     private var currentCallbackSessionID: String?
     private var currentConfiguration: DictationConfiguration?
@@ -98,13 +107,16 @@ final class DictationOrchestrator {
         outputService: (any OutputService)? = nil,
         agentComposeHandler: (any AgentComposeHandling)? = nil,
         agentDispatchHandler: (any AgentDispatchHandling)? = nil,
+        commandHandler: (any CommandHandling)? = nil,
         audioCaptureCoordinator: any AudioCaptureCoordinating = AudioCaptureCoordinator(),
         correctionObservationScheduler: (any CorrectionObservationScheduling)? = nil,
         asrTermPromptProvider: (any ASRTermPromptProviding)? = nil,
         isFocusedTextFieldSecure: @escaping @MainActor () -> Bool = { false },
         finalTimeoutNanoseconds: UInt64 = 15_000_000_000,
         assetRepository: (any AssetRepository)? = nil,
-        hotwordHitCounter: HotwordHitCounter? = nil
+        hotwordHitCounter: HotwordHitCounter? = nil,
+        pausePreOutputConfiguration: PausePreOutputConfiguration? = nil,
+        isPausePreOutputEnabled: (@MainActor () -> Bool)? = nil
     ) {
         self.asrEngineFactory = asrEngineFactory
         self.audioRecorder = audioRecorder
@@ -119,6 +131,7 @@ final class DictationOrchestrator {
         self.targetProvider = targetProvider
         self.agentComposeHandler = agentComposeHandler
         self.agentDispatchHandler = agentDispatchHandler
+        self.commandHandler = commandHandler
         self.audioCaptureCoordinator = audioCaptureCoordinator
         self.correctionObservationScheduler = correctionObservationScheduler
         self.asrTermPromptProvider = asrTermPromptProvider
@@ -126,6 +139,8 @@ final class DictationOrchestrator {
         self.assetRepository = assetRepository
         self.hotwordHitCounter = hotwordHitCounter
         self.finalTimeoutNanoseconds = finalTimeoutNanoseconds
+        self.pausePreOutputBaseConfiguration = pausePreOutputConfiguration
+        self.isPausePreOutputEnabled = isPausePreOutputEnabled
     }
 
     private static var defaultClipboardService: any ClipboardSetting {
@@ -156,6 +171,10 @@ final class DictationOrchestrator {
             AppLogger.dictation.warning("Dictation start rejected: agentDispatch handler unavailable")
             throw DictationOrchestratorError.agentDispatchUnavailable
         }
+        if mode == .command, commandHandler == nil {
+            AppLogger.dictation.warning("Dictation start rejected: command handler unavailable")
+            throw DictationOrchestratorError.commandUnavailable
+        }
 
         let lease = try audioCaptureCoordinator.begin(kind: audioCaptureKind(for: mode))
         guard stateMachine.startRecording() else {
@@ -167,6 +186,14 @@ final class DictationOrchestrator {
         AppLogger.dictation.debug("Dictation session lease acquired: kind=\(audioCaptureKind(for: mode).rawValue)")
 
         transcriptionSession = TranscriptionSession()
+        pausePreOutputSession = (mode == .dictation ? activePausePreOutputConfiguration() : nil).map {
+            PausePreOutputSession(configuration: $0)
+        }
+        pausePreOutputRecoveryResult = nil
+        pauseSilenceTask?.cancel()
+        pauseSilenceTask = nil
+        pauseSegmentTask?.cancel()
+        pauseSegmentTask = nil
         let callbackSessionID = UUID().uuidString
         AppLogger.dictation.debug("Dictation session initialized id=\(callbackSessionID)")
         currentCallbackSessionID = callbackSessionID
@@ -237,6 +264,28 @@ final class DictationOrchestrator {
                 notifyStateChanged()
                 throw error
             }
+        } else if mode == .command {
+            guard let commandHandler else {
+                stateMachine.reset()
+                currentMode = .dictation
+                endCurrentAudioCapture()
+                notifyStateChanged()
+                throw DictationOrchestratorError.commandUnavailable
+            }
+            do {
+                AppLogger.dictation.debug("Dictation start: preparing command handler")
+                try commandHandler.start(
+                    target: currentTarget,
+                    asrMetadata: asrMetadata(for: configuration)
+                )
+            } catch {
+                AppLogger.dictation.error("Start command handler failed: \(error.localizedDescription)")
+                stateMachine.reset()
+                currentMode = .dictation
+                endCurrentAudioCapture()
+                notifyStateChanged()
+                throw error
+            }
         }
 
         let engine = asrEngineFactory.makeEngine(type: configuration.engineType)
@@ -281,6 +330,8 @@ final class DictationOrchestrator {
                 agentComposeHandler?.cancel()
             } else if mode == .agentDispatch {
                 agentDispatchHandler?.cancel()
+            } else if mode == .command {
+                commandHandler?.cancel()
             }
             currentMode = .dictation
             stateMachine.reset()
@@ -321,6 +372,12 @@ final class DictationOrchestrator {
         audioBufferForwarder.appendAudioBuffer(buffer)
     }
 
+    func handleAudioCaptureFailure(_ error: Error) {
+        guard state.isRecordingActive else { return }
+        fail(error, notifyRecognitionError: false)
+        onError(LocalizedDictationError(message: localizeProviderErrorMessage(error.localizedDescription)))
+    }
+
     func cancel() {
         AppLogger.dictation.info("cancel called state=\(stateLogName(state)) mode=\(currentMode.rawValue)")
         guard state.isCancellable else {
@@ -332,6 +389,10 @@ final class DictationOrchestrator {
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
         agentDispatchFallbackInputAwaitingCorrection = nil
+        pauseSilenceTask?.cancel()
+        pauseSilenceTask = nil
+        pauseSegmentTask?.cancel()
+        pauseSegmentTask = nil
         textPipeline.cancelContextBoost()
         audioRecorder.stop()
         endCurrentAudioCapture()
@@ -341,6 +402,8 @@ final class DictationOrchestrator {
             agentComposeHandler?.cancel()
         } else if currentMode == .agentDispatch {
             agentDispatchHandler?.cancel()
+        } else if currentMode == .command {
+            commandHandler?.cancel()
         }
         currentEngine = nil
         currentCallbackSessionID = nil
@@ -384,16 +447,8 @@ final class DictationOrchestrator {
         audioRecorder.stop()
         endCurrentAudioCapture()
         currentEngine?.stop()
-        recognizedTextAwaitingProcessing = rawText
-
-        guard stateMachine.startProcessing() else {
-            AppLogger.dictation.warning("finishWaitingForFinalWithoutTextCorrection blocked: stateMachine startProcessing failed")
-            cancel()
-            return false
-        }
-        notifyStateChanged()
-        onProcessingStarted(rawText)
-        return finishWithoutTextCorrection()
+        scheduleProcessing(for: rawText, withoutTextCorrection: true)
+        return true
     }
 
     @discardableResult
@@ -522,21 +577,211 @@ final class DictationOrchestrator {
         if !isFinal {
             onTranscriptionUpdate(text, false)
         }
+        handlePausePreOutputTick(text: text, isFinal: isFinal)
         if let completedText = transcriptionSession.update(text: text, isFinal: isFinal) {
             AppLogger.dictation.debug("transcription session completed text length=\(completedText.count)")
             scheduleProcessing(for: completedText)
         }
     }
 
-    private func scheduleProcessing(for recognizedText: String) {
+    // MARK: - Pause pre-output
+
+    /// Resolves the active pause pre-output configuration for a new session:
+    /// the base configuration must exist, and the dynamic enablement closure
+    /// (when provided) decides whether this session uses it.
+    private func activePausePreOutputConfiguration() -> PausePreOutputConfiguration? {
+        guard let baseConfiguration = pausePreOutputBaseConfiguration else { return nil }
+        if let isPausePreOutputEnabled, !isPausePreOutputEnabled() {
+            return nil
+        }
+        return baseConfiguration
+    }
+
+    /// Restarts the segment silence timer on every non-final partial and
+    /// flushes the pending delta when the final result arrives while a pause
+    /// segment is still being processed.
+    private func handlePausePreOutputTick(text: String, isFinal: Bool) {
+        guard pausePreOutputSession?.isBroken == false else { return }
+        if isFinal {
+            // Final text arrives with the recording stopping; the regular
+            // release path flushes the remaining tail beyond the watermark.
+            pauseSilenceTask?.cancel()
+            pauseSilenceTask = nil
+            return
+        }
+        guard state == .recording else { return }
+        schedulePauseSilenceTimer()
+    }
+
+    private func schedulePauseSilenceTimer() {
+        guard let configuration = pausePreOutputBaseConfiguration else { return }
+        pauseSilenceTask?.cancel()
+        let sessionID = currentCallbackSessionID
+        pauseSilenceTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await clock.sleep(nanoseconds: configuration.silenceThresholdNanoseconds)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self.flushPauseSegment(sessionID: sessionID)
+        }
+    }
+
+    private func flushPauseSegment(sessionID: String?) {
+        guard isCurrentSession(sessionID),
+              state == .recording,
+              pausePreOutputSession?.isBroken == false,
+              // One segment in flight at a time: overlapping claims would
+              // break rollback and interleave injected text ordering. The
+              // next partial re-arms the timer, so no text is lost.
+              pauseSegmentTask == nil else {
+            return
+        }
+        let cumulativeText = transcriptionSession.latestTranscriptText
+        guard !cumulativeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        let delta = deltaForPausePreOutput(from: cumulativeText)
+        switch delta {
+        case .text(let segmentText):
+            schedulePauseSegmentProcessing(segmentText)
+        case .noDelta, .revised:
+            break
+        }
+    }
+
+    private func deltaForPausePreOutput(
+        from cumulativeText: String,
+        enforcingMinimumCharacterCount: Bool = true
+    ) -> PausePreOutputDelta {
+        guard var session = pausePreOutputSession else { return .noDelta }
+        let delta = session.takeDelta(
+            from: cumulativeText,
+            enforcingMinimumCharacterCount: enforcingMinimumCharacterCount
+        )
+        if case .revised = delta {
+            AppLogger.dictation.info("pause pre-output disabled: engine revised delivered prefix")
+        }
+        pausePreOutputSession = session
+        return delta
+    }
+
+    private func schedulePauseSegmentProcessing(_ segmentText: String) {
+        guard let sessionID = currentCallbackSessionID else { return }
+        pauseSegmentTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.processPauseSegment(segmentText, sessionID: sessionID)
+            self.pauseSegmentTask = nil
+        }
+    }
+
+    /// Processes and delivers one pause segment while recording continues.
+    /// Runs as a side pipeline: the state machine stays in `.recording`, the
+    /// recorder and engine are untouched, and later partials keep flowing.
+    private func processPauseSegment(_ segmentText: String, sessionID: String) async {
+        AppLogger.dictation.debug("pause segment processing chars=\(segmentText.count)")
+        let target = currentTarget
+        let correctionContext = CorrectionContext(
+            mode: .dictation,
+            providerID: currentConfiguration?.asrProviderID ?? "unknown",
+            modelID: currentConfiguration?.modelID,
+            language: currentConfiguration?.languageIdentifier,
+            bundleIdentifier: target?.bundleID,
+            isFinalTranscript: true,
+            isSecureField: isFocusedTextFieldSecure()
+        )
+        let processingResult = await textPipeline.process(
+            segmentText.trimmingCharacters(in: .whitespacesAndNewlines),
+            target: target,
+            correctionContext: correctionContext,
+            onRefinedTextUpdate: { _ in
+                // Segment output goes straight to injection; streaming
+                // refinement updates would double-render in the HUD while
+                // live partials are still arriving.
+            }
+        )
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state.isRecordingActive else {
+            rollbackPauseSegmentDelivery(segmentText)
+            return
+        }
+        let finalText = preservingPauseSeparator(
+            normalizedFinalText(from: processingResult, fallback: segmentText),
+            from: segmentText
+        )
+        let outputResult = await outputService.deliver(
+            text: finalText,
+            mode: .dictation,
+            target: targetProvider.currentTarget(),
+            originalTarget: target
+        )
+        guard !Task.isCancelled,
+              isCurrentSession(sessionID),
+              state.isRecordingActive else {
+            rollbackPauseSegmentDelivery(segmentText)
+            return
+        }
+        guard outputResult.kind != .cancelled else {
+            AppLogger.dictation.warning("pause segment delivery cancelled; disabling pause pre-output")
+            rollbackPauseSegmentDelivery(segmentText)
+            pausePreOutputSession = nil
+            return
+        }
+        hotwordHitCounter?.recordHits(in: finalText)
+        saveHistory(
+            rawText: segmentText,
+            finalText: finalText,
+            target: target,
+            processingResult: processingResult,
+            outputResult: outputResult
+        )
+    }
+
+    private func rollbackPauseSegmentDelivery(_ segmentText: String) {
+        pausePreOutputSession?.rollbackDelivery(of: segmentText)
+    }
+
+    private func scheduleProcessing(for recognizedText: String, withoutTextCorrection: Bool = false) {
         processingTask?.cancel()
         let sessionID = currentCallbackSessionID
+        let inFlightPauseSegmentTask = pauseSegmentTask
         AppLogger.dictation.debug("scheduleProcessing state=\(stateLogName(state)) chars=\(recognizedText.count)")
-        recognizedTextAwaitingProcessing = recognizedText.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
         processingTask = Task { @MainActor [weak self] in
-            await self?.finishRecognizedText(recognizedText, sessionID: sessionID)
+            guard let self else { return }
+            // Let an in-flight pause segment finish first: it advances the
+            // watermark, so the tail delta must be computed after it settles.
+            await inFlightPauseSegmentTask?.value
+            guard !Task.isCancelled,
+                  self.isCurrentSession(sessionID) else {
+                return
+            }
+            let tailText = self.pausePreOutputTailText(for: recognizedText)
+            self.recognizedTextAwaitingProcessing = tailText
+            await self.finishRecognizedText(
+                tailText, sessionID: sessionID,
+                withoutTextCorrection: withoutTextCorrection
+            )
+        }
+    }
+
+    /// Remaining text beyond the pause pre-output watermark. Returns an empty
+    /// string only when everything was already delivered. A revised prefix
+    /// retains the full final transcript for copy-only recovery.
+    private func pausePreOutputTailText(for cumulativeText: String) -> String {
+        guard currentMode == .dictation,
+              pausePreOutputSession != nil else {
+            return cumulativeText
+        }
+        switch deltaForPausePreOutput(from: cumulativeText, enforcingMinimumCharacterCount: false) {
+        case .text(let tail):
+            return tail
+        case .noDelta:
+            return ""
+        case .revised:
+            return cumulativeText
         }
     }
 
@@ -604,7 +849,11 @@ final class DictationOrchestrator {
         fail(error)
     }
 
-    private func finishRecognizedText(_ recognizedText: String, sessionID: String?) async {
+    private func finishRecognizedText(
+        _ recognizedText: String,
+        sessionID: String?,
+        withoutTextCorrection: Bool = false
+    ) async {
         AppLogger.dictation.debug("finishRecognizedText entered session=\(sessionID ?? "nil") mode=\(currentMode.rawValue) chars=\(recognizedText.count)")
         guard !Task.isCancelled,
               isCurrentSession(sessionID),
@@ -626,6 +875,8 @@ final class DictationOrchestrator {
                 agentComposeHandler?.cancel()
             } else if currentMode == .agentDispatch {
                 agentDispatchHandler?.cancel()
+            } else if currentMode == .command {
+                commandHandler?.cancel()
             }
             audioBufferForwarder.detach()
             currentEngine = nil
@@ -645,6 +896,12 @@ final class DictationOrchestrator {
         onProcessingStarted(rawText)
         AppLogger.dictation.debug("finishRecognizedText start processing mode=\(currentMode.rawValue)")
 
+        if withoutTextCorrection {
+            processingTask = nil
+            finishWithoutTextCorrection()
+            return
+        }
+
         if currentMode == .agentCompose {
             AppLogger.dictation.debug("finishRecognizedText route to agent compose")
             await finishAgentCompose(rawText)
@@ -653,6 +910,11 @@ final class DictationOrchestrator {
         if currentMode == .agentDispatch {
             AppLogger.dictation.debug("finishRecognizedText route to agent dispatch")
             await finishAgentDispatch(rawText)
+            return
+        }
+        if currentMode == .command {
+            AppLogger.dictation.debug("finishRecognizedText route to voice command")
+            await finishCommand(rawText)
             return
         }
 
@@ -685,7 +947,10 @@ final class DictationOrchestrator {
               state == .processing else {
             return
         }
-        let finalText = normalizedFinalText(from: processingResult, fallback: rawText)
+        let finalText = preservingPauseSeparator(
+            normalizedFinalText(from: processingResult, fallback: rawText),
+            from: recognizedText
+        )
 
         guard stateMachine.startInjecting() else {
             AppLogger.dictation.warning("finishRecognizedText blocked: stateMachine startInjecting failed")
@@ -778,6 +1043,57 @@ final class DictationOrchestrator {
             }
             AppLogger.dictation.error("finishAgentCompose failed: \(error.localizedDescription)")
             fail(error, notifyRecognitionError: false)
+        }
+    }
+
+    private func finishCommand(_ rawText: String) async {
+        guard let commandHandler else {
+            fail(DictationOrchestratorError.commandUnavailable)
+            return
+        }
+        guard let sessionID = currentCallbackSessionID else {
+            return
+        }
+
+        AppLogger.dictation.debug("finishCommand invoked instructionLen=\(rawText.count)")
+        onTranscriptionUpdate(
+            L10n.localize("dictation.hud.applying_command", comment: "HUD hint while applying a voice command"),
+            true
+        )
+        do {
+            updateAgentASRMetadataIfAvailable()
+            let result = try await commandHandler.finish(rawTranscript: rawText)
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
+                return
+            }
+            if case .cancelled = result {
+                finishCurrentDictation()
+                return
+            }
+            guard stateMachine.startInjecting() else {
+                return
+            }
+            notifyStateChanged()
+            audioBufferForwarder.detach()
+            currentEngine = nil
+            currentCallbackSessionID = nil
+            currentTarget = nil
+            currentMode = .dictation
+            stateMachine.finish()
+            notifyStateChanged()
+            onCommandCompleted(result)
+        } catch {
+            guard !Task.isCancelled,
+                  isCurrentSession(sessionID),
+                  state == .processing else {
+                return
+            }
+            AppLogger.dictation.error("finishCommand failed: \(error.localizedDescription)")
+            // 语音指令是用户显式发起的动作，失败必须可见（复用识别错误通道：HUD 提示 + 操作按钮）；
+            // agentCompose / agentDispatch 有各自的结果展示，失败保持静默。
+            fail(error)
         }
     }
 
@@ -917,7 +1233,14 @@ final class DictationOrchestrator {
         return trimmed.isEmpty ? fallback : trimmed
     }
 
+    private func preservingPauseSeparator(_ text: String, from rawText: String) -> String {
+        guard pausePreOutputSession != nil, pausePreOutputSession?.isBroken == false else { return text }
+        return String(rawText.prefix(while: \.isWhitespace)) + text
+    }
+
     private func finishCurrentDictation() {
+        let recoveryResult = pausePreOutputRecoveryResult
+        pausePreOutputRecoveryResult = nil
         audioBufferForwarder.detach()
         endCurrentAudioCapture()
         currentEngine = nil
@@ -929,6 +1252,7 @@ final class DictationOrchestrator {
         processingTask = nil
         stateMachine.finish()
         notifyStateChanged()
+        if let recoveryResult { onPausePreOutputRecovery(recoveryResult) }
     }
 
     private func deliverFinalText(
@@ -936,10 +1260,16 @@ final class DictationOrchestrator {
         originalTarget: DictationTarget?,
         sessionID: String?
     ) async -> OutputResult {
-        guard isCurrentSession(sessionID),
+        guard !Task.isCancelled, isCurrentSession(sessionID),
               state == .injecting else {
             AppLogger.dictation.debug("deliverFinalText blocked for session=\(sessionID ?? "nil") state=\(stateLogName(state))")
             return .cancelled
+        }
+        if pausePreOutputSession?.isBroken == true {
+            let result = await outputService.copy(text: text, mode: .dictation)
+            guard !Task.isCancelled, isCurrentSession(sessionID) else { return .cancelled }
+            pausePreOutputRecoveryResult = result
+            return result
         }
         let currentTarget = targetProvider.currentTarget()
         AppLogger.dictation.debug("deliverFinalText target=\(currentTarget?.bundleID ?? "nil"), originalTarget=\(originalTarget?.bundleID ?? "nil"), textLen=\(text.count)")
@@ -1152,6 +1482,8 @@ final class DictationOrchestrator {
                 try agentComposeHandler?.updateASRMetadata(metadata)
             case .agentDispatch:
                 try agentDispatchHandler?.updateASRMetadata(metadata)
+            case .command:
+                try commandHandler?.updateASRMetadata(metadata)
             case .dictation:
                 break
             }
@@ -1161,7 +1493,11 @@ final class DictationOrchestrator {
     }
 
     private func fail(_ error: Error, notifyRecognitionError: Bool = true) {
-        let localizedMessage = localizeProviderErrorMessage(error.localizedDescription)
+        // Coordinator errors already carry localized model-service reasons.
+        // ASR substring fallbacks such as "failed" would erase that guidance.
+        let localizedMessage = error is CoordinatorError
+            ? error.localizedDescription
+            : localizeProviderErrorMessage(error.localizedDescription)
         AppLogger.dictation.error("dictation failed mode=\(currentMode.rawValue) state=\(stateLogName(state)) reason=\(error.localizedDescription)")
         finalTimeoutTask?.cancel()
         finalTimeoutTask = nil
@@ -1169,6 +1505,10 @@ final class DictationOrchestrator {
         processingTask = nil
         recognizedTextAwaitingProcessing = nil
         agentDispatchFallbackInputAwaitingCorrection = nil
+        pauseSilenceTask?.cancel()
+        pauseSilenceTask = nil
+        pauseSegmentTask?.cancel()
+        pauseSegmentTask = nil
         textPipeline.cancelContextBoost()
         audioRecorder.stop()
         endCurrentAudioCapture()
@@ -1179,6 +1519,8 @@ final class DictationOrchestrator {
             agentComposeHandler?.fail(error)
         } else if currentMode == .agentDispatch {
             agentDispatchHandler?.fail(error)
+        } else if currentMode == .command {
+            commandHandler?.fail(error)
         }
         currentEngine = nil
         currentCallbackSessionID = nil
@@ -1225,6 +1567,8 @@ final class DictationOrchestrator {
             return .agentCompose
         case .agentDispatch:
             return .agentCompose
+        case .command:
+            return .dictation
         }
     }
 
@@ -1246,6 +1590,7 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
     case alreadyRunning
     case agentComposeUnavailable
     case agentDispatchUnavailable
+    case commandUnavailable
     case finalResultTimedOut
     case unsupportedLanguage(String)
 
@@ -1259,6 +1604,8 @@ enum DictationOrchestratorError: LocalizedError, Equatable {
             return L10n.localize("dictation.error.agent_compose_unavailable", comment: "Agent compose unavailable message")
         case .agentDispatchUnavailable:
             return L10n.localize("dictation.error.agent_dispatch_unavailable", comment: "Agent dispatch unavailable message")
+        case .commandUnavailable:
+            return L10n.localize("dictation.error.command_unavailable", comment: "Voice command unavailable message")
         case .finalResultTimedOut:
             return String(
                 L10n.localize("dictation.error.final_result_timed_out", comment: "Dictation final result timeout message")
@@ -1335,7 +1682,19 @@ private func localizeProviderErrorMessage(_ message: String) -> String {
         ("hardware",                      "asr.error.hardware_unsupported"),
         ("连接超时",                      "asr.error.connection_timeout"),
         ("timeout",                       "asr.error.connection_timeout"),
-        ("API Key",                       "asr.error.api_key_missing"),
+        // 「API Key」单独出现说明不了什么：provider 的欠费/限额报文里也带这个短语
+        // （例如 “The account associated with the API Key is in arrears”），
+        // 所以只匹配明确的「缺失/无效」措辞，其余留给下面的通用规则。
+        ("配置 api key",                  "asr.error.api_key_missing"),
+        ("api key 未配置",                "asr.error.api_key_missing"),
+        ("api key 无效",                  "asr.error.api_key_missing"),
+        ("missing api key",               "asr.error.api_key_missing"),
+        ("no api key",                    "asr.error.api_key_missing"),
+        ("api key not set",               "asr.error.api_key_missing"),
+        ("api key is not configured",     "asr.error.api_key_missing"),
+        ("api key is required",           "asr.error.api_key_missing"),
+        ("invalid api key",               "asr.error.api_key_missing"),
+        ("incorrect api key",             "asr.error.api_key_missing"),
         ("未配置",                        "asr.error.api_key_missing"),
         ("音频文件",                      "asr.error.audio_read_failed"),
         ("audio file",                    "asr.error.audio_read_failed"),

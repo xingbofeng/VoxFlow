@@ -5,6 +5,7 @@ enum VoiceWorkflowKind: String, Equatable, Hashable, Sendable {
     case dictation
     case agentCompose
     case agentDispatch
+    case command
     case clipboardImageOCR
     case screenshotOCR
 
@@ -16,6 +17,8 @@ enum VoiceWorkflowKind: String, Equatable, Hashable, Sendable {
             self = .agentCompose
         case .agentDispatch:
             self = .agentDispatch
+        case .command:
+            self = .command
         }
     }
 }
@@ -743,6 +746,118 @@ final class VoiceTaskCoordinator {
         return outputResult
     }
 
+    /// Edits the text currently in the focused input area according to the
+    /// spoken `instruction`, then rewrites that input area with the result.
+    ///
+    /// Unlike the other workflows the transcript is an instruction, not the
+    /// content, so the model's output is delivered as-is — it is never run
+    /// through the dictation correction pipeline.
+    func processCommandAndDeliver(
+        instruction: String,
+        editingText: String
+    ) async throws -> OutputResult {
+        guard var task = try task(for: .command) else {
+            throw CoordinatorError.noActiveTask
+        }
+        guard task.mode == .command else {
+            throw CoordinatorError.invalidMode
+        }
+        guard let agentRefiner, agentRefiner.isConfigured else {
+            throw CoordinatorError.llmNotConfigured
+        }
+
+        let taskID = task.id
+
+        task.stage = .processing
+        task.updatedAt = clock.now
+        try taskRepository.updateStage(task)
+        taskRuntime.updatePersistedTask(task)
+
+        let request = CommandEditPromptBuilder().build(instruction: instruction, text: editingText)
+        let editedText: String
+        do {
+            (agentRefiner as? RefinementTraceProviding)?.clearLastTrace()
+            let refinedText = try await agentRefiner.refine(request)
+            guard isActiveWorkflow(kind: .command, taskID: taskID) else {
+                return .cancelled
+            }
+            try persistenceWriter.persistAgentTraceIfAvailable(taskID: taskID)
+            let trimmed = refinedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            // An empty result means the model returned nothing usable; keep the
+            // text that is already there rather than wiping the input area.
+            editedText = trimmed.isEmpty ? editingText : trimmed
+        } catch {
+            guard isActiveWorkflow(kind: .command, taskID: taskID) else {
+                return .handledExternally
+            }
+            try? persistenceWriter.persistAgentTraceIfAvailable(taskID: taskID)
+            AppLogger.general.error("Voice command edit failed: \(error.localizedDescription)")
+            task.warnings.append("command_llm_failed")
+            try? taskRepository.updateWarnings(id: taskID, warnings: task.warnings)
+            throw CoordinatorError.llmCallFailed(error.localizedDescription)
+        }
+
+        try taskRepository.updateFinalText(id: taskID, finalText: editedText)
+        task.finalText = editedText
+        taskRuntime.updatePersistedTask(task)
+
+        task.stage = .outputting
+        task.updatedAt = clock.now
+        try taskRepository.updateStage(task)
+        taskRuntime.updatePersistedTask(task)
+
+        guard isActiveWorkflow(kind: .command, taskID: taskID) else {
+            try? taskRepository.clearFinalText(id: taskID)
+            return .cancelled
+        }
+        let currentTarget = targetProvider.currentTarget()
+        let outputResult = await outputService.deliverReplacingInputArea(
+            text: editedText,
+            mode: .command,
+            target: currentTarget,
+            originalTarget: taskTarget(task),
+            expectedInputText: editingText
+        )
+        guard isActiveWorkflow(kind: .command, taskID: taskID) else {
+            try? taskRepository.clearFinalText(id: taskID)
+            return .cancelled
+        }
+        if outputResult.kind == .cancelled {
+            try taskRepository.clearFinalText(id: taskID)
+            task.finalText = nil
+        }
+
+        let encoded = String(
+            data: try JSONEncoder().encode(outputResult.snapshot),
+            encoding: .utf8
+        )
+        try taskRepository.updateOutputResult(id: taskID, outputResult: encoded ?? "")
+
+        let completedAt = clock.now
+        let status = terminalStatus(for: outputResult)
+        try taskRepository.complete(
+            id: taskID,
+            status: status,
+            outputResult: encoded,
+            completedAt: completedAt
+        )
+
+        task.status = status
+        task.outputResult = encoded
+        task.completedAt = completedAt
+        taskRuntime.clearCurrentTaskIfMatching(task)
+        AppLogger.general.info("voice_workflow_completed kind=command taskID=\(taskID) status=\(status.rawValue) output=\(outputResult.kind.rawValue)")
+        taskRuntime.clearWorkflow(for: task)
+        persistenceWriter.saveAgentComposeVoiceAssetIfNeeded(
+            task: task,
+            rawText: instruction,
+            outputResult: outputResult,
+            completedAt: completedAt
+        )
+
+        return outputResult
+    }
+
     /// Cancels any in-flight context collection.
     func cancelContextCollection() {
         contextTask?.task.cancel()
@@ -1069,7 +1184,7 @@ final class VoiceTaskCoordinator {
             return .completed
         case .cancelled:
             return .cancelled
-        case .targetChanged, .permissionDenied, .injectionFailed, .copyFailed:
+        case .targetChanged, .inputChanged, .permissionDenied, .injectionFailed, .copyFailed:
             return .partiallyCompleted
         }
     }

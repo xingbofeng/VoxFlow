@@ -50,7 +50,8 @@ public enum DeterministicTextProcessingSettingsStore {
            !decoded.longSentenceBreaking,
            !decoded.fillerWordFiltering,
            !decoded.cjkLatinSpacing,
-           !decoded.autoCapitalization {
+           !decoded.autoCapitalization,
+           !decoded.unitNormalization {
             let migrated = DeterministicTextProcessingSettings.defaults
             // Best-effort persist the migrated settings so we don't re-run
             // this check on every load. Ignore failures — the in-memory
