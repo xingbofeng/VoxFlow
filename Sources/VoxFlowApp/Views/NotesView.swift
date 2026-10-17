@@ -75,7 +75,7 @@ struct NotesView: View {
     private var quickCapture: some View {
         VStack(spacing: 22) {
             Text(L10n.localize("notes.view.quick_capture_title", comment: "Quick capture title"))
-                .font(.system(size: 28, weight: .semibold))
+                .font(CDS.Typography.pageTitle)
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
 
             VStack(alignment: .leading, spacing: 16) {

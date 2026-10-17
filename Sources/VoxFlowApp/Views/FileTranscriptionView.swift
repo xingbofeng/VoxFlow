@@ -88,7 +88,7 @@ struct FileTranscriptionView: View {
                     L10n.localize("transcribe.title", comment: "File transcription title"),
                     systemImage: "waveform.path.badge.plus"
                 )
-                .font(.system(size: 22, weight: .semibold))
+                .font(CDS.Typography.pageTitle)
                 Text(L10n.localize("transcribe.header.subtitle", comment: "File transcription subtitle"))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.ColorToken.secondaryText)

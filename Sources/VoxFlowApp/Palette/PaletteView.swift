@@ -873,7 +873,7 @@ struct PaletteView: View {
         return Image(systemName: systemName)
             .font(.system(size: 17, weight: .medium))
             .frame(width: 28, height: 28)
-            .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+            .foregroundStyle(AppTheme.ColorToken.accent)
     }
 
     @ViewBuilder
@@ -883,7 +883,7 @@ struct PaletteView: View {
             Image(systemName: systemName)
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 28, height: 28)
-                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+                .foregroundStyle(AppTheme.ColorToken.accent)
         case let .quicklinkImage(name):
             if let url = quicklinkIconURL(named: name),
             let image = NSImage(contentsOf: url) {
@@ -896,7 +896,7 @@ struct PaletteView: View {
                 Image(systemName: "globe")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 28, height: 28)
-                    .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
             }
         case let .websiteIcon(pageURL):
             AsyncImage(url: faviconURL(for: pageURL)) { phase in
@@ -925,7 +925,7 @@ struct PaletteView: View {
                 Image(systemName: "app")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 28, height: 28)
-                    .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+                    .foregroundStyle(AppTheme.ColorToken.accent)
             }
         }
     }
@@ -958,10 +958,10 @@ struct PaletteView: View {
             .uppercased()
         return ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color(red: 0.03, green: 0.46, blue: 0.38).opacity(0.11))
+                .fill(AppTheme.ColorToken.accent.opacity(0.11))
             Text(initial.isEmpty ? "?" : initial)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+                .foregroundStyle(AppTheme.ColorToken.accent)
         }
         .frame(width: 22, height: 22)
         .frame(width: 28, height: 28)
@@ -1022,7 +1022,7 @@ struct PaletteView: View {
         .font(.system(size: 18, weight: .medium))
         .frame(width: 30, height: 30)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        .foregroundStyle(AppTheme.ColorToken.accent)
     }
 
     private func fileIcon(_ file: PaletteFileItem) -> some View {
@@ -1038,7 +1038,7 @@ struct PaletteView: View {
         .font(.system(size: 18, weight: .medium))
         .frame(width: 30, height: 30)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+        .foregroundStyle(AppTheme.ColorToken.accent)
     }
 
     @ViewBuilder
@@ -1059,7 +1059,7 @@ struct PaletteView: View {
             Image(systemName: file.isDirectory ? "folder" : "doc")
                 .font(.system(size: 38, weight: .medium))
                 .frame(width: 54, height: 54)
-                .foregroundStyle(Color(red: 0.03, green: 0.46, blue: 0.38))
+                .foregroundStyle(AppTheme.ColorToken.accent)
         }
     }
 
@@ -1153,7 +1153,7 @@ struct PaletteView: View {
 
 private struct PaletteHighlightedText: View {
     private static let matcher = FuzzyMatcher()
-    private static let highlightColor = Color(red: 0.03, green: 0.46, blue: 0.38)
+    private static let highlightColor = AppTheme.ColorToken.accent
 
     let text: String
     let query: String
@@ -1231,12 +1231,12 @@ private struct PaletteRowSelectionHighlight: View {
     let isSelected: Bool
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+        RoundedRectangle(cornerRadius: CDS.Radius.xl, style: .continuous)
+            .fill(isSelected ? AppTheme.ColorToken.selectionBackground : .clear)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        isSelected ? Color.accentColor.opacity(0.26) : .clear,
+                RoundedRectangle(cornerRadius: CDS.Radius.xl, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? AppTheme.ColorToken.selectionBorder : .clear,
                         lineWidth: isSelected ? 1 : 0
                     )
             )

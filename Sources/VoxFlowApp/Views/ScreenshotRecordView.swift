@@ -82,7 +82,7 @@ struct ScreenshotRecordView: View {
     private var pageHeader: some View {
         HStack {
             Label(L10n.localize("screenshot.record.header_title", comment: ""), systemImage: "rectangle.stack.fill")
-                .font(.system(size: 28, weight: .semibold))
+                .font(CDS.Typography.pageTitle)
                 .foregroundStyle(AppTheme.ColorToken.primaryText)
             Spacer()
         }
@@ -126,19 +126,15 @@ struct ScreenshotRecordView: View {
 
     private var paginationBar: some View {
         HStack(spacing: 8) {
-            Picker(
-                L10n.localize("screenshot.record.filter_label", comment: ""),
+            CDSSegmentedControl(
                 selection: Binding(
                     get: { viewModel.selectedFilter },
                     set: { viewModel.selectedFilter = $0 }
-                )
-            ) {
-                ForEach(MediaRecordFilter.allCases) { filter in
-                    Text(filter.title).tag(filter)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 240)
+                ),
+                items: MediaRecordFilter.allCases,
+                title: { $0.title },
+                isEqualWidth: false
+            )
 
             TextField(
                 L10n.localize("screenshot.record.search_placeholder", comment: ""),

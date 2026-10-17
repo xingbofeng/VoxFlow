@@ -188,7 +188,7 @@ public struct AnnotationRenderer: AnnotationRendering, Sendable {
             ?? NSFont.systemFont(ofSize: element.style.fontSize)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor(cgColor: element.style.color.cgColor) ?? .systemGreen,
+            .foregroundColor: NSColor(cgColor: element.style.color.cgColor) ?? ScreenshotPalette.clay,
         ]
         let point = element.position.flipped(imageHeight: imageHeight)
         drawText(element.content as NSString, attributes: attributes, at: CGPoint(x: point.x, y: point.y - element.style.fontSize))

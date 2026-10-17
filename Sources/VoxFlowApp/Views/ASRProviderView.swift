@@ -19,7 +19,7 @@ struct ASRProviderView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
             if !embedded {
                 Label(L10n.localize("asr.provider.title", comment: "ASR provider view title"), systemImage: "mic.badge.plus")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(CDS.Typography.pageTitle)
             }
 
             scopeAndTagFilterBar
@@ -144,19 +144,12 @@ struct ASRProviderView: View {
                     providerIcon(provider, compact: !isExpanded)
                     providerSummary(provider, isExpanded: isExpanded)
                     Spacer(minLength: 0)
-                }
-
-                if provider.isDefault {
-                    Text(L10n.localize("asr.provider.current_badge", comment: "Current ASR provider badge"))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppTheme.ColorToken.accent)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
-                        .background(AppTheme.ColorToken.selectionBackground)
-                        .clipShape(Capsule())
+                    if provider.isDefault {
+                        currentBadge
+                    }
                 }
                 Button {
-                    withAnimation(.easeInOut(duration: 0.16)) {
+                    withAnimation(CDS.Easing.out) {
                         toggleExpandedProvider(provider)
                     }
                 } label: {
@@ -190,10 +183,10 @@ struct ASRProviderView: View {
                 : AppTheme.ColorToken.panelBackground
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: CDS.Radius.xl, style: .continuous)
                 .stroke(
                     provider.isDefault
-                        ? AppTheme.ColorToken.accent.opacity(0.5)
+                        ? AppTheme.ColorToken.accent.opacity(0.35)
                         : AppTheme.ColorToken.panelStroke,
                     lineWidth: provider.isDefault ? 1.5 : 1
                 )
@@ -262,7 +255,7 @@ struct ASRProviderView: View {
                 if viewModel.hasStoredGroqAPIKey {
                     Text(L10n.localize("asr.provider.api_key_saved", comment: "API key saved status"))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(AppTheme.ColorToken.success)
                 }
             }
             HStack(spacing: 8) {
@@ -329,7 +322,7 @@ struct ASRProviderView: View {
                 if viewModel.hasStoredTencentCloudCredentials {
                     Text(L10n.localize("asr.provider.credentials_saved", comment: "Credentials saved status"))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(AppTheme.ColorToken.success)
                 }
             }
             Text(L10n.localize("asr.provider.tencent.description", comment: "Tencent Cloud ASR description"))
@@ -407,7 +400,7 @@ struct ASRProviderView: View {
                 if viewModel.hasStoredAliyunDashScopeAPIKey {
                     Text(L10n.localize("asr.provider.api_key_saved", comment: "API key saved status"))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(AppTheme.ColorToken.success)
                 }
             }
             Text(L10n.localize("asr.provider.aliyun.description", comment: "Aliyun DashScope description"))
@@ -471,7 +464,7 @@ struct ASRProviderView: View {
                 if viewModel.hasStoredVolcengineCredentials {
                     Text(L10n.localize("asr.provider.credentials_saved", comment: "Credentials saved status"))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(AppTheme.ColorToken.success)
                 }
             }
             Text(L10n.localize("asr.provider.volcengine.description", comment: "Volcengine ASR description"))
@@ -778,48 +771,56 @@ struct ASRProviderView: View {
     }
 
     @ViewBuilder
+    /// Clay-tinted "current" pill: wash background with a strong clay label
+    /// keeps contrast above the accent-on-accent pair it replaced.
+    private var currentBadge: some View {
+        Text(L10n.localize("asr.provider.current_badge", comment: "Current ASR provider badge"))
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(CDS.Clay.strong)
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(CDS.Clay.wash)
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(CDS.Clay.base.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(Capsule(style: .continuous))
+    }
+
+    @ViewBuilder
     private func providerConfigurationControls(_ provider: ASRProviderDescriptor) -> some View {
         switch provider.id {
         case ASRProviderID.funASR:
-            Picker(
-                L10n.localize("asr.provider.precision", comment: "Precision picker label"),
+            CDSSegmentedControl(
                 selection: Binding(
                     get: { viewModel.selectedFunASRPrecision },
                     set: { value in viewModel.selectFunASRPrecision(value, selectingProvider: true) }
-                )
-            ) {
-                ForEach(ASRManager.FunASRPrecision.allCases, id: \.self) { precision in
-                    Text(precision.rawValue).tag(precision)
-                }
-            }
-            .pickerStyle(.segmented)
+                ),
+                items: ASRManager.FunASRPrecision.allCases,
+                title: { $0.rawValue },
+                isEqualWidth: false
+            )
         case ASRProviderID.whisper:
-            Picker(
-                L10n.localize("asr.provider.model", comment: "Model picker label"),
+            CDSSegmentedControl(
                 selection: Binding(
                     get: { viewModel.selectedWhisperVariant },
                     set: { value in viewModel.selectWhisperVariant(value, selectingProvider: true) }
-                )
-            ) {
-                ForEach(ASRManager.WhisperVariant.allCases, id: \.self) { variant in
-                    Text(variant.rawValue).tag(variant)
-                        .disabled(!ASRManager.isWhisperRuntimeSupported(variant: variant))
-                }
-            }
-            .pickerStyle(.segmented)
+                ),
+                items: ASRManager.WhisperVariant.allCases,
+                title: { $0.rawValue },
+                isDisabled: { !ASRManager.isWhisperRuntimeSupported(variant: $0) },
+                isEqualWidth: false
+            )
         case ASRProviderID.qwen3:
-            Picker(
-                L10n.localize("asr.provider.model", comment: "Model picker label"),
+            CDSSegmentedControl(
                 selection: Binding(
                     get: { viewModel.selectedQwenModelSize },
                     set: { value in viewModel.selectQwenModelSize(value, selectingProvider: true) }
-                )
-            ) {
-                ForEach(ASRManager.ModelSize.allCases, id: \.self) { size in
-                    Text(size.rawValue).tag(size)
-                }
-            }
-            .pickerStyle(.segmented)
+                ),
+                items: ASRManager.ModelSize.allCases,
+                title: { $0.rawValue },
+                isEqualWidth: false
+            )
         default:
             EmptyView()
         }

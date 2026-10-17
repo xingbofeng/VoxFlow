@@ -88,13 +88,11 @@ struct StyleOutputFormatSheet: View {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(AppTheme.ColorToken.secondaryText)
-            Picker(title, selection: selection) {
-                ForEach(values, id: \.self) { value in
-                    Text(label(value)).tag(value)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            CDSSegmentedControl(
+                selection: selection,
+                items: values,
+                title: label
+            )
         }
     }
 

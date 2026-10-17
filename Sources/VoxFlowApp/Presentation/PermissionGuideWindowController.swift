@@ -181,9 +181,9 @@ private struct PermissionGuideView: View {
         HStack(spacing: 12) {
             Image(systemName: item.systemImage)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(item.granted ? Color.green : Color.orange)
+                .foregroundStyle(item.granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                 .frame(width: 40, height: 40)
-                .background((item.granted ? Color.green : Color.orange).opacity(0.10))
+                .background((item.granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning).opacity(0.10))
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.icon))
 
             VStack(alignment: .leading, spacing: 3) {
@@ -199,10 +199,10 @@ private struct PermissionGuideView: View {
 
             Text(item.status)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(item.granted ? Color.green : Color.orange)
+                .foregroundStyle(item.granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                 .padding(.horizontal, 10)
                 .frame(height: 28)
-                .background((item.granted ? Color.green : Color.orange).opacity(0.09))
+                .background((item.granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning).opacity(0.09))
                 .clipShape(Capsule())
         }
         .padding(14)

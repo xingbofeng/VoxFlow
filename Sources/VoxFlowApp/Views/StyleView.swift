@@ -170,7 +170,7 @@ struct StyleView: View {
     private var styleList: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(L10n.localize("style.view.title", comment: ""), systemImage: "slider.horizontal.3")
-                .font(.system(size: 24, weight: .semibold))
+                .font(CDS.Typography.pageTitle)
                 .padding(.horizontal, 18)
                 .padding(.top, 22)
 
@@ -446,7 +446,7 @@ struct StyleView: View {
                         set: { viewModel.saveGlobalAutoMatchEnabled($0) }
                     )
                 )
-                .toggleStyle(.switch)
+                .cdsToggle()
                 .labelsHidden()
                 Button {
                     openAutoMatchSheet()

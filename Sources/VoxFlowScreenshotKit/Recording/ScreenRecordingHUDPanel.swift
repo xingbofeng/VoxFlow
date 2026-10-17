@@ -51,11 +51,11 @@ final class ScreenRecordingHUDView: NSView {
         layer?.cornerRadius = 9
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.94).cgColor
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.systemRed.withAlphaComponent(0.36).cgColor
+        layer?.borderColor = ScreenshotPalette.danger.withAlphaComponent(0.36).cgColor
 
         statusDot.wantsLayer = true
         statusDot.layer?.cornerRadius = dotSize / 2
-        statusDot.layer?.backgroundColor = NSColor.systemRed.cgColor
+        statusDot.layer?.backgroundColor = ScreenshotPalette.danger.cgColor
         statusDot.setAccessibilityLabel(ScreenshotL10n.ScreenshotKit.Recording.Hud.Accessibility.recording)
         addSubview(statusDot)
 
@@ -72,8 +72,8 @@ final class ScreenRecordingHUDView: NSView {
         stopButton.isBordered = false
         stopButton.wantsLayer = true
         stopButton.layer?.cornerRadius = 6
-        stopButton.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.12).cgColor
-        stopButton.contentTintColor = .systemRed
+        stopButton.layer?.backgroundColor = ScreenshotPalette.danger.withAlphaComponent(0.12).cgColor
+        stopButton.contentTintColor = ScreenshotPalette.danger
         stopButton.target = self
         stopButton.action = #selector(stopClicked)
         stopButton.toolTip = ScreenshotL10n.ScreenshotKit.Recording.Hud.stop

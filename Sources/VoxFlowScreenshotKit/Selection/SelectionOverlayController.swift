@@ -2546,7 +2546,7 @@ final class SelectionOverlayContentView: NSView {
         field.wantsLayer = true
         field.layer?.cornerRadius = 5
         field.layer?.borderWidth = 1
-        field.layer?.borderColor = NSColor.systemGreen.withAlphaComponent(0.45).cgColor
+        field.layer?.borderColor = ScreenshotPalette.clay.withAlphaComponent(0.45).cgColor
         field.onCommit = { [weak self] text in
             self?.finishInlineTextEditing(committedText: text)
         }
@@ -2599,9 +2599,9 @@ final class SelectionOverlayContentView: NSView {
 
     private func drawHighlightedWindowIfNeeded() {
         guard let highlightedWindowRect else { return }
-        NSColor.systemGreen.withAlphaComponent(0.22).setFill()
+        ScreenshotPalette.clay.withAlphaComponent(0.22).setFill()
         highlightedWindowRect.fill()
-        NSColor.systemGreen.setStroke()
+        ScreenshotPalette.clay.setStroke()
         let border = NSBezierPath(rect: highlightedWindowRect)
         border.lineWidth = 2
         border.stroke()
@@ -2616,13 +2616,13 @@ final class SelectionOverlayContentView: NSView {
     }
 
     private func drawSelection(_ selectionRect: CGRect, presentation: SelectionOverlayPresentation) {
-        let green = NSColor.systemGreen
-        green.setStroke()
+        let accent = ScreenshotPalette.clay
+        accent.setStroke()
         let border = NSBezierPath(rect: selectionRect)
         border.lineWidth = 2
         border.stroke()
 
-        green.setFill()
+        accent.setFill()
         for handle in presentation.resizeHandleRects {
             let localHandle = handle.offsetBy(
                 dx: -configuration.display.frame.minX,
@@ -2638,7 +2638,7 @@ final class SelectionOverlayContentView: NSView {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
             .foregroundColor: NSColor.white,
-            .backgroundColor: NSColor.systemGreen.withAlphaComponent(0.92),
+            .backgroundColor: ScreenshotPalette.clay.withAlphaComponent(0.92),
         ]
         let attributed = NSAttributedString(string: " \(text) ", attributes: attributes)
         attributed.draw(
@@ -2703,7 +2703,7 @@ final class SelectionOverlayContentView: NSView {
               !selectedIDs.isEmpty else {
             return
         }
-        NSColor.systemGreen.setStroke()
+        ScreenshotPalette.clay.setStroke()
         for element in annotationState.document.elements where selectedIDs.contains(element.id) {
             guard element.kind != .mosaic else { continue }
             let rect = overlayRect(element.bounds, in: selectionRect, scale: scale).insetBy(dx: -4, dy: -4)
@@ -2720,7 +2720,7 @@ final class SelectionOverlayContentView: NSView {
             let rect = CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)
             NSColor.white.setFill()
             NSBezierPath(rect: rect).fill()
-            NSColor.systemGreen.setStroke()
+            ScreenshotPalette.clay.setStroke()
             let path = NSBezierPath(rect: rect)
             path.lineWidth = 1
             path.stroke()
@@ -2743,9 +2743,9 @@ final class SelectionOverlayContentView: NSView {
             height: radius * 2
         )
         let path = NSBezierPath(ovalIn: rect)
-        NSColor.systemGreen.withAlphaComponent(0.16).setFill()
+        ScreenshotPalette.clay.withAlphaComponent(0.16).setFill()
         path.fill()
-        NSColor.systemGreen.withAlphaComponent(0.78).setStroke()
+        ScreenshotPalette.clay.withAlphaComponent(0.78).setStroke()
         path.lineWidth = 1.5
         path.stroke()
         NSGraphicsContext.restoreGraphicsState()
@@ -3147,7 +3147,7 @@ final class SelectionOverlayContentView: NSView {
         let toolbarPath = NSBezierPath(roundedRect: frame, xRadius: 9, yRadius: 9)
         NSColor.white.withAlphaComponent(0.92).setFill()
         toolbarPath.fill()
-        NSColor.systemGreen.withAlphaComponent(0.32).setStroke()
+        ScreenshotPalette.clay.withAlphaComponent(0.32).setStroke()
         toolbarPath.lineWidth = 1
         toolbarPath.stroke()
 
@@ -3206,7 +3206,7 @@ final class SelectionOverlayContentView: NSView {
 
         NSGraphicsContext.saveGraphicsState()
         let path = NSBezierPath(roundedRect: boxRect, xRadius: 8, yRadius: 8)
-        NSColor.systemRed.withAlphaComponent(0.88).setFill()
+        ScreenshotPalette.danger.withAlphaComponent(0.88).setFill()
         path.fill()
         let textRect = CGRect(
             x: boxRect.minX + paddingX + leadingIndicatorWidth,
@@ -3280,7 +3280,7 @@ final class SelectionOverlayContentView: NSView {
         let path = NSBezierPath(roundedRect: layout.frame, xRadius: 9, yRadius: 9)
         NSColor.white.withAlphaComponent(0.94).setFill()
         path.fill()
-        NSColor.systemGreen.withAlphaComponent(0.32).setStroke()
+        ScreenshotPalette.clay.withAlphaComponent(0.32).setStroke()
         path.lineWidth = 1
         path.stroke()
 
@@ -3356,11 +3356,11 @@ final class SelectionOverlayContentView: NSView {
         let textColor: NSColor
         switch kind {
         case .primary:
-            fillColor = NSColor.systemGreen.withAlphaComponent(0.92)
+            fillColor = ScreenshotPalette.clay.withAlphaComponent(0.92)
             textColor = .white
         case .secondary:
             fillColor = isSelected
-                ? NSColor.systemGreen.withAlphaComponent(0.22)
+                ? ScreenshotPalette.clay.withAlphaComponent(0.22)
                 : NSColor.black.withAlphaComponent(0.04)
             textColor = .labelColor
         case .plain:
@@ -3371,7 +3371,7 @@ final class SelectionOverlayContentView: NSView {
         fillColor.setFill()
         path.fill()
         if isSelected {
-            NSColor.systemGreen.withAlphaComponent(0.72).setStroke()
+            ScreenshotPalette.clay.withAlphaComponent(0.72).setStroke()
             path.lineWidth = 1.2
             path.stroke()
         }
@@ -3594,7 +3594,7 @@ final class SelectionOverlayContentView: NSView {
         let path = NSBezierPath(roundedRect: frame, xRadius: 9, yRadius: 9)
         NSColor.white.withAlphaComponent(0.96).setFill()
         path.fill()
-        NSColor.systemGreen.withAlphaComponent(0.32).setStroke()
+        ScreenshotPalette.clay.withAlphaComponent(0.32).setStroke()
         path.lineWidth = 1
         path.stroke()
 
@@ -3633,7 +3633,7 @@ final class SelectionOverlayContentView: NSView {
             color.nsColor.setFill()
             NSBezierPath(ovalIn: rect.insetBy(dx: 4, dy: 4)).fill()
             if isSelected {
-                NSColor.systemGreen.setStroke()
+                ScreenshotPalette.clay.setStroke()
                 let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 2, dy: 2))
                 ring.lineWidth = 2
                 ring.stroke()
@@ -3675,7 +3675,7 @@ final class SelectionOverlayContentView: NSView {
     private func drawPopoverOptionBackground(rect: CGRect, isSelected: Bool) {
         let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
         if isSelected {
-            NSColor.systemGreen.withAlphaComponent(0.28).setFill()
+            ScreenshotPalette.clay.withAlphaComponent(0.28).setFill()
         } else {
             NSColor.black.withAlphaComponent(0.04).setFill()
         }
@@ -3792,12 +3792,12 @@ final class SelectionOverlayContentView: NSView {
             fillColor = NSColor.black.withAlphaComponent(0.02)
         } else if isPressed {
             fillColor = item.role == .complete
-                ? NSColor.systemGreen.withAlphaComponent(0.22)
+                ? ScreenshotPalette.clay.withAlphaComponent(0.22)
                 : item.role == .cancel
-                ? NSColor.systemRed.withAlphaComponent(0.16)
-                : NSColor.systemGreen.withAlphaComponent(0.28)
+                ? ScreenshotPalette.danger.withAlphaComponent(0.16)
+                : ScreenshotPalette.clay.withAlphaComponent(0.28)
         } else if isActiveTool {
-            fillColor = NSColor.systemGreen.withAlphaComponent(0.18)
+            fillColor = ScreenshotPalette.clay.withAlphaComponent(0.18)
         } else {
             fillColor = NSColor.black.withAlphaComponent(0.04)
         }

@@ -1,12 +1,8 @@
 import AppKit
 
 enum OverlayAppearance {
-    static let backgroundColor = NSColor(
-        red: 1,
-        green: 1,
-        blue: 1,
-        alpha: 0.98
-    )
+    /// Floating HUD surface: Surface 3 in both appearances, warm rather than pure white.
+    static let backgroundColor = CDS.Surface.level3NSColor.withAlphaComponent(0.98)
 }
 
 final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
@@ -209,12 +205,7 @@ final class OverlayWindowController: NSWindowController {
         visualEffectView.layer?.masksToBounds = true
         visualEffectView.layer?.backgroundColor = OverlayAppearance.backgroundColor.cgColor
         visualEffectView.layer?.borderWidth = 1
-        visualEffectView.layer?.borderColor = NSColor(
-            red: 0.790,
-            green: 0.835,
-            blue: 0.815,
-            alpha: 0.55
-        ).cgColor
+        visualEffectView.layer?.borderColor = CDS.Stroke.hairlineNSColor.cgColor
         visualEffectView.translatesAutoresizingMaskIntoConstraints = false
 
         window.contentView = visualEffectView
@@ -224,12 +215,7 @@ final class OverlayWindowController: NSWindowController {
         indicatorBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         indicatorBackgroundView.wantsLayer = true
         indicatorBackgroundView.layer?.cornerRadius = 9
-        indicatorBackgroundView.layer?.backgroundColor = NSColor(
-            red: 0.055,
-            green: 0.420,
-            blue: 0.345,
-            alpha: 0.11
-        ).cgColor
+        indicatorBackgroundView.layer?.backgroundColor = CDS.Clay.baseNSColor.withAlphaComponent(0.11).cgColor
         visualEffectView.addSubview(indicatorBackgroundView)
 
         // Waveform view
@@ -241,7 +227,7 @@ final class OverlayWindowController: NSWindowController {
         textLabel.isBezeled = false
         textLabel.isEditable = false
         textLabel.drawsBackground = false
-        textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        textLabel.textColor = CDS.Text.primaryNSColor
         textLabel.font = OverlayLayout.textFont
         textLabel.lineBreakMode = OverlayLayout.textLineBreakMode
         textLabel.maximumNumberOfLines = OverlayLayout.maxVisibleLines
@@ -259,16 +245,11 @@ final class OverlayWindowController: NSWindowController {
         statusLabel.drawsBackground = false
         statusLabel.alignment = .center
         statusLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+        statusLabel.textColor = CDS.Clay.baseNSColor
         statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
         statusLabel.wantsLayer = true
         statusLabel.layer?.cornerRadius = 10
-        statusLabel.layer?.backgroundColor = NSColor(
-            red: 0.055,
-            green: 0.420,
-            blue: 0.345,
-            alpha: 0.10
-        ).cgColor
+        statusLabel.layer?.backgroundColor = CDS.Clay.baseNSColor.withAlphaComponent(0.11).cgColor
         visualEffectView.addSubview(statusLabel)
 
         // Refining spinner (hidden by default)
@@ -339,34 +320,19 @@ final class OverlayWindowController: NSWindowController {
         confirmationStatusLabel.drawsBackground = false
         confirmationStatusLabel.alignment = .center
         confirmationStatusLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        confirmationStatusLabel.textColor = NSColor(red: 0.690, green: 0.370, blue: 0.090, alpha: 1.0)
+        confirmationStatusLabel.textColor = CDS.Semantic.warningNSColor
         confirmationStatusLabel.stringValue = L10n.localize("hud.status.confirmation", comment: "")
         confirmationStatusLabel.wantsLayer = true
         confirmationStatusLabel.layer?.cornerRadius = 10
-        confirmationStatusLabel.layer?.backgroundColor = NSColor(
-            red: 1.0,
-            green: 0.530,
-            blue: 0.200,
-            alpha: 0.12
-        ).cgColor
+        confirmationStatusLabel.layer?.backgroundColor = CDS.Semantic.warningNSColor.withAlphaComponent(0.14).cgColor
         confirmationContainer.addSubview(confirmationStatusLabel)
 
         confirmationUtteranceRow.translatesAutoresizingMaskIntoConstraints = false
         confirmationUtteranceRow.wantsLayer = true
         confirmationUtteranceRow.layer?.cornerRadius = 12
         confirmationUtteranceRow.layer?.borderWidth = 1
-        confirmationUtteranceRow.layer?.borderColor = NSColor(
-            red: 0.880,
-            green: 0.905,
-            blue: 0.890,
-            alpha: 0.90
-        ).cgColor
-        confirmationUtteranceRow.layer?.backgroundColor = NSColor(
-            red: 0.996,
-            green: 0.996,
-            blue: 0.990,
-            alpha: 0.90
-        ).cgColor
+        confirmationUtteranceRow.layer?.borderColor = CDS.Stroke.hairlineNSColor.cgColor
+        confirmationUtteranceRow.layer?.backgroundColor = CDS.Surface.level2NSColor.withAlphaComponent(0.92).cgColor
         confirmationContainer.addSubview(confirmationUtteranceRow)
 
         confirmationUtteranceIconLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -376,16 +342,11 @@ final class OverlayWindowController: NSWindowController {
         confirmationUtteranceIconLabel.drawsBackground = false
         confirmationUtteranceIconLabel.alignment = .center
         confirmationUtteranceIconLabel.font = NSFont.systemFont(ofSize: 20, weight: .bold)
-        confirmationUtteranceIconLabel.textColor = NSColor(red: 0.890, green: 0.480, blue: 0.140, alpha: 1.0)
+        confirmationUtteranceIconLabel.textColor = CDS.Clay.hoverNSColor
         confirmationUtteranceIconLabel.stringValue = "“"
         confirmationUtteranceIconLabel.wantsLayer = true
         confirmationUtteranceIconLabel.layer?.cornerRadius = 9
-        confirmationUtteranceIconLabel.layer?.backgroundColor = NSColor(
-            red: 1.0,
-            green: 0.540,
-            blue: 0.180,
-            alpha: 0.12
-        ).cgColor
+        confirmationUtteranceIconLabel.layer?.backgroundColor = CDS.Clay.baseNSColor.withAlphaComponent(0.12).cgColor
         confirmationUtteranceRow.addSubview(confirmationUtteranceIconLabel)
 
         confirmationUtteranceLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -393,7 +354,7 @@ final class OverlayWindowController: NSWindowController {
         confirmationUtteranceLabel.isEditable = false
         confirmationUtteranceLabel.drawsBackground = false
         confirmationUtteranceLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
-        confirmationUtteranceLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        confirmationUtteranceLabel.textColor = CDS.Text.primaryNSColor
         confirmationUtteranceLabel.lineBreakMode = .byTruncatingTail
         confirmationUtteranceLabel.maximumNumberOfLines = 1
         confirmationUtteranceLabel.cell?.wraps = false
@@ -414,7 +375,7 @@ final class OverlayWindowController: NSWindowController {
         confirmationFooterLabel.isEditable = false
         confirmationFooterLabel.drawsBackground = false
         confirmationFooterLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
-        confirmationFooterLabel.textColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.85)
+        confirmationFooterLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.85)
         confirmationFooterLabel.stringValue = L10n.localize("hud.confirmation.footer_hint", comment: "")
         confirmationContainer.addSubview(confirmationFooterLabel)
 
@@ -472,7 +433,7 @@ final class OverlayWindowController: NSWindowController {
         selectionActionTitleLabel.isEditable = false
         selectionActionTitleLabel.drawsBackground = false
         selectionActionTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-        selectionActionTitleLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 0.92)
+        selectionActionTitleLabel.textColor = CDS.Text.primaryNSColor.withAlphaComponent(0.92)
         selectionActionTitleLabel.stringValue = L10n.localize("hud.selection_action.title", comment: "")
         selectionActionCard.addSubview(selectionActionTitleLabel)
 
@@ -484,7 +445,7 @@ final class OverlayWindowController: NSWindowController {
             accessibilityDescription: L10n.localize("hud.selection_action.close", comment: "")
         )
         selectionActionCloseButton.imagePosition = .imageOnly
-        selectionActionCloseButton.contentTintColor = NSColor(red: 0.360, green: 0.420, blue: 0.390, alpha: 0.75)
+        selectionActionCloseButton.contentTintColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.75)
         selectionActionCloseButton.target = self
         selectionActionCloseButton.action = #selector(cancelSelectionActionFromButton(_:))
         selectionActionCard.addSubview(selectionActionCloseButton)
@@ -729,18 +690,8 @@ final class OverlayWindowController: NSWindowController {
             button.wantsLayer = true
             button.layer?.cornerRadius = 11
             button.layer?.borderWidth = 1
-            button.layer?.borderColor = NSColor(
-                red: 0.875,
-                green: 0.900,
-                blue: 0.885,
-                alpha: 0.95
-            ).cgColor
-            button.layer?.backgroundColor = NSColor(
-                red: 0.998,
-                green: 0.998,
-                blue: 0.994,
-                alpha: 0.92
-            ).cgColor
+            button.layer?.borderColor = CDS.Stroke.hairlineNSColor.cgColor
+            button.layer?.backgroundColor = CDS.Surface.level2NSColor.withAlphaComponent(0.92).cgColor
             configureAgentCandidateButton(
                 button,
                 number: index + 1,
@@ -763,18 +714,8 @@ final class OverlayWindowController: NSWindowController {
         defaultButton.wantsLayer = true
         defaultButton.layer?.cornerRadius = 11
         defaultButton.layer?.borderWidth = 1
-        defaultButton.layer?.borderColor = NSColor(
-            red: 0.875,
-            green: 0.900,
-            blue: 0.885,
-            alpha: 0.95
-        ).cgColor
-        defaultButton.layer?.backgroundColor = NSColor(
-            red: 0.998,
-            green: 0.998,
-            blue: 0.994,
-            alpha: 0.92
-        ).cgColor
+        defaultButton.layer?.borderColor = CDS.Stroke.hairlineNSColor.cgColor
+        defaultButton.layer?.backgroundColor = CDS.Surface.level2NSColor.withAlphaComponent(0.92).cgColor
         configureDefaultOutputButton(defaultButton)
         confirmationRowsStack.addArrangedSubview(defaultButton)
         NSLayoutConstraint.activate([
@@ -803,18 +744,8 @@ final class OverlayWindowController: NSWindowController {
             button.wantsLayer = true
             button.layer?.cornerRadius = 12
             button.layer?.borderWidth = 1
-            button.layer?.borderColor = NSColor(
-                red: 0.875,
-                green: 0.900,
-                blue: 0.885,
-                alpha: 0.95
-            ).cgColor
-            button.layer?.backgroundColor = NSColor(
-                red: 0.998,
-                green: 0.998,
-                blue: 0.994,
-                alpha: 0.92
-            ).cgColor
+            button.layer?.borderColor = CDS.Stroke.hairlineNSColor.cgColor
+            button.layer?.backgroundColor = CDS.Surface.level2NSColor.withAlphaComponent(0.92).cgColor
             configureSelectionActionTile(button, number: index + 1, action: action)
             selectionActionTilesStack.addArrangedSubview(button)
             NSLayoutConstraint.activate([
@@ -1012,12 +943,7 @@ final class OverlayWindowController: NSWindowController {
         numberLabel.alignment = .center
         numberLabel.wantsLayer = true
         numberLabel.layer?.cornerRadius = 8
-        numberLabel.layer?.backgroundColor = NSColor(
-            red: 1.0,
-            green: 0.540,
-            blue: 0.180,
-            alpha: 0.12
-        ).cgColor
+        numberLabel.layer?.backgroundColor = CDS.Clay.baseNSColor.withAlphaComponent(0.12).cgColor
 
         let nameLabel = confirmationRowText(name, size: 14, weight: .semibold)
         nameLabel.lineBreakMode = .byTruncatingTail
@@ -1028,7 +954,7 @@ final class OverlayWindowController: NSWindowController {
             size: 12,
             weight: .medium
         )
-        confidenceLabel.textColor = NSColor(red: 0.425, green: 0.475, blue: 0.450, alpha: 0.95)
+        confidenceLabel.textColor = CDS.Text.mutedNSColor
 
         let confidenceView = confidenceBarView(confidenceBar)
 
@@ -1061,12 +987,7 @@ final class OverlayWindowController: NSWindowController {
         numberLabel.alignment = .center
         numberLabel.wantsLayer = true
         numberLabel.layer?.cornerRadius = 8
-        numberLabel.layer?.backgroundColor = NSColor(
-            red: 1.0,
-            green: 0.540,
-            blue: 0.180,
-            alpha: 0.12
-        ).cgColor
+        numberLabel.layer?.backgroundColor = CDS.Clay.baseNSColor.withAlphaComponent(0.12).cgColor
 
         let nameLabel = confirmationRowText(
             L10n.localize("hud.output.default_label", comment: ""),
@@ -1105,7 +1026,7 @@ final class OverlayWindowController: NSWindowController {
             systemSymbolName: Self.selectionActionSymbolName(for: action),
             accessibilityDescription: action.title
         )
-        iconView.contentTintColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+        iconView.contentTintColor = CDS.Clay.baseNSColor
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
 
         let nameLabel = confirmationRowText(action.title, size: 13, weight: .semibold)
@@ -1150,7 +1071,7 @@ final class OverlayWindowController: NSWindowController {
         label.isEditable = false
         label.drawsBackground = false
         label.font = NSFont.systemFont(ofSize: size, weight: weight)
-        label.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        label.textColor = CDS.Text.primaryNSColor
         return label
     }
 
@@ -1167,8 +1088,8 @@ final class OverlayWindowController: NSWindowController {
             segment.wantsLayer = true
             segment.layer?.cornerRadius = 2
             segment.layer?.backgroundColor = (character == "■"
-                ? NSColor(red: 0.250, green: 0.690, blue: 0.455, alpha: 1.0)
-                : NSColor(red: 0.895, green: 0.915, blue: 0.905, alpha: 1.0)
+                ? CDS.Semantic.successNSColor
+                : CDS.Fill.ghostSelectedNSColor
             ).cgColor
             stack.addArrangedSubview(segment)
         }
@@ -1248,7 +1169,7 @@ final class OverlayWindowController: NSWindowController {
         waveformView.reset()
         waveformView.startAnimation()
         statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
-        statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+        statusLabel.textColor = CDS.Clay.baseNSColor
         refiningSpinner.isHidden = true
         refiningSpinner.stopAnimation(nil)
 
@@ -1324,7 +1245,7 @@ final class OverlayWindowController: NSWindowController {
             displayText = text.isEmpty
                 ? L10n.localize("hud.transcription.empty_refinement_text", comment: "")
                 : text
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             statusLabel.stringValue = L10n.localize("hud.status.refining", comment: "")
             waveformView.stopAnimation()
             waveformView.isHidden = true
@@ -1332,7 +1253,7 @@ final class OverlayWindowController: NSWindowController {
             refiningSpinner.startAnimation(nil)
         } else {
             displayText = text.isEmpty ? L10n.localize("hud.transcription.empty_listening_text", comment: "") : text
-            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            textLabel.textColor = CDS.Text.primaryNSColor
             statusLabel.stringValue = L10n.localize("hud.status.dictating", comment: "")
             waveformView.isHidden = false
             waveformView.startAnimation()
@@ -1436,12 +1357,12 @@ final class OverlayWindowController: NSWindowController {
         switch tone {
         case .info:
             statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
-            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
-            textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
+            statusLabel.textColor = CDS.Semantic.warningNSColor
+            textLabel.textColor = CDS.Clay.strongNSColor
         case .success:
             statusLabel.stringValue = L10n.localize("hud.message.success", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
+            textLabel.textColor = CDS.Text.primaryNSColor
         }
     }
 
@@ -1606,9 +1527,9 @@ final class OverlayWindowController: NSWindowController {
             stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_title", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.reading_window_detail", comment: "")
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1617,9 +1538,9 @@ final class OverlayWindowController: NSWindowController {
             stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.transcribing", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.transcribing_detail", comment: "")
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1628,9 +1549,9 @@ final class OverlayWindowController: NSWindowController {
             stopAgentRuntimeElapsedTimer()
             agentRuntimeTaskSummary = nil
             statusLabel.stringValue = L10n.localize("hud.agent_compose.generating", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.generating_detail", comment: "")
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1641,7 +1562,7 @@ final class OverlayWindowController: NSWindowController {
             }
             let statusText = L10n.localize("hud.agent_compose.runtime_processing", comment: "")
             statusLabel.stringValue = statusText
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_processing_detail",
@@ -1649,7 +1570,7 @@ final class OverlayWindowController: NSWindowController {
             )
             textLabel.stringValue = detailText
             startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1657,7 +1578,7 @@ final class OverlayWindowController: NSWindowController {
         case let .runtimeOperating(summary):
             let statusText = L10n.localize("hud.agent_compose.runtime_operating", comment: "")
             statusLabel.stringValue = statusText
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_operating_detail",
@@ -1665,7 +1586,7 @@ final class OverlayWindowController: NSWindowController {
             )
             textLabel.stringValue = detailText
             startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1673,14 +1594,14 @@ final class OverlayWindowController: NSWindowController {
         case let .runtimeWaitingForPermission(summary):
             let statusText = L10n.localize("hud.agent_compose.runtime_waiting_permission", comment: "")
             statusLabel.stringValue = statusText
-            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+            statusLabel.textColor = CDS.Semantic.warningNSColor
             let detailText = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_waiting_permission_detail"
             )
             textLabel.stringValue = detailText
             startAgentRuntimeElapsedTimerIfNeeded(statusText: statusText, detailText: detailText)
-            textLabel.textColor = NSColor(red: 0.220, green: 0.310, blue: 0.280, alpha: 0.92)
+            textLabel.textColor = CDS.Text.secondaryNSColor.withAlphaComponent(0.92)
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = false
@@ -1688,28 +1609,28 @@ final class OverlayWindowController: NSWindowController {
         case .copied:
             stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.copied", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.copied_detail", comment: "")
-            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            textLabel.textColor = CDS.Text.primaryNSColor
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case .inserted:
             stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.inserted", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.inserted_detail", comment: "")
-            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            textLabel.textColor = CDS.Text.primaryNSColor
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         case let .runtimeCompleted(summary):
             stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_completed", comment: "")
-            statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
+            statusLabel.textColor = CDS.Clay.baseNSColor
             textLabel.stringValue = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_completed_detail"
             )
-            textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+            textLabel.textColor = CDS.Text.primaryNSColor
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = true
@@ -1717,12 +1638,12 @@ final class OverlayWindowController: NSWindowController {
         case let .runtimeFailed(summary):
             stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.agent_compose.runtime_failed", comment: "")
-            statusLabel.textColor = NSColor.systemRed
+            statusLabel.textColor = CDS.Semantic.dangerNSColor
             textLabel.stringValue = Self.runtimeDetailText(
                 summary,
                 fallbackKey: "hud.agent_compose.runtime_failed_detail"
             )
-            textLabel.textColor = NSColor(red: 0.560, green: 0.110, blue: 0.110, alpha: 1.0)
+            textLabel.textColor = CDS.Semantic.dangerNSColor
             waveformView.stopAnimation()
             waveformView.isHidden = true
             refiningSpinner.isHidden = true
@@ -1730,9 +1651,9 @@ final class OverlayWindowController: NSWindowController {
         case .contextUnavailable:
             stopAgentRuntimeElapsedTimer()
             statusLabel.stringValue = L10n.localize("hud.message.info", comment: "")
-            statusLabel.textColor = NSColor(red: 0.670, green: 0.390, blue: 0.080, alpha: 1.0)
+            statusLabel.textColor = CDS.Semantic.warningNSColor
             textLabel.stringValue = L10n.localize("hud.agent_compose.context_unavailable", comment: "")
-            textLabel.textColor = NSColor(red: 1.0, green: 0.78, blue: 0.38, alpha: 1.0)
+            textLabel.textColor = CDS.Clay.strongNSColor
             refiningSpinner.isHidden = true
             refiningSpinner.stopAnimation(nil)
         }
@@ -1820,8 +1741,8 @@ final class OverlayWindowController: NSWindowController {
         waveformView.stopAnimation()
         refiningSpinner.stopAnimation(nil)
         refiningSpinner.isHidden = true
-        statusLabel.textColor = NSColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 1.0)
-        textLabel.textColor = NSColor(red: 0.114, green: 0.169, blue: 0.149, alpha: 1.0)
+        statusLabel.textColor = CDS.Clay.baseNSColor
+        textLabel.textColor = CDS.Text.primaryNSColor
         statusLabel.stringValue = presentation.badge ?? presentation.title
         if case .listening = presentation {
             textLabel.stringValue = L10n.localize("hud.prompt.dictate_to_agent", comment: "")
@@ -1844,7 +1765,7 @@ final class OverlayWindowController: NSWindowController {
             waveformView.isHidden = true
         case .failure:
             waveformView.isHidden = true
-            statusLabel.textColor = NSColor.systemRed
+            statusLabel.textColor = CDS.Semantic.dangerNSColor
         case .idle, .exact:
             waveformView.isHidden = true
         case .confirmation:

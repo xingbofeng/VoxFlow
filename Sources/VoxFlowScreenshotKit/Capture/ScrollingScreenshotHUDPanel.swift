@@ -26,7 +26,7 @@ final class ScrollingScreenshotHUDView: NSView {
         layer?.cornerRadius = 9
         layer?.backgroundColor = NSColor.white.withAlphaComponent(0.94).cgColor
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.systemGreen.withAlphaComponent(0.32).cgColor
+        layer?.borderColor = ScreenshotPalette.clay.withAlphaComponent(0.32).cgColor
 
         configureIconButton(
             autoScrollButton,
@@ -126,13 +126,13 @@ final class ScrollingScreenshotHUDView: NSView {
         isPermissionBlocked: Bool
     ) -> NSColor {
         if isPermissionBlocked {
-            return .systemOrange
+            return ScreenshotPalette.warning
         }
         switch status.health {
         case .good:
             return .labelColor
         case .unstable, .paused, .reachedEnd, .reachedHeightLimit:
-            return .systemOrange
+            return ScreenshotPalette.warning
         }
     }
 
@@ -141,15 +141,15 @@ final class ScrollingScreenshotHUDView: NSView {
         isPermissionBlocked: Bool
     ) -> NSColor {
         if isPermissionBlocked {
-            return .systemOrange.withAlphaComponent(0.42)
+            return ScreenshotPalette.warning.withAlphaComponent(0.42)
         }
         switch status.health {
         case .good:
-            return .systemGreen.withAlphaComponent(0.32)
+            return ScreenshotPalette.clay.withAlphaComponent(0.32)
         case .unstable, .paused:
-            return .systemOrange.withAlphaComponent(0.42)
+            return ScreenshotPalette.warning.withAlphaComponent(0.42)
         case .reachedEnd, .reachedHeightLimit:
-            return .systemBlue.withAlphaComponent(0.36)
+            return ScreenshotPalette.clayHover.withAlphaComponent(0.36)
         }
     }
 

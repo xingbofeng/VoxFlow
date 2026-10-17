@@ -412,7 +412,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.tts.title", comment: "TTS section title"),
             subtitle: L10n.localize("settings.task.tts.subtitle", comment: "TTS section subtitle"),
             systemImage: "speaker.wave.2",
-            tint: .green
+            tint: CDS.Semantic.success
         ) {
             CapabilityModelView(viewModel: ttsCapabilityModelViewModel)
         }
@@ -423,7 +423,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.translation.title", comment: "Translation section title"),
             subtitle: L10n.localize("settings.task.translation.subtitle", comment: "Translation section subtitle"),
             systemImage: "globe.asia.australia",
-            tint: .teal
+            tint: AppTheme.ColorToken.accent
         ) {
             CapabilityModelView(viewModel: translationCapabilityModelViewModel)
         }
@@ -460,7 +460,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.selection.group.title", comment: "Selection shortcuts group title"),
             subtitle: L10n.localize("settings.task.selection.group.subtitle", comment: "Selection shortcuts group subtitle"),
             systemImage: "text.cursor",
-            tint: .teal
+            tint: AppTheme.ColorToken.accent
         ) {
             selectionAssistantShortcutRows
         }
@@ -609,21 +609,21 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.workbench.group.title", comment: "Workbench settings group title"),
             subtitle: L10n.localize("settings.workbench.group.subtitle", comment: "Workbench settings group subtitle"),
             systemImage: "rectangle.grid.1x2",
-            tint: .teal
+            tint: AppTheme.ColorToken.accent
         ) {
             workflowShortcutRow(
                 shortcut: .palette,
                 title: L10n.localize("settings.task.workflow.palette.title", comment: "Command palette workflow title"),
                 subtitle: L10n.localize("settings.task.workflow.palette.subtitle", comment: "Command palette workflow subtitle"),
                 systemImage: "rectangle.grid.1x2",
-                tint: .teal
+                tint: AppTheme.ColorToken.accent
             )
             systemToggle(
                 .hideDockIconWhenWorkbenchCloses,
                 L10n.localize("settings.appearance.hide_dock_icon.title", comment: ""),
                 L10n.localize("settings.appearance.hide_dock_icon.subtitle", comment: ""),
                 "dock.rectangle",
-                tint: .teal
+                tint: AppTheme.ColorToken.accent
             )
         }
     }
@@ -633,7 +633,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.input_language.title", comment: "Input and language title"),
             subtitle: L10n.localize("settings.task.input_language.subtitle", comment: "Input and language subtitle"),
             systemImage: "mic",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             VStack(spacing: 12) {
                 inputDeviceRow
@@ -647,7 +647,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.general.voice_shortcut.title", comment: "Voice shortcut group title"),
             subtitle: L10n.localize("settings.general.voice_shortcut.subtitle", comment: "Voice shortcut group subtitle"),
             systemImage: "keyboard",
-            tint: .purple
+            tint: CDS.Clay.strong
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 actionShortcutRow(
@@ -672,7 +672,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.general.middle_mouse.title", comment: "Middle mouse button recording title"),
                     subtitle: L10n.localize("settings.general.middle_mouse.subtitle", comment: "Middle mouse button recording subtitle"),
                     systemImage: "computermouse",
-                    tint: .blue,
+                    tint: CDS.Text.secondary,
                     isOn: middleMouseRecordingBinding
                 )
 
@@ -683,14 +683,15 @@ struct SettingsRootView: View {
                         Text(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode title"))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppTheme.ColorToken.primaryText)
-                        Picker(L10n.localize("settings.general.trigger_mode.title", comment: "Trigger mode picker label"), selection: shortPressTriggerBinding) {
-                            Text(L10n.localize("settings.general.trigger_mode.hold", comment: "Trigger mode: hold"))
-                                .tag(false)
-                            Text(L10n.localize("settings.general.trigger_mode.toggle", comment: "Trigger mode: toggle"))
-                                .tag(true)
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
+                        CDSSegmentedControl(
+                            selection: shortPressTriggerBinding,
+                            items: [false, true],
+                            title: { isToggle in
+                                isToggle
+                                    ? L10n.localize("settings.general.trigger_mode.toggle", comment: "Trigger mode: toggle")
+                                    : L10n.localize("settings.general.trigger_mode.hold", comment: "Trigger mode: hold")
+                            }
+                        )
                         .frame(width: 220)
                         Spacer(minLength: 0)
                     }
@@ -712,27 +713,27 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.audio.group_feedback.title", comment: ""),
             subtitle: L10n.localize("settings.audio.group_feedback.subtitle", comment: ""),
             systemImage: "speaker.wave.2",
-            tint: .blue
+            tint: CDS.Text.secondary
         ) {
             SettingsToggleRow(
                 title: L10n.localize("settings.audio.mute_toggle.title", comment: ""),
                 subtitle: L10n.localize("settings.audio.mute_toggle.subtitle", comment: ""),
                 systemImage: "speaker.slash",
-                tint: .blue,
+                tint: CDS.Text.secondary,
                 isOn: muteBinding
             )
             SettingsToggleRow(
                 title: L10n.localize("settings.audio.feedback_tone.title", comment: ""),
                 subtitle: L10n.localize("settings.audio.feedback_tone.subtitle", comment: ""),
                 systemImage: "bell",
-                tint: .blue,
+                tint: CDS.Text.secondary,
                 isOn: soundBinding
             )
             SettingsToggleRow(
                 title: L10n.localize("settings.audio.enable_enhancement.title", comment: ""),
                 subtitle: L10n.localize("settings.audio.enable_enhancement.subtitle", comment: ""),
                 systemImage: "waveform.path",
-                tint: .green,
+                tint: CDS.Semantic.success,
                 isOn: enhancementBinding
             )
         }
@@ -743,7 +744,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.output.group_title", comment: ""),
             subtitle: L10n.localize("settings.output.group_subtitle", comment: ""),
             systemImage: "textformat",
-            tint: .indigo
+            tint: CDS.Clay.hover
         ) {
             SettingsTextInputModeRow(
                 selectedMode: normalizedTextInputMode,
@@ -779,14 +780,14 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.system.performance_title", comment: ""),
             subtitle: L10n.localize("settings.system.performance_subtitle", comment: ""),
             systemImage: "bolt",
-            tint: .yellow
+            tint: CDS.Clay.Ramp.level3
         ) {
             systemToggle(
                 .keepMicrophoneActive,
                 L10n.localize("settings.system.keep_microphone_active.title", comment: ""),
                 L10n.localize("settings.system.keep_microphone_active.subtitle", comment: ""),
                 "bolt",
-                tint: .yellow
+                tint: CDS.Clay.Ramp.level3
             )
             Divider().padding(.leading, 70)
             systemToggle(
@@ -794,7 +795,7 @@ struct SettingsRootView: View {
                 L10n.localize("settings.system.pause_pre_output.title", comment: ""),
                 L10n.localize("settings.system.pause_pre_output.subtitle", comment: ""),
                 "text.append",
-                tint: .yellow
+                tint: CDS.Clay.Ramp.level3
             )
         }
     }
@@ -804,14 +805,14 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.selection.group.title", comment: "Selection shortcuts group title"),
             subtitle: L10n.localize("settings.task.selection.group.subtitle", comment: "Selection shortcuts group subtitle"),
             systemImage: "text.cursor",
-            tint: .teal
+            tint: AppTheme.ColorToken.accent
         ) {
             workflowShortcutRow(
                 shortcut: .selectionAction,
                 title: L10n.localize("settings.task.selection.action.title", comment: "Selection action title"),
                 subtitle: L10n.localize("settings.task.selection.action.subtitle", comment: "Selection action subtitle"),
                 systemImage: "text.cursor",
-                tint: .teal
+                tint: AppTheme.ColorToken.accent
             )
             Divider().padding(.leading, 70)
             workflowShortcutRow(
@@ -819,7 +820,7 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.task.selection.summarize.title", comment: "Direct summarize title"),
                 subtitle: L10n.localize("settings.task.selection.summarize.subtitle", comment: "Direct summarize subtitle"),
                 systemImage: "text.alignleft",
-                tint: .orange
+                tint: CDS.Semantic.warning
             )
             Divider().padding(.leading, 70)
             workflowShortcutRow(
@@ -827,7 +828,7 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.task.selection.ask_ai.title", comment: "Ask AI title"),
                 subtitle: L10n.localize("settings.task.selection.ask_ai.subtitle", comment: "Ask AI subtitle"),
                 systemImage: "sparkles",
-                tint: .purple
+                tint: CDS.Clay.strong
             )
         }
     }
@@ -837,20 +838,20 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.correction.title", comment: "Correction section title"),
             subtitle: L10n.localize("settings.task.correction.subtitle", comment: "Correction section subtitle"),
             systemImage: "sparkles",
-            tint: .blue
+            tint: CDS.Text.secondary
         ) {
             SettingsToggleRow(
                 title: L10n.localize("settings.task.correction.llm.title", comment: "Enable AI correction title"),
                 subtitle: L10n.localize("settings.task.correction.llm.subtitle", comment: "Enable AI correction subtitle"),
                 systemImage: "sparkles",
-                tint: .blue,
+                tint: CDS.Text.secondary,
                 isOn: $llmCorrectionEnabled
             )
             SettingsToggleRow(
                 title: L10n.localize("settings.task.correction.context_boost.title", comment: "Context boost title"),
                 subtitle: L10n.localize("settings.task.correction.context_boost.subtitle", comment: "Context boost subtitle"),
                 systemImage: "text.viewfinder",
-                tint: .indigo,
+                tint: CDS.Clay.hover,
                 isOn: $contextBoostEnabled
             )
         }
@@ -874,21 +875,21 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.task.easy_word.auto_learning.title", comment: "Auto learning title"),
                 subtitle: L10n.localize("settings.task.easy_word.auto_learning.subtitle", comment: "Auto learning subtitle"),
                 systemImage: "sparkle.magnifyingglass",
-                tint: .orange,
+                tint: CDS.Semantic.warning,
                 isOn: voiceCorrectionAutoLearningBinding
             )
             SettingsToggleRow(
                 title: L10n.localize("settings.task.easy_word.auto_learning_immediate.title", comment: "Auto learning immediate title"),
                 subtitle: L10n.localize("settings.task.easy_word.auto_learning_immediate.subtitle", comment: "Auto learning immediate subtitle"),
                 systemImage: "bolt.badge.checkmark",
-                tint: .green,
+                tint: CDS.Semantic.success,
                 isOn: voiceCorrectionAutoLearningImmediateBinding
             )
             SettingsToggleRow(
                 title: L10n.localize("settings.task.easy_word.shadow_mode.title", comment: "Shadow mode title"),
                 subtitle: L10n.localize("settings.task.easy_word.shadow_mode.subtitle", comment: "Shadow mode subtitle"),
                 systemImage: "shield.lefthalf.filled",
-                tint: .orange,
+                tint: CDS.Semantic.warning,
                 isOn: voiceCorrectionShadowModeBinding
             )
         }
@@ -899,14 +900,14 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.destination.screenshot", comment: "Screenshot settings title"),
             subtitle: L10n.localize("settings.destination.screenshot.subtitle", comment: "Screenshot settings subtitle"),
             systemImage: "text.viewfinder",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             workflowShortcutRow(
                 shortcut: .clipboardImageOCR,
                 title: L10n.localize("settings.task.workflow.clipboard_image.title", comment: "Clipboard image OCR title"),
                 subtitle: L10n.localize("settings.task.workflow.clipboard_image.subtitle", comment: "Clipboard image OCR subtitle"),
                 systemImage: "doc.viewfinder",
-                tint: .indigo
+                tint: CDS.Clay.hover
             )
             Divider().padding(.leading, 70)
             workflowShortcutRow(
@@ -914,7 +915,7 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.task.workflow.screenshot.title", comment: "Screenshot OCR title"),
                 subtitle: L10n.localize("settings.task.workflow.screenshot.subtitle", comment: "Screenshot OCR subtitle"),
                 systemImage: "text.viewfinder",
-                tint: .orange
+                tint: CDS.Semantic.warning
             )
         }
     }
@@ -924,14 +925,14 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.output.group_title", comment: ""),
             subtitle: L10n.localize("settings.destination.screenshot.behavior_subtitle", comment: "Screenshot behavior subtitle"),
             systemImage: "doc.viewfinder",
-            tint: .indigo
+            tint: CDS.Clay.hover
         ) {
             systemToggle(
                 .clipboardImageOCR,
                 L10n.localize("settings.shortcuts.clipboard_image_ocr.title", comment: ""),
                 L10n.localize("settings.output.clipboard_image_ocr.subtitle", comment: ""),
                 "doc.viewfinder",
-                tint: .indigo
+                tint: CDS.Clay.hover
             )
         }
     }
@@ -959,7 +960,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.models.llm.title", comment: "LLM model settings title"),
             subtitle: L10n.localize("settings.models.llm.subtitle", comment: "LLM model settings subtitle"),
             systemImage: "sparkles",
-            tint: .blue
+            tint: CDS.Text.secondary
         ) {
             LLMProviderView(viewModel: llmProviderViewModel, mode: .llm, embedded: true)
         }
@@ -970,7 +971,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.models.agent.title", comment: "Agent model settings title"),
             subtitle: L10n.localize("settings.models.agent.subtitle", comment: "Agent model settings subtitle"),
             systemImage: "terminal",
-            tint: .purple
+            tint: CDS.Clay.strong
         ) {
             LLMProviderView(viewModel: llmProviderViewModel, mode: .agent, embedded: true)
         }
@@ -981,24 +982,24 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.models.local.title", comment: "Local models title"),
             subtitle: L10n.localize("settings.models.local.subtitle", comment: "Local models subtitle"),
             systemImage: "internaldrive",
-            tint: .yellow
+            tint: CDS.Clay.Ramp.level3
         ) {
             systemToggle(
                 .localModelLivePreview,
                 L10n.localize("settings.system.local_model_live_preview.title", comment: ""),
                 L10n.localize("settings.system.local_model_live_preview.subtitle", comment: ""),
                 "waveform",
-                tint: .yellow
+                tint: CDS.Clay.Ramp.level3
             )
             systemToggle(
                 .autoReleaseLocalModel,
                 L10n.localize("settings.system.auto_release_local_model.title", comment: ""),
                 L10n.localize("settings.system.auto_release_local_model.subtitle", comment: ""),
                 "internaldrive",
-                tint: .yellow
+                tint: CDS.Clay.Ramp.level3
             )
             HStack(spacing: 14) {
-                SettingsRowIcon(systemImage: "externaldrive.badge.xmark", tint: .orange)
+                SettingsRowIcon(systemImage: "externaldrive.badge.xmark", tint: CDS.Semantic.warning)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.localize("settings.data.delete_all_local_models", comment: "Delete all local models"))
                         .font(.system(size: 15, weight: .semibold))
@@ -1022,7 +1023,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.general.basics.title", comment: "General basics title"),
             subtitle: L10n.localize("settings.general.basics.subtitle", comment: "General basics subtitle"),
             systemImage: "gearshape",
-            tint: .pink
+            tint: CDS.Clay.base
         ) {
             interfaceLanguageRow
             systemToggle(
@@ -1030,28 +1031,28 @@ struct SettingsRootView: View {
                 L10n.localize("settings.appearance.dark_mode.title", comment: ""),
                 L10n.localize("settings.appearance.dark_mode.subtitle", comment: ""),
                 "moon",
-                tint: .pink
+                tint: CDS.Clay.base
             )
             systemToggle(
                 .launchAtLogin,
                 L10n.localize("settings.appearance.launch_at_login_title", comment: ""),
                 L10n.localize("settings.launch_at_login_description", comment: "Launch at login description"),
                 "power",
-                tint: .pink
+                tint: CDS.Clay.base
             )
             systemToggle(
                 .grayMenuBarIcon,
                 L10n.localize("settings.appearance.gray_menu_bar_icon.title", comment: ""),
                 L10n.localize("settings.appearance.gray_menu_bar_icon.subtitle", comment: ""),
                 "paintpalette",
-                tint: .pink
+                tint: CDS.Clay.base
             )
             systemToggle(
                 .capsLockIndicator,
                 L10n.localize("settings.appearance.caps_lock_indicator.title", comment: ""),
                 L10n.localize("settings.appearance.caps_lock_indicator.subtitle", comment: ""),
                 "lightbulb",
-                tint: .pink
+                tint: CDS.Clay.base
             )
         }
     }
@@ -1061,7 +1062,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.permissions.section_title", comment: ""),
             subtitle: L10n.localize("settings.permissions.section_subtitle", comment: ""),
             systemImage: "shield",
-            tint: .green
+            tint: CDS.Semantic.success
         ) {
             permissionRow(
                 title: L10n.localize("settings.permissions.microphone_title", comment: ""),
@@ -1105,7 +1106,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.privacy.group_title", comment: ""),
             subtitle: L10n.localize("settings.privacy.group_subtitle", comment: ""),
             systemImage: "chart.bar",
-            tint: .purple
+            tint: CDS.Clay.strong
         ) {
             ForEach(SettingsPrivacyPresentation.toggleRows) { row in
                 systemToggle(
@@ -1135,7 +1136,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.data.group_title", comment: ""),
             subtitle: L10n.localize("settings.data.group_subtitle", comment: ""),
             systemImage: "externaldrive",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             HStack(alignment: .top, spacing: 14) {
                 SettingsRowIcon(
@@ -1151,10 +1152,10 @@ struct SettingsRootView: View {
                         Spacer(minLength: 12)
                         Text(viewModel.storageStatus.badgeText)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(viewModel.storageStatus.isHealthy ? Color.green : Color.orange)
+                            .foregroundStyle(viewModel.storageStatus.isHealthy ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                             .padding(.horizontal, 12)
                             .frame(height: 30)
-                            .background((viewModel.storageStatus.isHealthy ? Color.green : Color.orange).opacity(0.09))
+                            .background((viewModel.storageStatus.isHealthy ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning).opacity(0.09))
                             .clipShape(Capsule())
                     }
 
@@ -1241,10 +1242,10 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.restore_defaults.confirm_title", comment: ""),
             subtitle: L10n.localize("settings.general.basics.subtitle", comment: ""),
             systemImage: "arrow.counterclockwise",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             HStack(spacing: 14) {
-                SettingsRowIcon(systemImage: "gear.badge", tint: .orange)
+                SettingsRowIcon(systemImage: "gear.badge", tint: CDS.Semantic.warning)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.localize("settings.restore_defaults.action", comment: ""))
                         .font(.system(size: 15, weight: .semibold))
@@ -1273,11 +1274,11 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.data.crash_report_title", comment: ""),
             subtitle: L10n.localize("settings.data.crash_report_subtitle", comment: ""),
             systemImage: "ladybug",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             let support = SettingsPrivacyPresentation.manualCrashReportSupport
             HStack(alignment: .center, spacing: 14) {
-                SettingsRowIcon(systemImage: "exclamationmark.bubble", tint: .orange)
+                SettingsRowIcon(systemImage: "exclamationmark.bubble", tint: CDS.Semantic.warning)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(support.title)
                         .font(.system(size: 15, weight: .semibold))
@@ -1335,10 +1336,10 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.update.title", comment: "Update section title"),
             subtitle: L10n.localize("settings.task.update.subtitle", comment: "Update section subtitle"),
             systemImage: "arrow.down.circle",
-            tint: .green
+            tint: CDS.Semantic.success
         ) {
             HStack(spacing: 14) {
-                SettingsRowIcon(systemImage: "app.badge", tint: .green)
+                SettingsRowIcon(systemImage: "app.badge", tint: CDS.Semantic.success)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(
                         "\(L10n.localize("updates.prompt.current_version_prefix", comment: "Current version prefix")) \(AppVersionInfo.current().displayText)"
@@ -1362,7 +1363,7 @@ struct SettingsRootView: View {
             title: L10n.localize("debug.transcript_injection.title", comment: "Debug transcript injection title"),
             subtitle: L10n.localize("debug.transcript_injection.subtitle", comment: "Debug transcript injection subtitle"),
             systemImage: "waveform.path.badge.plus",
-            tint: .purple
+            tint: CDS.Clay.strong
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 TextField(
@@ -1382,15 +1383,25 @@ struct SettingsRootView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
                 HStack(spacing: 12) {
-                    Picker("", selection: $debugTranscriptMode) {
-                        Text(L10n.localize("debug.transcript_injection.mode.dictation", comment: "Dictation debug injection mode"))
-                            .tag(VoiceTaskMode.dictation)
-                        Text(L10n.localize("debug.transcript_injection.mode.agent_compose", comment: "Agent compose debug injection mode"))
-                            .tag(VoiceTaskMode.agentCompose)
-                        Text(L10n.localize("debug.transcript_injection.mode.command", comment: "Voice command debug injection mode"))
-                            .tag(VoiceTaskMode.command)
-                    }
-                    .pickerStyle(.segmented)
+                    CDSSegmentedControl(
+                        selection: Binding(
+                            get: { debugTranscriptMode },
+                            set: { debugTranscriptMode = $0 }
+                        ),
+                        items: [VoiceTaskMode.dictation, VoiceTaskMode.agentCompose, VoiceTaskMode.command],
+                        title: { mode in
+                            switch mode {
+                            case .dictation:
+                                return L10n.localize("debug.transcript_injection.mode.dictation", comment: "Dictation debug injection mode")
+                            case .agentCompose:
+                                return L10n.localize("debug.transcript_injection.mode.agent_compose", comment: "Agent compose debug injection mode")
+                            case .command:
+                                return L10n.localize("debug.transcript_injection.mode.command", comment: "Voice command debug injection mode")
+                            case .agentDispatch:
+                                return L10n.localize("debug.transcript_injection.mode.command", comment: "Voice command debug injection mode")
+                            }
+                        }
+                    )
                     .frame(width: 360)
 
                     Spacer(minLength: 12)
@@ -1471,7 +1482,7 @@ struct SettingsRootView: View {
                              )
                         )
                             .font(.system(size: 12))
-                            .foregroundStyle(status.isOnCurrentPath ? Color.green : Color.orange)
+                            .foregroundStyle(status.isOnCurrentPath ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                     }
                 }
                 .settingsRow()
@@ -1480,7 +1491,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.task.ai_console.direct_send.title", comment: "Direct send title"),
                     subtitle: L10n.localize("settings.task.ai_console.direct_send.subtitle", comment: "Direct send subtitle"),
                     systemImage: "paperplane.fill",
-                    tint: .green,
+                    tint: CDS.Semantic.success,
                     isOn: Binding(
                         get: { viewModel.agentDispatchExactDirectEnabled },
                         set: { enabled in perform { try viewModel.setAgentDispatchExactDirectEnabled(enabled) } }
@@ -1488,7 +1499,7 @@ struct SettingsRootView: View {
                 )
 
                 HStack(spacing: 14) {
-                    SettingsRowIcon(systemImage: "questionmark.bubble", tint: .orange)
+                    SettingsRowIcon(systemImage: "questionmark.bubble", tint: CDS.Semantic.warning)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.localize("settings.task.ai_console.unknown_agent_name", comment: "Unknown assistant name"))
                             .font(.system(size: 15, weight: .semibold))
@@ -1527,7 +1538,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.task.ai_console.mcp_status.title", comment: "MCP status title"),
                     subtitle: L10n.localize("settings.task.ai_console.mcp_status.subtitle", comment: "MCP status subtitle"),
                     systemImage: "person.text.rectangle",
-                    tint: .teal,
+                    tint: AppTheme.ColorToken.accent,
                     isOn: Binding(
                         get: { viewModel.agentDispatchMCPEnabled },
                         set: { enabled in perform { try viewModel.setAgentDispatchMCPEnabled(enabled) } }
@@ -1543,7 +1554,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.input_device.title", comment: "Input device title"),
             value: selectedInputDeviceName,
             systemImage: "mic",
-            tint: .orange,
+            tint: CDS.Semantic.warning,
             isExpanded: openDropdown == .inputDevice,
             onExpandedChange: { setDropdown(.inputDevice, expanded: $0) }
         ) {
@@ -1564,7 +1575,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.task.recognition_language.title", comment: "Recognition language title"),
             value: selectedRecognitionLanguageName,
             systemImage: "globe.asia.australia",
-            tint: .teal,
+            tint: AppTheme.ColorToken.accent,
             isExpanded: openDropdown == .recognitionLanguage,
             onExpandedChange: { setDropdown(.recognitionLanguage, expanded: $0) }
         ) {
@@ -1585,7 +1596,7 @@ struct SettingsRootView: View {
             title: L10n.localize("settings.interface_language.title", comment: ""),
             value: viewModel.interfaceLanguage.displayName,
             systemImage: "globe",
-            tint: .indigo,
+            tint: CDS.Clay.hover,
             isExpanded: openDropdown == .interfaceLanguage,
             onExpandedChange: { setDropdown(.interfaceLanguage, expanded: $0) }
         ) {
@@ -1606,14 +1617,14 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.text_processing.group.title", comment: "Text processing group title"),
                 subtitle: L10n.localize("settings.text_processing.group.subtitle", comment: "Text processing group subtitle"),
                 systemImage: "wand.and.stars",
-                tint: .indigo
+                tint: CDS.Clay.hover
             ) {
                 VStack(alignment: .leading, spacing: 10) {
                     SettingsToggleRow(
                         title: L10n.localize("settings.text_processing.master.title", comment: "Master toggle title"),
                         subtitle: L10n.localize("settings.text_processing.master.subtitle", comment: "Master toggle subtitle"),
                         systemImage: "power",
-                        tint: .indigo,
+                        tint: CDS.Clay.hover,
                         isOn: deterministicMasterBinding
                     )
 
@@ -1624,7 +1635,7 @@ struct SettingsRootView: View {
                             title: L10n.localize("settings.text_processing.smart_number.title", comment: "Smart number toggle title"),
                             subtitle: L10n.localize("settings.text_processing.smart_number.subtitle", comment: "Smart number toggle subtitle"),
                             systemImage: "number",
-                            tint: .blue,
+                            tint: CDS.Text.secondary,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicSmartNumberRecognition
                             ) { newValue in
@@ -1637,7 +1648,7 @@ struct SettingsRootView: View {
                             subtitle: L10n.localize("settings.text_processing.punctuation.subtitle", comment: "Punctuation toggle subtitle"),
                             summary: punctuationThresholdSummary,
                             systemImage: "exclamationmark.bubble",
-                            tint: .orange,
+                            tint: CDS.Semantic.warning,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicPunctuationOptimization
                             ) { newValue in
@@ -1653,7 +1664,7 @@ struct SettingsRootView: View {
                             subtitle: L10n.localize("settings.text_processing.long_sentence.subtitle", comment: "Long sentence toggle subtitle"),
                             summary: longSentenceThresholdSummary,
                             systemImage: "text.insert",
-                            tint: .teal,
+                            tint: AppTheme.ColorToken.accent,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicLongSentenceBreaking
                             ) { newValue in
@@ -1668,7 +1679,7 @@ struct SettingsRootView: View {
                             title: L10n.localize("settings.text_processing.filler_filter.title", comment: "Filler filter toggle title"),
                             subtitle: L10n.localize("settings.text_processing.filler_filter.subtitle", comment: "Filler filter toggle subtitle"),
                             systemImage: "scissors",
-                            tint: .pink,
+                            tint: CDS.Clay.base,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicFillerWordFiltering
                             ) { newValue in
@@ -1680,7 +1691,7 @@ struct SettingsRootView: View {
                             title: L10n.localize("settings.text_processing.cjk_latin_spacing.title", comment: "CJK-Latin spacing toggle title"),
                             subtitle: L10n.localize("settings.text_processing.cjk_latin_spacing.subtitle", comment: "CJK-Latin spacing toggle subtitle"),
                             systemImage: "character.textbox",
-                            tint: .purple,
+                            tint: CDS.Clay.strong,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicCjkLatinSpacing
                             ) { newValue in
@@ -1692,7 +1703,7 @@ struct SettingsRootView: View {
                             title: L10n.localize("settings.text_processing.auto_capitalization.title", comment: "Auto capitalization toggle title"),
                             subtitle: L10n.localize("settings.text_processing.auto_capitalization.subtitle", comment: "Auto capitalization toggle subtitle"),
                             systemImage: "textformat",
-                            tint: .yellow,
+                            tint: CDS.Clay.Ramp.level3,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicAutoCapitalization
                             ) { newValue in
@@ -1704,7 +1715,7 @@ struct SettingsRootView: View {
                             title: L10n.localize("settings.text_processing.unit_normalization.title", comment: "Unit normalization toggle title"),
                             subtitle: L10n.localize("settings.text_processing.unit_normalization.subtitle", comment: "Unit normalization toggle subtitle"),
                             systemImage: "ruler",
-                            tint: .mint,
+                            tint: CDS.Semantic.success,
                             isOn: deterministicSubToggleBinding(
                                 value: viewModel.deterministicUnitNormalization
                             ) { newValue in
@@ -1741,7 +1752,7 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.text_processing.punctuation.title", comment: "Punctuation title"),
                 subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_editor_subtitle", comment: "Punctuation threshold editor subtitle"),
                 systemImage: "exclamationmark.bubble",
-                tint: .orange,
+                tint: CDS.Semantic.warning,
                 onReset: {
                     perform { try viewModel.resetPunctuationThresholds() }
                 },
@@ -1751,7 +1762,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.text_processing.thresholds.punctuation_word", comment: "Punctuation word threshold label"),
                     subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_word_subtitle", comment: "Punctuation word threshold subtitle"),
                     systemImage: "textformat.abc",
-                    tint: .orange,
+                    tint: CDS.Semantic.warning,
                     value: viewModel.deterministicPunctuationWordThreshold,
                     valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_words", comment: "Words unit"),
                     range: 1...20,
@@ -1763,7 +1774,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.text_processing.thresholds.punctuation_cjk", comment: "Punctuation CJK threshold label"),
                     subtitle: L10n.localize("settings.text_processing.thresholds.punctuation_cjk_subtitle", comment: "Punctuation CJK threshold subtitle"),
                     systemImage: "character.textbox",
-                    tint: .orange,
+                    tint: CDS.Semantic.warning,
                     value: viewModel.deterministicPunctuationCJKThreshold,
                     valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_chars", comment: "Characters unit"),
                     range: 1...20,
@@ -1790,7 +1801,7 @@ struct SettingsRootView: View {
                 title: L10n.localize("settings.text_processing.long_sentence.title", comment: "Long sentence title"),
                 subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_editor_subtitle", comment: "Long sentence threshold editor subtitle"),
                 systemImage: "text.insert",
-                tint: .teal,
+                tint: AppTheme.ColorToken.accent,
                 onReset: {
                     perform { try viewModel.resetLongSentenceThresholds() }
                 },
@@ -1800,7 +1811,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.text_processing.thresholds.long_sentence_word", comment: "Long sentence word threshold label"),
                     subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_word_subtitle", comment: "Long sentence word threshold subtitle"),
                     systemImage: "textformat.abc",
-                    tint: .teal,
+                    tint: AppTheme.ColorToken.accent,
                     value: viewModel.deterministicLongSentenceWordThreshold,
                     valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_words", comment: "Words unit"),
                     range: 5...50,
@@ -1812,7 +1823,7 @@ struct SettingsRootView: View {
                     title: L10n.localize("settings.text_processing.thresholds.long_sentence_cjk", comment: "Long sentence CJK threshold label"),
                     subtitle: L10n.localize("settings.text_processing.thresholds.long_sentence_cjk_subtitle", comment: "Long sentence CJK threshold subtitle"),
                     systemImage: "character.textbox",
-                    tint: .teal,
+                    tint: AppTheme.ColorToken.accent,
                     value: viewModel.deterministicLongSentenceCJKThreshold,
                     valueSuffix: L10n.localize("settings.text_processing.thresholds.unit_chars", comment: "Characters unit"),
                     range: 10...120,
@@ -2067,10 +2078,10 @@ struct SettingsRootView: View {
             Spacer()
             Text(status)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(granted ? Color.green : Color.orange)
+                .foregroundStyle(granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                 .padding(.horizontal, 10)
                 .frame(height: 28)
-                .background((granted ? Color.green : Color.orange).opacity(0.09))
+                .background((granted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning).opacity(0.09))
                 .clipShape(Capsule())
             if !granted {
                 Button {
@@ -2553,7 +2564,7 @@ private struct SettingsToggleRow: View {
             Spacer()
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .cdsToggle()
         }
         .settingsRow()
     }
@@ -2565,7 +2576,7 @@ private struct SettingsTextInputModeRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            SettingsRowIcon(systemImage: "keyboard", tint: .indigo)
+            SettingsRowIcon(systemImage: "keyboard", tint: CDS.Clay.hover)
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.localize("settings.output.text_input_mode.subtitle", comment: ""))
                     .font(.system(size: 12))
@@ -2653,7 +2664,7 @@ private struct SettingsOutputMethodRulesRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            SettingsRowIcon(systemImage: "app.badge.checkmark", tint: .indigo)
+            SettingsRowIcon(systemImage: "app.badge.checkmark", tint: CDS.Clay.hover)
             VStack(alignment: .leading, spacing: 10) {
                 Text(L10n.localize("settings.output.app_rules.subtitle", comment: ""))
                     .font(.system(size: 12))
@@ -2712,8 +2723,7 @@ private struct SettingsOutputMethodRulesRow: View {
                     .help(rule.bundleID)
             }
             Spacer(minLength: 8)
-            Picker(
-                L10n.localize("settings.output.app_rules.subtitle", comment: ""),
+            CDSSegmentedControl(
                 selection: Binding(
                     get: { rule.inputMode },
                     set: { newMode in
@@ -2731,13 +2741,10 @@ private struct SettingsOutputMethodRulesRow: View {
                             newMode
                         )
                     }
-                )
-            ) {
-                Text(modeLabel(.fastPaste)).tag(TextInputMode.fastPaste)
-                Text(modeLabel(.simulatedTyping)).tag(TextInputMode.simulatedTyping)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+                ),
+                items: [TextInputMode.fastPaste, TextInputMode.simulatedTyping],
+                title: { modeLabel($0) }
+            )
             .frame(width: 190)
             Button {
                 onDelete(rule.id)
@@ -2880,7 +2887,7 @@ private struct SettingsThresholdToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .cdsToggle()
         }
         .settingsRow()
     }

@@ -12,9 +12,11 @@ struct TextDiffingComparisonRenderer: Sendable {
     let isTextDiffingBacked = true
 
     func attributedString(source: String, processed: String) -> AttributedString {
+        // Success / danger washes from the CDS semantic ramp instead of the
+        // previous saturated pastel pair, which clashed with the warm canvas.
         let style = TextDiffStyle(
-            insertedBackground: NSColor(red: 0.878, green: 0.965, blue: 0.878, alpha: 1),
-            removedBackground: NSColor(red: 0.985, green: 0.890, blue: 0.890, alpha: 1)
+            insertedBackground: CDS.Semantic.successNSColor.withAlphaComponent(0.16),
+            removedBackground: CDS.Semantic.dangerNSColor.withAlphaComponent(0.14)
         )
         return TextDiffer.diff(
             source,

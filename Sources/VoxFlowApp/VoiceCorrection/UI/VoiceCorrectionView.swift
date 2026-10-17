@@ -405,12 +405,25 @@ struct VoiceCorrectionView: View {
                 .buttonStyle(.bordered)
             }
 
-            Picker("", selection: $viewModel.selectedFilter) {
-                Text(L10n.localize("correction.filter.all", comment: "")).tag(VoiceCorrectionRuleFilter.all)
-                Text(L10n.localize("correction.filter.active", comment: "")).tag(VoiceCorrectionRuleFilter.active)
-                Text(L10n.localize("correction.filter.suspended", comment: "")).tag(VoiceCorrectionRuleFilter.suspended)
-            }
-            .pickerStyle(.segmented)
+            CDSSegmentedControl(
+                selection: Binding(
+                    get: { viewModel.selectedFilter },
+                    set: { viewModel.selectedFilter = $0 }
+                ),
+                items: [VoiceCorrectionRuleFilter.all, VoiceCorrectionRuleFilter.active, VoiceCorrectionRuleFilter.suspended],
+                title: { filter in
+                    switch filter {
+                    case .all:
+                        return L10n.localize("correction.filter.all", comment: "")
+                    case .active:
+                        return L10n.localize("correction.filter.active", comment: "")
+                    case .suspended:
+                        return L10n.localize("correction.filter.suspended", comment: "")
+                    case .candidate:
+                        return L10n.localize("correction.filter.candidate", comment: "")
+                    }
+                }
+            )
             .frame(width: 250)
 
             LazyVStack(spacing: 0) {

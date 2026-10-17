@@ -11,7 +11,7 @@ struct HomeDashboardView: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.section) {
                 HStack {
                     Label(L10n.localize("navigation.route.home", comment: ""), systemImage: "house.fill")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(CDS.Typography.pageTitle)
                         .foregroundStyle(AppTheme.ColorToken.primaryText)
                     Spacer()
                 }
@@ -329,7 +329,7 @@ private struct HomeAssetRow: View {
                             if let statusTitle = item.statusTitle {
                                 Text(statusTitle)
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Color.orange)
+                                    .foregroundStyle(AppTheme.ColorToken.warning)
                             }
                             Text(item.contentTypeTitle)
                                 .font(.system(size: 12, weight: .medium))
@@ -607,15 +607,15 @@ private struct HomeActivityCard: View {
     private func color(for level: Int) -> Color {
         switch level {
         case 1:
-            return Color(red: 0.718, green: 0.847, blue: 0.812)
+            return CDS.Clay.Ramp.level1
         case 2:
-            return Color(red: 0.408, green: 0.718, blue: 0.639)
+            return CDS.Clay.Ramp.level2
         case 3:
-            return AppTheme.ColorToken.accentDark
+            return CDS.Clay.Ramp.level3
         case 4:
-            return AppTheme.ColorToken.accent
+            return CDS.Clay.Ramp.level4
         default:
-            return Color(red: 0.910, green: 0.938, blue: 0.925)
+            return CDS.Clay.Ramp.level0
         }
     }
 
@@ -1425,7 +1425,7 @@ private struct HomeHistoryDetailModal: View {
 
     private var diffStatusColor: Color {
         if let llm = detail.trace?.llm, !llm.succeeded {
-            return Color.orange
+            return AppTheme.ColorToken.warning
         }
         if let vc = detail.trace?.voiceCorrection, vc.appliedEvents.isEmpty == false {
             return AppTheme.ColorToken.accent
@@ -1519,7 +1519,7 @@ private struct HomeHistoryDetailModal: View {
         switch status {
         case .success, .hit, .modified: return AppTheme.ColorToken.accent
         case .skipped, .missed: return AppTheme.ColorToken.secondaryText
-        case .failed: return Color.orange
+        case .failed: return AppTheme.ColorToken.warning
         case .executed: return AppTheme.ColorToken.accent
         }
     }
@@ -2095,7 +2095,7 @@ private struct RefinementGuardTraceBlock: View {
     private var statusColor: Color {
         switch trace.decision {
         case .accepted: return AppTheme.ColorToken.accent
-        case .rejected: return Color.orange
+        case .rejected: return AppTheme.ColorToken.warning
         }
     }
 
@@ -2168,7 +2168,7 @@ private struct ContextBoostTraceBlock: View {
     }
 
     private var statusColor: Color {
-        trace.appliedToLLMPrompt ? AppTheme.ColorToken.accent : Color.orange
+        trace.appliedToLLMPrompt ? AppTheme.ColorToken.accent : AppTheme.ColorToken.warning
     }
 
     var body: some View {
@@ -2549,7 +2549,7 @@ private struct VoiceCorrectionTraceBlock: View {
     }
 
     private var statusColor: Color {
-        trace.failureReason == nil ? AppTheme.ColorToken.accent : Color.orange
+        trace.failureReason == nil ? AppTheme.ColorToken.accent : AppTheme.ColorToken.warning
     }
 
     var body: some View {
@@ -2886,7 +2886,7 @@ private struct AgentActionEventsDisclosure: View {
                 ForEach(events) { event in
                     HStack(alignment: .top, spacing: 8) {
                         Circle()
-                            .fill(event.isFailure ? Color.orange : AppTheme.ColorToken.accent)
+                            .fill(event.isFailure ? AppTheme.ColorToken.warning : AppTheme.ColorToken.accent)
                             .frame(width: 7, height: 7)
                             .padding(.top, 5)
                         VStack(alignment: .leading, spacing: 2) {

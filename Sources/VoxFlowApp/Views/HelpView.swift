@@ -599,7 +599,7 @@ private struct HelpPermissionRow: View {
         HStack(spacing: 13) {
             Image(systemName: systemImage)
                 .frame(width: 24)
-                .foregroundStyle(satisfied ? Color.green : Color.orange)
+                .foregroundStyle(satisfied ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
@@ -610,10 +610,10 @@ private struct HelpPermissionRow: View {
             Spacer()
             Text(status)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(satisfied ? Color.green : Color.orange)
+                .foregroundStyle(satisfied ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
-                .background((satisfied ? Color.green : Color.orange).opacity(0.09))
+                .background((satisfied ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning).opacity(0.09))
                 .clipShape(Capsule())
         }
         .padding(.horizontal, 14)

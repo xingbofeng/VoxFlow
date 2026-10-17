@@ -194,17 +194,28 @@ private struct ScreenshotOCRResultView: View {
                     onClose: onClose
                 )
             } tabs: {
-                Picker("", selection: $viewModel.selectedTab) {
-                    Text(L10n.localize("screenshot.panel.tab.original_image", comment: ""))
-                        .tag(ScreenshotOCRResultTab.originalImage)
-                    Text(L10n.localize("screenshot.panel.tab.ocr", comment: ""))
-                        .tag(ScreenshotOCRResultTab.ocr)
-                    Text(L10n.localize("screenshot.panel.tab.translation", comment: ""))
-                        .tag(ScreenshotOCRResultTab.translation)
-                    Text(L10n.localize("screenshot.panel.tab.summary", comment: ""))
-                        .tag(ScreenshotOCRResultTab.summary)
-                }
-                .pickerStyle(.segmented)
+                CDSSegmentedControl(
+                    selection: Binding(
+                        get: { viewModel.selectedTab },
+                        set: { viewModel.selectedTab = $0 }
+                    ),
+                    items: [ScreenshotOCRResultTab.originalImage, ScreenshotOCRResultTab.ocr,
+                            ScreenshotOCRResultTab.translation, ScreenshotOCRResultTab.summary],
+                    title: { tab in
+                        switch tab {
+                        case .originalImage:
+                            return L10n.localize("screenshot.panel.tab.original_image", comment: "")
+                        case .ocr:
+                            return L10n.localize("screenshot.panel.tab.ocr", comment: "")
+                        case .translation:
+                            return L10n.localize("screenshot.panel.tab.translation", comment: "")
+                        case .summary:
+                            return L10n.localize("screenshot.panel.tab.summary", comment: "")
+                        case .translatedOverlay:
+                            return L10n.localize("screenshot.panel.tab.summary", comment: "")
+                        }
+                    }
+                )
                 .onChange(of: viewModel.selectedTab) {
                     viewModel.activateSelectedTabTaskIfNeeded()
                 }

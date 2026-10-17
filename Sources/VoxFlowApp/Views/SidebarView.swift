@@ -5,14 +5,16 @@ struct SidebarView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 ForEach(NavigationRoute.allCases) { route in
                     sidebarItem(route)
                 }
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
         }
         .background(AppTheme.ColorToken.sidebarBackground)
+
     }
 
     private func sidebarItem(_ route: NavigationRoute) -> some View {
@@ -20,52 +22,40 @@ struct SidebarView: View {
         return Button {
             selectedRoute = route
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 9) {
                 Image(systemName: route.systemImage)
-                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(
                         isSelected
-                            ? AppTheme.ColorToken.accent
-                            : AppTheme.ColorToken.sidebarText
+                            ? AppTheme.ColorToken.primaryText
+                            : AppTheme.ColorToken.secondaryText
                     )
-                    .frame(width: 22)
+                    .frame(width: 20)
                 Text(route.title)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 13.5, weight: isSelected ? .medium : .regular))
                     .foregroundStyle(
                         isSelected
                             ? AppTheme.ColorToken.primaryText
                             : AppTheme.ColorToken.sidebarText
                     )
-                Spacer()
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 40)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                isSelected
-                    ? AppTheme.ColorToken.selectionBackground
-                    : Color.clear
+                RoundedRectangle(cornerRadius: CDS.Radius.lg, style: .continuous)
+                    .fill(isSelected ? AppTheme.ColorToken.selectionBackground : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous)
-                    .stroke(
-                        isSelected
-                            ? AppTheme.ColorToken.selectionBorder
-                            : Color.clear,
-                        lineWidth: AppTheme.Border.selectedLineWidth
+                RoundedRectangle(cornerRadius: CDS.Radius.lg, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? AppTheme.ColorToken.selectionBorder : Color.clear,
+                        lineWidth: 1
                     )
             )
-            .overlay(alignment: .leading) {
-                if isSelected {
-                    Capsule()
-                        .fill(AppTheme.ColorToken.accent)
-                        .frame(width: 3, height: 20)
-                        .padding(.leading, 3)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.row, style: .continuous))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CDSGhostButtonStyle(cornerRadius: CDS.Radius.lg))
     }
 }

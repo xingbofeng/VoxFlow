@@ -570,14 +570,14 @@ final class SettingsWindowController: NSWindowController {
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
                     self.modelDownloadProgress.doubleValue = 1
-                    self.setASRStatus(L10n.format("settings.window.asr.status.download_complete_format", comment: "", modelURL.path), color: .systemGreen)
+                    self.setASRStatus(L10n.format("settings.window.asr.status.download_complete_format", comment: "", modelURL.path), color: AppTheme.ColorToken.successNSColor)
                 }
             } catch {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.modelDownloadTask = nil
                     self.loadASRSettings()
-                    self.setASRStatus(L10n.format("settings.window.asr.status.download_failed_format", comment: "", error.localizedDescription), color: .systemRed)
+                    self.setASRStatus(L10n.format("settings.window.asr.status.download_failed_format", comment: "", error.localizedDescription), color: AppTheme.ColorToken.dangerNSColor)
                 }
             }
         }
@@ -608,14 +608,14 @@ final class SettingsWindowController: NSWindowController {
         if let path = path, !path.isEmpty {
             if asrManager.isQwen3ModelAvailable {
                 asrStatusLabel.stringValue = L10n.format("settings.window.asr.status.configured_format", comment: "", path)
-                asrStatusLabel.textColor = .systemGreen
+                asrStatusLabel.textColor = AppTheme.ColorToken.successNSColor
             } else {
                 asrStatusLabel.stringValue = L10n.format("settings.window.asr.status.incomplete_format", comment: "", path)
-                asrStatusLabel.textColor = .systemRed
+                asrStatusLabel.textColor = AppTheme.ColorToken.dangerNSColor
             }
         } else {
             asrStatusLabel.stringValue = L10n.localize("settings.window.asr.status.not_configured", comment: "")
-            asrStatusLabel.textColor = .systemOrange
+            asrStatusLabel.textColor = AppTheme.ColorToken.warningNSColor
         }
     }
 
@@ -663,14 +663,14 @@ final class SettingsWindowController: NSWindowController {
         do {
             try refiner.setAPIKey(apiKey.isEmpty ? nil : apiKey)
         } catch {
-            setLLMStatus(L10n.format("settings.window.llm.status.api_key_save_failed_format", comment: "", error.localizedDescription), color: .systemRed)
+            setLLMStatus(L10n.format("settings.window.llm.status.api_key_save_failed_format", comment: "", error.localizedDescription), color: AppTheme.ColorToken.dangerNSColor)
             return
         }
 
         refiner.baseURL = baseURL.isEmpty ? nil : baseURL
         refiner.model = model.isEmpty ? nil : model
 
-        setLLMStatus(L10n.localize("settings.window.llm.status.saved", comment: ""), color: .systemGreen)
+        setLLMStatus(L10n.localize("settings.window.llm.status.saved", comment: ""), color: AppTheme.ColorToken.successNSColor)
     }
 
     @objc private func testConnection(_ sender: Any) {
@@ -679,7 +679,7 @@ final class SettingsWindowController: NSWindowController {
         let model = modelField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !baseURL.isEmpty, !apiKey.isEmpty, !model.isEmpty else {
-            setLLMStatus(L10n.localize("settings.window.llm.status.fill_all_fields", comment: ""), color: .systemOrange)
+            setLLMStatus(L10n.localize("settings.window.llm.status.fill_all_fields", comment: ""), color: AppTheme.ColorToken.warningNSColor)
             return
         }
 
@@ -704,9 +704,9 @@ final class SettingsWindowController: NSWindowController {
 
                 switch result {
                 case .success(let message):
-                    self.setLLMStatus(message, color: .systemGreen)
+                    self.setLLMStatus(message, color: AppTheme.ColorToken.successNSColor)
                 case .failure(let error):
-                    self.setLLMStatus(L10n.format("settings.window.llm.status.connection_failed_format", comment: "", error.localizedDescription), color: .systemRed)
+                    self.setLLMStatus(L10n.format("settings.window.llm.status.connection_failed_format", comment: "", error.localizedDescription), color: AppTheme.ColorToken.dangerNSColor)
                 }
             }
         }

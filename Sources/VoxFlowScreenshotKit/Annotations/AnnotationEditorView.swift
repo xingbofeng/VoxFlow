@@ -288,7 +288,7 @@ public struct AnnotationEditorView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(Color.green.opacity(0.28), lineWidth: 1)
+                .stroke(ScreenshotPalette.clayColor.opacity(0.28), lineWidth: 1)
         )
     }
 

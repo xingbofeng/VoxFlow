@@ -65,16 +65,23 @@ struct TextComparisonView: View {
         )
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Picker("", selection: $selectedMode) {
-                    Text(input.sourceTitle).tag(TextComparisonMode.source)
-                    Text(input.processedTitle).tag(TextComparisonMode.processed)
-                    Text(L10n.localize(
-                        "home.detail.comparison.mode.comparison",
-                        comment: "Comparison mode label"
-                    )).tag(TextComparisonMode.comparison)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                CDSSegmentedControl(
+                    selection: $selectedMode,
+                    items: [TextComparisonMode.source, TextComparisonMode.processed, TextComparisonMode.comparison],
+                    title: { mode in
+                        switch mode {
+                        case .source:
+                            return input.sourceTitle
+                        case .processed:
+                            return input.processedTitle
+                        case .comparison:
+                            return L10n.localize(
+                                "home.detail.comparison.mode.comparison",
+                                comment: "Comparison mode label"
+                            )
+                        }
+                    }
+                )
                 if selectedMode == .comparison {
                     Text(L10n.format("home.detail.comparison.similarity_format", comment: "Similarity percentage format",
                         presentation.similarityPercent

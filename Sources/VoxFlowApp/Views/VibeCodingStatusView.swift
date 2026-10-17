@@ -55,7 +55,7 @@ struct VibeCodingStatusView: View {
             title: L10n.localize("vibe.current_agents.title", comment: "Current task agents section title"),
             subtitle: L10n.localize("vibe.current_agents.subtitle", comment: "Current task agents section subtitle"),
             systemImage: "person.3",
-            tint: .blue
+            tint: CDS.Text.secondary
         ) {
             HStack(spacing: 10) {
                 Button {
@@ -98,7 +98,7 @@ struct VibeCodingStatusView: View {
             title: L10n.localize("vibe.recent_dispatches.title", comment: "Recent dispatch records title"),
             subtitle: L10n.localize("vibe.recent_dispatches.subtitle", comment: "Recent dispatch records subtitle"),
             systemImage: "clock.arrow.circlepath",
-            tint: .orange
+            tint: CDS.Semantic.warning
         ) {
             HStack(alignment: .firstTextBaseline) {
                 Text(L10n.localize("vibe.recent_dispatches.local_notice", comment: "Local speech content storage notice"))
@@ -127,7 +127,7 @@ struct VibeCodingStatusView: View {
                             .lineLimit(2)
                         Text(entry.submitted ? L10n.localize("vibe.recent_dispatches.submitted", comment: "Dispatch log submitted status") : L10n.localize("vibe.recent_dispatches.not_submitted", comment: "Dispatch log not submitted status"))
                             .font(.system(size: 12))
-                            .foregroundStyle(entry.submitted ? Color.green : Color.orange)
+                            .foregroundStyle(entry.submitted ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
                     }
                     .settingsRow()
                 }
@@ -137,7 +137,7 @@ struct VibeCodingStatusView: View {
 
     private func agentRow(_ agent: AgentSessionCard) -> some View {
         HStack(spacing: 14) {
-            VibeCodingStatusIcon(systemImage: "terminal", tint: .blue)
+            VibeCodingStatusIcon(systemImage: "terminal", tint: CDS.Text.secondary)
                 .frame(width: 42, height: 42)
             VStack(alignment: .leading, spacing: 6) {
                 aliasEditor(for: agent)
@@ -189,7 +189,7 @@ struct VibeCodingStatusView: View {
                 .help(L10n.localize("vibe.agent.stop_process", comment: "Stop task agent process help"))
             Text(agent.status.localizedTitle)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(agent.status.isDispatchable ? Color.green : Color.orange)
+                .foregroundStyle(agent.status.isDispatchable ? AppTheme.ColorToken.success : AppTheme.ColorToken.warning)
         }
         .settingsRow()
     }
@@ -393,7 +393,7 @@ private struct MCPDebugLogModal: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                VibeCodingStatusIcon(systemImage: "doc.text.magnifyingglass", tint: .green)
+                VibeCodingStatusIcon(systemImage: "doc.text.magnifyingglass", tint: CDS.Semantic.success)
                     .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 3) {
                 Text(L10n.localize("vibe.mcp_log.title", comment: "MCP debug log title"))
@@ -434,7 +434,7 @@ private struct MCPDebugLogModal: View {
                     if !logFileExists {
                         Text(L10n.localize("vibe.mcp_log.content_missing", comment: "MCP log file missing text"))
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(AppTheme.ColorToken.warning)
                     }
                     Spacer()
                 }

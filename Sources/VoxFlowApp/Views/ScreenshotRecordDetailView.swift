@@ -542,7 +542,7 @@ struct ScreenshotRecordDetailView: View {
             recordActionIcon(
                 "trash",
                 help: L10n.localize("screenshot.record.action.delete_help", comment: ""),
-                tint: .red
+                tint: CDS.Semantic.danger
             ) {
                 viewModel.deleteRecord(id: record.id)
                 onClose()

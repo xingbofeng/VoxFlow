@@ -1002,14 +1002,14 @@ enum HomeHistoryDetailPresentation {
             case .completed, .pending, .running:
                 return AppTheme.ColorToken.accent
             case .waitingForPermission, .failed, .cancelled:
-                return Color.orange
+                return AppTheme.ColorToken.warning
             }
         }
         if let llm = detail.trace?.llm {
-            return llm.succeeded ? AppTheme.ColorToken.accent : Color.orange
+            return llm.succeeded ? AppTheme.ColorToken.accent : AppTheme.ColorToken.warning
         }
         if detail.trace?.voiceCorrection?.failureReason != nil {
-            return Color.orange
+            return AppTheme.ColorToken.warning
         }
         return AppTheme.ColorToken.accent
     }

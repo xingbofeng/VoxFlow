@@ -1,12 +1,14 @@
 import AppKit
 import SwiftUI
 
+/// App-level theme facade. All values resolve from `CDS` tokens so every view
+/// (sidebar, cards, controls, HUDs) shares the Claude Design System palette.
 enum AppTheme {
     enum Radius {
-        static let card: CGFloat = 12
-        static let control: CGFloat = 8
-        static let row: CGFloat = 10
-        static let icon: CGFloat = 10
+        static let card: CGFloat = CDS.Radius.xl
+        static let control: CGFloat = CDS.Radius.lg
+        static let row: CGFloat = CDS.Radius.panel
+        static let icon: CGFloat = CDS.Radius.panel
     }
 
     enum Spacing {
@@ -35,79 +37,92 @@ enum AppTheme {
     }
 
     enum ColorToken {
-        static let pageBackground = adaptiveColor(
-            light: NSColor(red: 0.965, green: 0.975, blue: 0.970, alpha: 1),
-            dark: NSColor(red: 0.080, green: 0.095, blue: 0.088, alpha: 1)
-        )
-        static let panelBackground = adaptiveColor(
-            light: NSColor(red: 0.992, green: 0.995, blue: 0.992, alpha: 1),
-            dark: NSColor(red: 0.120, green: 0.140, blue: 0.130, alpha: 1)
-        )
-        static let controlBackground = adaptiveColor(
-            light: NSColor(red: 0.948, green: 0.960, blue: 0.955, alpha: 1),
-            dark: NSColor(red: 0.160, green: 0.185, blue: 0.173, alpha: 1)
-        )
-        static let panelStroke = adaptiveColor(
-            light: NSColor(red: 0.790, green: 0.835, blue: 0.815, alpha: 0.58),
-            dark: NSColor(red: 0.340, green: 0.390, blue: 0.370, alpha: 0.72)
-        )
-        static let subtleStroke = adaptiveColor(
-            light: NSColor(red: 0.870, green: 0.900, blue: 0.888, alpha: 0.72),
-            dark: NSColor(red: 0.260, green: 0.310, blue: 0.290, alpha: 0.78)
-        )
-        static let primaryText = Color(nsColor: .labelColor)
-        static let secondaryText = Color(nsColor: .secondaryLabelColor)
-        static let accent = Color(red: 0.055, green: 0.420, blue: 0.345)
-        static let accentSoft = adaptiveColor(
-            light: NSColor(red: 0.890, green: 0.946, blue: 0.925, alpha: 1),
-            dark: NSColor(red: 0.100, green: 0.245, blue: 0.205, alpha: 1)
-        )
-        static let progressTrack = adaptiveColor(
-            light: NSColor(red: 0.855, green: 0.885, blue: 0.872, alpha: 1),
-            dark: NSColor(red: 0.230, green: 0.275, blue: 0.255, alpha: 1)
-        )
-        static let accentDark = Color(red: 0.16, green: 0.56, blue: 0.48)
-        static let sidebarBackground = adaptiveColor(
-            light: NSColor(red: 0.940, green: 0.955, blue: 0.950, alpha: 1),
-            dark: NSColor(red: 0.095, green: 0.115, blue: 0.107, alpha: 1)
-        )
-        static let sidebarText = Color(nsColor: .labelColor).opacity(0.82)
-        static let selectionBackground = accent.opacity(0.12)
-        static let selectionBorder = accent.opacity(0.26)
-        static let hoverBackground = adaptiveColor(
-            light: NSColor(red: 0.925, green: 0.940, blue: 0.935, alpha: 1),
-            dark: NSColor(red: 0.175, green: 0.205, blue: 0.192, alpha: 1)
-        )
+        /// Surface 1: page canvas.
+        static let pageBackground = CDS.Surface.level1
+        /// Surface 2: paged panels and cards.
+        static let panelBackground = CDS.Surface.level2
+        /// Surface 3: inputs, popovers, high layers.
+        static let controlBackground = CDS.Surface.level3
 
-        private static func adaptiveColor(light: NSColor, dark: NSColor) -> Color {
-            Color(nsColor: NSColor(name: nil) { appearance in
-                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            })
-        }
+        static let panelStroke = CDS.Stroke.hairline
+        static let subtleStroke = CDS.Stroke.hairline
+        static let divider = CDS.Stroke.hairline
+
+        static let primaryText = CDS.Text.primary
+        static let secondaryText = CDS.Text.secondary
+        static let mutedText = CDS.Text.muted
+
+        /// Clay / terracotta brand accent.
+        static let accent = CDS.Clay.base
+        static let accentHover = CDS.Clay.hover
+        static let accentDark = CDS.Clay.strong
+        static let accentSoft = CDS.Clay.wash
+
+        static let progressTrack = CDS.Fill.ghostSelected
+
+        static let success = CDS.Semantic.success
+        static let warning = CDS.Semantic.warning
+        static let danger = CDS.Semantic.danger
+
+        /// Surface 0: sidebar base.
+        static let sidebarBackground = CDS.Surface.level0
+        static let sidebarText = CDS.Text.secondary
+
+        /// Ghost selected fill, per CDS interactive states.
+        static let selectionBackground = CDS.Fill.ghostSelected
+        static let selectionBorder = CDS.Stroke.hairline
+        static let hoverBackground = CDS.Fill.ghostHover
+
+        static let segmentTrack = CDS.Surface.segmentTrack
+        static let segmentThumb = CDS.Surface.segmentThumb
     }
 }
 
 extension View {
+    /// Paged panel: surface 2 with a single hairline ring (no elevation shadow).
+    /// Single-stroke discipline: never add a second border to nested content.
     func appPanel(cornerRadius: CGFloat = AppTheme.Radius.card) -> some View {
-        background(AppTheme.ColorToken.panelBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(AppTheme.ColorToken.panelStroke, lineWidth: AppTheme.Border.panelLineWidth)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(
-                color: AppTheme.ColorToken.accent.opacity(AppTheme.Shadow.cardOpacity),
-                radius: AppTheme.Shadow.cardRadius,
-                y: AppTheme.Shadow.cardYOffset
-            )
+        appSurface(
+            fill: AppTheme.ColorToken.panelBackground,
+            stroke: AppTheme.ColorToken.panelStroke,
+            cornerRadius: cornerRadius
+        )
     }
 
     func appControlSurface(cornerRadius: CGFloat = AppTheme.Radius.control) -> some View {
-        background(AppTheme.ColorToken.controlBackground)
+        appSurface(
+            fill: AppTheme.ColorToken.controlBackground,
+            stroke: AppTheme.ColorToken.subtleStroke,
+            cornerRadius: cornerRadius
+        )
+    }
+
+    /// Single-closed-border surface used by the panel and control styles.
+    /// The stroke is drawn on top of the clipped fill so corner anti-aliasing
+    /// stays crisp on Retina displays.
+    private func appSurface(fill: Color, stroke: Color, cornerRadius: CGFloat) -> some View {
+        background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(AppTheme.ColorToken.subtleStroke, lineWidth: AppTheme.Border.panelLineWidth)
+                    .strokeBorder(stroke, lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
+
+extension AppTheme.ColorToken {
+    static var accentNSColor: NSColor { .cdsHexColor(0xD97757) }
+    static var successNSColor: NSColor { .cdsDynamic(light: 0x2E7D4F, dark: 0x7BC29A) }
+    static var warningNSColor: NSColor { .cdsDynamic(light: 0x9A5B12, dark: 0xE0A45C) }
+    static var dangerNSColor: NSColor { .cdsDynamic(light: 0xB3261E, dark: 0xE88A83) }
+}
+
+extension NSColor {
+    static func cdsHexColor(_ hex: Int) -> NSColor {
+        NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(hex & 0xFF) / 255.0,
+                alpha: 1.0)
+    }
+}
+

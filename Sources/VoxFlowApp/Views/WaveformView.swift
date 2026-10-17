@@ -6,7 +6,7 @@ final class WaveformView: NSView {
     // MARK: - Constants
 
     private let barCornerRadius: CGFloat = 2.0
-    private let barFillColor = CGColor(red: 0.055, green: 0.420, blue: 0.345, alpha: 0.88)
+    private let barFillColor = CDS.Clay.baseNSColor.withAlphaComponent(0.88).cgColor
 
     // MARK: - State
 

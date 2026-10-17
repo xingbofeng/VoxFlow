@@ -62,7 +62,7 @@ struct LLMProviderView: View {
             HStack {
                 if !embedded {
                     Label(L10n.localize("model.llm_provider.title", comment: ""), systemImage: "network")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(CDS.Typography.pageTitle)
                 }
                 Spacer()
                 if mode.visibleSections.contains(.regularProviders) {
@@ -250,7 +250,7 @@ struct LLMProviderView: View {
                         }
                     )
                 )
-                .toggleStyle(.switch)
+                .cdsToggle()
                 .controlSize(.large)
             }
 
@@ -1025,7 +1025,7 @@ private struct LLMProviderEditorSheet: View {
             hint: L10n.localize("model.llm_provider.toggle_enable_hint", comment: "")
         ) {
             Toggle("", isOn: $isEnabled)
-                .toggleStyle(.switch)
+                .cdsToggle()
                 .labelsHidden()
         }
     }

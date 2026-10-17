@@ -127,7 +127,7 @@ struct AIChatPanelView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.ColorToken.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func messageRow(_ message: AIChatMessage) -> some View {
