@@ -1,9 +1,9 @@
 {
-  "version": "1.18.1",
-  "tag": "v1.18.1",
-  "assetName": "VoxFlow-1.18.1-macOS.dmg",
-  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.1",
-  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.1/VoxFlow-1.18.1-macOS.dmg",
+  "version": "1.19.0",
+  "tag": "v1.19.0",
+  "assetName": "VoxFlow-1.19.0-macOS.dmg",
+  "releasePageURL": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.19.0",
+  "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-macOS.dmg",
   "publishedPlatforms": [
     "macos",
     "windows"
@@ -11,22 +11,22 @@
   "assets": {
     "macos": {
       "dmg": {
-        "name": "VoxFlow-1.18.1-macOS.dmg",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.1/VoxFlow-1.18.1-macOS.dmg"
+        "name": "VoxFlow-1.19.0-macOS.dmg",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-macOS.dmg"
       }
     },
     "windows": {
       "installer": {
-        "name": "VoxFlow-1.18.1-windows-x64-setup.exe",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.1/VoxFlow-1.18.1-windows-x64-setup.exe"
+        "name": "VoxFlow-1.19.0-windows-x64-setup.exe",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-windows-x64-setup.exe"
       },
       "portable": {
-        "name": "VoxFlow-1.18.1-windows-x64-portable.zip",
-        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.18.1/VoxFlow-1.18.1-windows-x64-portable.zip"
+        "name": "VoxFlow-1.19.0-windows-x64-portable.zip",
+        "downloadURL": "https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-windows-x64-portable.zip"
       }
     }
   },
-  "releaseNotes": "工程维护版本：应用功能与 1.18.0 保持一致，主要改进发布流水线与 CI 测试稳定性，无需急于更新。",
+  "releaseNotes": "新增**语音指令**：按住 Command + Shift + E 说一句指令（如\"改成更正式的邮件语气\"），VoxFlow 会按指令改写当前输入框里已有的文字并直接替换回去。",
   "draft": false,
   "prerelease": false
 }
