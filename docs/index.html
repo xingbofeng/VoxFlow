@@ -101,14 +101,14 @@
         </div>
         <div class="hero-actions">
           <div class="platform-downloads">
-          <a class="download-button" data-download-platform="macos" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-macOS.dmg">
+          <a class="download-button" data-download-platform="macos" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.20.1/VoxFlow-1.20.1-macOS.dmg">
             <span class="download-icon" aria-hidden="true">⌘</span>
             <span>
               <strong data-i18n="downloadMacOS">Download for macOS</strong>
               <small data-i18n="downloadMacOSMeta">macOS 15+ · Apple Silicon</small>
             </span>
           </a>
-          <a class="download-button secondary" data-download-platform="windows" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.19.0/VoxFlow-1.19.0-windows-x64-setup.exe">
+          <a class="download-button secondary" data-download-platform="windows" href="https://github.com/xingbofeng/VoxFlow/releases/download/v1.20.1/VoxFlow-1.20.1-windows-x64-setup.exe">
             <span class="download-icon" aria-hidden="true">⊞</span>
             <span>
               <strong data-i18n="downloadWindows">Download for Windows</strong>
@@ -118,7 +118,7 @@
           <!-- RELEASE_IOS_HERO_CTA_BEGIN -->
           <!-- RELEASE_IOS_HERO_CTA_END -->
           </div>
-          <span class="release-note" data-i18n="releaseNote">v1.19.0 · Free & open source</span>
+          <span class="release-note" data-i18n="releaseNote">v1.20.1 · Free & open source</span>
         </div>
       </div>
       <div class="hero-stage motion" aria-label="VoxFlow preview">
@@ -272,6 +272,13 @@
   <script id="voxflow-release-data" type="application/json">
 [
   {
+    "tag_name": "v1.20.1",
+    "name": "VoxFlow 1.20.1",
+    "body": "# VoxFlow 1.20.1\n\n## 更新摘要\n\n- 全新视觉：整个应用、截图工具与官网换成暖色调（陶土橙）设计，界面更安静、层次更清楚。\n- 历史列表现在能区分**语音指令**任务，不再和听写混在一起；录音时悬浮窗会提示当前处在哪种模式。\n- App 图标、官网配图、社交分享卡同步换新，保留原有图形与结构，只调整配色。\n\n## 细节\n\n- 体验：应用界面整体迁移到统一的设计规范——暖灰底色阶梯、发丝级细边框、克制的陶土橙主色，替代此前的青绿配色。卡片不再使用投影堆叠，改用单层细边区分层级。\n- 体验：设置页、首页、笔记、文件转写、帮助、词汇表、风格库等所有页面同步更新；开关、分段选择器等系统控件也都改为跟随应用主色，不再出现系统蓝绿。\n- 体验：录音悬浮窗、截图选择框、标注工具、滚动截图与录屏提示条换成同一套暖色配色，暗色模式下自动切换到更亮的陶土色以保证可读性。\n- 体验：语音指令任务在历史列表里有独立的来源标签，筛选器可以单独查看；此前它们会被标成「听写」并被听写筛选器收进去，与详情页标题不一致。\n- 体验：按住快捷键录音时，悬浮窗按模式显示不同引导文案（听写 / 语音指令 / 召唤 Agent / 调度 AI 编程），可以随时确认自己当前在录什么。\n- 体验：官网落地页整体换成暖色调，中英文配图均按原构图重新出图，文案与版式保持不变。\n- 品牌：App 图标、官网 Logo、社交分享卡换新，保留原有的圆角方形、三点、波浪线条与竖条构图，仅把绿色系替换为陶土色系。\n- 注意：本次为纯外观与展示层改动，听写、语音指令、文本写回的行为与 1.19.0 完全一致，无需重新配置任何设置。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.20.1\n- `CFBundleVersion`：32\n- macOS DMG：`VoxFlow-1.20.1-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.20.1-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.20.1-windows-x64-portable.zip`\n",
+    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.20.1",
+    "published_at": ""
+  },
+  {
     "tag_name": "v1.19.0",
     "name": "VoxFlow 1.19.0",
     "body": "# VoxFlow 1.19.0\n\n## 更新摘要\n\n- 新增**语音指令**：按住 Command + Shift + E 说一句指令（如\"改成更正式的邮件语气\"），VoxFlow 会按指令改写当前输入框里已有的文字并直接替换回去。\n- 新增**停顿预输出**：说话中途停顿时，已识别的内容先落到光标处，你可以接着说，不用等一整段说完再松开。\n- 新增**按应用覆盖写入方式**：可以为微信、飞书、Ghostty 等具体应用单独指定\"快速粘贴\"或\"模拟键盘输入\"，不再只能全局二选一。\n- 新增**数字单位规整**开关：把\"5公里\"\"3千克\"这类中文单位转成 km、kg 等国际写法（默认关闭）。\n- 修复录音中途切换输入设备会丢音频的问题，并补齐低质量蓝牙麦克风的识别前提醒。\n\n## 细节\n\n- 功能：语音指令（Voice Command）把\"改写已有文字\"变成一等语音动作，与听写、召唤 Agent、调度 AI 编程并列；默认快捷键 Command + Shift + E，可在设置 → 通用 → 语音快捷键里修改。写回采用\"读快照 → 写回前复核 → 不一致就只复制\"的保守策略，避免覆盖用户在模型思考期间自己的编辑；模型返回空内容时保留原文不清空。\n- 功能：停顿预输出（默认关闭，设置 → 语音性能卡片）在检测到约 700ms 说话停顿时，把当前已识别的文本段先插入光标处，随后继续听写；若识别引擎事后修订了已上屏的前缀，完整最终结果会保存到历史并复制到剪贴板，悬浮窗提示手动替换，不会重复上屏。\n- 功能：按应用覆盖写入方式（设置 → 写入方式）让你在全局模式之外为单个应用建规则，匹配顺序为 bundleID 优先、应用名兜底；规则对\"只复制\"的场景（如召唤 Agent）不生效。\n- 功能：数字单位规整把紧跟阿拉伯数字的中文单位替换为国际符号，覆盖长度、质量、温度、时间、体积、面积、速度等常用单位；只处理数字后的单位，\"大米\"\"秒杀\"这类词不受影响。\n- 功能：编辑后学习管线统一——把用户对已插入文本的手动修改和辅助功能观察统一到同一个学习服务，新增按 scope / 原文 / Provider / 模型 / 语言聚合与旧规则退役，并拦截 A→B→A 这类互相覆盖的反馈链。\n- 功能：模型更新支持跨版本组件复用，多 GB 的本地模型在小版本更新时只需下载真正变化的组件；安装完成后自动清理旧版本目录。\n- 功能：本地模型实时预览、风格预览与真实确定性管线保持一致的标点语义（修复\"保留标点\"在预览里被误剥句号）。\n- 修复：录音中途切换输入设备（插拔耳机、切换默认麦克风）会丢音频——修掉两处真实缺陷：会话建立期间待识别帧缓冲上限过小（约 6 秒前的帧被静默丢弃），以及源格式变化后转换器锁定旧格式导致此后每帧都失败。同时新增音频摄取统计日志，让\"设备没采到声音\"和\"音频在管线里被丢了\"可以区分。\n- 修复：语音指令失败不再静默——模型服务欠费、未配置密钥等情况会给出悬浮窗提示和明确的下一步操作，不再把欠费报文误报成\"未配置 API 密钥\"。\n- 修复：语音指令在文本改写前、选中等待后和实际插入前都会检查任务是否已取消；模拟键盘输入与输入源切换也会响应取消。\n- 修复：辅助功能读不到焦点输入框时记录持久化日志，便于事后排查语音指令\"没反应\"。\n- 体验：语音指令新增四项用户可见提示（改写成功、输入框变化改为复制、无可编辑文字、正在按指令改写），五种语言同步。\n- 体验：检测到处于免提档（HFP）的低质量蓝牙麦克风时，一次性提示识别质量可能下降并建议改用有线或内置麦克风；同一台机器只提示一次。\n- 注意：语音指令需要先配置可用的 AI 模型，并且焦点输入框里要有可编辑的文字；密码框会被安全跳过。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.19.0\n- `CFBundleVersion`：31\n- macOS DMG：`VoxFlow-1.19.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.19.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.19.0-windows-x64-portable.zip`\n",
@@ -284,13 +291,6 @@
     "body": "# VoxFlow 1.18.1\n\n## 更新摘要\n\n- 工程维护版本：应用功能与 1.18.0 保持一致，主要改进发布流水线与 CI 测试稳定性，无需急于更新。\n- 发布流水线提速：Windows 与 macOS 发布构建引入 Rust 运行时、vcpkg 与 NuGet 构建缓存，后续版本发布耗时更短。\n\n## 细节\n\n- 发布流水线：Tesseract 原生库改走 vcpkg 二进制缓存（命中时直接解包预编译包，仅脚本或依赖基线变化才重新编译）；agent 运行时与 helper 的 Rust 构建缓存化；测试流水线按模块分片并行执行。\n- 稳定性：修复 CI 中 iOS 模拟器键盘剪贴板桥接测试偶发超时（异步回调等待窗口与固定回调延迟不匹配），仅影响 CI，不影响应用行为。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.18.1\n- `CFBundleVersion`：30\n- macOS DMG：`VoxFlow-1.18.1-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.18.1-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.18.1-windows-x64-portable.zip`\n",
     "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.1",
     "published_at": "2026-10-06T14:11:02Z"
-  },
-  {
-    "tag_name": "v1.18.0",
-    "name": "VoxFlow 1.18.0",
-    "body": "# VoxFlow 1.18.0\n\n## 更新摘要\n\n- 新增本地流式识别 Provider **X-ASR-zh-en**：中英混合口述，边说边出字，适合连续听写与即时反馈。\n- 修复本地 agent 进程偶发读到空输出的问题：模型列表与 CLI 检测不再偶发为空。\n\n## 细节\n\n- 功能：新增 X-ASR-zh-en 本地 Provider（中英混合流式识别），可在设置页与菜单栏切换；识别走原生流式解码，预览与最终文本来自同一路识别，模型下载、校验、修复、预热与卸载复用既有模型管理流程，权重不进安装包。\n- 注意：X-ASR-zh-en 模型约 586 MB，仅支持 Apple Silicon（M 系列）、macOS 15 及以上、8 GB 及以上内存的设备，首次使用前需先下载模型。\n- 修复：本地 agent 进程（AI 编程助手的模型列表与 CLI 检测）偶发读到空输出——根因是子进程退出瞬间输出读取存在竞态；现改为读者线程读到 EOF 的确定性并发排空，并确保父进程写端及时关闭，输出完整可读。\n\n## 发布元数据\n\n- `CFBundleShortVersionString`：1.18.0\n- `CFBundleVersion`：29\n- macOS DMG：`VoxFlow-1.18.0-macOS.dmg`\n- Windows 安装包：`VoxFlow-1.18.0-windows-x64-setup.exe`\n- Windows 便携包：`VoxFlow-1.18.0-windows-x64-portable.zip`\n",
-    "html_url": "https://github.com/xingbofeng/VoxFlow/releases/tag/v1.18.0",
-    "published_at": "2026-10-06T09:44:49Z"
   }
 ]
   </script>
