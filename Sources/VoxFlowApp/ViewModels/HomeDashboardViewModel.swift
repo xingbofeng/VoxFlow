@@ -132,6 +132,8 @@ struct HomeAssetItem: Equatable, Identifiable {
                 return L10n.localize("home.source.agent_compose", comment: "Agent compose source")
             case .agentDispatch:
                 return L10n.localize("navigation.route.vibe_coding", comment: "")
+            case .command:
+                return L10n.localize("menu.voice_action.command", comment: "Voice command source")
             case .selectionTranslation:
                 return L10n.localize("home.source.selection_translation", comment: "Selection translation source")
             case .selectionSummary:
@@ -201,6 +203,7 @@ enum HomeAssetSourceFilter: String, CaseIterable, Equatable {
     case clipboard
     case agentCompose
     case agentDispatch
+    case command
     case selectionTranslation
     case selectionSummary
     case selectionAgent
@@ -209,7 +212,7 @@ enum HomeAssetSourceFilter: String, CaseIterable, Equatable {
         switch self {
         case .all:
             return []
-        case .dictation, .agentCompose, .agentDispatch, .selectionTranslation, .selectionSummary, .selectionAgent:
+        case .dictation, .agentCompose, .agentDispatch, .command, .selectionTranslation, .selectionSummary, .selectionAgent:
             return [.dictation]
         case .screenshot:
             return [.screenshot]
@@ -220,7 +223,7 @@ enum HomeAssetSourceFilter: String, CaseIterable, Equatable {
 
     var requiresDerivedFiltering: Bool {
         switch self {
-        case .dictation, .agentCompose, .agentDispatch, .selectionTranslation, .selectionSummary, .selectionAgent:
+        case .dictation, .agentCompose, .agentDispatch, .command, .selectionTranslation, .selectionSummary, .selectionAgent:
             return true
         case .all, .screenshot, .clipboard:
             return false
@@ -241,6 +244,8 @@ enum HomeAssetSourceFilter: String, CaseIterable, Equatable {
             return item.voiceKind == .agentCompose
         case .agentDispatch:
             return item.voiceKind == .agentDispatch
+        case .command:
+            return item.voiceKind == .command
         case .selectionTranslation:
             return item.voiceKind == .selectionTranslation
         case .selectionSummary:

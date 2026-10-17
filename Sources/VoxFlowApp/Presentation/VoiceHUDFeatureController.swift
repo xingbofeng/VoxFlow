@@ -108,9 +108,9 @@ final class VoiceHUDFeatureController {
                 L10n.localize("hud.message.prepare", comment: ""),
                 isRefining: true
             )
-        case .recording:
+        case let .recording(action):
             overlay.show()
-            overlay.updateTranscription("", isRefining: false)
+            overlay.updateTranscription(Self.recordingHint(for: action), isRefining: false)
         case let .waitingForFinal(showIndicator):
             if showIndicator {
                 overlay.updateTranscription(
@@ -189,6 +189,21 @@ final class VoiceHUDFeatureController {
             return .waitingForFinal(showIndicator: shouldShowWaitingIndicator)
         case .processing:
             return .processing
+        }
+    }
+
+    /// Guidance shown inside the recording HUD so the user can tell which
+    /// voice mode is currently capturing audio.
+    static func recordingHint(for action: VoiceAction?) -> String {
+        switch action {
+        case .command:
+            return L10n.localize("hud.message.recording_command", comment: "")
+        case .agentCompose:
+            return L10n.localize("hud.message.recording_agent_compose", comment: "")
+        case .agentDispatch:
+            return L10n.localize("hud.message.recording_agent_dispatch", comment: "")
+        case .dictation, .none:
+            return L10n.localize("hud.message.recording_dictation", comment: "")
         }
     }
 

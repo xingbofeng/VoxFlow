@@ -215,6 +215,8 @@ private struct HomeAssetSection: View {
             return L10n.localize("home.source.agent_compose", comment: "Agent compose source")
         case .agentDispatch:
             return L10n.localize("navigation.route.vibe_coding", comment: "")
+        case .command:
+            return L10n.localize("menu.voice_action.command", comment: "Voice command source")
         case .selectionTranslation:
             return L10n.localize("home.source.selection_translation", comment: "Selection translation source")
         case .selectionSummary:

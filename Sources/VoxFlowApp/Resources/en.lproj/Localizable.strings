@@ -232,6 +232,10 @@
 "hud.message.success" = "Success";
 "hud.message.prepare" = "Preparing...";
 "hud.message.recognizing" = "Recognizing...";
+"hud.message.recording_dictation" = "Listening...";
+"hud.message.recording_command" = "Speak an instruction for the focused input field...";
+"hud.message.recording_agent_compose" = "Describe what you want to write...";
+"hud.message.recording_agent_dispatch" = "Say what you want the assistant to do...";
 "hud.message.processing" = "Processing...";
 "hud.message.writing" = "Writing...";
 "hud.detail.listening_agents" = "Listening by %@";

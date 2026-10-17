@@ -236,6 +236,10 @@
 "hud.message.success" = "成功";
 "hud.message.prepare" = "準備中…";
 "hud.message.recognizing" = "正在辨識…";
+"hud.message.recording_dictation" = "正在聆聽…";
+"hud.message.recording_command" = "說出對目前輸入框的指令…";
+"hud.message.recording_agent_compose" = "描述你想寫的內容…";
+"hud.message.recording_agent_dispatch" = "說出要讓助手執行的任務…";
 "hud.message.processing" = "處理中…";
 "hud.message.writing" = "寫入中…";
 "hud.detail.listening_agents" = "%@ 正在聆聽";

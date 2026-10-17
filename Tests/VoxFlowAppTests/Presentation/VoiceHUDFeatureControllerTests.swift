@@ -49,6 +49,45 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         )
     }
 
+// MARK: - Recording HUD distinguishes voice modes
+
+    /// The recording HUD used to render an identical, title-less card for every
+    /// mode, so a user holding ⌘⇧E could not tell they were recording an
+    /// instruction instead of dictating.
+    func testRecordingHUDShowsModeSpecificGuidance() {
+        XCTAssertNotEqual(
+            VoiceHUDFeatureController.recordingHint(for: .command),
+            VoiceHUDFeatureController.recordingHint(for: .dictation),
+            "Voice-command recording must not look identical to dictation."
+        )
+        XCTAssertFalse(VoiceHUDFeatureController.recordingHint(for: .command).isEmpty)
+        XCTAssertFalse(VoiceHUDFeatureController.recordingHint(for: .dictation).isEmpty)
+    }
+
+    func testEveryVoiceActionHasARecordingHint() {
+        for action in VoiceAction.allCases {
+            XCTAssertFalse(
+                VoiceHUDFeatureController.recordingHint(for: action).isEmpty,
+                "\(action.rawValue) must have recording guidance."
+            )
+        }
+    }
+
+    func testRecordingSnapshotRendersModeHintThroughOverlay() {
+        let overlay = CapturingHUDOverlay()
+        let controller = VoiceHUDFeatureController(overlay: overlay)
+
+        controller.render(.recording(action: .command))
+
+        XCTAssertEqual(overlay.events, [
+            .show,
+            .updateTranscription(
+                text: VoiceHUDFeatureController.recordingHint(for: .command),
+                isRefining: false
+            ),
+        ])
+    }
+
     func testAgentComposeStageRendersThroughSnapshot() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
@@ -136,7 +175,7 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
         XCTAssertEqual(undoCount, 1)
     }
 
-    func testDictationRecordingShowsDefaultHUDAndClearsText() {
+    func testDictationRecordingShowsDictationGuidance() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
@@ -148,11 +187,14 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
 
         XCTAssertEqual(overlay.events, [
             .show,
-            .updateTranscription(text: "", isRefining: false),
+            .updateTranscription(
+                text: VoiceHUDFeatureController.recordingHint(for: .dictation),
+                isRefining: false
+            ),
         ])
     }
 
-    func testAgentComposeRecordingShowsDefaultHUDAndClearsText() {
+    func testAgentComposeRecordingShowsComposeGuidance() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
@@ -164,11 +206,14 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
 
         XCTAssertEqual(overlay.events, [
             .show,
-            .updateTranscription(text: "", isRefining: false),
+            .updateTranscription(
+                text: VoiceHUDFeatureController.recordingHint(for: .agentCompose),
+                isRefining: false
+            ),
         ])
     }
 
-    func testAgentDispatchRecordingShowsDefaultHUDAndClearsText() {
+    func testAgentDispatchRecordingShowsDispatchGuidance() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
@@ -180,11 +225,14 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
 
         XCTAssertEqual(overlay.events, [
             .show,
-            .updateTranscription(text: "", isRefining: false),
+            .updateTranscription(
+                text: VoiceHUDFeatureController.recordingHint(for: .agentDispatch),
+                isRefining: false
+            ),
         ])
     }
 
-    func testAgentDispatchListeningPresentationKeepsDefaultRecordingHUD() {
+    func testAgentDispatchListeningPresentationUsesDispatchGuidance() {
         let overlay = CapturingHUDOverlay()
         let controller = VoiceHUDFeatureController(overlay: overlay)
 
@@ -192,7 +240,10 @@ final class VoiceHUDFeatureControllerTests: XCTestCase {
 
         XCTAssertEqual(overlay.events, [
             .show,
-            .updateTranscription(text: "", isRefining: false),
+            .updateTranscription(
+                text: VoiceHUDFeatureController.recordingHint(for: .agentDispatch),
+                isRefining: false
+            ),
         ])
     }
 

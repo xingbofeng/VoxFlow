@@ -4,6 +4,7 @@ enum VoiceAssetKind: String, Equatable {
     case dictation
     case agentCompose
     case agentDispatch
+    case command
     case selectionTranslation
     case selectionSummary
     case selectionAgent

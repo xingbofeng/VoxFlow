@@ -236,6 +236,10 @@
 "hud.message.success" = "成功";
 "hud.message.prepare" = "準備中…";
 "hud.message.recognizing" = "認識中…";
+"hud.message.recording_dictation" = "聞き取り中…";
+"hud.message.recording_command" = "入力欄に対する指示を話してください…";
+"hud.message.recording_agent_compose" = "書きたい内容を話してください…";
+"hud.message.recording_agent_dispatch" = "アシスタントに実行させたいことを話してください…";
 "hud.message.processing" = "処理中…";
 "hud.message.writing" = "書き込み中…";
 "hud.detail.listening_agents" = "%@ が待機中";

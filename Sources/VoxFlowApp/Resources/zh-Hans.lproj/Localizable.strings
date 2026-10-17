@@ -333,6 +333,10 @@
 "hud.message.success" = "成功";
 "hud.message.prepare" = "准备识别...";
 "hud.message.recognizing" = "正在识别...";
+"hud.message.recording_dictation" = "正在聆听...";
+"hud.message.recording_command" = "说出对当前输入框的指令...";
+"hud.message.recording_agent_compose" = "描述你想写的内容...";
+"hud.message.recording_agent_dispatch" = "说出要让助手执行的任务...";
 "hud.message.processing" = "正在处理...";
 "hud.message.writing" = "正在写入...";
 "hud.detail.listening_agents" = "%@ 正在听你说";

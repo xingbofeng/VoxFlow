@@ -235,6 +235,10 @@
 "hud.message.success" = "성공";
 "hud.message.prepare" = "준비 중…";
 "hud.message.recognizing" = "인식 중…";
+"hud.message.recording_dictation" = "듣는 중…";
+"hud.message.recording_command" = "입력란에 적용할 지시를 말하세요…";
+"hud.message.recording_agent_compose" = "작성할 내용을 말하세요…";
+"hud.message.recording_agent_dispatch" = "어시스턴트가 수행할 작업을 말하세요…";
 "hud.message.processing" = "처리 중…";
 "hud.message.writing" = "쓰는 중…";
 "hud.detail.listening_agents" = "%@ 대기 중";
